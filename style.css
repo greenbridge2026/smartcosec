@@ -2052,52 +2052,107 @@ body.professional-services {
     .service-features-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* On mobile: replace circle navigator with horizontal scrollable tabs */
 @media (max-width: 768px) {
-    .services-interactive-section { padding: 2rem 0; }
+    .services-interactive-section { padding: 2rem 0 1.5rem; }
     .section-header h2 { font-size: 2rem; }
+
+    .interactive-services-container {
+        flex-direction: column;
+        gap: 1.5rem;
+        align-items: stretch;
+        margin-top: 1rem;
+        padding: 0;
+    }
+
+    /* Hide the circle, show a scrollable pill strip instead */
     .circular-navigator-wrapper {
-        flex: 0 0 300px;
-        height: 300px;
-        width: 300px;
+        flex: none;
+        height: auto;
+        width: 100%;
+        position: relative;
+        display: block;
     }
-    .circular-center-hub { width: 160px; height: 160px; }
+    .circular-center-hub { display: none; }
+    .circular-nodes-container {
+        position: relative;
+        width: 100%;
+        height: auto;
+        display: flex;
+        gap: 0.6rem;
+        overflow-x: auto;
+        padding: 0.8rem 1rem;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+    .circular-nodes-container::-webkit-scrollbar { display: none; }
+
     .node-positioner {
-        transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-145px) rotate(calc(-1 * var(--angle)));
+        /* Override the radial positioning — become inline flex items */
+        position: relative !important;
+        left: auto !important;
+        top: auto !important;
+        transform: none !important;
+        flex: 0 0 auto;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.5rem;
+        background: #f8fafc;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 100px;
+        padding: 0.5rem 1rem 0.5rem 0.6rem;
+        transition: all 0.25s ease;
     }
-    .circle-node { width: 48px; height: 48px; }
-    .node-icon { font-size: 1.1rem; }
-    .node-label { font-size: 0.65rem; white-space: nowrap; }
-    .service-details-title { font-size: 1.8rem; }
-    .service-details-desc { font-size: 1rem; margin-bottom: 1.5rem; }
+    .node-positioner.active {
+        background: #eff6ff;
+        border-color: rgba(59, 130, 246, 0.5);
+        box-shadow: 0 2px 10px rgba(59, 130, 246, 0.15);
+    }
+
+    .circle-node {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: white;
+        border: 1.5px solid #e2e8f0;
+        flex-shrink: 0;
+    }
+    .circle-node.active {
+        transform: none;
+        background: #eff6ff;
+        border-color: rgba(59, 130, 246, 0.5);
+        box-shadow: none;
+    }
+    .node-glow { display: none; }
+    .node-icon { font-size: 1rem; }
+    .node-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        opacity: 1;
+        white-space: nowrap;
+        color: #334155;
+    }
+    .node-label.active { color: #3b82f6; }
+
+    .service-details-pane {
+        width: 100%;
+        padding: 1.5rem;
+        border-radius: 1rem;
+        margin: 0 0 2rem;
+    }
+    .service-details-title { font-size: 1.6rem; margin-bottom: 0.8rem; }
+    .service-details-desc { font-size: 0.95rem; margin-bottom: 1.2rem; }
     .service-features-grid { grid-template-columns: 1fr 1fr; gap: 0.8rem; }
-    .service-feature-item { height: 110px; }
+    .service-feature-item { height: 100px; }
 }
 
 @media (max-width: 480px) {
-    .circular-navigator-wrapper {
-        flex: 0 0 260px;
-        height: 260px;
-        width: 260px;
-    }
-    .circular-center-hub { width: 130px; height: 130px; }
-    .hub-icon { font-size: 2rem; }
-    .node-positioner {
-        transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-125px) rotate(calc(-1 * var(--angle)));
-    }
-    .circle-node { width: 40px; height: 40px; }
-    .node-icon { font-size: 0.9rem; }
-    .node-label {
-        font-size: 0.55rem;
-        white-space: normal;
-        max-width: 55px;
-        text-align: center;
-        line-height: 1.1;
-    }
     .service-details-pane { padding: 1.2rem; }
-    .service-details-title { font-size: 1.4rem; margin-bottom: 0.8rem; }
-    .service-details-desc { font-size: 0.9rem; margin-bottom: 1.2rem; }
+    .service-details-title { font-size: 1.4rem; }
+    .service-details-desc { font-size: 0.9rem; }
     .service-features-grid { grid-template-columns: 1fr; gap: 0.6rem; }
     .service-feature-item { height: 90px; }
+    .node-label { font-size: 0.7rem; }
 }
 
 /* ---- PRICING ---- */

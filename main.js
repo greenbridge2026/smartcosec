@@ -74,38 +74,63 @@ function init() {
     }
 
     // 3. Scroll-Sync Logic
+    const pricingSidebar = document.querySelector('.pricing-sidebar');
+    const pricingSection = document.getElementById('pricing');
+
+    function updatePricingSidebarVisibility() {
+        if (window.innerWidth <= 1024 && pricingSidebar && pricingSection) {
+            const rect = pricingSection.getBoundingClientRect();
+            const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
+            pricingSidebar.style.transform = isVisible ? 'translateY(0)' : 'translateY(120%)';
+            pricingSidebar.style.transition = 'transform 0.3s ease';
+        } else if (pricingSidebar) {
+            pricingSidebar.style.transform = '';
+            pricingSidebar.style.transition = '';
+        }
+    }
+
+    updatePricingSidebarVisibility();
+
     window.addEventListener('scroll', () => {
+        updatePricingSidebarVisibility();
+
+        if (window.innerWidth <= 1024) {
+            document.querySelectorAll('.timeline-item').forEach(step => step.classList.add('active'));
+            return;
+        }
+
         const processSection = document.querySelector('.process-section');
-        
         if (processSection && timelineProgress) {
             const rect = processSection.getBoundingClientRect();
             const scrollTotal = rect.height - window.innerHeight;
             let progress = 0;
-            
             if (scrollTotal > 0) {
                 progress = -rect.top / scrollTotal;
                 progress = Math.max(0, Math.min(1, progress));
             }
-            
             timelineProgress.style.height = `${progress * 100}%`;
-
             const steps = document.querySelectorAll('.timeline-item');
             const totalSteps = steps.length;
-            
             if (totalSteps > 0) {
                 let activeIndex = Math.floor(progress * totalSteps);
                 activeIndex = Math.min(activeIndex, totalSteps - 1);
-                
                 steps.forEach((step, index) => {
-                    if (index === activeIndex) {
-                        step.classList.add('active');
-                    } else {
-                        step.classList.remove('active');
-                    }
+                    step.classList.toggle('active', index === activeIndex);
                 });
             }
         }
     });
+
+    window.addEventListener('resize', () => {
+        updatePricingSidebarVisibility();
+        if (window.innerWidth <= 1024) {
+            document.querySelectorAll('.timeline-item').forEach(step => step.classList.add('active'));
+        }
+    });
+
+    if (window.innerWidth <= 1024) {
+        document.querySelectorAll('.timeline-item').forEach(step => step.classList.add('active'));
+    }
 
     // 4. Chatbot Window Toggle
     const chatbotTrigger = document.getElementById('chatbot-trigger');
