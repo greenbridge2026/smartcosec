@@ -2052,108 +2052,153 @@ body.professional-services {
     .service-features-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
-/* On mobile: replace circle navigator with horizontal scrollable tabs */
+/* ======================================================
+   MOBILE: Replace circular navigator with pill-tab strip
+   ====================================================== */
 @media (max-width: 768px) {
-    .services-interactive-section { padding: 2rem 0 1.5rem; }
-    .section-header h2 { font-size: 2rem; }
 
+    /* Section heading — prevent wrapping */
+    .services-interactive-section { padding: 1.5rem 0; }
+    .section-header { margin-bottom: 1rem; }
+    .section-header h2 {
+        font-size: 1.6rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+    }
+
+    /* Stack vertically */
     .interactive-services-container {
         flex-direction: column;
-        gap: 1.5rem;
+        gap: 1.2rem;
         align-items: stretch;
-        margin-top: 1rem;
+        margin-top: 0.5rem;
         padding: 0;
     }
 
-    /* Hide the circle, show a scrollable pill strip instead */
+    /* ─── Wrapper: let it shrink-wrap its content ─── */
     .circular-navigator-wrapper {
-        flex: none;
-        height: auto;
-        width: 100%;
-        position: relative;
+        all: unset;           /* nuke flex: 0 0 500px; height: 500px etc */
         display: block;
-    }
-    .circular-center-hub { display: none; }
-    .circular-nodes-container {
-        position: relative;
         width: 100%;
-        height: auto;
-        display: flex;
-        gap: 0.6rem;
+        overflow: hidden;
+    }
+
+    /* ─── Hub: completely hidden on mobile ─── */
+    .circular-center-hub {
+        display: none !important;
+    }
+
+    /* ─── Container: become a horizontal scrolling flex row ─── */
+    .circular-nodes-container {
+        position: static !important;   /* override position:absolute */
+        width: 100% !important;
+        height: auto !important;
+        display: flex !important;
+        flex-direction: row;
+        gap: 0.5rem;
         overflow-x: auto;
-        padding: 0.8rem 1rem;
+        overflow-y: visible;
+        padding: 0.6rem 1rem 0.8rem;
         scrollbar-width: none;
         -ms-overflow-style: none;
+        -webkit-overflow-scrolling: touch;
     }
     .circular-nodes-container::-webkit-scrollbar { display: none; }
 
+    /* ─── Each node: become a pill button ─── */
     .node-positioner {
-        /* Override the radial positioning — become inline flex items */
-        position: relative !important;
+        position: static !important;     /* override position:absolute */
         left: auto !important;
         top: auto !important;
-        transform: none !important;
-        flex: 0 0 auto;
+        transform: none !important;      /* override the radial transform */
+        display: inline-flex !important;
         flex-direction: row;
         align-items: center;
-        gap: 0.5rem;
-        background: #f8fafc;
+        gap: 0.4rem;
+        flex: 0 0 auto;
+        background: #f1f5f9;
         border: 1.5px solid #e2e8f0;
         border-radius: 100px;
-        padding: 0.5rem 1rem 0.5rem 0.6rem;
-        transition: all 0.25s ease;
+        padding: 0.45rem 0.9rem 0.45rem 0.5rem;
+        cursor: pointer;
+        transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
     }
     .node-positioner.active {
         background: #eff6ff;
-        border-color: rgba(59, 130, 246, 0.5);
-        box-shadow: 0 2px 10px rgba(59, 130, 246, 0.15);
+        border-color: #3b82f6;
+        box-shadow: 0 2px 10px rgba(59, 130, 246, 0.2);
     }
 
+    /* ─── Circle inside pill: compact icon wrapper ─── */
     .circle-node {
-        width: 32px;
-        height: 32px;
+        width: 28px !important;
+        height: 28px !important;
+        min-width: 28px;
         border-radius: 50%;
-        background: white;
-        border: 1.5px solid #e2e8f0;
+        background: #ffffff;
+        border: 1.5px solid #e2e8f0 !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transform: none !important;  /* no scale on active */
+        box-shadow: none !important;
         flex-shrink: 0;
     }
     .circle-node.active {
-        transform: none;
-        background: #eff6ff;
-        border-color: rgba(59, 130, 246, 0.5);
-        box-shadow: none;
+        background: #dbeafe !important;
+        border-color: #93c5fd !important;
+        transform: none !important;
+        box-shadow: none !important;
     }
-    .node-glow { display: none; }
-    .node-icon { font-size: 1rem; }
-    .node-label {
-        font-size: 0.75rem;
-        font-weight: 600;
-        opacity: 1;
-        white-space: nowrap;
-        color: #334155;
-    }
-    .node-label.active { color: #3b82f6; }
+    .node-glow { display: none !important; }
+    .node-icon { font-size: 0.9rem; line-height: 1; }
 
+    /* ─── Label inside pill ─── */
+    .node-label {
+        font-size: 0.72rem;
+        font-weight: 600;
+        white-space: nowrap;
+        opacity: 1;
+        color: #475569;
+        transform: none !important;
+    }
+    .node-label.active { color: #2563eb; }
+
+    /* ─── Detail pane: full width below tabs ─── */
     .service-details-pane {
         width: 100%;
-        padding: 1.5rem;
+        padding: 1.4rem;
         border-radius: 1rem;
-        margin: 0 0 2rem;
+        box-sizing: border-box;
+        margin: 0 0 1.5rem;
     }
-    .service-details-title { font-size: 1.6rem; margin-bottom: 0.8rem; }
-    .service-details-desc { font-size: 0.95rem; margin-bottom: 1.2rem; }
-    .service-features-grid { grid-template-columns: 1fr 1fr; gap: 0.8rem; }
-    .service-feature-item { height: 100px; }
+    .service-details-title {
+        font-size: 1.5rem;
+        margin-bottom: 0.6rem;
+    }
+    .service-details-desc {
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+        min-height: 0;
+    }
+    .service-features-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.7rem;
+        margin-top: 0.8rem;
+    }
+    .service-feature-item { height: 95px; }
 }
 
 @media (max-width: 480px) {
-    .service-details-pane { padding: 1.2rem; }
-    .service-details-title { font-size: 1.4rem; }
-    .service-details-desc { font-size: 0.9rem; }
-    .service-features-grid { grid-template-columns: 1fr; gap: 0.6rem; }
-    .service-feature-item { height: 90px; }
-    .node-label { font-size: 0.7rem; }
+    .section-header h2 { font-size: 1.4rem; }
+    .service-details-pane { padding: 1rem; }
+    .service-details-title { font-size: 1.3rem; }
+    .service-details-desc { font-size: 0.85rem; }
+    .service-features-grid { grid-template-columns: 1fr; gap: 0.5rem; }
+    .service-feature-item { height: 80px; }
+    .node-label { font-size: 0.68rem; }
 }
+
 
 /* ---- PRICING ---- */
 @media (max-width: 768px) {
