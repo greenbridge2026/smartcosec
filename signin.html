@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up | Globalisor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        outfit: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#298486',
+                        secondary: '#36A9AD',
+                        accent: '#F15A24',
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+    <style>
+        body { font-family: 'Outfit', sans-serif; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+        }
+        .step-transition {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .input-focus-glow:focus {
+            box-shadow: 0 0 0 4px rgba(41, 132, 134, 0.15);
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .error-shake { animation: shake 0.4s ease-in-out; }
+    </style>
+</head>
+<body class="bg-[#f8fafb] min-h-screen overflow-hidden">
+    <div class="flex min-h-screen">
+        <!-- Left Side: Progress & Info -->
+        <div class="hidden lg:flex lg:w-1/2 bg-white p-12 flex-col justify-between relative overflow-hidden">
+            <!-- Decorative background blob -->
+            <div class="absolute -top-24 -left-24 w-96 h-96 bg-primary/5 rounded-full blur-3xl"></div>
+            <div class="absolute -bottom-24 -right-24 w-96 h-96 bg-secondary/5 rounded-full blur-3xl"></div>
+
+            <div class="relative z-10">
+                <a href="/" class="flex items-center space-x-2 mb-16">
+                    <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold">G</span>
+                    </div>
+                    <span class="text-xl font-semibold text-primary">Globalisor</span>
+                </a>
+
+                <div class="space-y-12">
+                    <div>
+                        <h1 class="text-4xl font-semibold text-slate-900 mb-4" id="left-title">Join the future of compliance.</h1>
+                        <p class="text-lg text-slate-500 max-w-md" id="left-subtitle">Get started with Singapore's most advanced digital corporate services platform.</p>
+                    </div>
+
+                    <!-- Step Indicator -->
+                    <div class="space-y-8">
+                        <div class="flex items-center space-x-4 step-item active" data-step="1">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center border-2 border-primary text-primary font-medium transition-all duration-300" id="step-1-circle">1</div>
+                            <div>
+                                <h4 class="font-medium text-slate-900">Personal Details</h4>
+                                <p class="text-sm text-slate-400">Tell us who you are</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-4 step-item" data-step="2">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center border-2 border-slate-200 text-slate-300 font-medium transition-all duration-300" id="step-2-circle">2</div>
+                            <div>
+                                <h4 class="font-medium text-slate-400">Security</h4>
+                                <p class="text-sm text-slate-400">Secure your account</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-4 step-item" data-step="3">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center border-2 border-slate-200 text-slate-300 font-medium transition-all duration-300" id="step-3-circle">3</div>
+                            <div>
+                                <h4 class="font-medium text-slate-400">Finalize</h4>
+                                <p class="text-sm text-slate-400">Review and complete</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="relative z-10">
+                <p class="text-sm text-slate-400">© 2026 Globalisor. Empowering founders globally.</p>
+            </div>
+        </div>
+
+        <!-- Right Side: Form Card -->
+        <div class="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 relative">
+            <!-- Background pattern -->
+            <div class="absolute inset-0 opacity-[0.03] pointer-events-none" style="background-image: radial-gradient(#298486 1px, transparent 1px); background-size: 24px 24px;"></div>
+
+            <div class="w-full max-w-md relative">
+                <!-- Progress bar (Mobile only) -->
+                <div class="lg:hidden mb-8">
+                    <div class="flex justify-between text-xs font-medium text-slate-400 mb-2">
+                        <span id="mobile-step-label">Step 1 of 3</span>
+                        <span id="mobile-progress-percent">33%</span>
+                    </div>
+                    <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div id="mobile-progress-bar" class="h-full bg-primary transition-all duration-500" style="width: 33.33%;"></div>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-2xl p-8 sm:p-10 relative overflow-hidden" id="form-container">
+                    
+                    <!-- Step 1: Name -->
+                    <div id="step-1-form" class="step-content block">
+                        <div class="mb-8">
+                            <h2 class="text-2xl font-semibold text-slate-900 mb-2">What's your name?</h2>
+                            <p class="text-slate-500">We'd love to know who we're talking to.</p>
+                        </div>
+                        <div class="space-y-6">
+                            <div class="group">
+                                <label for="first-name" class="block text-sm font-medium text-slate-700 mb-2 transition-colors group-focus-within:text-primary">First Name</label>
+                                <input type="text" id="first-name" placeholder="John" class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none transition-all input-focus-glow hover:border-slate-300 focus:border-primary text-slate-900 bg-white/50">
+                            </div>
+                            <div class="group">
+                                <label for="last-name" class="block text-sm font-medium text-slate-700 mb-2 transition-colors group-focus-within:text-primary">Last Name</label>
+                                <input type="text" id="last-name" placeholder="Doe" class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none transition-all input-focus-glow hover:border-slate-300 focus:border-primary text-slate-900 bg-white/50">
+                            </div>
+                            <button id="next-1" class="w-full bg-primary hover:bg-secondary text-white font-medium py-3.5 rounded-xl transition-all duration-300 shadow-lg shadow-primary/20 flex items-center justify-center space-x-2 active:scale-[0.98]">
+                                <span>Continue</span>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Email -->
+                    <div id="step-2-form" class="step-content hidden opacity-0 translate-y-4">
+                        <div class="mb-8">
+                            <button class="back-btn mb-6 flex items-center text-sm text-slate-400 hover:text-primary transition-colors">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><polyline points="15 18 9 12 15 6"/></svg>
+                                Back
+                            </button>
+                            <h2 class="text-2xl font-semibold text-slate-900 mb-2">Email address</h2>
+                            <p class="text-slate-500">We'll use this to communicate about your business.</p>
+                        </div>
+                        <div class="space-y-6">
+                            <div class="group">
+                                <label for="email" class="block text-sm font-medium text-slate-700 mb-2 transition-colors group-focus-within:text-primary">Email Address</label>
+                                <input type="email" id="email" placeholder="john@company.com" class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none transition-all input-focus-glow hover:border-slate-300 focus:border-primary text-slate-900 bg-white/50">
+                            </div>
+                            <button id="next-2" class="w-full bg-primary hover:bg-secondary text-white font-medium py-3.5 rounded-xl transition-all duration-300 shadow-lg shadow-primary/20 flex items-center justify-center space-x-2 active:scale-[0.98]">
+                                <span>Continue</span>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Password -->
+                    <div id="step-3-form" class="step-content hidden opacity-0 translate-y-4">
+                        <div class="mb-8">
+                            <button class="back-btn mb-6 flex items-center text-sm text-slate-400 hover:text-primary transition-colors">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><polyline points="15 18 9 12 15 6"/></svg>
+                                Back
+                            </button>
+                            <h2 class="text-2xl font-semibold text-slate-900 mb-2">Create password</h2>
+                            <p class="text-slate-500">Make it strong and unique.</p>
+                        </div>
+                        <div class="space-y-6">
+                            <div class="group">
+                                <label for="password" class="block text-sm font-medium text-slate-700 mb-2 transition-colors group-focus-within:text-primary">Password</label>
+                                <div class="relative">
+                                    <input type="password" id="password" placeholder="••••••••" class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none transition-all input-focus-glow hover:border-slate-300 focus:border-primary text-slate-900 bg-white/50 pr-12">
+                                    <button class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="checkbox" id="terms" class="w-4 h-4 text-primary border-slate-200 rounded focus:ring-primary">
+                                <label for="terms" class="text-sm text-slate-500">I agree to the <a href="#" class="text-primary hover:underline">Terms of Service</a></label>
+                            </div>
+                            <button id="finish" class="w-full bg-primary hover:bg-secondary text-white font-medium py-3.5 rounded-xl transition-all duration-300 shadow-lg shadow-primary/20 flex items-center justify-center space-x-2 active:scale-[0.98]">
+                                <span id="finish-text">Complete Setup</span>
+                                <div id="finish-loader" class="hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Success State -->
+                    <div id="success-state" class="step-content hidden opacity-0 text-center">
+                        <div class="mb-6 flex justify-center">
+                            <div class="w-24 h-24 relative">
+                                <lottie-player src="https://assets10.lottiefiles.com/packages/lf20_rc678nxp.json" background="transparent" speed="1" style="width: 100px; height: 100px;" autoplay></lottie-player>
+                            </div>
+                        </div>
+                        <h2 class="text-3xl font-semibold text-slate-900 mb-4">Welcome aboard!</h2>
+                        <p class="text-slate-500 mb-10">Your account has been created successfully. You're one step closer to global business excellence.</p>
+                        <a href="/" class="block w-full bg-primary hover:bg-secondary text-white font-medium py-3.5 rounded-xl transition-all duration-300 shadow-lg shadow-primary/20 active:scale-[0.98]">
+                            Go to Dashboard
+                        </a>
+                    </div>
+
+                </div>
+
+                <!-- Footer Links -->
+                <div class="mt-8 text-center">
+                    <p class="text-sm text-slate-400">Already have an account? <a href="/login.html" class="text-primary font-medium hover:underline">Sign In</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const steps = [
+            { id: 1, title: 'Join the future of compliance.', subtitle: 'Get started with Singapore\'s most advanced digital corporate services platform.' },
+            { id: 2, title: 'Security is our priority.', subtitle: 'We use enterprise-grade encryption to protect your sensitive business data.' },
+            { id: 3, title: 'Almost there!', subtitle: 'Review your details and finalize your account setup to begin your journey.' }
+        ];
+
+        let currentStep = 1;
+
+        // Elements
+        const next1 = document.getElementById('next-1');
+        const next2 = document.getElementById('next-2');
+        const finish = document.getElementById('finish');
+        const backBtns = document.querySelectorAll('.back-btn');
+        const leftTitle = document.getElementById('left-title');
+        const leftSubtitle = document.getElementById('left-subtitle');
+
+        // Validation Helper
+        function validateStep(step) {
+            const inputs = document.getElementById(`step-${step}-form`).querySelectorAll('input');
+            let isValid = true;
+            inputs.forEach(input => {
+                if (!input.value && input.type !== 'checkbox') {
+                    input.parentElement.classList.add('error-shake');
+                    input.classList.add('border-red-400');
+                    setTimeout(() => {
+                        input.parentElement.classList.remove('error-shake');
+                    }, 400);
+                    isValid = false;
+                } else {
+                    input.classList.remove('border-red-400');
+                }
+            });
+            return isValid;
+        }
+
+        function updateStep(newStep) {
+            if (newStep > 3 || newStep < 1) return;
+
+            const currentForm = document.getElementById(`step-${currentStep}-form`);
+            const nextForm = document.getElementById(`step-${newStep}-form`);
+
+            // Animate current out
+            gsap.to(currentForm, {
+                opacity: 0,
+                y: -20,
+                duration: 0.4,
+                ease: "power2.inOut",
+                onComplete: () => {
+                    currentForm.classList.add('hidden');
+                    nextForm.classList.remove('hidden');
+                    
+                    // Animate next in
+                    gsap.fromTo(nextForm, 
+                        { opacity: 0, y: 20 },
+                        { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }
+                    );
+                }
+            });
+
+            // Update Left Side content
+            gsap.to([leftTitle, leftSubtitle], {
+                opacity: 0,
+                x: -20,
+                duration: 0.3,
+                stagger: 0.1,
+                onComplete: () => {
+                    const stepData = steps.find(s => s.id === newStep);
+                    leftTitle.innerText = stepData.title;
+                    leftSubtitle.innerText = stepData.subtitle;
+                    gsap.to([leftTitle, leftSubtitle], {
+                        opacity: 1,
+                        x: 0,
+                        duration: 0.4,
+                        stagger: 0.1
+                    });
+                }
+            });
+
+            // Update Indicators
+            document.querySelectorAll('.step-item').forEach(item => {
+                const stepNum = parseInt(item.dataset.step);
+                const circle = document.getElementById(`step-${stepNum}-circle`);
+                const label = item.querySelector('h4');
+
+                if (stepNum === newStep) {
+                    circle.classList.remove('border-slate-200', 'text-slate-300', 'bg-primary', 'text-white');
+                    circle.classList.add('border-primary', 'text-primary');
+                    label.classList.remove('text-slate-400');
+                    label.classList.add('text-slate-900');
+                } else if (stepNum < newStep) {
+                    circle.classList.remove('border-primary', 'text-primary', 'border-slate-200', 'text-slate-300');
+                    circle.classList.add('bg-primary', 'text-white', 'border-primary');
+                    circle.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+                    label.classList.remove('text-slate-400');
+                    label.classList.add('text-slate-900');
+                } else {
+                    circle.classList.remove('border-primary', 'text-primary', 'bg-primary', 'text-white');
+                    circle.classList.add('border-slate-200', 'text-slate-300');
+                    circle.innerText = stepNum;
+                    label.classList.remove('text-slate-900');
+                    label.classList.add('text-slate-400');
+                }
+            });
+
+            // Update Mobile Progress
+            document.getElementById('mobile-step-label').innerText = `Step ${newStep} of 3`;
+            const progress = (newStep / 3) * 100;
+            document.getElementById('mobile-progress-percent').innerText = `${Math.round(progress)}%`;
+            document.getElementById('mobile-progress-bar').style.width = `${progress}%`;
+
+            currentStep = newStep;
+        }
+
+        next1.addEventListener('click', () => {
+            if (validateStep(1)) updateStep(2);
+        });
+
+        next2.addEventListener('click', () => {
+            if (validateStep(2)) updateStep(3);
+        });
+
+        backBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                updateStep(currentStep - 1);
+            });
+        });
+
+        finish.addEventListener('click', () => {
+            if (!validateStep(3)) return;
+            
+            const terms = document.getElementById('terms');
+            if (!terms.checked) {
+                terms.parentElement.classList.add('error-shake');
+                setTimeout(() => terms.parentElement.classList.remove('error-shake'), 400);
+                return;
+            }
+
+            // Simulate Loading
+            const loader = document.getElementById('finish-loader');
+            const text = document.getElementById('finish-text');
+            loader.classList.remove('hidden');
+            text.classList.add('hidden');
+            finish.disabled = true;
+
+            setTimeout(() => {
+                const currentForm = document.getElementById(`step-3-form`);
+                const successState = document.getElementById('success-state');
+
+                gsap.to(currentForm, {
+                    opacity: 0,
+                    scale: 0.9,
+                    duration: 0.5,
+                    onComplete: () => {
+                        currentForm.classList.add('hidden');
+                        successState.classList.remove('hidden');
+                        gsap.to(successState, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.7)" });
+                        
+                        // Hide mobile progress on success
+                        gsap.to('.lg\\:hidden', { opacity: 0, height: 0, duration: 0.3 });
+                    }
+                });
+            }, 1500);
+        });
+
+        // Focus animations for inputs
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('focus', () => {
+                gsap.to(input, { scale: 1.02, duration: 0.2 });
+            });
+            input.addEventListener('blur', () => {
+                gsap.to(input, { scale: 1, duration: 0.2 });
+            });
+        });
+    </script>
+</body>
+</html>

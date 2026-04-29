@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication | Globalisor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        outfit: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#0066ff',
+                        secondary: '#3b82f6',
+                        accent: '#0a0b10',
+                        dark: '#0a0b10',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Outfit', sans-serif; overflow: hidden; }
+        .auth-card {
+            width: 1000px;
+            height: 640px;
+            background: white;
+            border-radius: 32px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.08);
+            position: relative;
+            overflow: hidden;
+        }
+        .form-panel {
+            position: absolute;
+            top: 0;
+            width: 50%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 60px;
+            background: white;
+            transition: all 0.6s ease-in-out;
+        }
+        .sign-in-panel {
+            left: 0;
+            z-index: 2;
+        }
+        .sign-up-panel {
+            left: 0;
+            z-index: 1;
+            opacity: 0;
+        }
+        .overlay-container {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 50%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 10;
+            transition: transform 0.6s ease-in-out;
+        }
+        .overlay {
+            background: #0066ff;
+            background: linear-gradient(135deg, #0066ff 0%, #3b82f6 100%);
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-position: 0 0;
+            color: #FFFFFF;
+            position: relative;
+            left: -100%;
+            height: 100%;
+            width: 200%;
+            transform: translateX(0);
+            transition: transform 0.6s ease-in-out;
+        }
+        .overlay-panel {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            padding: 0 40px;
+            text-align: center;
+            top: 0;
+            height: 100%;
+            width: 50%;
+            transition: transform 0.6s ease-in-out;
+        }
+        .overlay-left {
+            transform: translateX(-20%);
+        }
+        .overlay-right {
+            right: 0;
+            transform: translateX(0);
+        }
+        
+        /* Active States */
+        .right-panel-active .sign-in-panel {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        .right-panel-active .sign-up-panel {
+            transform: translateX(100%);
+            opacity: 1;
+            z-index: 5;
+        }
+        .right-panel-active .overlay-container {
+            transform: translateX(-100%);
+        }
+        .right-panel-active .overlay {
+            transform: translateX(50%);
+        }
+        .right-panel-active .overlay-left {
+            transform: translateX(0);
+        }
+        .right-panel-active .overlay-right {
+            transform: translateX(20%);
+        }
+
+        .input-field {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 12px 16px;
+            margin: 8px 0;
+            width: 100%;
+            border-radius: 14px;
+            outline: none;
+            transition: all 0.3s;
+        }
+        .input-field:focus {
+            border-color: #0066ff;
+            box-shadow: 0 0 0 4px rgba(0, 102, 255, 0.08);
+        }
+        .glass-bg {
+            background: radial-gradient(circle at top right, rgba(0, 102, 255, 0.05), transparent 40%),
+                        radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.05), transparent 40%);
+        }
+        .back-link {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #64748b;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+        .back-link:hover {
+            color: #0066ff;
+            transform: translateX(-5px);
+        }
+    </style>
+</head>
+<body class="bg-[#f0f4f8] min-h-screen flex items-center justify-center p-4 glass-bg">
+
+    <a href="index.html" class="back-link">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        <span>Back to Website</span>
+    </a>
+    
+    <div class="auth-card" id="auth-card">
+        <!-- Sign Up Form -->
+        <div class="form-panel sign-up-panel">
+            <form action="#" class="w-full max-w-sm flex flex-col items-center">
+                <h1 class="text-3xl font-semibold text-slate-900 mb-2">Create Account</h1>
+                <div class="flex space-x-3 mb-6">
+                    <button type="button" class="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors">
+                        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                    </button>
+                    <button type="button" class="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z"/></svg>
+                    </button>
+                </div>
+                <span class="text-slate-400 text-sm mb-4">or use your email for registration</span>
+                <input type="text" placeholder="Full Name" class="input-field" />
+                <input type="email" placeholder="Email" class="input-field" />
+                <input type="password" placeholder="Password" class="input-field" />
+                <button type="button" class="mt-6 bg-dark hover:bg-slate-800 text-white font-medium py-3.5 px-12 rounded-xl transition-all shadow-lg shadow-dark/20 active:scale-[0.98]">Sign Up</button>
+            </form>
+        </div>
+
+        <!-- Sign In Form -->
+        <div class="form-panel sign-in-panel">
+            <form action="#" class="w-full max-w-sm flex flex-col items-center">
+                <h1 class="text-3xl font-semibold text-slate-900 mb-2">Welcome Back</h1>
+                <div class="flex space-x-3 mb-6">
+                    <button type="button" class="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors">
+                        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                    </button>
+                    <button type="button" class="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z"/></svg>
+                    </button>
+                </div>
+                <span class="text-slate-400 text-sm mb-4">or use your account</span>
+                <input type="email" placeholder="Email Address" class="input-field" />
+                <input type="password" placeholder="Password" class="input-field" />
+                <a href="#" class="text-xs text-slate-400 mt-2 hover:text-primary transition-colors">Forgot your password?</a>
+                <button type="button" class="mt-6 bg-dark hover:bg-slate-800 text-white font-medium py-3.5 px-12 rounded-xl transition-all shadow-lg shadow-dark/20 active:scale-[0.98]">Sign In</button>
+            </form>
+        </div>
+
+        <!-- Overlay Container -->
+        <div class="overlay-container">
+            <div class="overlay">
+                <!-- Overlay Panels (opposite to forms) -->
+                <div class="overlay-panel overlay-left">
+                    <h1 class="text-4xl font-bold mb-4">New here?</h1>
+                    <p class="text-slate-50 mb-8 font-light text-lg">Sign up and start your global journey today.</p>
+                    <button type="button" class="border-2 border-white text-white font-medium py-3 px-12 rounded-xl hover:bg-white hover:text-dark transition-all active:scale-[0.98]" id="show-sign-in">Sign In</button>
+                </div>
+                <div class="overlay-panel overlay-right">
+                    <h1 class="text-4xl font-bold mb-4">Hello, Founder!</h1>
+                    <p class="text-slate-50 mb-8 font-light text-lg">Already have an account? Sign in to your dashboard.</p>
+                    <button type="button" class="border-2 border-white text-white font-medium py-3 px-12 rounded-xl hover:bg-white hover:text-dark transition-all active:scale-[0.98]" id="show-sign-up">Sign Up</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const card = document.getElementById('auth-card');
+        const showSignUp = document.getElementById('show-sign-up');
+        const showSignIn = document.getElementById('show-sign-in');
+
+        showSignUp.addEventListener('click', () => {
+            card.classList.add('right-panel-active');
+            
+            // GSAP for smooth form content appearance
+            gsap.fromTo(".sign-up-panel form > *", 
+                { opacity: 0, y: 20 }, 
+                { opacity: 1, y: 0, duration: 0.4, stagger: 0.05, delay: 0.3 }
+            );
+        });
+
+        showSignIn.addEventListener('click', () => {
+            card.classList.remove('right-panel-active');
+            
+            gsap.fromTo(".sign-in-panel form > *", 
+                { opacity: 0, y: 20 }, 
+                { opacity: 1, y: 0, duration: 0.4, stagger: 0.05, delay: 0.3 }
+            );
+        });
+    </script>
+</body>
+</html>
