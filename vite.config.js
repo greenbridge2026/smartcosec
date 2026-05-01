@@ -7,7 +7,13 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         auth: resolve(__dirname, 'auth.html'),
+        requirements: resolve(__dirname, 'requirements.html'),
       },
+    },
+  },
+  server: {
+    proxy: {
+      '/api': 'http://localhost:3000',
     },
   },
 });
