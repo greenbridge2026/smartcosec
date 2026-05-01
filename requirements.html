@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Globalisor | Company Incorporation Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        :root {
+            --brand-primary: #298486;
+            --brand-secondary: #36A9AD;
+            --brand-accent: #58CED1;
+            --brand-bg: #f8fafc;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --white: #ffffff;
+            --border: #e2e8f0;
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --light-bg: #f1f5f9;
+        }
+
+        body.requirements-page {
+            background: radial-gradient(circle at 50% 10%, rgba(253, 242, 248, 0.9) 0%, rgba(191, 219, 254, 0.7) 40%, rgba(125, 211, 252, 0.8) 100%);
+            background-attachment: fixed;
+            height: 100vh;
+            font-family: 'Outfit', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- NAV --- */
+        .nav-bar {
+            height: 70px;
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            z-index: 100;
+        }
+
+        /* --- MAIN SPLIT LAYOUT --- */
+        .main-container {
+            flex: 1;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* LEFT SIDE: INFOGRAPHIC */
+        .left-panel {
+            flex: 0 0 40%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border-right: 1px solid rgba(255, 255, 255, 0.5);
+            position: relative;
+        }
+
+        .infographic-wrapper {
+            position: relative;
+            width: 480px;
+            height: 480px;
+            transform: scale(1);
+            transition: transform 0.3s ease;
+        }
+
+        .hub-circle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 160px;
+            height: 160px;
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 50%;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 1.2rem;
+            box-shadow: 0 10px 30px rgba(31, 38, 135, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-sizing: border-box;
+        }
+
+        .hub-circle h2 { font-size: 0.85rem; font-weight: 600; color: #444; line-height: 1.4; margin: 0; }
+        .hub-circle .highlight { color: var(--brand-secondary); font-weight: 800; }
+
+        .segments-box {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            overflow: hidden;
+            z-index: 10;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.08);
+        }
+
+        .segment { position: absolute; width: 100%; height: 100%; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .segment:hover { filter: brightness(1.1); transform: scale(1.02); z-index: 20; }
+        .segment.active { 
+            filter: brightness(1.3) saturate(1.2); 
+            box-shadow: inset 0 0 0 6px rgba(255,255,255,0.8);
+            z-index: 25;
+        }
+        .segment.completed::after {
+            content: '✓'; position: absolute; top: 20px; right: 20px; background: var(--success); color: white;
+            width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 0.8rem; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .segment.locked {
+            filter: grayscale(1) opacity(0.3);
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .s1 { background: #134445; clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 25%); }
+        .s2 { background: #227072; clip-path: polygon(50% 50%, 100% 25%, 100% 75%); }
+        .s3 { background: #2d8c8e; clip-path: polygon(50% 50%, 100% 75%, 100% 100%, 50% 100%); }
+        .s4 { background: #3ab1b4; clip-path: polygon(50% 50%, 50% 100%, 0% 100%, 0% 75%); }
+        .s5 { background: #4ecacc; clip-path: polygon(50% 50%, 0% 75%, 0% 25%); }
+        .s6 { background: #1a5c5e; clip-path: polygon(50% 50%, 0% 25%, 0% 0%, 50% 0%); }
+
+        .label-node {
+            position: absolute; width: 110px; color: white; z-index: 40; pointer-events: none; text-align: center;
+            display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -50%);
+        }
+        .num-tag { width: 30px; height: 30px; background: white; color: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.75rem; margin-bottom: 0.4rem; }
+        .label-node h3 { font-size: 0.78rem; font-weight: 800; text-transform: uppercase; margin: 0 0 0.2rem 0; letter-spacing: 0.02em; }
+        .label-node p { font-size: 0.68rem; line-height: 1.3; opacity: 0.9; margin: 0; }
+
+        .ln-1 { top: 20%; left: 72%; }
+        .ln-2 { top: 50%; left: 84%; }
+        .ln-3 { top: 80%; left: 72%; }
+        .ln-4 { top: 78%; left: 28%; }
+        .ln-5 { top: 50%; left: 16%; }
+        .ln-6 { top: 20%; left: 28%; }
+
+        /* RIGHT PANEL: WIZARD CONTENT */
+        .right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: transparent;
+            position: relative;
+        }
+
+        .wizard-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            opacity: 0;
+            transform: translateX(20px);
+            transition: all 0.4s ease;
+        }
+
+        .wizard-container.active {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .wizard-header { padding: 1.25rem 2rem; border-bottom: 1px solid rgba(255, 255, 255, 0.5); background: transparent; }
+        .wizard-body { flex: 1; overflow-y: auto; padding: 1.5rem 2rem; background: transparent; }
+        .wizard-footer { padding: 1rem 2rem; border-top: 1px solid rgba(255, 255, 255, 0.5); display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.3); backdrop-filter: blur(10px); }
+
+        /* --- EMPTY STATE --- */
+        .empty-state {
+            position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2rem; z-index: 20;
+        }
+        .empty-state h2 { font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.75rem; }
+        .empty-state p { color: var(--text-muted); max-width: 350px; line-height: 1.5; font-size: 0.9rem; }
+
+        /* --- COMPONENTS --- */
+        .card { background: rgba(255, 255, 255, 0.55); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.8); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; box-shadow: 0 8px 32px rgba(31, 38, 135, 0.05); }
+        .card-title { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; }
+        
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group.full { grid-column: span 2; }
+        .form-label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main); }
+        .input-box { width: 100%; padding: 0.65rem 0.8rem; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.6); background: rgba(255, 255, 255, 0.5); font-family: inherit; font-size: 0.88rem; outline: none; transition: all 0.2s; box-sizing: border-box; }
+        .input-box:focus { border-color: var(--brand-primary); background: rgba(255, 255, 255, 0.8); box-shadow: 0 0 0 3px rgba(41, 132, 134, 0.1); }
+        
+        .btn { padding: 0.75rem 1.5rem; border-radius: 10px; font-weight: 700; cursor: pointer; border: none; font-family: inherit; font-size: 0.9rem; }
+        .btn-primary { background: var(--brand-primary); color: white; }
+        .btn-outline { background: transparent; border: 2px solid var(--border); color: var(--text-muted); }
+
+        .toggle-row { display: flex; background: rgba(255, 255, 255, 0.4); border: 1px solid rgba(255,255,255,0.6); padding: 4px; border-radius: 10px; margin-bottom: 1.25rem; }
+        .toggle-item { flex: 1; padding: 0.6rem; border-radius: 8px; border: none; background: transparent; font-weight: 600; cursor: pointer; color: var(--text-muted); transition: all 0.2s; }
+        .toggle-item.active { background: rgba(255, 255, 255, 0.8); color: var(--brand-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+
+        .upload-slot { border: 1px dashed var(--border); border-radius: 12px; padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 0.85rem; position: relative; }
+        .upload-slot input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warning); }
+        .status-dot.done { background: var(--success); }
+
+        .progress-line { width: 100%; height: 5px; background: var(--light-bg); border-radius: 100px; overflow: hidden; margin-top: 1rem; }
+        .progress-fill { height: 100%; background: var(--brand-primary); transition: width 0.5s ease; }
+    </style>
+</head>
+<body class="requirements-page">
+    <div class="main-container">
+        <!-- LEFT: INFOGRAPHIC -->
+        <div class="left-panel">
+            <div class="logo-overlay" style="position: absolute; top: 2rem; left: 2rem; z-index: 50;">
+                <img src="/logo.png" alt="Globalisor Logo" style="height: 30px;">
+            </div>
+            <div class="infographic-wrapper">
+                <div class="hub-circle">
+                    <h2><span class="highlight">Globalisor</span> Makes Company Registration Simple and Hassle-Free</h2>
+                </div>
+                <div class="segments-box">
+                    <div class="segment s1" data-step="1" onclick="wizard.open(1)"></div>
+                    <div class="segment s2" data-step="2" onclick="wizard.open(2)"></div>
+                    <div class="segment s3" data-step="3" onclick="wizard.open(3)"></div>
+                    <div class="segment s4" data-step="4" onclick="wizard.open(4)"></div>
+                    <div class="segment s5" data-step="5" onclick="wizard.open(5)"></div>
+                    <div class="segment s6" data-step="6" onclick="wizard.open(6)"></div>
+                </div>
+                <div class="label-node ln-1"><div class="num-tag">01</div><h3>Company Name</h3><p>Selection & Activities</p></div>
+                <div class="label-node ln-2"><div class="num-tag">02</div><h3>Directors</h3><p>Entity Setup</p></div>
+                <div class="label-node ln-3"><div class="num-tag">03</div><h3>Shareholders</h3><p>Ownership Structure</p></div>
+                <div class="label-node ln-4"><div class="num-tag">04</div><h3>Capital</h3><p>Share Structure</p></div>
+                <div class="label-node ln-5"><div class="num-tag">05</div><h3>Office</h3><p>Registered Address</p></div>
+                <div class="label-node ln-6"><div class="num-tag">06</div><h3>Secretary</h3><p>Compliance Setup</p></div>
+            </div>
+        </div>
+
+        <!-- RIGHT: WIZARD -->
+        <div class="right-panel">
+            <div id="empty-state" class="empty-state">
+                <style>
+                @keyframes walkUp {
+                  0%, 4% { left: 6px; bottom: 12%; opacity: 1; transform: translateX(-50%) scale(1); }
+                  5% { left: 13px; bottom: 18%; }
+                  6%, 10% { left: 20px; bottom: 20%; }
+                  11% { left: 27px; bottom: 26%; }
+                  12%, 16% { left: 34px; bottom: 28%; }
+                  17% { left: 41px; bottom: 34%; }
+                  18%, 22% { left: 48px; bottom: 36%; }
+                  23% { left: 55px; bottom: 42%; }
+                  24%, 28% { left: 62px; bottom: 44%; }
+                  29% { left: 69px; bottom: 50%; }
+                  30%, 34% { left: 76px; bottom: 52%; }
+                  35% { left: 83px; bottom: 58%; }
+                  36%, 40% { left: 90px; bottom: 60%; }
+                  41% { left: 97px; bottom: 66%; }
+                  42%, 46% { left: 104px; bottom: 68%; }
+                  47% { left: 111px; bottom: 74%; }
+                  48%, 52% { left: 118px; bottom: 76%; }
+                  53% { left: 125px; bottom: 82%; }
+                  54%, 58% { left: 132px; bottom: 84%; }
+                  59% { left: 142px; bottom: 102%; }
+                  60%, 95% { left: 152px; bottom: 100%; opacity: 1; transform: translateX(-50%) scale(1); }
+                  98% { left: 152px; bottom: 100%; opacity: 0; transform: translateX(-50%) scale(0.5); }
+                  100% { left: 6px; bottom: 12%; opacity: 0; transform: translateX(-50%) scale(0.5); }
+                }
+                .human-walker {
+                  animation: walkUp 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+                }
+                </style>
+                <div class="stepper-graphic" style="background: linear-gradient(135deg, #3b82f6, #2563eb); padding: 1rem 0.75rem 0; border-radius: 0.75rem; display: flex; align-items: flex-end; justify-content: center; height: 100px; margin-bottom: 3rem; margin-top: 2rem; width: 100%; max-width: 220px; box-shadow: 0 5px 10px rgba(37, 99, 235, 0.15); margin-left: auto; margin-right: auto; transform: scale(1.8); transform-origin: bottom center;">
+                    <div style="position: relative; display: flex; align-items: flex-end; gap: 2px; width: 164px; height: 100%;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="human-walker" style="position: absolute; bottom: 12%; left: 6px; transform: translateX(-50%); z-index: 10;">
+                           <circle cx="12" cy="5" r="4" fill="white" />
+                           <path d="M12 9v6" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                           <path d="M12 15l-3 5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                           <path d="M12 15l3 5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                           <path d="M12 10l-4 3" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                           <path d="M12 10l4 3" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <div style="width: 12px; height: 12%; background: rgba(255,255,255,0.15); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: white;">G</span></div>
+                        <div style="width: 12px; height: 20%; background: rgba(255,255,255,0.25); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: white;">L</span></div>
+                        <div style="width: 12px; height: 28%; background: rgba(255,255,255,0.35); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: white;">O</span></div>
+                        <div style="width: 12px; height: 36%; background: rgba(255,255,255,0.45); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: white;">B</span></div>
+                        <div style="width: 12px; height: 44%; background: rgba(255,255,255,0.55); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: white;">A</span></div>
+                        <div style="width: 12px; height: 52%; background: rgba(255,255,255,0.65); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: white;">L</span></div>
+                        <div style="width: 12px; height: 60%; background: rgba(255,255,255,0.75); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: #1e3a8a;">I</span></div>
+                        <div style="width: 12px; height: 68%; background: rgba(255,255,255,0.85); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: #1e3a8a;">S</span></div>
+                        <div style="width: 12px; height: 76%; background: rgba(255,255,255,0.92); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: #1e3a8a;">O</span></div>
+                        <div style="width: 12px; height: 84%; background: rgba(255,255,255,1); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: #1e3a8a;">R</span></div>
+                        <div style="width: 24px; height: 100%; background: #facc15; border-radius: 2px 2px 0 0; position: relative; box-shadow: -1px 0 5px rgba(0,0,0,0.1);"><span style="position: absolute; top: 2px; left: 0; width: 100%; text-align: center; font-weight: 800; font-size: 0.4rem; color: #1e3a8a;">ACRA</span></div>
+                    </div>
+                </div>
+                <h2>Start Your Incorporation</h2>
+                <a href="javascript:void(0)" onclick="wizard.open(1)" style="display: inline-block; font-size: 1.4rem; font-weight: 800; margin-top: 1.5rem; color: var(--brand-primary); text-decoration: none; position: relative; padding: 0.2rem 0.5rem; transition: all 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.textDecoration='underline'" onmouseout="this.style.transform='scale(1)'; this.style.textDecoration='none'">START →</a>
+            </div>
+
+            <div id="status-state" class="empty-state" style="display: none; background: transparent; z-index: 10;">
+                <div style="font-size: 4rem; margin-bottom: 1.5rem;">📋</div>
+                <h2 id="client-status-title">Application Submitted</h2>
+                <div id="client-status-badge" style="display:inline-block; padding: 0.4rem 1rem; border-radius: 100px; font-weight: 700; margin-bottom: 1rem; font-size: 0.9rem;">Pending</div>
+                <p style="margin-bottom: 2rem;">Your application is currently being reviewed by our Globalisor experts.</p>
+                <div class="card" style="text-align: left; max-width: 400px; width: 100%;" id="client-status-details">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <div id="wizard-container" class="wizard-container">
+                <div class="wizard-header">
+                    <h2 id="step-title" style="margin: 0; font-size: 1.5rem; font-weight: 800;">Company Name</h2>
+                    <div class="progress-line"><div id="progress-bar" class="progress-fill"></div></div>
+                </div>
+                <div id="wizard-body" class="wizard-body"></div>
+                <div class="wizard-footer">
+                    <button class="btn btn-outline" onclick="wizard.prev()">Back</button>
+                    <div id="auto-save" style="font-size: 0.8rem; color: var(--text-muted);">Auto-saving...</div>
+                    <button id="next-btn" class="btn btn-primary" onclick="wizard.next()">Save & Continue</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class IncorporationWizard {
+            constructor() {
+                this.currentStep = null;
+                const savedData = JSON.parse(localStorage.getItem('globalisor_master_v3'));
+                const defaultData = {
+                    names: ['', '', ''],
+                    activities: { primary: '', secondary: '' },
+                    directors: [{ name: '', idType: 'local', idNum: '', nation: '', dob: '', phone: '', email: '', addr: '', docs: {} }],
+                    shareholders: [{ type: 'individual', name: '', shares: '', percent: '', regNum: '', regPlace: '', regDate: '', phone: '', email: '', addr: '', docs: {}, bo: [] }],
+                    capital: { issued: 1000, numShares: 1000, paidUp: 1000, currency: 'SGD', type: 'Ordinary' },
+                    office: { useService: true, address: '' },
+                    secretary: { required: true, named: true, details: { name: '', idNum: '', nation: '', dob: '', phone: '', email: '', addr: '' } },
+                    completedSteps: []
+                };
+                this.data = savedData ? { ...defaultData, ...savedData, completedSteps: savedData.completedSteps || [] } : defaultData;
+            }
+
+            open(step) {
+                // Check if step is accessible
+                if (step > 1 && !this.data.completedSteps.includes(step - 1) && !this.data.completedSteps.includes(step)) {
+                    return; // Locked
+                }
+
+                this.currentStep = step;
+                document.getElementById('empty-state').style.display = 'none';
+                document.getElementById('wizard-container').classList.add('active');
+                
+                // Highlight segment
+                document.querySelectorAll('.segment').forEach(s => s.classList.remove('active'));
+                document.querySelector(`.s${step}`).classList.add('active');
+                
+                this.render();
+            }
+
+            save() {
+                localStorage.setItem('globalisor_master_v3', JSON.stringify(this.data));
+                this.updateInfographic();
+            }
+
+            next() {
+                // Step 2 Validation (Passport Expiry for Foreigners)
+                if (this.currentStep === 2) {
+                    const invalid = this.data.directors.some(d => d.idType === 'foreigner' && this.isExpiryInvalid(d.passportExpiry));
+                    if (invalid) {
+                        alert("One or more foreign directors have passports expiring in less than 6 months. Please provide valid passport details to continue.");
+                        return;
+                    }
+                }
+
+                this.markCompleted(this.currentStep);
+                if (this.currentStep < 6) {
+                    this.open(this.currentStep + 1);
+                } else if (this.data.completedSteps.length === 6) {
+                    this.renderFinal();
+                }
+            }
+
+            prev() { if (this.currentStep > 1) this.open(this.currentStep - 1); }
+
+            markCompleted(id) { if (!this.data.completedSteps.includes(id)) { this.data.completedSteps.push(id); this.save(); } }
+
+            updateInfographic() {
+                document.querySelectorAll('.segment').forEach((s, i) => {
+                    const step = i + 1;
+                    const isCompleted = this.data.completedSteps.includes(step);
+                    const isLocked = step > 1 && !this.data.completedSteps.includes(step - 1) && !isCompleted;
+                    
+                    if (isCompleted) s.classList.add('completed');
+                    if (isLocked) s.classList.add('locked');
+                    else s.classList.remove('locked');
+                });
+            }
+
+            isExpiryInvalid(dateStr) {
+                if (!dateStr) return true;
+                const expiry = new Date(dateStr);
+                const minDate = new Date();
+                minDate.setMonth(minDate.getMonth() + 6);
+                return expiry < minDate;
+            }
+
+            render() {
+                const titles = ['Company Name & Activities', 'Director Profiles', 'Shareholding Structure', 'Share Capital – Paid in Cash', 'Registered Office', 'Company Secretary'];
+                document.getElementById('step-title').innerText = titles[this.currentStep - 1];
+                document.getElementById('progress-bar').style.width = `${(this.currentStep / 6) * 100}%`;
+                document.getElementById('wizard-body').innerHTML = this.getStepHTML();
+                document.getElementById('next-btn').style.display = 'block';
+            }
+
+            getStepHTML() {
+                const d = this.data.directors[0];
+                switch(this.currentStep) {
+                    case 1: return `
+                        <div class="card">
+                            <div class="card-title">🏷️ Proposed Company Names</div>
+                            ${[0, 1, 2].map(i => `
+                                <div class="form-group">
+                                    <label class="form-label">Option ${i + 1}</label>
+                                    <input type="text" class="input-box" value="${this.data.names[i]}" oninput="wizard.data.names[${i}]=this.value; wizard.save()">
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="card">
+                            <div class="card-title">📌 Business Activities</div>
+                            <div class="form-group"><label class="form-label">Primary Activity</label><input type="text" class="input-box" value="${this.data.activities.primary}" oninput="wizard.data.activities.primary=this.value; wizard.save()"></div>
+                            <div class="form-group"><label class="form-label">Secondary Activity</label><input type="text" class="input-box" value="${this.data.activities.secondary}" oninput="wizard.data.activities.secondary=this.value; wizard.save()"></div>
+                        </div>`;
+                    case 2: return `
+                        <div id="dir-container">
+                            ${this.data.directors.map((d, i) => `
+                                <div class="card">
+                                    <div class="entity-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:10px; margin-bottom:15px">
+                                        <div class="card-title" style="margin:0">👤 Director ${i+1}</div>
+                                        ${i > 0 ? `<span style="color:var(--error); cursor:pointer; font-size:0.85rem;" onclick="wizard.removeDir(${i})">Remove</span>` : ''}
+                                    </div>
+                                    <div class="form-grid">
+                                        <div class="form-group full"><label class="form-label">Full Name</label><input type="text" class="input-box" value="${d.name}" oninput="wizard.data.directors[${i}].name=this.value; wizard.save()"></div>
+                                        <div class="form-group">
+                                            <label class="form-label">Director Type</label>
+                                            <select class="input-box" onchange="wizard.data.directors[${i}].idType=this.value; wizard.save(); wizard.render()">
+                                                <option value="local" ${d.idType==='local'?'selected':''}>Local (NRIC/FIN)</option>
+                                                <option value="foreigner" ${d.idType==='foreigner'?'selected':''}>Foreigner (Passport)</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">${d.idType==='local' ? 'NRIC / FIN Number' : 'Passport Number'}</label>
+                                            <input type="text" class="input-box" value="${d.idNum}" oninput="wizard.data.directors[${i}].idNum=this.value; wizard.save()">
+                                        </div>
+                                        ${d.idType === 'foreigner' ? `
+                                            <div class="form-group">
+                                                <label class="form-label">Passport Expiry Date*</label>
+                                                <input type="date" class="input-box" value="${d.passportExpiry || ''}" onchange="wizard.data.directors[${i}].passportExpiry=this.value; wizard.save(); wizard.render()">
+                                                ${wizard.isExpiryInvalid(d.passportExpiry) ? `<p class="error-msg" style="color:var(--error); font-size:0.75rem; margin-top:5px; display:block">Passport must be valid for at least 6 months.</p>` : ''}
+                                            </div>
+                                        ` : ''}
+                                        <div class="form-group"><label class="form-label">Date of Birth</label><input type="date" class="input-box" value="${d.dob}" oninput="wizard.data.directors[${i}].dob=this.value; wizard.save()"></div>
+                                        <div class="form-group"><label class="form-label">Contact Number</label><input type="text" class="input-box" value="${d.phone}" oninput="wizard.data.directors[${i}].phone=this.value; wizard.save()"></div>
+                                    </div>
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label class="form-label">${d.idType==='local' ? 'NRIC / FIN Copy' : 'Passport Copy'}</label>
+                                            <div class="upload-slot">
+                                                <span>${d.docs.id || 'Select File...'}</span>
+                                                <input type="file" onchange="wizard.handleUpload(event, 'directors', ${i}, 'id')">
+                                                <div class="status-dot ${d.docs.id?'done':''}"></div>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Address Proof (Utility Bill / Bank Statement)</label>
+                                            <div class="upload-slot">
+                                                <span>${d.docs.address || 'Select File...'}</span>
+                                                <input type="file" onchange="wizard.handleUpload(event, 'directors', ${i}, 'address')">
+                                                <div class="status-dot ${d.docs.address?'done':''}"></div>
+                                            </div>
+                                            <p style="font-size: 0.72rem; color: var(--text-muted); margin-top: 5px;">*All information must be provided in English</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button class="btn btn-outline" style="width:100%" onclick="wizard.addDir()">+ Add Director</button>`;
+                    case 3: return `
+                        <div id="sh-container">
+                            ${this.data.shareholders.map((s, i) => `
+                                <div class="card">
+                                    <div class="entity-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:10px; margin-bottom:15px">
+                                        <div class="card-title" style="margin:0">📊 Shareholder ${i+1}</div>
+                                        ${i > 0 ? `<span style="color:var(--error); cursor:pointer; font-size:0.85rem;" onclick="wizard.removeSh(${i})">Remove</span>` : ''}
+                                    </div>
+                                    <div class="toggle-row">
+                                        <button class="toggle-item ${s.type==='individual'?'active':''}" onclick="wizard.data.shareholders[${i}].type='individual'; wizard.save(); wizard.render()">Individual</button>
+                                        <button class="toggle-item ${s.type==='corporate'?'active':''}" onclick="wizard.data.shareholders[${i}].type='corporate'; wizard.save(); wizard.render()">Corporate</button>
+                                    </div>
+                                    <div class="form-grid">
+                                        <div class="form-group full"><label class="form-label">${s.type==='individual'?'Name':'Company Name'}</label><input type="text" class="input-box" value="${s.name}" oninput="wizard.data.shareholders[${i}].name=this.value; wizard.save()"></div>
+                                        <div class="form-group"><label class="form-label">Number of Shares</label><input type="number" class="input-box" value="${s.shares}" oninput="wizard.data.shareholders[${i}].shares=this.value; wizard.save()"></div>
+                                        <div class="form-group"><label class="form-label">% Held</label><input type="number" class="input-box" value="${s.percent}" oninput="wizard.data.shareholders[${i}].percent=this.value; wizard.save()"></div>
+                                    </div>
+                                    <div class="form-grid" style="margin-top:10px">
+                                        <div class="form-group">
+                                            <label class="form-label">${s.type==='individual' ? 'ID Proof' : 'Cert of Incorporation'}</label>
+                                            <div class="upload-slot">
+                                                <span>${s.docs.doc1 || 'Select File...'}</span>
+                                                <input type="file" onchange="wizard.handleUpload(event, 'shareholders', ${i}, 'doc1')">
+                                                <div class="status-dot ${s.docs.doc1?'done':''}"></div>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">${s.type==='individual' ? 'Address Proof (Utility Bill / Bank Statement)' : 'M&A / Constitution'}</label>
+                                            <div class="upload-slot">
+                                                <span>${s.docs.doc2 || 'Select File...'}</span>
+                                                <input type="file" onchange="wizard.handleUpload(event, 'shareholders', ${i}, 'doc2')">
+                                                <div class="status-dot ${s.docs.doc2?'done':''}"></div>
+                                            </div>
+                                            ${s.type==='individual' ? `<p style="font-size: 0.72rem; color: var(--text-muted); margin-top: 5px;">*All information must be provided in English</p>` : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button class="btn btn-outline" style="width:100%" onclick="wizard.addSh()">+ Add Shareholder</button>`;
+                    case 4: return `
+                        <div class="card">
+                            <div class="card-title">💰 Share Capital – Paid in Cash</div>
+                            <div class="form-grid">
+                                <div class="form-group"><label class="form-label">Issued Capital</label><input type="number" class="input-box" value="${this.data.capital.issued}" oninput="wizard.data.capital.issued=this.value; wizard.save()"></div>
+                                <div class="form-group"><label class="form-label">Num of Shares</label><input type="number" class="input-box" value="${this.data.capital.numShares}" oninput="wizard.data.capital.numShares=this.value; wizard.save()"></div>
+                            </div>
+                        </div>`;
+                    case 5: return `
+                        <div class="card">
+                            <div class="card-title">📍 Registered Office Address</div>
+                            <div class="toggle-row">
+                                <button class="toggle-item ${this.data.office.useService?'active':''}" onclick="wizard.data.office.useService=true; wizard.save(); wizard.render()">Globalisor Service</button>
+                                <button class="toggle-item ${!this.data.office.useService?'active':''}" onclick="wizard.data.office.useService=false; wizard.save(); wizard.render()">Own Address</button>
+                            </div>
+                            <textarea class="input-box" style="height:100px" ${this.data.office.useService?'readonly':''} placeholder="${this.data.office.useService ? 'Globalisor Premium CBD Address' : 'Enter Address'}" oninput="wizard.data.office.address=this.value; wizard.save()">${this.data.office.address}</textarea>
+                        </div>`;
+                    case 6: return `
+                        <div class="card">
+                            <div class="card-title">📜 Company Secretary</div>
+                            <div class="toggle-row">
+                                <button class="toggle-item ${this.data.secretary.required?'active':''}" onclick="wizard.data.secretary.required=true; wizard.save(); wizard.render()">Globalisor Service</button>
+                                <button class="toggle-item ${!this.data.secretary.required?'active':''}" onclick="wizard.data.secretary.required=false; wizard.save(); wizard.render()">Provide Own</button>
+                            </div>
+                            ${!this.data.secretary.required ? `<div class="form-grid"><div class="form-group full"><label class="form-label">Full Name</label><input type="text" class="input-box" oninput="wizard.data.secretary.details.name=this.value; wizard.save()"></div></div>` : ''}
+                        </div>`;
+                }
+            }
+
+            renderFinal() {
+                document.getElementById('wizard-body').innerHTML = `
+                    <div style="text-align: center; padding: 3rem 1rem;">
+                        <div style="font-size: 4rem; margin-bottom: 1.5rem;">🚀</div>
+                        <h2 style="font-size: 2rem; font-weight: 800;">Verification Ready</h2>
+                        <p style="color: var(--text-muted); margin-bottom: 2rem;">All 6 sections are completed. Submit now for review.</p>
+                        <button class="btn btn-primary" style="padding: 1rem 3rem;" onclick="wizard.submitVerification()">Submit for Verification</button>
+                    </div>`;
+                document.getElementById('next-btn').style.display = 'none';
+            }
+
+            async submitVerification() {
+                try {
+                    const payload = {
+                        clientName: this.data.directors[0]?.name || 'New Client',
+                        email: this.data.directors[0]?.email || 'client@example.com',
+                        companyName: this.data.names[0] || 'Pending Company Name',
+                        services: 'Full Incorporation Package',
+                        totalPrice: 'SGD 1,500',
+                        details: this.data
+                    };
+                    
+                    const res = await fetch('/api/clients/request', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (res.ok) {
+                        const data = await res.json();
+                        localStorage.setItem('globalisor_client_id', data.client.clientId);
+                        alert("Congratulations! Your details have been successfully submitted.");
+                        location.reload();
+                    } else {
+                        alert("Error submitting request. Please try again.");
+                    }
+                } catch (error) {
+                    console.error("Submission failed:", error);
+                    alert("Submission failed. Ensure backend is running.");
+                }
+            }
+
+            addDir() { this.data.directors.push({ name: '', idType: 'local', idNum: '', nation: '', dob: '', phone: '', email: '', addr: '', docs: {} }); this.save(); this.render(); }
+            removeDir(i) { this.data.directors.splice(i, 1); this.save(); this.render(); }
+            addSh() { this.data.shareholders.push({ type: 'individual', name: '', shares: '', percent: '', regNum: '', regPlace: '', regDate: '', phone: '', email: '', addr: '', docs: {}, bo: [] }); this.save(); this.render(); }
+            removeSh(i) { this.data.shareholders.splice(i, 1); this.save(); this.render(); }
+            handleUpload(e, ent, i, key) {
+                const file = e.target.files[0];
+                if (file) {
+                    this.data[ent][i].docs[key] = file.name;
+                    this.save();
+                    this.render();
+                }
+            }
+        }
+
+        const wizard = new IncorporationWizard();
+
+        async function checkClientStatus() {
+            const clientId = localStorage.getItem('globalisor_client_id');
+            if (clientId) {
+                document.getElementById('empty-state').style.display = 'none';
+                document.getElementById('wizard-container').classList.remove('active');
+                document.getElementById('status-state').style.display = 'flex';
+                
+                try {
+                    const res = await fetch('/api/clients/' + clientId + '/services');
+                    if (res.ok) {
+                        const data = await res.json();
+                        
+                        // We assume the user is checking their most recent service for the generic status screen
+                        const service = data.services[0];
+                        if (!service) return;
+
+                        let badgeColor = '#f59e0b';
+                        let badgeBg = '#fffbeb';
+                        let displayStatus = 'Pending Review';
+                        
+                        if (service.status === 'review' || service.status === 'under review') { badgeColor = '#2563eb'; badgeBg = '#eff6ff'; displayStatus = 'Under Review'; }
+                        else if (service.status === 'approved') { badgeColor = '#10b981'; badgeBg = '#ecfdf5'; displayStatus = 'Approved'; }
+                        else if (service.status === 'rejected') { badgeColor = '#ef4444'; badgeBg = '#fef2f2'; displayStatus = 'Action Required'; }
+
+                        const badge = document.getElementById('client-status-badge');
+                        badge.innerText = displayStatus;
+                        badge.style.color = badgeColor;
+                        badge.style.background = badgeBg;
+                        badge.style.border = '1px solid ' + badgeColor;
+                        
+                        document.getElementById('client-status-details').innerHTML = `
+                            <div style="font-weight:700; margin-bottom:10px;">${service.companyName || 'New Request'}</div>
+                            <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:5px;">Service: ${service.serviceType}</div>
+                            <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:5px;">Submitted on: ${service.date}</div>
+                            <div style="font-size:0.85rem; color:var(--text-muted); padding-top:10px; border-top:1px solid #eee;">
+                                We will notify you by email if any additional documents are required. Keep this page open for live updates.
+                            </div>
+                        `;
+                    }
+                } catch(e) { console.error('Status fetch error'); }
+            } else {
+                wizard.updateInfographic();
+            }
+        }
+
+        window.onload = () => {
+            checkClientStatus();
+            if (localStorage.getItem('globalisor_client_id')) {
+                setInterval(checkClientStatus, 5000); // Polling for real-time status update
+            }
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Command Center | Globalisor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <script>
+        // Authentication Check
+        if (!localStorage.getItem('admin_auth')) {
+            window.location.href = '/admin/login.html';
+        } else {
+            const auth = JSON.parse(localStorage.getItem('admin_auth'));
+            if (auth.role !== 'admin') window.location.href = '/admin/login.html';
+        }
+
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], outfit: ['Outfit', 'sans-serif'] },
+                    colors: { 
+                        slate: { 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 800: '#1e293b', 900: '#0f172a' },
+                        primary: '#0f172a', accent: '#3b82f6' 
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { 
+            font-family: 'Outfit', sans-serif;
+            background: radial-gradient(circle at 50% 10%, rgba(253, 242, 248, 0.9) 0%, rgba(191, 219, 254, 0.7) 40%, rgba(125, 211, 252, 0.8) 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            overflow-x: hidden; 
+        }
+        
+        /* Top Navigation */
+        .top-nav { height: 72px; background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.6); position: fixed; top: 0; width: 100%; z-index: 40; display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03); }
+        
+        .main-container { max-width: 1400px; margin: 90px auto 0; padding: 0 2rem 3rem; }
+        
+        /* Filter Tabs */
+        .filter-tabs { display: flex; gap: 0.5rem; margin-bottom: 2rem; border-bottom: 1px solid rgba(255, 255, 255, 0.5); padding-bottom: 1px; }
+        .filter-tab { padding: 0.75rem 1.25rem; font-weight: 500; font-size: 0.9rem; color: rgba(15, 23, 42, 0.6); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; margin-bottom: -1px; }
+        .filter-tab:hover { color: #0f172a; }
+        .filter-tab.active { color: #0f172a; border-bottom-color: #0f172a; font-weight: 600; }
+        
+        /* Shared Glassmorphism Base */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.55);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+            border-radius: 16px;
+        }
+
+        /* Stats Grid */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin-bottom: 2rem; }
+        .stat-card { 
+            background: rgba(255, 255, 255, 0.55); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.8); box-shadow: 0 4px 20px 0 rgba(31, 38, 135, 0.05); border-radius: 10px;
+            padding: 0.75rem 1rem; display: flex; flex-direction: column; 
+        }
+        
+        /* Blue Highlight Card (like in reference) */
+        .stat-card.highlight { background: linear-gradient(135deg, #38bdf8, #0284c7); border: 1px solid rgba(255,255,255,0.2); color: white; box-shadow: 0 10px 30px rgba(2, 132, 199, 0.3); }
+        .stat-card.highlight .text-slate-500 { color: rgba(255,255,255,0.8); }
+        .stat-card.highlight .text-slate-900, .stat-card.highlight .text-indigo-600 { color: white; }
+
+        /* Client Cards */
+        .clients-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.5rem; }
+        .client-card { 
+            background: rgba(255, 255, 255, 0.55); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.8); box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05); border-radius: 16px;
+            padding: 1.5rem; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; 
+        }
+        .client-card:hover { transform: translateY(-4px); box-shadow: 0 15px 35px rgba(31, 38, 135, 0.1); background: rgba(255, 255, 255, 0.7); }
+        .client-card::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 4px; background: transparent; transition: background 0.3s; }
+        .client-card:hover::after { background: #38bdf8; }
+        
+        /* Badges */
+        .status-badge { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.35rem 0.85rem; border-radius: 100px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; background: rgba(255,255,255,0.8); box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .status-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .status-pending { color: #d97706; border: 1px solid #fde68a; } .status-pending .status-dot { background: #f59e0b; }
+        .status-review { color: #2563eb; border: 1px solid #bfdbfe; } .status-review .status-dot { background: #3b82f6; }
+        .status-approved { color: #059669; border: 1px solid #a7f3d0; } .status-approved .status-dot { background: #10b981; }
+        .status-rejected { color: #dc2626; border: 1px solid #fecaca; } .status-rejected .status-dot { background: #ef4444; }
+
+        /* Slide Panel */
+        .slide-panel { position: fixed; top: 0; right: -100%; width: 100%; max-width: 850px; height: 100vh; background: rgba(248, 250, 252, 0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); z-index: 100; box-shadow: -20px 0 50px rgba(0,0,0,0.15); transition: right 0.5s cubic-bezier(0.16, 1, 0.3, 1); display: flex; flex-direction: column; border-left: 1px solid rgba(255,255,255,0.5); }
+        .slide-panel.open { right: 0; }
+        .panel-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 90; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
+        .panel-overlay.open { opacity: 1; pointer-events: auto; }
+        
+        .panel-header { padding: 2rem 2.5rem; background: rgba(255,255,255,0.4); border-bottom: 1px solid rgba(255,255,255,0.6); display: flex; justify-content: space-between; align-items: flex-start; z-index: 2; }
+        .panel-body { flex: 1; overflow-y: auto; padding: 2.5rem; }
+        .panel-footer { padding: 1.5rem 2.5rem; background: rgba(255,255,255,0.4); border-top: 1px solid rgba(255,255,255,0.6); display: flex; justify-content: flex-end; gap: 1rem; z-index: 2; }
+        
+        .detail-section { 
+            background: rgba(255, 255, 255, 0.55); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.8); box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05); border-radius: 16px;
+            padding: 1.75rem; margin-bottom: 1.5rem; 
+        }
+        .section-title { font-family: 'Outfit', sans-serif; font-size: 1.15rem; font-weight: 600; color: #0f172a; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem; }
+        
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; }
+        .info-item { display: flex; flex-direction: column; gap: 0.25rem; }
+        .info-label { font-size: 0.8rem; color: #64748b; font-weight: 500; }
+        .info-value { font-size: 0.95rem; color: #0f172a; font-weight: 500; }
+        
+        .doc-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border: 1px solid rgba(255,255,255,0.8); border-radius: 12px; margin-bottom: 0.75rem; background: rgba(255,255,255,0.6); transition: all 0.2s; }
+        .doc-item:hover { border-color: #38bdf8; background: rgba(255,255,255,0.8); }
+        
+        /* Modal */
+        .modal { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+        .modal.open { opacity: 1; pointer-events: auto; }
+        .modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(4px); }
+        .modal-content { position: relative; background: rgba(255,255,255,0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.8); padding: 2rem; border-radius: 20px; width: 100%; max-width: 400px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); transform: scale(0.95); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        .modal.open .modal-content { transform: scale(1); }
+
+        .btn { padding: 0.6rem 1.25rem; border-radius: 10px; font-weight: 500; font-size: 0.9rem; transition: all 0.2s; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; }
+        .btn-primary { background: linear-gradient(135deg, #0f172a, #1e293b); color: white; border: none; box-shadow: 0 4px 15px rgba(15, 23, 42, 0.2); }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(15, 23, 42, 0.3); }
+        .btn-outline { background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.8); color: #475569; }
+        .btn-outline:hover { background: rgba(255,255,255,0.8); color: #0f172a; }
+        .btn-success { background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; }
+        .btn-success:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); }
+        .btn-danger { background: #ef4444; color: white; border: 1px solid #ef4444; }
+        .btn-danger:hover { background: #dc2626; }
+    </style>
+</head>
+<body>
+
+    <!-- Top Navigation -->
+    <nav class="top-nav">
+        <div class="flex items-center gap-6 flex-1">
+            <img src="/logo.png" alt="Globalisor Logo" class="h-7">
+            <div class="w-full max-w-md">
+                <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="search-input" onkeyup="filterClients()" placeholder="Search clients or companies..." class="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all">
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4 relative">
+            <button id="bell-btn" class="p-2 text-slate-600 hover:bg-slate-100/50 hover:text-slate-800 rounded-full transition-colors relative flex items-center justify-center" onclick="toggleNotifications(event)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+                <span id="notification-badge" class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white hidden shadow-sm"></span>
+            </button>
+
+            <!-- Notifications Dropdown -->
+            <div id="notifications-dropdown" class="absolute top-[60px] right-0 w-80 bg-white/95 backdrop-blur-xl border border-white/60 shadow-[0_10px_40px_rgba(0,0,0,0.1)] rounded-xl overflow-hidden flex flex-col z-50 transition-all duration-200 opacity-0 pointer-events-none scale-95 origin-top-right">
+                <div class="px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                    <h3 class="font-semibold text-sm text-slate-800 font-outfit">Notifications</h3>
+                    <button class="text-xs text-blue-600 hover:text-blue-800 font-medium" onclick="markAllAsRead(event)">Mark all read</button>
+                </div>
+                <div id="notifications-list" class="max-h-80 overflow-y-auto bg-white/50">
+                    <!-- Dynamic Items -->
+                </div>
+            </div>
+            <div class="flex items-center gap-3 pl-4 border-l border-slate-200 cursor-pointer" onclick="logout()">
+                <div class="w-9 h-9 rounded-full bg-slate-900 flex items-center justify-center text-white font-semibold text-sm">A</div>
+                <div class="hidden md:block">
+                    <div class="text-sm font-semibold text-slate-800">Admin User</div>
+                    <div class="text-xs text-slate-500 hover:text-red-500 transition-colors">Sign Out</div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="main-container">
+        
+        <!-- Stats Overview -->
+        <div class="stats-grid" id="stats-container">
+            <div class="stat-card">
+                <div class="text-[10px] font-medium text-slate-500 mb-0.5 uppercase tracking-wider">Total Clients</div>
+                <div class="text-xl font-outfit font-bold text-slate-900" id="stat-total">0</div>
+            </div>
+            <div class="stat-card highlight">
+                <div class="text-[10px] font-medium text-slate-500 mb-0.5 uppercase tracking-wider">Total Services</div>
+                <div class="text-xl font-outfit font-bold text-indigo-600" id="stat-services">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="text-[10px] font-medium text-slate-500 mb-0.5 uppercase tracking-wider">Pending Review</div>
+                <div class="text-xl font-outfit font-bold text-yellow-600" id="stat-pending">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="text-[10px] font-medium text-slate-500 mb-0.5 uppercase tracking-wider">Approved</div>
+                <div class="text-xl font-outfit font-bold text-emerald-600" id="stat-approved">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="text-[10px] font-medium text-slate-500 mb-0.5 uppercase tracking-wider">Rejected</div>
+                <div class="text-xl font-outfit font-bold text-red-600" id="stat-rejected">0</div>
+            </div>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="filter-tabs" id="filter-tabs">
+            <div class="filter-tab active" data-filter="all">All Clients</div>
+            <div class="filter-tab" data-filter="pending">Pending</div>
+            <div class="filter-tab" data-filter="review">Under Review</div>
+            <div class="filter-tab" data-filter="approved">Approved</div>
+            <div class="filter-tab" data-filter="rejected">Rejected</div>
+        </div>
+
+        <!-- Clients Grid -->
+        <div class="clients-grid" id="clients-grid">
+            <!-- Populated by JS -->
+        </div>
+
+    </main>
+
+    <!-- Panel Overlay -->
+    <div class="panel-overlay" id="panel-overlay" onclick="closePanel()"></div>
+
+    <!-- Slide Panel -->
+    <div class="slide-panel" id="detail-panel">
+        <div class="panel-header">
+            <div>
+                <div class="flex items-center gap-3 mb-2">
+                    <span id="detail-status" class="status-badge status-pending"><div class="status-dot"></div> Pending</span>
+                    <span class="text-sm text-slate-500 flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5"></i> <span id="detail-date"></span></span>
+                </div>
+                <h2 class="text-2xl font-outfit font-bold text-slate-900" id="detail-company">Company Name</h2>
+                <div class="text-slate-500 mt-1 flex items-center gap-2">
+                    <i data-lucide="user" class="w-4 h-4"></i> <span id="detail-client">Client Name</span>
+                    <span class="text-slate-300">•</span>
+                    <i data-lucide="mail" class="w-4 h-4"></i> <span id="detail-email">client@email.com</span>
+                </div>
+            </div>
+            <button class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors" onclick="closePanel()">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+        
+        <div class="panel-body" id="detail-body">
+            <!-- Populated by JS -->
+        </div>
+
+        <div class="panel-footer">
+            <button class="btn btn-outline" onclick="openModal('info')"><i data-lucide="message-square" class="w-4 h-4"></i> Request Info</button>
+            <div class="flex-1"></div>
+            <button class="btn btn-danger" onclick="openModal('rejected')"><i data-lucide="x" class="w-4 h-4"></i> Reject</button>
+            <button class="btn btn-outline" onclick="openModal('review')"><i data-lucide="eye" class="w-4 h-4"></i> Mark Review</button>
+            <button class="btn btn-success" onclick="openModal('approved')"><i data-lucide="check" class="w-4 h-4"></i> Approve</button>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal" id="action-modal">
+        <div class="modal-overlay" onclick="closeModal()"></div>
+        <div class="modal-content">
+            <div class="flex justify-between items-start mb-4">
+                <h3 class="text-lg font-bold text-slate-900" id="modal-title">Confirm Action</h3>
+                <button class="text-slate-400 hover:text-slate-600" onclick="closeModal()"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <p class="text-sm text-slate-600 mb-6" id="modal-desc">Are you sure you want to proceed? An email notification will be triggered to the client.</p>
+            <div class="flex gap-3 justify-end">
+                <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" id="modal-confirm-btn" onclick="confirmAction()">Confirm</button>
+            </div>
+        </div>
+    </div>    <script>
+        lucide.createIcons();
+
+        function logout() {
+            localStorage.removeItem('admin_auth');
+            window.location.href = '/admin/login.html';
+        }
+
+        let clientsData = [];
+        let statsData = {};
+        let currentClientId = null;
+        let currentServiceId = null;
+        let pendingAction = null;
+        let currentFilter = 'all';
+        let currentClientServices = [];
+
+        async function fetchDashboard() {
+            try {
+                const res = await fetch('/api/dashboard');
+                if (res.ok) {
+                    const data = await res.json();
+                    clientsData = data.clients;
+                    statsData = data.stats;
+                    renderStats();
+                    renderClients();
+                    updateNotifications();
+                }
+            } catch (err) {
+                console.error("Failed to fetch dashboard", err);
+            }
+        }
+
+        function getStatusProps(status) {
+            const s = status.toLowerCase();
+            if (s === 'pending') return { class: 'status-pending', text: 'Pending' };
+            if (s === 'review' || s === 'under review') return { class: 'status-review', text: 'Under Review' };
+            if (s === 'approved') return { class: 'status-approved', text: 'Approved' };
+            if (s === 'rejected') return { class: 'status-rejected', text: 'Rejected' };
+            return { class: 'status-pending', text: 'Pending' };
+        }
+
+        function renderStats() {
+            document.getElementById('stat-total').innerText = statsData.totalClients || 0;
+            document.getElementById('stat-services').innerText = statsData.totalServices || 0;
+            document.getElementById('stat-pending').innerText = statsData.pending || 0;
+            document.getElementById('stat-approved').innerText = statsData.approved || 0;
+            document.getElementById('stat-rejected').innerText = statsData.rejected || 0;
+        }
+
+        function renderClients() {
+            const grid = document.getElementById('clients-grid');
+            grid.innerHTML = '';
+            
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+
+            const filteredData = clientsData.filter(client => {
+                const matchesFilter = currentFilter === 'all' || 
+                                      (currentFilter === 'review' && (client.latestStatus === 'review' || client.latestStatus === 'under review')) ||
+                                      client.latestStatus === currentFilter;
+                const matchesSearch = client.name.toLowerCase().includes(searchTerm) || 
+                                      client.email.toLowerCase().includes(searchTerm) ||
+                                      (client.companyNames && client.companyNames.some(cn => cn.toLowerCase().includes(searchTerm)));
+                return matchesFilter && matchesSearch;
+            });
+
+            filteredData.forEach(client => {
+                const props = getStatusProps(client.latestStatus);
+                const card = document.createElement('div');
+                card.className = 'client-card';
+                card.onclick = (e) => {
+                    // Prevent firing if button is clicked
+                    if (!e.target.closest('button')) openClientProfile(client.clientId);
+                };
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="status-badge ${props.class}"><div class="status-dot"></div> ${props.text}</div>
+                        <div class="text-xs font-medium text-slate-400">ID: ${client.clientId}</div>
+                    </div>
+                    <h3 class="text-lg font-outfit font-bold text-slate-900 mb-1 leading-tight">${client.name}</h3>
+                    <div class="text-sm text-slate-500 mb-4 flex items-center gap-1.5"><i data-lucide="mail" class="w-3.5 h-3.5"></i> ${client.email}</div>
+                    
+                    <div class="pt-4 border-t border-slate-100 flex justify-between items-center mt-auto">
+                        <div>
+                            <div class="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded inline-block mb-1">📦 ${client.serviceCount} Service${client.serviceCount > 1 ? 's' : ''}</div>
+                            <div class="text-xs text-slate-400">Activity: ${client.latestActivity}</div>
+                        </div>
+                        <button class="btn btn-outline py-1 px-3 text-xs" onclick="openClientProfile('${client.clientId}')">View Profile</button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        function filterClients() { renderClients(); }
+
+        document.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                currentFilter = e.target.dataset.filter;
+                renderClients();
+            });
+        });
+
+        // 1. Open Client Profile Page
+        async function openClientProfile(id) {
+            currentClientId = id;
+            try {
+                const res = await fetch('/api/clients/' + id + '/services');
+                if (res.ok) {
+                    const data = await res.json();
+                    currentClientServices = data.services;
+                    renderClientPanel(data.client, data.services);
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        function renderClientPanel(client, services) {
+            document.getElementById('detail-company').innerText = "Client Profile";
+            document.getElementById('detail-client').innerText = client.name;
+            document.getElementById('detail-email').innerText = client.email;
+            document.getElementById('detail-date').innerText = "Joined: " + new Date(client.createdAt).toLocaleDateString();
+            document.getElementById('detail-status').style.display = 'none';
+
+            let html = `
+                <div class="detail-section">
+                    <div class="section-title"><i data-lucide="user" class="w-5 h-5 text-blue-500"></i> Client Details</div>
+                    <div class="info-grid mb-2">
+                        <div class="info-item"><span class="info-label">Full Name</span><span class="info-value">${client.name}</span></div>
+                        <div class="info-item"><span class="info-label">Email</span><span class="info-value">${client.email}</span></div>
+                        <div class="info-item"><span class="info-label">Phone</span><span class="info-value">${client.phone || '-'}</span></div>
+                        <div class="info-item"><span class="info-label">Client ID</span><span class="info-value">${client.clientId}</span></div>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <div class="section-title"><i data-lucide="layers" class="w-5 h-5 text-indigo-500"></i> Service Requests (${services.length})</div>
+                    <div class="grid gap-3">
+                        ${services.length === 0 ? '<div class="text-sm text-slate-500">No services requested yet.</div>' : ''}
+                        ${services.map(s => {
+                            const p = getStatusProps(s.status);
+                            return `
+                            <div class="p-4 border border-slate-200 rounded-lg bg-slate-50 flex items-center justify-between hover:border-slate-300 transition-colors">
+                                <div>
+                                    <div class="font-bold text-slate-800 mb-1">${s.serviceType}</div>
+                                    <div class="text-xs text-slate-500 mb-2">${s.companyName || 'N/A'} • Submitted: ${s.date}</div>
+                                    <div class="status-badge ${p.class} scale-90 origin-left"><div class="status-dot"></div> ${p.text}</div>
+                                </div>
+                                <div>
+                                    <button class="btn btn-primary" onclick="openServiceDetail('${s.serviceId}')">View Details</button>
+                                </div>
+                            </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('detail-body').innerHTML = html;
+            document.querySelector('.panel-footer').style.display = 'none'; // Hide admin actions for profile view
+            lucide.createIcons();
+
+            document.getElementById('panel-overlay').classList.add('open');
+            document.getElementById('detail-panel').classList.add('open');
+        }
+
+        // 2. Open Specific Service Detail
+        function openServiceDetail(serviceId) {
+            currentServiceId = serviceId;
+            const service = currentClientServices.find(s => s.serviceId === serviceId);
+            if (!service) return;
+
+            const details = service.details;
+            const props = getStatusProps(service.status);
+
+            // Change header back to service view
+            document.getElementById('detail-company').innerHTML = `<button onclick="openClientProfile('${currentClientId}')" class="text-blue-500 hover:text-blue-700 text-sm font-medium flex items-center gap-1 mb-2"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Profile</button> ${service.companyName || 'New Request'}`;
+            document.getElementById('detail-status').style.display = 'inline-flex';
+            document.getElementById('detail-status').className = `status-badge ${props.class}`;
+            document.getElementById('detail-status').innerHTML = `<div class="status-dot"></div> ${props.text}`;
+            document.getElementById('detail-date').innerText = "Service: " + service.serviceType;
+
+            let html = `
+                <div class="detail-section">
+                    <div class="section-title"><i data-lucide="building-2" class="w-5 h-5 text-blue-500"></i> Company Details</div>
+                    <div class="info-grid mb-5">
+                        <div class="info-item"><span class="info-label">Option 1</span><span class="info-value">${details.names[0] || '-'}</span></div>
+                        <div class="info-item"><span class="info-label">Option 2</span><span class="info-value">${details.names[1] || '-'}</span></div>
+                        <div class="info-item"><span class="info-label">Primary Activity</span><span class="info-value">${details.activities?.primary || '-'}</span></div>
+                        <div class="info-item"><span class="info-label">Secondary Activity</span><span class="info-value">${details.activities?.secondary || '-'}</span></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="detail-section mb-0">
+                        <div class="section-title"><i data-lucide="coins" class="w-5 h-5 text-yellow-500"></i> Capital & Pricing</div>
+                        <div class="info-grid grid-cols-1">
+                            <div class="info-item"><span class="info-label">Issued Capital</span><span class="info-value">${details.capital?.currency || 'SGD'} ${details.capital?.issued || '1,000'}</span></div>
+                            <div class="info-item mt-2 pt-3 border-t border-slate-100"><span class="info-label">Services Selected</span><span class="info-value">${service.serviceType}</span></div>
+                            <div class="info-item"><span class="info-label">Total Cost</span><span class="info-value font-bold text-blue-600 text-lg">${service.totalPrice}</span></div>
+                        </div>
+                    </div>
+
+                    <div class="detail-section mb-0">
+                        <div class="section-title"><i data-lucide="users" class="w-5 h-5 text-indigo-500"></i> Directors</div>
+                        ${details.directors.map(d => `
+                            <div class="mb-3 last:mb-0 border-b border-slate-100 last:border-0 pb-3 last:pb-0">
+                                <div class="font-semibold text-slate-800 flex items-center gap-2">${d.name} <span class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs">${d.type || d.idType || 'Local'}</span></div>
+                                <div class="text-sm text-slate-500 mt-1">${d.idNum || 'No ID'} • ${d.nationality || d.nation || 'Singapore'}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="detail-section mt-6">
+                    <div class="section-title"><i data-lucide="pie-chart" class="w-5 h-5 text-emerald-500"></i> Shareholders</div>
+                    <div class="grid gap-3">
+                        ${details.shareholders.map(s => `
+                            <div class="p-3 border border-slate-200 rounded-lg flex justify-between items-center bg-slate-50">
+                                <div>
+                                    <div class="font-semibold text-slate-800">${s.name} <span class="px-2 py-0.5 bg-white border border-slate-200 text-slate-600 rounded text-xs ml-2">${s.type}</span></div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-bold text-emerald-600">${s.percent}%</div>
+                                    <div class="text-xs text-slate-500">${s.shares} Shares</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('detail-body').innerHTML = html;
+            document.querySelector('.panel-footer').style.display = 'flex'; // Show actions
+            lucide.createIcons();
+        }
+
+        function closePanel() {
+            document.getElementById('panel-overlay').classList.remove('open');
+            document.getElementById('detail-panel').classList.remove('open');
+            currentClientId = null;
+            currentServiceId = null;
+        }
+
+        function openModal(action) {
+            pendingAction = action;
+            const modal = document.getElementById('action-modal');
+            const title = document.getElementById('modal-title');
+            const desc = document.getElementById('modal-desc');
+            const btn = document.getElementById('modal-confirm-btn');
+
+            if (action === 'approved') {
+                title.innerText = 'Approve Service'; desc.innerText = 'Approve this service request? Client will be notified.'; btn.className = 'btn btn-success'; btn.innerText = 'Approve';
+            } else if (action === 'rejected') {
+                title.innerText = 'Reject Service'; desc.innerText = 'Reject this request? Client will be notified.'; btn.className = 'btn btn-danger'; btn.innerText = 'Reject';
+            } else if (action === 'review') {
+                title.innerText = 'Mark Under Review'; desc.innerText = 'Change status to Under Review?'; btn.className = 'btn btn-primary'; btn.innerText = 'Confirm';
+            } else if (action === 'info') {
+                title.innerText = 'Request Information'; desc.innerText = 'Open email composer?'; btn.className = 'btn btn-primary'; btn.innerText = 'Continue';
+            }
+            modal.classList.add('open');
+        }
+
+        function closeModal() {
+            document.getElementById('action-modal').classList.remove('open');
+            pendingAction = null;
+        }
+
+        async function confirmAction() {
+            if (pendingAction && pendingAction !== 'info' && currentServiceId) {
+                try {
+                    const res = await fetch('/api/services/' + currentServiceId, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: pendingAction })
+                    });
+                    
+                    if (res.ok) {
+                        const updatedService = await res.json();
+                        // Update local state
+                        const idx = currentClientServices.findIndex(s => s.serviceId === currentServiceId);
+                        if (idx > -1) currentClientServices[idx].status = pendingAction;
+                        
+                        // Re-render service detail to show new badge
+                        openServiceDetail(currentServiceId);
+                        fetchDashboard(); // update background grid stats
+                    }
+                } catch(err) {
+                    console.error('Failed to update status', err);
+                }
+            }
+            closeModal();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchDashboard();
+            setInterval(() => { if (!currentClientId) fetchDashboard(); }, 5000); // Polling only updates background if panel closed
+        });
+
+        // Notifications Logic
+        let notifications = [];
+        
+        function updateNotifications() {
+            const pendingClients = clientsData.filter(c => c.latestStatus === 'pending');
+            const reviewClients = clientsData.filter(c => c.latestStatus === 'review' || c.latestStatus === 'under review');
+            
+            let readList = JSON.parse(localStorage.getItem('admin_read_notifications') || '[]');
+            notifications = [];
+            
+            pendingClients.forEach(c => {
+                notifications.push({ id: `pending_${c.clientId}`, title: 'New Application', desc: `${c.name} submitted a new request.`, time: 'Just now', clientId: c.clientId });
+            });
+            reviewClients.forEach(c => {
+                notifications.push({ id: `review_${c.clientId}`, title: 'Action Required', desc: `${c.name} is under review.`, time: 'Recently', clientId: c.clientId });
+            });
+            
+            const unreadCount = notifications.filter(n => !readList.includes(n.id)).length;
+            const badge = document.getElementById('notification-badge');
+            
+            if (unreadCount > 0) badge.classList.remove('hidden');
+            else badge.classList.add('hidden');
+            
+            renderNotifications();
+        }
+
+        function renderNotifications() {
+            const list = document.getElementById('notifications-list');
+            let readList = JSON.parse(localStorage.getItem('admin_read_notifications') || '[]');
+            
+            if (notifications.length === 0) {
+                list.innerHTML = `<div class="p-5 text-center text-sm text-slate-500">No new notifications</div>`;
+                return;
+            }
+            
+            list.innerHTML = notifications.map(n => {
+                const isRead = readList.includes(n.id);
+                const bgClass = isRead ? 'bg-transparent' : 'bg-blue-50/40';
+                const dotClass = isRead ? 'hidden' : 'inline-block';
+                return `
+                <div class="p-4 border-b border-white/20 hover:bg-white/60 cursor-pointer transition-colors ${bgClass}" onclick="handleNotificationClick(event, '${n.id}', '${n.clientId}')">
+                    <div class="flex gap-3">
+                        <div class="mt-1.5"><span class="w-2 h-2 bg-blue-500 rounded-full ${dotClass}"></span></div>
+                        <div>
+                            <div class="text-sm font-semibold text-slate-800">${n.title}</div>
+                            <div class="text-xs text-slate-600 mt-0.5">${n.desc}</div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function toggleNotifications(e) {
+            e.stopPropagation();
+            const dropdown = document.getElementById('notifications-dropdown');
+            if (dropdown.classList.contains('opacity-0')) {
+                dropdown.classList.remove('opacity-0', 'pointer-events-none', 'scale-95');
+                dropdown.classList.add('opacity-100', 'pointer-events-auto', 'scale-100');
+            } else {
+                closeNotifications();
+            }
+        }
+        
+        function closeNotifications() {
+            const dropdown = document.getElementById('notifications-dropdown');
+            if(dropdown) {
+                dropdown.classList.add('opacity-0', 'pointer-events-none', 'scale-95');
+                dropdown.classList.remove('opacity-100', 'pointer-events-auto', 'scale-100');
+            }
+        }
+        
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('notifications-dropdown');
+            const btn = document.getElementById('bell-btn');
+            if (dropdown && !dropdown.contains(e.target) && !btn.contains(e.target)) closeNotifications();
+        });
+
+        function handleNotificationClick(e, notifId, clientId) {
+            e.stopPropagation();
+            let readList = JSON.parse(localStorage.getItem('admin_read_notifications') || '[]');
+            if (!readList.includes(notifId)) {
+                readList.push(notifId);
+                localStorage.setItem('admin_read_notifications', JSON.stringify(readList));
+            }
+            updateNotifications();
+            closeNotifications();
+            openClientProfile(clientId);
+        }
+
+        function markAllAsRead(e) {
+            e.stopPropagation();
+            let readList = JSON.parse(localStorage.getItem('admin_read_notifications') || '[]');
+            notifications.forEach(n => {
+                if (!readList.includes(n.id)) readList.push(n.id);
+            });
+            localStorage.setItem('admin_read_notifications', JSON.stringify(readList));
+            updateNotifications();
+        }
+    </script>
+</body>
+</html>
