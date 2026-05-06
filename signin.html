@@ -214,13 +214,47 @@
 
                 <!-- Footer Links -->
                 <div class="mt-8 text-center">
-                    <p class="text-sm text-slate-400">Already have an account? <a href="/login.html" class="text-primary font-medium hover:underline">Sign In</a></p>
+                    <p class="text-sm text-slate-400">Already have an account? <a href="/login" class="text-primary font-medium hover:underline">Sign In</a></p>
                 </div>
             </div>
         </div>
+        <style>
+            #toast-container { position: fixed; bottom: 2rem; right: 2rem; z-index: 10000; display: flex; flex-direction: column; gap: 0.75rem; }
+            .toast {
+                background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); padding: 1rem 1.5rem; border-radius: 12px;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-left: 5px solid #298486; color: #1e293b;
+                font-weight: 600; font-size: 0.9rem; transform: translateX(120%); transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+                display: flex; align-items: center; gap: 0.75rem; min-width: 250px;
+            }
+            .toast.active { transform: translateX(0); }
+            .toast.success { border-left-color: #10b981; }
+            .toast.error { border-left-color: #ef4444; }
+        </style>
     </div>
 
     <script>
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toast-container') || (() => {
+                const div = document.createElement('div');
+                div.id = 'toast-container';
+                document.body.appendChild(div);
+                return div;
+            })();
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span><span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('active'), 10);
+            setTimeout(() => {
+                toast.classList.remove('active');
+                setTimeout(() => toast.remove(), 400);
+            }, 3000);
+        }
+
+        if (localStorage.getItem('token')) {
+            window.location.href = '/requirements';
+        }
+
         const steps = [
             { id: 1, title: 'Join the future of compliance.', subtitle: 'Get started with Singapore\'s most advanced digital corporate services platform.' },
             { id: 2, title: 'Security is our priority.', subtitle: 'We use enterprise-grade encryption to protect your sensitive business data.' },
@@ -348,7 +382,7 @@
             });
         });
 
-        finish.addEventListener('click', () => {
+        finish.addEventListener('click', async () => {
             if (!validateStep(3)) return;
             
             const terms = document.getElementById('terms');
@@ -358,31 +392,58 @@
                 return;
             }
 
-            // Simulate Loading
+            const firstName = document.getElementById('first-name').value;
+            const lastName = document.getElementById('last-name').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            // Loading state
             const loader = document.getElementById('finish-loader');
             const text = document.getElementById('finish-text');
             loader.classList.remove('hidden');
             text.classList.add('hidden');
             finish.disabled = true;
 
-            setTimeout(() => {
-                const currentForm = document.getElementById(`step-3-form`);
-                const successState = document.getElementById('success-state');
-
-                gsap.to(currentForm, {
-                    opacity: 0,
-                    scale: 0.9,
-                    duration: 0.5,
-                    onComplete: () => {
-                        currentForm.classList.add('hidden');
-                        successState.classList.remove('hidden');
-                        gsap.to(successState, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.7)" });
-                        
-                        // Hide mobile progress on success
-                        gsap.to('.lg\\:hidden', { opacity: 0, height: 0, duration: 0.3 });
-                    }
+            try {
+                const response = await fetch('http://localhost:8080/api/auth/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ firstName, lastName, email, password })
                 });
-            }, 1500);
+
+                if (response.ok) {
+                    const currentForm = document.getElementById(`step-3-form`);
+                    const successState = document.getElementById('success-state');
+
+                    gsap.to(currentForm, {
+                        opacity: 0,
+                        scale: 0.9,
+                        duration: 0.5,
+                        onComplete: () => {
+                            currentForm.classList.add('hidden');
+                            successState.classList.remove('hidden');
+                            gsap.to(successState, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.7)" });
+                            
+                            // Hide mobile progress on success
+                            gsap.to('.lg\\:hidden', { opacity: 0, height: 0, duration: 0.3 });
+                        }
+                    });
+                } else {
+                    const errData = await response.json();
+                    showToast(errData.message || 'Signup failed', 'error');
+                    loader.classList.add('hidden');
+                    text.classList.remove('hidden');
+                    finish.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('An error occurred. Please try again.', 'error');
+                loader.classList.add('hidden');
+                text.classList.remove('hidden');
+                finish.disabled = false;
+            }
         });
 
         // Focus animations for inputs

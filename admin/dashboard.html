@@ -12,10 +12,10 @@
     <script>
         // Authentication Check
         if (!localStorage.getItem('admin_auth')) {
-            window.location.href = '/admin/login.html';
+            window.location.href = '/admin/login';
         } else {
             const auth = JSON.parse(localStorage.getItem('admin_auth'));
-            if (auth.role !== 'admin') window.location.href = '/admin/login.html';
+            if (auth.role !== 'admin') window.location.href = '/admin/login';
         }
 
         tailwind.config = {
@@ -147,6 +147,9 @@
         </div>
 
         <div class="flex items-center gap-4 relative">
+            <button onclick="fetchDashboard()" class="p-2 text-slate-600 hover:bg-slate-100/50 rounded-full transition-colors title='Refresh Data'">
+                <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+            </button>
             <button id="bell-btn" class="p-2 text-slate-600 hover:bg-slate-100/50 hover:text-slate-800 rounded-full transition-colors relative flex items-center justify-center" onclick="toggleNotifications(event)">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
                 <span id="notification-badge" class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white hidden shadow-sm"></span>
@@ -266,11 +269,16 @@
             </div>
         </div>
     </div>    <script>
-        lucide.createIcons();
+        function safeCreateIcons() {
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        }
+
 
         function logout() {
             localStorage.removeItem('admin_auth');
-            window.location.href = '/admin/login.html';
+            window.location.href = '/admin/login';
         }
 
         let clientsData = [];
@@ -282,18 +290,29 @@
         let currentClientServices = [];
 
         async function fetchDashboard() {
+            console.log("Attempting to fetch dashboard data...");
+            const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+            const token = authObj.token;
+            
             try {
-                const res = await fetch('/api/dashboard');
+                const res = await fetch('/api/dashboard', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                console.log("Dashboard Response Status:", res.status);
+                
                 if (res.ok) {
                     const data = await res.json();
-                    clientsData = data.clients;
-                    statsData = data.stats;
+                    console.log("Dashboard Data Received:", data);
+                    clientsData = data.clients || [];
+                    statsData = data.stats || {};
                     renderStats();
                     renderClients();
                     updateNotifications();
+                } else {
+                    console.error("Dashboard fetch failed with status:", res.status);
                 }
             } catch (err) {
-                console.error("Failed to fetch dashboard", err);
+                console.error("Network error during dashboard fetch:", err);
             }
         }
 
@@ -356,7 +375,7 @@
                 `;
                 grid.appendChild(card);
             });
-            lucide.createIcons();
+            safeCreateIcons();
         }
 
         function filterClients() { renderClients(); }
@@ -374,7 +393,11 @@
         async function openClientProfile(id) {
             currentClientId = id;
             try {
-                const res = await fetch('/api/clients/' + id + '/services');
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const token = authObj.token;
+                const res = await fetch('/api/clients/' + id + '/services', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
                 if (res.ok) {
                     const data = await res.json();
                     currentClientServices = data.services;
@@ -426,7 +449,7 @@
 
             document.getElementById('detail-body').innerHTML = html;
             document.querySelector('.panel-footer').style.display = 'none'; // Hide admin actions for profile view
-            lucide.createIcons();
+            safeCreateIcons();
 
             document.getElementById('panel-overlay').classList.add('open');
             document.getElementById('detail-panel').classList.add('open');
@@ -500,7 +523,7 @@
 
             document.getElementById('detail-body').innerHTML = html;
             document.querySelector('.panel-footer').style.display = 'flex'; // Show actions
-            lucide.createIcons();
+            safeCreateIcons();
         }
 
         function closePanel() {
@@ -537,9 +560,14 @@
         async function confirmAction() {
             if (pendingAction && pendingAction !== 'info' && currentServiceId) {
                 try {
+                    const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                    const token = authObj.token;
                     const res = await fetch('/api/services/' + currentServiceId, {
                         method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
                         body: JSON.stringify({ status: pendingAction })
                     });
                     
@@ -562,7 +590,8 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             fetchDashboard();
-            setInterval(() => { if (!currentClientId) fetchDashboard(); }, 5000); // Polling only updates background if panel closed
+            safeCreateIcons();
+            setInterval(() => { if (!currentClientId) fetchDashboard(); }, 10000); // 10s polling
         });
 
         // Notifications Logic
