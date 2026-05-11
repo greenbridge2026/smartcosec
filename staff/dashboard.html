@@ -253,26 +253,56 @@
     </aside>
 
     <script>
-        const mockApplications = [
-            { id: 'SRV-5021', clientName: 'Robert Fox', companyName: 'TechNova Solutions', type: 'Incorporation', stage: 'Pending Review', priority: 'High', date: '2026-05-10', status: 'pending' },
-            { id: 'SRV-5022', clientName: 'Jane Cooper', companyName: 'Azure Global', type: 'Corporate Secretary', stage: 'Under Review', priority: 'Medium', date: '2026-05-09', status: 'review' },
-            { id: 'SRV-5023', clientName: 'Cody Fisher', companyName: 'Solarize Ltd', type: 'Accounting', stage: 'KYC Pending', priority: 'Low', date: '2026-05-08', status: 'kyc' },
-            { id: 'SRV-5024', clientName: 'Esther Howard', companyName: 'Zenith Corp', type: 'Incorporation', stage: 'Verified', priority: 'High', date: '2026-05-07', status: 'verified' }
-        ];
+        let staffData = {
+            applications: [],
+            stats: {}
+        };
+        let currentClientId = null;
 
-        const mockTasks = [
-            { id: 'T-101', title: 'Verify shareholder documents', client: 'TechNova Solutions', priority: 'High', dueDate: '2 PM', status: 'pending' },
-            { id: 'T-102', title: 'Review incorporation details', client: 'Azure Global', priority: 'Medium', dueDate: 'Today', status: 'in-progress' }
-        ];
-
-        function init() {
+        async function init() {
             lucide.createIcons();
+            await fetchStaffData();
             renderApplications();
             renderTasks();
             renderKYCQueue();
             renderDocuments();
             updateNotifications();
             updateDashboardStats();
+            
+            // Polling
+            setInterval(() => {
+                if (!document.getElementById('detail-panel').classList.contains('open')) {
+                    fetchStaffData().then(() => {
+                        updateDashboardStats();
+                        updateNotifications();
+                    });
+                }
+            }, 30000);
+        }
+
+        async function fetchStaffData() {
+            try {
+                // We'll reuse the dashboard API for now
+                const res = await fetch('/api/dashboard');
+                const data = await res.json();
+                
+                // Map dashboard data to staff structure
+                // /api/dashboard returns { clients: [...], stats: {...} }
+                // We'll treat clients with pending services as applications
+                staffData.applications = (data.clients || []).map(c => ({
+                    id: c.clientId,
+                    clientName: c.name,
+                    companyName: c.companyName || 'New Venture',
+                    type: 'Corporate Service',
+                    stage: c.latestStatus || 'Pending',
+                    priority: c.priority || 'Medium',
+                    date: c.latestActivity || 'Just now',
+                    status: (c.latestStatus || 'pending').toLowerCase()
+                }));
+                staffData.stats = data.stats || {};
+            } catch (err) {
+                console.error('Failed to fetch staff data:', err);
+            }
         }
 
         function switchTab(tabId) {
@@ -282,11 +312,17 @@
             document.querySelectorAll('main > div').forEach(view => view.classList.add('hidden'));
             document.getElementById('view-' + tabId).classList.remove('hidden');
             lucide.createIcons();
+            
+            if (tabId === 'applications') renderApplications();
+            if (tabId === 'tasks') renderTasks();
+            if (tabId === 'kyc') renderKYCQueue();
         }
 
         function renderApplications() {
             const grid = document.getElementById('applications-grid');
-            grid.innerHTML = mockApplications.map(app => `
+            if (!grid) return;
+            
+            grid.innerHTML = staffData.applications.map(app => `
                 <div class="app-card" onclick="openDetail('${app.id}')">
                     <div class="flex justify-between items-start mb-4">
                         <span class="status-badge status-${app.status}">${app.stage}</span>
@@ -298,7 +334,7 @@
                         <i data-lucide="calendar" class="w-3.5 h-3.5"></i> ${app.date}
                     </div>
                 </div>
-            `).join('');
+            `).join('') || '<div class="col-span-full p-12 text-center text-slate-400">No active applications</div>';
             lucide.createIcons();
         }
 
@@ -306,7 +342,17 @@
             const dashboardTasks = document.getElementById('dashboard-tasks');
             const tasksList = document.getElementById('tasks-list');
             
-            const html = mockTasks.map(task => `
+            // Mock tasks for now as there's no task API yet, but derived from apps
+            const derivedTasks = staffData.applications.filter(a => a.status === 'pending' || a.status === 'review').map(a => ({
+                id: 'T-' + a.id,
+                title: 'Review ' + a.type,
+                client: a.clientName,
+                priority: a.priority,
+                dueDate: 'Today',
+                status: 'pending'
+            }));
+
+            const html = derivedTasks.map(task => `
                 <div class="flex items-center justify-between p-4 bg-white/60 border border-white/80 rounded-xl hover:border-emerald-500/50 transition-all group">
                     <div class="flex items-center gap-4">
                         <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center font-bold">${task.client[0]}</div>
@@ -317,7 +363,7 @@
                     </div>
                     <button class="btn btn-primary px-4 py-2 text-xs opacity-0 group-hover:opacity-100 transition-all">Start Task</button>
                 </div>
-            `).join('');
+            `).join('') || '<div class="p-8 text-center text-slate-400 text-xs">No pending tasks</div>';
             
             if(dashboardTasks) dashboardTasks.innerHTML = html;
             if(tasksList) tasksList.innerHTML = html;
@@ -326,26 +372,30 @@
 
         function renderKYCQueue() {
             const list = document.getElementById('kyc-list');
-            list.innerHTML = mockApplications.map(app => `
-                <div class="app-card p-4 mb-3" onclick="openKYCWorkflow('${app.id}')">
+            if (!list) return;
+            
+            list.innerHTML = staffData.applications.filter(a => a.status === 'kyc' || a.status === 'pending').map(app => `
+                <div class="app-card p-4 mb-3 cursor-pointer hover:border-blue-500/50 transition-colors" onclick="openKYCWorkflow('${app.id}')">
                     <div class="text-[10px] font-bold text-slate-400 uppercase mb-1">${app.id}</div>
                     <div class="text-sm font-bold text-slate-800">${app.clientName}</div>
                 </div>
-            `).join('');
+            `).join('') || '<div class="p-4 text-center text-slate-400 text-xs">Queue empty</div>';
         }
 
-        function openKYCWorkflow(id) {
-            const app = mockApplications.find(a => a.id === id);
+        async function openKYCWorkflow(id) {
+            const app = staffData.applications.find(a => a.id === id);
             document.getElementById('kyc-workflow-empty').classList.add('hidden');
             const workflow = document.getElementById('kyc-workflow-active');
             workflow.classList.remove('hidden');
+            
+            // In a real app, we'd fetch KYC specific details
             workflow.innerHTML = `
                 <div class="app-card p-8">
                     <div class="flex justify-between items-center mb-8">
                         <h2 class="text-xl font-bold text-slate-900">Verification: ${app.clientName}</h2>
                         <div class="flex gap-2">
                             <button class="btn btn-outline px-4 py-2 text-xs" onclick="cancelKYC()">Cancel</button>
-                            <button class="btn btn-primary px-6 py-2 text-xs">Submit Decision</button>
+                            <button class="btn btn-primary px-6 py-2 text-xs" onclick="performAction('approve')">Submit Decision</button>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-8">
@@ -368,8 +418,11 @@
 
         function renderDocuments() {
             const grid = document.getElementById('documents-grid');
+            if (!grid) return;
+            
+            // Placeholder for real document API
             let html = '';
-            for(let i=0; i<12; i++) {
+            for(let i=0; i<8; i++) {
                 html += `
                     <div class="stat-card flex flex-col items-center group cursor-pointer">
                         <div class="aspect-square w-full bg-slate-50 rounded-lg flex items-center justify-center mb-3 transition-colors group-hover:bg-emerald-50">
@@ -383,10 +436,18 @@
             lucide.createIcons();
         }
 
-        function openDetail(id) {
-            const app = mockApplications.find(a => a.id === id);
+        async function openDetail(id) {
+            currentClientId = id;
+            const app = staffData.applications.find(a => a.id === id);
+            if (!app) return;
+            
             document.getElementById('detail-client-name').innerText = app.clientName;
             document.getElementById('detail-subtitle').innerText = `${app.type} • ${app.id}`;
+            
+            const badge = document.getElementById('detail-badge');
+            badge.innerText = app.stage;
+            badge.className = `status-badge status-${app.status}`;
+            
             switchDetailTab('overview');
             document.getElementById('panel-overlay').classList.add('open');
             document.getElementById('detail-panel').classList.add('open');
@@ -395,19 +456,48 @@
         function closeDetail() {
             document.getElementById('panel-overlay').classList.remove('open');
             document.getElementById('detail-panel').classList.remove('open');
+            currentClientId = null;
         }
 
         function switchDetailTab(tab) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.innerText.toLowerCase() === tab));
             const content = document.getElementById('detail-content');
-            content.innerHTML = `<div class="detail-section"><div class="section-title">Workflow Progress</div><div class="h-2 bg-slate-100 rounded-full overflow-hidden"><div class="bg-emerald-500 h-full" style="width:45%"></div></div></div>`;
+            
+            // Fetch more details in a real app
+            content.innerHTML = `
+                <div class="space-y-6">
+                    <div class="detail-section">
+                        <div class="section-title">Workflow Progress</div>
+                        <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div class="bg-emerald-500 h-full" style="width:45%"></div>
+                        </div>
+                        <div class="flex justify-between mt-2 text-[10px] font-bold text-slate-400">
+                            <span>KYC</span>
+                            <span>INCORPORATION</span>
+                            <span>COMPLIANCE</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="p-4 bg-slate-50 rounded-xl">
+                            <div class="text-[10px] font-bold text-slate-400 uppercase mb-1">Last Update</div>
+                            <div class="text-sm font-bold text-slate-800">2 hours ago</div>
+                        </div>
+                        <div class="p-4 bg-slate-50 rounded-xl">
+                            <div class="text-[10px] font-bold text-slate-400 uppercase mb-1">Assigned To</div>
+                            <div class="text-sm font-bold text-slate-800">Me</div>
+                        </div>
+                    </div>
+                </div>
+            `;
             lucide.createIcons();
         }
 
         function updateNotifications() {
             const list = document.getElementById('notifications-list');
             const badge = document.getElementById('notification-badge');
-            const pending = mockApplications.filter(a => a.status === 'pending');
+            if (!list) return;
+            
+            const pending = staffData.applications.filter(a => a.status === 'pending');
             
             if (pending.length > 0) badge.classList.remove('hidden');
             else badge.classList.add('hidden');
@@ -432,27 +522,20 @@
 
         function markAllAsRead(e) {
             e.stopPropagation();
-            // In a real app, this would hit an API
             document.getElementById('notification-badge').classList.add('hidden');
             document.getElementById('notifications-list').innerHTML = '<div class="p-8 text-center text-slate-400 text-xs">No new alerts</div>';
         }
 
         function updateDashboardStats() {
-            const assigned = mockApplications.length;
-            const pending = mockApplications.filter(a => a.status === 'pending').length;
-            const kyc = mockApplications.filter(a => a.status === 'kyc').length;
-            const verif = mockApplications.filter(a => a.status === 'review').length;
-            const tasks = 42; // Placeholder for completed tasks
+            const stats = staffData.stats;
+            document.getElementById('stat-assigned').innerText = staffData.applications.length;
+            document.getElementById('stat-pending').innerText = stats.pending || 0;
+            document.getElementById('stat-kyc').innerText = staffData.applications.filter(a => a.status === 'kyc').length;
+            document.getElementById('stat-verifications').innerText = stats.review || 0;
+            document.getElementById('stat-tasks').innerText = staffData.applications.filter(a => a.status === 'approved').length;
 
-            document.getElementById('stat-assigned').innerText = assigned;
-            document.getElementById('stat-pending').innerText = pending;
-            document.getElementById('stat-kyc').innerText = kyc;
-            document.getElementById('stat-verifications').innerText = verif;
-            document.getElementById('stat-tasks').innerText = tasks;
-
-            // Render Alerts dynamically
             const alertsContainer = document.getElementById('urgent-alerts-container');
-            const highPriority = mockApplications.filter(a => a.priority === 'High');
+            const highPriority = staffData.applications.filter(a => a.priority === 'High');
             
             if (highPriority.length > 0) {
                 alertsContainer.innerHTML = highPriority.map((app, idx) => `
@@ -462,12 +545,14 @@
                     </div>
                     ${idx < highPriority.length - 1 ? '<div class="h-px bg-red-100 my-2"></div>' : ''}
                 `).join('');
+            } else {
+                alertsContainer.innerHTML = '<div class="text-slate-400 text-sm">No urgent alerts</div>';
             }
         }
 
         function signOut() {
             localStorage.removeItem('staff_auth');
-            window.location.href = '/auth.html'; // Or wherever the login page is
+            window.location.href = '/login.html';
         }
 
         document.addEventListener('click', () => {
@@ -476,8 +561,28 @@
         });
 
         function performAction(type) {
-            alert(type + ' action triggered');
+            // Mock action update
+            showToast(`Action "${type}" successful`, 'success');
             closeDetail();
+            fetchStaffData().then(() => updateDashboardStats());
+        }
+
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toast-container') || (() => {
+                const div = document.createElement('div');
+                div.id = 'toast-container';
+                document.body.appendChild(div);
+                return div;
+            })();
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span><span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('active'), 10);
+            setTimeout(() => {
+                toast.classList.remove('active');
+                setTimeout(() => toast.remove(), 400);
+            }, 3000);
         }
 
         document.addEventListener('DOMContentLoaded', init);

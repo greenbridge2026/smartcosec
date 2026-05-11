@@ -213,6 +213,26 @@
 
         .progress-line { width: 100%; height: 5px; background: var(--light-bg); border-radius: 100px; overflow: hidden; margin-top: 1rem; }
         .progress-fill { height: 100%; background: var(--brand-primary); transition: width 0.5s ease; }
+
+        /* --- TOAST --- */
+        #toast-container { position: fixed; bottom: 2rem; right: 2rem; z-index: 1000; display: flex; flex-direction: column; gap: 0.75rem; }
+        .toast {
+            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); padding: 1rem 1.5rem; border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-left: 5px solid var(--brand-primary); color: var(--text-main);
+            font-weight: 600; font-size: 0.9rem; transform: translateX(120%); transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            display: flex; align-items: center; gap: 0.75rem; min-width: 250px;
+        }
+        .toast.active { transform: translateX(0); }
+        .toast.success { border-left-color: var(--success); }
+        .toast.error { border-left-color: var(--error); }
+        .toast.info { border-left-color: var(--brand-secondary); }
+
+        @keyframes badgePulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+        }
+        .badge-animate { animation: badgePulse 2s infinite; }
     </style>
 </head>
 <body class="requirements-page">
@@ -322,6 +342,7 @@
                 <div class="wizard-footer">
                     <button class="btn btn-outline" onclick="wizard.prev()">Back</button>
                     <div id="auto-save" style="font-size: 0.8rem; color: var(--text-muted);">Auto-saving...</div>
+                    <button id="back-to-status" class="btn btn-outline" style="display:none; border-color:var(--brand-primary); color:var(--brand-primary)" onclick="wizard.init()">Return to Status</button>
                     <button id="next-btn" class="btn btn-primary" onclick="wizard.next()">Save & Continue</button>
                 </div>
             </div>
@@ -329,6 +350,24 @@
     </div>
 
     <script>
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toast-container') || (() => {
+                const div = document.createElement('div');
+                div.id = 'toast-container';
+                document.body.appendChild(div);
+                return div;
+            })();
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span><span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('active'), 10);
+            setTimeout(() => {
+                toast.classList.remove('active');
+                setTimeout(() => toast.remove(), 400);
+            }, 3000);
+        }
+
         class IncorporationWizard {
             constructor() {
                 this.currentStep = null;
@@ -346,7 +385,72 @@
                 this.data = savedData ? { ...defaultData, ...savedData, completedSteps: savedData.completedSteps || [] } : defaultData;
             }
 
+            async init() {
+                try {
+                    const token = localStorage.getItem('token');
+                    if (!token) return;
+                    const res = await fetch('/api/requirements', {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    if (res.ok) {
+                        const response = await res.json();
+                        if (response.data && Object.keys(response.data).length > 0) {
+                            this.data = { ...this.data, ...response.data };
+                            this.save();
+                        }
+                        
+                        if ((response.status && response.status !== 'pending' && response.status !== 'none') || (this.data.completedSteps && this.data.completedSteps.length === 6)) {
+                            this.showStatusPage(response.status || 'under review', response.data);
+                        } else {
+                            this.updateInfographic();
+                            if (this.currentStep) this.render();
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to load from DB:", e);
+                }
+            }
+
+            showStatusPage(status, data) {
+                document.getElementById('empty-state').style.display = 'none';
+                document.getElementById('wizard-container').classList.remove('active');
+                document.getElementById('status-state').style.display = 'flex';
+                
+                let badgeColor = '#f59e0b';
+                let badgeBg = '#fffbeb';
+                let displayStatusText = 'Pending Review';
+                
+                if (status === 'review' || status === 'under review') { badgeColor = '#2563eb'; badgeBg = '#eff6ff'; displayStatusText = 'Under Review'; }
+                else if (status === 'approved') { badgeColor = '#10b981'; badgeBg = '#ecfdf5'; displayStatusText = 'Approved'; }
+                else if (status === 'rejected') { badgeColor = '#ef4444'; badgeBg = '#fef2f2'; displayStatusText = 'Action Required'; }
+
+                const badge = document.getElementById('client-status-badge');
+                badge.innerText = displayStatusText;
+                badge.style.color = badgeColor;
+                badge.style.background = badgeBg;
+                badge.style.border = '1px solid ' + badgeColor;
+                
+                // Add animation if status changed
+                badge.classList.remove('badge-animate');
+                void badge.offsetWidth; // Trigger reflow
+                badge.classList.add('badge-animate');
+                
+                const companyName = data.names?.[0] || 'New Incorporation';
+                
+                document.getElementById('client-status-details').innerHTML = `
+                    <div style="font-weight:700; margin-bottom:10px;">${companyName}</div>
+                    <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:5px;">Service: Company Incorporation</div>
+                    <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:5px;">Status: ${displayStatusText}</div>
+                    <div style="font-size:0.85rem; color:var(--text-muted); padding-top:10px; border-top:1px solid #eee;">
+                        We will notify you by email if any additional documents are required. Keep this page open for live updates.
+                    </div>
+                `;
+            }
+
             open(step) {
+                // Hide status page when opening a step
+                document.getElementById('status-state').style.display = 'none';
+
                 // Check if step is accessible
                 if (step > 1 && !this.data.completedSteps.includes(step - 1) && !this.data.completedSteps.includes(step)) {
                     return; // Locked
@@ -368,21 +472,51 @@
                 this.updateInfographic();
             }
 
-            next() {
+            async next() {
                 // Step 2 Validation (Passport Expiry for Foreigners)
                 if (this.currentStep === 2) {
                     const invalid = this.data.directors.some(d => d.idType === 'foreigner' && this.isExpiryInvalid(d.passportExpiry));
                     if (invalid) {
-                        alert("One or more foreign directors have passports expiring in less than 6 months. Please provide valid passport details to continue.");
+                        showToast("Passport must be valid for > 6 months.", "error");
                         return;
                     }
                 }
 
                 this.markCompleted(this.currentStep);
+                
+                try {
+                    const token = localStorage.getItem('token');
+                    const btn = document.getElementById('next-btn');
+                    const origText = btn ? btn.innerText : 'Save & Continue';
+                    if (btn) btn.innerText = 'Saving...';
+                    
+                    const res = await fetch('/api/requirements', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify(this.data)
+                    });
+                    
+                    if (res.ok) {
+                        const response = await res.json();
+                        if (response.status && response.status !== 'pending' && response.status !== 'none') {
+                            this.showStatusPage(response.status, response.data);
+                            return;
+                        }
+                    }
+                    
+                    showToast("Progress saved!");
+                    if (btn) btn.innerText = origText;
+                } catch (e) {
+                    console.error("Failed to save to DB", e);
+                }
+
                 if (this.currentStep < 6) {
                     this.open(this.currentStep + 1);
                 } else if (this.data.completedSteps.length === 6) {
-                    this.renderFinal();
+                    this.showStatusPage('under review', this.data);
                 }
             }
 
@@ -394,7 +528,7 @@
                 document.querySelectorAll('.segment').forEach((s, i) => {
                     const step = i + 1;
                     const isCompleted = this.data.completedSteps.includes(step);
-                    const isLocked = step > 1 && !this.data.completedSteps.includes(step - 1) && !isCompleted;
+                    const isLocked = (step > 1 && !this.data.completedSteps.includes(step - 1) && !isCompleted);
                     
                     if (isCompleted) s.classList.add('completed');
                     if (isLocked) s.classList.add('locked');
@@ -415,7 +549,18 @@
                 document.getElementById('step-title').innerText = titles[this.currentStep - 1];
                 document.getElementById('progress-bar').style.width = `${(this.currentStep / 6) * 100}%`;
                 document.getElementById('wizard-body').innerHTML = this.getStepHTML();
-                document.getElementById('next-btn').style.display = 'block';
+                
+                const isSubmitted = (lastKnownStatus && lastKnownStatus !== 'pending' && lastKnownStatus !== 'none') || (this.data.completedSteps && this.data.completedSteps.length === 6);
+                const nextBtn = document.getElementById('next-btn');
+                const backStatusBtn = document.getElementById('back-to-status');
+                
+                if (isSubmitted) {
+                    nextBtn.style.display = 'none';
+                    backStatusBtn.style.display = 'block';
+                } else {
+                    nextBtn.style.display = 'block';
+                    backStatusBtn.style.display = 'none';
+                }
             }
 
             getStepHTML() {
@@ -572,32 +717,24 @@
 
             async submitVerification() {
                 try {
-                    const payload = {
-                        clientName: this.data.directors[0]?.name || 'New Client',
-                        email: this.data.directors[0]?.email || 'client@example.com',
-                        companyName: this.data.names[0] || 'Pending Company Name',
-                        services: 'Full Incorporation Package',
-                        totalPrice: 'SGD 1,500',
-                        details: this.data
-                    };
-                    
-                    const res = await fetch('/api/clients/request', {
+                    const token = localStorage.getItem('token');
+                    const res = await fetch('/api/requirements/submit', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
+                        headers: { 
+                            'Authorization': 'Bearer ' + token
+                        }
                     });
                     
                     if (res.ok) {
-                        const data = await res.json();
-                        localStorage.setItem('globalisor_client_id', data.client.clientId);
-                        alert("Congratulations! Your details have been successfully submitted.");
-                        location.reload();
+                        const response = await res.json();
+                        showToast("Submission successful!");
+                        this.showStatusPage(response.status, response.data);
                     } else {
-                        alert("Error submitting request. Please try again.");
+                        showToast("Error submitting request.", "error");
                     }
                 } catch (error) {
                     console.error("Submission failed:", error);
-                    alert("Submission failed. Ensure backend is running.");
+                    showToast("Submission failed.", "error");
                 }
             }
 
@@ -617,56 +754,35 @@
 
         const wizard = new IncorporationWizard();
 
+        let lastKnownStatus = null;
+
         async function checkClientStatus() {
-            const clientId = localStorage.getItem('globalisor_client_id');
-            if (clientId) {
-                document.getElementById('empty-state').style.display = 'none';
-                document.getElementById('wizard-container').classList.remove('active');
-                document.getElementById('status-state').style.display = 'flex';
-                
-                try {
-                    const res = await fetch('/api/clients/' + clientId + '/services');
-                    if (res.ok) {
-                        const data = await res.json();
-                        
-                        // We assume the user is checking their most recent service for the generic status screen
-                        const service = data.services[0];
-                        if (!service) return;
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+                const res = await fetch('/api/requirements', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (res.ok) {
+                    const response = await res.json();
+                    const allStepsDone = response.data && response.data.completedSteps && response.data.completedSteps.length === 6;
+                    const currentStatus = response.status === 'pending' && allStepsDone ? 'under review' : response.status;
 
-                        let badgeColor = '#f59e0b';
-                        let badgeBg = '#fffbeb';
-                        let displayStatus = 'Pending Review';
-                        
-                        if (service.status === 'review' || service.status === 'under review') { badgeColor = '#2563eb'; badgeBg = '#eff6ff'; displayStatus = 'Under Review'; }
-                        else if (service.status === 'approved') { badgeColor = '#10b981'; badgeBg = '#ecfdf5'; displayStatus = 'Approved'; }
-                        else if (service.status === 'rejected') { badgeColor = '#ef4444'; badgeBg = '#fef2f2'; displayStatus = 'Action Required'; }
-
-                        const badge = document.getElementById('client-status-badge');
-                        badge.innerText = displayStatus;
-                        badge.style.color = badgeColor;
-                        badge.style.background = badgeBg;
-                        badge.style.border = '1px solid ' + badgeColor;
-                        
-                        document.getElementById('client-status-details').innerHTML = `
-                            <div style="font-weight:700; margin-bottom:10px;">${service.companyName || 'New Request'}</div>
-                            <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:5px;">Service: ${service.serviceType}</div>
-                            <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:5px;">Submitted on: ${service.date}</div>
-                            <div style="font-size:0.85rem; color:var(--text-muted); padding-top:10px; border-top:1px solid #eee;">
-                                We will notify you by email if any additional documents are required. Keep this page open for live updates.
-                            </div>
-                        `;
+                    if (lastKnownStatus && lastKnownStatus !== currentStatus) {
+                        showToast(`Status updated to: ${currentStatus.toUpperCase()}`, 'info');
                     }
-                } catch(e) { console.error('Status fetch error'); }
-            } else {
-                wizard.updateInfographic();
-            }
+                    lastKnownStatus = currentStatus;
+
+                    if ((response.status && response.status !== 'pending' && response.status !== 'none') || allStepsDone) {
+                        wizard.showStatusPage(currentStatus, response.data);
+                    }
+                }
+            } catch(e) { console.error('Status fetch error'); }
         }
 
         window.onload = () => {
-            checkClientStatus();
-            if (localStorage.getItem('globalisor_client_id')) {
-                setInterval(checkClientStatus, 5000); // Polling for real-time status update
-            }
+            wizard.init();
+            setInterval(checkClientStatus, 10000); // Polling for real-time status update
         };
     </script>
 </body>

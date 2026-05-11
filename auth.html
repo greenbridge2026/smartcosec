@@ -175,27 +175,27 @@
     <div class="auth-card" id="auth-card">
         <!-- Sign Up Form -->
         <div class="form-panel sign-up-panel">
-            <form onsubmit="handleSignup(event)" class="flex flex-col items-center w-full">
+            <form id="signup-form" class="w-full flex flex-col items-center">
                 <img src="/logo.png" alt="Globalisor Logo" class="h-10 mb-6 w-auto">
                 <h1 class="text-3xl font-semibold text-slate-900 mb-2">Create Account</h1>
                 <div class="h-4"></div>
-                <input type="text" placeholder="Full Name" class="input-field" required />
-                <input type="email" placeholder="Email" class="input-field" required />
-                <input type="password" placeholder="Password" class="input-field" required />
-                <button type="submit" class="mt-6 bg-dark hover:bg-slate-800 text-white font-medium py-3.5 px-12 rounded-xl transition-all shadow-lg shadow-dark/20 active:scale-[0.98]">Sign Up</button>
+                <input type="text" id="signup-fullname" placeholder="Full Name" class="input-field" required />
+                <input type="email" id="signup-email" placeholder="Email" class="input-field" required />
+                <input type="password" id="signup-password" placeholder="Password" class="input-field" required />
+                <button type="button" id="btn-signup" class="mt-6 bg-dark hover:bg-slate-800 text-white font-medium py-3.5 px-12 rounded-xl transition-all shadow-lg shadow-dark/20 active:scale-[0.98]">Sign Up</button>
             </form>
         </div>
 
         <!-- Sign In Form -->
         <div class="form-panel sign-in-panel">
-            <form onsubmit="handleLogin(event)" class="flex flex-col items-center w-full">
+            <form id="signin-form" class="w-full flex flex-col items-center">
                 <img src="/logo.png" alt="Globalisor Logo" class="h-10 mb-6 w-auto">
                 <h1 class="text-3xl font-semibold text-slate-900 mb-2">Welcome Back</h1>
                 <div class="h-4"></div>
                 <input type="email" id="signin-email" placeholder="Email Address" class="input-field" required />
                 <input type="password" id="signin-password" placeholder="Password" class="input-field" required />
-                <a href="#" class="text-xs text-slate-400 mt-2 hover:text-primary transition-colors">Forgot your password?</a>
-                <button type="submit" class="mt-6 bg-dark hover:bg-slate-800 text-white font-medium py-3.5 px-12 rounded-xl transition-all shadow-lg shadow-dark/20 active:scale-[0.98]">Sign In</button>
+                <a href="#" class="text-xs text-slate-400 mt-2 hover:text-primary transition-colors self-end">Forgot your password?</a>
+                <button type="button" id="btn-signin" class="mt-6 bg-dark hover:bg-slate-800 text-white font-medium py-3.5 px-12 rounded-xl transition-all shadow-lg shadow-dark/20 active:scale-[0.98]">Sign In</button>
             </form>
         </div>
 
@@ -218,6 +218,29 @@
     </div>
 
     <script>
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toast-container') || (() => {
+                const div = document.createElement('div');
+                div.id = 'toast-container';
+                document.body.appendChild(div);
+                return div;
+            })();
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span><span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('active'), 10);
+            setTimeout(() => {
+                toast.classList.remove('active');
+                setTimeout(() => toast.remove(), 400);
+            }, 3000);
+        }
+
+        // Check if already logged in
+        if (localStorage.getItem('token')) {
+            window.location.href = '/requirements';
+        }
+
         const card = document.getElementById('auth-card');
         const showSignUp = document.getElementById('show-sign-up');
         const showSignIn = document.getElementById('show-sign-in');
@@ -251,33 +274,104 @@
             );
         }
 
-        function handleLogin(e) {
-            if (e) e.preventDefault();
-            const email = document.getElementById('signin-email').value;
+        // Sign Up API Logic
+        document.getElementById('btn-signup').addEventListener('click', async () => {
+            const fullName = document.getElementById('signup-fullname').value.trim();
+            const email = document.getElementById('signup-email').value.trim();
+            const password = document.getElementById('signup-password').value;
+
+            if (!fullName || !email || !password) {
+                showToast('Please fill in all fields.', 'error');
+                return;
+            }
+
+            // Split full name into first and last name
+            const nameParts = fullName.split(' ');
+            const firstName = nameParts[0];
+            const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+
+            const btn = document.getElementById('btn-signup');
+            const originalText = btn.innerText;
+            btn.innerText = 'Creating Account...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/api/auth/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ firstName, lastName, email, password })
+                });
+
+                if (response.ok) {
+                    showToast('Account created successfully! Please sign in.');
+                    // Switch to sign in panel
+                    document.getElementById('show-sign-in').click();
+                } else {
+                    const errorData = await response.json();
+                    showToast(errorData.message || 'Failed to sign up.', 'error');
+                }
+            } catch (error) {
+                console.error('Error during sign up:', error);
+                showToast('An error occurred while communicating with the server.', 'error');
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        });
+
+        // Sign In API Logic
+        document.getElementById('btn-signin').addEventListener('click', async () => {
+            const email = document.getElementById('signin-email').value.trim();
             const password = document.getElementById('signin-password').value;
 
             if (!email || !password) {
-                alert('Please enter your credentials');
+                showToast('Please fill in all fields.', 'error');
                 return;
             }
 
             if (email.toLowerCase().includes('admin')) {
-                // Admin Login
+                // Admin Login Bypass
                 localStorage.setItem('admin_auth', JSON.stringify({ role: 'admin', email: email, name: 'Admin User' }));
                 window.location.href = '/admin/dashboard.html';
-            } else {
-                // Client Login
-                localStorage.setItem('client_auth', JSON.stringify({ role: 'client', email: email, name: 'Mohammad Asif' }));
-                window.location.href = '/requirements';
+                return;
             }
-        }
 
-        function handleSignup(e) {
-            if (e) e.preventDefault();
-            // Mock signup
-            alert('Account created successfully! Redirecting to login...');
-            card.classList.remove('right-panel-active');
-        }
+            if (email.toLowerCase().includes('staff')) {
+                // Staff Login Bypass
+                localStorage.setItem('staff_auth', JSON.stringify({ role: 'staff', email: email, name: 'Staff User' }));
+                window.location.href = '/staff/dashboard.html';
+                return;
+            }
+
+            const btn = document.getElementById('btn-signin');
+            const originalText = btn.innerText;
+            btn.innerText = 'Signing In...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/api/auth/signin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('client_auth', JSON.stringify({ role: 'client', email: email, name: 'Mohammad Asif', id: 'C-1004' }));
+                    window.location.href = '/requirements';
+                } else {
+                    const errorData = await response.json();
+                    showToast(errorData.message || 'Failed to sign in. Check your credentials.', 'error');
+                }
+            } catch (error) {
+                console.error('Error during sign in:', error);
+                showToast('An error occurred while communicating with the server.', 'error');
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        });
     </script>
 </body>
 </html>
