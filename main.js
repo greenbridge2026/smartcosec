@@ -493,7 +493,6 @@ function init() {
             const service = servicesData[index];
             
             if (service && !item.classList.contains('active')) {
-                // Update active states
                 nodePositioners.forEach(node => {
                     node.classList.remove('active');
                     node.querySelector('.circle-node').classList.remove('active');
@@ -506,19 +505,14 @@ function init() {
                 item.querySelector('.circle-node').classList.add('active');
                 item.querySelector('.node-label').classList.add('active');
                 
-                // Add glow to active node
                 const glow = document.createElement('span');
                 glow.className = 'node-glow';
                 item.querySelector('.circle-node').appendChild(glow);
                 
-                // Update Hub SVG
                 hubContent.innerHTML = serviceSVGs[service.title] || '';
-                
-                // Update Title & Description (Typewriter)
                 activeTitleDisplay.innerText = service.title;
                 typeText(activeDescDisplay, service.description);
                 
-                // Update Features
                 activeFeaturesDisplay.innerHTML = service.features.map((f, idx) => `
                     <div class="service-feature-item" style="animation-delay: ${idx * 0.15}s">
                         <div class="feature-card-inner">
@@ -549,7 +543,6 @@ function init() {
 
     function type() {
         const currentWord = heroWords[wordIndex];
-        
         if (isDeleting) {
             typewriterElement.textContent = currentWord.substring(0, charIndex - 1);
             charIndex--;
@@ -562,19 +555,213 @@ function init() {
 
         if (!isDeleting && charIndex === currentWord.length) {
             isDeleting = true;
-            typeSpeed = 2000; // Pause at end
+            typeSpeed = 2000;
         } else if (isDeleting && charIndex === 0) {
             isDeleting = false;
             wordIndex = (wordIndex + 1) % heroWords.length;
             typeSpeed = 500;
         }
-
         setTimeout(type, typeSpeed);
     }
-
     if (typewriterElement) type();
+
+    // 8. Service Selection System Logic
+    const statusCards = document.querySelectorAll('.status-card');
+    const servicesStep = document.getElementById('services-step');
+    const statusStep = document.getElementById('status-step');
+    const servicesGrid = document.getElementById('interactive-services-grid');
+    const backBtn = document.querySelector('.btn-back-step');
+    const summaryBar = document.getElementById('selection-summary-bar');
+    const selectedCountBadge = document.getElementById('selected-count');
+    const selectedNamesText = document.getElementById('selected-services-names');
+    const clearBtn = document.querySelector('.btn-clear-selection');
+    const dropdownOptions = document.getElementById('dropdown-options');
+
+    const allServices = [
+        { id: 'inc-local', name: 'Incorporation for Locals', category: 'Incorporation', icon: 'building', desc: 'Fast-track registration for Singapore citizens and PRs.' },
+        { id: 'inc-foreign', name: 'Incorporation for Foreigners', category: 'Incorporation', icon: 'globe', desc: 'Specialized setup for international entrepreneurs and offshore entities.' },
+        { id: 'accounting', name: 'Accounting & Bookkeeping', category: 'Finance', icon: 'calculator', desc: 'Precision financial records and monthly management reporting.' },
+        { id: 'payroll', name: 'Payroll Services', category: 'Finance', icon: 'users', desc: 'Automated salary processing and statutory CPF contributions.' },
+        { id: 'secretary', name: 'Corporate Secretary', category: 'Compliance', icon: 'file-check', desc: 'Mandatory statutory compliance and ACRA filing management.' },
+        { id: 'visas', name: 'Visas & Immigration', category: 'Operations', icon: 'passport', desc: 'Employment Pass and dependent visa application support.' },
+        { id: 'address', name: 'Registered Address', category: 'Operations', icon: 'map-pin', desc: 'Premium CBD address and digital mailroom solutions.' },
+        { id: 'director', name: 'Nominee Director', category: 'Compliance', icon: 'user-check', desc: 'Local resident director service for foreign-owned companies.' }
+    ];
+
+    const statusMapping = {
+        'new': ['inc-local', 'inc-foreign', 'director', 'address', 'secretary'],
+        'existing': ['accounting', 'payroll', 'secretary', 'address', 'visas'],
+        'client': ['visas', 'payroll', 'accounting', 'director']
+    };
+
+    let currentSelectedServices = new Set();
+
+    function renderServices(status) {
+        const allowedIds = statusMapping[status];
+        const filteredServices = allServices.filter(s => allowedIds.includes(s.id));
+        
+        servicesGrid.innerHTML = filteredServices.map(service => `
+            <div class="service-select-card ${currentSelectedServices.has(service.id) ? 'selected' : ''}" data-id="${service.id}">
+                <div class="service-select-icon">
+                    <i data-lucide="${service.icon}" class="w-5 h-5"></i>
+                </div>
+                <h3 class="service-select-title">${service.name}</h3>
+                <p class="service-select-desc">${service.desc}</p>
+            </div>
+        `).join('');
+
+        if (window.lucide) window.lucide.createIcons();
+
+        document.querySelectorAll('.service-select-card').forEach(card => {
+            card.addEventListener('click', () => toggleService(card.getAttribute('data-id')));
+        });
+
+        renderDropdown(filteredServices);
+    }
+
+    function renderDropdown(filteredServices) {
+        if (!dropdownOptions) return;
+        const groups = {};
+        filteredServices.forEach(s => {
+            if (!groups[s.category]) groups[s.category] = [];
+            groups[s.category].push(s);
+        });
+
+        let html = '';
+        for (const [category, items] of Object.entries(groups)) {
+            html += `<div class="quick-select-group-label">${category}</div>`;
+            items.forEach(item => {
+                html += `<div class="quick-select-dropdown-item" data-id="${item.id}">${item.name}</div>`;
+            });
+        }
+        dropdownOptions.innerHTML = html;
+
+        document.querySelectorAll('.quick-select-dropdown-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleService(item.getAttribute('data-id'));
+            });
+        });
+    }
+
+    function toggleService(id) {
+        if (currentSelectedServices.has(id)) {
+            currentSelectedServices.delete(id);
+        } else {
+            currentSelectedServices.add(id);
+        }
+        updateUI();
+    }
+
+    function updateUI() {
+        document.querySelectorAll('.service-select-card').forEach(card => {
+            const id = card.getAttribute('data-id');
+            card.classList.toggle('selected', currentSelectedServices.has(id));
+        });
+
+        const count = currentSelectedServices.size;
+        selectedCountBadge.innerText = count;
+        
+        if (count > 0) {
+            summaryBar.classList.add('active');
+            const names = Array.from(currentSelectedServices)
+                .map(id => allServices.find(s => s.id === id).name)
+                .join(' + ');
+            selectedNamesText.innerText = names;
+        } else {
+            summaryBar.classList.remove('active');
+            selectedNamesText.innerText = 'None selected yet';
+        }
+    }
+
+    statusCards.forEach(card => {
+        card.addEventListener('click', () => {
+            const status = card.dataset.status;
+            
+            if (status === 'new') {
+                window.location.href = '/auth.html?mode=signup';
+                return;
+            }
+
+            if (status === 'existing' || status === 'client') {
+                window.location.href = '/requirements';
+                return;
+            }
+
+            statusCards.forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            
+            statusStep.classList.add('hidden');
+            servicesStep.classList.remove('hidden');
+            setTimeout(() => {
+                servicesStep.classList.remove('opacity-0', 'translate-y-10');
+            }, 50);
+
+            renderServices(status);
+        });
+    });
+
+    if (backBtn) {
+        backBtn.addEventListener('click', () => {
+            servicesStep.classList.add('opacity-0', 'translate-y-10');
+            setTimeout(() => {
+                servicesStep.classList.add('hidden');
+                statusStep.classList.remove('hidden');
+            }, 500);
+        });
+    }
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            currentSelectedServices.clear();
+            updateUI();
+        });
+    }
+
+    // 9. Dynamic Blog System
+    async function initBlogs() {
+        const grid = document.getElementById('landing-blog-grid');
+        if (!grid) return;
+
+        try {
+            const res = await fetch('/api/blogs');
+            const blogs = await res.json();
+            const publishedBlogs = blogs.filter(b => b.published).slice(0, 3);
+
+            if (publishedBlogs.length === 0) {
+                grid.innerHTML = '<p class="text-slate-400 text-center col-span-full py-12">No updates published yet. Stay tuned!</p>';
+                return;
+            }
+
+            grid.innerHTML = publishedBlogs.map(blog => `
+                <div class="group bg-white rounded-[2rem] overflow-hidden border border-slate-100 hover:border-blue-200 hover:shadow-[0_20px_50px_rgba(59,130,246,0.1)] transition-all duration-500 cursor-pointer">
+                    <div class="h-56 bg-slate-100 relative overflow-hidden">
+                        ${blog.coverImage ? `<img src="${blog.coverImage}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">` : `<div class="w-full h-full flex items-center justify-center text-slate-300"><i data-lucide="image" class="w-12 h-12"></i></div>`}
+                        <div class="absolute top-6 left-6">
+                            <span class="bg-blue-600 text-white px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg">
+                                ${blog.category}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="p-8">
+                        <div class="flex items-center gap-3 text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-4">
+                            <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                            <span>${new Date().toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-900 mb-3 group-hover:text-blue-600 transition-colors">${blog.title}</h3>
+                        <p class="text-slate-500 text-sm leading-relaxed line-clamp-2 mb-6">${blog.description}</p>
+                        <div class="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-widest group-hover:gap-4 transition-all">
+                            Read Full Insight <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            if (window.lucide) window.lucide.createIcons();
+        } catch (e) { console.error('Blog Init Error:', e); }
+    }
+
+    initBlogs();
 }
 
-init();
-
-console.log('Globalisor Professional Ecosystem Initialized');
+document.addEventListener('DOMContentLoaded', init);

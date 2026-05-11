@@ -25,6 +25,7 @@ export default defineConfig({
         auth: resolve(__dirname, 'auth.html'),
         login: resolve(__dirname, 'login.html'),
         requirements: resolve(__dirname, 'requirements.html'),
+        staff: resolve(__dirname, 'staff/dashboard.html'),
         adminLogin: resolve(__dirname, 'admin/login.html'),
         adminDashboard: resolve(__dirname, 'admin/dashboard.html'),
       },

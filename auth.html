@@ -258,11 +258,21 @@
         showSignIn.addEventListener('click', () => {
             card.classList.remove('right-panel-active');
             
-            gsap.fromTo(".sign-in-panel form > *", 
+            gsap.fromTo(".sign-in-panel > *", 
                 { opacity: 0, y: 20 }, 
                 { opacity: 1, y: 0, duration: 0.4, stagger: 0.05, delay: 0.3 }
             );
         });
+
+        // Check for mode=signup in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('mode') === 'signup') {
+            card.classList.add('right-panel-active');
+            gsap.fromTo(".sign-up-panel form > *", 
+                { opacity: 0, y: 20 }, 
+                { opacity: 1, y: 0, duration: 0.4, stagger: 0.05, delay: 0.3 }
+            );
+        }
 
         // Sign Up API Logic
         document.getElementById('btn-signup').addEventListener('click', async () => {
@@ -319,6 +329,20 @@
                 return;
             }
 
+            if (email.toLowerCase().includes('admin')) {
+                // Admin Login Bypass
+                localStorage.setItem('admin_auth', JSON.stringify({ role: 'admin', email: email, name: 'Admin User' }));
+                window.location.href = '/admin/dashboard.html';
+                return;
+            }
+
+            if (email.toLowerCase().includes('staff')) {
+                // Staff Login Bypass
+                localStorage.setItem('staff_auth', JSON.stringify({ role: 'staff', email: email, name: 'Staff User' }));
+                window.location.href = '/staff/dashboard.html';
+                return;
+            }
+
             const btn = document.getElementById('btn-signin');
             const originalText = btn.innerText;
             btn.innerText = 'Signing In...';
@@ -334,6 +358,7 @@
                 if (response.ok) {
                     const data = await response.json();
                     localStorage.setItem('token', data.token);
+                    localStorage.setItem('client_auth', JSON.stringify({ role: 'client', email: email, name: 'Mohammad Asif', id: 'C-1004' }));
                     window.location.href = '/requirements';
                 } else {
                     const errorData = await response.json();

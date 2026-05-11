@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Portal | Globalisor Operations</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <script>
+        // Authentication Check
+        if (!localStorage.getItem('staff_auth')) {
+            // For demo purposes, we'll allow entry but log it
+            console.log('Staff auth not found. Guest mode enabled for design review.');
+        }
+
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], outfit: ['Outfit', 'sans-serif'] },
+                    colors: { 
+                        slate: { 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 800: '#1e293b', 900: '#0f172a' },
+                        primary: '#0f172a',
+                        accent: '#10b981' // Keep emerald as a signature staff color but with admin-style UI
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { 
+            font-family: 'Outfit', sans-serif;
+            background: radial-gradient(circle at 50% 10%, rgba(253, 242, 248, 0.9) 0%, rgba(191, 219, 254, 0.7) 40%, rgba(125, 211, 252, 0.8) 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            overflow-x: hidden; 
+        }
+        
+        .top-nav { height: 72px; background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.6); position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 2rem; z-index: 100; gap: 2rem; }
+        .main-container { margin-top: 72px; padding: 2.5rem; max-width: 1600px; margin-left: auto; margin-right: auto; }
+        
+        .stats-grid { 
+            display: grid; 
+            grid-template-columns: repeat(1, minmax(0, 1fr)); 
+            gap: 1rem; 
+            margin-bottom: 2rem; 
+        }
+        @media (min-width: 768px) {
+            .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (min-width: 1024px) {
+            .stats-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+        }
+        .stat-card { background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.8); padding: 1.25rem; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); transition: transform 0.3s; }
+        .stat-card:hover { transform: translateY(-2px); }
+        .stat-card.highlight { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); border: none; }
+        .stat-card.highlight * { color: white !important; }
+        
+        .module-nav-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85rem; font-weight: 500; color: #64748b; transition: all 0.2s; cursor: pointer; border: none; background: transparent; }
+        .module-nav-btn:hover { color: #0f172a; background: rgba(255,255,255,0.6); }
+        .module-nav-btn.active { color: #0f172a; background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+
+        .app-card { background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.8); padding: 1.5rem; border-radius: 20px; box-shadow: 0 4px 24px rgba(0,0,0,0.04); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; position: relative; overflow: hidden; }
+        .app-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.08); background: rgba(255, 255, 255, 0.8); border-color: white; }
+        
+        .status-badge { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; border-radius: 99px; font-size: 0.75rem; font-weight: 700; }
+        .status-pending { background: #fffbeb; color: #d97706; }
+        .status-review { background: #eff6ff; color: #2563eb; }
+        .status-verified { background: #f0fdf4; color: #16a34a; }
+        .status-urgent { background: #fef2f2; color: #dc2626; }
+
+        .glass-panel { position: fixed; top: 0; right: -100%; width: 700px; height: 100vh; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(30px); box-shadow: -10px 0 50px rgba(0,0,0,0.1); transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); z-index: 2000; display: flex; flex-direction: column; }
+        .glass-panel.open { right: 0; }
+        .panel-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.1); backdrop-filter: blur(4px); z-index: 1999; display: none; }
+        .panel-overlay.open { display: block; }
+        
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 12px; font-weight: 600; transition: all 0.2s; cursor: pointer; border: none; }
+        .btn-primary { background: #10b981; color: white; }
+        .btn-primary:hover { background: #059669; transform: scale(1.02); }
+        .btn-outline { background: white; border: 1px solid #e2e8f0; color: #64748b; }
+        .btn-outline:hover { background: #f8fafc; border-color: #cbd5e1; color: #0f172a; }
+        
+        .detail-section { background: rgba(255, 255, 255, 0.4); border: 1px solid rgba(255, 255, 255, 0.8); border-radius: 20px; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .section-title { font-size: 0.75rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+
+        .tab-btn { padding: 0.75rem 1.25rem; font-size: 0.85rem; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+        .tab-btn.active { color: #10b981; border-bottom-color: #10b981; }
+
+        .verification-checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.4);
+            border: 1px solid rgba(255,255,255,0.8);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .verification-checklist-item.completed { background: rgba(16, 185, 129, 0.1); border-color: #10b981; }
+    </style>
+</head>
+<body>
+
+    <nav class="top-nav">
+        <div class="flex items-center gap-4 flex-1">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="switchTab('dashboard')">
+                <span class="font-outfit font-bold text-slate-900 tracking-tight text-xl">Staff Dashboard</span>
+            </div>
+            <div class="relative w-64">
+                <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input type="text" placeholder="Search applications..." class="w-full pl-10 pr-4 py-2 bg-slate-100/50 border-none rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all">
+            </div>
+        </div>
+
+        <div id="module-switcher" class="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-white/80">
+            <button onclick="switchTab('dashboard')" class="module-nav-btn active" id="btn-dashboard"><i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard</button>
+            <button onclick="switchTab('applications')" class="module-nav-btn" id="btn-applications"><i data-lucide="briefcase" class="w-4 h-4"></i> Assigned</button>
+            <button onclick="switchTab('kyc')" class="module-nav-btn" id="btn-kyc"><i data-lucide="shield-check" class="w-4 h-4"></i> KYC Review</button>
+            <button onclick="switchTab('documents')" class="module-nav-btn" id="btn-documents"><i data-lucide="file-text" class="w-4 h-4"></i> Documents</button>
+            <button onclick="switchTab('tasks')" class="module-nav-btn" id="btn-tasks"><i data-lucide="check-square" class="w-4 h-4"></i> Tasks</button>
+        </div>
+
+        <div class="flex items-center justify-end gap-4 flex-1 relative">
+            <button id="bell-btn" class="p-2 text-slate-600 hover:bg-white/60 rounded-full transition-colors relative" onclick="toggleNotifications(event)">
+                <i data-lucide="bell" class="w-5 h-5"></i>
+                <span id="notification-badge" class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white hidden"></span>
+            </button>
+            <div id="notifications-dropdown" class="absolute top-[60px] right-0 w-80 bg-white/95 backdrop-blur-xl border border-white/60 shadow-xl rounded-xl overflow-hidden flex flex-col z-[100] transition-all opacity-0 pointer-events-none scale-95 origin-top-right">
+                <div class="px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                    <h3 class="font-semibold text-sm text-slate-800">Operational Alerts</h3>
+                    <button class="text-xs text-blue-600 font-bold" onclick="markAllAsRead(event)">Mark all read</button>
+                </div>
+                <div id="notifications-list" class="max-h-80 overflow-y-auto">
+                    <!-- Notifications go here -->
+                </div>
+            </div>
+            <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
+                <div class="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-xs">MA</div>
+                <div class="flex flex-col">
+                    <div class="text-xs font-semibold text-slate-800">Mohd Asif</div>
+                    <button onclick="signOut()" class="text-[10px] text-red-500 font-bold hover:underline text-left">Sign Out</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-container">
+        <!-- Dashboard View -->
+        <div id="view-dashboard" class="space-y-8">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Assigned Apps</div>
+                    <div class="text-2xl font-bold text-slate-900" id="stat-assigned">0</div>
+                </div>
+                <div class="stat-card highlight">
+                    <div class="text-[10px] font-bold text-white/70 uppercase tracking-wider mb-2">Pending Reviews</div>
+                    <div class="text-2xl font-bold text-white" id="stat-pending">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">KYC Pending</div>
+                    <div class="text-2xl font-bold text-blue-600" id="stat-kyc">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Verifications</div>
+                    <div class="text-2xl font-bold text-emerald-600" id="stat-verifications">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Tasks Done</div>
+                    <div class="text-2xl font-bold text-slate-900" id="stat-tasks">0</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-2 space-y-6">
+                    <h2 class="text-lg font-bold text-slate-800">Priority Worklist</h2>
+                    <div class="space-y-3" id="dashboard-tasks">
+                        <!-- Tasks go here -->
+                    </div>
+                </div>
+                <div class="space-y-8">
+                    <div class="stat-card border-red-200 bg-red-50/50">
+                        <div class="flex items-center gap-2 text-red-600 font-bold text-xs mb-4">
+                            <i data-lucide="alert-circle" class="w-4 h-4"></i> Urgent Alerts
+                        </div>
+                        <div class="space-y-3 text-xs" id="urgent-alerts-container">
+                            <div class="text-slate-400 italic">No urgent alerts</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Other views (Applications, KYC, etc.) remain hidden but styled similarly -->
+        <div id="view-applications" class="hidden space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="applications-grid"></div>
+        </div>
+
+        <div id="view-kyc" class="hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                <div class="lg:col-span-1 space-y-4" id="kyc-list"></div>
+                <div class="lg:col-span-3 app-card flex flex-col items-center justify-center text-slate-400 min-h-[500px]" id="kyc-workflow-empty">
+                    <i data-lucide="shield-check" class="w-16 h-16 mb-4 opacity-20"></i>
+                    <p class="font-medium">Select an application to start verification</p>
+                </div>
+                <div class="lg:col-span-3 hidden" id="kyc-workflow-active"></div>
+            </div>
+        </div>
+
+        <div id="view-documents" class="hidden space-y-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4" id="documents-grid"></div>
+        </div>
+
+        <div id="view-tasks" class="hidden space-y-6">
+             <div class="max-w-4xl mx-auto space-y-6" id="tasks-list-container">
+                <div class="app-card divide-y divide-slate-100" id="tasks-list"></div>
+             </div>
+        </div>
+    </main>
+
+    <!-- Detail Slide-over (Matching Admin Panel) -->
+    <div class="panel-overlay" id="panel-overlay" onclick="closeDetail()"></div>
+    <aside class="glass-panel" id="detail-panel">
+        <div class="p-8 border-b border-slate-100 flex justify-between items-start bg-white/40">
+            <div>
+                <div class="flex items-center gap-3 mb-2">
+                    <span id="detail-badge" class="status-badge status-pending">Pending Review</span>
+                    <span id="detail-priority" class="text-[10px] font-bold uppercase text-red-500 bg-red-50 px-2 py-0.5 rounded tracking-wider">High Priority</span>
+                </div>
+                <h2 id="detail-client-name" class="text-2xl font-bold text-slate-900">Client Name</h2>
+                <p id="detail-subtitle" class="text-sm text-slate-500">Service • ID</p>
+            </div>
+            <button class="p-2 hover:bg-slate-100 rounded-full transition-colors" onclick="closeDetail()"><i data-lucide="x" class="w-6 h-6 text-slate-400"></i></button>
+        </div>
+
+        <div class="flex border-b border-slate-100 px-4 bg-white/20">
+            <button class="tab-btn active" onclick="switchDetailTab('overview')">Overview</button>
+            <button class="tab-btn" onclick="switchDetailTab('company')">Company</button>
+            <button class="tab-btn" onclick="switchDetailTab('directors')">Directors</button>
+            <button class="tab-btn" onclick="switchDetailTab('documents')">Documents</button>
+            <button class="tab-btn" onclick="switchDetailTab('timeline')">Timeline</button>
+        </div>
+
+        <div id="detail-content" class="flex-1 overflow-y-auto p-8 space-y-8"></div>
+
+        <div class="p-6 bg-white/60 border-t border-slate-100 flex gap-3">
+            <button class="btn btn-outline flex-1 py-3" onclick="performAction('request_info')">Request Info</button>
+            <button class="btn btn-outline border-red-200 text-red-600 hover:bg-red-50 flex-1 py-3" onclick="performAction('reject')">Reject</button>
+            <button class="btn btn-primary flex-[2] py-3" onclick="performAction('approve')">Approve & Advance</button>
+        </div>
+    </aside>
+
+    <script>
+        let staffData = {
+            applications: [],
+            stats: {}
+        };
+        let currentClientId = null;
+
+        async function init() {
+            lucide.createIcons();
+            await fetchStaffData();
+            renderApplications();
+            renderTasks();
+            renderKYCQueue();
+            renderDocuments();
+            updateNotifications();
+            updateDashboardStats();
+            
+            // Polling
+            setInterval(() => {
+                if (!document.getElementById('detail-panel').classList.contains('open')) {
+                    fetchStaffData().then(() => {
+                        updateDashboardStats();
+                        updateNotifications();
+                    });
+                }
+            }, 30000);
+        }
+
+        async function fetchStaffData() {
+            try {
+                // We'll reuse the dashboard API for now
+                const res = await fetch('/api/dashboard');
+                const data = await res.json();
+                
+                // Map dashboard data to staff structure
+                // /api/dashboard returns { clients: [...], stats: {...} }
+                // We'll treat clients with pending services as applications
+                staffData.applications = (data.clients || []).map(c => ({
+                    id: c.clientId,
+                    clientName: c.name,
+                    companyName: c.companyName || 'New Venture',
+                    type: 'Corporate Service',
+                    stage: c.latestStatus || 'Pending',
+                    priority: c.priority || 'Medium',
+                    date: c.latestActivity || 'Just now',
+                    status: (c.latestStatus || 'pending').toLowerCase()
+                }));
+                staffData.stats = data.stats || {};
+            } catch (err) {
+                console.error('Failed to fetch staff data:', err);
+            }
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.module-nav-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('btn-' + tabId).classList.add('active');
+            
+            document.querySelectorAll('main > div').forEach(view => view.classList.add('hidden'));
+            document.getElementById('view-' + tabId).classList.remove('hidden');
+            lucide.createIcons();
+            
+            if (tabId === 'applications') renderApplications();
+            if (tabId === 'tasks') renderTasks();
+            if (tabId === 'kyc') renderKYCQueue();
+        }
+
+        function renderApplications() {
+            const grid = document.getElementById('applications-grid');
+            if (!grid) return;
+            
+            grid.innerHTML = staffData.applications.map(app => `
+                <div class="app-card" onclick="openDetail('${app.id}')">
+                    <div class="flex justify-between items-start mb-4">
+                        <span class="status-badge status-${app.status}">${app.stage}</span>
+                        <span class="text-[10px] font-bold uppercase tracking-wider ${app.priority === 'High' ? 'text-red-500' : 'text-slate-400'}">${app.priority}</span>
+                    </div>
+                    <h3 class="font-bold text-slate-900 text-lg mb-1">${app.clientName}</h3>
+                    <p class="text-sm font-medium text-slate-600 mb-4">${app.companyName}</p>
+                    <div class="flex items-center gap-2 text-xs text-slate-400">
+                        <i data-lucide="calendar" class="w-3.5 h-3.5"></i> ${app.date}
+                    </div>
+                </div>
+            `).join('') || '<div class="col-span-full p-12 text-center text-slate-400">No active applications</div>';
+            lucide.createIcons();
+        }
+
+        function renderTasks() {
+            const dashboardTasks = document.getElementById('dashboard-tasks');
+            const tasksList = document.getElementById('tasks-list');
+            
+            // Mock tasks for now as there's no task API yet, but derived from apps
+            const derivedTasks = staffData.applications.filter(a => a.status === 'pending' || a.status === 'review').map(a => ({
+                id: 'T-' + a.id,
+                title: 'Review ' + a.type,
+                client: a.clientName,
+                priority: a.priority,
+                dueDate: 'Today',
+                status: 'pending'
+            }));
+
+            const html = derivedTasks.map(task => `
+                <div class="flex items-center justify-between p-4 bg-white/60 border border-white/80 rounded-xl hover:border-emerald-500/50 transition-all group">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center font-bold">${task.client[0]}</div>
+                        <div>
+                            <div class="text-sm font-bold text-slate-800">${task.title}</div>
+                            <div class="text-xs text-slate-500">${task.client} • Due ${task.dueDate}</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary px-4 py-2 text-xs opacity-0 group-hover:opacity-100 transition-all">Start Task</button>
+                </div>
+            `).join('') || '<div class="p-8 text-center text-slate-400 text-xs">No pending tasks</div>';
+            
+            if(dashboardTasks) dashboardTasks.innerHTML = html;
+            if(tasksList) tasksList.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        function renderKYCQueue() {
+            const list = document.getElementById('kyc-list');
+            if (!list) return;
+            
+            list.innerHTML = staffData.applications.filter(a => a.status === 'kyc' || a.status === 'pending').map(app => `
+                <div class="app-card p-4 mb-3 cursor-pointer hover:border-blue-500/50 transition-colors" onclick="openKYCWorkflow('${app.id}')">
+                    <div class="text-[10px] font-bold text-slate-400 uppercase mb-1">${app.id}</div>
+                    <div class="text-sm font-bold text-slate-800">${app.clientName}</div>
+                </div>
+            `).join('') || '<div class="p-4 text-center text-slate-400 text-xs">Queue empty</div>';
+        }
+
+        async function openKYCWorkflow(id) {
+            const app = staffData.applications.find(a => a.id === id);
+            document.getElementById('kyc-workflow-empty').classList.add('hidden');
+            const workflow = document.getElementById('kyc-workflow-active');
+            workflow.classList.remove('hidden');
+            
+            // In a real app, we'd fetch KYC specific details
+            workflow.innerHTML = `
+                <div class="app-card p-8">
+                    <div class="flex justify-between items-center mb-8">
+                        <h2 class="text-xl font-bold text-slate-900">Verification: ${app.clientName}</h2>
+                        <div class="flex gap-2">
+                            <button class="btn btn-outline px-4 py-2 text-xs" onclick="cancelKYC()">Cancel</button>
+                            <button class="btn btn-primary px-6 py-2 text-xs" onclick="performAction('approve')">Submit Decision</button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-8">
+                        <div class="aspect-[3/4] bg-slate-100/50 rounded-2xl border border-slate-200 flex items-center justify-center"><i data-lucide="file-text" class="w-12 h-12 text-slate-300"></i></div>
+                        <div class="space-y-4">
+                            <label class="text-[10px] font-bold text-slate-400 uppercase">Checklist</label>
+                            <div class="verification-checklist-item" onclick="this.classList.toggle('completed')"><span class="text-sm font-medium">Valid Passport Expiry</span></div>
+                            <div class="verification-checklist-item" onclick="this.classList.toggle('completed')"><span class="text-sm font-medium">Name match in details</span></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function cancelKYC() {
+            document.getElementById('kyc-workflow-active').classList.add('hidden');
+            document.getElementById('kyc-workflow-empty').classList.remove('hidden');
+        }
+
+        function renderDocuments() {
+            const grid = document.getElementById('documents-grid');
+            if (!grid) return;
+            
+            // Placeholder for real document API
+            let html = '';
+            for(let i=0; i<8; i++) {
+                html += `
+                    <div class="stat-card flex flex-col items-center group cursor-pointer">
+                        <div class="aspect-square w-full bg-slate-50 rounded-lg flex items-center justify-center mb-3 transition-colors group-hover:bg-emerald-50">
+                            <i data-lucide="file" class="w-8 h-8 text-slate-300 group-hover:text-emerald-500"></i>
+                        </div>
+                        <div class="text-[10px] font-bold text-slate-800 truncate w-full text-center">DOC_VERIF_${i}.PDF</div>
+                    </div>
+                `;
+            }
+            grid.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        async function openDetail(id) {
+            currentClientId = id;
+            const app = staffData.applications.find(a => a.id === id);
+            if (!app) return;
+            
+            document.getElementById('detail-client-name').innerText = app.clientName;
+            document.getElementById('detail-subtitle').innerText = `${app.type} • ${app.id}`;
+            
+            const badge = document.getElementById('detail-badge');
+            badge.innerText = app.stage;
+            badge.className = `status-badge status-${app.status}`;
+            
+            switchDetailTab('overview');
+            document.getElementById('panel-overlay').classList.add('open');
+            document.getElementById('detail-panel').classList.add('open');
+        }
+
+        function closeDetail() {
+            document.getElementById('panel-overlay').classList.remove('open');
+            document.getElementById('detail-panel').classList.remove('open');
+            currentClientId = null;
+        }
+
+        function switchDetailTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.innerText.toLowerCase() === tab));
+            const content = document.getElementById('detail-content');
+            
+            // Fetch more details in a real app
+            content.innerHTML = `
+                <div class="space-y-6">
+                    <div class="detail-section">
+                        <div class="section-title">Workflow Progress</div>
+                        <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div class="bg-emerald-500 h-full" style="width:45%"></div>
+                        </div>
+                        <div class="flex justify-between mt-2 text-[10px] font-bold text-slate-400">
+                            <span>KYC</span>
+                            <span>INCORPORATION</span>
+                            <span>COMPLIANCE</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="p-4 bg-slate-50 rounded-xl">
+                            <div class="text-[10px] font-bold text-slate-400 uppercase mb-1">Last Update</div>
+                            <div class="text-sm font-bold text-slate-800">2 hours ago</div>
+                        </div>
+                        <div class="p-4 bg-slate-50 rounded-xl">
+                            <div class="text-[10px] font-bold text-slate-400 uppercase mb-1">Assigned To</div>
+                            <div class="text-sm font-bold text-slate-800">Me</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function updateNotifications() {
+            const list = document.getElementById('notifications-list');
+            const badge = document.getElementById('notification-badge');
+            if (!list) return;
+            
+            const pending = staffData.applications.filter(a => a.status === 'pending');
+            
+            if (pending.length > 0) badge.classList.remove('hidden');
+            else badge.classList.add('hidden');
+
+            list.innerHTML = pending.map(app => `
+                <div class="p-4 border-b border-slate-100 hover:bg-emerald-50/30 cursor-pointer transition-colors" onclick="openDetail('${app.id}')">
+                    <div class="text-[10px] font-black text-emerald-600 uppercase mb-1">New Assignment</div>
+                    <div class="text-xs font-bold text-slate-800">${app.clientName}</div>
+                    <div class="text-[10px] text-slate-500">${app.companyName} requires review.</div>
+                </div>
+            `).join('') || '<div class="p-8 text-center text-slate-400 text-xs">No new alerts</div>';
+            lucide.createIcons();
+        }
+
+        function toggleNotifications(e) {
+            e.stopPropagation();
+            const d = document.getElementById('notifications-dropdown');
+            d.classList.toggle('opacity-0');
+            d.classList.toggle('pointer-events-none');
+            d.classList.toggle('scale-95');
+        }
+
+        function markAllAsRead(e) {
+            e.stopPropagation();
+            document.getElementById('notification-badge').classList.add('hidden');
+            document.getElementById('notifications-list').innerHTML = '<div class="p-8 text-center text-slate-400 text-xs">No new alerts</div>';
+        }
+
+        function updateDashboardStats() {
+            const stats = staffData.stats;
+            document.getElementById('stat-assigned').innerText = staffData.applications.length;
+            document.getElementById('stat-pending').innerText = stats.pending || 0;
+            document.getElementById('stat-kyc').innerText = staffData.applications.filter(a => a.status === 'kyc').length;
+            document.getElementById('stat-verifications').innerText = stats.review || 0;
+            document.getElementById('stat-tasks').innerText = staffData.applications.filter(a => a.status === 'approved').length;
+
+            const alertsContainer = document.getElementById('urgent-alerts-container');
+            const highPriority = staffData.applications.filter(a => a.priority === 'High');
+            
+            if (highPriority.length > 0) {
+                alertsContainer.innerHTML = highPriority.map((app, idx) => `
+                    <div>
+                        <div class="font-bold text-red-800">Review Required: ${app.clientName}</div>
+                        <div class="text-red-600">${app.type} application is at "${app.stage}" stage.</div>
+                    </div>
+                    ${idx < highPriority.length - 1 ? '<div class="h-px bg-red-100 my-2"></div>' : ''}
+                `).join('');
+            } else {
+                alertsContainer.innerHTML = '<div class="text-slate-400 text-sm">No urgent alerts</div>';
+            }
+        }
+
+        function signOut() {
+            localStorage.removeItem('staff_auth');
+            window.location.href = '/login.html';
+        }
+
+        document.addEventListener('click', () => {
+            const d = document.getElementById('notifications-dropdown');
+            if (d) d.classList.add('opacity-0', 'pointer-events-none', 'scale-95');
+        });
+
+        function performAction(type) {
+            // Mock action update
+            showToast(`Action "${type}" successful`, 'success');
+            closeDetail();
+            fetchStaffData().then(() => updateDashboardStats());
+        }
+
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toast-container') || (() => {
+                const div = document.createElement('div');
+                div.id = 'toast-container';
+                document.body.appendChild(div);
+                return div;
+            })();
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span><span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('active'), 10);
+            setTimeout(() => {
+                toast.classList.remove('active');
+                setTimeout(() => toast.remove(), 400);
+            }, 3000);
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

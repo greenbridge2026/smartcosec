@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Onboarding | Globalisor Singapore</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        :root {
+            --accent: #3b82f6;
+            --bg-light: #f8fafc;
+        }
+
+        body {
+            background: radial-gradient(circle at 50% 10%, #ffffff 0%, #eff6ff 40%, #dbeafe 100%);
+            background-attachment: fixed;
+            font-family: 'Inter', sans-serif;
+            color: #1e293b;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .onboarding-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-radius: 32px;
+            padding: 3rem;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.05);
+            min-height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .step-indicator-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 3rem;
+        }
+
+        .step-dot {
+            height: 4px;
+            flex: 1;
+            background: #e2e8f0;
+            border-radius: 2px;
+            transition: all 0.5s ease;
+        }
+
+        .step-dot.active {
+            background: var(--accent);
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+        }
+
+        .flow-step {
+            display: none;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .flow-step.active {
+            display: flex;
+            flex-direction: column;
+            animation: stepIn 0.6s cubic-bezier(0.2, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes stepIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+
+        .glass-input {
+            width: 100%;
+            padding: 16px 20px;
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .glass-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: white;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+        }
+
+        .service-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .service-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.03);
+        }
+
+        .service-card.selected {
+            border-color: var(--accent);
+            background: #eff6ff;
+            box-shadow: 0 0 0 2px var(--accent);
+        }
+
+        .btn-primary {
+            background: #0f172a;
+            color: white;
+            padding: 16px 32px;
+            border-radius: 16px;
+            font-weight: 700;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+        }
+
+        .upload-zone {
+            border: 2px dashed #e2e8f0;
+            border-radius: 24px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s;
+            background: rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--accent);
+            background: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Dashboard Mini Widgets */
+        .dash-widget {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .status-pill {
+            padding: 4px 12px;
+            border-radius: 99px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .back-link {
+            position: absolute;
+            top: 2rem;
+            left: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #64748b;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s;
+            z-index: 100;
+            font-size: 0.875rem;
+        }
+        .back-link:hover {
+            color: var(--accent);
+            transform: translateX(-4px);
+        }
+    </style>
+</head>
+<body class="bg-[#f8fafb]">
+    <a href="/" class="back-link">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        <span>Back to Home</span>
+    </a>
+
+    <div class="onboarding-container">
+        <header class="flex justify-between items-center mb-12 pt-8">
+            <div class="w-10"></div> <!-- Spacer for back link -->
+            <a href="/"><img src="/logo.png" alt="Logo" class="h-10"></a>
+            <div class="text-right">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Globalisor Onboarding</p>
+                <p class="text-sm font-bold text-slate-800" id="flow-label">Loading flow...</p>
+            </div>
+        </header>
+
+        <div class="glass-panel">
+            <!-- Progress Bar -->
+            <div class="step-indicator-bar" id="step-bar"></div>
+
+            <!-- FLOW 1: I HAVE A COMPANY -->
+            <div id="flow-existing-co" class="hidden h-full flex flex-col flex-1">
+                <!-- Step 1: Bizfile Upload -->
+                <div class="flow-step" data-step="1">
+                    <div class="mb-6 w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center">
+                        <i data-lucide="building-2" class="w-8 h-8"></i>
+                    </div>
+                    <h2 class="text-3xl font-bold font-outfit mb-2">Upload Your ACRA Bizfile</h2>
+                    <p class="text-slate-500 mb-8">You already have a company. Simply upload your ACRA Bizfile and we'll handle the data extraction and compliance transition for you.</p>
+                    
+                    <div class="upload-zone mb-8" id="bizfile-dropzone" onclick="document.getElementById('bizfile-input').click()">
+                        <input type="file" id="bizfile-input" class="hidden" accept=".pdf" onchange="handleFileSelect(event)">
+                        <div id="upload-idle">
+                            <i data-lucide="file-up" class="w-12 h-12 text-blue-400 mx-auto mb-4"></i>
+                            <p class="font-bold">Click or drag Bizfile here</p>
+                            <p class="text-xs text-slate-400 mt-2">PDF format (ACRA Business Profile)</p>
+                        </div>
+                        <div id="upload-processing" class="hidden">
+                            <div class="flex flex-col items-center">
+                                <div class="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+                                <p class="font-bold text-blue-600">Extracting Data...</p>
+                                <p class="text-xs text-slate-400 mt-2">Analyzing company structure and UEN</p>
+                            </div>
+                        </div>
+                        <div id="upload-success" class="hidden">
+                            <div class="flex flex-col items-center">
+                                <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4">
+                                    <i data-lucide="check" class="w-6 h-6"></i>
+                                </div>
+                                <p class="font-bold text-emerald-600">Data Extracted Successfully!</p>
+                                <p class="text-xs text-slate-400 mt-2" id="uploaded-filename">BizProfile_TechNova.pdf</p>
+                            </div>
+                        </div>
+                    </div>
+
+
+
+                    <div class="mt-auto pt-4 flex gap-4">
+                        <button onclick="skipExtraction()" class="px-8 py-4 font-bold text-slate-400 uppercase text-xs tracking-widest hover:text-slate-600">Enter Manually</button>
+                        <button id="bizfile-continue" onclick="nextStep()" class="btn-primary flex-1 opacity-50 pointer-events-none">Continue <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Intro (Moved/Removed as separate step) -->
+                <div class="flow-step hidden" data-step="1.5">
+                    <!-- Kept as dummy or mergeable -->
+                </div>
+
+                <!-- Step 3: Details (Pre-filled) -->
+                <div class="flow-step" data-step="3">
+                    <h2 class="text-2xl font-bold font-outfit mb-8">Verify Extracted Details</h2>
+                    <div class="grid gap-6 max-w-md">
+                        <div class="input-group">
+                            <label>Company Name</label>
+                            <input type="text" id="ext-company-name" class="glass-input" placeholder="Enter company name">
+                        </div>
+                        <div class="input-group">
+                            <label>Country of Registration</label>
+                            <select class="glass-input">
+                                <option>Singapore</option>
+                                <option>Malaysia</option>
+                                <option>Hong Kong</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Registration Number (UEN)</label>
+                            <input type="text" id="ext-uen" class="glass-input" placeholder="e.g. 2024XXXXXM">
+                        </div>
+                    </div>
+                    <div class="mt-auto pt-12 flex gap-4">
+                        <button onclick="prevStep()" class="px-8 py-4 font-bold text-slate-400 uppercase text-xs tracking-widest hover:text-slate-600">Back</button>
+                        <button onclick="nextStep()" class="btn-primary flex-1">Continue</button>
+                    </div>
+                </div>
+
+                <!-- Step 4: Services -->
+                <div class="flow-step" data-step="4">
+                    <h2 class="text-2xl font-bold font-outfit mb-2">Service Selection</h2>
+                    <p class="text-slate-500 mb-8">Select the services you want us to take over.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="service-card" onclick="this.classList.toggle('selected')">
+                            <i data-lucide="calculator" class="w-6 h-6 text-blue-600"></i>
+                            <div>
+                                <p class="font-bold">Accounting & Bookkeeping</p>
+                                <p class="text-xs text-slate-500">Monthly management reporting</p>
+                            </div>
+                        </div>
+                        <div class="service-card" onclick="this.classList.toggle('selected')">
+                            <i data-lucide="file-check" class="w-6 h-6 text-emerald-600"></i>
+                            <div>
+                                <p class="font-bold">Corporate Secretary</p>
+                                <p class="text-xs text-slate-500">Statutory filings and records</p>
+                            </div>
+                        </div>
+                        <div class="service-card" onclick="this.classList.toggle('selected')">
+                            <i data-lucide="landmark" class="w-6 h-6 text-purple-600"></i>
+                            <div>
+                                <p class="font-bold">Tax Filing</p>
+                                <p class="text-xs text-slate-500">Corporate tax and ECI submissions</p>
+                            </div>
+                        </div>
+                        <div class="service-card" onclick="this.classList.toggle('selected')">
+                            <i data-lucide="shield-check" class="w-6 h-6 text-orange-600"></i>
+                            <div>
+                                <p class="font-bold">Compliance Services</p>
+                                <p class="text-xs text-slate-500">AML/KYC and regulatory audits</p>
+                            </div>
+                        </div>
+                        <div class="service-card" onclick="this.classList.toggle('selected')">
+                            <i data-lucide="users" class="w-6 h-6 text-amber-600"></i>
+                            <div>
+                                <p class="font-bold">Payroll Services</p>
+                                <p class="text-xs text-slate-500">CPF, salary, and IR8A processing</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-auto pt-12 flex gap-4">
+                        <button onclick="prevStep()" class="px-8 py-4 font-bold text-slate-400 uppercase text-xs tracking-widest hover:text-slate-600">Back</button>
+                        <button onclick="nextStep()" class="btn-primary flex-1">Continue</button>
+                    </div>
+                </div>
+
+                <!-- Step 5: Documents -->
+                <div class="flow-step" data-step="5">
+                    <h2 class="text-2xl font-bold font-outfit mb-8">Document Upload</h2>
+                    <div class="upload-zone mb-6">
+                        <i data-lucide="upload-cloud" class="w-12 h-12 text-slate-300 mx-auto mb-4"></i>
+                        <p class="font-bold">Drop company documents here</p>
+                        <p class="text-xs text-slate-400 mt-2">BizProfile, Constitution, or Financial Statements</p>
+                    </div>
+                    <div class="flex flex-col gap-3">
+                        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                            <div class="flex items-center gap-3">
+                                <i data-lucide="file-text" class="w-5 h-5 text-slate-400"></i>
+                                <p class="text-sm font-medium">Company_Constitution.pdf</p>
+                            </div>
+                            <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-500"></i>
+                        </div>
+                    </div>
+                    <div class="mt-auto pt-12 flex gap-4">
+                        <button onclick="prevStep()" class="px-8 py-4 font-bold text-slate-400 uppercase text-xs tracking-widest hover:text-slate-600">Back</button>
+                        <button onclick="nextStep()" class="btn-primary flex-1">Continue to Review</button>
+                    </div>
+                </div>
+
+                <!-- Step 6: Review -->
+                <div class="flow-step" data-step="6">
+                    <h2 class="text-2xl font-bold font-outfit mb-8">Review & Submit</h2>
+                    <div class="bg-slate-50 rounded-2xl p-6 mb-8 border border-slate-100">
+                        <div class="mb-6">
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Company Info</p>
+                            <p class="font-bold text-lg">TechNova Singapore Pte Ltd</p>
+                            <p class="text-sm text-slate-500">UEN: 202401234M • Singapore</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Selected Services</p>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-lg text-xs font-bold">Accounting</span>
+                                <span class="bg-emerald-100 text-emerald-600 px-3 py-1 rounded-lg text-xs font-bold">Corporate Secretary</span>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-sm text-slate-500 mb-8 text-center">By submitting, you agree to our terms of service and data processing policy.</p>
+                    <button onclick="finishOnboarding()" class="btn-primary w-full">Submit for Review <i data-lucide="send" class="w-4 h-4"></i></button>
+                </div>
+            </div>
+
+            <!-- FLOW 2: EXISTING CLIENT -->
+            <div id="flow-client" class="hidden h-full flex flex-col flex-1">
+                <!-- Step 1: Intro -->
+                <div class="flow-step flex-1 flex flex-col justify-center" data-step="1">
+                    <div class="mb-8 w-16 h-16 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center">
+                        <i data-lucide="user" class="w-8 h-8"></i>
+                    </div>
+                    <h2 class="text-4xl font-bold font-outfit mb-4">Welcome Back to Globalisor</h2>
+                    <p class="text-slate-500 text-lg mb-12 max-w-xl">Access your existing services, track progress, or request new services from your personal dashboard.</p>
+                    <button onclick="nextStep()" class="btn-primary w-fit">Continue to Access <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+                </div>
+
+                <!-- Step 2: Login -->
+                <div class="flow-step" data-step="2">
+                    <h2 class="text-2xl font-bold font-outfit mb-8">Access Your Account</h2>
+                    <div class="grid gap-6 max-w-md">
+                        <div class="input-group">
+                            <label>Email Address</label>
+                            <input type="email" class="glass-input" placeholder="name@company.com">
+                        </div>
+                        <div class="input-group">
+                            <label>Password</label>
+                            <input type="password" class="glass-input" placeholder="••••••••">
+                        </div>
+                        <div class="relative">
+                            <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-200"></div></div>
+                            <div class="relative flex justify-center text-xs uppercase"><span class="bg-white px-2 text-slate-500">Or Login With</span></div>
+                        </div>
+                        <button class="w-full py-4 border border-slate-200 rounded-16 font-bold text-sm flex items-center justify-center gap-3 hover:bg-slate-50 transition-colors">
+                            <i data-lucide="mail" class="w-4 h-4"></i> One-Time Passcode (OTP)
+                        </button>
+                    </div>
+                    <div class="mt-auto pt-12 flex gap-4">
+                        <button onclick="prevStep()" class="px-8 py-4 font-bold text-slate-400 uppercase text-xs tracking-widest hover:text-slate-600">Back</button>
+                        <button onclick="nextStep()" class="btn-primary flex-1">Login</button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Dashboard -->
+                <div class="flow-step" data-step="3">
+                    <div class="flex justify-between items-end mb-8">
+                        <div>
+                            <h2 class="text-2xl font-bold font-outfit">Your Globalisor Hub</h2>
+                            <p class="text-slate-500 text-sm">Managing: TechNova Singapore Pte Ltd</p>
+                        </div>
+                        <span class="text-xs font-bold text-emerald-500 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">Live Status</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                        <div class="dash-widget">
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Active Services</p>
+                            <div class="space-y-3">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm font-medium">Corporate Secretary</span>
+                                    <span class="status-pill bg-emerald-100 text-emerald-600">Healthy</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm font-medium">Monthly Accounting</span>
+                                    <span class="status-pill bg-blue-100 text-blue-600">Pending Review</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="dash-widget">
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Recent Notifications</p>
+                            <p class="text-xs text-slate-600 font-medium">AGM documents ready for signature.</p>
+                            <p class="text-[10px] text-slate-400 mt-1">2 hours ago</p>
+                        </div>
+                    </div>
+
+                    <button onclick="nextStep()" class="w-full p-6 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 hover:text-blue-500 hover:border-blue-200 hover:bg-blue-50/50 transition-all group">
+                        <i data-lucide="plus-circle" class="w-8 h-8 mx-auto mb-2 group-hover:scale-110 transition-transform"></i>
+                        <p class="font-bold">Request New Service</p>
+                        <p class="text-xs">Expand your compliance portfolio</p>
+                    </button>
+                </div>
+
+                <!-- Step 4: Request New Service -->
+                <div class="flow-step" data-step="4">
+                    <h2 class="text-2xl font-bold font-outfit mb-2">Available Add-ons</h2>
+                    <p class="text-slate-500 mb-8">Choose from our specialized professional services.</p>
+                    <div class="grid grid-cols-1 gap-3">
+                        <div class="service-card" onclick="this.classList.toggle('selected')">
+                            <div class="w-10 h-10 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center"><i data-lucide="passport" class="w-5 h-5"></i></div>
+                            <div>
+                                <p class="font-bold">Visas & EP Registration</p>
+                                <p class="text-xs text-slate-500">Employment Pass application and support</p>
+                            </div>
+                        </div>
+                        <div class="service-card" onclick="this.classList.toggle('selected')">
+                            <div class="w-10 h-10 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center"><i data-lucide="user-check" class="w-5 h-5"></i></div>
+                            <div>
+                                <p class="font-bold">Nominee Director</p>
+                                <p class="text-xs text-slate-500">Local resident director service</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-auto pt-12 flex gap-4">
+                        <button onclick="goToStep(3)" class="px-8 py-4 font-bold text-slate-400 uppercase text-xs tracking-widest hover:text-slate-600">Back to Hub</button>
+                        <button onclick="finishOnboarding()" class="btn-primary flex-1">Send Request</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                if (window.lucide) lucide.createIcons();
+
+                const urlParams = new URLSearchParams(window.location.search);
+                const flow = urlParams.get('flow') || 'existing-co';
+                
+                const flowContainer = document.getElementById(`flow-${flow}`);
+                if (!flowContainer) {
+                    console.error('Flow container not found:', flow);
+                    document.body.innerHTML = '<div class="p-20 text-center"><h1>Error Loading Flow</h1><p>Please return to home and try again.</p><a href="/">Return Home</a></div>';
+                    return;
+                }
+
+                flowContainer.classList.remove('hidden');
+                
+                const steps = flowContainer.querySelectorAll('.flow-step');
+                const totalSteps = steps.length;
+                let currentStep = 1;
+
+                const flowLabel = document.getElementById('flow-label');
+                if (flowLabel) {
+                    flowLabel.innerText = flow === 'existing-co' ? 'External Company Onboarding' : 'Existing Client Portal';
+                }
+
+                // Render step dots
+                const stepBar = document.getElementById('step-bar');
+                if (stepBar) {
+                    stepBar.innerHTML = '';
+                    for (let i = 1; i <= totalSteps; i++) {
+                        const dot = document.createElement('div');
+                        dot.className = `step-dot ${i === 1 ? 'active' : ''}`;
+                        dot.id = `dot-${i}`;
+                        stepBar.appendChild(dot);
+                    }
+                }
+
+                window.updateSteps = function() {
+                    steps.forEach(s => {
+                        const stepNum = parseInt(s.getAttribute('data-step'));
+                        s.classList.toggle('active', stepNum === currentStep);
+                    });
+                    
+                    // Update dots
+                    for (let i = 1; i <= totalSteps; i++) {
+                        const dot = document.getElementById(`dot-${i}`);
+                        if (dot) {
+                            if (i <= currentStep) {
+                                dot.classList.add('active');
+                            } else {
+                                dot.classList.remove('active');
+                            }
+                        }
+                    }
+                };
+
+                window.nextStep = function() {
+                    if (currentStep < totalSteps) {
+                        currentStep++;
+                        window.updateSteps();
+                    }
+                };
+
+                window.prevStep = function() {
+                    if (currentStep > 1) {
+                        currentStep--;
+                        window.updateSteps();
+                    }
+                };
+
+                window.goToStep = function(s) {
+                    currentStep = s;
+                    window.updateSteps();
+                };
+
+                window.skipExtraction = function() {
+                    currentStep = 3;
+                    window.updateSteps();
+                };
+
+                window.handleFileSelect = function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const filenameDisplay = document.getElementById('uploaded-filename');
+                        if (filenameDisplay) filenameDisplay.innerText = file.name;
+                        window.simulateExtraction();
+                    }
+                };
+
+                window.simulateExtraction = function() {
+                    const idle = document.getElementById('upload-idle');
+                    const processing = document.getElementById('upload-processing');
+                    const success = document.getElementById('upload-success');
+                    const continueBtn = document.getElementById('bizfile-continue');
+                    const compInput = document.getElementById('ext-company-name');
+                    const uenInput = document.getElementById('ext-uen');
+
+                    if (idle) idle.classList.add('hidden');
+                    if (processing) processing.classList.remove('hidden');
+
+                    setTimeout(() => {
+                        if (processing) processing.classList.add('hidden');
+                        if (success) success.classList.remove('hidden');
+                        
+                        // Pre-fill data
+                        if (compInput) compInput.value = "TechNova Singapore Pte Ltd";
+                        if (uenInput) uenInput.value = "202401234M";
+                        
+                        if (continueBtn) continueBtn.classList.remove('opacity-50', 'pointer-events-none');
+                        
+                        setTimeout(() => {
+                            window.nextStep();
+                        }, 1500);
+                    }, 3000);
+                };
+
+                window.finishOnboarding = function() {
+                    alert('Your request has been submitted to Globalisor team. We will reach out to you within 1-2 hours.');
+                    window.location.href = '/';
+                };
+
+                window.updateSteps();
+            } catch (err) {
+                console.error('Onboarding Init Error:', err);
+            }
+        });
+    </script>
+</body>
+</html>
