@@ -8,6 +8,7 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         auth: resolve(__dirname, 'auth.html'),
         requirements: resolve(__dirname, 'requirements.html'),
+        staff: resolve(__dirname, 'staff/dashboard.html'),
       },
     },
   },
