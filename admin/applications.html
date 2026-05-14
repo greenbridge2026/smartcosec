@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Applications | Globalisor Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <script>
+        // Authentication Check
+        if (!localStorage.getItem('admin_auth')) {
+            window.location.href = '/admin/login.html';
+        }
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], outfit: ['Outfit', 'sans-serif'] },
+                    colors: { 
+                        slate: { 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 800: '#1e293b', 900: '#0f172a' },
+                        primary: '#0f172a', accent: '#3b82f6' 
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { 
+            font-family: 'Outfit', sans-serif;
+            background: radial-gradient(circle at 50% 10%, rgba(253, 242, 248, 0.9) 0%, rgba(191, 219, 254, 0.7) 40%, rgba(125, 211, 252, 0.8) 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            overflow-x: hidden; 
+        }
+        .top-nav { height: 60px; background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.6); position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
+        .main-container { padding: 2rem; max-width: 1600px; margin-left: auto; margin-right: auto; }
+        .module-nav-btn { display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.75rem; border-radius: 8px; font-size: 0.8rem; font-weight: 500; color: #64748b; transition: all 0.2s; cursor: pointer !important; border: none; background: transparent; white-space: nowrap; pointer-events: auto !important; }
+        .module-nav-btn:hover { color: #0f172a; background: rgba(255,255,255,0.6); }
+        .module-nav-btn.active { color: #0f172a; background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="flex items-center gap-4">
+            <div class="flex flex-col leading-none cursor-pointer" onclick="window.location.href='dashboard.html'">
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Admin</span>
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Dashboard</span>
+            </div>
+        </div>
+        <div id="module-switcher" class="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-white/80">
+            <button onclick="window.location.href='dashboard.html'" class="module-nav-btn" id="btn-clients"><i data-lucide="users" class="w-4 h-4"></i> Clients</button>
+            <button onclick="window.location.href='applications.html'" class="module-nav-btn active" id="btn-applications"><i data-lucide="file-text" class="w-4 h-4"></i> Applications</button>
+            <button onclick="window.location.href='kyc.html'" class="module-nav-btn" id="btn-kyc"><i data-lucide="shield-check" class="w-4 h-4"></i> KYC Review</button>
+            <button onclick="window.location.href='compliance.html'" class="module-nav-btn" id="btn-compliance"><i data-lucide="balance-scale" class="w-4 h-4"></i> Compliance</button>
+            <button onclick="window.location.href='blogs.html'" class="module-nav-btn" id="btn-blogs"><i data-lucide="layout" class="w-4 h-4"></i> Blogs</button>
+            <button onclick="window.location.href='content.html'" class="module-nav-btn" id="btn-content"><i data-lucide="book-open" class="w-4 h-4"></i> Content</button>
+            <button onclick="window.location.href='reports.html'" class="module-nav-btn" id="btn-reports"><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Reports</button>
+            <button onclick="window.location.href='messages.html'" class="module-nav-btn" id="btn-messages"><i data-lucide="message-square" class="w-4 h-4"></i> Messages</button>
+        </div>
+        <div class="flex items-center justify-end gap-3 relative">
+            <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
+                <div class="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-xs">A</div>
+                <div class="flex flex-col">
+                    <div class="text-xs font-semibold text-slate-800">Admin Team</div>
+                    <button onclick="localStorage.removeItem('admin_auth'); window.location.href='login.html'" class="text-[10px] text-red-500 font-bold hover:underline text-left leading-none">Sign Out</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-container">
+        <div class="space-y-6" id="applications-view">
+            <div class="flex justify-between items-end mb-6">
+                <div>
+                    <h2 class="text-3xl font-bold font-outfit text-slate-900">All Applications</h2>
+                    <p class="text-slate-500 text-sm">Manage and review all incoming service requests.</p>
+                </div>
+            </div>
+            
+            <div class="bg-white/60 backdrop-blur-md border border-white/80 p-4 rounded-2xl shadow-sm flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-500">
+                <div class="relative flex-1 min-w-[240px]">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" placeholder="Search by ID, business, client..." class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none">
+                </div>
+                <div class="flex items-center gap-2">
+                    <span>Date Range:</span>
+                    <select class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none">
+                        <option>Select</option>
+                        <option>Last 7 Days</option>
+                        <option>Last 30 Days</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span>Custom:</span>
+                    <div class="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+                        <i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400"></i>
+                        <input type="text" placeholder="dd-mm-yyyy" class="bg-transparent border-none outline-none w-20 text-center">
+                    </div>
+                    <span>to</span>
+                    <div class="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+                        <i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400"></i>
+                        <input type="text" placeholder="dd-mm-yyyy" class="bg-transparent border-none outline-none w-20 text-center">
+                    </div>
+                </div>
+                <select class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none"><option>All Status</option></select>
+                <select class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none"><option>All Priority</option></select>
+                <button class="flex items-center gap-2 px-4 py-2.5 text-slate-600 hover:text-slate-900 transition-colors">
+                    <i data-lucide="download" class="w-4 h-4"></i> Export
+                </button>
+            </div>
+
+            <div class="bg-white/60 backdrop-blur-md border border-white/80 rounded-2xl shadow-sm overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50/50 border-b border-slate-100">
+                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID</th>
+                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Business</th>
+                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Client</th>
+                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Staff</th>
+                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Priority</th>
+                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">KYC</th>
+                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Docs</th>
+                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="applications-table-body" class="divide-y divide-slate-100">
+                        <tr><td colspan="9" class="p-12 text-center text-slate-400">Loading applications...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        lucide.createIcons();
+        async function fetchApplications() {
+            try {
+                const res = await fetch('/api/applications');
+                const data = await res.json();
+                const tbody = document.getElementById('applications-table-body');
+                
+                tbody.innerHTML = data.map(app => {
+                    const docsPending = (app.docs && app.docs.pending) || 0;
+                    const docsOk = (app.docs && app.docs.ok) || 0;
+                    
+                    return `
+                    <tr class="hover:bg-white/40 transition-colors group">
+                        <td class="px-6 py-4 font-bold text-blue-600 text-xs">${app.id || 'N/A'}</td>
+                        <td class="px-6 py-4 font-bold text-slate-800 text-sm">${app.business || 'N/A'}</td>
+                        <td class="px-6 py-4 text-slate-600 text-sm">${app.client || 'N/A'}</td>
+                        <td class="px-6 py-4"><span class="text-emerald-600 font-bold text-xs hover:underline cursor-pointer">${app.staff || 'Unassigned'}</span></td>
+                        <td class="px-6 py-4">
+                            <select class="bg-white border border-slate-200 rounded-full px-3 py-1 text-[11px] font-bold text-slate-600 outline-none">
+                                <option ${app.status === 'pending' ? 'selected' : ''}>Pending</option>
+                                <option ${app.status === 'in progress' ? 'selected' : ''}>In Progress</option>
+                                <option ${app.status === 'completed' ? 'selected' : ''}>Completed</option>
+                            </select>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${app.priority === 'High' ? 'bg-red-50 text-red-500' : 'bg-slate-100 text-slate-500'}">${app.priority || 'Normal'}</span>
+                        </td>
+                        <td class="px-6 py-4 font-bold text-slate-800 text-[11px] uppercase">${app.kyc || 'N/A'}</td>
+                        <td class="px-6 py-4 text-xs">
+                            <span class="${docsPending > 0 ? 'text-amber-600' : 'text-emerald-600'} font-bold">
+                                ${docsPending > 0 ? docsPending + ' pending' : docsOk + ' ok'}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <button class="px-4 py-1.5 border border-blue-200 rounded-xl text-blue-600 text-[11px] font-bold hover:bg-blue-50 transition-all">Reassign</button>
+                        </td>
+                    </tr>
+                `}).join('');
+            } catch(e) { console.error(e); }
+        }
+        fetchApplications();
+    </script>
+</body>
+</html>

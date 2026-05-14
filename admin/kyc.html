@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KYC Review | Globalisor Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <script>
+        if (!localStorage.getItem('admin_auth')) window.location.href = '/admin/login.html';
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], outfit: ['Outfit', 'sans-serif'] },
+                    colors: { slate: { 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 800: '#1e293b', 900: '#0f172a' } }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Outfit', sans-serif; background: radial-gradient(circle at 50% 10%, rgba(253, 242, 248, 0.9) 0%, rgba(191, 219, 254, 0.7) 40%, rgba(125, 211, 252, 0.8) 100%); background-attachment: fixed; min-height: 100vh; overflow-x: hidden; }
+        .top-nav { height: 60px; background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.6); position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
+        .main-container { padding: 2rem; max-width: 1600px; margin-left: auto; margin-right: auto; }
+        .module-nav-btn { display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.75rem; border-radius: 8px; font-size: 0.8rem; font-weight: 500; color: #64748b; transition: all 0.2s; cursor: pointer !important; border: none; background: transparent; white-space: nowrap; }
+        .module-nav-btn:hover { color: #0f172a; background: rgba(255,255,255,0.6); }
+        .module-nav-btn.active { color: #0f172a; background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .admin-table { width: 100%; text-left: border-collapse; }
+        .admin-table th { padding: 1rem 1.5rem; font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #f1f5f9; background: rgba(248, 250, 252, 0.5); }
+        .admin-table td { padding: 1rem 1.5rem; font-size: 0.85rem; color: #1e293b; border-bottom: 1px solid #f1f5f9; }
+    </style>
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="flex items-center gap-4">
+            <div class="flex flex-col leading-none cursor-pointer" onclick="window.location.href='dashboard.html'">
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Admin</span>
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Dashboard</span>
+            </div>
+        </div>
+        <div class="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-white/80">
+            <button onclick="window.location.href='dashboard.html'" class="module-nav-btn"><i data-lucide="users" class="w-4 h-4"></i> Clients</button>
+            <button onclick="window.location.href='applications.html'" class="module-nav-btn"><i data-lucide="file-text" class="w-4 h-4"></i> Applications</button>
+            <button onclick="window.location.href='kyc.html'" class="module-nav-btn active"><i data-lucide="shield-check" class="w-4 h-4"></i> KYC Review</button>
+            <button onclick="window.location.href='compliance.html'" class="module-nav-btn"><i data-lucide="balance-scale" class="w-4 h-4"></i> Compliance</button>
+            <button onclick="window.location.href='blogs.html'" class="module-nav-btn"><i data-lucide="layout" class="w-4 h-4"></i> Blogs</button>
+            <button onclick="window.location.href='content.html'" class="module-nav-btn"><i data-lucide="book-open" class="w-4 h-4"></i> Content</button>
+            <button onclick="window.location.href='reports.html'" class="module-nav-btn" id="btn-reports"><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Reports</button>
+            <button onclick="window.location.href='messages.html'" class="module-nav-btn" id="btn-messages"><i data-lucide="message-square" class="w-4 h-4"></i> Messages</button>
+        </div>
+        <div class="flex items-center justify-end gap-3 relative">
+            <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
+                <div class="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-xs">A</div>
+                <div class="flex flex-col">
+                    <div class="text-xs font-semibold text-slate-800">Admin Team</div>
+                    <button onclick="localStorage.removeItem('admin_auth'); window.location.href='login.html'" class="text-[10px] text-red-500 font-bold hover:underline text-left leading-none">Sign Out</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-container">
+        <div class="space-y-6">
+            <h2 class="text-3xl font-bold font-outfit text-slate-900">KYC Review</h2>
+            <div class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-2xl overflow-hidden shadow-sm">
+                <table class="admin-table" id="kyc-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th><th>Client</th><th>Type</th><th>ID Number</th><th>Nation</th><th>Status</th><th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kyc-table-body">
+                        <tr><td colspan="7" class="p-12 text-center text-slate-400">Loading records...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        lucide.createIcons();
+        async function fetchKYC() {
+            try {
+                const res = await fetch('/api/kyc');
+                const data = await res.json();
+                const tbody = document.getElementById('kyc-table-body');
+                tbody.innerHTML = data.map(k => `
+                    <tr class="hover:bg-white/40 transition-colors">
+                        <td>${k.id}</td>
+                        <td class="font-bold">${k.clientName}</td>
+                        <td>${k.idType}</td>
+                        <td>${k.idNum}</td>
+                        <td>${k.nation}</td>
+                        <td><span class="px-2 py-1 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold uppercase">${k.status}</span></td>
+                        <td><button class="text-blue-600 font-bold text-xs hover:underline">Review</button></td>
+                    </tr>
+                `).join('') || '<tr><td colspan="7" class="p-8 text-center text-slate-400">No KYC records found</td></tr>';
+            } catch(e) { console.error(e); }
+        }
+        fetchKYC();
+    </script>
+</body>
+</html>
