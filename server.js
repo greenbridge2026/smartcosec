@@ -25,6 +25,9 @@ const getDb = () => {
     if (!db.compliance) db.compliance = [];
     if (!db.blogs) db.blogs = [];
     if (!db.notifications) db.notifications = [];
+    if (!db.staticContent) db.staticContent = [];
+    if (!db.documents) db.documents = [];
+    if (!db.messages) db.messages = [];
     return db;
 };
 const saveDb = (data) => fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
@@ -78,6 +81,9 @@ app.get('/api/dashboard', (req, res) => {
             serviceCount: clientServices.length,
             latestActivity: clientServices.length > 0 ? clientServices[0].date : 'N/A',
             latestStatus: clientServices.length > 0 ? clientServices[0].status : 'N/A',
+            companyName: clientServices.length > 0 ? clientServices[0].companyName : 'N/A',
+            priority: clientServices.length > 0 ? clientServices[0].priority : 'Normal',
+            deadline: clientServices.length > 0 ? clientServices[0].deadline : 'N/A',
             companyNames: clientServices.map(s => s.companyName).filter(Boolean)
         };
     }).sort((a, b) => b.createdAt - a.createdAt);
@@ -117,12 +123,23 @@ app.patch('/api/services/:id', (req, res) => {
     }
 });
 
-// GET /api/applications → get all services with client details
+// GET /api/applications → get all services with client details for detailed table
 app.get('/api/applications', (req, res) => {
     const db = getDb();
     const apps = db.services.map(s => {
         const client = db.clients.find(c => c.clientId === s.clientId);
-        return { ...s, clientName: client ? client.name : 'Unknown' };
+        return { 
+            id: s.serviceId.replace('SRV-', 'APP-'),
+            business: s.companyName || 'N/A',
+            client: client ? client.name : 'Unknown',
+            staff: s.assignedStaff || 'Sarah Lim',
+            status: s.status || 'pending',
+            priority: s.priority || 'Normal',
+            deadline: s.deadline || 'N/A',
+            kyc: s.kycStatus || 'Approved',
+            docs: s.docsStatus?.pending > 0 ? `${s.docsStatus.pending} Docs Pending` : 'All Docs OK',
+            date: s.date
+        };
     });
     res.json(apps);
 });
@@ -289,8 +306,117 @@ app.get('/api/catalog', (req, res) => {
     res.json(db.catalog || []);
 });
 
+// --- DOCUMENT ENDPOINTS ---
+app.get('/api/documents', (req, res) => {
+    const db = getDb();
+    const docs = (db.documents || []).map(d => {
+        const client = db.clients.find(c => c.clientId === d.clientId);
+        return {
+            ...d,
+            clientName: client ? client.name : 'Unknown',
+            client: `${client ? client.name : 'Unknown'} - ${d.clientId.replace('C-', 'APP-')}`,
+            company: client && db.services.find(s => s.clientId === client.clientId) 
+                ? db.services.find(s => s.clientId === client.clientId).companyName 
+                : 'Unknown'
+        };
+    });
+    res.json(docs);
+});
+
+// --- STATIC CONTENT ENDPOINTS ---
+app.get('/api/static-content', (req, res) => {
+    const db = getDb();
+    const { portal, category } = req.query;
+    let filtered = db.staticContent || [];
+    if (portal) filtered = filtered.filter(c => c.portal === portal);
+    if (category) filtered = filtered.filter(c => c.category === category);
+    res.json(filtered);
+});
+
+app.post('/api/static-content', (req, res) => {
+    const db = getDb();
+    const newItem = {
+        id: 'sc-' + Date.now(),
+        ...req.body,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+    };
+    db.staticContent.unshift(newItem);
+    saveDb(db);
+    res.status(201).json(newItem);
+});
+
+app.patch('/api/static-content/:id', (req, res) => {
+    const db = getDb();
+    const index = db.staticContent.findIndex(c => c.id === req.params.id);
+    if (index !== -1) {
+        db.staticContent[index] = { 
+            ...db.staticContent[index], 
+            ...req.body, 
+            updatedAt: Date.now() 
+        };
+        saveDb(db);
+        res.json(db.staticContent[index]);
+    } else {
+        res.status(404).json({ error: 'Content not found' });
+    }
+});
+
+app.delete('/api/static-content/:id', (req, res) => {
+    const db = getDb();
+    db.staticContent = db.staticContent.filter(c => c.id !== req.params.id);
+    saveDb(db);
+    res.status(204).send();
+});
+
 app.listen(port, () => {
     console.log(`Backend API running on http://localhost:${port}`);
+});
+
+// --- MESSAGING ENDPOINTS ---
+app.get('/api/messages', (req, res) => {
+    const db = getDb();
+    const { clientId } = req.query;
+    let filtered = db.messages || [];
+    if (clientId) {
+        filtered = filtered.filter(m => m.clientId === clientId);
+    }
+    res.json(filtered);
+});
+
+app.post('/api/messages', (req, res) => {
+    const db = getDb();
+    const newMessage = {
+        id: 'msg-' + Date.now(),
+        ...req.body,
+        timestamp: Date.now()
+    };
+    if (!db.messages) db.messages = [];
+    db.messages.push(newMessage);
+    saveDb(db);
+    res.status(201).json(newMessage);
+});
+
+// GET /api/messages/conversations - For Admin/Staff to see list of chats
+app.get('/api/messages/conversations', (req, res) => {
+    const db = getDb();
+    const messages = db.messages || [];
+    const conversations = {};
+    
+    messages.forEach(m => {
+        if (!conversations[m.clientId] || m.timestamp > conversations[m.clientId].lastMessageTime) {
+            const client = db.clients.find(c => c.clientId === m.clientId);
+            conversations[m.clientId] = {
+                clientId: m.clientId,
+                clientName: client ? client.name : 'Unknown',
+                lastMessage: m.text,
+                lastMessageTime: m.timestamp,
+                unreadCount: 0 // Mock for now
+            };
+        }
+    });
+    
+    res.json(Object.values(conversations).sort((a, b) => b.lastMessageTime - a.lastMessageTime));
 });
 
 app.get(/^\/admin(\/.*)?$/, (req, res) => {

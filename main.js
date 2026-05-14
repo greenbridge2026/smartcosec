@@ -683,8 +683,13 @@ function init() {
                 return;
             }
 
-            if (status === 'existing' || status === 'client') {
-                window.location.href = '/requirements';
+            if (status === 'existing') {
+                window.location.href = '/onboarding.html?flow=existing-co';
+                return;
+            }
+
+            if (status === 'client') {
+                window.location.href = '/onboarding.html?flow=client';
                 return;
             }
 
