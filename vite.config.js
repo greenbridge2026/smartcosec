@@ -33,12 +33,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api/auth': 'http://localhost:8080',
-      '/api/requirements': 'http://localhost:8080',
-      '/api/dashboard': 'http://localhost:8080',
-      '/api/clients': 'http://localhost:8080',
-      '/api/services': 'http://localhost:8080',
-      '/api': 'http://localhost:3000',
+      '/api': 'http://localhost:8080',
     },
   },
 });
