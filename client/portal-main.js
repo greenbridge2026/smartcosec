@@ -1057,7 +1057,7 @@ function startMessagePolling() {
 
 async function fetchMessages() {
     try {
-        const res = await fetch(`http://localhost:3000/api/messages?clientId=${state.user.id}`);
+        const res = await fetch(`/api/messages?clientId=${state.user.id}`);
         const messages = await res.json();
         renderChatMessages(messages);
     } catch (e) {
@@ -1067,7 +1067,7 @@ async function fetchMessages() {
 
 async function sendMessage(text) {
     try {
-        const res = await fetch('http://localhost:3000/api/messages', {
+        const res = await fetch('/api/messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
