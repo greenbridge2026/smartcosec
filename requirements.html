@@ -265,6 +265,12 @@
 
         <!-- RIGHT: WIZARD -->
         <div class="right-panel">
+            <div style="position: absolute; top: 0.5rem; right: 2rem; z-index: 100;">
+                <button onclick="localStorage.removeItem('token'); localStorage.removeItem('client_auth'); localStorage.removeItem('globalisor_master_v3'); window.location.href = '/';" style="font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569; background: rgba(255, 255, 255, 0.7); border: 1px solid rgba(226, 232, 240, 0.8); padding: 0.55rem 1.2rem; border-radius: 0.75rem; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; align-items: center; gap: 0.5rem;" onmouseover="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.color='#ef4444'; this.style.borderColor='rgba(239, 68, 68, 0.2)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.7)'; this.style.color='#475569'; this.style.borderColor='rgba(226, 232, 240, 0.8)';">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    Sign Out
+                </button>
+            </div>
             <div id="empty-state" class="empty-state">
                 <style>
                 @keyframes walkUp {
@@ -394,13 +400,16 @@
                     });
                     if (res.ok) {
                         const response = await res.json();
+                        lastKnownStatus = response.status;
                         if (response.data && Object.keys(response.data).length > 0) {
                             this.data = { ...this.data, ...response.data };
                             this.save();
                         }
                         
-                        if ((response.status && response.status !== 'pending' && response.status !== 'none') || (this.data.completedSteps && this.data.completedSteps.length === 6)) {
-                            this.showStatusPage(response.status || 'under review', response.data);
+                        if (response.status && response.status !== 'pending' && response.status !== 'none') {
+                            this.showStatusPage(response.status, response.data);
+                        } else if (this.data.completedSteps && this.data.completedSteps.length === 6) {
+                            this.renderFinal();
                         } else {
                             this.updateInfographic();
                             if (this.currentStep) this.render();
@@ -516,7 +525,7 @@
                 if (this.currentStep < 6) {
                     this.open(this.currentStep + 1);
                 } else if (this.data.completedSteps.length === 6) {
-                    this.showStatusPage('under review', this.data);
+                    this.renderFinal();
                 }
             }
 
@@ -550,7 +559,7 @@
                 document.getElementById('progress-bar').style.width = `${(this.currentStep / 6) * 100}%`;
                 document.getElementById('wizard-body').innerHTML = this.getStepHTML();
                 
-                const isSubmitted = (lastKnownStatus && lastKnownStatus !== 'pending' && lastKnownStatus !== 'none') || (this.data.completedSteps && this.data.completedSteps.length === 6);
+                const isSubmitted = (lastKnownStatus && lastKnownStatus !== 'pending' && lastKnownStatus !== 'none');
                 const nextBtn = document.getElementById('next-btn');
                 const backStatusBtn = document.getElementById('back-to-status');
                 
@@ -705,10 +714,20 @@
             }
 
             renderFinal() {
+                this.currentStep = 7;
+                document.getElementById('empty-state').style.display = 'none';
+                document.getElementById('status-state').style.display = 'none';
+                document.getElementById('wizard-container').classList.add('active');
+                
+                document.querySelectorAll('.segment').forEach(s => s.classList.remove('active'));
+                
+                document.getElementById('step-title').innerText = 'Verification Ready';
+                document.getElementById('progress-bar').style.width = '100%';
+
                 document.getElementById('wizard-body').innerHTML = `
                     <div style="text-align: center; padding: 3rem 1rem;">
                         <div style="font-size: 4rem; margin-bottom: 1.5rem;">🚀</div>
-                        <h2 style="font-size: 2rem; font-weight: 800;">Verification Ready</h2>
+                        <h2 style="font-size: 2rem; font-weight: 800; color: var(--text-main);">Verification Ready</h2>
                         <p style="color: var(--text-muted); margin-bottom: 2rem;">All 6 sections are completed. Submit now for review.</p>
                         <button class="btn btn-primary" style="padding: 1rem 3rem;" onclick="wizard.submitVerification()">Submit for Verification</button>
                     </div>`;
@@ -728,6 +747,7 @@
                     if (res.ok) {
                         const response = await res.json();
                         showToast("Submission successful!");
+                        lastKnownStatus = response.status;
                         this.showStatusPage(response.status, response.data);
                     } else {
                         showToast("Error submitting request.", "error");
@@ -765,17 +785,17 @@
                 });
                 if (res.ok) {
                     const response = await res.json();
-                    const allStepsDone = response.data && response.data.completedSteps && response.data.completedSteps.length === 6;
-                    const currentStatus = response.status === 'pending' && allStepsDone ? 'under review' : response.status;
+                    const currentStatus = response.status;
 
                     if (lastKnownStatus && lastKnownStatus !== currentStatus) {
                         showToast(`Status updated to: ${currentStatus.toUpperCase()}`, 'info');
+                        if (currentStatus && currentStatus !== 'pending' && currentStatus !== 'none') {
+                            wizard.showStatusPage(currentStatus, response.data);
+                        } else {
+                            wizard.init();
+                        }
                     }
                     lastKnownStatus = currentStatus;
-
-                    if ((response.status && response.status !== 'pending' && response.status !== 'none') || allStepsDone) {
-                        wizard.showStatusPage(currentStatus, response.data);
-                    }
                 }
             } catch(e) { console.error('Status fetch error'); }
         }

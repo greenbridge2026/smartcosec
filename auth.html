@@ -182,7 +182,7 @@
                 <input type="text" id="signup-fullname" placeholder="Full Name" class="input-field" required />
                 <input type="email" id="signup-email" placeholder="Email" class="input-field" required />
                 <input type="password" id="signup-password" placeholder="Password" class="input-field" required />
-                <button type="button" id="btn-signup" class="mt-6 bg-dark hover:bg-slate-800 text-white font-medium py-3.5 px-12 rounded-xl transition-all shadow-lg shadow-dark/20 active:scale-[0.98]">Sign Up</button>
+                <button type="submit" id="btn-signup" class="mt-6 bg-dark hover:bg-slate-800 text-white font-medium py-3.5 px-12 rounded-xl transition-all shadow-lg shadow-dark/20 active:scale-[0.98]">Sign Up</button>
             </form>
         </div>
 
@@ -195,7 +195,7 @@
                 <input type="email" id="signin-email" placeholder="Email Address" class="input-field" required />
                 <input type="password" id="signin-password" placeholder="Password" class="input-field" required />
                 <a href="#" class="text-xs text-slate-400 mt-2 hover:text-primary transition-colors self-end">Forgot your password?</a>
-                <button type="button" id="btn-signin" class="mt-6 bg-dark hover:bg-slate-800 text-white font-medium py-3.5 px-12 rounded-xl transition-all shadow-lg shadow-dark/20 active:scale-[0.98]">Sign In</button>
+                <button type="submit" id="btn-signin" class="mt-6 bg-dark hover:bg-slate-800 text-white font-medium py-3.5 px-12 rounded-xl transition-all shadow-lg shadow-dark/20 active:scale-[0.98]">Sign In</button>
             </form>
         </div>
 
@@ -236,10 +236,6 @@
             }, 3000);
         }
 
-        // Check if already logged in
-        if (localStorage.getItem('token')) {
-            window.location.href = '/requirements';
-        }
 
         const card = document.getElementById('auth-card');
         const showSignUp = document.getElementById('show-sign-up');
@@ -275,7 +271,8 @@
         }
 
         // Sign Up API Logic
-        document.getElementById('btn-signup').addEventListener('click', async () => {
+        document.getElementById('signup-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
             const fullName = document.getElementById('signup-fullname').value.trim();
             const email = document.getElementById('signup-email').value.trim();
             const password = document.getElementById('signup-password').value;
@@ -320,7 +317,8 @@
         });
 
         // Sign In API Logic
-        document.getElementById('btn-signin').addEventListener('click', async () => {
+        document.getElementById('signin-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
             const email = document.getElementById('signin-email').value.trim();
             const password = document.getElementById('signin-password').value;
 
@@ -357,6 +355,7 @@
 
                 if (response.ok) {
                     const data = await response.json();
+                    localStorage.removeItem('globalisor_master_v3');
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('client_auth', JSON.stringify({ role: 'client', email: email, name: data.firstName + ' ' + data.lastName, id: data.id }));
                     window.location.href = '/requirements';

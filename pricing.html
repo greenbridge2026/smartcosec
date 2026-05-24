@@ -353,6 +353,68 @@
         .card-orange { --card-color: #f59e0b; --shadow-color: rgba(245, 158, 11, 0.3); }
         .card-gold { --card-color: #fbbf24; --shadow-color: rgba(251, 191, 36, 0.3); }
 
+        /* Custom Select Styles */
+        .service-dropdown-container {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .service-dropdown-label {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: #1e293b;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .service-select-wrapper {
+            position: relative;
+            min-width: 320px;
+        }
+
+        .service-select-element {
+            width: 100%;
+            padding: 12px 48px 12px 20px;
+            font-size: 1rem;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            color: #1e293b;
+            background-color: #ffffff;
+            border: 2px solid #000000;
+            border-radius: 12px;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .service-select-element:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .service-select-arrow {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Highlight transition for pillar cards */
+        .pillar-card {
+            transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1), 
+                        opacity 0.5s cubic-bezier(0.23, 1, 0.32, 1),
+                        box-shadow 0.5s cubic-bezier(0.23, 1, 0.32, 1),
+                        filter 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
         /* Responsiveness */
         @media (max-width: 1200px) {
             .pillars-grid {
@@ -384,13 +446,16 @@
 
     <!-- Top Navigation -->
     <nav class="top-nav">
-        <div class="flex items-center gap-6">
-            <img src="/logo.png" alt="Logo" class="h-10">
+        <div class="logo">
+            <a href="/" style="text-decoration: none; display: flex; align-items: center;">
+                <img src="/logo.png" alt="Globalisor Logo" style="height: 48px; width: auto;">
+            </a>
         </div>
-
-        <div class="flex items-center gap-6">
-            <i data-lucide="search" class="w-5 h-5 text-slate-400 cursor-pointer hover:text-blue-500 transition-colors"></i>
-            <i data-lucide="bell" class="w-5 h-5 text-slate-400 cursor-pointer hover:text-blue-500 transition-colors"></i>
+        <div class="flex items-center gap-10">
+            <a href="/#services" class="font-outfit text-[0.95rem] font-medium text-slate-500 hover:text-blue-500 transition-all duration-300 no-underline">Services</a>
+            <a href="/pricing.html" class="font-outfit text-[0.95rem] font-semibold text-blue-500 transition-all duration-300 no-underline">Pricing</a>
+            <a href="/#blog" class="font-outfit text-[0.95rem] font-medium text-slate-500 hover:text-blue-500 transition-all duration-300 no-underline">Blog</a>
+            <a href="/auth.html" class="font-outfit text-[0.95rem] font-medium text-slate-500 hover:text-blue-500 transition-all duration-300 no-underline">Sign In</a>
         </div>
     </nav>
 
@@ -398,13 +463,32 @@
 
     <!-- Main Content -->
     <div class="pricing-content">
-        <header class="mb-0">
-            <h1 class="section-title">Pricing Service Dashboard</h1>
+        <header class="mb-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-200/60">
+            <h1 class="section-title mb-0">Pricing Service Dashboard</h1>
+            
+            <div class="service-dropdown-container">
+                <span class="service-dropdown-label">Select required service:</span>
+                <div class="service-select-wrapper">
+                    <select id="service-select" class="service-select-element">
+                        <option value="locals">Incorporation for locals</option>
+                        <option value="foreigners">Incorporation for foreigners</option>
+                        <option value="accounting">Accounting & Bookkeeping</option>
+                        <option value="payroll">Payroll Services</option>
+                        <option value="secretary">Corporate Secretary</option>
+                        <option value="visas">Visas</option>
+                        <option value="address">Registered Address & Digital Mailroom</option>
+                        <option value="director">Nominee Director</option>
+                    </select>
+                    <div class="service-select-arrow">
+                        <i data-lucide="chevron-down" class="w-5 h-5"></i>
+                    </div>
+                </div>
+            </div>
         </header>
 
         <main class="pillars-grid">
             <!-- 1. Incorporation -->
-            <div class="pillar-card card-cyan">
+            <div class="pillar-card card-cyan" data-service="locals foreigners">
                 <div class="glass-body">
                     <h3 class="card-title">Singapore Company Incorporation</h3>
                     <div class="card-price-tag">SGD 1,315</div>
@@ -425,7 +509,7 @@
             </div>
 
             <!-- 2. Secretarial -->
-            <div class="pillar-card card-emerald">
+            <div class="pillar-card card-emerald" data-service="secretary">
                 <div class="glass-body">
                     <h3 class="card-title">Corporate Secretarial Services</h3>
                     <div class="card-price-tag">SGD 900</div>
@@ -446,7 +530,7 @@
             </div>
 
             <!-- 3. Director -->
-            <div class="pillar-card card-purple">
+            <div class="pillar-card card-purple" data-service="director foreigners">
                 <div class="glass-body">
                     <div class="badge">Deposit Applicable</div>
                     <h3 class="card-title">Professional Resident Director</h3>
@@ -468,7 +552,7 @@
             </div>
 
             <!-- 4. Address -->
-            <div class="pillar-card card-orange">
+            <div class="pillar-card card-orange" data-service="address foreigners">
                 <div class="glass-body">
                     <h3 class="card-title">Registered Office Address</h3>
                     <div class="card-price-tag">SGD 600</div>
@@ -494,7 +578,7 @@
             </div>
 
             <!-- 5. Tax & EP -->
-            <div class="pillar-card card-gold">
+            <div class="pillar-card card-gold" data-service="accounting payroll visas">
                 <div class="glass-body">
                     <h3 class="card-title">Tax & Employment Services</h3>
                     <div class="card-price-tag"><span class="text-lg">from</span> SGD 1,000</div>
@@ -601,6 +685,68 @@
 
     <script>
         lucide.createIcons();
+
+        // Interactive Pricing Highlight Logic
+        const serviceSelect = document.getElementById('service-select');
+        const cards = document.querySelectorAll('.pillar-card');
+
+        function updateHighlightedCards() {
+            if (!serviceSelect) return;
+            const selectedValue = serviceSelect.value;
+            
+            cards.forEach(card => {
+                const servicesAttr = card.getAttribute('data-service');
+                if (!servicesAttr) return;
+                const services = servicesAttr.split(' ');
+                
+                if (services.includes(selectedValue)) {
+                    // Highlight selected cards
+                    card.style.transform = 'translateY(-20px) scale(1.04)';
+                    card.style.zIndex = '10';
+                    card.style.filter = 'none';
+                    card.style.opacity = '1';
+                    
+                    const cardColor = getComputedStyle(card).getPropertyValue('--card-color').trim() || '#3b82f6';
+                    card.style.boxShadow = `0 20px 40px ${cardColor}4d, 0 0 20px ${cardColor}22`;
+                    
+                    const pedestalInner = card.querySelector('.pedestal-inner');
+                    if (pedestalInner) {
+                        pedestalInner.style.opacity = '1';
+                        pedestalInner.style.boxShadow = `0 0 25px ${cardColor}`;
+                    }
+                } else {
+                    // Dim non-selected cards
+                    card.style.transform = 'translateY(0) scale(0.96)';
+                    card.style.zIndex = '1';
+                    card.style.filter = 'grayscale(15%) opacity(0.55)';
+                    card.style.boxShadow = 'none';
+                    
+                    const pedestalInner = card.querySelector('.pedestal-inner');
+                    if (pedestalInner) {
+                        pedestalInner.style.opacity = '0.3';
+                        pedestalInner.style.boxShadow = 'none';
+                    }
+                }
+            });
+        }
+
+        if (serviceSelect) {
+            serviceSelect.addEventListener('change', updateHighlightedCards);
+            // Initialize highlights
+            updateHighlightedCards();
+        }
+
+        // Add redirection logic for CTA buttons based on auth status
+        document.querySelectorAll('.cta-button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const token = localStorage.getItem('token');
+                if (token) {
+                    window.location.href = '/requirements.html';
+                } else {
+                    window.location.href = '/auth.html';
+                }
+            });
+        });
 
         // GSAP Animations
         gsap.registerPlugin(ScrollTrigger);
