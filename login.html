@@ -216,7 +216,17 @@
                         onComplete: () => {
                             localStorage.removeItem('globalisor_master_v3');
                             localStorage.setItem('token', data.token);
-                            window.location.href = '/requirements';
+                            const name = (data.firstName && data.lastName) ? (data.firstName + ' ' + data.lastName) : 'User';
+                            if (data.role && data.role.toUpperCase() === 'STAFF') {
+                                localStorage.setItem('staff_auth', JSON.stringify({ role: 'staff', email: email, name: name, id: data.id, token: data.token }));
+                                window.location.href = '/staff/dashboard.html';
+                            } else if (data.role && data.role.toUpperCase() === 'ADMIN') {
+                                localStorage.setItem('admin_auth', JSON.stringify({ role: 'admin', email: email, name: name, id: data.id, token: data.token }));
+                                window.location.href = '/admin/dashboard.html';
+                            } else {
+                                localStorage.setItem('client_auth', JSON.stringify({ role: 'client', email: email, name: name, id: data.id }));
+                                window.location.href = '/dashboard.html';
+                            }
                         }
                     });
                 } else {

@@ -678,68 +678,6 @@ function renderRequests(container) {
     if (window.lucide) window.lucide.createIcons();
 }
 
-function renderMessages(container) {
-    container.innerHTML = `
-        <div class="premium-card h-[700px] flex flex-col p-0 overflow-hidden border-slate-100 bg-white">
-            <div class="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
-                <div class="flex items-center gap-4">
-                    <div class="w-14 h-14 rounded-2xl bg-slate-900 flex items-center justify-center text-white text-lg font-extrabold shadow-lg shadow-slate-200">G</div>
-                    <div>
-                        <h3 class="text-xl font-extrabold text-slate-900 tracking-tight">Globalisor Ops Desk</h3>
-                        <div class="flex items-center gap-2 mt-1">
-                            <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                            <p class="text-[10px] text-emerald-600 font-bold uppercase tracking-widest">Active Monitoring</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex gap-3">
-                    <button class="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-slate-900 transition-all"><i data-lucide="phone" class="w-5 h-5"></i></button>
-                    <button class="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-slate-900 transition-all"><i data-lucide="more-horizontal" class="w-5 h-5"></i></button>
-                </div>
-            </div>
-            
-            <div class="flex-1 p-10 overflow-y-auto space-y-8 bg-slate-50/20" id="chat-stream">
-                <!-- System Time -->
-                <div class="flex justify-center"><span class="px-4 py-1.5 bg-white rounded-full text-[9px] font-bold text-slate-400 uppercase tracking-widest border border-slate-100">Strategic Update • Today</span></div>
-
-                <div class="flex gap-5">
-                    <div class="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white text-[10px] font-bold shrink-0 shadow-sm">G</div>
-                    <div class="space-y-3 max-w-[75%]">
-                        <div class="bg-white p-6 rounded-3xl rounded-tl-none border border-slate-100 text-sm text-slate-700 shadow-sm leading-relaxed">
-                            Good morning, Director. We've successfully completed the regulatory review for **${state.services[0].company}**. 
-                        </div>
-                        <div class="bg-white p-6 rounded-3xl rounded-tl-none border border-slate-100 text-sm text-slate-700 shadow-sm leading-relaxed">
-                            To finalize the corporate constitution, we require your residential proof to be uploaded to the **Compliance Vault**.
-                        </div>
-                        <span class="text-[9px] font-bold text-slate-400 ml-2 uppercase tracking-widest">10:45 AM</span>
-                    </div>
-                </div>
-
-                <div class="flex gap-5 flex-row-reverse">
-                    <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0 shadow-lg shadow-blue-500/20">AS</div>
-                    <div class="space-y-3 max-w-[75%]">
-                        <div class="bg-blue-600 p-6 rounded-3xl rounded-tr-none text-sm text-white shadow-xl shadow-blue-500/20 leading-relaxed">
-                            Acknowledged. I will provide the documents within the hour. Is there anything else required for the GST registration phase?
-                        </div>
-                        <span class="text-[9px] font-bold text-slate-400 mr-2 text-right block uppercase tracking-widest">11:02 AM</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="p-8 bg-white border-t border-slate-100 flex gap-5">
-                <div class="flex-1 relative">
-                    <input type="text" placeholder="Direct query to Globalisor Experts..." class="w-full bg-slate-50 border-none rounded-2xl px-8 py-5 text-sm focus:outline-none focus:ring-4 focus:ring-blue-500/5 transition-all outline-none">
-                    <div class="absolute right-6 top-1/2 -translate-y-1/2 flex gap-3 text-slate-300">
-                        <button class="hover:text-blue-600 transition-colors"><i data-lucide="paperclip" class="w-5 h-5"></i></button>
-                        <button class="hover:text-blue-600 transition-colors"><i data-lucide="smile" class="w-5 h-5"></i></button>
-                    </div>
-                </div>
-                <button class="w-16 h-16 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-xl shadow-blue-500/30 hover:scale-105 transition-all active:scale-95"><i data-lucide="send" class="w-6 h-6"></i></button>
-            </div>
-        </div>
-    `;
-    if (window.lucide) window.lucide.createIcons();
-}
 
 function renderProfile(container) {
     container.innerHTML = `

@@ -12,13 +12,13 @@
     <script>
         // Authentication Check
         if (!localStorage.getItem('admin_auth')) {
-            window.location.href = '/admin/login';
+            window.location.href = '/admin';
         } else {
             try {
                 const auth = JSON.parse(localStorage.getItem('admin_auth'));
-                if (auth.role !== 'admin') window.location.href = '/admin/login.html';
+                if (auth.role !== 'admin') window.location.href = '/admin';
             } catch(e) {
-                window.location.href = '/admin/login.html';
+                window.location.href = '/admin';
             }
         }
 
@@ -134,9 +134,10 @@
             <button onclick="window.location.href='kyc.html'" class="module-nav-btn" id="btn-kyc"><i data-lucide="shield-check" class="w-4 h-4"></i> KYC Review</button>
             <button onclick="window.location.href='compliance.html'" class="module-nav-btn" id="btn-compliance"><i data-lucide="balance-scale" class="w-4 h-4"></i> Compliance</button>
             <button onclick="window.location.href='blogs.html'" class="module-nav-btn" id="btn-blogs"><i data-lucide="layout" class="w-4 h-4"></i> Blogs</button>
-            <button onclick="window.location.href='content.html'" class="module-nav-btn" id="btn-content"><i data-lucide="book-open" class="w-4 h-4"></i> Content</button>
+
             <button onclick="window.location.href='reports.html'" class="module-nav-btn" id="btn-reports"><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Reports</button>
             <button onclick="window.location.href='messages.html'" class="module-nav-btn" id="btn-messages"><i data-lucide="message-square" class="w-4 h-4"></i> Messages</button>
+            <button onclick="window.location.href='users.html'" class="module-nav-btn" id="btn-users"><i data-lucide="user-plus" class="w-4 h-4"></i> Users</button>
         </div>
 
         <div class="flex items-center justify-end gap-3 relative">
@@ -244,7 +245,7 @@
     </div>
 
     <!-- Action Modal -->
-    <div class="fixed inset-0 z-[3000] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300" id="action-modal">
+    <div class="hidden fixed inset-0 z-[3000] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300" id="action-modal">
         <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto" onclick="closeModal()"></div>
         <div class="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl relative z-10 pointer-events-auto transform scale-90 transition-transform">
             <h3 class="text-xl font-bold mb-2" id="modal-title">Confirm Action</h3>
@@ -259,7 +260,7 @@
     <script>
         function logout() {
             localStorage.removeItem('admin_auth');
-            window.location.href = '/admin/login.html';
+            window.location.href = '/admin';
         }
 
         let clientsData = [];
@@ -270,6 +271,8 @@
         let currentServiceId = null;
         let notifications = [];
         let pendingAction = null;
+        let activeClickOutsideHandler = null;
+        let activeEditorAppId = null;
 
         // Initialization
         async function init() {
@@ -345,6 +348,7 @@
             else if (path.includes('blogs')) module = 'blogs';
             else if (path.includes('content')) module = 'content';
             else if (path.includes('reports')) module = 'reports';
+            else if (path.includes('users')) module = 'users';
             
             switchModule(module);
         }
@@ -360,6 +364,7 @@
             else if (path.includes('/admin/blogs')) module = 'blogs';
             else if (path.includes('/admin/content')) module = 'content';
             else if (path.includes('/admin/reports')) module = 'reports';
+            else if (path.includes('/admin/users')) module = 'users';
             
             switchModule(module);
         }
@@ -429,6 +434,8 @@
                 await renderStaticContent();
             } else if (currentModule === 'reports') {
                 await renderReports();
+            } else if (currentModule === 'users') {
+                await renderUsers();
             }
             lucide.createIcons();
         }
@@ -477,12 +484,18 @@
                 const matchesFilter = currentFilter === 'all' || 
                                      (currentFilter === 'review' && (c.latestStatus === 'review' || c.latestStatus === 'under review')) ||
                                      c.latestStatus === currentFilter;
-                const matchesSearch = c.name.toLowerCase().includes(search) || c.email.toLowerCase().includes(search);
+                const matchesSearch = c.name.toLowerCase().includes(search) || 
+                                     c.email.toLowerCase().includes(search) ||
+                                     (c.companyNames && c.companyNames.some(name => name.toLowerCase().includes(search)));
                 return matchesFilter && matchesSearch;
             });
 
             grid.innerHTML = filtered.map(c => {
                 const props = getStatusProps(c.latestStatus);
+                const companyList = c.companyNames && c.companyNames.length > 0 
+                    ? `<div class="text-xs font-bold text-blue-600 bg-blue-50/50 px-2 py-1 rounded border border-blue-100/50 inline-block mb-3">${c.companyNames.join(', ')}</div>` 
+                    : `<div class="text-xs font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded border border-slate-100 inline-block mb-3">No associated business</div>`;
+
                 return `
                     <div class="client-card" onclick="openClientProfile('${c.clientId}')">
                         <div class="flex justify-between items-start mb-4">
@@ -490,7 +503,8 @@
                             <span class="text-[10px] font-bold text-slate-400 uppercase">ID: ${c.clientId}</span>
                         </div>
                         <h3 class="text-lg font-bold text-slate-900 mb-1">${c.name}</h3>
-                        <p class="text-xs text-slate-500 mb-4">${c.email}</p>
+                        <p class="text-xs text-slate-500 mb-2">${c.email}</p>
+                        ${companyList}
                         <div class="grid grid-cols-2 gap-3 pt-4 border-t border-slate-100">
                             <div>
                                 <div class="text-[9px] uppercase font-bold text-slate-400">Services</div>
@@ -505,7 +519,7 @@
                 `;
             }).join('');
             if (filtered.length === 0) grid.innerHTML = '<div class="col-span-full p-12 text-center text-slate-400">No clients found</div>';
-            lucide.createIcons();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
         async function openClientProfile(id) {
@@ -525,11 +539,10 @@
         }
 
         function renderClientPanel(client, services) {
-            document.getElementById('detail-company').innerText = "Client Profile";
-            document.getElementById('detail-client').innerText = client.name;
-            document.getElementById('detail-email').innerText = client.email;
-            document.getElementById('detail-date').innerText = "Joined: " + new Date(client.createdAt).toLocaleDateString();
-            document.getElementById('detail-status').style.display = 'none';
+            const detailCompany = document.getElementById('detail-company');
+            const detailDate = document.getElementById('detail-date');
+            if (detailCompany) detailCompany.innerText = "Client Profile";
+            if (detailDate) detailDate.innerText = "Client Details";
 
             let html = `
                 <div class="detail-section">
@@ -549,8 +562,9 @@
                             return `
                                 <div class="p-4 bg-white/60 border border-white/80 rounded-xl flex justify-between items-center">
                                     <div>
-                                        <div class="font-bold text-slate-800 text-sm">${s.serviceType}</div>
-                                        <div class="text-[10px] text-slate-500">${s.date}</div>
+                                        <div class="font-bold text-slate-800 text-sm">${s.companyName || s.serviceType}</div>
+                                        <div class="text-[10px] text-slate-400 font-semibold">${s.serviceType}</div>
+                                        <div class="text-[9px] text-slate-400 mt-0.5">${new Date(s.date).toLocaleDateString()}</div>
                                     </div>
                                     <div class="flex items-center gap-2">
                                         <span class="status-badge ${p.class} scale-75">${p.text}</span>
@@ -560,21 +574,20 @@
                             `;
                         }).join('')}
                     </div>
-                document.getElementById('panel-overlay').classList.add('open');
-                document.getElementById('detail-panel').classList.add('open');
-                lucide.createIcons();
-            } catch(e) { console.error(e); }
-=======
                 </div>
             `;
 
             document.getElementById('detail-body').innerHTML = html;
-            document.querySelector('.panel-footer').style.display = 'none'; // Hide admin actions for profile view
-            safeCreateIcons();
+            const footer = document.querySelector('.panel-footer');
+            if (footer) footer.style.display = 'none'; // Hide admin actions for profile view
+            if (window.lucide) {
+                window.lucide.createIcons();
+            } else if (typeof safeCreateIcons === 'function') {
+                safeCreateIcons();
+            }
 
             document.getElementById('panel-overlay').classList.add('open');
             document.getElementById('detail-panel').classList.add('open');
->>>>>>> 0db2f1ea0cff7074792db540013f38b616d7ddde
         }
 
         async function openServiceDetail(serviceId, clientId) {
@@ -627,13 +640,20 @@
             pendingAction = action;
             document.getElementById('modal-title').innerText = action === 'approved' ? 'Approve Service' : 'Reject Service';
             document.getElementById('modal-confirm-btn').className = action === 'approved' ? 'btn btn-primary' : 'btn btn-outline text-red-600';
-            document.getElementById('action-modal').classList.add('opacity-100', 'pointer-events-auto');
-            document.getElementById('action-modal').querySelector('.transform').classList.remove('scale-90');
+            const modal = document.getElementById('action-modal');
+            modal.classList.remove('hidden');
+            modal.offsetHeight; // force reflow
+            modal.classList.add('opacity-100', 'pointer-events-auto');
+            modal.querySelector('.transform').classList.remove('scale-90');
         }
 
         function closeModal() {
-            document.getElementById('action-modal').classList.remove('opacity-100', 'pointer-events-auto');
-            document.getElementById('action-modal').querySelector('.transform').classList.add('scale-90');
+            const modal = document.getElementById('action-modal');
+            modal.classList.remove('opacity-100', 'pointer-events-auto');
+            modal.querySelector('.transform').classList.add('scale-90');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
         }
 
         async function confirmAction() {
@@ -655,7 +675,6 @@
                     openServiceDetail(currentServiceId, currentClientId);
                     fetchDashboard();
                 }
-                }
             } catch(e) { console.error(e); }
         }
 
@@ -665,38 +684,6 @@
             setInterval(() => { if (!currentClientId) fetchDashboard(); }, 15000); // 15s polling
         }
 
-        // --- Module: Applications ---
-        async function renderApplications() {
-            const container = document.getElementById('module-content');
-            container.innerHTML = `<div class="glass-card overflow-hidden bg-white/40 backdrop-blur-xl border border-white/60 rounded-2xl"><table class="admin-table" id="apps-table">
-                <thead><tr><th class="p-4 text-left text-xs font-bold text-slate-400 uppercase">Client</th><th class="p-4 text-left text-xs font-bold text-slate-400 uppercase">Company</th><th class="p-4 text-left text-xs font-bold text-slate-400 uppercase">Service</th><th class="p-4 text-left text-xs font-bold text-slate-400 uppercase">Status</th><th class="p-4 text-left text-xs font-bold text-slate-400 uppercase">Date</th><th class="p-4 text-left text-xs font-bold text-slate-400 uppercase">Action</th></tr></thead>
-                <tbody id="apps-body"></tbody></table></div>`;
-            
-            try {
-                const res = await fetch('/api/applications');
-                const apps = await res.json();
-                const search = document.getElementById('search-input').value.toLowerCase();
-                
-                const filtered = apps.filter(app => {
-                    const matchesFilter = currentFilter === 'all' || app.status === currentFilter;
-                    const matchesSearch = app.clientName.toLowerCase().includes(search) || (app.companyName || '').toLowerCase().includes(search);
-                    return matchesFilter && matchesSearch;
-                });
-
-                const body = document.getElementById('apps-body');
-                body.innerHTML = filtered.map(app => {
-                    const props = getStatusProps(app.status);
-                    return `<tr class="hover:bg-white/40 transition-colors">
-                        <td class="p-4 font-semibold text-slate-800">${app.clientName}</td>
-                        <td class="p-4 text-slate-600">${app.companyName || 'N/A'}</td>
-                        <td class="p-4 text-slate-600">${app.serviceType}</td>
-                        <td class="p-4"><span class="status-badge ${props.class}">${props.text}</span></td>
-                        <td class="p-4 text-slate-500 text-xs">${app.date}</td>
-                        <td class="p-4"><button class="btn btn-outline py-1 px-3 text-xs" onclick="openClientProfile('${app.clientId}')">View</button></td>
-                    </tr>`;
-                }).join('');
-            } catch(e) { console.error(e); }
-        }
 
         // --- Module: KYC Review ---
         async function renderApplications() {
@@ -708,7 +695,7 @@
                     <div class="bg-white/60 backdrop-blur-md border border-white/80 p-4 rounded-2xl shadow-sm flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-500">
                         <div class="relative flex-1 min-w-[240px]">
                             <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                            <input type="text" placeholder="Search by ID, business, client..." class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none">
+                            <input id="app-search-input" oninput="filterApplications()" type="text" placeholder="Search by ID, business, client..." class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none">
                         </div>
                         <div class="flex items-center gap-2">
                             <span>Date Range:</span>
@@ -720,24 +707,33 @@
                         </div>
                         <div class="flex items-center gap-2">
                             <span>Custom:</span>
-                            <div class="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
-                                <i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400"></i>
-                                <input type="text" placeholder="dd-mm-yyyy" class="bg-transparent border-none outline-none w-20 text-center">
+                            <div class="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+                                <input type="date" class="bg-transparent border-none outline-none text-slate-600 text-sm cursor-pointer">
                             </div>
                             <span>to</span>
-                            <div class="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
-                                <i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400"></i>
-                                <input type="text" placeholder="dd-mm-yyyy" class="bg-transparent border-none outline-none w-20 text-center">
+                            <div class="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+                                <input type="date" class="bg-transparent border-none outline-none text-slate-600 text-sm cursor-pointer">
                             </div>
                         </div>
-                        <select class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none"><option>All</option></select>
-                        <select class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none"><option>All</option></select>
-                        <button class="flex items-center gap-2 px-4 py-2.5 text-slate-600 hover:text-slate-900 transition-colors">
-                            <i data-lucide="download" class="w-4 h-4"></i> Export
-                        </button>
+                        <select id="filter-status" onchange="filterApplications()" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none">
+                            <option value="All">All Status</option>
+                            <option value="Pending">Status: Pending</option>
+                            <option value="In Progress">Status: In Progress</option>
+                            <option value="Under Review">Status: Under Review</option>
+                            <option value="Submitted to ACRA">Status: Submitted to ACRA</option>
+                            <option value="Approved">Status: Approved</option>
+                            <option value="Rejected">Status: Rejected</option>
+                        </select>
+                        <select id="filter-priority" onchange="filterApplications()" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none">
+                            <option value="All">All Priority</option>
+                            <option value="Low">Priority: Low</option>
+                            <option value="Normal">Priority: Normal</option>
+                            <option value="High">Priority: High</option>
+                            <option value="Urgent">Priority: Urgent</option>
+                        </select>
                     </div>
 
-                    <div class="bg-white/60 backdrop-blur-md border border-white/80 rounded-2xl shadow-sm overflow-hidden">
+                    <div class="bg-white/60 backdrop-blur-md border border-white/80 rounded-2xl shadow-sm overflow-visible">
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-slate-50/50 border-b border-slate-100">
@@ -748,52 +744,86 @@
                                     <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
                                     <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Priority</th>
                                     <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">KYC</th>
-                                    <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Docs</th>
                                     <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="applications-table-body" class="divide-y divide-slate-100">
-                                <tr><td colspan="9" class="p-12 text-center text-slate-400">Loading applications...</td></tr>
+                                <tr><td colspan="8" class="p-12 text-center text-slate-400">Loading applications...</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
+                <div class="h-64 w-full"></div> <!-- Extra space for dropdown -->
             `;
             lucide.createIcons();
             
             try {
                 const res = await fetch('/api/applications');
-                const data = await res.json();
-                const tbody = document.getElementById('applications-table-body');
-                
-                tbody.innerHTML = data.map(app => `
-                    <tr class="hover:bg-white/40 transition-colors group">
-                        <td class="px-6 py-4 font-bold text-blue-600 text-xs">${app.id}</td>
-                        <td class="px-6 py-4 font-bold text-slate-800 text-sm">${app.business}</td>
-                        <td class="px-6 py-4 text-slate-600 text-sm">${app.client}</td>
-                        <td class="px-6 py-4"><span class="text-emerald-600 font-bold text-xs hover:underline cursor-pointer">${app.staff}</span></td>
-                        <td class="px-6 py-4">
-                            <select class="bg-white border border-slate-200 rounded-full px-3 py-1 text-[11px] font-bold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/20">
-                                <option ${app.status === 'pending' ? 'selected' : ''}>Pending</option>
-                                <option ${app.status === 'in progress' ? 'selected' : ''}>In Progress</option>
-                                <option ${app.status === 'completed' ? 'selected' : ''}>Completed</option>
-                            </select>
-                        </td>
-                        <td class="px-6 py-4">
-                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${app.priority === 'High' ? 'bg-red-50 text-red-500' : 'bg-slate-100 text-slate-500'}">${app.priority}</span>
-                        </td>
-                        <td class="px-6 py-4 font-bold text-slate-800 text-[11px] uppercase">${app.kyc}</td>
-                        <td class="px-6 py-4 text-xs">
-                            <span class="${app.docs.pending > 0 ? 'text-amber-600' : 'text-emerald-600'} font-bold">
-                                ${app.docs.pending > 0 ? app.docs.pending + ' pending' : app.docs.ok + ' ok'}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 text-center">
-                            <button class="px-4 py-1.5 border border-blue-200 rounded-xl text-blue-600 text-[11px] font-bold hover:bg-blue-50 transition-all">Reassign</button>
-                        </td>
-                    </tr>
-                `).join('');
+                window.allApplications = await res.json();
+                filterApplications();
             } catch(e) { console.error(e); }
+        }
+
+        window.filterApplications = function() {
+            const statusFilter = document.getElementById('filter-status').value;
+            const priorityFilter = document.getElementById('filter-priority').value;
+            const searchQuery = (document.getElementById('app-search-input')?.value || '').toLowerCase();
+            
+            const filteredData = (window.allApplications || []).map((app, originalIndex) => ({...app, originalIndex})).filter(app => {
+                const s = app.status || 'Pending';
+                const p = app.priority || 'Normal';
+                const statusMatch = statusFilter === 'All' || s.toLowerCase() === statusFilter.toLowerCase();
+                const priorityMatch = priorityFilter === 'All' || p.toLowerCase() === priorityFilter.toLowerCase();
+                
+                const idMatch = String(app.originalIndex + 1).includes(searchQuery);
+                const businessMatch = (app.business || '').toLowerCase().includes(searchQuery);
+                const clientMatch = (app.client || '').toLowerCase().includes(searchQuery);
+                const searchMatch = !searchQuery || idMatch || businessMatch || clientMatch;
+
+                return statusMatch && priorityMatch && searchMatch;
+            });
+            renderApplicationsTable(filteredData);
+        };
+
+        function renderApplicationsTable(data) {
+            const tbody = document.getElementById('applications-table-body');
+            if (!tbody) return;
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="p-12 text-center text-slate-400 italic">No applications found matching criteria</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.map((app, idx) => {
+                const status = (app.status || 'pending').toLowerCase();
+                let statusClass = 'bg-slate-100 text-slate-600';
+                if (status === 'pending') statusClass = 'bg-blue-50/80 text-blue-600';
+                else if (status === 'in progress' || status === 'under review' || status === 'review') statusClass = 'bg-amber-50/80 text-amber-600';
+                else if (status === 'completed' || status === 'approved') statusClass = 'bg-emerald-50/80 text-emerald-600';
+                else if (status === 'rejected') statusClass = 'bg-red-50/80 text-red-600';
+                
+                const currentAssigned = localStorage.getItem('assigned_staff_' + app.id) || app.staff || '';
+                const displayClass = currentAssigned ? 'text-emerald-600' : 'text-slate-400 italic';
+                const displayId = app.originalIndex !== undefined ? app.originalIndex + 1 : idx + 1;
+                
+                return `
+                <tr class="hover:bg-white/40 transition-colors group">
+                    <td class="px-6 py-4 font-bold text-blue-600 text-xs">${displayId}</td>
+                    <td class="px-6 py-4 font-bold text-slate-800 text-sm">${app.business || 'N/A'}</td>
+                    <td class="px-6 py-4 text-slate-600 text-sm">${app.client || 'N/A'}</td>
+                    <td class="px-6 py-4" id="staff-cell-${app.id}">
+                        <span onclick="enableStaffEdit('${app.id}', '${currentAssigned}')" class="${displayClass} font-bold text-xs hover:underline cursor-pointer">${currentAssigned || 'Unassigned'}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-3 py-1.5 rounded-full text-[11px] font-bold uppercase ${statusClass}">${app.status || 'Pending'}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${app.priority === 'High' || app.priority === 'Urgent' ? 'bg-red-50 text-red-500' : 'bg-slate-100 text-slate-500'}">${app.priority || 'Normal'}</span>
+                    </td>
+                    <td class="px-6 py-4 font-bold text-slate-800 text-[11px] uppercase">${app.kyc || 'N/A'}</td>
+                    <td class="px-6 py-4 text-center">
+                        <button onclick="enableStaffEdit('${app.id}', '${currentAssigned}')" class="px-4 py-1.5 border border-blue-200 rounded-xl text-blue-600 text-[11px] font-bold hover:bg-blue-50 transition-all">Reassign</button>
+                    </td>
+                </tr>`;
+            }).join('');
         }
 
         async function renderKYC() {
@@ -1163,6 +1193,558 @@
                 renderClients();
             });
         });
+
+        let staffNames = [];
+        let activeClickOutsideHandler = null;
+        let activeEditorAppId = null;
+
+        async function loadStaffNames() {
+            let remoteStaff = [];
+            try {
+                const res = await fetch('/api/admin/staff');
+                if (res.ok) remoteStaff = await res.json();
+            } catch (e) { console.error("Failed to fetch remote staff names", e); }
+
+            let localAccounts = [];
+            try {
+                localAccounts = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]');
+            } catch (e) { console.error("Failed to load local staff accounts", e); }
+
+            const namesSet = new Set();
+            remoteStaff.forEach(s => { if (s.firstName && s.lastName) namesSet.add(`${s.firstName} ${s.lastName}`); });
+            localAccounts.forEach(s => { if (s.firstName && s.lastName) namesSet.add(`${s.firstName} ${s.lastName}`); });
+            staffNames = Array.from(namesSet);
+        }
+
+        function renderStaffCell(appId, staffName) {
+            const cell = document.getElementById(`staff-cell-${appId}`);
+            if (!cell) return;
+            const displayClass = staffName ? 'text-emerald-600' : 'text-slate-400 italic';
+            cell.innerHTML = `<span onclick="enableStaffEdit('${appId}', '${staffName}')" class="${displayClass} font-bold text-xs hover:underline cursor-pointer">${staffName || 'Unassigned'}</span>`;
+        }
+
+        function closeActiveEditor() {
+            if (activeEditorAppId) {
+                const prevId = activeEditorAppId;
+                const prevStaff = localStorage.getItem('assigned_staff_' + prevId) || '';
+                if (activeClickOutsideHandler) {
+                    document.removeEventListener('mousedown', activeClickOutsideHandler);
+                    activeClickOutsideHandler = null;
+                }
+                if (activeScrollHandler) {
+                    window.removeEventListener('scroll', activeScrollHandler, true);
+                    activeScrollHandler = null;
+                }
+                const portal = document.getElementById(`staff-list-${prevId}`);
+                if (portal) portal.remove();
+                activeEditorAppId = null;
+                renderStaffCell(prevId, prevStaff);
+            }
+        }
+
+        window.enableStaffEdit = function(appId, currentStaff) {
+            if (activeEditorAppId === appId) return;
+            closeActiveEditor();
+
+            const cell = document.getElementById(`staff-cell-${appId}`);
+            if (!cell) return;
+
+            let highlightIndex = -1;
+            let filteredNames = [];
+
+            cell.innerHTML = `
+                <div id="staff-editor-${appId}" style="min-width:190px">
+                    <div class="flex items-center gap-1.5 border-2 border-blue-500 rounded-xl bg-white shadow-lg px-2.5 py-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                        <input type="text" id="staff-input-${appId}" value="" class="w-full bg-transparent outline-none text-xs font-semibold text-slate-700 placeholder-slate-300 min-w-0" autocomplete="off" placeholder="Search staff...">
+                    </div>
+                </div>
+            `;
+            
+            const portal = document.createElement('div');
+            portal.id = `staff-list-${appId}`;
+            portal.className = "fixed z-[9999] bg-white border border-slate-200 rounded-2xl shadow-2xl hidden overflow-hidden";
+            portal.style.minWidth = "200px";
+            portal.innerHTML = `
+                <div class="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    Staff Directory
+                </div>
+                <div id="staff-list-items-${appId}" class="max-h-44 overflow-y-auto py-1"></div>
+                <div class="px-3 py-1.5 border-t border-slate-100 bg-slate-50">
+                    <span class="text-[9px] text-slate-400 font-medium">↑↓ Navigate &nbsp;·&nbsp; ↵ Select &nbsp;·&nbsp; Esc Cancel</span>
+                </div>
+            `;
+            document.body.appendChild(portal);
+
+            const input = document.getElementById(`staff-input-${appId}`);
+            const list = document.getElementById(`staff-list-${appId}`);
+            const listItemsEl = document.getElementById(`staff-list-items-${appId}`);
+            activeEditorAppId = appId;
+
+            function setHighlight(idx) {
+                listItemsEl.querySelectorAll('.staff-item').forEach(el => {
+                    el.classList.remove('bg-emerald-500', 'text-white', 'staff-item-highlighted');
+                    el.classList.add('text-slate-700');
+                    el.querySelector('.avatar-circle').classList.replace('text-emerald-600', 'text-slate-500');
+                });
+                highlightIndex = idx;
+                if (idx >= 0 && idx < filteredNames.length) {
+                    const items = listItemsEl.querySelectorAll('.staff-item');
+                    if (items[idx]) {
+                        items[idx].classList.add('bg-emerald-500', 'text-white', 'staff-item-highlighted');
+                        items[idx].classList.remove('text-slate-700');
+                        items[idx].querySelector('.avatar-circle').classList.replace('text-slate-500', 'text-emerald-600');
+                        items[idx].scrollIntoView({ block: 'nearest' });
+                    }
+                }
+            }
+
+            function positionPortal() {
+                const editorRect = document.getElementById(`staff-editor-${appId}`).getBoundingClientRect();
+                portal.style.top = (editorRect.bottom + 6) + 'px';
+                portal.style.left = editorRect.left + 'px';
+            }
+
+            function renderSuggestions(query) {
+                filteredNames = staffNames.filter(n => n.toLowerCase().includes(query.toLowerCase()));
+                highlightIndex = -1;
+                if (filteredNames.length === 0) {
+                    listItemsEl.innerHTML = `<div class="px-3 py-4 text-xs text-slate-400 italic text-center">No staff members found</div>`;
+                } else {
+                    listItemsEl.innerHTML = filteredNames.map((name, i) => {
+                        const initial = name.charAt(0).toUpperCase();
+                        return `<div class="staff-item flex items-center gap-2 px-3 py-2.5 text-xs font-semibold text-slate-700 cursor-pointer transition-colors select-none" data-name="${name}" data-index="${i}">
+                            <div class="avatar-circle w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-bold text-slate-500 flex-shrink-0">${initial}</div>
+                            <span>${name}</span>
+                        </div>`;
+                    }).join('');
+                    listItemsEl.querySelectorAll('.staff-item').forEach(item => {
+                        item.addEventListener('mousedown', (e) => {
+                            e.preventDefault(); // fires before blur — no premature close
+                            saveStaffAssignment(appId, item.getAttribute('data-name'));
+                        });
+                        item.addEventListener('mouseenter', () => {
+                            setHighlight(parseInt(item.getAttribute('data-index')));
+                        });
+                    });
+                }
+                positionPortal();
+                list.classList.remove('hidden');
+            }
+
+            input.addEventListener('focus', () => renderSuggestions(input.value));
+            input.addEventListener('input', () => renderSuggestions(input.value));
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    if (list.classList.contains('hidden')) renderSuggestions(input.value);
+                    setHighlight(Math.min(highlightIndex + 1, filteredNames.length - 1));
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setHighlight(Math.max(highlightIndex - 1, 0));
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (highlightIndex >= 0 && highlightIndex < filteredNames.length) {
+                        saveStaffAssignment(appId, filteredNames[highlightIndex]);
+                    } else {
+                        const exactMatch = staffNames.find(n => n.toLowerCase() === input.value.trim().toLowerCase());
+                        if (exactMatch) {
+                            saveStaffAssignment(appId, exactMatch);
+                        } else {
+                            alert("Please select a valid staff member from the dropdown list.");
+                        }
+                    }
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeActiveEditor();
+                }
+            });
+
+            const outsideHandler = (e) => {
+                const editor = document.getElementById(`staff-editor-${appId}`);
+                const portal = document.getElementById(`staff-list-${appId}`);
+                if ((editor && editor.contains(e.target)) || (portal && portal.contains(e.target))) return;
+                closeActiveEditor();
+            };
+            activeClickOutsideHandler = outsideHandler;
+            setTimeout(() => document.addEventListener('mousedown', outsideHandler), 150);
+            
+            activeScrollHandler = positionPortal;
+            window.addEventListener('scroll', activeScrollHandler, true); // update on scroll
+
+            input.focus();
+            renderSuggestions('');
+        }
+
+        window.saveStaffAssignment = async function(appId, name) {
+            if (!staffNames.includes(name)) {
+                alert("Cannot assign: " + name + " is not a valid staff member.");
+                return;
+            }
+            if (activeClickOutsideHandler) {
+                document.removeEventListener('mousedown', activeClickOutsideHandler);
+                activeClickOutsideHandler = null;
+            }
+            activeEditorAppId = null;
+
+            // Store name
+            localStorage.setItem('assigned_staff_' + appId, name);
+
+            // Also store email as unique identifier for reliable cross-matching
+            try {
+                const localAccounts = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]');
+                const staffMember = localAccounts.find(s => `${s.firstName} ${s.lastName}`.toLowerCase() === name.toLowerCase());
+                if (staffMember && staffMember.email) {
+                    localStorage.setItem('assigned_staff_email_' + appId, staffMember.email.toLowerCase());
+                } else {
+                    localStorage.removeItem('assigned_staff_email_' + appId);
+                }
+            } catch (e) { console.warn('Could not look up staff email', e); }
+
+            renderStaffCell(appId, name);
+            try {
+                await fetch(`/api/services/${appId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ staff: name })
+                });
+            } catch (e) { console.warn("Backend sync failed, saved locally.", e); }
+        }
+
+        window.cancelStaffEdit = function(appId, originalStaff) {
+            renderStaffCell(appId, originalStaff || '');
+        }
+
+        window.renderUsers = async function() {
+            const container = document.getElementById('module-content');
+            container.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- Create Staff Form Section -->
+                    <div class="lg:col-span-1 space-y-6">
+                        <div class="glass-card p-6 bg-white/40 backdrop-blur-xl border border-white/60 rounded-2xl shadow-sm">
+                            <h2 class="text-xl font-bold font-outfit text-slate-900 mb-2">Create New Staff</h2>
+                            <p class="text-slate-500 text-xs mb-6">Enter details to generate staff credentials.</p>
+                            
+                            <form id="create-staff-form" class="space-y-4" onsubmit="handleCreateStaff(event)">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1">First Name</label>
+                                    <input type="text" id="first-name" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required placeholder="Enter first name">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1">Last Name</label>
+                                    <input type="text" id="last-name" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required placeholder="Enter last name">
+                                </div>
+                                
+                                <button type="submit" class="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]">
+                                    <i data-lucide="user-plus" class="w-4 h-4"></i> Generate Credentials
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Staff Directory Table Section -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h2 class="text-2xl font-bold font-outfit text-slate-900">Staff Directory</h2>
+                                <p class="text-slate-500 text-sm">List of registered staff members who have access to the staff portal.</p>
+                            </div>
+                        </div>
+
+                        <div class="glass-card overflow-hidden bg-white/40 backdrop-blur-xl border border-white/60 rounded-2xl shadow-sm">
+                            <table class="w-full border-collapse text-left">
+                                <thead>
+                                    <tr class="bg-slate-50/50 border-b border-slate-100">
+                                        <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-16">ID</th>
+                                        <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Name</th>
+                                        <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Email Address</th>
+                                        <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Password</th>
+                                        <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Role</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="staff-table-body" class="divide-y divide-slate-100">
+                                    <tr><td colspan="4" class="p-12 text-center text-slate-400">Loading staff directory...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Credentials Modal -->
+                <div id="credentials-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300">
+                    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto" onclick="closeStaffModal()"></div>
+                    <div class="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl relative z-10 pointer-events-auto transform scale-90 transition-transform">
+                        <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-6 mx-auto">
+                            <i data-lucide="shield-check" class="w-6 h-6"></i>
+                        </div>
+                        
+                        <h3 class="text-xl font-bold text-center text-slate-900 mb-2">Staff Account Created</h3>
+                        <p class="text-slate-500 text-xs text-center mb-6">Provide these credentials to the staff member to log in.</p>
+                        
+                        <div class="space-y-4 mb-8">
+                            <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Email Address</label>
+                                <div class="flex justify-between items-center">
+                                    <span id="display-email" class="text-xs font-bold text-slate-700 select-all"></span>
+                                    <button onclick="copyStaffText('display-email')" class="p-1.5 hover:bg-slate-200/50 rounded-lg text-slate-500 transition-colors" title="Copy Email">
+                                        <i data-lucide="copy" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Password</label>
+                                <div class="flex justify-between items-center">
+                                    <span id="display-password" class="text-xs font-mono font-bold text-slate-700 select-all"></span>
+                                    <button onclick="copyStaffText('display-password')" class="p-1.5 hover:bg-slate-200/50 rounded-lg text-slate-500 transition-colors" title="Copy Password">
+                                        <i data-lucide="copy" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button onclick="closeStaffModal()" class="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-2xl text-xs transition-all flex items-center justify-center gap-2 shadow-md">
+                            Copy Details & Close
+                        </button>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+            await fetchStaffList();
+        }
+
+        function generateStaffClientSide(firstName, lastName) {
+            const baseEmail = (firstName + "." + lastName).toLowerCase().replace(/[^a-z0-9]/g, "");
+            let email = baseEmail + "@globalisor.com";
+            
+            let localAccounts = [];
+            try {
+                localAccounts = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]');
+            } catch (e) {
+                console.error("Error reading local_staff_accounts", e);
+            }
+            
+            let suffix = 1;
+            while (localAccounts.some(acc => acc.email === email)) {
+                email = baseEmail + suffix + "@globalisor.com";
+                suffix++;
+            }
+            
+            const randomNum = Math.floor(Math.random() * 9000) + 1000;
+            const password = "Glob-" + randomNum;
+            
+            const newStaff = {
+                id: "local_" + (localAccounts.length + 1),
+                firstName: firstName,
+                lastName: lastName,
+                email: email,
+                password: password,
+                role: "STAFF"
+            };
+            
+            localAccounts.push(newStaff);
+            localStorage.setItem('local_staff_accounts', JSON.stringify(localAccounts));
+            return newStaff;
+        }
+
+        const EYE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0z"/><circle cx="12" cy="12" r="3"/></svg>`;
+        const EYE_OFF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>`;
+        const COPY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+
+        window.togglePasswordVisibility = function(id, password) {
+            const textSpan = document.getElementById(`pass-text-${id}`);
+            const btn = document.getElementById(`pass-btn-${id}`);
+            if (!textSpan || !btn) return;
+            
+            const isHidden = textSpan.innerText === '••••••••';
+            if (isHidden) {
+                textSpan.innerText = password || 'Glob-••••';
+                btn.innerHTML = EYE_OFF_SVG;
+            } else {
+                textSpan.innerText = '••••••••';
+                btn.innerHTML = EYE_SVG;
+            }
+        }
+
+        window.copyEmail = function(email) {
+            navigator.clipboard.writeText(email).then(() => {
+                // Success
+            }).catch(err => console.error("Could not copy email", err));
+        }
+
+        window.copyPassword = function(id, password) {
+            const val = password || '';
+            if (!val) {
+                alert("No plain password available to copy.");
+                return;
+            }
+            navigator.clipboard.writeText(val).then(() => {
+                // Success
+            }).catch(err => console.error("Could not copy password", err));
+        }
+
+        window.fetchStaffList = async function() {
+            let remoteStaff = [];
+            let fetchError = false;
+            try {
+                const res = await fetch('/api/admin/staff');
+                if (res.ok) {
+                    remoteStaff = await res.json();
+                } else {
+                    fetchError = true;
+                }
+            } catch (e) {
+                console.error(e);
+                fetchError = true;
+            }
+            
+            let localAccounts = [];
+            try {
+                localAccounts = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]');
+            } catch (e) {
+                console.error("Error reading local_staff_accounts", e);
+            }
+            
+            const mergedMap = new Map();
+            remoteStaff.forEach(s => {
+                mergedMap.set(s.email, {
+                    id: s.id,
+                    firstName: s.firstName,
+                    lastName: s.lastName,
+                    email: s.email,
+                    password: s.password || ''
+                });
+            });
+            
+            localAccounts.forEach(s => {
+                if (!mergedMap.has(s.email)) {
+                    mergedMap.set(s.email, {
+                        id: s.id,
+                        firstName: s.firstName,
+                        lastName: s.lastName,
+                        email: s.email,
+                        password: s.password || ''
+                    });
+                }
+            });
+            
+            const mergedList = Array.from(mergedMap.values());
+            const tbody = document.getElementById('staff-table-body');
+            if (!tbody) return;
+            
+            if (mergedList.length === 0) {
+                if (fetchError && localAccounts.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="p-12 text-center text-red-500 font-bold">Failed to load staff directory (API error)</td></tr>`;
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="5" class="p-12 text-center text-slate-400">No staff members found</td></tr>`;
+                }
+                return;
+            }
+            
+            tbody.innerHTML = mergedList.map((staff, idx) => `
+                <tr class="hover:bg-white/40 transition-colors">
+                    <td class="px-6 py-4 font-bold text-blue-600 text-xs">${idx + 1}</td>
+                    <td class="px-6 py-4 font-bold text-slate-800 font-outfit">${staff.firstName} ${staff.lastName}</td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center justify-between gap-2 mr-4">
+                            <span class="text-slate-600 font-semibold text-xs">${staff.email}</span>
+                            <button onclick="copyEmail('${staff.email}')" class="p-1 hover:bg-slate-200/50 rounded text-slate-400 hover:text-slate-600 transition-colors" title="Copy Email">
+                                ${COPY_SVG}
+                            </button>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-1.5">
+                            <span class="font-mono text-xs text-slate-500 font-semibold" id="pass-text-${staff.id}">••••••••</span>
+                            <button id="pass-btn-${staff.id}" onclick="togglePasswordVisibility('${staff.id}', '${staff.password || ''}')" class="p-1 hover:bg-slate-200/50 rounded text-slate-500 transition-colors" title="View Password">
+                                ${EYE_SVG}
+                            </button>
+                            <button onclick="copyPassword('${staff.id}', '${staff.password || ''}')" class="p-1 hover:bg-slate-200/50 rounded text-slate-400 hover:text-slate-600 transition-colors" title="Copy Password">
+                                ${COPY_SVG}
+                            </button>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 uppercase tracking-wider">STAFF</span>
+                    </td>
+                </tr>
+            `).join('');
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        window.handleCreateStaff = async function(e) {
+            e.preventDefault();
+            const firstName = document.getElementById('first-name').value.trim();
+            const lastName = document.getElementById('last-name').value.trim();
+            
+            try {
+                const response = await fetch('/api/admin/staff', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ firstName, lastName })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('first-name').value = '';
+                    document.getElementById('last-name').value = '';
+                    
+                    document.getElementById('display-email').innerText = data.email;
+                    document.getElementById('display-password').innerText = data.password;
+                    
+                    openStaffModal();
+                    fetchStaffList();
+                } else {
+                    console.warn("API responded with non-200. Falling back to localStorage.");
+                    const fallbackData = generateStaffClientSide(firstName, lastName);
+                    document.getElementById('first-name').value = '';
+                    document.getElementById('last-name').value = '';
+                    
+                    document.getElementById('display-email').innerText = fallbackData.email;
+                    document.getElementById('display-password').innerText = fallbackData.password;
+                    
+                    openStaffModal();
+                    fetchStaffList();
+                }
+            } catch (err) {
+                console.error("API call failed, falling back to localStorage", err);
+                const fallbackData = generateStaffClientSide(firstName, lastName);
+                document.getElementById('first-name').value = '';
+                document.getElementById('last-name').value = '';
+                
+                document.getElementById('display-email').innerText = fallbackData.email;
+                document.getElementById('display-password').innerText = fallbackData.password;
+                
+                openStaffModal();
+                fetchStaffList();
+            }
+        }
+
+        window.openStaffModal = function() {
+            const modal = document.getElementById('credentials-modal');
+            modal.classList.remove('hidden');
+            modal.offsetHeight; // force reflow
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.remove('scale-90');
+            modal.classList.add('opacity-100', 'pointer-events-auto');
+        }
+
+        window.closeStaffModal = function() {
+            const modal = document.getElementById('credentials-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.add('scale-90');
+            modal.classList.remove('opacity-100', 'pointer-events-auto');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        window.copyStaffText = function(elementId) {
+            const text = document.getElementById(elementId).innerText;
+            navigator.clipboard.writeText(text);
+        }
 
         // Start
         // Start

@@ -12,8 +12,7 @@
     <script>
         // Authentication Check
         if (!localStorage.getItem('staff_auth')) {
-            // For demo purposes, we'll allow entry but log it
-            console.log('Staff auth not found. Guest mode enabled for design review.');
+            window.location.href = '/staff';
         }
 
         tailwind.config = {
@@ -137,9 +136,9 @@
                 </div>
             </div>
             <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
-                <div class="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-xs">MA</div>
+                <div class="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-xs" id="staff-nav-avatar">ST</div>
                 <div class="flex flex-col">
-                    <div class="text-xs font-semibold text-slate-800 leading-none mb-1">Mohd Asif</div>
+                    <div class="text-xs font-semibold text-slate-800 leading-none mb-1" id="staff-nav-name">Staff User</div>
                     <button onclick="signOut()" class="text-[10px] text-red-500 font-bold hover:underline text-left leading-none">Sign Out</button>
                 </div>
             </div>
@@ -149,6 +148,19 @@
     <main class="main-container">
         <!-- Dashboard View -->
         <div id="view-dashboard" class="space-y-8">
+            <!-- Identity Banner -->
+            <div class="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl p-6 text-white shadow-lg flex items-center justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold font-outfit mb-1">Welcome back, <span id="welcome-staff-name">Staff</span>!</h2>
+                    <p class="text-blue-100 text-sm">You are logged in to your personal staff portal. Showing applications assigned to <span id="welcome-staff-email" class="font-semibold"></span>.</p>
+                </div>
+                <div class="hidden sm:block">
+                    <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold font-outfit backdrop-blur-sm border border-white/30" id="welcome-staff-avatar">
+                        ST
+                    </div>
+                </div>
+            </div>
+
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Assigned Apps</div>
@@ -480,6 +492,12 @@
     </aside>
 
     <script>
+        // Read the logged-in staff from auth token
+        const _staffAuth = JSON.parse(localStorage.getItem('staff_auth') || '{}');
+        const CURRENT_STAFF_NAME = _staffAuth.name || '';
+        const CURRENT_STAFF_EMAIL = _staffAuth.email || '';
+        const CURRENT_STAFF_INITIALS = CURRENT_STAFF_NAME.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'ST';
+
         let staffData = {
             applications: [],
             stats: {},
@@ -488,7 +506,28 @@
         let currentClientId = null;
 
         async function init() {
-            lucide.createIcons();
+            try {
+                // Populate the nav with real logged-in staff identity immediately
+                const avatarEl = document.getElementById('staff-nav-avatar');
+                const nameEl = document.getElementById('staff-nav-name');
+                if (avatarEl) avatarEl.textContent = CURRENT_STAFF_INITIALS;
+                if (nameEl) nameEl.textContent = CURRENT_STAFF_NAME || 'Staff Member';
+
+                // Populate the new Dashboard Identity Banner
+                const welcomeNameEl = document.getElementById('welcome-staff-name');
+                const welcomeEmailEl = document.getElementById('welcome-staff-email');
+                const welcomeAvatarEl = document.getElementById('welcome-staff-avatar');
+                if (welcomeNameEl) welcomeNameEl.textContent = CURRENT_STAFF_NAME || 'Staff Member';
+                if (welcomeEmailEl) welcomeEmailEl.textContent = CURRENT_STAFF_EMAIL || 'your account';
+                if (welcomeAvatarEl) welcomeAvatarEl.textContent = CURRENT_STAFF_INITIALS;
+            } catch (e) {
+                console.error("Identity injection failed", e);
+            }
+
+            try {
+                lucide.createIcons();
+            } catch (e) { console.error("Lucide failed", e); }
+
             await fetchStaffData();
             renderApplications();
             renderTasks();
@@ -496,8 +535,22 @@
             renderDocuments();
             updateNotifications();
             updateDashboardStats();
-            
-            // Polling
+
+            // React instantly when admin assigns/reassigns in another tab
+            // (localStorage 'storage' event fires cross-tab on the same origin)
+            window.addEventListener('storage', (e) => {
+                if (e.key && e.key.startsWith('assigned_staff_')) {
+                    // An assignment changed — refresh immediately
+                    fetchStaffData().then(() => {
+                        renderApplications();
+                        updateDashboardStats();
+                        updateNotifications();
+                        showAssignmentToast();
+                    });
+                }
+            });
+
+            // Background polling every 15 seconds
             setInterval(() => {
                 if (!document.getElementById('detail-panel').classList.contains('open')) {
                     fetchStaffData().then(() => {
@@ -505,15 +558,65 @@
                         updateNotifications();
                     });
                 }
-            }, 30000);
+            }, 15000);
         }
+
+        function showAssignmentToast() {
+            // Show a brief notification that a new application was assigned
+            const existing = document.getElementById('assignment-toast');
+            if (existing) existing.remove();
+
+            const toast = document.createElement('div');
+            toast.id = 'assignment-toast';
+            toast.style.cssText = `
+                position: fixed; bottom: 24px; right: 24px; z-index: 99999;
+                background: linear-gradient(135deg, #10b981, #059669);
+                color: white; padding: 14px 20px; border-radius: 16px;
+                font-size: 13px; font-weight: 700; font-family: 'Outfit', sans-serif;
+                box-shadow: 0 8px 32px rgba(16,185,129,0.35);
+                display: flex; align-items: center; gap: 10px;
+                transform: translateY(80px); opacity: 0;
+                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            `;
+            toast.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                New application assigned to you
+            `;
+            document.body.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.style.transform = 'translateY(0)';
+                toast.style.opacity = '1';
+            });
+            setTimeout(() => {
+                toast.style.transform = 'translateY(80px)';
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+
 
         async function fetchStaffData() {
             try {
-                // Fetch Applications
+                // Fetch ALL Applications from API
                 const appRes = await fetch('/api/applications');
-                if (appRes.ok) staffData.applications = await appRes.json();
-                
+                let allApps = [];
+                if (appRes.ok) allApps = await appRes.json();
+
+                // Filter to ONLY applications assigned to the currently logged-in staff member
+                // Primary match: email (unique, unambiguous)
+                // Fallback match: full name (case-insensitive)
+                staffData.applications = allApps.filter(app => {
+                    // 1. Try email match first (most reliable)
+                    const assignedEmail = localStorage.getItem('assigned_staff_email_' + app.id);
+                    if (assignedEmail && CURRENT_STAFF_EMAIL) {
+                        return assignedEmail === CURRENT_STAFF_EMAIL.toLowerCase();
+                    }
+                    // 2. Fall back to name match
+                    const assignedName = localStorage.getItem('assigned_staff_' + app.id) || app.staff || '';
+                    if (!assignedName) return false;
+                    return assignedName.toLowerCase() === CURRENT_STAFF_NAME.toLowerCase();
+                });
+
                 // Fetch KYC Queue
                 const kycRes = await fetch('/api/kyc');
                 if (kycRes.ok) {
@@ -539,8 +642,8 @@
                     staffData.stats = {
                         assigned: staffData.applications.length,
                         pending: staffData.applications.filter(a => a.status === 'In Progress').length,
-                        kyc: staffData.kycQueue.filter(k => k.status === 'pending').length,
-                        review: staffData.documents.filter(d => d.status === 'pending').length,
+                        kyc: (staffData.kycQueue || []).filter(k => k.status === 'pending').length,
+                        review: (staffData.documents || []).filter(d => d.status === 'pending').length,
                         done: dashData.stats.approved || 0
                     };
                 }
@@ -712,8 +815,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         clientId: selectedClientId,
-                        senderId: 'staff-sarah', // Mock current user
-                        senderName: 'Sarah Lim',
+                        senderId: 'staff-' + (CURRENT_STAFF_EMAIL || 'unknown'),
+                        senderName: CURRENT_STAFF_NAME || 'Staff',
                         senderRole: 'staff',
                         text: text
                     })
@@ -721,38 +824,44 @@
                 input.value = '';
                 fetchMessages(selectedClientId);
             } catch (e) { console.error(e); }
-        } }
+        }
 
-        function getPriorityClass(p) {
+        function renderApplications() {
             const body = document.getElementById('applications-table-body');
             if (!body) return;
-            
+
+            if (staffData.applications.length === 0) {
+                body.innerHTML = `<tr><td colspan="7" class="px-6 py-16 text-center text-slate-400 italic text-sm">No applications assigned to you yet.</td></tr>`;
+                lucide.createIcons();
+                return;
+            }
+
             body.innerHTML = staffData.applications.map(app => `
                 <tr class="hover:bg-slate-50/50 transition-colors">
                     <td class="px-6 py-5">
                         <span class="text-xs font-bold text-blue-600 cursor-pointer hover:underline" onclick="openDetail('${app.id}')">${app.id}</span>
                     </td>
                     <td class="px-6 py-5">
-                        <div class="text-xs font-bold text-slate-800">${app.business}</div>
-                        <div class="text-[10px] text-slate-400 font-medium">${app.client}</div>
+                        <div class="text-xs font-bold text-slate-800">${app.business || 'N/A'}</div>
+                        <div class="text-[10px] text-slate-400 font-medium">${app.client || 'N/A'}</div>
                     </td>
                     <td class="px-6 py-5 text-center">
                         <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase ${getPriorityClass(app.priority)}">
-                            ${app.priority}
+                            ${app.priority || 'Normal'}
                         </span>
                     </td>
                     <td class="px-6 py-5 text-center">
                         <div class="flex items-center justify-center gap-1.5 ${app.priority === 'Emergency' || app.priority === 'High' ? 'text-red-500' : 'text-slate-400'}">
                             <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
-                            <span class="text-[11px] font-bold">${app.deadline}</span>
+                            <span class="text-[11px] font-bold">${app.deadline || '—'}</span>
                         </div>
                     </td>
                     <td class="px-6 py-5">
-                        <div class="text-[10px] font-bold text-slate-400">KYC: <span class="${app.kyc === 'Approved' ? 'text-emerald-500' : 'text-amber-500'}">${app.kyc}</span></div>
-                        <div class="text-[10px] font-bold ${app.docs === 'All Docs OK' ? 'text-emerald-500' : 'text-amber-500'}">${app.docs}</div>
+                        <div class="text-[10px] font-bold text-slate-400">KYC: <span class="${app.kyc === 'Approved' ? 'text-emerald-500' : 'text-amber-500'}">${app.kyc || 'N/A'}</span></div>
+                        <div class="text-[10px] font-bold ${app.docs === 'All Docs OK' ? 'text-emerald-500' : 'text-amber-500'}">${app.docs || 'N/A'}</div>
                     </td>
                     <td class="px-6 py-5">
-                        <select class="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-600 focus:outline-none w-full">
+                        <select class="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-600 focus:outline-none w-full" onchange="updateAppStatus('${app.id}', this.value)">
                             <option ${app.status === 'New' ? 'selected' : ''}>New</option>
                             <option ${app.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
                             <option ${app.status === 'Submitted to ACRA' ? 'selected' : ''}>Submitted to ACRA</option>
@@ -772,6 +881,16 @@
                 </tr>
             `).join('');
             lucide.createIcons();
+        }
+
+        async function updateAppStatus(appId, status) {
+            try {
+                await fetch(`/api/services/${appId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+            } catch (e) { console.warn('Status update failed, continuing locally.', e); }
         }
 
         function getPriorityClass(priority) {
@@ -1101,7 +1220,7 @@
 
         function signOut() {
             localStorage.removeItem('staff_auth');
-            window.location.href = '/login.html';
+            window.location.href = '/staff';
         }
 
         document.addEventListener('click', () => {
