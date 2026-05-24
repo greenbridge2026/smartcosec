@@ -155,7 +155,11 @@
         async function loadStaffNames() {
             let remoteStaff = [];
             try {
-                const res = await fetch('/api/admin/staff');
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const token = authObj.token;
+                const res = await fetch('/api/admin/staff', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
                 if (res.ok) remoteStaff = await res.json();
             } catch (e) { console.error("Failed to fetch remote staff names", e); }
             
