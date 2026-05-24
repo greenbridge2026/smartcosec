@@ -149,6 +149,7 @@
         
         let staffNames = [];
         let activeClickOutsideHandler = null;
+        let activeScrollHandler = null;
         let activeEditorAppId = null;
         let allApplications = [];
 
@@ -412,13 +413,6 @@
                 return;
             }
 
-            // Tear down the editor state cleanly
-            if (activeClickOutsideHandler) {
-                document.removeEventListener('mousedown', activeClickOutsideHandler);
-                activeClickOutsideHandler = null;
-            }
-            activeEditorAppId = null;
-
             // Persist locally — store BOTH name and email (email is the unique key for reliable matching)
             localStorage.setItem('assigned_staff_' + appId, name);
 
@@ -434,7 +428,8 @@
                 }
             } catch (e) { console.warn('Could not look up staff email', e); }
 
-            renderStaffCell(appId, name);
+            // Tear down the editor state cleanly and render the updated cell
+            closeActiveEditor();
 
             // Sync to backend silently in background
             try {
