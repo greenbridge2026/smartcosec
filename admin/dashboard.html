@@ -263,6 +263,14 @@
             window.location.href = '/login.html';
         }
 
+        function safeCreateIcons() {
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            } else {
+                console.warn('Lucide icons library is not loaded.');
+            }
+        }
+
         let clientsData = [];
         let statsData = {};
         let currentModule = 'clients';
@@ -272,12 +280,13 @@
         let notifications = [];
         let pendingAction = null;
         let activeClickOutsideHandler = null;
+        let activeScrollHandler = null;
         let activeEditorAppId = null;
 
         // Initialization
         async function init() {
             console.log('Dashboard Initializing...');
-            lucide.createIcons();
+            safeCreateIcons();
             handleRouting();
             
             // Polling
@@ -437,7 +446,7 @@
             } else if (currentModule === 'users') {
                 await renderUsers();
             }
-            lucide.createIcons();
+            safeCreateIcons();
         }
 
         async function fetchDashboard() {
@@ -625,7 +634,7 @@
                 `;
                 document.getElementById('detail-body').innerHTML = html;
                 document.querySelector('.panel-footer').style.display = 'flex';
-                lucide.createIcons();
+                safeCreateIcons();
             } catch(e) { console.error(e); }
         }
 
@@ -898,7 +907,7 @@
                         </div>
                     </div>
                 `).join('');
-                lucide.createIcons();
+                safeCreateIcons();
             } catch(e) { console.error(e); }
         }
 
@@ -936,7 +945,7 @@
                         </div>
                     </div>
                 `;
-                lucide.createIcons();
+                safeCreateIcons();
             } catch(e) { console.error(e); }
         }
 
@@ -989,7 +998,7 @@
                         </div>
                     </div>
                 `).join('');
-                lucide.createIcons();
+                safeCreateIcons();
             } catch(e) { console.error(e); }
         }
 
@@ -1131,7 +1140,7 @@
                         <p class="text-xs text-slate-500 line-clamp-2">${n.description}</p>
                     </div>
                 `).join('');
-                lucide.createIcons();
+                safeCreateIcons();
             } catch(e) { console.error(e); }
         }
 
@@ -1385,12 +1394,6 @@
                 alert("Cannot assign: " + name + " is not a valid staff member.");
                 return;
             }
-            if (activeClickOutsideHandler) {
-                document.removeEventListener('mousedown', activeClickOutsideHandler);
-                activeClickOutsideHandler = null;
-            }
-            activeEditorAppId = null;
-
             // Store name
             localStorage.setItem('assigned_staff_' + appId, name);
 
@@ -1405,7 +1408,8 @@
                 }
             } catch (e) { console.warn('Could not look up staff email', e); }
 
-            renderStaffCell(appId, name);
+            // Tear down editor state cleanly and render updated cell
+            closeActiveEditor();
             try {
                 await fetch(`/api/services/${appId}`, {
                     method: 'PATCH',
@@ -1513,7 +1517,7 @@
                     </div>
                 </div>
             `;
-            lucide.createIcons();
+            safeCreateIcons();
             await fetchStaffList();
         }
 
