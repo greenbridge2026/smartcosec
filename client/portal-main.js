@@ -17,7 +17,32 @@ const state = {
 // Initialize Platform
 document.addEventListener('DOMContentLoaded', async () => {
     // Session Recovery
-    const auth = JSON.parse(localStorage.getItem('client_auth') || '{"name": "Mohammad Asif", "id": "C-1004"}');
+    const authString = localStorage.getItem('client_auth');
+    if (!authString) {
+        window.location.href = '/login.html';
+        return;
+    }
+    const auth = JSON.parse(authString);
+    
+    // Authorization Check: Must be approved to view portal
+    try {
+        const token = localStorage.getItem('token');
+        const reqRes = await fetch('/api/requirements', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (reqRes.ok) {
+            const reqData = await reqRes.json();
+            if (reqData.status !== 'approved') {
+                window.location.href = '/requirements.html';
+                return;
+            }
+        } else {
+            window.location.href = '/requirements.html';
+            return;
+        }
+    } catch (e) {
+        window.location.href = '/requirements.html';
+        return;
+    }
+
     state.user = auth;
     document.getElementById('user-name').innerText = auth.name;
 
