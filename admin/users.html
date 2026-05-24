@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff User Management | Globalisor Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <script>
+        if (!localStorage.getItem('admin_auth')) window.location.href = '/admin/login.html';
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], outfit: ['Outfit', 'sans-serif'] },
+                    colors: { slate: { 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 800: '#1e293b', 900: '#0f172a' } }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Outfit', sans-serif; background: radial-gradient(circle at 50% 10%, rgba(253, 242, 248, 0.9) 0%, rgba(191, 219, 254, 0.7) 40%, rgba(125, 211, 252, 0.8) 100%); background-attachment: fixed; min-height: 100vh; overflow-x: hidden; }
+        .top-nav { height: 60px; background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.6); position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
+        .main-container { padding: 2rem; max-width: 1600px; margin-left: auto; margin-right: auto; }
+        .module-nav-btn { display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.75rem; border-radius: 8px; font-size: 0.8rem; font-weight: 500; color: #64748b; transition: all 0.2s; cursor: pointer !important; border: none; background: transparent; white-space: nowrap; }
+        .module-nav-btn:hover { color: #0f172a; background: rgba(255,255,255,0.6); }
+        .module-nav-btn.active { color: #0f172a; background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .admin-table { width: 100%; border-collapse: collapse; }
+        .admin-table th { padding: 1rem 1.5rem; font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #f1f5f9; background: rgba(248, 250, 252, 0.5); }
+        .admin-table td { padding: 1rem 1.5rem; font-size: 0.85rem; color: #1e293b; border-bottom: 1px solid #f1f5f9; }
+        .glass-card { background: rgba(255, 255, 255, 0.45); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.7); border-radius: 20px; box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04); }
+    </style>
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="flex items-center gap-4">
+            <div class="flex flex-col leading-none cursor-pointer" onclick="window.location.href='dashboard.html'">
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Admin</span>
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Dashboard</span>
+            </div>
+        </div>
+        <div class="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-white/80">
+            <button onclick="window.location.href='dashboard.html'" class="module-nav-btn" id="btn-clients"><i data-lucide="users" class="w-4 h-4"></i> Clients</button>
+            <button onclick="window.location.href='applications.html'" class="module-nav-btn" id="btn-applications"><i data-lucide="file-text" class="w-4 h-4"></i> Applications</button>
+            <button onclick="window.location.href='kyc.html'" class="module-nav-btn" id="btn-kyc"><i data-lucide="shield-check" class="w-4 h-4"></i> KYC Review</button>
+            <button onclick="window.location.href='compliance.html'" class="module-nav-btn" id="btn-compliance"><i data-lucide="balance-scale" class="w-4 h-4"></i> Compliance</button>
+            <button onclick="window.location.href='blogs.html'" class="module-nav-btn" id="btn-blogs"><i data-lucide="layout" class="w-4 h-4"></i> Blogs</button>
+
+            <button onclick="window.location.href='reports.html'" class="module-nav-btn" id="btn-reports"><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Reports</button>
+            <button onclick="window.location.href='messages.html'" class="module-nav-btn" id="btn-messages"><i data-lucide="message-square" class="w-4 h-4"></i> Messages</button>
+            <button onclick="window.location.href='users.html'" class="module-nav-btn active" id="btn-users"><i data-lucide="user-plus" class="w-4 h-4"></i> Users</button>
+        </div>
+        <div class="flex items-center justify-end gap-3 relative">
+            <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
+                <div class="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-xs">A</div>
+                <div class="flex flex-col">
+                    <div class="text-xs font-semibold text-slate-800">Admin Team</div>
+                    <button onclick="localStorage.removeItem('admin_auth'); window.location.href='login.html'" class="text-[10px] text-red-500 font-bold hover:underline text-left leading-none">Sign Out</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-container">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Create Staff Form Section -->
+            <div class="lg:col-span-1 space-y-6">
+                <div class="glass-card p-6">
+                    <h2 class="text-xl font-bold font-outfit text-slate-900 mb-2">Create New Staff</h2>
+                    <p class="text-slate-500 text-xs mb-6">Enter details to generate staff credentials.</p>
+                    
+                    <form id="create-staff-form" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">First Name</label>
+                            <input type="text" id="first-name" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required placeholder="Enter first name">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Last Name</label>
+                            <input type="text" id="last-name" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required placeholder="Enter last name">
+                        </div>
+                        
+                        <button type="submit" class="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]">
+                            <i data-lucide="user-plus" class="w-4 h-4"></i> Generate Credentials
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Staff Directory Table Section -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-2xl font-bold font-outfit text-slate-900">Staff Directory</h2>
+                        <p class="text-slate-500 text-sm">List of registered staff members who have access to the staff portal.</p>
+                    </div>
+                </div>
+
+                <div class="glass-card overflow-hidden">
+                    <table class="admin-table">
+                        <thead>
+                            <tr class="text-left">
+                                <th class="w-16">ID</th>
+                                <th>Name</th>
+                                <th>Email Address</th>
+                                <th>Password</th>
+                                <th>Role</th>
+                            </tr>
+                        </thead>
+                        <tbody id="staff-table-body">
+                            <tr><td colspan="5" class="p-12 text-center text-slate-400">Loading staff directory...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Credentials Modal -->
+    <div id="credentials-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto" onclick="closeModal()"></div>
+        <div class="bg-white/95 backdrop-blur-xl border border-white/60 rounded-3xl p-8 w-full max-w-md shadow-2xl relative z-10 pointer-events-auto transform scale-90 transition-transform">
+            <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-6 mx-auto">
+                <i data-lucide="shield-check" class="w-6 h-6"></i>
+            </div>
+            
+            <h3 class="text-xl font-bold text-center text-slate-900 mb-2">Staff Account Created</h3>
+            <p class="text-slate-500 text-xs text-center mb-6">Provide these credentials to the staff member to log in.</p>
+            
+            <div class="space-y-4 mb-8">
+                <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Email Address</label>
+                    <div class="flex justify-between items-center">
+                        <span id="display-email" class="text-xs font-bold text-slate-700 select-all"></span>
+                        <button onclick="copyText('display-email')" class="p-1.5 hover:bg-slate-200/50 rounded-lg text-slate-500 transition-colors" title="Copy Email">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Password</label>
+                    <div class="flex justify-between items-center">
+                        <span id="display-password" class="text-xs font-mono font-bold text-slate-700 select-all"></span>
+                        <button onclick="copyText('display-password')" class="p-1.5 hover:bg-slate-200/50 rounded-lg text-slate-500 transition-colors" title="Copy Password">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="closeModal()" class="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-2xl text-xs transition-all flex items-center justify-center gap-2 shadow-md">
+                Copy Details & Close
+            </button>
+        </div>
+    </div>
+
+    <script>
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        function generateStaffClientSide(firstName, lastName) {
+            const baseEmail = (firstName + "." + lastName).toLowerCase().replace(/[^a-z0-9]/g, "");
+            let email = baseEmail + "@globalisor.com";
+            
+            let localAccounts = [];
+            try {
+                localAccounts = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]');
+            } catch (e) {
+                console.error("Error reading local_staff_accounts", e);
+            }
+            
+            let suffix = 1;
+            while (localAccounts.some(acc => acc.email === email)) {
+                email = baseEmail + suffix + "@globalisor.com";
+                suffix++;
+            }
+            
+            const randomNum = Math.floor(Math.random() * 9000) + 1000;
+            const password = "Glob-" + randomNum;
+            
+            const newStaff = {
+                id: "local_" + (localAccounts.length + 1),
+                firstName: firstName,
+                lastName: lastName,
+                email: email,
+                password: password,
+                role: "STAFF"
+            };
+            
+            localAccounts.push(newStaff);
+            localStorage.setItem('local_staff_accounts', JSON.stringify(localAccounts));
+            return newStaff;
+        }
+
+        const EYE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0z"/><circle cx="12" cy="12" r="3"/></svg>`;
+        const EYE_OFF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>`;
+        const COPY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+
+        window.togglePasswordVisibility = function(id, password) {
+            const textSpan = document.getElementById(`pass-text-${id}`);
+            const btn = document.getElementById(`pass-btn-${id}`);
+            if (!textSpan || !btn) return;
+            
+            const isHidden = textSpan.innerText === '••••••••';
+            if (isHidden) {
+                textSpan.innerText = password || 'Glob-••••';
+                btn.innerHTML = EYE_OFF_SVG;
+            } else {
+                textSpan.innerText = '••••••••';
+                btn.innerHTML = EYE_SVG;
+            }
+        }
+
+        window.copyEmail = function(email) {
+            navigator.clipboard.writeText(email).then(() => {
+                // Flash styling or message could go here
+            }).catch(err => console.error("Could not copy email", err));
+        }
+
+        window.copyPassword = function(id, password) {
+            const val = password || '';
+            if (!val) {
+                alert("No plain password available to copy.");
+                return;
+            }
+            navigator.clipboard.writeText(val).then(() => {
+                // Success
+            }).catch(err => console.error("Could not copy password", err));
+        }
+
+        async function fetchStaff() {
+            let remoteStaff = [];
+            let fetchError = false;
+            try {
+                const res = await fetch('/api/admin/staff');
+                if (res.ok) {
+                    remoteStaff = await res.json();
+                } else {
+                    fetchError = true;
+                }
+            } catch (e) {
+                console.error(e);
+                fetchError = true;
+            }
+            
+            let localAccounts = [];
+            try {
+                localAccounts = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]');
+            } catch (e) {
+                console.error("Error reading local_staff_accounts", e);
+            }
+            
+            const mergedMap = new Map();
+            remoteStaff.forEach(s => {
+                mergedMap.set(s.email, {
+                    id: s.id,
+                    firstName: s.firstName,
+                    lastName: s.lastName,
+                    email: s.email,
+                    password: s.password || ''
+                });
+            });
+            
+            localAccounts.forEach(s => {
+                if (!mergedMap.has(s.email)) {
+                    mergedMap.set(s.email, {
+                        id: s.id,
+                        firstName: s.firstName,
+                        lastName: s.lastName,
+                        email: s.email,
+                        password: s.password || ''
+                    });
+                }
+            });
+            
+            const mergedList = Array.from(mergedMap.values());
+            const tbody = document.getElementById('staff-table-body');
+            if (!tbody) return;
+            
+            if (mergedList.length === 0) {
+                if (fetchError && localAccounts.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="p-12 text-center text-red-500 font-bold">Failed to load staff directory (API error)</td></tr>`;
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="5" class="p-12 text-center text-slate-400">No staff members found</td></tr>`;
+                }
+                return;
+            }
+            
+            tbody.innerHTML = mergedList.map((staff, idx) => `
+                <tr class="hover:bg-white/40 transition-colors">
+                    <td class="font-bold text-blue-600 text-xs">${idx + 1}</td>
+                    <td class="font-bold text-slate-800 font-outfit">${staff.firstName} ${staff.lastName}</td>
+                    <td>
+                        <div class="flex items-center justify-between gap-2 mr-4">
+                            <span class="text-slate-600 font-semibold text-xs">${staff.email}</span>
+                            <button onclick="copyEmail('${staff.email}')" class="p-1 hover:bg-slate-200/50 rounded text-slate-400 hover:text-slate-600 transition-colors" title="Copy Email">
+                                ${COPY_SVG}
+                            </button>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="flex items-center gap-1.5">
+                            <span class="font-mono text-xs text-slate-500 font-semibold" id="pass-text-${staff.id}">••••••••</span>
+                            <button id="pass-btn-${staff.id}" onclick="togglePasswordVisibility('${staff.id}', '${staff.password || ''}')" class="p-1 hover:bg-slate-200/50 rounded text-slate-500 transition-colors" title="View Password">
+                                ${EYE_SVG}
+                            </button>
+                            <button onclick="copyPassword('${staff.id}', '${staff.password || ''}')" class="p-1 hover:bg-slate-200/50 rounded text-slate-400 hover:text-slate-600 transition-colors" title="Copy Password">
+                                ${COPY_SVG}
+                            </button>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 uppercase tracking-wider">STAFF</span>
+                    </td>
+                </tr>
+            `).join('');
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        document.getElementById('create-staff-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const firstName = document.getElementById('first-name').value.trim();
+            const lastName = document.getElementById('last-name').value.trim();
+            
+            try {
+                const response = await fetch('/api/admin/staff', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ firstName, lastName })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('first-name').value = '';
+                    document.getElementById('last-name').value = '';
+                    
+                    // Show generated credentials
+                    document.getElementById('display-email').innerText = data.email;
+                    document.getElementById('display-password').innerText = data.password;
+                    
+                    openModal();
+                    fetchStaff();
+                } else {
+                    console.warn("API responded with non-200. Falling back to localStorage.");
+                    const fallbackData = generateStaffClientSide(firstName, lastName);
+                    document.getElementById('first-name').value = '';
+                    document.getElementById('last-name').value = '';
+                    
+                    document.getElementById('display-email').innerText = fallbackData.email;
+                    document.getElementById('display-password').innerText = fallbackData.password;
+                    
+                    openModal();
+                    fetchStaff();
+                }
+            } catch (err) {
+                console.error("API call failed, falling back to localStorage", err);
+                const fallbackData = generateStaffClientSide(firstName, lastName);
+                document.getElementById('first-name').value = '';
+                document.getElementById('last-name').value = '';
+                
+                document.getElementById('display-email').innerText = fallbackData.email;
+                document.getElementById('display-password').innerText = fallbackData.password;
+                
+                openModal();
+                fetchStaff();
+            }
+        });
+
+        function openModal() {
+            const modal = document.getElementById('credentials-modal');
+            modal.classList.remove('hidden');
+            modal.offsetHeight; // force reflow
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.remove('scale-90');
+            modal.classList.add('opacity-100', 'pointer-events-auto');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('credentials-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.add('scale-90');
+            modal.classList.remove('opacity-100', 'pointer-events-auto');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        function copyText(elementId) {
+            const text = document.getElementById(elementId).innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                // Flash animation or feedback could go here
+            }).catch(err => console.error("Could not copy", err));
+        }
+        
+        fetchStaff();
+    </script>
+</body>
+</html>
