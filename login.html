@@ -225,7 +225,21 @@
                                 window.location.href = '/admin/dashboard.html';
                             } else {
                                 localStorage.setItem('client_auth', JSON.stringify({ role: 'client', email: email, name: name, id: data.id }));
-                                window.location.href = '/client/portal.html';
+                                try {
+                                    const reqRes = await fetch('/api/requirements', { headers: { 'Authorization': 'Bearer ' + data.token } });
+                                    if (reqRes.ok) {
+                                        const reqData = await reqRes.json();
+                                        if (reqData.status === 'approved') {
+                                            window.location.href = '/client/portal.html';
+                                        } else {
+                                            window.location.href = '/requirements.html';
+                                        }
+                                    } else {
+                                        window.location.href = '/requirements.html';
+                                    }
+                                } catch (e) {
+                                    window.location.href = '/requirements.html';
+                                }
                             }
                         }
                     });
