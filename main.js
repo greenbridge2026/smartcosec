@@ -679,7 +679,12 @@ function init() {
             const status = card.dataset.status;
             
             if (status === 'new') {
-                window.location.href = '/auth.html?mode=signup';
+                const token = localStorage.getItem('token');
+                if (token) {
+                    window.location.href = '/requirements.html';
+                } else {
+                    window.location.href = '/auth.html';
+                }
                 return;
             }
 
@@ -765,7 +770,6 @@ function init() {
             if (window.lucide) window.lucide.createIcons();
         } catch (e) { console.error('Blog Init Error:', e); }
     }
-
     initBlogs();
 }
 

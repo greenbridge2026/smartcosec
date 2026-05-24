@@ -429,6 +429,8 @@ function generateAIResponse(msg) {
 
 function logout() {
     localStorage.removeItem('client_auth');
+    localStorage.removeItem('token');
+    localStorage.removeItem('globalisor_master_v3');
     window.location.href = '/auth.html';
 }
 

@@ -28,12 +28,18 @@ export default defineConfig({
         staff: resolve(__dirname, 'staff/dashboard.html'),
         adminLogin: resolve(__dirname, 'admin/login.html'),
         adminDashboard: resolve(__dirname, 'admin/dashboard.html'),
+        pricing: resolve(__dirname, 'pricing.html'),
+        onboarding: resolve(__dirname, 'onboarding.html'),
+        signin: resolve(__dirname, 'signin.html'),
       },
     },
   },
   server: {
     proxy: {
-      '/api': 'http://localhost:8080',
+      '/api': {
+        target: 'https://globalisor-77d7da9fe8c7.herokuapp.com',
+        changeOrigin: true,
+      },
     },
   },
 });
