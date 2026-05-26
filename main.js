@@ -771,6 +771,242 @@ function init() {
         } catch (e) { console.error('Blog Init Error:', e); }
     }
     initBlogs();
+
+    // 10. Global Presence Map Logic (Futuristic Fintech D3 Globe)
+    const countryItems = document.querySelectorAll('.country-item');
+    const canvas = document.getElementById('globe-canvas');
+    const mapCaption = document.getElementById('map-caption');
+    const mapCaptionText = document.getElementById('map-caption-text');
+
+    if (canvas && window.d3 && window.topojson) {
+        const ctx = canvas.getContext('2d');
+        let width = canvas.offsetWidth || 450;
+        let height = canvas.offsetHeight || 450;
+
+        // Set canvas resolution for HD rendering
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        ctx.scale(dpr, dpr);
+
+        // Define Orthographic projection
+        const projection = d3.geoOrthographic()
+            .scale(width / 2.1)
+            .translate([width / 2, height / 2])
+            .clipAngle(90);
+
+        const path = d3.geoPath(projection, ctx);
+        const graticule = d3.geoGraticule();
+
+        let worldData = null;
+        let countries = [];
+        
+        // Coordinates for centering countries
+        const countryCoords = {
+            'singapore': [103.8198, 1.3521],
+            'hong_kong': [114.1694, 22.3193],
+            'usa': [-95.7129, 37.0902],
+            'dubai': [55.2708, 25.2048],
+            'australia': [133.7751, -25.2744],
+            'uk': [-1.1743, 52.3555]
+        };
+
+        // Network connections to draw (hubs coordinates)
+        const connections = [
+            { from: [103.8198, 1.3521], to: [114.1694, 22.3193], speed: 1800, offset: 0 },   // SG -> HK
+            { from: [103.8198, 1.3521], to: [-74.0060, 40.7128], speed: 3000, offset: 0.2 }, // SG -> USA (NY)
+            { from: [103.8198, 1.3521], to: [55.2708, 25.2048], speed: 2200, offset: 0.4 },  // SG -> Dubai
+            { from: [103.8198, 1.3521], to: [151.2093, -33.8688], speed: 2000, offset: 0.6 }, // SG -> Australia (Sydney)
+            { from: [103.8198, 1.3521], to: [-0.1276, 51.5074], speed: 2500, offset: 0.8 },  // SG -> UK (London)
+            { from: [-0.1276, 51.5074], to: [-74.0060, 40.7128], speed: 1500, offset: 0.1 }   // UK -> USA (London -> NY)
+        ];
+
+        // Match country name to TopoJSON IDs for highlighting
+        const countryIds = {
+            'singapore': 702,
+            'hong_kong': 344,
+            'usa': 840,
+            'dubai': 784,
+            'australia': 36,
+            'uk': 826
+        };
+
+        // Fintech corporate map colors (Clean light slate / grey with vibrant blue highlighting)
+        function getCountryColor(d) {
+            const numericId = Number(d.id);
+            if (activeCountryId && numericId === activeCountryId) {
+                return '#2563eb'; // Deep glowing blue for active hovered country
+            }
+            if (Object.values(countryIds).includes(numericId)) {
+                return '#93c5fd'; // Soft blue for network hubs
+            }
+            return '#cbd5e1'; // Light grey/slate for non-hub countries
+        }
+
+        let rotation = [0, -15];
+        let targetRotation = [0, -15];
+        let currentScale = width / 2.1;
+        let targetScale = width / 2.1;
+        let isHovered = false;
+        let activeCountryId = null;
+
+        // Fetch World Atlas TopoJSON
+        d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+            .then(data => {
+                worldData = data;
+                countries = topojson.feature(data, data.objects.countries).features;
+                requestAnimationFrame(render);
+            })
+            .catch(err => {
+                console.error('Failed to load globe data, falling back to local simulation:', err);
+            });
+
+        // Animation/Render Loop
+        function render() {
+            ctx.clearRect(0, 0, width, height);
+
+            // Interpolation for rotations and scale
+            if (isHovered) {
+                rotation[0] += (targetRotation[0] - rotation[0]) * 0.08;
+                rotation[1] += (targetRotation[1] - rotation[1]) * 0.08;
+                currentScale += (targetScale - currentScale) * 0.08;
+            } else {
+                rotation[0] += 0.2; // Continuous slow rolling
+                rotation[1] += (-15 - rotation[1]) * 0.05; // Lock tilt
+                currentScale += ((width / 2.1) - currentScale) * 0.08;
+            }
+
+            projection.rotate(rotation).scale(currentScale);
+
+            // 1. Draw Ocean (Ultra clean light blue-slate fill)
+            ctx.beginPath();
+            ctx.arc(width / 2, height / 2, projection.scale(), 0, 2 * Math.PI);
+            ctx.fillStyle = '#f1f5f9'; 
+            ctx.fill();
+
+            // 2. Draw Subtle Earth Grid (Graticules for high-tech grid look)
+            ctx.beginPath();
+            path(graticule());
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.15)';
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+
+            if (countries.length > 0) {
+                // 3. Draw Landmasses (Slate / light blue theme)
+                countries.forEach(d => {
+                    ctx.beginPath();
+                    path(d);
+                    ctx.fillStyle = getCountryColor(d);
+                    ctx.fill();
+                });
+
+                // 4. Draw Country Borders (Subtle border for high-end feel)
+                ctx.beginPath();
+                countries.forEach(d => {
+                    path(d);
+                });
+                ctx.strokeStyle = '#e2e8f0'; 
+                ctx.lineWidth = 0.75;
+                ctx.stroke();
+
+                // 5. Draw Connection Lines and Animated Glowing Pulses
+                connections.forEach(conn => {
+                    // Draw the network arc path
+                    ctx.beginPath();
+                    path({ type: 'LineString', coordinates: [conn.from, conn.to] });
+                    ctx.strokeStyle = 'rgba(37, 99, 235, 0.12)';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+
+                    // Calculate interpolation along the arc
+                    const interpolator = d3.geoInterpolate(conn.from, conn.to);
+                    const t = (Date.now() / conn.speed + conn.offset) % 1.0;
+                    const pulseCoords = interpolator(t);
+
+                    // Check if point is on the visible front hemisphere of the globe
+                    const centerCoords = projection.invert([width / 2, height / 2]);
+                    const distance = d3.geoDistance(centerCoords, pulseCoords);
+
+                    if (distance < Math.PI / 2) {
+                        const pt = projection(pulseCoords);
+                        ctx.beginPath();
+                        ctx.arc(pt[0], pt[1], 3.5, 0, 2 * Math.PI);
+                        ctx.fillStyle = '#2563eb';
+                        
+                        // Add glow shadow
+                        ctx.shadowColor = '#3b82f6';
+                        ctx.shadowBlur = 8;
+                        ctx.fill();
+                        ctx.shadowBlur = 0; // Reset shadow blur immediately
+                    }
+                });
+            }
+
+            requestAnimationFrame(render);
+        }
+
+        // Wire up list hover and click events
+        countryItems.forEach(item => {
+            item.addEventListener('mouseenter', () => {
+                countryItems.forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+
+                const key = item.getAttribute('data-country');
+                const coords = countryCoords[key];
+                if (coords) {
+                    isHovered = true;
+                    activeCountryId = countryIds[key];
+
+                    // Center projection on the hovered country (shortest path)
+                    const targetLon = -coords[0];
+                    const targetLat = -coords[1];
+                    const diff = ((targetLon - rotation[0] + 180) % 360) - 180;
+                    targetRotation = [rotation[0] + diff, targetLat];
+                    targetScale = (width / 2.1) * 1.45; // Zoom in
+                }
+
+                // Update caption
+                mapCaptionText.textContent = item.getAttribute('data-name');
+                mapCaption.classList.add('show');
+            });
+
+            // Handle click redirection (Singapore goes to Auth Page)
+            item.addEventListener('click', () => {
+                const key = item.getAttribute('data-country');
+                if (key === 'singapore') {
+                    window.location.href = '/auth.html';
+                }
+            });
+        });
+
+        // Reset to auto-spin when mouse leaves list container
+        const countryListContainer = document.querySelector('.country-list-container');
+        if (countryListContainer) {
+            countryListContainer.addEventListener('mouseleave', () => {
+                countryItems.forEach(i => i.classList.remove('active'));
+                isHovered = false;
+                activeCountryId = null;
+                mapCaption.classList.remove('show');
+            });
+        }
+
+        // Handle window resizing
+        window.addEventListener('resize', () => {
+            const newWidth = canvas.offsetWidth;
+            const newHeight = canvas.offsetHeight;
+            if (newWidth !== width || newHeight !== height) {
+                width = newWidth;
+                height = newHeight;
+                canvas.width = width * dpr;
+                canvas.height = height * dpr;
+                ctx.scale(dpr, dpr);
+                projection.translate([width / 2, height / 2]);
+                if (!isHovered) {
+                    currentScale = width / 2.1;
+                }
+            }
+        });
+    }
 }
 
 document.addEventListener('DOMContentLoaded', init);

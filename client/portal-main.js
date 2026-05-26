@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Session Recovery
     const authString = localStorage.getItem('client_auth');
     if (!authString) {
-        window.location.href = '/login.html';
+        window.location.href = '/auth.html';
         return;
     }
     const auth = JSON.parse(authString);
@@ -74,7 +74,8 @@ async function fetchData() {
                 status: s.status === 'pending' ? 'In Progress' : (s.status === 'approved' ? 'Active' : s.status),
                 progress: s.status === 'approved' ? 100 : (s.status === 'review' ? 65 : 30),
                 company: s.companyName || 'Globalisor Entity',
-                date: s.date
+                date: s.date ? new Date(s.date).toLocaleDateString() : 'N/A',
+                staff: (!s.staff || s.staff.toLowerCase() === 'sarah lim' || s.staff.toLowerCase() === 'unassigned') ? 'Unassigned' : s.staff
             }));
         }
 
@@ -216,6 +217,10 @@ function switchTab(tab) {
 // --- View Renderers ---
 
 function renderHome(container) {
+    const activeService = state.services[0];
+    const staffName = activeService ? (activeService.staff || 'Unassigned') : 'Unassigned';
+    const staffInitial = staffName.charAt(0).toUpperCase();
+
     container.innerHTML = `
         <div class="space-y-8">
             <div class="flex flex-col lg:flex-row gap-6">
@@ -252,11 +257,11 @@ function renderHome(container) {
                 <!-- Staff Sidebar Card -->
                 <div class="w-full lg:w-80">
                     <div class="premium-card bg-white border-none shadow-sm h-full flex flex-col items-center justify-center p-8">
-                        <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-[#0076CE] text-2xl font-bold mb-4">S</div>
-                        <h3 class="text-slate-900 font-bold text-lg">Sarah Lim</h3>
+                        <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-[#0076CE] text-2xl font-bold mb-4">${staffInitial}</div>
+                        <h3 class="text-slate-900 font-bold text-lg">${staffName}</h3>
                         <p class="text-slate-400 text-sm mb-6">Globalisor Staff</p>
-                        <button class="w-full border border-blue-600 text-blue-600 rounded-xl py-3 text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-50 transition-all">
-                            <i data-lucide="message-square" class="w-4 h-4"></i> Message Sarah
+                        <button onclick="switchTab('messages')" class="w-full border border-blue-600 text-blue-600 rounded-xl py-3 text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-50 transition-all">
+                            <i data-lucide="message-square" class="w-4 h-4"></i> Message ${staffName.split(' ')[0]}
                         </button>
                     </div>
                 </div>
@@ -1092,3 +1097,42 @@ function renderChatMessages(messages) {
         container.scrollTop = container.scrollHeight;
     }
 }
+
+function toggleNotifs() {
+    const badge = document.getElementById('notif-badge');
+    if (badge) badge.classList.add('hidden');
+    
+    state.notifications.forEach(n => {
+        if (!n.readBy.includes(state.user.id)) {
+            n.readBy.push(state.user.id);
+        }
+    });
+    updateNotificationUI();
+    
+    const container = document.getElementById('toast-container') || (() => {
+        const div = document.createElement('div');
+        div.id = 'toast-container';
+        document.body.appendChild(div);
+        return div;
+    })();
+    const toast = document.createElement('div');
+    toast.className = `toast success`;
+    toast.innerHTML = `<span>🔔</span><span>Notifications cleared</span>`;
+    container.appendChild(toast);
+    setTimeout(() => toast.classList.add('active'), 10);
+    setTimeout(() => {
+        toast.classList.remove('active');
+        setTimeout(() => toast.remove(), 400);
+    }, 2000);
+}
+
+// Bind to window for HTML inline event handlers
+window.logout = logout;
+window.switchTab = switchTab;
+window.toggleAIAssistant = toggleAIAssistant;
+window.handleAISend = handleAISend;
+window.openBlogDetail = openBlogDetail;
+window.closeModal = closeModal;
+window.triggerUpload = triggerUpload;
+window.toggleNotifs = toggleNotifs;
+

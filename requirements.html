@@ -266,7 +266,7 @@
         <!-- RIGHT: WIZARD -->
         <div class="right-panel">
             <div style="position: absolute; top: 0.5rem; right: 2rem; z-index: 100;">
-                <button onclick="localStorage.removeItem('token'); localStorage.removeItem('client_auth'); localStorage.removeItem('globalisor_master_v3'); window.location.href = '/';" style="font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569; background: rgba(255, 255, 255, 0.7); border: 1px solid rgba(226, 232, 240, 0.8); padding: 0.55rem 1.2rem; border-radius: 0.75rem; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; align-items: center; gap: 0.5rem;" onmouseover="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.color='#ef4444'; this.style.borderColor='rgba(239, 68, 68, 0.2)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.7)'; this.style.color='#475569'; this.style.borderColor='rgba(226, 232, 240, 0.8)';">
+                <button onclick="localStorage.removeItem('token'); localStorage.removeItem('client_auth'); localStorage.removeItem('globalisor_master_v3'); window.location.href = '/auth.html';" style="font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569; background: rgba(255, 255, 255, 0.7); border: 1px solid rgba(226, 232, 240, 0.8); padding: 0.55rem 1.2rem; border-radius: 0.75rem; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; align-items: center; gap: 0.5rem;" onmouseover="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.color='#ef4444'; this.style.borderColor='rgba(239, 68, 68, 0.2)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.7)'; this.style.color='#475569'; this.style.borderColor='rgba(226, 232, 240, 0.8)';">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
                     Sign Out
                 </button>
@@ -485,8 +485,14 @@
             }
 
             async next() {
-                // Step 2 Validation (Passport Expiry for Foreigners)
+                // Step 2 Validation (Passport Expiry & Date of Birth)
                 if (this.currentStep === 2) {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const hasFutureDob = this.data.directors.some(d => d.dob && d.dob > todayStr);
+                    if (hasFutureDob) {
+                        showToast("Date of Birth cannot be in the future.", "error");
+                        return;
+                    }
                     const invalid = this.data.directors.some(d => d.idType === 'foreigner' && this.isExpiryInvalid(d.passportExpiry));
                     if (invalid) {
                         showToast("Passport must be valid for > 6 months.", "error");
@@ -627,7 +633,7 @@
                                                 ${wizard.isExpiryInvalid(d.passportExpiry) ? `<p class="error-msg" style="color:var(--error); font-size:0.75rem; margin-top:5px; display:block">Passport must be valid for at least 6 months.</p>` : ''}
                                             </div>
                                         ` : ''}
-                                        <div class="form-group"><label class="form-label">Date of Birth</label><input type="date" class="input-box" value="${d.dob}" oninput="wizard.data.directors[${i}].dob=this.value; wizard.save()"></div>
+                                        <div class="form-group"><label class="form-label">Date of Birth</label><input type="date" class="input-box" max="${new Date().toISOString().split('T')[0]}" value="${d.dob}" oninput="wizard.data.directors[${i}].dob=this.value; wizard.save()"></div>
                                         <div class="form-group"><label class="form-label">Contact Number</label><input type="text" class="input-box" value="${d.phone}" oninput="wizard.data.directors[${i}].phone=this.value; wizard.save()"></div>
                                     </div>
                                     <div class="form-grid">

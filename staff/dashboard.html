@@ -12,7 +12,7 @@
     <script>
         // Authentication Check
         if (!localStorage.getItem('staff_auth')) {
-            window.location.href = '/login.html';
+            window.location.href = '/auth.html';
         }
 
         tailwind.config = {
@@ -884,13 +884,25 @@
         }
 
         async function updateAppStatus(appId, status) {
+            // Update local memory immediately to prevent UI reversion
+            const app = staffData.applications.find(a => a.id === appId);
+            if (app) {
+                app.status = status;
+            }
+            updateDashboardStats();
+
             try {
                 await fetch(`/api/services/${appId}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status })
                 });
-            } catch (e) { console.warn('Status update failed, continuing locally.', e); }
+                await fetchStaffData();
+                updateDashboardStats();
+                renderApplications();
+            } catch (e) {
+                console.warn('Status update failed, continuing locally.', e);
+            }
         }
 
         function getPriorityClass(priority) {
@@ -1220,7 +1232,8 @@
 
         function signOut() {
             localStorage.removeItem('staff_auth');
-            window.location.href = '/login.html';
+            localStorage.removeItem('token');
+            window.location.href = '/auth.html';
         }
 
         document.addEventListener('click', () => {
