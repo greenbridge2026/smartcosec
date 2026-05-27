@@ -12,7 +12,7 @@
     <script>
         // Authentication Check
         if (!localStorage.getItem('admin_auth')) {
-            window.location.href = '/admin/login.html';
+            window.location.href = '/auth.html';
         }
         tailwind.config = {
             theme: {
@@ -65,7 +65,7 @@
                 <div class="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-xs">A</div>
                 <div class="flex flex-col">
                     <div class="text-xs font-semibold text-slate-800">Admin Team</div>
-                    <button onclick="localStorage.removeItem('admin_auth'); window.location.href='/login.html'" class="text-[10px] text-red-500 font-bold hover:underline text-left leading-none">Sign Out</button>
+                    <button onclick="localStorage.removeItem('admin_auth'); localStorage.removeItem('token'); window.location.href='/auth.html'" class="text-[10px] text-red-500 font-bold hover:underline text-left leading-none">Sign Out</button>
                 </div>
             </div>
         </div>
@@ -209,8 +209,18 @@
                 else if (status === 'in progress' || status === 'under review' || status === 'review') statusClass = 'bg-amber-50/80 text-amber-600';
                 else if (status === 'completed' || status === 'approved') statusClass = 'bg-emerald-50/80 text-emerald-600';
                 else if (status === 'rejected') statusClass = 'bg-red-50/80 text-red-600';
-                const currentAssigned = localStorage.getItem('assigned_staff_' + app.id) || app.staff || '';
-                const displayClass = currentAssigned ? 'text-emerald-600' : 'text-slate-400 italic';
+                let currentAssigned = localStorage.getItem('assigned_staff_' + app.id);
+                if (currentAssigned === null) {
+                    const rawStaff = app.staff || '';
+                    if (!rawStaff || rawStaff.toLowerCase() === 'sarah lim' || rawStaff.toLowerCase() === 'unassigned') {
+                        currentAssigned = 'Unassigned';
+                    } else {
+                        currentAssigned = rawStaff;
+                    }
+                }
+                const isUnassigned = !currentAssigned || currentAssigned.toLowerCase() === 'unassigned';
+                const displayClass = isUnassigned ? 'text-slate-400 italic' : 'text-emerald-600';
+                const displayName = isUnassigned ? 'Unassigned' : currentAssigned;
                 const displayId = app.originalIndex !== undefined ? app.originalIndex + 1 : idx + 1;
                 return `
                 <tr class="hover:bg-white/40 transition-colors group">
@@ -218,7 +228,7 @@
                     <td class="px-6 py-4 font-bold text-slate-800 text-sm">${app.business || 'N/A'}</td>
                     <td class="px-6 py-4 text-slate-600 text-sm">${app.client || 'N/A'}</td>
                     <td class="px-6 py-4" id="staff-cell-${app.id}">
-                        <span onclick="enableStaffEdit('${app.id}', '${currentAssigned}')" class="${displayClass} font-bold text-xs hover:underline cursor-pointer">${currentAssigned || 'Unassigned'}</span>
+                        <span onclick="openReassignModal('${app.id}', '${displayName}')" class="${displayClass} font-bold text-xs hover:underline cursor-pointer">${displayName}</span>
                     </td>
                     <td class="px-6 py-4">
                         <span class="px-3 py-1.5 rounded-full text-[11px] font-bold uppercase ${statusClass}">${app.status || 'Pending'}</span>
@@ -228,7 +238,7 @@
                     </td>
                     <td class="px-6 py-4 font-bold text-slate-800 text-[11px] uppercase">${app.kyc || 'N/A'}</td>
                     <td class="px-6 py-4 text-center">
-                        <button onclick="enableStaffEdit('${app.id}', '${currentAssigned}')" class="px-4 py-1.5 border border-blue-200 rounded-xl text-blue-600 text-[11px] font-bold hover:bg-blue-50 transition-all">Reassign</button>
+                        <button onclick="openReassignModal('${app.id}', '${displayName}')" class="px-4 py-1.5 border border-blue-200 rounded-xl text-blue-600 text-[11px] font-bold hover:bg-blue-50 transition-all">Reassign</button>
                     </td>
                 </tr>`;
             }).join('');
@@ -239,6 +249,9 @@
             try {
                 const res = await fetch('/api/applications');
                 allApplications = await res.json();
+                if (allApplications && Array.isArray(allApplications)) {
+                    allApplications.sort((a, b) => (b.id || '').localeCompare(a.id || ''));
+                }
                 filterApplications();
             } catch(e) { console.error(e); }
         }
@@ -246,197 +259,145 @@
         function renderStaffCell(appId, staffName) {
             const cell = document.getElementById(`staff-cell-${appId}`);
             if (!cell) return;
-            const displayClass = staffName ? 'text-emerald-600' : 'text-slate-400 italic';
-            cell.innerHTML = `<span onclick="enableStaffEdit('${appId}', '${staffName}')" class="${displayClass} font-bold text-xs hover:underline cursor-pointer">${staffName || 'Unassigned'}</span>`;
+            const isUnassigned = !staffName || staffName.toLowerCase() === 'unassigned';
+            const displayClass = isUnassigned ? 'text-slate-400 italic' : 'text-emerald-600';
+            const displayName = isUnassigned ? 'Unassigned' : staffName;
+            cell.innerHTML = `<span onclick="openReassignModal('${appId}', '${displayName}')" class="${displayClass} font-bold text-xs hover:underline cursor-pointer">${displayName}</span>`;
         }
 
-        function closeActiveEditor() {
-            if (activeEditorAppId) {
-                const prevId = activeEditorAppId;
-                const prevStaff = localStorage.getItem('assigned_staff_' + prevId) || '';
-                if (activeClickOutsideHandler) {
-                    document.removeEventListener('mousedown', activeClickOutsideHandler);
-                    activeClickOutsideHandler = null;
-                }
-                if (activeScrollHandler) {
-                    window.removeEventListener('scroll', activeScrollHandler, true);
-                    activeScrollHandler = null;
-                }
-                const portal = document.getElementById(`staff-list-${prevId}`);
-                if (portal) portal.remove();
-                activeEditorAppId = null;
-                renderStaffCell(prevId, prevStaff);
-            }
-        }
+        window.openReassignModal = function(appId, currentStaff) {
+            const existing = document.getElementById('reassign-modal');
+            if (existing) existing.remove();
 
-        function enableStaffEdit(appId, currentStaff) {
-            if (activeEditorAppId === appId) return;
-            closeActiveEditor();
+            const modalHtml = `
+                <div id="reassign-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[10000] opacity-0 transition-opacity duration-300 pointer-events-auto">
+                    <div class="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl transform scale-95 transition-transform duration-300 flex flex-col max-h-[85vh] pointer-events-auto">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 class="text-xl font-bold text-slate-900">Assign Staff</h3>
+                                <p class="text-xs text-slate-500 mt-1">Select a staff member for this application</p>
+                            </div>
+                            <button onclick="closeReassignModal()" class="text-slate-400 hover:text-slate-600 transition-colors p-1 bg-slate-50 hover:bg-slate-100 rounded-xl">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                        
+                        <div class="relative mb-4 flex-shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35"/></svg>
+                            <input type="text" id="reassign-search" placeholder="Search staff members..." class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-medium">
+                        </div>
 
-            const cell = document.getElementById(`staff-cell-${appId}`);
-            if (!cell) return;
+                        <div class="overflow-y-auto flex-1 pr-1 space-y-2 mb-6" id="reassign-staff-list"></div>
 
-            let highlightIndex = -1;
-            let filteredNames = [];
-
-            cell.innerHTML = `
-                <div id="staff-editor-${appId}" style="min-width:190px">
-                    <div class="flex items-center gap-1.5 border-2 border-blue-500 rounded-xl bg-white shadow-lg px-2.5 py-1.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                        <input type="text" id="staff-input-${appId}" value="" class="w-full bg-transparent outline-none text-xs font-semibold text-slate-700 placeholder-slate-300 min-w-0" autocomplete="off" placeholder="Search staff...">
+                        <div class="flex gap-3 flex-shrink-0">
+                            <button onclick="closeReassignModal()" class="flex-1 py-3 border border-slate-200 rounded-2xl text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all">Cancel</button>
+                        </div>
                     </div>
                 </div>
             `;
-            
-            const portal = document.createElement('div');
-            portal.id = `staff-list-${appId}`;
-            portal.className = "fixed z-[9999] bg-white border border-slate-200 rounded-2xl shadow-2xl hidden overflow-hidden";
-            portal.style.minWidth = "200px";
-            portal.innerHTML = `
-                <div class="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 flex items-center gap-1.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    Staff Directory
-                </div>
-                <div id="staff-list-items-${appId}" class="max-h-44 overflow-y-auto py-1"></div>
-                <div class="px-3 py-1.5 border-t border-slate-100 flex items-center gap-2 bg-slate-50">
-                    <span class="text-[9px] text-slate-400 font-medium">↑↓ Navigate &nbsp;·&nbsp; ↵ Select &nbsp;·&nbsp; Esc Cancel</span>
-                </div>
-            `;
-            document.body.appendChild(portal);
 
-            const input = document.getElementById(`staff-input-${appId}`);
-            const list = document.getElementById(`staff-list-${appId}`);
-            const listItemsEl = document.getElementById(`staff-list-items-${appId}`);
-            activeEditorAppId = appId;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            const modalEl = document.getElementById('reassign-modal');
+            const modalContent = modalEl.querySelector('.bg-white');
 
-            function setHighlight(idx) {
-                listItemsEl.querySelectorAll('.staff-item').forEach(el => {
-                    el.classList.remove('bg-emerald-500', 'text-white', 'staff-item-highlighted');
-                    el.classList.add('text-slate-700');
-                    el.querySelector('.avatar-circle').classList.replace('text-emerald-600', 'text-slate-500');
+            setTimeout(() => {
+                modalEl.classList.remove('opacity-0');
+                modalContent.classList.remove('scale-95');
+            }, 10);
+
+            const searchInput = document.getElementById('reassign-search');
+            const listContainer = document.getElementById('reassign-staff-list');
+
+            const renderList = (query = '') => {
+                let itemsHtml = '';
+                
+                const isUnassignedSelected = !currentStaff || currentStaff.toLowerCase() === 'unassigned';
+                itemsHtml += `
+                    <div onclick="selectReassignStaff('${appId}', 'Unassigned')" class="flex items-center justify-between p-3 rounded-2xl cursor-pointer hover:bg-slate-50 transition-all border ${isUnassignedSelected ? 'border-blue-500 bg-blue-50/30' : 'border-transparent'}">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs">U</div>
+                            <div>
+                                <div class="text-sm font-bold text-slate-900">Unassigned</div>
+                                <div class="text-[10px] text-slate-400 font-semibold uppercase">No staff assigned</div>
+                            </div>
+                        </div>
+                        ${isUnassignedSelected ? '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>' : ''}
+                    </div>
+                `;
+
+                const filtered = staffNames.filter(name => name.toLowerCase().includes(query.toLowerCase()));
+                
+                filtered.forEach(name => {
+                    const isSelected = currentStaff && currentStaff.toLowerCase() === name.toLowerCase();
+                    const initial = name.charAt(0).toUpperCase() + (name.split(' ')[1] ? name.split(' ')[1].charAt(0).toUpperCase() : '');
+                    itemsHtml += `
+                        <div onclick="selectReassignStaff('${appId}', '${name}')" class="flex items-center justify-between p-3 rounded-2xl cursor-pointer hover:bg-slate-50 transition-all border ${isSelected ? 'border-blue-500 bg-blue-50/30' : 'border-transparent'}">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">${initial}</div>
+                                <div>
+                                    <div class="text-sm font-bold text-slate-900">${name}</div>
+                                    <div class="text-[10px] text-slate-400 font-semibold">Globalisor Staff</div>
+                                </div>
+                            </div>
+                            ${isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>' : ''}
+                        </div>
+                    `;
                 });
-                highlightIndex = idx;
-                if (idx >= 0 && idx < filteredNames.length) {
-                    const items = listItemsEl.querySelectorAll('.staff-item');
-                    if (items[idx]) {
-                        items[idx].classList.add('bg-emerald-500', 'text-white', 'staff-item-highlighted');
-                        items[idx].classList.remove('text-slate-700');
-                        items[idx].querySelector('.avatar-circle').classList.replace('text-slate-500', 'text-emerald-600');
-                        items[idx].scrollIntoView({ block: 'nearest' });
-                    }
-                }
-            }
 
-            function positionPortal() {
-                const editorRect = document.getElementById(`staff-editor-${appId}`).getBoundingClientRect();
-                portal.style.top = (editorRect.bottom + 6) + 'px';
-                portal.style.left = editorRect.left + 'px';
-            }
-
-            function renderSuggestions(query) {
-                filteredNames = staffNames.filter(n => n.toLowerCase().includes(query.toLowerCase()));
-                highlightIndex = -1;
-                if (filteredNames.length === 0) {
-                    listItemsEl.innerHTML = `<div class="px-3 py-4 text-xs text-slate-400 italic text-center">No staff members found</div>`;
-                } else {
-                    listItemsEl.innerHTML = filteredNames.map((name, i) => {
-                        const initial = name.charAt(0).toUpperCase();
-                        return `<div class="staff-item flex items-center gap-2 px-3 py-2.5 text-xs font-semibold text-slate-700 cursor-pointer transition-colors select-none" data-name="${name}" data-index="${i}">
-                            <div class="avatar-circle w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-bold text-slate-500 flex-shrink-0">${initial}</div>
-                            <span>${name}</span>
-                        </div>`;
-                    }).join('');
-
-                    listItemsEl.querySelectorAll('.staff-item').forEach(item => {
-                        item.addEventListener('mousedown', (e) => {
-                            e.preventDefault();
-                            saveStaffAssignment(appId, item.getAttribute('data-name'));
-                        });
-                        item.addEventListener('mouseenter', () => {
-                            setHighlight(parseInt(item.getAttribute('data-index')));
-                        });
-                    });
-                }
-                positionPortal();
-                list.classList.remove('hidden');
-            }
-
-            input.addEventListener('focus', () => renderSuggestions(input.value));
-            input.addEventListener('input', () => renderSuggestions(input.value));
-
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    if (list.classList.contains('hidden')) renderSuggestions(input.value);
-                    setHighlight(Math.min(highlightIndex + 1, filteredNames.length - 1));
-                } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    setHighlight(Math.max(highlightIndex - 1, 0));
-                } else if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (highlightIndex >= 0 && highlightIndex < filteredNames.length) {
-                        saveStaffAssignment(appId, filteredNames[highlightIndex]);
-                    } else {
-                        const exactMatch = staffNames.find(n => n.toLowerCase() === input.value.trim().toLowerCase());
-                        if (exactMatch) {
-                            saveStaffAssignment(appId, exactMatch);
-                        } else {
-                            alert("Please select a valid staff member from the dropdown list.");
-                        }
-                    }
-                } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    closeActiveEditor();
-                }
-            });
-
-            const outsideHandler = (e) => {
-                const editor = document.getElementById(`staff-editor-${appId}`);
-                const portalEl = document.getElementById(`staff-list-${appId}`);
-                if ((editor && editor.contains(e.target)) || (portalEl && portalEl.contains(e.target))) return;
-                closeActiveEditor();
+                listContainer.innerHTML = itemsHtml;
             };
-            activeClickOutsideHandler = outsideHandler;
-            setTimeout(() => document.addEventListener('mousedown', outsideHandler), 150);
 
-            activeScrollHandler = positionPortal;
-            window.addEventListener('scroll', activeScrollHandler, true);
-
-            input.focus();
-            renderSuggestions('');
+            searchInput.addEventListener('input', (e) => renderList(e.target.value));
+            renderList('');
         }
 
+        window.closeReassignModal = function() {
+            const modalEl = document.getElementById('reassign-modal');
+            if (!modalEl) return;
+            const modalContent = modalEl.querySelector('.bg-white');
+            modalEl.classList.add('opacity-0');
+            modalContent.classList.add('scale-95');
+            setTimeout(() => modalEl.remove(), 300);
+        };
+
+        window.selectReassignStaff = async function(appId, name) {
+            window.closeReassignModal();
+            await saveStaffAssignment(appId, name);
+        };
+
         async function saveStaffAssignment(appId, name) {
-            // Enforce: only allow names from the staff directory
-            if (!staffNames.includes(name)) {
+            const isUnassigned = !name || name.toLowerCase() === 'unassigned';
+            if (!isUnassigned && !staffNames.includes(name)) {
                 alert("Cannot assign: " + name + " is not a valid staff member.");
                 return;
             }
 
-            // Persist locally — store BOTH name and email (email is the unique key for reliable matching)
-            localStorage.setItem('assigned_staff_' + appId, name);
+            // Store name
+            localStorage.setItem('assigned_staff_' + appId, isUnassigned ? 'Unassigned' : name);
 
-            // Look up the staff member's email from local directory
+            // Also store email as unique identifier for reliable cross-matching
             try {
-                const localAccounts = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]');
-                const staffMember = localAccounts.find(s => `${s.firstName} ${s.lastName}`.toLowerCase() === name.toLowerCase());
-                if (staffMember && staffMember.email) {
-                    localStorage.setItem('assigned_staff_email_' + appId, staffMember.email.toLowerCase());
-                } else {
-                    // Remove stale email entry if re-assigned to someone else
+                if (isUnassigned) {
                     localStorage.removeItem('assigned_staff_email_' + appId);
+                } else {
+                    const localAccounts = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]');
+                    const staffMember = localAccounts.find(s => `${s.firstName} ${s.lastName}`.toLowerCase() === name.toLowerCase());
+                    if (staffMember && staffMember.email) {
+                        localStorage.setItem('assigned_staff_email_' + appId, staffMember.email.toLowerCase());
+                    } else {
+                        localStorage.removeItem('assigned_staff_email_' + appId);
+                    }
                 }
             } catch (e) { console.warn('Could not look up staff email', e); }
 
-            // Tear down the editor state cleanly and render the updated cell
-            closeActiveEditor();
+            renderStaffCell(appId, isUnassigned ? 'Unassigned' : name);
 
             // Sync to backend silently in background
             try {
                 await fetch(`/api/services/${appId}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ staff: name })
+                    body: JSON.stringify({ staff: isUnassigned ? 'Unassigned' : name })
                 });
             } catch (e) {
                 console.warn("Backend sync failed, saved locally.", e);

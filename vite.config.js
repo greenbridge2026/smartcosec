@@ -59,7 +59,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://globalisor-77d7da9fe8c7.herokuapp.com',
+        target: 'http://localhost:8080',
         changeOrigin: true,
       },
     },
