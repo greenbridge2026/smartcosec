@@ -500,6 +500,8 @@
 
         let staffData = {
             applications: [],
+            kycQueue: [],
+            documents: [],
             stats: {},
             guidance: []
         };
@@ -606,15 +608,11 @@
                 // Primary match: email (unique, unambiguous)
                 // Fallback match: full name (case-insensitive)
                 staffData.applications = allApps.filter(app => {
-                    // 1. Try email match first (most reliable)
-                    const assignedEmail = localStorage.getItem('assigned_staff_email_' + app.id);
-                    if (assignedEmail && CURRENT_STAFF_EMAIL) {
-                        return assignedEmail === CURRENT_STAFF_EMAIL.toLowerCase();
-                    }
-                    // 2. Fall back to name match
-                    const assignedName = localStorage.getItem('assigned_staff_' + app.id) || app.staff || '';
+                    const assignedName = app.staff || '';
                     if (!assignedName) return false;
-                    return assignedName.toLowerCase() === CURRENT_STAFF_NAME.toLowerCase();
+                    const normAssignedName = assignedName.toLowerCase().replace(/[^a-z0-9]/g, "");
+                    const normCurrentName = CURRENT_STAFF_NAME.toLowerCase().replace(/[^a-z0-9]/g, "");
+                    return normAssignedName === normCurrentName;
                 });
 
                 // Fetch KYC Queue
@@ -622,10 +620,10 @@
                 if (kycRes.ok) {
                     const kycData = await kycRes.json();
                     staffData.kycQueue = kycData.map(k => ({
-                        id: k.clientId.replace('C-', 'APP-'),
+                        id: k.clientId ? k.clientId.replace('C-', 'APP-') : 'APP-UNKNOWN',
                         kycId: k.id,
-                        name: k.clientName,
-                        company: staffData.applications.find(a => a.client === k.clientName)?.business || 'N/A',
+                        name: k.clientName || k.name || 'Unknown',
+                        company: staffData.applications.find(a => a.client === (k.clientName || k.name))?.business || 'N/A',
                         status: k.status,
                         risk: k.risk || 'Low'
                     }));
@@ -635,17 +633,25 @@
                 const docRes = await fetch('/api/documents');
                 if (docRes.ok) staffData.documents = await docRes.json();
 
-                // Fetch Stats
+                // Calculate local stats based on actual data assigned to this staff member
+                staffData.stats = {
+                    assigned: staffData.applications.length,
+                    pending: staffData.applications.filter(a => {
+                        const s = (a.status || '').toLowerCase();
+                        return s === 'in progress' || s === 'pending' || s === 'new' || s === 'under review';
+                    }).length,
+                    kyc: (staffData.kycQueue || []).filter(k => (k.status || '').toLowerCase() === 'pending').length,
+                    review: (staffData.documents || []).filter(d => (d.status || '').toLowerCase() === 'pending').length,
+                    done: staffData.applications.filter(a => (a.status || '').toLowerCase() === 'completed').length
+                };
+
+                // Fetch global stats as a fallback/additional information
                 const dashRes = await fetch('/api/dashboard');
                 if (dashRes.ok) {
                     const dashData = await dashRes.json();
-                    staffData.stats = {
-                        assigned: staffData.applications.length,
-                        pending: staffData.applications.filter(a => a.status === 'In Progress').length,
-                        kyc: (staffData.kycQueue || []).filter(k => k.status === 'pending').length,
-                        review: (staffData.documents || []).filter(d => d.status === 'pending').length,
-                        done: dashData.stats.approved || 0
-                    };
+                    if (dashData && dashData.stats) {
+                        staffData.stats.done = dashData.stats.approved || staffData.stats.done;
+                    }
                 }
 
                 // Fetch Guidance
@@ -1207,21 +1213,21 @@
         }
 
         function updateDashboardStats() {
-            const stats = staffData.stats;
+            const stats = staffData.stats || {};
             document.getElementById('stat-assigned').innerText = staffData.applications.length;
             document.getElementById('stat-pending').innerText = stats.pending || 0;
-            document.getElementById('stat-kyc').innerText = staffData.applications.filter(a => a.status === 'kyc').length;
+            document.getElementById('stat-kyc').innerText = stats.kyc || 0;
             document.getElementById('stat-verifications').innerText = stats.review || 0;
-            document.getElementById('stat-tasks').innerText = staffData.applications.filter(a => a.status === 'approved').length;
+            document.getElementById('stat-tasks').innerText = stats.done || 0;
 
             const alertsContainer = document.getElementById('urgent-alerts-container');
-            const highPriority = staffData.applications.filter(a => a.priority === 'High');
+            const highPriority = staffData.applications.filter(a => (a.priority || '').toLowerCase() === 'high' || (a.priority || '').toLowerCase() === 'emergency');
             
             if (highPriority.length > 0) {
                 alertsContainer.innerHTML = highPriority.map((app, idx) => `
                     <div>
-                        <div class="font-bold text-red-800">Review Required: ${app.clientName}</div>
-                        <div class="text-red-600">${app.type} application is at "${app.stage}" stage.</div>
+                        <div class="font-bold text-red-800">Review Required: ${app.client || 'Client'}</div>
+                        <div class="text-red-600">${app.business || 'Application'} is at "${app.status || 'pending'}" stage.</div>
                     </div>
                     ${idx < highPriority.length - 1 ? '<div class="h-px bg-red-100 my-2"></div>' : ''}
                 `).join('');
