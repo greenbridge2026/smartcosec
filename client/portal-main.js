@@ -60,6 +60,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Entrance Animation
     gsap.from("aside", { x: -100, opacity: 0, duration: 1, ease: "power4.out" });
     gsap.from("header", { y: -20, opacity: 0, duration: 1, delay: 0.3, ease: "power4.out" });
+
+    window.addEventListener('appSeqMapUpdated', () => {
+        if (state.currentTab === 'services') {
+            const view = document.getElementById('main-view');
+            renderServices(view);
+        }
+    });
 });
 
 async function fetchData() {
@@ -178,6 +185,9 @@ function switchTab(tab) {
     document.querySelectorAll('.nav-btn, .nav-mobile-btn').forEach(btn => {
         btn.classList.toggle('active', btn.id.includes(tab));
     });
+    if (window.updateClientSidebarActive) {
+        window.updateClientSidebarActive(tab);
+    }
 
     const view = document.getElementById('main-view');
     const title = document.getElementById('page-title');
@@ -526,7 +536,7 @@ function renderServices(container) {
                                 <div class="grid grid-cols-2 gap-4">
                                     <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                                         <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Workflow ID</p>
-                                        <p class="text-sm font-extrabold text-slate-900">#${s.id}</p>
+                                        <p class="text-sm font-extrabold text-slate-900">#${window.appSeqMap?.[s.id] || s.id}</p>
                                     </div>
                                     <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                                         <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Initiated</p>

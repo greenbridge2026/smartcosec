@@ -30,12 +30,13 @@ function init() {
     // 1. Inject Services
     if (grid) {
         services.forEach((service, i) => {
+            const cleanName = service.name.replace(/^(SG|HK)\s*[-–—]?\s*/i, '');
             const el = document.createElement('div');
             el.className = 'service-card';
             el.innerHTML = `
                 <div class="card-icon">${service.icon}</div>
                 <div class="card-header">
-                    <h3 class="card-title">${service.name}</h3>
+                    <h3 class="card-title">${cleanName}</h3>
                     <p class="card-desc">${service.desc}</p>
                 </div>
                 <div class="card-cta">
@@ -510,7 +511,8 @@ function init() {
                 item.querySelector('.circle-node').appendChild(glow);
                 
                 hubContent.innerHTML = serviceSVGs[service.title] || '';
-                activeTitleDisplay.innerText = service.title;
+                const cleanTitle = service.title.replace(/^(SG|HK)\s*[-–—]?\s*/i, '');
+                activeTitleDisplay.innerText = cleanTitle;
                 typeText(activeDescDisplay, service.description);
                 
                 activeFeaturesDisplay.innerHTML = service.features.map((f, idx) => `
@@ -600,15 +602,18 @@ function init() {
         const allowedIds = statusMapping[status];
         const filteredServices = allServices.filter(s => allowedIds.includes(s.id));
         
-        servicesGrid.innerHTML = filteredServices.map(service => `
-            <div class="service-select-card ${currentSelectedServices.has(service.id) ? 'selected' : ''}" data-id="${service.id}">
-                <div class="service-select-icon">
-                    <i data-lucide="${service.icon}" class="w-5 h-5"></i>
-                </div>
-                <h3 class="service-select-title">${service.name}</h3>
-                <p class="service-select-desc">${service.desc}</p>
-            </div>
-        `).join('');
+        servicesGrid.innerHTML = filteredServices.map(service => {
+             const cleanName = service.name.replace(/^(SG|HK)\s*[-–—]?\s*/i, '');
+             return `
+             <div class="service-select-card ${currentSelectedServices.has(service.id) ? 'selected' : ''}" data-id="${service.id}">
+                 <div class="service-select-icon">
+                     <i data-lucide="${service.icon}" class="w-5 h-5"></i>
+                 </div>
+                 <h3 class="service-select-title">${cleanName}</h3>
+                 <p class="service-select-desc">${service.desc}</p>
+             </div>
+             `;
+         }).join('');
 
         if (window.lucide) window.lucide.createIcons();
 
@@ -630,9 +635,10 @@ function init() {
         let html = '';
         for (const [category, items] of Object.entries(groups)) {
             html += `<div class="quick-select-group-label">${category}</div>`;
-            items.forEach(item => {
-                html += `<div class="quick-select-dropdown-item" data-id="${item.id}">${item.name}</div>`;
-            });
+             items.forEach(item => {
+                 const cleanName = item.name.replace(/^(SG|HK)\s*[-–—]?\s*/i, '');
+                 html += `<div class="quick-select-dropdown-item" data-id="${item.id}">${cleanName}</div>`;
+             });
         }
         dropdownOptions.innerHTML = html;
 
@@ -940,6 +946,70 @@ function init() {
                         ctx.shadowBlur = 0; // Reset shadow blur immediately
                     }
                 });
+
+                // 5.5 Draw Singapore and Hong Kong prominent markers
+                const centerCoords = projection.invert([width / 2, height / 2]);
+                ['singapore', 'hong_kong'].forEach(key => {
+                    const coords = countryCoords[key];
+                    if (!coords) return;
+                    const distance = d3.geoDistance(centerCoords, coords);
+                    // Only draw if on the visible front hemisphere of the globe
+                    if (distance < Math.PI / 2) {
+                        const pt = projection(coords);
+                        const isCurrent = activeCountryId === countryIds[key];
+                        
+                        // Draw a solid circle anyway, so they are visible like other countries
+                        ctx.beginPath();
+                        ctx.arc(pt[0], pt[1], isCurrent ? 12 : 5, 0, 2 * Math.PI);
+                        ctx.fillStyle = isCurrent ? '#2563eb' : '#93c5fd';
+                        ctx.fill();
+                        
+                        ctx.beginPath();
+                        ctx.arc(pt[0], pt[1], isCurrent ? 12 : 5, 0, 2 * Math.PI);
+                        ctx.strokeStyle = isCurrent ? '#ffffff' : '#93c5fd';
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+                        
+                        // Draw pulsing rings
+                        const pulseRadius = (isCurrent ? 12 : 5) + (Date.now() % 1500) / 1500 * (isCurrent ? 25 : 12);
+                        const opacity = 1 - (Date.now() % 1500) / 1500;
+                        
+                        ctx.beginPath();
+                        ctx.arc(pt[0], pt[1], pulseRadius, 0, 2 * Math.PI);
+                        ctx.strokeStyle = `rgba(37, 99, 235, ${opacity * (isCurrent ? 0.9 : 0.4)})`;
+                        ctx.lineWidth = isCurrent ? 2.5 : 1.5;
+                        ctx.stroke();
+
+                        // If hovered/active, draw a second outer pulsing ring and crosshair lines
+                        if (isCurrent) {
+                            const pulseRadius2 = 12 + ((Date.now() + 500) % 1500) / 1500 * 35;
+                            const opacity2 = 1 - ((Date.now() + 500) % 1500) / 1500;
+                            
+                            ctx.beginPath();
+                            ctx.arc(pt[0], pt[1], pulseRadius2, 0, 2 * Math.PI);
+                            ctx.strokeStyle = `rgba(37, 99, 235, ${opacity2 * 0.5})`;
+                            ctx.lineWidth = 1;
+                            ctx.stroke();
+
+                            // Crosshair ticks
+                            ctx.strokeStyle = 'rgba(37, 99, 235, 0.8)';
+                            ctx.lineWidth = 1.5;
+                            
+                            // Horizontal ticks
+                            ctx.beginPath();
+                            ctx.moveTo(pt[0] - pulseRadius - 5, pt[1]);
+                            ctx.lineTo(pt[0] - pulseRadius, pt[1]);
+                            ctx.moveTo(pt[0] + pulseRadius, pt[1]);
+                            ctx.lineTo(pt[0] + pulseRadius + 5, pt[1]);
+                            // Vertical ticks
+                            ctx.moveTo(pt[0], pt[1] - pulseRadius - 5);
+                            ctx.lineTo(pt[0], pt[1] - pulseRadius);
+                            ctx.moveTo(pt[0], pt[1] + pulseRadius);
+                            ctx.lineTo(pt[0], pt[1] + pulseRadius + 5);
+                            ctx.stroke();
+                        }
+                    }
+                });
             }
 
             requestAnimationFrame(render);
@@ -962,7 +1032,7 @@ function init() {
                     const targetLat = -coords[1];
                     const diff = ((targetLon - rotation[0] + 180) % 360) - 180;
                     targetRotation = [rotation[0] + diff, targetLat];
-                    targetScale = (width / 2.1) * 1.45; // Zoom in
+                    targetScale = (width / 2.1) * (key === 'singapore' || key === 'hong_kong' ? 4.8 : 1.45); // Zoom in
                 }
 
                 // Update caption
@@ -970,7 +1040,7 @@ function init() {
                 mapCaption.classList.add('show');
             });
 
-            // Handle click redirection (Singapore goes to Auth Page)
+            // Handle click redirection (Singapore and Hong Kong zoom/redirect)
             item.addEventListener('click', () => {
                 const key = item.getAttribute('data-country');
                 if (key === 'singapore') {
