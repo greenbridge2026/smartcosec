@@ -80,8 +80,54 @@ async function fetchData() {
         }
 
         // Fetch Intelligence Feed
-        const bRes = await fetch('/api/blogs');
-        if (bRes.ok) state.blogs = await bRes.json();
+        try {
+            const bRes = await fetch('/api/blogs');
+            if (bRes.ok) {
+                state.blogs = await bRes.json();
+            } else {
+                throw new Error("API response not ok");
+            }
+        } catch (blogErr) {
+            console.warn('REST API blogs endpoint offline, loading from localStorage fallback:', blogErr);
+            const cached = localStorage.getItem('admin_blogs');
+            if (cached) {
+                try {
+                    const allBlogs = JSON.parse(cached) || [];
+                    state.blogs = allBlogs.filter(b => b.published || b.status === 'published');
+                } catch(e) {
+                    state.blogs = [];
+                }
+            } else {
+                state.blogs = [
+                    {
+                        id: "default-incorporation",
+                        title: "Navigating Singapore Startup Incorporation",
+                        category: "Compliance",
+                        description: "A complete step-by-step walkthrough on incorporation requirements, nominee directors, and local secretarial guidelines.",
+                        excerpt: "A complete step-by-step walkthrough on incorporation requirements, nominee directors, and local secretarial guidelines.",
+                        content: "<p>Incorporating a startup in Singapore is a popular choice for founders globally due to the country's business-friendly policies, attractive tax structures, and robust intellectual property protections.</p><p>In this guide, we cover structural setups, ACRA requirements, nominee directors, and statutory registration processes to get you running in hours.</p>",
+                        coverImage: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40",
+                        author: "Admin Team",
+                        date: "28 May 2026",
+                        status: "published",
+                        published: true
+                    },
+                    {
+                        id: "default-tax",
+                        title: "Understanding Corporate Tax Benefits & Rates",
+                        category: "Corporate Tax",
+                        description: "Learn how the single-tier territorial tax system and startup exemptions can optimize your company's effective tax liability.",
+                        excerpt: "Learn how the single-tier territorial tax system and startup exemptions can optimize your company's effective tax liability.",
+                        content: "<p>Singapore corporate tax rates are capped flat at 17%. Thanks to tax exemptions for new startups and partial tax exemptions, the effective tax rate is often significantly lower.</p>",
+                        coverImage: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c",
+                        author: "Tax Advisory",
+                        date: "24 May 2026",
+                        status: "published",
+                        published: true
+                    }
+                ];
+            }
+        }
 
         // Fetch Notifications
         await fetchNotifications();

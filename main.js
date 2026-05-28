@@ -729,120 +729,263 @@ function init() {
     }
 
     // 9. Dynamic Blog System
+    const DEFAULT_BLOGS = [
+        {
+            id: "default-incorporation",
+            title: "Navigating Singapore Startup Incorporation",
+            category: "Compliance",
+            excerpt: "A complete step-by-step walkthrough on incorporation requirements, nominee directors, and local secretarial guidelines.",
+            description: "A complete step-by-step walkthrough on incorporation requirements, nominee directors, and local secretarial guidelines.",
+            content: "<p>Incorporating a startup in Singapore is a popular choice for founders globally due to the country's business-friendly policies, attractive tax structures, and robust intellectual property protections.</p><p>In this guide, we cover structural setups, ACRA requirements, nominee directors, and statutory registration processes to get you running in hours.</p>",
+            coverImage: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40",
+            author: "Admin Team",
+            date: "28 May 2026",
+            status: "published",
+            published: true
+        },
+        {
+            id: "default-tax",
+            title: "Understanding Corporate Tax Benefits & Rates",
+            category: "Corporate Tax",
+            excerpt: "Learn how the single-tier territorial tax system and startup exemptions can optimize your company's effective tax liability.",
+            description: "Learn how the single-tier territorial tax system and startup exemptions can optimize your company's effective tax liability.",
+            content: "<p>Singapore corporate tax rates are capped flat at 17%. Thanks to tax exemptions for new startups and partial tax exemptions, the effective tax rate is often significantly lower.</p>",
+            coverImage: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c",
+            author: "Tax Advisory",
+            date: "24 May 2026",
+            status: "published",
+            published: true
+        }
+    ];
+
     async function initBlogs() {
         const grid = document.getElementById('landing-blog-grid');
         if (!grid) return;
 
+        let blogsList = [];
         try {
             const res = await fetch('/api/blogs');
-            const blogs = await res.json();
-            const publishedBlogs = blogs.filter(b => b.published).slice(0, 3);
-
-            if (publishedBlogs.length === 0) {
-                grid.innerHTML = '<p class="text-slate-400 text-center col-span-full py-12">No updates published yet. Stay tuned!</p>';
-                return;
+            const data = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+                blogsList = data;
+            } else {
+                throw new Error("No blogs returned from API");
             }
+        } catch (e) {
+            console.warn('REST API blogs endpoint offline, loading from localStorage fallback:', e);
+            const cached = localStorage.getItem('admin_blogs');
+            if (cached === null) {
+                blogsList = DEFAULT_BLOGS;
+            } else {
+                try {
+                    blogsList = JSON.parse(cached);
+                    if (!Array.isArray(blogsList)) {
+                        blogsList = DEFAULT_BLOGS;
+                    }
+                } catch(err) {
+                    blogsList = DEFAULT_BLOGS;
+                }
+            }
+        }
 
-            grid.innerHTML = publishedBlogs.map(blog => `
-                <div class="group bg-white rounded-[2rem] overflow-hidden border border-slate-100 hover:border-blue-200 hover:shadow-[0_20px_50px_rgba(59,130,246,0.1)] transition-all duration-500 cursor-pointer">
-                    <div class="h-56 bg-slate-100 relative overflow-hidden">
-                        ${blog.coverImage ? `<img src="${blog.coverImage}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">` : `<div class="w-full h-full flex items-center justify-center text-slate-300"><i data-lucide="image" class="w-12 h-12"></i></div>`}
-                        <div class="absolute top-6 left-6">
-                            <span class="bg-blue-600 text-white px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg">
-                                ${blog.category}
-                            </span>
-                        </div>
-                    </div>
-                    <div class="p-8">
-                        <div class="flex items-center gap-3 text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-4">
-                            <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
-                            <span>${new Date().toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                        </div>
-                        <h3 class="text-xl font-bold text-slate-900 mb-3 group-hover:text-blue-600 transition-colors">${blog.title}</h3>
-                        <p class="text-slate-500 text-sm leading-relaxed line-clamp-2 mb-6">${blog.description}</p>
-                        <div class="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-widest group-hover:gap-4 transition-all">
-                            Read Full Insight <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                        </div>
+        const publishedBlogs = blogsList.filter(b => b.published || b.status === 'published').slice(0, 3);
+
+        if (publishedBlogs.length === 0) {
+            grid.innerHTML = '<p class="text-slate-400 text-center col-span-full py-12">No updates published yet. Stay tuned!</p>';
+            return;
+        }
+
+        grid.innerHTML = publishedBlogs.map(blog => `
+            <div class="group bg-white rounded-[2rem] overflow-hidden border border-slate-100 hover:border-blue-200 hover:shadow-[0_20px_50px_rgba(59,130,246,0.1)] transition-all duration-500 cursor-pointer">
+                <div class="h-56 bg-slate-100 relative overflow-hidden">
+                    ${blog.coverImage ? `<img src="${blog.coverImage}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">` : `<div class="w-full h-full flex items-center justify-center text-slate-300"><i data-lucide="image" class="w-12 h-12"></i></div>`}
+                    <div class="absolute top-6 left-6">
+                        <span class="bg-blue-600 text-white px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg">
+                            ${blog.category}
+                        </span>
                     </div>
                 </div>
-            `).join('');
+                <div class="p-8">
+                    <div class="flex items-center gap-3 text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-4">
+                        <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                        <span>${blog.date || new Date().toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 mb-3 group-hover:text-blue-600 transition-colors">${blog.title}</h3>
+                    <p class="text-slate-500 text-sm leading-relaxed line-clamp-2 mb-6">${blog.description || blog.excerpt || ''}</p>
+                    <div class="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-widest group-hover:gap-4 transition-all">
+                        Read Full Insight <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </div>
+                </div>
+            </div>
+        `).join('');
 
-            if (window.lucide) window.lucide.createIcons();
-        } catch (e) { console.error('Blog Init Error:', e); }
+        if (window.lucide) window.lucide.createIcons();
     }
     initBlogs();
-
+ 
     // 10. Global Presence Map Logic (Futuristic Fintech D3 Globe)
+    const DEFAULT_COUNTRIES = [
+        { name: "Singapore", code: "SG", uen: "9-character alphanumeric", tax: "17% (flat rate)", compliance: "99.5%", status: "ACTIVE" },
+        { name: "Hong Kong", code: "HK", uen: "8-digit registration no.", tax: "16.5% (two-tier)", compliance: "98.8%", status: "ACTIVE" },
+        { name: "United States", code: "USA", uen: "9-digit EIN number", tax: "21% (federal flat)", compliance: "97.2%", status: "ACTIVE" },
+        { name: "Dubai", code: "UAE", uen: "Varies by Free Zone", tax: "9% (above 375k AED)", compliance: "99.1%", status: "ACTIVE" },
+        { name: "Australia", code: "AUS", uen: "9-digit ACN number", tax: "25% - 30%", compliance: "96.8%", status: "ACTIVE" },
+        { name: "United Kingdom", code: "UK", uen: "8-digit CRN number", tax: "19% - 25%", compliance: "98.5%", status: "ACTIVE" }
+    ];
+
+    let countriesList = [];
+    const _cachedCountries = localStorage.getItem('admin_countries');
+    if (_cachedCountries === null) {
+        countriesList = DEFAULT_COUNTRIES.map(c => ({ ...c, published: true }));
+        localStorage.setItem('admin_countries', JSON.stringify(countriesList));
+    } else {
+        try {
+            countriesList = JSON.parse(_cachedCountries);
+            if (!Array.isArray(countriesList) || countriesList.length === 0) {
+                countriesList = DEFAULT_COUNTRIES.map(c => ({ ...c, published: true }));
+            }
+        } catch(e) {
+            countriesList = DEFAULT_COUNTRIES.map(c => ({ ...c, published: true }));
+        }
+    }
+
+    const activeCountries = countriesList.filter(c => c.published === true || (c.published === undefined && c.status === 'ACTIVE'));
+
+    // Dynamically inject the active country cards into the DOM
+    const countriesGrid = document.querySelector('.country-cards-grid');
+    if (countriesGrid) {
+        countriesGrid.innerHTML = activeCountries.map(c => {
+            const dataCountry = c.name.toLowerCase().replace(/\s+/g, '_');
+            return `
+                <div class="country-card-item country-item" data-country="${dataCountry}" data-name="${c.name}">
+                    <h3>${c.name}</h3>
+                </div>
+            `;
+        }).join('');
+    }
+
     const countryItems = document.querySelectorAll('.country-item');
     const canvas = document.getElementById('globe-canvas');
     const mapCaption = document.getElementById('map-caption');
     const mapCaptionText = document.getElementById('map-caption-text');
-
+ 
     if (canvas && window.d3 && window.topojson) {
         const ctx = canvas.getContext('2d');
         let width = canvas.offsetWidth || 450;
         let height = canvas.offsetHeight || 450;
-
+ 
         // Set canvas resolution for HD rendering
         const dpr = window.devicePixelRatio || 1;
         canvas.width = width * dpr;
         canvas.height = height * dpr;
         ctx.scale(dpr, dpr);
-
+ 
         // Define Orthographic projection
         const projection = d3.geoOrthographic()
             .scale(width / 2.1)
             .translate([width / 2, height / 2])
             .clipAngle(90);
-
+ 
         const path = d3.geoPath(projection, ctx);
         const graticule = d3.geoGraticule();
-
+ 
         let worldData = null;
         let countries = [];
-        
+         
         // Coordinates for centering countries
         const countryCoords = {
             'singapore': [103.8198, 1.3521],
             'hong_kong': [114.1694, 22.3193],
             'usa': [-95.7129, 37.0902],
+            'united_states': [-95.7129, 37.0902],
+            'united_states_of_america': [-95.7129, 37.0902],
             'dubai': [55.2708, 25.2048],
+            'united_arab_emirates': [55.2708, 25.2048],
+            'uae': [55.2708, 25.2048],
             'australia': [133.7751, -25.2744],
-            'uk': [-1.1743, 52.3555]
+            'uk': [-1.1743, 52.3555],
+            'united_kingdom': [-1.1743, 52.3555],
+            'indonesia': [113.9213, -0.7893],
+            'malaysia': [101.9758, 4.2105],
+            'india': [78.9629, 20.5937],
+            'vietnam': [108.2772, 14.0583],
+            'thailand': [100.9925, 15.8700],
+            'philippines': [121.7740, 12.8797],
+            'japan': [138.2529, 36.2048],
+            'germany': [10.4515, 51.1657],
+            'france': [2.2137, 46.2276],
+            'canada': [-106.3468, 56.1304]
         };
-
-        // Network connections to draw (hubs coordinates)
-        const connections = [
-            { from: [103.8198, 1.3521], to: [114.1694, 22.3193], speed: 1800, offset: 0 },   // SG -> HK
-            { from: [103.8198, 1.3521], to: [-74.0060, 40.7128], speed: 3000, offset: 0.2 }, // SG -> USA (NY)
-            { from: [103.8198, 1.3521], to: [55.2708, 25.2048], speed: 2200, offset: 0.4 },  // SG -> Dubai
-            { from: [103.8198, 1.3521], to: [151.2093, -33.8688], speed: 2000, offset: 0.6 }, // SG -> Australia (Sydney)
-            { from: [103.8198, 1.3521], to: [-0.1276, 51.5074], speed: 2500, offset: 0.8 },  // SG -> UK (London)
-            { from: [-0.1276, 51.5074], to: [-74.0060, 40.7128], speed: 1500, offset: 0.1 }   // UK -> USA (London -> NY)
-        ];
-
+ 
+        // Network connections dynamically drawn from Singapore to all active countries
+        const connections = [];
+        activeCountries.forEach((c, idx) => {
+            const key = c.name.toLowerCase().replace(/\s+/g, '_');
+            if (key !== 'singapore' && countryCoords[key]) {
+                connections.push({
+                    from: [103.8198, 1.3521], // Singapore
+                    to: countryCoords[key],
+                    speed: 1800 + Math.random() * 1200,
+                    offset: idx * 0.15
+                });
+            }
+        });
+        // Add backup connections
+        if (countryCoords['uk'] && countryCoords['usa']) {
+            connections.push({
+                from: countryCoords['uk'],
+                to: countryCoords['usa'],
+                speed: 1500,
+                offset: 0.1
+            });
+        }
+ 
         // Match country name to TopoJSON IDs for highlighting
         const countryIds = {
             'singapore': 702,
             'hong_kong': 344,
             'usa': 840,
+            'united_states': 840,
+            'united_states_of_america': 840,
             'dubai': 784,
+            'united_arab_emirates': 784,
+            'uae': 784,
             'australia': 36,
-            'uk': 826
+            'uk': 826,
+            'united_kingdom': 826,
+            'indonesia': 360,
+            'malaysia': 458,
+            'india': 356,
+            'vietnam': 704,
+            'thailand': 764,
+            'philippines': 608,
+            'japan': 392,
+            'germany': 276,
+            'france': 250,
+            'canada': 124
         };
 
+        // Determine currently active country TopoJSON IDs
+        const activeIds = [];
+        activeCountries.forEach(c => {
+            const key = c.name.toLowerCase().replace(/\s+/g, '_');
+            if (countryIds[key]) {
+                activeIds.push(countryIds[key]);
+            }
+        });
+ 
         // Fintech corporate map colors (Clean light slate / grey with vibrant blue highlighting)
         function getCountryColor(d) {
             const numericId = Number(d.id);
             if (activeCountryId && numericId === activeCountryId) {
                 return '#2563eb'; // Deep glowing blue for active hovered country
             }
-            if (Object.values(countryIds).includes(numericId)) {
+            if (activeIds.includes(numericId)) {
                 return '#93c5fd'; // Soft blue for network hubs
             }
             return '#cbd5e1'; // Light grey/slate for non-hub countries
         }
-
+ 
         let rotation = [0, -15];
         let targetRotation = [0, -15];
         let currentScale = width / 2.1;
@@ -980,7 +1123,7 @@ function init() {
         });
 
         // Reset to auto-spin when mouse leaves list container
-        const countryListContainer = document.querySelector('.country-list-container');
+        const countryListContainer = document.querySelector('.country-cards-grid');
         if (countryListContainer) {
             countryListContainer.addEventListener('mouseleave', () => {
                 countryItems.forEach(i => i.classList.remove('active'));
