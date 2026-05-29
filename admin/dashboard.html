@@ -45,8 +45,8 @@
             overflow-x: hidden; 
         }
         
-        .top-nav { height: 60px; background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.6); position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1rem; z-index: 9999; gap: 0.5rem; pointer-events: auto; justify-content: space-between; }
-        .main-container { padding: 1.5rem; max-width: 1600px; margin-left: auto; margin-right: auto; }
+        .top-nav { height: 60px; background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.6); position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1.5rem; z-index: 9999; gap: 0.5rem; pointer-events: auto; justify-content: space-between; }
+        .main-container { padding: 1.5rem; max-width: 1600px; margin-left: 240px !important; margin-right: auto; }
         
         .stats-grid { 
             display: grid; 
@@ -66,11 +66,48 @@
         .stat-card.highlight { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); border: none; }
         .stat-card.highlight * { color: white !important; }
         
-        .module-nav-btn { display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.75rem; border-radius: 8px; font-size: 0.8rem; font-weight: 500; color: #64748b; transition: all 0.2s; cursor: pointer !important; border: none; background: transparent; white-space: nowrap; pointer-events: auto !important; }
+        .module-nav-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #64748b; transition: all 0.2s; cursor: pointer !important; border: none; background: transparent; white-space: nowrap; width: 100% !important; box-sizing: border-box !important; }
         .module-nav-btn:hover { color: #0f172a; background: rgba(255,255,255,0.6); }
         .module-nav-btn.active { color: #0f172a; background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 
-        #module-switcher { display: flex; gap: 4px; }
+        #module-switcher {
+            position: fixed !important;
+            top: 60px !important;
+            left: 0 !important;
+            width: 240px !important;
+            height: calc(100vh - 60px) !important;
+            background: rgba(255, 255, 255, 0.45) !important;
+            backdrop-filter: blur(20px) !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.6) !important;
+            border-top: none !important;
+            border-left: none !important;
+            border-bottom: none !important;
+            border-radius: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            padding: 1.5rem 1rem !important;
+            gap: 0.5rem !important;
+            align-items: stretch !important;
+            justify-content: flex-start !important;
+            z-index: 9998 !important;
+            box-shadow: none !important;
+        }
+
+        .submenu-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            transition: all 0.3s ease;
+        }
+        .submenu-container.hidden {
+            display: none !important;
+        }
+        .submenu-arrow {
+            transition: transform 0.2s ease;
+        }
+        .submenu-open .submenu-arrow {
+            transform: rotate(180deg);
+        }
 
         .filter-tabs { display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 1px solid rgba(0,0,0,0.05); }
         .filter-tab { padding: 0.75rem 0.5rem; font-size: 0.85rem; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
@@ -142,11 +179,25 @@
             <button onclick="window.location.href='applications.html'" class="module-nav-btn" id="btn-applications"><i data-lucide="file-text" class="w-4 h-4"></i> Applications</button>
             <button onclick="window.location.href='kyc.html'" class="module-nav-btn" id="btn-kyc"><i data-lucide="shield-check" class="w-4 h-4"></i> KYC Review</button>
             <button onclick="window.location.href='compliance.html'" class="module-nav-btn" id="btn-compliance"><i data-lucide="balance-scale" class="w-4 h-4"></i> Compliance</button>
-            <button onclick="window.location.href='blogs.html'" class="module-nav-btn" id="btn-blogs"><i data-lucide="layout" class="w-4 h-4"></i> Blogs</button>
-
+            
             <button onclick="window.location.href='reports.html'" class="module-nav-btn" id="btn-reports"><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Reports</button>
             <button onclick="window.location.href='messages.html'" class="module-nav-btn" id="btn-messages"><i data-lucide="message-square" class="w-4 h-4"></i> Messages</button>
-            <button onclick="window.location.href='users.html'" class="module-nav-btn" id="btn-users"><i data-lucide="user-plus" class="w-4 h-4"></i> Users</button>
+            <button onclick="window.location.href='content.html'" class="module-nav-btn" id="btn-content"><i data-lucide="book-open" class="w-4 h-4"></i> Content</button>
+
+            <!-- Services Accordion Group -->
+            <div class="w-full flex flex-col gap-0.5">
+                <button onclick="toggleSubmenu('services-submenu')" class="module-nav-btn" id="btn-services">
+                    <i data-lucide="briefcase" class="w-4 h-4"></i>
+                    <span class="flex-1 text-left">Services</span>
+                    <i data-lucide="chevron-down" class="w-3 h-3 submenu-arrow transition-transform"></i>
+                </button>
+                <div id="services-submenu" class="submenu-container hidden pl-6 flex flex-col gap-0.5 mt-0.5">
+                    <button onclick="window.location.href='blogs.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-blogs"><i data-lucide="layout" class="w-3.5 h-3.5"></i> Blogs</button>
+                    <button onclick="window.location.href='countries.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-countries"><i data-lucide="globe" class="w-3.5 h-3.5"></i> Countries</button>
+                    <button onclick="window.location.href='packages.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-packages"><i data-lucide="package" class="w-3.5 h-3.5"></i> Packages</button>
+                    <button onclick="window.location.href='users.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-users"><i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Users</button>
+                </div>
+            </div>
         </div>
 
         <div class="flex items-center justify-end gap-3 relative">
@@ -2008,6 +2059,21 @@
         window.copyStaffText = function(elementId) {
             const text = document.getElementById(elementId).innerText;
             navigator.clipboard.writeText(text);
+        }
+
+        window.toggleSubmenu = function(id) {
+            const submenu = document.getElementById(id);
+            const btn = document.getElementById('btn-services');
+            if (submenu) {
+                const isOpen = !submenu.classList.contains('hidden');
+                if (isOpen) {
+                    submenu.classList.add('hidden');
+                    btn.classList.remove('submenu-open');
+                } else {
+                    submenu.classList.remove('hidden');
+                    btn.classList.add('submenu-open');
+                }
+            }
         }
 
         // Start

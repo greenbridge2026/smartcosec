@@ -22,11 +22,50 @@
     </script>
     <style>
         body { font-family: 'Outfit', sans-serif; background: radial-gradient(circle at 50% 10%, rgba(253, 242, 248, 0.9) 0%, rgba(191, 219, 254, 0.7) 40%, rgba(125, 211, 252, 0.8) 100%); background-attachment: fixed; min-height: 100vh; overflow-x: hidden; }
-        .top-nav { height: 60px; background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.6); position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
-        .main-container { padding: 2rem; max-width: 1600px; margin-left: auto; margin-right: auto; }
-        .module-nav-btn { display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.75rem; border-radius: 8px; font-size: 0.8rem; font-weight: 500; color: #64748b; transition: all 0.2s; cursor: pointer !important; border: none; background: transparent; white-space: nowrap; }
+        .top-nav { height: 60px; background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.6); position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1.5rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
+        .main-container { padding: 2rem; max-width: 1600px; margin-left: 240px !important; margin-right: auto; }
+        .module-nav-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #64748b; transition: all 0.2s; cursor: pointer !important; border: none; background: transparent; white-space: nowrap; width: 100% !important; box-sizing: border-box !important; }
         .module-nav-btn:hover { color: #0f172a; background: rgba(255,255,255,0.6); }
         .module-nav-btn.active { color: #0f172a; background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        
+        .top-nav > div:nth-child(2), #module-switcher {
+            position: fixed !important;
+            top: 60px !important;
+            left: 0 !important;
+            width: 240px !important;
+            height: calc(100vh - 60px) !important;
+            background: rgba(255, 255, 255, 0.45) !important;
+            backdrop-filter: blur(20px) !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.6) !important;
+            border-top: none !important;
+            border-left: none !important;
+            border-bottom: none !important;
+            border-radius: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            padding: 1.5rem 1rem !important;
+            gap: 0.5rem !important;
+            align-items: stretch !important;
+            justify-content: flex-start !important;
+            z-index: 9998 !important;
+            box-shadow: none !important;
+        }
+
+        .submenu-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            transition: all 0.3s ease;
+        }
+        .submenu-container.hidden {
+            display: none !important;
+        }
+        .submenu-arrow {
+            transition: transform 0.2s ease;
+        }
+        .submenu-open .submenu-arrow {
+            transform: rotate(180deg);
+        }
         .admin-table { width: 100%; text-left: border-collapse; }
         .admin-table th { padding: 1rem 1.5rem; font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #f1f5f9; background: rgba(248, 250, 252, 0.5); }
         .admin-table td { padding: 1rem 1.5rem; font-size: 0.85rem; color: #1e293b; border-bottom: 1px solid #f1f5f9; }
@@ -41,16 +80,30 @@
                 <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Dashboard</span>
             </div>
         </div>
-        <div class="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-white/80">
-            <button onclick="window.location.href='dashboard.html'" class="module-nav-btn"><i data-lucide="users" class="w-4 h-4"></i> Clients</button>
-            <button onclick="window.location.href='applications.html'" class="module-nav-btn"><i data-lucide="file-text" class="w-4 h-4"></i> Applications</button>
-            <button onclick="window.location.href='kyc.html'" class="module-nav-btn active"><i data-lucide="shield-check" class="w-4 h-4"></i> KYC Review</button>
-            <button onclick="window.location.href='compliance.html'" class="module-nav-btn"><i data-lucide="balance-scale" class="w-4 h-4"></i> Compliance</button>
-            <button onclick="window.location.href='blogs.html'" class="module-nav-btn"><i data-lucide="layout" class="w-4 h-4"></i> Blogs</button>
-            <button onclick="window.location.href='content.html'" class="module-nav-btn"><i data-lucide="book-open" class="w-4 h-4"></i> Content</button>
+        <div id="module-switcher" class="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-white/80">
+            <button onclick="window.location.href='dashboard.html'" class="module-nav-btn" id="btn-clients"><i data-lucide="users" class="w-4 h-4"></i> Clients</button>
+            <button onclick="window.location.href='applications.html'" class="module-nav-btn" id="btn-applications"><i data-lucide="file-text" class="w-4 h-4"></i> Applications</button>
+            <button onclick="window.location.href='kyc.html'" class="module-nav-btn active" id="btn-kyc"><i data-lucide="shield-check" class="w-4 h-4"></i> KYC Review</button>
+            <button onclick="window.location.href='compliance.html'" class="module-nav-btn" id="btn-compliance"><i data-lucide="balance-scale" class="w-4 h-4"></i> Compliance</button>
+            
             <button onclick="window.location.href='reports.html'" class="module-nav-btn" id="btn-reports"><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Reports</button>
             <button onclick="window.location.href='messages.html'" class="module-nav-btn" id="btn-messages"><i data-lucide="message-square" class="w-4 h-4"></i> Messages</button>
-            <button onclick="window.location.href='users.html'" class="module-nav-btn" id="btn-users"><i data-lucide="user-plus" class="w-4 h-4"></i> Users</button>
+            <button onclick="window.location.href='content.html'" class="module-nav-btn" id="btn-content"><i data-lucide="book-open" class="w-4 h-4"></i> Content</button>
+
+            <!-- Services Accordion Group -->
+            <div class="w-full flex flex-col gap-0.5">
+                <button onclick="toggleSubmenu('services-submenu')" class="module-nav-btn" id="btn-services">
+                    <i data-lucide="briefcase" class="w-4 h-4"></i>
+                    <span class="flex-1 text-left">Services</span>
+                    <i data-lucide="chevron-down" class="w-3 h-3 submenu-arrow transition-transform"></i>
+                </button>
+                <div id="services-submenu" class="submenu-container hidden pl-6 flex flex-col gap-0.5 mt-0.5">
+                    <button onclick="window.location.href='blogs.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-blogs"><i data-lucide="layout" class="w-3.5 h-3.5"></i> Blogs</button>
+                    <button onclick="window.location.href='countries.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-countries"><i data-lucide="globe" class="w-3.5 h-3.5"></i> Countries</button>
+                    <button onclick="window.location.href='packages.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-packages"><i data-lucide="package" class="w-3.5 h-3.5"></i> Packages</button>
+                    <button onclick="window.location.href='users.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-users"><i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Users</button>
+                </div>
+            </div>
         </div>
         <div class="flex items-center justify-end gap-3 relative">
             <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
@@ -82,6 +135,32 @@
     </main>
 
     <script>
+        window.toggleSubmenu = function(id) {
+            const submenu = document.getElementById(id);
+            const btn = document.getElementById('btn-services');
+            if (submenu) {
+                const isOpen = !submenu.classList.contains('hidden');
+                if (isOpen) {
+                    submenu.classList.add('hidden');
+                    btn.classList.remove('submenu-open');
+                } else {
+                    submenu.classList.remove('hidden');
+                    btn.classList.add('submenu-open');
+                }
+            }
+        }
+
+        // Auto open submenu on load
+        document.addEventListener('DOMContentLoaded', () => {
+            const path = window.location.pathname;
+            if (path.includes('blogs.html') || path.includes('countries.html') || path.includes('packages.html')) {
+                const submenu = document.getElementById('services-submenu');
+                const btn = document.getElementById('btn-services');
+                if (submenu) submenu.classList.remove('hidden');
+                if (btn) btn.classList.add('submenu-open');
+            }
+        });
+
         if (typeof lucide !== 'undefined') lucide.createIcons();
         async function fetchKYC() {
             try {

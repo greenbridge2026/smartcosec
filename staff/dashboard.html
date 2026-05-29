@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/src/tailwind.css">
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
     <script>
         // Authentication Check
@@ -37,8 +37,33 @@
             overflow-x: hidden; 
         }
         
-        .top-nav { height: 72px; background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.6); position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1rem; z-index: 100; gap: 0.5rem; justify-content: space-between; }
-        .main-container { padding: 2.5rem; max-width: 1600px; margin-left: auto; margin-right: auto; }
+        .top-nav { height: 60px; background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.6); position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1.5rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
+        .main-container { padding: 2rem; max-width: 1600px; margin-left: 240px !important; margin-right: auto; }
+
+        /* Left Sidebar */
+        #staff-sidebar {
+            position: fixed !important;
+            top: 60px !important;
+            left: 0 !important;
+            width: 240px !important;
+            height: calc(100vh - 60px) !important;
+            background: rgba(255, 255, 255, 0.45) !important;
+            backdrop-filter: blur(20px) !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.6) !important;
+            display: flex !important;
+            flex-direction: column !important;
+            padding: 1.5rem 1rem !important;
+            gap: 0.25rem !important;
+            align-items: stretch !important;
+            justify-content: flex-start !important;
+            z-index: 9998 !important;
+            box-shadow: none !important;
+            overflow-y: auto;
+        }
+
+        .module-nav-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #64748b; transition: all 0.2s; cursor: pointer !important; border: none; background: transparent; white-space: nowrap; width: 100% !important; box-sizing: border-box !important; }
+        .module-nav-btn:hover { color: #0f172a; background: rgba(255,255,255,0.6); }
+        .module-nav-btn.active { color: #0f172a; background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         
         .stats-grid { 
             display: grid; 
@@ -56,10 +81,6 @@
         .stat-card:hover { transform: translateY(-2px); }
         .stat-card.highlight { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); border: none; }
         .stat-card.highlight * { color: white !important; }
-        
-        .module-nav-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85rem; font-weight: 500; color: #64748b; transition: all 0.2s; cursor: pointer; border: none; background: transparent; }
-        .module-nav-btn:hover { color: #0f172a; background: rgba(255,255,255,0.6); }
-        .module-nav-btn.active { color: #0f172a; background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 
         .app-card { background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.8); padding: 1.5rem; border-radius: 20px; box-shadow: 0 4px 24px rgba(0,0,0,0.04); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; position: relative; overflow: hidden; }
         .app-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.08); background: rgba(255, 255, 255, 0.8); border-color: white; }
@@ -99,90 +120,53 @@
             transition: all 0.2s;
         }
         .verification-checklist-item.completed { background: rgba(16, 185, 129, 0.1); border-color: #10b981; }
+
     </style>
 </head>
 <body>
 
-    <!-- Mobile Header -->
-    <header class="lg:hidden flex items-center justify-between px-6 py-4 bg-white/40 border-b border-white/60 sticky top-0 z-30 backdrop-blur-md">
+    <nav class="top-nav">
         <div class="flex items-center gap-2 cursor-pointer" onclick="switchTab('dashboard')">
-            <span class="font-outfit font-black text-slate-900 text-lg uppercase tracking-wider">Globalisor</span>
-        </div>
-        <button onclick="toggleMobileSidebar()" class="p-2 text-slate-600 hover:bg-slate-100/50 rounded-xl transition-colors">
-            <i data-lucide="menu" class="w-6 h-6"></i>
-        </button>
-    </header>
-
-    <!-- Sidebar Overlay -->
-    <div id="sidebar-overlay" onclick="toggleMobileSidebar()" class="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm lg:hidden hidden"></div>
-
-    <!-- Left Sidebar -->
-    <aside id="left-sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-slate-300 flex flex-col transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
-        <!-- Logo & Bell -->
-        <div class="px-6 py-8 border-b border-slate-800 flex items-center justify-between gap-3 relative">
-            <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-sm shadow-md">G</div>
-                <div>
-                    <h1 class="font-outfit font-black text-white text-base leading-none uppercase tracking-wider">Globalisor</h1>
-                    <span class="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Staff Portal</span>
-                </div>
+            <div class="flex flex-col leading-none">
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Staff</span>
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Portal</span>
             </div>
-            <button id="bell-btn" class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors relative" onclick="toggleNotifications(event)">
+        </div>
+
+        <div class="flex items-center justify-end gap-3 relative">
+            <button id="bell-btn" class="p-2 text-slate-600 hover:bg-white/60 rounded-full transition-colors relative" onclick="toggleNotifications(event)">
                 <i data-lucide="bell" class="w-5 h-5"></i>
-                <span id="notification-badge" class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-slate-900 hidden animate-pulse"></span>
+                <span id="notification-badge" class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white hidden"></span>
             </button>
-            <div id="notifications-dropdown" class="absolute top-[70px] left-4 w-72 bg-slate-800 border border-slate-700 shadow-xl rounded-xl overflow-hidden flex flex-col z-[1000] transition-all opacity-0 pointer-events-none scale-95 origin-top-left text-slate-300">
-                <div class="px-4 py-3 border-b border-slate-700 bg-slate-900 flex justify-between items-center">
-                    <h3 class="font-semibold text-xs text-white uppercase tracking-wider">Alerts</h3>
-                    <button class="text-[10px] text-emerald-400 font-bold" onclick="markAllAsRead(event)">Mark all read</button>
+            <div id="notifications-dropdown" class="absolute top-[60px] right-0 w-80 bg-white/95 backdrop-blur-xl border border-white/60 shadow-xl rounded-xl overflow-hidden flex flex-col z-[100] transition-all opacity-0 pointer-events-none scale-95 origin-top-right">
+                <div class="px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                    <h3 class="font-semibold text-sm text-slate-800">Operational Alerts</h3>
+                    <button class="text-xs text-blue-600 font-bold" onclick="markAllAsRead(event)">Mark all read</button>
                 </div>
-                <div id="notifications-list" class="max-h-64 overflow-y-auto text-xs">
+                <div id="notifications-list" class="max-h-80 overflow-y-auto">
                     <!-- Notifications go here -->
                 </div>
             </div>
-        </div>
-
-        <!-- Navigation Links -->
-        <div class="flex-1 px-4 py-6 overflow-y-auto space-y-1">
-            <button onclick="switchTab('dashboard')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors group font-semibold text-sm text-left bg-emerald-600 text-white" id="btn-dashboard">
-                <i data-lucide="layout-dashboard" class="w-5 h-5 text-white"></i> Dashboard
-            </button>
-            <button onclick="switchTab('applications')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors group font-semibold text-sm text-left" id="btn-applications">
-                <i data-lucide="briefcase" class="w-5 h-5 text-slate-400 group-hover:text-white"></i> Assigned
-            </button>
-            <button onclick="switchTab('kyc')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors group font-semibold text-sm text-left" id="btn-kyc">
-                <i data-lucide="shield-check" class="w-5 h-5 text-slate-400 group-hover:text-white"></i> KYC Review
-            </button>
-            <button onclick="switchTab('documents')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors group font-semibold text-sm text-left" id="btn-documents">
-                <i data-lucide="file-text" class="w-5 h-5 text-slate-400 group-hover:text-white"></i> Documents
-            </button>
-            <button onclick="switchTab('tasks')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors group font-semibold text-sm text-left" id="btn-tasks">
-                <i data-lucide="check-square" class="w-5 h-5 text-slate-400 group-hover:text-white"></i> Tasks
-            </button>
-            <button onclick="switchTab('guidance')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors group font-semibold text-sm text-left" id="btn-guidance">
-                <i data-lucide="book-open" class="w-5 h-5 text-slate-400 group-hover:text-white"></i> SOPs
-            </button>
-            <button onclick="switchTab('messages')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors group font-semibold text-sm text-left" id="btn-messages">
-                <i data-lucide="message-square" class="w-5 h-5 text-slate-400 group-hover:text-white"></i> Messages
-            </button>
-        </div>
-
-        <!-- User/Footer Info -->
-        <div class="p-4 border-t border-slate-800 flex items-center justify-between gap-3">
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
                 <div class="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-xs" id="staff-nav-avatar">ST</div>
-                <div class="flex flex-col leading-none">
-                    <span class="text-xs font-semibold text-white max-w-[120px] truncate" id="staff-nav-name">Staff User</span>
-                    <span class="text-[9px] text-slate-500 font-bold uppercase mt-0.5">Staff</span>
+                <div class="flex flex-col">
+                    <div class="text-xs font-semibold text-slate-800 leading-none mb-1" id="staff-nav-name">Staff User</div>
+                    <button onclick="signOut()" class="text-[10px] text-red-500 font-bold hover:underline text-left leading-none">Sign Out</button>
                 </div>
             </div>
-            <button onclick="signOut()" class="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors" title="Sign Out">
-                <i data-lucide="log-out" class="w-4 h-4"></i>
-            </button>
         </div>
-    </aside>
+    </nav>
 
-    <div class="lg:pl-64 min-h-screen flex flex-col">
+    <!-- Left Sidebar -->
+    <div id="staff-sidebar">
+        <button onclick="switchTab('dashboard')" class="module-nav-btn active" id="btn-dashboard"><i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard</button>
+        <button onclick="switchTab('applications')" class="module-nav-btn" id="btn-applications"><i data-lucide="briefcase" class="w-4 h-4"></i> Assigned</button>
+        <button onclick="switchTab('kyc')" class="module-nav-btn" id="btn-kyc"><i data-lucide="shield-check" class="w-4 h-4"></i> KYC Review</button>
+        <button onclick="switchTab('documents')" class="module-nav-btn" id="btn-documents"><i data-lucide="file-text" class="w-4 h-4"></i> Documents</button>
+        <button onclick="switchTab('tasks')" class="module-nav-btn" id="btn-tasks"><i data-lucide="check-square" class="w-4 h-4"></i> Tasks</button>
+        <button onclick="switchTab('guidance')" class="module-nav-btn" id="btn-guidance"><i data-lucide="book-open" class="w-4 h-4"></i> SOPs</button>
+        <button onclick="switchTab('messages')" class="module-nav-btn" id="btn-messages"><i data-lucide="message-square" class="w-4 h-4"></i> Messages</button>
+    </div>
 
     <main class="main-container">
         <!-- Dashboard View -->
@@ -497,7 +481,6 @@
             </div>
         </div>
     </main>
-    </div>
 
     <!-- Detail Slide-over (Matching Admin Panel) -->
     <div class="panel-overlay" id="panel-overlay" onclick="closeDetail()"></div>
@@ -532,20 +515,11 @@
     </aside>
 
     <script>
+        // Read the logged-in staff from auth token
         const _staffAuth = JSON.parse(localStorage.getItem('staff_auth') || '{}');
         const CURRENT_STAFF_NAME = _staffAuth.name || '';
         const CURRENT_STAFF_EMAIL = _staffAuth.email || '';
         const CURRENT_STAFF_INITIALS = CURRENT_STAFF_NAME.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'ST';
-
-        window.appSeqMap = {};
-        try {
-            const cached = localStorage.getItem('globalisor_app_seq_map');
-            if (cached) {
-                window.appSeqMap = JSON.parse(cached);
-            }
-        } catch (e) {
-            console.error("Error loading cached app sequence map", e);
-        }
 
         let staffData = {
             applications: [],
@@ -556,97 +530,15 @@
         };
         let currentClientId = null;
 
-        async function fetchWithAuth(url, options = {}) {
-            const _auth = JSON.parse(localStorage.getItem('staff_auth') || '{}');
-            const token = _auth.token || localStorage.getItem('token') || '';
-            if (token) {
-                if (!options.headers) {
-                    options.headers = {};
-                }
-                options.headers['Authorization'] = 'Bearer ' + token;
-            }
-            return fetch(url, options);
-        }
-
-        window.toggleMobileSidebar = function() {
-            const sidebar = document.getElementById('left-sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
-            if (sidebar && overlay) {
-                const isHidden = sidebar.classList.contains('-translate-x-full');
-                if (isHidden) {
-                    sidebar.classList.remove('-translate-x-full');
-                    overlay.classList.remove('hidden');
-                } else {
-                    sidebar.classList.add('-translate-x-full');
-                    overlay.classList.add('hidden');
-                }
-            }
-        };
-
-        function renderDashboardTasks() {
-            const container = document.getElementById('dashboard-tasks');
-            if (!container) return;
-
-            if (staffData.applications.length === 0) {
-                container.innerHTML = `<div class="p-8 text-center text-slate-400 bg-white/20 rounded-2xl border border-dashed border-slate-300 text-xs">No active priority work items.</div>`;
-                return;
-            }
-
-            const priorityWeight = { 'emergency': 4, 'urgent': 3, 'high': 2, 'normal': 1, 'low': 0 };
-            const sortedApps = [...staffData.applications].sort((a, b) => {
-                const wA = priorityWeight[(a.priority || 'Normal').toLowerCase()] || 0;
-                const wB = priorityWeight[(b.priority || 'Normal').toLowerCase()] || 0;
-                return wB - wA;
-            });
-
-            container.innerHTML = sortedApps.map(app => {
-                const p = (app.priority || 'Normal');
-                let badgeColor = 'bg-slate-100 text-slate-600';
-                if (p === 'Emergency' || p === 'Urgent') badgeColor = 'bg-red-50 text-red-600 border border-red-100';
-                else if (p === 'High') badgeColor = 'bg-amber-50 text-amber-600 border border-amber-100';
-                
-                const status = (app.status || 'pending').toLowerCase();
-                let statusClass = 'text-blue-500 bg-blue-50/50';
-                if (status === 'completed' || status === 'approved') statusClass = 'text-emerald-500 bg-emerald-50/50';
-                else if (status === 'rejected') statusClass = 'text-red-500 bg-red-50/50';
-                else if (status === 'in progress' || status === 'under review') statusClass = 'text-amber-500 bg-amber-50/50';
-
-                const displayId = window.appSeqMap?.[app.id] || app.id;
-
-                return `
-                    <div class="bg-white/60 backdrop-blur-md border border-white/80 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer" onclick="openDetail('${app.id}')">
-                        <div class="flex items-start gap-4">
-                            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 font-bold text-xs">
-                                ${displayId}
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-slate-800 text-sm mb-1">${app.business || 'N/A'}</h4>
-                                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
-                                    <span class="font-semibold text-slate-600">${app.client || 'N/A'}</span>
-                                    <span>•</span>
-                                    <span>Deadline: <strong class="text-slate-600">${app.deadline || '—'}</strong></span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-3 self-end sm:self-auto">
-                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${badgeColor}">${p}</span>
-                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${statusClass}">${app.status || 'Pending'}</span>
-                            <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            
-            if (window.lucide) window.lucide.createIcons();
-        }
-
         async function init() {
             try {
+                // Populate the nav with real logged-in staff identity immediately
                 const avatarEl = document.getElementById('staff-nav-avatar');
                 const nameEl = document.getElementById('staff-nav-name');
                 if (avatarEl) avatarEl.textContent = CURRENT_STAFF_INITIALS;
                 if (nameEl) nameEl.textContent = CURRENT_STAFF_NAME || 'Staff Member';
 
+                // Populate the new Dashboard Identity Banner
                 const welcomeNameEl = document.getElementById('welcome-staff-name');
                 const welcomeEmailEl = document.getElementById('welcome-staff-email');
                 const welcomeAvatarEl = document.getElementById('welcome-staff-avatar');
@@ -666,28 +558,29 @@
             renderTasks();
             renderKYCQueue();
             renderDocuments();
-            renderDashboardTasks();
             updateNotifications();
             updateDashboardStats();
 
+            // React instantly when admin assigns/reassigns in another tab
+            // (localStorage 'storage' event fires cross-tab on the same origin)
             window.addEventListener('storage', (e) => {
                 if (e.key && e.key.startsWith('assigned_staff_')) {
+                    // An assignment changed — refresh immediately
                     fetchStaffData().then(() => {
                         renderApplications();
                         updateDashboardStats();
                         updateNotifications();
-                        renderDashboardTasks();
                         showAssignmentToast();
                     });
                 }
             });
 
+            // Background polling every 15 seconds
             setInterval(() => {
                 if (!document.getElementById('detail-panel').classList.contains('open')) {
                     fetchStaffData().then(() => {
                         updateDashboardStats();
                         updateNotifications();
-                        renderDashboardTasks();
                     });
                 }
             }, 15000);
@@ -730,19 +623,9 @@
         async function fetchStaffData() {
             try {
                 // Fetch ALL Applications from API
-                const appRes = await fetchWithAuth('/api/applications');
+                const appRes = await fetch('/api/applications');
                 let allApps = [];
                 if (appRes.ok) allApps = await appRes.json();
-
-                if (allApps && Array.isArray(allApps)) {
-                    // Sort chronologically to assign sequence IDs starting at 101
-                    const sortedChronologically = [...allApps].sort((a, b) => (a.id || '').localeCompare(b.id || ''));
-                    window.appSeqMap = {};
-                    sortedChronologically.forEach((app, idx) => {
-                        window.appSeqMap[app.id] = 101 + idx;
-                    });
-                    localStorage.setItem('globalisor_app_seq_map', JSON.stringify(window.appSeqMap));
-                }
 
                 // Filter to ONLY applications assigned to the currently logged-in staff member
                 // Primary match: email (unique, unambiguous)
@@ -756,7 +639,7 @@
                 });
 
                 // Fetch KYC Queue
-                const kycRes = await fetchWithAuth('/api/kyc');
+                const kycRes = await fetch('/api/kyc');
                 if (kycRes.ok) {
                     const kycData = await kycRes.json();
                     staffData.kycQueue = kycData.map(k => ({
@@ -770,7 +653,7 @@
                 }
 
                 // Fetch Documents
-                const docRes = await fetchWithAuth('/api/documents');
+                const docRes = await fetch('/api/documents');
                 if (docRes.ok) staffData.documents = await docRes.json();
 
                 // Calculate local stats based on actual data assigned to this staff member
@@ -786,7 +669,7 @@
                 };
 
                 // Fetch global stats as a fallback/additional information
-                const dashRes = await fetchWithAuth('/api/dashboard');
+                const dashRes = await fetch('/api/dashboard');
                 if (dashRes.ok) {
                     const dashData = await dashRes.json();
                     if (dashData && dashData.stats) {
@@ -795,7 +678,7 @@
                 }
 
                 // Fetch Guidance
-                const scRes = await fetchWithAuth('/api/static-content?portal=staff');
+                const scRes = await fetch('/api/static-content?portal=staff');
                 if (scRes.ok) staffData.guidance = await scRes.json();
 
             } catch (err) {
@@ -804,34 +687,15 @@
         }
 
         function switchTab(tab) {
-            document.querySelectorAll('#left-sidebar a, #left-sidebar button').forEach(btn => {
-                if (btn.id === 'btn-' + tab) {
-                    btn.classList.add('bg-emerald-600', 'text-white');
-                    btn.classList.remove('hover:bg-slate-800', 'hover:text-white', 'text-slate-300');
-                    const icon = btn.querySelector('i');
-                    if (icon) {
-                        icon.classList.remove('text-slate-400');
-                        icon.classList.add('text-white');
-                    }
-                } else {
-                    btn.classList.remove('bg-emerald-600', 'text-white');
-                    btn.classList.add('text-slate-300');
-                    const icon = btn.querySelector('i');
-                    if (icon) {
-                        icon.classList.add('text-slate-400');
-                        icon.classList.remove('text-white');
-                    }
-                }
-            });
+            document.querySelectorAll('.module-nav-btn').forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.getElementById(`btn-${tab}`);
+            if (activeBtn) activeBtn.classList.add('active');
             
             document.querySelectorAll('main > div').forEach(view => view.classList.add('hidden'));
             const activeView = document.getElementById(`view-${tab}`);
             if (activeView) activeView.classList.remove('hidden');
 
-            if (tab === 'dashboard') {
-                updateDashboardStats();
-                renderDashboardTasks();
-            }
+            if (tab === 'dashboard') updateDashboardStats();
             if (tab === 'kyc') renderKYCQueue();
             if (tab === 'documents') renderDocuments();
             if (tab === 'tasks') renderTasks();
@@ -843,7 +707,6 @@
                 clearInterval(messagePollInterval);
                 messagePollInterval = null;
             }
-            if (window.lucide) window.lucide.createIcons();
         }
 
         function renderGuidance() {
@@ -886,7 +749,7 @@
             }, 3000);
         }        async function fetchConversations() {
             try {
-                const res = await fetchWithAuth('/api/messages/conversations');
+                const res = await fetch('/api/messages/conversations');
                 const conversations = await res.json();
                 renderConversationList(conversations);
                 document.getElementById('chat-count').innerText = conversations.length;
@@ -942,7 +805,7 @@
 
         async function fetchMessages(clientId) {
             try {
-                const res = await fetchWithAuth(`/api/messages?clientId=${clientId}`);
+                const res = await fetch(`/api/messages?clientId=${clientId}`);
                 const messages = await res.json();
                 const container = document.getElementById('chat-messages');
                 if (!container) return;
@@ -976,7 +839,7 @@
             if (!text || !selectedClientId) return;
 
             try {
-                await fetchWithAuth('/api/messages', {
+                await fetch('/api/messages', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1002,12 +865,10 @@
                 return;
             }
 
-            body.innerHTML = staffData.applications.map(app => {
-                const displayId = window.appSeqMap?.[app.id] || app.id;
-                return `
+            body.innerHTML = staffData.applications.map(app => `
                 <tr class="hover:bg-slate-50/50 transition-colors">
                     <td class="px-6 py-5">
-                        <span class="text-xs font-bold text-blue-600 cursor-pointer hover:underline" onclick="openDetail('${app.id}')">${displayId}</span>
+                        <span class="text-xs font-bold text-blue-600 cursor-pointer hover:underline" onclick="openDetail('${app.id}')">${app.id}</span>
                     </td>
                     <td class="px-6 py-5">
                         <div class="text-xs font-bold text-slate-800">${app.business || 'N/A'}</div>
@@ -1060,7 +921,7 @@
             updateDashboardStats();
 
             try {
-                await fetchWithAuth(`/api/services/${appId}`, {
+                await fetch(`/api/services/${appId}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status })
@@ -1289,12 +1150,12 @@
             const app = staffData.applications.find(a => a.id === id);
             if (!app) return;
             
-            document.getElementById('detail-client-name').innerText = app.client || 'Client';
-            document.getElementById('detail-subtitle').innerText = `Company Incorporation • ${window.appSeqMap?.[app.id] || app.id}`;
+            document.getElementById('detail-client-name').innerText = app.clientName;
+            document.getElementById('detail-subtitle').innerText = `${app.type} • ${app.id}`;
             
             const badge = document.getElementById('detail-badge');
-            badge.innerText = app.status || 'Pending';
-            badge.className = `status-badge status-${(app.status === 'Completed' ? 'verified' : (app.status === 'In Progress' ? 'review' : 'pending'))}`;
+            badge.innerText = app.stage;
+            badge.className = `status-badge status-${app.status}`;
             
             switchDetailTab('overview');
             document.getElementById('panel-overlay').classList.add('open');
@@ -1337,7 +1198,7 @@
                     </div>
                 </div>
             `;
-            if (window.lucide) window.lucide.createIcons();
+            lucide.createIcons();
         }
 
         function updateNotifications() {
@@ -1345,19 +1206,19 @@
             const badge = document.getElementById('notification-badge');
             if (!list) return;
             
-            const pending = staffData.applications.filter(a => (a.status || '').toLowerCase() === 'pending' || (a.status || '').toLowerCase() === 'new');
+            const pending = staffData.applications.filter(a => a.status === 'pending');
             
             if (pending.length > 0) badge.classList.remove('hidden');
             else badge.classList.add('hidden');
- 
+
             list.innerHTML = pending.map(app => `
-                <div class="p-4 border-b border-slate-750 hover:bg-slate-800 cursor-pointer transition-colors text-slate-300" onclick="openDetail('${app.id}')">
-                    <div class="text-[10px] font-black text-emerald-400 uppercase mb-1">New Assignment</div>
-                    <div class="text-xs font-bold text-white">${app.client || 'Client'}</div>
-                    <div class="text-[10px] text-slate-400">${app.business || 'Application'} requires review.</div>
+                <div class="p-4 border-b border-slate-100 hover:bg-emerald-50/30 cursor-pointer transition-colors" onclick="openDetail('${app.id}')">
+                    <div class="text-[10px] font-black text-emerald-600 uppercase mb-1">New Assignment</div>
+                    <div class="text-xs font-bold text-slate-800">${app.clientName}</div>
+                    <div class="text-[10px] text-slate-500">${app.companyName} requires review.</div>
                 </div>
-            `).join('') || '<div class="p-8 text-center text-slate-500 text-xs">No new alerts</div>';
-            if (window.lucide) window.lucide.createIcons();
+            `).join('') || '<div class="p-8 text-center text-slate-400 text-xs">No new alerts</div>';
+            lucide.createIcons();
         }
 
         function toggleNotifications(e) {
