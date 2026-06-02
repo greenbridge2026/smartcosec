@@ -51,175 +51,21 @@ window.initAppSeqMap = async function() {
 // Start background sync
 window.initAppSeqMap();
 
-document.addEventListener('DOMContentLoaded', () => {
-    // 1. Remove/Hide old top-nav
-    const oldNav = document.querySelector('.top-nav');
-    if (oldNav) {
-        oldNav.remove();
-    }
-
-    // 2. Wrap main container
-    const main = document.querySelector('.main-container');
-    if (main) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'lg:pl-64 min-h-screen flex flex-col';
-        main.parentNode.insertBefore(wrapper, main);
-        wrapper.appendChild(main);
-    }
-
-    // 3. Inject Mobile Header & Sidebar
-    const mobileHeader = `
-        <header class="lg:hidden flex items-center justify-between px-6 py-4 bg-white/40 border-b border-white/60 sticky top-0 z-30 backdrop-blur-md">
-            <div class="flex items-center gap-2 cursor-pointer" onclick="window.location.href='dashboard.html'">
-                <span class="font-outfit font-black text-slate-900 text-lg uppercase tracking-wider">Globalisor</span>
-            </div>
-            <button onclick="toggleMobileSidebar()" class="p-2 text-slate-600 hover:bg-slate-100/50 rounded-xl transition-colors">
-                <i data-lucide="menu" class="w-6 h-6"></i>
-            </button>
-        </header>
-    `;
-
-    const sidebar = `
-        <div id="sidebar-overlay" onclick="toggleMobileSidebar()" class="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm lg:hidden hidden"></div>
-        <aside id="left-sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-slate-300 flex flex-col transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
-            <div class="px-6 py-8 border-b border-slate-800 flex items-center gap-3">
-                <div class="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-md">G</div>
-                <div>
-                    <h1 class="font-outfit font-black text-white text-base leading-none uppercase tracking-wider">Globalisor</h1>
-                    <span class="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Admin Panel</span>
-                </div>
-            </div>
-            <div class="flex-1 px-4 py-6 overflow-y-auto space-y-1">
-                <a href="dashboard.html" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors group font-semibold text-sm" id="nav-btn-clients">
-                    <i data-lucide="users" class="w-5 h-5 text-slate-400 group-hover:text-white"></i> Clients
-                </a>
-                <a href="applications.html" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors group font-semibold text-sm" id="nav-btn-applications">
-                    <i data-lucide="file-text" class="w-5 h-5 text-slate-400 group-hover:text-white"></i> Applications
-                </a>
-                <a href="kyc.html" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors group font-semibold text-sm" id="nav-btn-kyc">
-                    <i data-lucide="shield-check" class="w-5 h-5 text-slate-400 group-hover:text-white"></i> KYC Review
-                </a>
-                <a href="compliance.html" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors group font-semibold text-sm" id="nav-btn-compliance">
-                    <i data-lucide="scale" class="w-5 h-5 text-slate-400 group-hover:text-white"></i> Compliance
-                </a>
-                <div class="space-y-1">
-                    <button onclick="toggleSidebarSubmenu('submenu-services')" class="w-full flex items-center justify-between px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors group font-semibold text-sm text-left">
-                        <span class="flex items-center gap-3">
-                            <i data-lucide="layers" class="w-5 h-5 text-slate-400 group-hover:text-white"></i>
-                            <span>Services</span>
-                        </span>
-                        <i data-lucide="chevron-down" id="arrow-services" class="w-4 h-4 text-slate-400 group-hover:text-white transition-transform"></i>
-                    </button>
-                    <div id="submenu-services" class="hidden pl-11 pr-4 py-1 space-y-1">
-                        <a href="content.html" class="block py-2 text-xs font-semibold hover:text-white transition-colors" id="sub-btn-content">Add-On Services</a>
-                        <a href="blogs.html" class="block py-2 text-xs font-semibold hover:text-white transition-colors" id="sub-btn-blogs">Blogs</a>
-                        <a href="countries.html" class="block py-2 text-xs font-semibold hover:text-white transition-colors" id="sub-btn-countries">Countries</a>
-                    </div>
-                </div>
-                <a href="reports.html" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors group font-semibold text-sm" id="nav-btn-reports">
-                    <i data-lucide="bar-chart-3" class="w-5 h-5 text-slate-400 group-hover:text-white"></i> Reports
-                </a>
-                <a href="messages.html" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors group font-semibold text-sm" id="nav-btn-messages">
-                    <i data-lucide="message-square" class="w-5 h-5 text-slate-400 group-hover:text-white"></i> Messages
-                </a>
-                <a href="users.html" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors group font-semibold text-sm" id="nav-btn-users">
-                    <i data-lucide="user-plus" class="w-5 h-5 text-slate-400 group-hover:text-white"></i> Users
-                </a>
-            </div>
-            <div class="p-4 border-t border-slate-800 flex items-center justify-between gap-3">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-xs">A</div>
-                    <div class="flex flex-col leading-none">
-                        <span class="text-xs font-semibold text-white">Admin Team</span>
-                        <span class="text-[9px] text-slate-500 font-bold uppercase mt-0.5">Admin Role</span>
-                    </div>
-                </div>
-                <button onclick="logout()" class="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors" title="Sign Out">
-                    <i data-lucide="log-out" class="w-4 h-4"></i>
-                </button>
-            </div>
-        </aside>
-    `;
-
-    document.body.insertAdjacentHTML('afterbegin', mobileHeader + sidebar);
-
-    // 4. Set active navigation
-    const path = window.location.pathname;
-    let activeId = '';
-    if (path.includes('dashboard.html')) activeId = 'nav-btn-clients';
-    else if (path.includes('applications.html')) activeId = 'nav-btn-applications';
-    else if (path.includes('kyc.html')) activeId = 'nav-btn-kyc';
-    else if (path.includes('compliance.html')) activeId = 'nav-btn-compliance';
-    else if (path.includes('reports.html')) activeId = 'nav-btn-reports';
-    else if (path.includes('messages.html')) activeId = 'nav-btn-messages';
-    else if (path.includes('users.html')) activeId = 'nav-btn-users';
-
-    if (path.includes('content.html')) {
-        const el = document.getElementById('submenu-services');
-        const arrow = document.getElementById('arrow-services');
-        if (el) el.classList.remove('hidden');
-        if (arrow) arrow.classList.add('rotate-180');
-        const subBtn = document.getElementById('sub-btn-content');
-        if (subBtn) subBtn.classList.add('text-white', 'underline');
-    } else if (path.includes('blogs.html')) {
-        const el = document.getElementById('submenu-services');
-        const arrow = document.getElementById('arrow-services');
-        if (el) el.classList.remove('hidden');
-        if (arrow) arrow.classList.add('rotate-180');
-        const subBtn = document.getElementById('sub-btn-blogs');
-        if (subBtn) subBtn.classList.add('text-white', 'underline');
-    } else if (path.includes('countries.html')) {
-        const el = document.getElementById('submenu-services');
-        const arrow = document.getElementById('arrow-services');
-        if (el) el.classList.remove('hidden');
-        if (arrow) arrow.classList.add('rotate-180');
-        const subBtn = document.getElementById('sub-btn-countries');
-        if (subBtn) subBtn.classList.add('text-white', 'underline');
-    }
-
-    if (activeId) {
-        const activeEl = document.getElementById(activeId);
-        if (activeEl) {
-            activeEl.classList.add('bg-blue-600', 'text-white');
-            activeEl.classList.remove('hover:bg-slate-800', 'hover:text-white', 'text-slate-300');
-            const icon = activeEl.querySelector('i');
-            if (icon) icon.classList.remove('text-slate-400');
-            if (icon) icon.classList.add('text-white');
-        }
-    }
-
-    // 5. Recreate lucide icons for sidebar
-    if (window.lucide) {
-        window.lucide.createIcons();
-    }
-});
-
-window.toggleMobileSidebar = function() {
-    const sidebar = document.getElementById('left-sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
-    if (sidebar && overlay) {
-        const isHidden = sidebar.classList.contains('-translate-x-full');
-        if (isHidden) {
-            sidebar.classList.remove('-translate-x-full');
-            overlay.classList.remove('hidden');
+// Global navigation functions
+window.toggleSubmenu = function(id) {
+    const submenu = document.getElementById(id);
+    const btn = document.getElementById('btn-services');
+    if (submenu) {
+        const isOpen = !submenu.classList.contains('hidden');
+        const arrow = btn ? btn.querySelector('.submenu-arrow') : null;
+        if (isOpen) {
+            submenu.classList.add('hidden');
+            if (btn) btn.classList.remove('submenu-open');
+            if (arrow) arrow.style.transform = 'rotate(0deg)';
         } else {
-            sidebar.classList.add('-translate-x-full');
-            overlay.classList.add('hidden');
-        }
-    }
-};
-
-window.toggleSidebarSubmenu = function(id) {
-    const el = document.getElementById(id);
-    const arrow = document.getElementById('arrow-services');
-    if (el) {
-        const isHidden = el.classList.contains('hidden');
-        if (isHidden) {
-            el.classList.remove('hidden');
-            if (arrow) arrow.classList.add('rotate-180');
-        } else {
-            el.classList.add('hidden');
-            if (arrow) arrow.classList.remove('rotate-180');
+            submenu.classList.remove('hidden');
+            if (btn) btn.classList.add('submenu-open');
+            if (arrow) arrow.style.transform = 'rotate(180deg)';
         }
     }
 };
@@ -229,3 +75,164 @@ window.logout = function() {
     localStorage.removeItem('token');
     window.location.href = '/auth.html';
 };
+
+window.toggleMobileSidebar = function() {
+    const switcher = document.getElementById('module-switcher');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (switcher && overlay) {
+        const isOpen = switcher.classList.toggle('open');
+        if (isOpen) {
+            overlay.classList.remove('hidden');
+        } else {
+            overlay.classList.add('hidden');
+        }
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Inject responsive CSS styles dynamically
+    const style = document.createElement('style');
+    style.textContent = `
+        /* On screens smaller than 1024px (mobile/tablet) */
+        @media (max-width: 1023px) {
+            #module-switcher {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease-in-out;
+                top: 60px !important;
+                left: 0 !important;
+                height: calc(100vh - 60px) !important;
+                width: 240px !important;
+                z-index: 9999 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                background: rgba(255, 255, 255, 0.95) !important;
+                backdrop-filter: blur(25px) !important;
+                border-right: 1px solid rgba(0, 0, 0, 0.1) !important;
+            }
+            #module-switcher.open {
+                transform: translateX(0);
+            }
+            .main-container {
+                margin-left: 0 !important;
+                padding: 1rem !important;
+            }
+            #mobile-menu-toggle {
+                display: flex !important;
+            }
+        }
+        /* On desktop screens (1024px and up) */
+        @media (min-width: 1024px) {
+            #module-switcher {
+                transform: translateX(0) !important;
+            }
+            #mobile-menu-toggle {
+                display: none !important;
+            }
+        }
+        
+        /* Submenu rotation */
+        .submenu-arrow {
+            transition: transform 0.2s ease;
+        }
+        .submenu-open .submenu-arrow {
+            transform: rotate(180deg);
+        }
+    `;
+    document.head.appendChild(style);
+
+    // 2. Inject Mobile Overlay backdrop
+    const overlay = document.createElement('div');
+    overlay.id = 'sidebar-overlay';
+    overlay.className = 'fixed inset-0 z-[9990] bg-slate-900/40 backdrop-blur-sm hidden lg:hidden';
+    overlay.onclick = window.toggleMobileSidebar;
+    document.body.appendChild(overlay);
+
+    // 3. Inject hamburger toggle button into top-nav
+    const topNavLeft = document.querySelector('.top-nav > div.flex.items-center');
+    if (topNavLeft) {
+        const toggleBtn = document.createElement('button');
+        toggleBtn.id = 'mobile-menu-toggle';
+        toggleBtn.className = 'p-2 text-slate-600 hover:bg-slate-100/50 rounded-xl transition-colors lg:hidden hidden mr-2';
+        toggleBtn.onclick = window.toggleMobileSidebar;
+        toggleBtn.innerHTML = `<i data-lucide="menu" class="w-6 h-6"></i>`;
+        topNavLeft.insertBefore(toggleBtn, topNavLeft.firstChild);
+    }
+
+    // 4. Update the content of `#module-switcher` to ensure uniform organized links across all admin pages
+    const switcher = document.getElementById('module-switcher');
+    if (switcher) {
+        switcher.innerHTML = `
+            <button onclick="window.location.href='dashboard.html'" class="module-nav-btn" id="btn-clients"><i data-lucide="users" class="w-4 h-4"></i> Clients</button>
+            <button onclick="window.location.href='applications.html'" class="module-nav-btn" id="btn-applications"><i data-lucide="file-text" class="w-4 h-4"></i> Applications</button>
+            <button onclick="window.location.href='kyc.html'" class="module-nav-btn" id="btn-kyc"><i data-lucide="shield-check" class="w-4 h-4"></i> KYC Review</button>
+            <button onclick="window.location.href='compliance.html'" class="module-nav-btn" id="btn-compliance"><i data-lucide="balance-scale" class="w-4 h-4"></i> Compliance</button>
+            
+            <button onclick="window.location.href='reports.html'" class="module-nav-btn" id="btn-reports"><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Reports</button>
+            <button onclick="window.location.href='messages.html'" class="module-nav-btn" id="btn-messages"><i data-lucide="message-square" class="w-4 h-4"></i> Messages</button>
+            <button onclick="window.location.href='content.html'" class="module-nav-btn" id="btn-content"><i data-lucide="book-open" class="w-4 h-4"></i> Content</button>
+
+            <!-- Services Accordion Group -->
+            <div class="w-full flex flex-col gap-0.5">
+                <button onclick="window.toggleSubmenu('services-submenu')" class="module-nav-btn" id="btn-services">
+                    <i data-lucide="briefcase" class="w-4 h-4"></i>
+                    <span class="flex-1 text-left">Services</span>
+                    <i data-lucide="chevron-down" class="w-3 h-3 submenu-arrow transition-transform"></i>
+                </button>
+                <div id="services-submenu" class="submenu-container hidden pl-6 flex flex-col gap-0.5 mt-0.5">
+                    <button onclick="window.location.href='blogs.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-blogs"><i data-lucide="layout" class="w-3.5 h-3.5"></i> Blogs</button>
+                    <button onclick="window.location.href='countries.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-countries"><i data-lucide="globe" class="w-3.5 h-3.5"></i> Countries</button>
+                    <button onclick="window.location.href='packages.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-packages"><i data-lucide="package" class="w-3.5 h-3.5"></i> Packages</button>
+                    <button onclick="window.location.href='users.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-users"><i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Users</button>
+                </div>
+            </div>
+        `;
+    }
+
+    // 5. Highlight active menu item
+    const path = window.location.pathname;
+    let activeId = '';
+    if (path.includes('dashboard.html')) activeId = 'btn-clients';
+    else if (path.includes('applications.html')) activeId = 'btn-applications';
+    else if (path.includes('kyc.html')) activeId = 'btn-kyc';
+    else if (path.includes('compliance.html')) activeId = 'btn-compliance';
+    else if (path.includes('reports.html')) activeId = 'btn-reports';
+    else if (path.includes('messages.html')) activeId = 'btn-messages';
+    else if (path.includes('content.html')) activeId = 'btn-content';
+    else if (path.includes('blogs.html')) activeId = 'btn-blogs';
+    else if (path.includes('countries.html')) activeId = 'btn-countries';
+    else if (path.includes('packages.html')) activeId = 'btn-packages';
+    else if (path.includes('users.html')) activeId = 'btn-users';
+
+    // Remove active class from all buttons
+    document.querySelectorAll('.module-nav-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    if (activeId) {
+        const activeEl = document.getElementById(activeId);
+        if (activeEl) {
+            activeEl.classList.add('active');
+        }
+
+        // Expand submenu if active item is under Services
+        if (['btn-blogs', 'btn-countries', 'btn-packages', 'btn-users'].includes(activeId)) {
+            const submenu = document.getElementById('services-submenu');
+            const servicesBtn = document.getElementById('btn-services');
+            if (submenu) {
+                submenu.classList.remove('hidden');
+            }
+            if (servicesBtn) {
+                servicesBtn.classList.add('submenu-open');
+                const arrow = servicesBtn.querySelector('.submenu-arrow');
+                if (arrow) {
+                    arrow.style.transform = 'rotate(180deg)';
+                }
+            }
+        }
+    }
+
+    // 6. Refresh Lucide Icons
+    if (window.lucide) {
+        window.lucide.createIcons();
+    }
+});
