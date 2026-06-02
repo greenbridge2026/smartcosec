@@ -23,7 +23,7 @@ window.addEventListener('storage', (e) => {
 // Background sync function
 window.initAppSeqMap = async function() {
     try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
         const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
         const res = await fetch('/api/applications', { headers });
         if (res.ok) {
