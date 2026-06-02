@@ -872,12 +872,57 @@ async function init() {
     if (countriesGrid) {
         countriesGrid.innerHTML = activeCountries.map(c => {
             const dataCountry = c.name.toLowerCase().replace(/\s+/g, '_');
+            const servicesList = c.services || [];
+            
+            // Generate services badges
+            const servicesBadges = servicesList.slice(0, 2).map(s => {
+                let pillCls = 'bg-blue-50 text-blue-700 border-blue-100';
+                if (s.includes('Tax') || s.includes('Compliance')) pillCls = 'bg-rose-50 text-rose-700 border-rose-100';
+                else if (s.includes('Bank')) pillCls = 'bg-emerald-50 text-emerald-700 border-emerald-100';
+                return `<span class="px-2 py-0.5 rounded text-[9px] font-semibold border ${pillCls} whitespace-nowrap">${s.replace('Company ', '').replace('Corporate ', '')}</span>`;
+            }).join('');
+            
+            const moreBadge = servicesList.length > 2 
+                ? `<span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[9px] font-bold">+${servicesList.length - 2} more</span>` 
+                : '';
+                
             return `
-                <div class="country-card-item country-item" data-country="${dataCountry}" data-name="${c.name}">
-                    <h3>${c.name}</h3>
+                <div class="country-card-item country-item w-full flex flex-col gap-4 text-left p-6" data-country="${dataCountry}" data-name="${c.name}">
+                    <div class="flex justify-between items-start w-full">
+                        <div>
+                            <span class="text-[10px] font-bold text-blue-600 uppercase tracking-widest">${c.code || 'GLOBAL'}</span>
+                            <h3 class="text-xl font-bold font-outfit text-slate-900 mt-0.5">${c.name}</h3>
+                        </div>
+                        <div class="status-indicator"></div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-2 w-full border-t border-slate-200/50 pt-3 text-xs">
+                        <div class="flex flex-col">
+                            <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Corporate Tax</span>
+                            <span class="font-bold text-slate-800 mt-0.5">${c.tax || 'N/A'}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Compliance</span>
+                            <span class="font-bold text-emerald-600 mt-0.5">${c.compliance || 'N/A'}</span>
+                        </div>
+                    </div>
+
+                    <div class="w-full pt-2">
+                        <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Top Services</span>
+                        <div class="flex flex-wrap gap-1">
+                            ${servicesBadges}
+                            ${moreBadge}
+                        </div>
+                    </div>
+                    
+                    <div class="w-full flex items-center justify-between text-[11px] font-bold text-blue-600 group mt-2 pt-2 border-t border-slate-150/40">
+                        <span>Explore Details</span>
+                        <i data-lucide="arrow-right" class="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform"></i>
+                    </div>
                 </div>
             `;
         }).join('');
+        if (window.lucide) window.lucide.createIcons();
     }
 
     const countryItems = document.querySelectorAll('.country-item');
@@ -1193,11 +1238,12 @@ async function init() {
                 mapCaption.classList.add('show');
             });
 
-            // Handle click redirection (Singapore and Hong Kong zoom/redirect)
+            // Handle click redirection to details modal
             item.addEventListener('click', () => {
-                const key = item.getAttribute('data-country');
-                if (key === 'singapore') {
-                    window.location.href = '/auth.html';
+                const name = item.getAttribute('data-name');
+                const countryObj = activeCountries.find(c => c.name === name);
+                if (countryObj) {
+                    window.openCountryDetailModal(countryObj);
                 }
             });
         });
@@ -1230,6 +1276,60 @@ async function init() {
             }
         });
     }
+}
+
+window.openCountryDetailModal = function(country) {
+    const modal = document.getElementById('country-detail-modal');
+    if (!modal) return;
+    
+    // Fill in values
+    document.getElementById('detail-country-flag-icon').textContent = country.code || country.name.substring(0, 2).toUpperCase();
+    document.getElementById('detail-country-name').textContent = country.name;
+    document.getElementById('detail-country-tax').textContent = country.tax || 'N/A';
+    document.getElementById('detail-country-compliance').textContent = country.compliance || 'N/A';
+    document.getElementById('detail-country-uen').textContent = country.uen || 'N/A';
+    document.getElementById('detail-country-uen').title = country.uen || 'N/A';
+    
+    // Services
+    const servicesGrid = document.getElementById('detail-country-services');
+    if (servicesGrid) {
+        const servicesList = country.services || [];
+        servicesGrid.innerHTML = servicesList.map(s => {
+            let iconCls = 'text-blue-500';
+            if (s.includes('Tax') || s.includes('Compliance')) iconCls = 'text-rose-500';
+            else if (s.includes('Bank')) iconCls = 'text-emerald-500';
+            
+            return `
+                <div class="flex items-center gap-2.5 p-3 rounded-2xl bg-white/40 border border-white/60">
+                    <i data-lucide="check-circle-2" class="w-4 h-4 ${iconCls} shrink-0"></i>
+                    <span class="text-xs font-semibold text-slate-700">${s}</span>
+                </div>
+            `;
+        }).join('') || '<div class="col-span-1 sm:col-span-2 text-center text-xs text-slate-400 py-4">No services mapped to this country yet.</div>';
+    }
+    
+    // Show modal
+    modal.classList.remove('hidden');
+    modal.offsetHeight; // force reflow
+    modal.classList.remove('opacity-0', 'pointer-events-none');
+    modal.querySelector('.transform').classList.remove('scale-95');
+    modal.classList.add('opacity-100', 'pointer-events-auto');
+    
+    // Initialize icons
+    if (window.lucide) {
+        window.lucide.createIcons();
+    }
+}
+
+window.closeCountryDetailModal = function() {
+    const modal = document.getElementById('country-detail-modal');
+    if (!modal) return;
+    modal.classList.add('opacity-0', 'pointer-events-none');
+    modal.querySelector('.transform').classList.add('scale-95');
+    modal.classList.remove('opacity-100', 'pointer-events-auto');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 300);
 }
 
 document.addEventListener('DOMContentLoaded', init);
