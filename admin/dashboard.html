@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -550,16 +550,20 @@
                 window.clientSeqMap[id] = 101 + index;
             });
             
-            const search = document.getElementById('search-input').value.toLowerCase();
-            const filtered = clientsData.filter(c => {
+            const searchEl = document.getElementById('search-input');
+            const search = searchEl ? searchEl.value.toLowerCase() : '';
+            const filtered = (clientsData || []).filter(c => {
+                if (!c) return false;
                 const statusLower = (c.latestStatus || '').toLowerCase();
                 const matchesFilter = currentFilter === 'all' || 
                                      (currentFilter === 'review' && (statusLower === 'review' || statusLower === 'under review')) ||
                                      (currentFilter === 'approved' && (statusLower === 'approved' || statusLower === 'verified' || statusLower === 'completed')) ||
                                      statusLower === currentFilter;
-                const matchesSearch = c.name.toLowerCase().includes(search) || 
-                                     c.email.toLowerCase().includes(search) ||
-                                     (c.companyNames && c.companyNames.some(name => name.toLowerCase().includes(search)));
+                const nameLower = (c.name || '').toLowerCase();
+                const emailLower = (c.email || '').toLowerCase();
+                const matchesSearch = nameLower.includes(search) || 
+                                     emailLower.includes(search) ||
+                                     (c.companyNames && c.companyNames.some(name => (name || '').toLowerCase().includes(search)));
                 return matchesFilter && matchesSearch;
             });
 
