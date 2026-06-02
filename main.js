@@ -868,57 +868,15 @@ async function init() {
     const activeCountries = countriesList.filter(c => c.published === true || (c.published === undefined && c.status === 'ACTIVE'));
 
     // Dynamically inject the active country cards into the DOM
-    const countriesGrid = document.querySelector('.country-cards-grid');
+    const countriesGrid = document.querySelector('.country-chips-grid');
     if (countriesGrid) {
         countriesGrid.innerHTML = activeCountries.map(c => {
             const dataCountry = c.name.toLowerCase().replace(/\s+/g, '_');
-            const servicesList = c.services || [];
-            
-            // Generate services badges
-            const servicesBadges = servicesList.slice(0, 2).map(s => {
-                let pillCls = 'bg-blue-50 text-blue-700 border-blue-100';
-                if (s.includes('Tax') || s.includes('Compliance')) pillCls = 'bg-rose-50 text-rose-700 border-rose-100';
-                else if (s.includes('Bank')) pillCls = 'bg-emerald-50 text-emerald-700 border-emerald-100';
-                return `<span class="px-2 py-0.5 rounded text-[9px] font-semibold border ${pillCls} whitespace-nowrap">${s.replace('Company ', '').replace('Corporate ', '')}</span>`;
-            }).join('');
-            
-            const moreBadge = servicesList.length > 2 
-                ? `<span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[9px] font-bold">+${servicesList.length - 2} more</span>` 
-                : '';
-                
             return `
-                <div class="country-card-item country-item w-full flex flex-col gap-4 text-left p-6" data-country="${dataCountry}" data-name="${c.name}">
-                    <div class="flex justify-between items-start w-full">
-                        <div>
-                            <span class="text-[10px] font-bold text-blue-600 uppercase tracking-widest">${c.code || 'GLOBAL'}</span>
-                            <h3 class="text-xl font-bold font-outfit text-slate-900 mt-0.5">${c.name}</h3>
-                        </div>
-                        <div class="status-indicator"></div>
-                    </div>
-                    
-                    <div class="grid grid-cols-2 gap-2 w-full border-t border-slate-200/50 pt-3 text-xs">
-                        <div class="flex flex-col">
-                            <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Corporate Tax</span>
-                            <span class="font-bold text-slate-800 mt-0.5">${c.tax || 'N/A'}</span>
-                        </div>
-                        <div class="flex flex-col">
-                            <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Compliance</span>
-                            <span class="font-bold text-emerald-600 mt-0.5">${c.compliance || 'N/A'}</span>
-                        </div>
-                    </div>
-
-                    <div class="w-full pt-2">
-                        <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Top Services</span>
-                        <div class="flex flex-wrap gap-1">
-                            ${servicesBadges}
-                            ${moreBadge}
-                        </div>
-                    </div>
-                    
-                    <div class="w-full flex items-center justify-between text-[11px] font-bold text-blue-600 group mt-2 pt-2 border-t border-slate-150/40">
-                        <span>Explore Details</span>
-                        <i data-lucide="arrow-right" class="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform"></i>
-                    </div>
+                <div class="country-chip country-item" data-country="${dataCountry}" data-name="${c.name}" title="Click to view ${c.name} services">
+                    <span class="country-chip-dot"></span>
+                    <span class="country-chip-name">${c.name}</span>
+                    <svg class="country-chip-arrow" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                 </div>
             `;
         }).join('');
@@ -1249,7 +1207,7 @@ async function init() {
         });
 
         // Reset to auto-spin when mouse leaves list container
-        const countryListContainer = document.querySelector('.country-cards-grid');
+        const countryListContainer = document.querySelector('.country-chips-grid');
         if (countryListContainer) {
             countryListContainer.addEventListener('mouseleave', () => {
                 countryItems.forEach(i => i.classList.remove('active'));
@@ -1283,29 +1241,68 @@ window.openCountryDetailModal = function(country) {
     if (!modal) return;
     
     // Fill in values
-    document.getElementById('detail-country-flag-icon').textContent = country.code || country.name.substring(0, 2).toUpperCase();
+    const codeEl = document.getElementById('detail-country-flag-icon');
+    const code = country.code || country.name.substring(0, 2).toUpperCase();
+    codeEl.textContent = code;
     document.getElementById('detail-country-name').textContent = country.name;
     document.getElementById('detail-country-tax').textContent = country.tax || 'N/A';
     document.getElementById('detail-country-compliance').textContent = country.compliance || 'N/A';
     document.getElementById('detail-country-uen').textContent = country.uen || 'N/A';
     document.getElementById('detail-country-uen').title = country.uen || 'N/A';
+
+    // Jurisdiction info
+    const jurEl = document.getElementById('detail-country-jurisdiction');
+    if (jurEl) jurEl.textContent = country.jurisdiction || country.name;
     
     // Services
     const servicesGrid = document.getElementById('detail-country-services');
     if (servicesGrid) {
         const servicesList = country.services || [];
-        servicesGrid.innerHTML = servicesList.map(s => {
-            let iconCls = 'text-blue-500';
-            if (s.includes('Tax') || s.includes('Compliance')) iconCls = 'text-rose-500';
-            else if (s.includes('Bank')) iconCls = 'text-emerald-500';
-            
-            return `
-                <div class="flex items-center gap-2.5 p-3 rounded-2xl bg-white/40 border border-white/60">
-                    <i data-lucide="check-circle-2" class="w-4 h-4 ${iconCls} shrink-0"></i>
-                    <span class="text-xs font-semibold text-slate-700">${s}</span>
-                </div>
-            `;
-        }).join('') || '<div class="col-span-1 sm:col-span-2 text-center text-xs text-slate-400 py-4">No services mapped to this country yet.</div>';
+        if (servicesList.length === 0) {
+            servicesGrid.innerHTML = `
+                <div class="col-span-2 flex flex-col items-center justify-center py-8 gap-3">
+                    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                    </div>
+                    <span class="text-xs text-slate-400 font-medium">No services mapped yet</span>
+                </div>`;
+        } else {
+            const serviceIcons = {
+                'Company Formation': '🏢',
+                'Corporate Secretarial': '📜',
+                'Accounting': '📊',
+                'Tax': '⚖️',
+                'Bank': '🏦',
+                'Payroll': '💳',
+                'Advisory': '🤝',
+                'Fund': '💰',
+                'Digital': '💻',
+                'Private': '💎',
+                'Compliance': '✅'
+            };
+
+            servicesGrid.innerHTML = servicesList.map((s, idx) => {
+                let icon = '🔵';
+                let bgClass = 'from-blue-50 to-indigo-50 border-blue-100/60';
+                let dotClass = 'bg-blue-500';
+                
+                if (s.includes('Tax') || s.includes('Compliance')) { icon = '⚖️'; bgClass = 'from-rose-50 to-pink-50 border-rose-100/60'; dotClass = 'bg-rose-500'; }
+                else if (s.includes('Bank')) { icon = '🏦'; bgClass = 'from-emerald-50 to-teal-50 border-emerald-100/60'; dotClass = 'bg-emerald-500'; }
+                else if (s.includes('Accounting') || s.includes('Payroll')) { icon = '📊'; bgClass = 'from-amber-50 to-yellow-50 border-amber-100/60'; dotClass = 'bg-amber-500'; }
+                else if (s.includes('Formation') || s.includes('Incorporation')) { icon = '🏢'; bgClass = 'from-blue-50 to-sky-50 border-blue-100/60'; dotClass = 'bg-blue-500'; }
+                else if (s.includes('Secretarial') || s.includes('Secretary')) { icon = '📜'; bgClass = 'from-purple-50 to-violet-50 border-purple-100/60'; dotClass = 'bg-purple-500'; }
+                else if (s.includes('Advisory') || s.includes('Consulting')) { icon = '🤝'; bgClass = 'from-cyan-50 to-sky-50 border-cyan-100/60'; dotClass = 'bg-cyan-500'; }
+                else if (s.includes('Fund')) { icon = '💰'; bgClass = 'from-green-50 to-emerald-50 border-green-100/60'; dotClass = 'bg-green-500'; }
+                else if (s.includes('Digital') || s.includes('Tech')) { icon = '💻'; bgClass = 'from-slate-50 to-gray-50 border-slate-100/60'; dotClass = 'bg-slate-500'; }
+                else if (s.includes('Private')) { icon = '💎'; bgClass = 'from-violet-50 to-purple-50 border-violet-100/60'; dotClass = 'bg-violet-500'; }
+
+                return `
+                    <div class="service-chip-modal bg-gradient-to-br ${bgClass} border rounded-2xl p-3.5 flex items-center gap-3" style="animation-delay: ${idx * 0.05}s">
+                        <span class="text-base leading-none">${icon}</span>
+                        <span class="text-xs font-semibold text-slate-700 leading-tight">${s}</span>
+                    </div>`;
+            }).join('');
+        }
     }
     
     // Show modal
