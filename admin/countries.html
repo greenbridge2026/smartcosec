@@ -71,6 +71,8 @@
         .admin-table th { padding: 1rem 1.5rem; font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #f1f5f9; background: rgba(248, 250, 252, 0.5); }
         .admin-table td { padding: 1rem 1.5rem; font-size: 0.85rem; color: #1e293b; border-bottom: 1px solid #f1f5f9; }
         .glass-card { background: rgba(255, 255, 255, 0.45); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.7); border-radius: 20px; box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04); }
+        .row-toggle-btn { color: #2563eb !important; }
+        .row-toggle-btn:hover { color: #1d4ed8 !important; }
     </style>
 </head>
 <body>
@@ -132,12 +134,9 @@
                 <table class="admin-table">
                     <thead>
                         <tr class="text-left">
-                            <th class="w-16">No</th>
+                            <th class="w-24">No</th>
                             <th>Jurisdiction</th>
-                            <th>UEN Format</th>
                             <th>Corporate Tax</th>
-                            <th>Compliance Score</th>
-                            <th>Services Offered</th>
                             <th>Status</th>
                             <th>Landing Page</th>
                             <th>Actions</th>
@@ -151,167 +150,211 @@
         </div>
     </main>
 
-    <!-- Add Country Modal -->
-    <div id="add-country-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center opacity-0 transition-all duration-300 pointer-events-none">
+    <!-- Add Country Drawer -->
+    <div id="add-country-modal" class="hidden fixed inset-0 z-[9999] flex justify-end opacity-0 transition-all duration-300 pointer-events-none">
         <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto" onclick="closeCountryModal()"></div>
-        <div class="bg-white/95 backdrop-blur-xl border border-white/60 rounded-3xl p-8 w-full max-w-md shadow-2xl relative z-10 transform scale-90 transition-transform pointer-events-auto">
-            <h3 class="text-xl font-bold font-outfit text-slate-900 mb-2">Add New Country</h3>
-            <p class="text-slate-500 text-xs mb-6">Enter the jurisdiction details to add to the hub.</p>
+        <div class="bg-white/95 backdrop-blur-xl border-l border-slate-200 w-full max-w-md shadow-2xl relative z-10 transform translate-x-full transition-transform duration-300 pointer-events-auto flex flex-col h-full p-8 overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h3 class="text-xl font-bold font-outfit text-slate-900">Add New Country</h3>
+                    <p class="text-slate-500 text-xs mt-0.5">Enter the jurisdiction details to add to the hub.</p>
+                </div>
+                <button type="button" onclick="closeCountryModal()" class="text-slate-400 hover:text-slate-600 transition-colors p-1.5 hover:bg-slate-100 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
             
-            <form id="add-country-form" class="space-y-4">
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-1">Country Name</label>
-                    <input type="text" id="modal-country-name" list="countries-list" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required placeholder="e.g. Singapore">
-                    <datalist id="countries-list">
-                        <option value="Singapore">
-                        <option value="Hong Kong">
-                        <option value="United States">
-                        <option value="Dubai">
-                        <option value="United Arab Emirates">
-                        <option value="Australia">
-                        <option value="United Kingdom">
-                        <option value="Indonesia">
-                        <option value="Malaysia">
-                        <option value="India">
-                        <option value="Vietnam">
-                        <option value="Thailand">
-                        <option value="Philippines">
-                        <option value="Japan">
-                        <option value="Germany">
-                        <option value="France">
-                        <option value="Canada">
-                    </datalist>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-1">Country Code</label>
-                    <input type="text" id="modal-country-code" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required placeholder="e.g. SG">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-1">UEN / Registration Format</label>
-                    <input type="text" id="modal-country-uen" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required placeholder="e.g. 9-character alphanumeric">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-1">Corporate Tax Rate</label>
-                    <input type="text" id="modal-country-tax" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required placeholder="e.g. 17% (flat rate)">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-1">Compliance Score</label>
-                    <input type="text" id="modal-country-compliance" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required placeholder="e.g. 99.5%">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-1">Status</label>
-                    <select id="modal-country-status" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
-                        <option value="ACTIVE">ACTIVE</option>
-                        <option value="INACTIVE">INACTIVE</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-2">Services Offered</label>
-                    <div class="grid grid-cols-2 gap-2 text-xs">
-                        <label class="flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700">
-                            <input type="checkbox" name="services" value="Company Incorporation" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20">
-                            <span>Incorporation</span>
-                        </label>
-                        <label class="flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700">
-                            <input type="checkbox" name="services" value="Corporate Secretary" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20">
-                            <span>Secretary</span>
-                        </label>
-                        <label class="flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700">
-                            <input type="checkbox" name="services" value="Nominee Director" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20">
-                            <span>Nominee Director</span>
-                        </label>
-                        <label class="flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700">
-                            <input type="checkbox" name="services" value="Office Address" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20">
-                            <span>Office Address</span>
-                        </label>
-                        <label class="flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700">
-                            <input type="checkbox" name="services" value="Tax & Compliance" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20">
-                            <span>Tax & Compliance</span>
-                        </label>
-                        <label class="flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700">
-                            <input type="checkbox" name="services" value="Bank Account Opening" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20">
-                            <span>Bank Opening</span>
-                        </label>
+            <form id="add-country-form" class="space-y-4 flex-1 flex flex-col justify-between">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Country Name</label>
+                        <input type="text" id="modal-country-name" list="countries-list" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required placeholder="e.g. Singapore">
+                        <datalist id="countries-list">
+                            <option value="Singapore">
+                            <option value="Hong Kong">
+                            <option value="United States">
+                            <option value="Dubai">
+                            <option value="United Arab Emirates">
+                            <option value="Australia">
+                            <option value="United Kingdom">
+                            <option value="Indonesia">
+                            <option value="Malaysia">
+                            <option value="India">
+                            <option value="Vietnam">
+                            <option value="Thailand">
+                            <option value="Philippines">
+                            <option value="Japan">
+                            <option value="Germany">
+                            <option value="France">
+                            <option value="Canada">
+                        </datalist>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Country Code</label>
+                        <input type="text" id="modal-country-code" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required placeholder="e.g. SG">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">UEN / Registration Format</label>
+                        <input type="text" id="modal-country-uen" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required placeholder="e.g. 9-character alphanumeric">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Corporate Tax Rate</label>
+                        <input type="text" id="modal-country-tax" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required placeholder="e.g. 17% (flat rate)">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Compliance Score</label>
+                        <input type="text" id="modal-country-compliance" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required placeholder="e.g. 99.5%">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Status</label>
+                        <select id="modal-country-status" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
+                            <option value="ACTIVE">ACTIVE</option>
+                            <option value="INACTIVE">INACTIVE</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Accordion Section for Services -->
+                    <div class="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50/50">
+                        <button type="button" onclick="toggleAccordion('add-services-accordion')" class="w-full flex items-center justify-between p-4 text-left font-bold text-xs text-slate-700 bg-white/40 hover:bg-white/70 transition-all outline-none">
+                            <span class="flex items-center gap-2">
+                                <i data-lucide="briefcase" class="w-4 h-4 text-blue-600"></i>
+                                <span>Services Offered</span>
+                            </span>
+                            <span class="flex items-center gap-2">
+                                <span id="add-services-summary" class="text-[10px] text-slate-400 font-normal">0 Selected</span>
+                                <i data-lucide="chevron-down" id="add-services-chevron" class="w-3.5 h-3.5 transition-transform duration-200"></i>
+                            </span>
+                        </button>
+                        <div id="add-services-accordion" class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out border-t border-transparent">
+                            <div class="p-4 grid grid-cols-1 gap-3 text-xs bg-white/20">
+                                <label class="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 hover:text-slate-900 transition-colors">
+                                    <input type="checkbox" name="services" value="Company Incorporation" onchange="updateServicesSummary('add')" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 w-4 h-4">
+                                    <span>Company Incorporation</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 hover:text-slate-900 transition-colors">
+                                    <input type="checkbox" name="services" value="Corporate Secretary" onchange="updateServicesSummary('add')" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 w-4 h-4">
+                                    <span>Corporate Secretary</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 hover:text-slate-900 transition-colors">
+                                    <input type="checkbox" name="services" value="Nominee Director" onchange="updateServicesSummary('add')" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 w-4 h-4">
+                                    <span>Nominee Director</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 hover:text-slate-900 transition-colors">
+                                    <input type="checkbox" name="services" value="Office Address" onchange="updateServicesSummary('add')" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 w-4 h-4">
+                                    <span>Office Address</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 hover:text-slate-900 transition-colors">
+                                    <input type="checkbox" name="services" value="Tax & Compliance" onchange="updateServicesSummary('add')" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 w-4 h-4">
+                                    <span>Tax & Compliance</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 hover:text-slate-900 transition-colors">
+                                    <input type="checkbox" name="services" value="Bank Account Opening" onchange="updateServicesSummary('add')" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 w-4 h-4">
+                                    <span>Bank Account Opening</span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
-                <div class="flex gap-3 pt-2">
-                    <button type="button" onclick="closeCountryModal()" class="flex-1 py-3 border border-slate-200 text-slate-500 font-bold rounded-xl text-xs transition-all hover:bg-slate-50">Cancel</button>
-                    <button type="submit" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all shadow-md">Add Country</button>
+                <div class="flex gap-3 pt-6 mt-6 border-t border-slate-100">
+                    <button type="button" onclick="closeCountryModal()" class="flex-1 py-3.5 border border-slate-200 text-slate-500 font-bold rounded-xl text-xs transition-all hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all shadow-md">Add Country</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Edit Country Modal -->
-    <div id="edit-country-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center opacity-0 transition-all duration-300 pointer-events-none">
+    <!-- Edit Country Drawer -->
+    <div id="edit-country-modal" class="hidden fixed inset-0 z-[9999] flex justify-end opacity-0 transition-all duration-300 pointer-events-none">
         <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto" onclick="closeEditCountryModal()"></div>
-        <div class="bg-white/95 backdrop-blur-xl border border-white/60 rounded-3xl p-8 w-full max-w-md shadow-2xl relative z-10 transform scale-90 transition-transform pointer-events-auto">
-            <h3 class="text-xl font-bold font-outfit text-slate-900 mb-2">Edit Country</h3>
-            <p class="text-slate-500 text-xs mb-6">Modify the jurisdiction details and mapped services.</p>
+        <div class="bg-white/95 backdrop-blur-xl border-l border-slate-200 w-full max-w-md shadow-2xl relative z-10 transform translate-x-full transition-transform duration-300 pointer-events-auto flex flex-col h-full p-8 overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h3 class="text-xl font-bold font-outfit text-slate-900">Edit Country</h3>
+                    <p class="text-slate-500 text-xs mt-0.5">Modify the jurisdiction details and mapped services.</p>
+                </div>
+                <button type="button" onclick="closeEditCountryModal()" class="text-slate-400 hover:text-slate-600 transition-colors p-1.5 hover:bg-slate-100 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
             
-            <form id="edit-country-form" class="space-y-4">
-                <input type="hidden" id="edit-country-idx">
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-1">Country Name</label>
-                    <input type="text" id="edit-country-name" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-1">Country Code</label>
-                    <input type="text" id="edit-country-code" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-1">UEN / Registration Format</label>
-                    <input type="text" id="edit-country-uen" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-1">Corporate Tax Rate</label>
-                    <input type="text" id="edit-country-tax" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-1">Compliance Score</label>
-                    <input type="text" id="edit-country-compliance" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-1">Status</label>
-                    <select id="edit-country-status" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
-                        <option value="ACTIVE">ACTIVE</option>
-                        <option value="INACTIVE">INACTIVE</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-2">Services Offered</label>
-                    <div class="grid grid-cols-2 gap-2 text-xs">
-                        <label class="flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700">
-                            <input type="checkbox" name="edit-services" value="Company Incorporation" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20">
-                            <span>Incorporation</span>
-                        </label>
-                        <label class="flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700">
-                            <input type="checkbox" name="edit-services" value="Corporate Secretary" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20">
-                            <span>Secretary</span>
-                        </label>
-                        <label class="flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700">
-                            <input type="checkbox" name="edit-services" value="Nominee Director" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20">
-                            <span>Nominee Director</span>
-                        </label>
-                        <label class="flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700">
-                            <input type="checkbox" name="edit-services" value="Office Address" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20">
-                            <span>Office Address</span>
-                        </label>
-                        <label class="flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700">
-                            <input type="checkbox" name="edit-services" value="Tax & Compliance" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20">
-                            <span>Tax & Compliance</span>
-                        </label>
-                        <label class="flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700">
-                            <input type="checkbox" name="edit-services" value="Bank Account Opening" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20">
-                            <span>Bank Opening</span>
-                        </label>
+            <form id="edit-country-form" class="space-y-4 flex-1 flex flex-col justify-between">
+                <div class="space-y-4">
+                    <input type="hidden" id="edit-country-idx">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Country Name</label>
+                        <input type="text" id="edit-country-name" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Country Code</label>
+                        <input type="text" id="edit-country-code" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">UEN / Registration Format</label>
+                        <input type="text" id="edit-country-uen" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Corporate Tax Rate</label>
+                        <input type="text" id="edit-country-tax" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Compliance Score</label>
+                        <input type="text" id="edit-country-compliance" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Status</label>
+                        <select id="edit-country-status" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
+                            <option value="ACTIVE">ACTIVE</option>
+                            <option value="INACTIVE">INACTIVE</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Accordion Section for Services -->
+                    <div class="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50/50">
+                        <button type="button" onclick="toggleAccordion('edit-services-accordion')" class="w-full flex items-center justify-between p-4 text-left font-bold text-xs text-slate-700 bg-white/40 hover:bg-white/70 transition-all outline-none">
+                            <span class="flex items-center gap-2">
+                                <i data-lucide="briefcase" class="w-4 h-4 text-blue-600"></i>
+                                <span>Services Offered</span>
+                            </span>
+                            <span class="flex items-center gap-2">
+                                <span id="edit-services-summary" class="text-[10px] text-slate-400 font-normal">0 Selected</span>
+                                <i data-lucide="chevron-down" id="edit-services-chevron" class="w-3.5 h-3.5 transition-transform duration-200"></i>
+                            </span>
+                        </button>
+                        <div id="edit-services-accordion" class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out border-t border-transparent">
+                            <div class="p-4 grid grid-cols-1 gap-3 text-xs bg-white/20">
+                                <label class="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 hover:text-slate-900 transition-colors">
+                                    <input type="checkbox" name="edit-services" value="Company Incorporation" onchange="updateServicesSummary('edit')" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 w-4 h-4">
+                                    <span>Company Incorporation</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 hover:text-slate-900 transition-colors">
+                                    <input type="checkbox" name="edit-services" value="Corporate Secretary" onchange="updateServicesSummary('edit')" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 w-4 h-4">
+                                    <span>Corporate Secretary</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 hover:text-slate-900 transition-colors">
+                                    <input type="checkbox" name="edit-services" value="Nominee Director" onchange="updateServicesSummary('edit')" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 w-4 h-4">
+                                    <span>Nominee Director</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 hover:text-slate-900 transition-colors">
+                                    <input type="checkbox" name="edit-services" value="Office Address" onchange="updateServicesSummary('edit')" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 w-4 h-4">
+                                    <span>Office Address</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 hover:text-slate-900 transition-colors">
+                                    <input type="checkbox" name="edit-services" value="Tax & Compliance" onchange="updateServicesSummary('edit')" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 w-4 h-4">
+                                    <span>Tax & Compliance</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 hover:text-slate-900 transition-colors">
+                                    <input type="checkbox" name="edit-services" value="Bank Account Opening" onchange="updateServicesSummary('edit')" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 w-4 h-4">
+                                    <span>Bank Account Opening</span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
-                <div class="flex gap-3 pt-2">
-                    <button type="button" onclick="closeEditCountryModal()" class="flex-1 py-3 border border-slate-200 text-slate-500 font-bold rounded-xl text-xs transition-all hover:bg-slate-50">Cancel</button>
-                    <button type="submit" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all shadow-md">Save Changes</button>
+                <div class="flex gap-3 pt-6 mt-6 border-t border-slate-100">
+                    <button type="button" onclick="closeEditCountryModal()" class="flex-1 py-3.5 border border-slate-200 text-slate-500 font-bold rounded-xl text-xs transition-all hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all shadow-md">Save Changes</button>
                 </div>
             </form>
         </div>
@@ -448,13 +491,19 @@
                 const servicesList = c.services || [];
                 const servicesHtml = servicesList.map(s => getServicePill(s)).join('') || '<span class="text-slate-400 text-xs">None</span>';
                 return `
-                <tr class="hover:bg-white/40 transition-colors">
-                    <td class="font-bold text-blue-600">${idx + 1}</td>
+                <tr class="hover:bg-white/30 transition-colors">
+                    <td class="font-bold text-blue-600">
+                        <div class="flex items-center gap-2">
+                            <button onclick="toggleRowDetails(${idx})" class="p-1 hover:bg-slate-200/50 rounded-lg transition-colors flex items-center justify-center outline-none row-toggle-btn">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" class="transition-transform duration-200" id="chevron-row-${idx}">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </button>
+                            <span>${idx + 1}</span>
+                        </div>
+                    </td>
                     <td class="font-bold text-slate-800">${c.name} (${c.code})</td>
-                    <td>${c.uen}</td>
                     <td>${c.tax}</td>
-                    <td class="font-semibold ${parseFloat(c.compliance) >= 98 ? 'text-emerald-600' : 'text-blue-600'}">${c.compliance}</td>
-                    <td class="max-w-[220px] overflow-hidden text-ellipsis">${servicesHtml}</td>
                     <td><span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${c.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}">${c.status}</span></td>
                     <td>
                         ${c.published
@@ -473,8 +522,57 @@
                         </div>
                     </td>
                 </tr>
+                <tr class="details-row hidden bg-slate-50/40" id="details-row-${idx}">
+                    <td colspan="6" class="p-5 border-b border-slate-100/80">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs leading-relaxed">
+                            <div class="flex flex-col bg-white/50 border border-slate-200/50 p-4 rounded-xl shadow-sm">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                                    <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2.2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" class="text-slate-400">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm-3 3v10m0 0h3m-3-3h2"></path>
+                                    </svg>
+                                    UEN Format
+                                </span>
+                                <span class="font-semibold text-slate-700">${c.uen || 'N/A'}</span>
+                            </div>
+                            <div class="flex flex-col bg-white/50 border border-slate-200/50 p-4 rounded-xl shadow-sm">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                                    <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2.2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" class="text-slate-400">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                                    </svg>
+                                    Compliance Score
+                                </span>
+                                <span class="font-bold text-blue-600 text-sm">${c.compliance || 'N/A'}</span>
+                            </div>
+                            <div class="flex flex-col bg-white/50 border border-slate-200/50 p-4 rounded-xl shadow-sm col-span-1 md:col-span-1">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                                    <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2.2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" class="text-slate-400">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                    </svg>
+                                    Services Mapped
+                                </span>
+                                <div class="flex flex-wrap gap-1 mt-1">${servicesHtml}</div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
                 `;
-            }).join('') || `<tr><td colspan="9" class="p-8 text-center text-slate-400">No country hubs registered.</td></tr>`;
+            }).join('') || `<tr><td colspan="6" class="p-8 text-center text-slate-400">No country hubs registered.</td></tr>`;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        window.toggleRowDetails = function(idx) {
+            const detailRow = document.getElementById(`details-row-${idx}`);
+            const chevron = document.getElementById(`chevron-row-${idx}`);
+            if (detailRow) {
+                const isHidden = detailRow.classList.contains('hidden');
+                if (isHidden) {
+                    detailRow.classList.remove('hidden');
+                    if (chevron) chevron.style.transform = 'rotate(90deg)';
+                } else {
+                    detailRow.classList.add('hidden');
+                    if (chevron) chevron.style.transform = 'rotate(0deg)';
+                }
+            }
         }
 
         window.editCountry = function(idx) {
@@ -496,19 +594,66 @@
             openEditCountryModal();
         }
 
+        window.toggleAccordion = function(id) {
+            const content = document.getElementById(id);
+            const isAdd = id.startsWith('add');
+            const chevron = document.getElementById(isAdd ? 'add-services-chevron' : 'edit-services-chevron');
+            if (content) {
+                const isOpen = content.style.maxHeight && content.style.maxHeight !== '0px';
+                if (isOpen) {
+                    content.style.maxHeight = '0px';
+                    content.classList.remove('border-slate-200');
+                    content.classList.add('border-transparent');
+                    if (chevron) chevron.style.transform = 'rotate(0deg)';
+                } else {
+                    content.style.maxHeight = content.scrollHeight + 'px';
+                    content.classList.add('border-slate-200');
+                    content.classList.remove('border-transparent');
+                    if (chevron) chevron.style.transform = 'rotate(180deg)';
+                }
+            }
+        }
+
+        window.updateServicesSummary = function(type) {
+            const selector = type === 'add' ? '#add-country-form input[name="services"]:checked' : '#edit-country-form input[name="edit-services"]:checked';
+            const checked = Array.from(document.querySelectorAll(selector)).map(cb => cb.value);
+            const summaryId = type === 'add' ? 'add-services-summary' : 'edit-services-summary';
+            const el = document.getElementById(summaryId);
+            if (el) {
+                el.textContent = checked.length > 0 ? `${checked.length} Selected` : '0 Selected';
+            }
+            
+            const contentId = type === 'add' ? 'add-services-accordion' : 'edit-services-accordion';
+            const content = document.getElementById(contentId);
+            if (content && content.style.maxHeight && content.style.maxHeight !== '0px') {
+                content.style.maxHeight = content.scrollHeight + 'px';
+            }
+        }
+
         window.openEditCountryModal = function() {
             const modal = document.getElementById('edit-country-modal');
             modal.classList.remove('hidden');
             modal.offsetHeight; // force reflow
             modal.classList.remove('opacity-0', 'pointer-events-none');
-            modal.querySelector('.transform').classList.remove('scale-90');
+            modal.querySelector('.transform').classList.remove('translate-x-full');
             modal.classList.add('opacity-100', 'pointer-events-auto');
+            modal.querySelector('.transform').classList.add('translate-x-0');
+            
+            updateServicesSummary('edit');
+            const content = document.getElementById('edit-services-accordion');
+            if (content) {
+                content.style.maxHeight = '0px';
+                const chevron = document.getElementById('edit-services-chevron');
+                if (chevron) chevron.style.transform = 'rotate(0deg)';
+            }
+            if (window.lucide) window.lucide.createIcons();
         }
 
         window.closeEditCountryModal = function() {
             const modal = document.getElementById('edit-country-modal');
             modal.classList.add('opacity-0', 'pointer-events-none');
-            modal.querySelector('.transform').classList.add('scale-90');
+            modal.querySelector('.transform').classList.remove('translate-x-0');
+            modal.querySelector('.transform').classList.add('translate-x-full');
             modal.classList.remove('opacity-100', 'pointer-events-auto');
             setTimeout(() => {
                 modal.classList.add('hidden');
@@ -617,14 +762,25 @@
             modal.classList.remove('hidden');
             modal.offsetHeight; // force reflow
             modal.classList.remove('opacity-0', 'pointer-events-none');
-            modal.querySelector('.transform').classList.remove('scale-90');
+            modal.querySelector('.transform').classList.remove('translate-x-full');
             modal.classList.add('opacity-100', 'pointer-events-auto');
+            modal.querySelector('.transform').classList.add('translate-x-0');
+            
+            updateServicesSummary('add');
+            const content = document.getElementById('add-services-accordion');
+            if (content) {
+                content.style.maxHeight = '0px';
+                const chevron = document.getElementById('add-services-chevron');
+                if (chevron) chevron.style.transform = 'rotate(0deg)';
+            }
+            if (window.lucide) window.lucide.createIcons();
         }
 
         window.closeCountryModal = function() {
             const modal = document.getElementById('add-country-modal');
             modal.classList.add('opacity-0', 'pointer-events-none');
-            modal.querySelector('.transform').classList.add('scale-90');
+            modal.querySelector('.transform').classList.remove('translate-x-0');
+            modal.querySelector('.transform').classList.add('translate-x-full');
             modal.classList.remove('opacity-100', 'pointer-events-auto');
             setTimeout(() => {
                 modal.classList.add('hidden');

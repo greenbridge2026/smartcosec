@@ -75,8 +75,8 @@
                             <h2 class="text-4xl md:text-5xl font-bold font-outfit tracking-tight text-slate-900 mb-6 leading-tight">Worldwide Presence</h2>
                         </div>
                         
-                        <div class="country-cards-grid grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <!-- Dynamic country cards injected from localStorage -->
+                        <div class="country-chips-grid" id="country-chips-list">
+                            <!-- Dynamic country chips injected from localStorage -->
                         </div>
                     </div>
                 </div>
@@ -672,51 +672,58 @@
     <!-- Country Details Modal -->
     <div id="country-detail-modal" class="hidden fixed inset-0 z-[99999] flex items-center justify-center opacity-0 pointer-events-none transition-all duration-300">
         <!-- Backdrop -->
-        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-md pointer-events-auto" onclick="closeCountryDetailModal()"></div>
+        <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-md pointer-events-auto" onclick="closeCountryDetailModal()"></div>
         <!-- Modal Card -->
-        <div class="bg-white/85 backdrop-blur-2xl border border-white/60 rounded-3xl p-8 w-full max-w-lg shadow-2xl relative z-10 transform scale-95 transition-transform pointer-events-auto flex flex-col gap-6">
+        <div class="bg-white/95 backdrop-blur-2xl border border-white/60 rounded-3xl p-8 w-full max-w-xl shadow-2xl relative z-10 transform scale-95 transition-transform pointer-events-auto flex flex-col gap-5 max-h-[90vh] overflow-y-auto">
             <!-- Close Button -->
-            <button onclick="closeCountryDetailModal()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors">
-                <i data-lucide="x" class="w-6 h-6"></i>
+            <button onclick="closeCountryDetailModal()" class="absolute top-5 right-5 w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-all">
+                <i data-lucide="x" class="w-4 h-4"></i>
             </button>
             
             <!-- Header -->
-            <div class="flex items-center gap-4">
-                <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-2xl shadow-lg shadow-blue-500/20" id="detail-country-flag-icon">
+            <div class="flex items-center gap-5 pr-8">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/25 shrink-0" id="detail-country-flag-icon">
                     SG
                 </div>
                 <div>
+                    <p class="text-blue-600 font-bold uppercase tracking-[0.2em] text-[10px] mb-1">Jurisdiction Profile</p>
                     <h3 class="text-2xl font-bold font-outfit text-slate-900 leading-tight" id="detail-country-name">Singapore</h3>
-                    <p class="text-slate-500 text-xs uppercase tracking-widest font-semibold mt-1">Jurisdiction Profile</p>
+                    <p class="text-slate-400 text-xs mt-1" id="detail-country-jurisdiction">Singapore</p>
                 </div>
             </div>
 
+            <!-- Divider -->
+            <div class="border-t border-slate-100"></div>
+
             <!-- Stats Grid -->
-            <div class="grid grid-cols-3 gap-4">
-                <div class="bg-white/40 border border-white/60 p-4 rounded-2xl flex flex-col">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Corporate Tax</span>
-                    <span class="text-sm font-bold text-slate-800 mt-1" id="detail-country-tax">17%</span>
+            <div class="grid grid-cols-3 gap-3">
+                <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100/80 p-4 rounded-2xl flex flex-col">
+                    <span class="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-1">Corporate Tax</span>
+                    <span class="text-lg font-bold text-slate-800" id="detail-country-tax">17%</span>
                 </div>
-                <div class="bg-white/40 border border-white/60 p-4 rounded-2xl flex flex-col">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Compliance</span>
-                    <span class="text-sm font-bold text-emerald-600 mt-1" id="detail-country-compliance">99.5%</span>
+                <div class="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100/80 p-4 rounded-2xl flex flex-col">
+                    <span class="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-1">Compliance</span>
+                    <span class="text-lg font-bold text-emerald-600" id="detail-country-compliance">99.5%</span>
                 </div>
-                <div class="bg-white/40 border border-white/60 p-4 rounded-2xl flex flex-col">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">UEN Format</span>
-                    <span class="text-xs font-bold text-slate-800 mt-1 truncate" id="detail-country-uen" title="">Alphanumeric</span>
+                <div class="bg-gradient-to-br from-violet-50 to-purple-50 border border-violet-100/80 p-4 rounded-2xl flex flex-col">
+                    <span class="text-[10px] font-bold text-violet-400 uppercase tracking-wider mb-1">UEN Format</span>
+                    <span class="text-sm font-bold text-slate-800 truncate" id="detail-country-uen" title="">Alpha</span>
                 </div>
             </div>
 
             <!-- Mapped Services Section -->
-            <div class="space-y-3">
-                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Available Corporate Services</h4>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5" id="detail-country-services">
+            <div>
+                <div class="flex items-center gap-2 mb-3">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Available Corporate Services</h4>
+                    <div class="flex-1 border-t border-slate-100"></div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2" id="detail-country-services">
                     <!-- Dynamic service rows will go here -->
                 </div>
             </div>
 
             <!-- Call to Action -->
-            <div class="flex gap-3 pt-2">
+            <div class="flex gap-3 pt-1">
                 <button onclick="closeCountryDetailModal()" class="flex-1 py-3.5 border border-slate-200 text-slate-600 font-bold rounded-2xl text-xs hover:bg-slate-50 transition-all">Close</button>
                 <a href="/auth.html" class="flex-1 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-2xl text-xs text-center transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-1.5">
                     <span>Incorporate Now</span>
