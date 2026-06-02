@@ -298,17 +298,29 @@
             { name: "United Kingdom", code: "UK", uen: "8-digit CRN number", tax: "19% - 25%", compliance: "98.5%", status: "ACTIVE" }
         ];
 
-        function loadCountries() {
-            const cached = localStorage.getItem('admin_countries');
-            if (cached === null) {
-                countries = DEFAULT_COUNTRIES.map(c => ({ ...c, published: true }));
-                localStorage.setItem('admin_countries', JSON.stringify(countries));
-            } else {
-                try {
-                    countries = JSON.parse(cached);
-                    if (!Array.isArray(countries)) countries = DEFAULT_COUNTRIES.map(c => ({ ...c, published: true }));
-                } catch(e) {
+        async function loadCountries() {
+            try {
+                const token = localStorage.getItem('token');
+                const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+                const res = await fetch('/api/countries', { headers });
+                if (res.ok) {
+                    countries = await res.json();
+                } else {
+                    throw new Error("HTTP error " + res.status);
+                }
+            } catch (e) {
+                console.warn('API error, falling back to static/localStorage:', e);
+                const cached = localStorage.getItem('admin_countries');
+                if (cached === null) {
                     countries = DEFAULT_COUNTRIES.map(c => ({ ...c, published: true }));
+                    localStorage.setItem('admin_countries', JSON.stringify(countries));
+                } else {
+                    try {
+                        countries = JSON.parse(cached);
+                        if (!Array.isArray(countries)) countries = DEFAULT_COUNTRIES.map(c => ({ ...c, published: true }));
+                    } catch(err) {
+                        countries = DEFAULT_COUNTRIES.map(c => ({ ...c, published: true }));
+                    }
                 }
             }
             renderCountryTable();
@@ -342,14 +354,33 @@
             `).join('') || `<tr><td colspan="8" class="p-8 text-center text-slate-400">No country hubs registered.</td></tr>`;
         }
 
-        window.publishCountry = function(idx) {
+        window.publishCountry = async function(idx) {
             const c = countries[idx];
             const willPublish = !c.published;
             const action = willPublish ? 'publish' : 'unpublish';
             if (!confirm(`Are you sure you want to ${action} "${c.name}"? ${willPublish ? 'It will appear on the landing page.' : 'It will be removed from the landing page.'}`)) return;
 
-            countries[idx].published = willPublish;
-            localStorage.setItem('admin_countries', JSON.stringify(countries));
+            // Optimistic update
+            c.published = willPublish;
+
+            try {
+                const token = localStorage.getItem('token');
+                const headers = { 
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                };
+                const res = await fetch(`/api/countries/${c.id}`, {
+                    method: 'PUT',
+                    headers: headers,
+                    body: JSON.stringify(c)
+                });
+                if (!res.ok) throw new Error("HTTP error " + res.status);
+                countries[idx] = await res.json();
+            } catch (e) {
+                console.error("API error while publishing country:", e);
+                // Fallback to local storage
+                localStorage.setItem('admin_countries', JSON.stringify(countries));
+            }
             renderCountryTable();
 
             // Toast notification
@@ -360,10 +391,26 @@
             setTimeout(() => toast.remove(), 3500);
         }
 
-        window.deleteCountry = function(idx) {
+        window.deleteCountry = async function(idx) {
             if (confirm("Are you sure you want to delete this country?")) {
-                countries.splice(idx, 1);
-                localStorage.setItem('admin_countries', JSON.stringify(countries));
+                const c = countries[idx];
+                try {
+                    const token = localStorage.getItem('token');
+                    const headers = { 
+                        'Authorization': 'Bearer ' + token
+                    };
+                    const res = await fetch(`/api/countries/${c.id}`, {
+                        method: 'DELETE',
+                        headers: headers
+                    });
+                    if (!res.ok) throw new Error("HTTP error " + res.status);
+                    countries.splice(idx, 1);
+                } catch (e) {
+                    console.error("API error while deleting country:", e);
+                    // Fallback
+                    countries.splice(idx, 1);
+                    localStorage.setItem('admin_countries', JSON.stringify(countries));
+                }
                 renderCountryTable();
             }
         }
@@ -387,7 +434,7 @@
             }, 300);
         }
 
-        document.getElementById('add-country-form').addEventListener('submit', (e) => {
+        document.getElementById('add-country-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const name = document.getElementById('modal-country-name').value.trim();
             const code = document.getElementById('modal-country-code').value.trim();
@@ -396,9 +443,30 @@
             const compliance = document.getElementById('modal-country-compliance').value.trim();
             const status = document.getElementById('modal-country-status').value;
 
-            // New countries start as unpublished — admin must click Publish to show on landing page
-            countries.push({ name, code, uen, tax, compliance, status, published: false });
-            localStorage.setItem('admin_countries', JSON.stringify(countries));
+            const newCountry = { name, code, uen, tax, compliance, status, published: false };
+
+            try {
+                const token = localStorage.getItem('token');
+                const headers = { 
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                };
+                const res = await fetch('/api/countries', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(newCountry)
+                });
+                if (!res.ok) throw new Error("HTTP error " + res.status);
+                
+                const saved = await res.json();
+                countries.push(saved);
+            } catch (e) {
+                console.error("API error while saving country:", e);
+                // Fallback
+                newCountry.id = "CNTRY-" + Date.now();
+                countries.push(newCountry);
+                localStorage.setItem('admin_countries', JSON.stringify(countries));
+            }
             
             document.getElementById('add-country-form').reset();
             closeCountryModal();

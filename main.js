@@ -20,7 +20,7 @@ const services = [
     { name: "Digital Lab", icon: icons.digital, desc: "Innovative fintech infrastructure and digital transformation solutions." }
 ];
 
-function init() {
+async function init() {
     const grid = document.getElementById('services-grid');
     const journeyContainer = document.getElementById('journey-container');
     const journeyProgressBar = document.getElementById('journey-progress-bar');
@@ -840,18 +840,28 @@ function init() {
     ];
 
     let countriesList = [];
-    const _cachedCountries = localStorage.getItem('admin_countries');
-    if (_cachedCountries === null) {
-        countriesList = DEFAULT_COUNTRIES.map(c => ({ ...c, published: true }));
-        localStorage.setItem('admin_countries', JSON.stringify(countriesList));
-    } else {
-        try {
-            countriesList = JSON.parse(_cachedCountries);
-            if (!Array.isArray(countriesList) || countriesList.length === 0) {
+    try {
+        const res = await fetch('/api/countries');
+        if (res.ok) {
+            countriesList = await res.json();
+        } else {
+            throw new Error("HTTP error " + res.status);
+        }
+    } catch (e) {
+        console.warn('API error, falling back to static/localStorage:', e);
+        const _cachedCountries = localStorage.getItem('admin_countries');
+        if (_cachedCountries === null) {
+            countriesList = DEFAULT_COUNTRIES.map(c => ({ ...c, published: true }));
+            localStorage.setItem('admin_countries', JSON.stringify(countriesList));
+        } else {
+            try {
+                countriesList = JSON.parse(_cachedCountries);
+                if (!Array.isArray(countriesList) || countriesList.length === 0) {
+                    countriesList = DEFAULT_COUNTRIES.map(c => ({ ...c, published: true }));
+                }
+            } catch(err) {
                 countriesList = DEFAULT_COUNTRIES.map(c => ({ ...c, published: true }));
             }
-        } catch(e) {
-            countriesList = DEFAULT_COUNTRIES.map(c => ({ ...c, published: true }));
         }
     }
 

@@ -113,6 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div id="submenu-services" class="hidden pl-11 pr-4 py-1 space-y-1">
                         <a href="content.html" class="block py-2 text-xs font-semibold hover:text-white transition-colors" id="sub-btn-content">Add-On Services</a>
                         <a href="blogs.html" class="block py-2 text-xs font-semibold hover:text-white transition-colors" id="sub-btn-blogs">Blogs</a>
+                        <a href="countries.html" class="block py-2 text-xs font-semibold hover:text-white transition-colors" id="sub-btn-countries">Countries</a>
                     </div>
                 </div>
                 <a href="reports.html" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors group font-semibold text-sm" id="nav-btn-reports">
@@ -166,6 +167,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el) el.classList.remove('hidden');
         if (arrow) arrow.classList.add('rotate-180');
         const subBtn = document.getElementById('sub-btn-blogs');
+        if (subBtn) subBtn.classList.add('text-white', 'underline');
+    } else if (path.includes('countries.html')) {
+        const el = document.getElementById('submenu-services');
+        const arrow = document.getElementById('arrow-services');
+        if (el) el.classList.remove('hidden');
+        if (arrow) arrow.classList.add('rotate-180');
+        const subBtn = document.getElementById('sub-btn-countries');
         if (subBtn) subBtn.classList.add('text-white', 'underline');
     }
 
