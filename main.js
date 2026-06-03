@@ -794,6 +794,7 @@ async function init() {
             }
         }
 
+        window.landingBlogsList = blogsList;
         const publishedBlogs = blogsList.filter(b => b.published || b.status === 'published').slice(0, 3);
 
         if (publishedBlogs.length === 0) {
@@ -801,33 +802,116 @@ async function init() {
             return;
         }
 
-        grid.innerHTML = publishedBlogs.map(blog => `
-            <div class="group bg-white rounded-[2rem] overflow-hidden border border-slate-100 hover:border-blue-200 hover:shadow-[0_20px_50px_rgba(59,130,246,0.1)] transition-all duration-500 cursor-pointer">
+        grid.innerHTML = publishedBlogs.map(blog => {
+            const displayTitle = blog.publishedTitle || blog.title;
+            const displayExcerpt = blog.publishedExcerpt || blog.description || blog.excerpt || '';
+            const displayCoverImage = blog.publishedCoverImage || blog.coverImage || '';
+            
+            return `
+            <div onclick="window.openLandingBlogDetail('${blog.id}')" class="group bg-white rounded-[2rem] overflow-hidden border border-slate-100 hover:border-blue-200 hover:shadow-[0_20px_50px_rgba(59,130,246,0.1)] transition-all duration-500 cursor-pointer">
+                ${displayCoverImage ? `
                 <div class="h-56 bg-slate-100 relative overflow-hidden">
-                    ${blog.coverImage ? `<img src="${blog.coverImage}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">` : `<div class="w-full h-full flex items-center justify-center text-slate-300"><i data-lucide="image" class="w-12 h-12"></i></div>`}
+                    <img src="${displayCoverImage}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
                     <div class="absolute top-6 left-6">
                         <span class="bg-blue-600 text-white px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg">
                             ${blog.category}
                         </span>
                     </div>
                 </div>
+                ` : ''}
                 <div class="p-8">
-                    <div class="flex items-center gap-3 text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-4">
-                        <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
-                        <span>${blog.date || new Date().toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                    <div class="flex items-center gap-4 text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-4">
+                        ${!displayCoverImage ? `
+                        <span class="bg-blue-600 text-white px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest">
+                            ${blog.category}
+                        </span>
+                        ` : ''}
+                        <div class="flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span>${blog.date || new Date().toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                        </div>
                     </div>
-                    <h3 class="text-xl font-bold text-slate-900 mb-3 group-hover:text-blue-600 transition-colors">${blog.title}</h3>
-                    <p class="text-slate-500 text-sm leading-relaxed line-clamp-2 mb-6">${blog.description || blog.excerpt || ''}</p>
+                    <h3 class="text-xl font-bold text-slate-900 mb-3 group-hover:text-blue-600 transition-colors">${displayTitle}</h3>
+                    <p class="text-slate-500 text-sm leading-relaxed line-clamp-2 mb-6">${displayExcerpt}</p>
                     <div class="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-widest group-hover:gap-4 transition-all">
-                        Read Full Insight <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        Read Full Insight 
+                        <svg class="w-4 h-4 text-blue-600 transition-all duration-300 group-hover:translate-x-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
                     </div>
                 </div>
             </div>
-        `).join('');
+            `;
+        }).join('');
 
         if (window.lucide) window.lucide.createIcons();
     }
     initBlogs();
+
+    window.openLandingBlogDetail = function(id) {
+        const blog = (window.landingBlogsList || []).find(b => b.id === id);
+        if (!blog) return;
+
+        const modal = document.getElementById('landing-blog-modal');
+        const body = document.getElementById('landing-blog-modal-body');
+        if (!modal || !body) return;
+
+        const displayTitle = blog.publishedTitle || blog.title;
+        const displayExcerpt = blog.publishedExcerpt || blog.description || blog.excerpt || '';
+        const displayCoverImage = blog.publishedCoverImage || blog.coverImage || '';
+        const displayContent = blog.publishedContent || blog.content || displayExcerpt;
+
+        body.innerHTML = `
+            <div class="max-h-[90vh] overflow-y-auto custom-scroll">
+                ${displayCoverImage ? `
+                <div class="relative h-96">
+                    <img src="${displayCoverImage}" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-gradient-to-t from-white via-white/40 to-transparent"></div>
+                    <button onclick="event.stopPropagation(); window.closeLandingBlogModal()" class="absolute top-6 right-6 w-11 h-11 flex items-center justify-center bg-slate-950/65 hover:bg-red-600 text-white rounded-full border border-white/20 transition-all hover:scale-110 shadow-lg cursor-pointer z-20" title="Close details">
+                        <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                ` : `
+                <div class="p-6 flex justify-end">
+                    <button onclick="event.stopPropagation(); window.closeLandingBlogModal()" class="w-10 h-10 flex items-center justify-center bg-slate-100 hover:bg-red-50 hover:text-red-600 rounded-full text-slate-600 transition-all cursor-pointer" title="Close details">
+                        <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                `}
+                <div class="${displayCoverImage ? 'p-12 -mt-32 relative z-10' : 'p-12 pt-4'}">
+                    <div class="bg-white rounded-[2rem] border border-slate-100/80 shadow-2xl p-12">
+                        <div class="flex flex-wrap gap-3 mb-8">
+                            <span class="px-4 py-1.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-widest border border-blue-100">${blog.category || 'Blogs'}</span>
+                            <span class="px-4 py-1.5 rounded-full bg-slate-50 text-slate-500 text-[10px] font-bold uppercase tracking-widest border border-slate-100">${blog.date || new Date().toLocaleDateString('en-SG', {day: '2-digit', month: 'long', year: 'numeric'})}</span>
+                        </div>
+                        <h2 class="text-4xl font-extrabold text-slate-900 mb-8 tracking-tight">${displayTitle}</h2>
+                        <div class="prose prose-slate max-w-none text-slate-600 leading-[1.8] text-lg space-y-6">
+                            <p class="font-bold text-slate-900 text-xl leading-relaxed">${displayExcerpt}</p>
+                            <div class="h-px bg-slate-100 my-10"></div>
+                            <div class="whitespace-pre-wrap">${displayContent}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        modal.classList.remove('pointer-events-none', 'opacity-0');
+        modal.querySelector('#landing-blog-modal-content').classList.remove('scale-95');
+        if (window.lucide) window.lucide.createIcons();
+    };
+
+    window.closeLandingBlogModal = function() {
+        const modal = document.getElementById('landing-blog-modal');
+        if (!modal) return;
+        modal.classList.add('pointer-events-none', 'opacity-0');
+        modal.querySelector('#landing-blog-modal-content').classList.add('scale-95');
+    };
  
     // 10. Global Presence Map Logic (Futuristic Fintech D3 Globe)
     const DEFAULT_COUNTRIES = [
@@ -874,9 +958,10 @@ async function init() {
             const dataCountry = c.name.toLowerCase().replace(/\s+/g, '_');
             return `
                 <div class="country-chip country-item" data-country="${dataCountry}" data-name="${c.name}" title="Click to view ${c.name} services">
-                    <span class="country-chip-dot"></span>
+                    <div class="country-chip-header">
+                        <svg class="country-chip-arrow" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    </div>
                     <span class="country-chip-name">${c.name}</span>
-                    <svg class="country-chip-arrow" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                 </div>
             `;
         }).join('');
@@ -1201,7 +1286,11 @@ async function init() {
                 const name = item.getAttribute('data-name');
                 const countryObj = activeCountries.find(c => c.name === name);
                 if (countryObj) {
-                    window.openCountryDetailModal(countryObj);
+                    if (name.toLowerCase() === 'singapore') {
+                        window.location.href = '/pricing.html';
+                    } else {
+                        window.openCountryDetailModal(countryObj);
+                    }
                 }
             });
         });
@@ -1234,99 +1323,230 @@ async function init() {
             }
         });
     }
+
+    // Smooth scroll for internal hash links (e.g. Services link)
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            const href = this.getAttribute('href');
+            if (href.startsWith('#') && href.length > 1) {
+                e.preventDefault();
+                const targetId = href.substring(1);
+                const targetEl = document.getElementById(targetId);
+                if (targetEl) {
+                    targetEl.scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                }
+            }
+        });
+    });
+
+    // Restore modal if hash is #services on page load
+    if (window.location.hash === '#services') {
+        const cachedCountry = localStorage.getItem('selected_country_detail');
+        if (cachedCountry) {
+            try {
+                const country = JSON.parse(cachedCountry);
+                if (country && country.name) {
+                    window.openCountryDetailModal(country);
+                }
+            } catch (e) {
+                console.error('Error parsing stored country:', e);
+            }
+        } else {
+            // Default to Singapore if no cached country exists
+            const singaporeObj = activeCountries.find(c => c.name.toLowerCase() === 'singapore') || activeCountries[0];
+            if (singaporeObj) {
+                window.openCountryDetailModal(singaporeObj);
+            }
+        }
+    }
 }
 
 window.openCountryDetailModal = function(country) {
     const modal = document.getElementById('country-detail-modal');
     if (!modal) return;
     
-    // Fill in values
+    // Save to localStorage so it persists across refreshes
+    localStorage.setItem('selected_country_detail', JSON.stringify(country));
+    // Set hash to '#services'
+    window.location.hash = 'services';
+    
+    // Fill in values safely
     const codeEl = document.getElementById('detail-country-flag-icon');
-    const code = country.code || country.name.substring(0, 2).toUpperCase();
-    codeEl.textContent = code;
-    document.getElementById('detail-country-name').textContent = country.name;
-    document.getElementById('detail-country-tax').textContent = country.tax || 'N/A';
-    document.getElementById('detail-country-compliance').textContent = country.compliance || 'N/A';
-    document.getElementById('detail-country-uen').textContent = country.uen || 'N/A';
-    document.getElementById('detail-country-uen').title = country.uen || 'N/A';
+    if (codeEl) {
+        const code = country.code || country.name.substring(0, 2).toUpperCase();
+        codeEl.textContent = code;
+    }
+    
+    const nameEl = document.getElementById('detail-country-name');
+    if (nameEl) nameEl.textContent = country.name;
+    
+    const taxEl = document.getElementById('detail-country-tax');
+    if (taxEl) taxEl.textContent = country.tax || 'N/A';
+    
+    const complianceEl = document.getElementById('detail-country-compliance');
+    if (complianceEl) complianceEl.textContent = country.compliance || 'N/A';
+    
+    const uenEl = document.getElementById('detail-country-uen');
+    if (uenEl) {
+        uenEl.textContent = country.uen || 'N/A';
+        uenEl.title = country.uen || 'N/A';
+    }
 
-    // Jurisdiction info
     const jurEl = document.getElementById('detail-country-jurisdiction');
     if (jurEl) jurEl.textContent = country.jurisdiction || country.name;
     
-    // Services
-    const servicesGrid = document.getElementById('detail-country-services');
-    if (servicesGrid) {
-        const servicesList = country.services || [];
-        if (servicesList.length === 0) {
-            servicesGrid.innerHTML = `
-                <div class="col-span-2 flex flex-col items-center justify-center py-8 gap-3">
-                    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+    // 10 services to render
+    const servicesList = [
+        { id: 'local-inc', name: 'Local Incorporation', icon: 'building', desc: 'Fast-track registration for Singapore citizens and PRs.' },
+        { id: 'foreign-inc', name: 'Foreign Incorporation', icon: 'globe', desc: 'Specialized entity setup for international founders.' },
+        { id: 'nominee-dir', name: 'Nominee Director', icon: 'user-check', desc: 'Fulfill statutory local resident director requirements securely.' },
+        { id: 'visa-ep', name: 'Work Visa & EP', icon: 'contact', desc: 'Employment Pass and dependant visa application support.' },
+        { id: 'accounting', name: 'Accounting & Bookkeeping', icon: 'calculator', desc: 'SFRS bookkeeping, management reports, and compilation.' },
+        { id: 'payroll', name: 'Payroll', icon: 'users', desc: 'Salary processing, CPF contributions, and year-end IR8A tax form filing.' },
+        { id: 'address', name: 'Registered Address & Digital Mailroom', icon: 'map-pin', desc: 'CBD office address with instant digitization and email mail alerts.' },
+        { id: 'secretary', name: 'Corporate Secretary', icon: 'file-text', desc: 'Certified secretarial services, statutory filings, and AGM documents.' },
+        { id: 'gst-filing', name: 'GST Registration and Filing', icon: 'percent', desc: 'Complete GST registration guidance and quarterly returns filing.' },
+        { id: 'tax-filing', name: 'Final tax filing', icon: 'scale', desc: 'ECI compilation and Form C-S/C corporate tax filings with IRAS.' }
+    ];
+
+    const grid = document.getElementById('country-fullpage-services-grid');
+    let selectedServices = new Set();
+
+    function renderFullPageServices() {
+        if (!grid) return;
+        grid.innerHTML = servicesList.map(s => {
+            const isSelected = selectedServices.has(s.id);
+            return `
+                <div class="service-select-premium-card ${isSelected ? 'selected' : ''}" data-id="${s.id}">
+                    <div class="select-indicator">
+                        ${isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-white"><polyline points="20 6 9 17 4 12"></polyline></svg>' : ''}
                     </div>
-                    <span class="text-xs text-slate-400 font-medium">No services mapped yet</span>
-                </div>`;
-        } else {
-            const serviceIcons = {
-                'Company Formation': '🏢',
-                'Corporate Secretarial': '📜',
-                'Accounting': '📊',
-                'Tax': '⚖️',
-                'Bank': '🏦',
-                'Payroll': '💳',
-                'Advisory': '🤝',
-                'Fund': '💰',
-                'Digital': '💻',
-                'Private': '💎',
-                'Compliance': '✅'
-            };
+                    <div class="service-icon-wrapper ${s.id}">
+                        <i data-lucide="${s.icon}" class="w-5 h-5"></i>
+                    </div>
+                    <div class="service-content">
+                        <h3>${s.name}</h3>
+                        <p>${s.desc}</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
 
-            servicesGrid.innerHTML = servicesList.map((s, idx) => {
-                let icon = '🔵';
-                let bgClass = 'from-blue-50 to-indigo-50 border-blue-100/60';
-                let dotClass = 'bg-blue-500';
-                
-                if (s.includes('Tax') || s.includes('Compliance')) { icon = '⚖️'; bgClass = 'from-rose-50 to-pink-50 border-rose-100/60'; dotClass = 'bg-rose-500'; }
-                else if (s.includes('Bank')) { icon = '🏦'; bgClass = 'from-emerald-50 to-teal-50 border-emerald-100/60'; dotClass = 'bg-emerald-500'; }
-                else if (s.includes('Accounting') || s.includes('Payroll')) { icon = '📊'; bgClass = 'from-amber-50 to-yellow-50 border-amber-100/60'; dotClass = 'bg-amber-500'; }
-                else if (s.includes('Formation') || s.includes('Incorporation')) { icon = '🏢'; bgClass = 'from-blue-50 to-sky-50 border-blue-100/60'; dotClass = 'bg-blue-500'; }
-                else if (s.includes('Secretarial') || s.includes('Secretary')) { icon = '📜'; bgClass = 'from-purple-50 to-violet-50 border-purple-100/60'; dotClass = 'bg-purple-500'; }
-                else if (s.includes('Advisory') || s.includes('Consulting')) { icon = '🤝'; bgClass = 'from-cyan-50 to-sky-50 border-cyan-100/60'; dotClass = 'bg-cyan-500'; }
-                else if (s.includes('Fund')) { icon = '💰'; bgClass = 'from-green-50 to-emerald-50 border-green-100/60'; dotClass = 'bg-green-500'; }
-                else if (s.includes('Digital') || s.includes('Tech')) { icon = '💻'; bgClass = 'from-slate-50 to-gray-50 border-slate-100/60'; dotClass = 'bg-slate-500'; }
-                else if (s.includes('Private')) { icon = '💎'; bgClass = 'from-violet-50 to-purple-50 border-violet-100/60'; dotClass = 'bg-violet-500'; }
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
 
-                return `
-                    <div class="service-chip-modal bg-gradient-to-br ${bgClass} border rounded-2xl p-3.5 flex items-center gap-3" style="animation-delay: ${idx * 0.05}s">
-                        <span class="text-base leading-none">${icon}</span>
-                        <span class="text-xs font-semibold text-slate-700 leading-tight">${s}</span>
-                    </div>`;
-            }).join('');
+        // Add event listeners to cards
+        grid.querySelectorAll('.service-select-premium-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const id = card.getAttribute('data-id');
+                if (selectedServices.has(id)) {
+                    selectedServices.delete(id);
+                } else {
+                    selectedServices.add(id);
+                }
+                updateSelectionState();
+            });
+        });
+    }
+
+    function updateSelectionState() {
+        // Update cards selection styling
+        grid.querySelectorAll('.service-select-premium-card').forEach(card => {
+            const id = card.getAttribute('data-id');
+            const isSelected = selectedServices.has(id);
+            card.classList.toggle('selected', isSelected);
+            const indicator = card.querySelector('.select-indicator');
+            if (indicator) {
+                indicator.innerHTML = isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-white"><polyline points="20 6 9 17 4 12"></polyline></svg>' : '';
+            }
+        });
+
+        // Update selected count
+        const countBadge = document.getElementById('fullpage-selected-count');
+        if (countBadge) countBadge.textContent = selectedServices.size;
+
+        // Update select all box
+        const selectAllBox = document.getElementById('select-all-box');
+        if (selectAllBox) {
+            const allSelected = selectedServices.size === servicesList.length;
+            selectAllBox.innerHTML = allSelected ? '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><polyline points="20 6 9 17 4 12"></polyline></svg>' : '';
+        }
+
+        // Enable/Disable continue button
+        const continueBtnEl = document.getElementById('fullpage-btn-continue');
+        if (continueBtnEl) {
+            continueBtnEl.disabled = selectedServices.size === 0;
         }
     }
-    
-    // Show modal
+
+    // Set up Select All logic
+    const selectAllBtn = document.getElementById('fullpage-select-all');
+    if (selectAllBtn) {
+        // Clean up previous event listeners by cloning
+        const newSelectAllBtn = selectAllBtn.cloneNode(true);
+        selectAllBtn.parentNode.replaceChild(newSelectAllBtn, selectAllBtn);
+        newSelectAllBtn.addEventListener('click', () => {
+            if (selectedServices.size === servicesList.length) {
+                selectedServices.clear();
+            } else {
+                servicesList.forEach(s => selectedServices.add(s.id));
+            }
+            updateSelectionState();
+        });
+    }
+
+    // Set up Continue to Pricing button logic
+    const continueBtn = document.getElementById('fullpage-btn-continue');
+    if (continueBtn) {
+        const newContinueBtn = continueBtn.cloneNode(true);
+        continueBtn.parentNode.replaceChild(newContinueBtn, continueBtn);
+        newContinueBtn.addEventListener('click', () => {
+            // Pass all selected services as a comma-separated list in query params
+            const servicesParam = Array.from(selectedServices).join(',');
+            window.location.href = `/pricing.html?services=${encodeURIComponent(servicesParam)}`;
+        });
+    }
+
+    renderFullPageServices();
+    updateSelectionState();
+
+    // Show full screen page overlay
     modal.classList.remove('hidden');
     modal.offsetHeight; // force reflow
     modal.classList.remove('opacity-0', 'pointer-events-none');
-    modal.querySelector('.transform').classList.remove('scale-95');
     modal.classList.add('opacity-100', 'pointer-events-auto');
     
-    // Initialize icons
-    if (window.lucide) {
-        window.lucide.createIcons();
-    }
+    // Prevent background scrolling while viewing full page
+    document.body.style.overflow = 'hidden';
 }
 
 window.closeCountryDetailModal = function() {
     const modal = document.getElementById('country-detail-modal');
     if (!modal) return;
+
+    // Clear hash without jumping/scrolling
+    if (window.location.hash === '#services') {
+        history.pushState("", document.title, window.location.pathname + window.location.search);
+    }
+    // Remove stored country details
+    localStorage.removeItem('selected_country_detail');
+
     modal.classList.add('opacity-0', 'pointer-events-none');
-    modal.querySelector('.transform').classList.add('scale-95');
     modal.classList.remove('opacity-100', 'pointer-events-auto');
     setTimeout(() => {
         modal.classList.add('hidden');
     }, 300);
+    // Restore scrolling
+    document.body.style.overflow = '';
+
+    // Scroll to Worldwide Presence section
+    const worldwidePresenceEl = document.getElementById('worldwide-presence');
+    if (worldwidePresenceEl) {
+        worldwidePresenceEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 }
 
 document.addEventListener('DOMContentLoaded', init);

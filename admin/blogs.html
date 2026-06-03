@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -145,7 +145,12 @@
                             <option value="Corporate Tax">Corporate Tax</option>
                             <option value="Business Strategy">Business Strategy</option>
                             <option value="Accounting">Accounting</option>
+                            <option value="Others">Others</option>
                         </select>
+                        <div id="custom-category-container" class="hidden mt-2">
+                            <label class="block text-[10px] font-bold text-slate-400 mb-1">Custom Category Name</label>
+                            <input type="text" id="modal-blog-custom-category" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" placeholder="Enter custom category...">
+                        </div>
                     </div>
                 </div>
 
@@ -181,8 +186,10 @@
                             <div class="h-16 w-full rounded-xl bg-slate-100/50 border border-slate-200 overflow-hidden flex items-center justify-center relative group/preview">
                                 <img id="image-preview" src="" class="hidden w-full h-full object-cover">
                                 <span id="preview-placeholder" class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Preview</span>
-                                <button type="button" id="clear-image-btn" class="hidden absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-sm transition-all hover:scale-110">
-                                    <i data-lucide="x" class="w-3 h-3"></i>
+                                <button type="button" id="clear-image-btn" class="hidden absolute top-1.5 right-1.5 bg-slate-900/80 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg transition-all hover:scale-110 z-10" title="Remove Cover Image">
+                                    <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
                                 </button>
                             </div>
                         </div>
@@ -314,7 +321,12 @@
                         author: b.author || 'Admin Team',
                         date: b.date || new Date().toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' }),
                         status: b.status || (b.published ? 'published' : 'draft'),
-                        published: b.published !== undefined ? b.published : (b.status === 'published')
+                        published: b.published !== undefined ? b.published : (b.status === 'published'),
+                        publishedTitle: b.publishedTitle || null,
+                        publishedExcerpt: b.publishedExcerpt || null,
+                        publishedContent: b.publishedContent || null,
+                        publishedCoverImage: b.publishedCoverImage || null,
+                        hasUnpublishedChanges: b.hasUnpublishedChanges !== undefined ? b.hasUnpublishedChanges : false
                     }));
                     localStorage.setItem('admin_blogs', JSON.stringify(blogs));
                 } else {
@@ -333,8 +345,9 @@
             grid.innerHTML = blogs.map((b, idx) => `
                 <div class="bg-white/60 backdrop-blur-md border border-white/80 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all group flex flex-col justify-between">
                     <div>
+                        ${b.coverImage ? `
                         <div class="h-44 bg-slate-100 rounded-xl overflow-hidden mb-4 relative">
-                            ${b.coverImage ? `<img src="${b.coverImage}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">` : `<div class="w-full h-full flex items-center justify-center text-slate-300 bg-slate-100"><i data-lucide="image" class="w-10 h-10"></i></div>`}
+                            <img src="${b.coverImage}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                             <div class="absolute top-4 left-4">
                                 <span class="px-2.5 py-1 rounded-full bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider">${b.category}</span>
                             </div>
@@ -342,6 +355,12 @@
                                 <span class="px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider ${b.status === 'published' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-amber-50 text-amber-600 border border-amber-200'}">${b.status}</span>
                             </div>
                         </div>
+                        ` : `
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="px-2.5 py-1 rounded-full bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider">${b.category}</span>
+                            <span class="px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider ${b.status === 'published' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-amber-50 text-amber-600 border border-amber-200'}">${b.status}</span>
+                        </div>
+                        `}
                         <div class="flex items-center gap-2 mb-2">
                             <span class="text-[10px] text-slate-400 font-medium">${b.date}</span>
                         </div>
@@ -360,6 +379,12 @@
                                 </button>
                             </div>
                         </div>
+                        ${b.status === 'published' && b.hasUnpublishedChanges
+                            ? `<button onclick="republishBlog(${idx})" class="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer mb-2 animate-pulse">
+                                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Republish Changes
+                               </button>`
+                            : ''
+                        }
                         ${b.status === 'published'
                             ? `<button onclick="publishBlog(${idx})" class="w-full py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer">
                                 <i data-lucide="eye-off" class="w-3.5 h-3.5"></i> Unpublish from Landing Page
@@ -439,6 +464,24 @@
             });
         }
 
+        const categorySelect = document.getElementById('modal-blog-category');
+        const customCategoryContainer = document.getElementById('custom-category-container');
+        const customCategoryInput = document.getElementById('modal-blog-custom-category');
+
+        if (categorySelect) {
+            categorySelect.addEventListener('change', () => {
+                if (categorySelect.value === 'Others') {
+                    customCategoryContainer.classList.remove('hidden');
+                    customCategoryInput.setAttribute('required', 'true');
+                    customCategoryInput.focus();
+                } else {
+                    customCategoryContainer.classList.add('hidden');
+                    customCategoryInput.removeAttribute('required');
+                    customCategoryInput.value = '';
+                }
+            });
+        }
+
         const modalDeleteBtn = document.getElementById('modal-delete-btn');
         if (modalDeleteBtn) {
             modalDeleteBtn.addEventListener('click', async () => {
@@ -476,7 +519,22 @@
                 const b = blogs[editIdx];
                 document.getElementById('modal-blog-index').value = editIdx;
                 document.getElementById('modal-blog-title').value = b.title;
-                document.getElementById('modal-blog-category').value = b.category;
+                
+                // Category setup: check if category exists in select options
+                const catSelect = document.getElementById('modal-blog-category');
+                const hasOption = Array.from(catSelect.options).some(opt => opt.value === b.category);
+                if (hasOption) {
+                    catSelect.value = b.category;
+                    customCategoryContainer.classList.add('hidden');
+                    customCategoryInput.removeAttribute('required');
+                    customCategoryInput.value = '';
+                } else {
+                    catSelect.value = 'Others';
+                    customCategoryContainer.classList.remove('hidden');
+                    customCategoryInput.setAttribute('required', 'true');
+                    customCategoryInput.value = b.category || '';
+                }
+
                 document.getElementById('modal-blog-author').value = b.author;
                 document.getElementById('modal-blog-status').value = b.status;
                 const imgVal = b.coverImage || '';
@@ -495,6 +553,12 @@
                 submitBtn.innerText = "Publish Post";
                 updatePreview('');
                 if (modalDeleteBtn) modalDeleteBtn.classList.add('hidden');
+
+                // New category reset
+                document.getElementById('modal-blog-category').value = "General";
+                customCategoryContainer.classList.add('hidden');
+                customCategoryInput.removeAttribute('required');
+                customCategoryInput.value = '';
             }
             
             if (fileInput) fileInput.value = '';
@@ -532,6 +596,21 @@
             
             blogs[idx].status = newStatus;
             blogs[idx].published = (newStatus === 'published');
+            
+            if (newStatus === 'published') {
+                blogs[idx].publishedTitle = blog.title;
+                blogs[idx].publishedExcerpt = blog.excerpt;
+                blogs[idx].publishedContent = blog.content;
+                blogs[idx].publishedCoverImage = blog.coverImage;
+                blogs[idx].hasUnpublishedChanges = false;
+            } else {
+                blogs[idx].publishedTitle = null;
+                blogs[idx].publishedExcerpt = null;
+                blogs[idx].publishedContent = null;
+                blogs[idx].publishedCoverImage = null;
+                blogs[idx].hasUnpublishedChanges = false;
+            }
+
             localStorage.setItem('admin_blogs', JSON.stringify(blogs));
             renderBlogsGrid();
 
@@ -552,6 +631,38 @@
                 });
             } catch (err) {
                 console.warn('Could not sync publish status to backend:', err);
+            }
+        }
+
+        window.republishBlog = async function(idx) {
+            const blog = blogs[idx];
+            if (!confirm(`Are you sure you want to republish "${blog.title}"? Your latest edits will immediately go live on the landing page.`)) return;
+
+            blogs[idx].publishedTitle = blog.title;
+            blogs[idx].publishedExcerpt = blog.excerpt;
+            blogs[idx].publishedContent = blog.content;
+            blogs[idx].publishedCoverImage = blog.coverImage;
+            blogs[idx].hasUnpublishedChanges = false;
+
+            localStorage.setItem('admin_blogs', JSON.stringify(blogs));
+            renderBlogsGrid();
+
+            // Show toast feedback
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-6 right-6 z-[99999] px-5 py-3 rounded-2xl text-sm font-bold shadow-xl transition-all bg-amber-600 text-white';
+            toast.innerHTML = `🚀 Republished! &mdash; "${blog.title}" changes are now live.`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3500);
+
+            // Sync to backend if available
+            try {
+                await fetch(`/api/blogs/${blogs[idx].id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(blogs[idx])
+                });
+            } catch (err) {
+                console.warn('Could not sync republish to backend:', err);
             }
         }
 
@@ -578,13 +689,61 @@
             e.preventDefault();
             const idx = parseInt(document.getElementById('modal-blog-index').value);
             const title = document.getElementById('modal-blog-title').value.trim();
-            const category = document.getElementById('modal-blog-category').value;
+            
+            const categorySelectVal = document.getElementById('modal-blog-category').value;
+            const category = categorySelectVal === 'Others' ? (document.getElementById('modal-blog-custom-category').value.trim() || 'General') : categorySelectVal;
             const author = document.getElementById('modal-blog-author').value.trim();
             const status = document.getElementById('modal-blog-status').value;
-            const coverImage = document.getElementById('modal-blog-image').value.trim() || 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40';
+            const coverImage = document.getElementById('modal-blog-image').value.trim();
             const excerpt = document.getElementById('modal-blog-excerpt').value.trim();
             const content = document.getElementById('modal-blog-content').value.trim();
             
+            const currentBlog = idx > -1 ? blogs[idx] : null;
+            let hasUnpublished = false;
+            let pubTitle = currentBlog ? currentBlog.publishedTitle : null;
+            let pubExcerpt = currentBlog ? currentBlog.publishedExcerpt : null;
+            let pubContent = currentBlog ? currentBlog.publishedContent : null;
+            let pubCoverImage = currentBlog ? currentBlog.publishedCoverImage : null;
+
+            if (status === 'published') {
+                if (idx === -1) {
+                    pubTitle = title;
+                    pubExcerpt = excerpt;
+                    pubContent = content;
+                    pubCoverImage = coverImage;
+                    hasUnpublished = false;
+                } else {
+                    if (currentBlog.status === 'draft') {
+                        pubTitle = title;
+                        pubExcerpt = excerpt;
+                        pubContent = content;
+                        pubCoverImage = coverImage;
+                        hasUnpublished = false;
+                    } else {
+                        const oldPubTitle = currentBlog.publishedTitle || currentBlog.title;
+                        const oldPubExcerpt = currentBlog.publishedExcerpt || currentBlog.excerpt;
+                        const oldPubContent = currentBlog.publishedContent || currentBlog.content;
+                        const oldPubCoverImage = currentBlog.publishedCoverImage || currentBlog.coverImage;
+
+                        if (title !== oldPubTitle || excerpt !== oldPubExcerpt || content !== oldPubContent || coverImage !== oldPubCoverImage) {
+                            hasUnpublished = true;
+                            pubTitle = oldPubTitle;
+                            pubExcerpt = oldPubExcerpt;
+                            pubContent = oldPubContent;
+                            pubCoverImage = oldPubCoverImage;
+                        } else {
+                            hasUnpublished = currentBlog.hasUnpublishedChanges || false;
+                        }
+                    }
+                }
+            } else {
+                pubTitle = null;
+                pubExcerpt = null;
+                pubContent = null;
+                pubCoverImage = null;
+                hasUnpublished = false;
+            }
+
             const blogData = {
                 id: idx > -1 ? (blogs[idx].id || "blog-" + Date.now()) : "blog-" + Date.now(),
                 title,
@@ -596,6 +755,11 @@
                 excerpt,
                 description: excerpt,
                 content,
+                publishedTitle: pubTitle,
+                publishedExcerpt: pubExcerpt,
+                publishedContent: pubContent,
+                publishedCoverImage: pubCoverImage,
+                hasUnpublishedChanges: hasUnpublished,
                 date: idx > -1 ? blogs[idx].date : new Date().toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' })
             };
             
