@@ -90,7 +90,8 @@ async function fetchData() {
         try {
             const bRes = await fetch('/api/blogs');
             if (bRes.ok) {
-                state.blogs = await bRes.json();
+                const allBlogs = await bRes.json() || [];
+                state.blogs = allBlogs.filter(b => b.published || b.status === 'published');
             } else {
                 throw new Error("API response not ok");
             }
@@ -536,22 +537,32 @@ function renderUpdates(container) {
                 </div>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                ${state.blogs.map(blog => `
-                    <div class="premium-card p-0 overflow-hidden group cursor-pointer" onclick="openBlogDetail('${blog.id}')">
-                        <div class="h-48 bg-slate-100 relative overflow-hidden">
-                            ${blog.coverImage ? `<img src="${blog.coverImage}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">` : `<div class="w-full h-full flex items-center justify-center text-slate-300"><i data-lucide="image" class="w-12 h-12"></i></div>`}
-                            <div class="absolute top-4 left-4"><span class="px-3 py-1 rounded-lg bg-white/90 backdrop-blur-md text-[10px] font-bold text-blue-600 uppercase tracking-widest">${blog.category || 'Compliance'}</span></div>
-                        </div>
-                        <div class="p-8">
-                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">${new Date(blog.createdAt || blog.date).toLocaleDateString('en-SG', {day: '2-digit', month: 'short', year: 'numeric'})}</div>
-                            <h3 class="text-xl font-extrabold text-slate-900 mb-4 group-hover:text-blue-600 transition-colors line-clamp-2">${blog.title}</h3>
-                            <p class="text-sm text-slate-500 line-clamp-3 mb-8 leading-relaxed">${blog.description}</p>
-                            <div class="flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-[0.2em] group-hover:gap-4 transition-all">
-                                View Assessment <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                ${state.blogs.map(blog => {
+                    const displayTitle = blog.publishedTitle || blog.title;
+                    const displayExcerpt = blog.publishedExcerpt || blog.description || blog.excerpt || '';
+                    const displayCoverImage = blog.publishedCoverImage || blog.coverImage || '';
+                    return `
+                        <div class="premium-card p-0 overflow-hidden group cursor-pointer" onclick="openBlogDetail('${blog.id}')">
+                            ${displayCoverImage ? `
+                            <div class="h-48 bg-slate-100 relative overflow-hidden">
+                                <img src="${displayCoverImage}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
+                                <div class="absolute top-4 left-4"><span class="px-3 py-1 rounded-lg bg-white/90 backdrop-blur-md text-[10px] font-bold text-blue-600 uppercase tracking-widest">${blog.category || 'Compliance'}</span></div>
+                            </div>
+                            ` : ''}
+                            <div class="p-8">
+                                <div class="flex items-center gap-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+                                    ${!displayCoverImage ? `<span class="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">${blog.category || 'Compliance'}</span>` : ''}
+                                    <span>${new Date(blog.createdAt || blog.date).toLocaleDateString('en-SG', {day: '2-digit', month: 'short', year: 'numeric'})}</span>
+                                </div>
+                                <h3 class="text-xl font-extrabold text-slate-900 mb-4 group-hover:text-blue-600 transition-colors line-clamp-2">${displayTitle}</h3>
+                                <p class="text-sm text-slate-500 line-clamp-3 mb-8 leading-relaxed">${displayExcerpt}</p>
+                                <div class="flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-[0.2em] group-hover:gap-4 transition-all">
+                                    View Assessment <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                `).join('')}
+                    `;
+                }).join('')}
             </div>
         </div>
     `;
@@ -834,24 +845,35 @@ function openBlogDetail(id) {
     const modal = document.getElementById('modal-container');
     const content = document.getElementById('modal-content');
 
+    const displayTitle = blog.publishedTitle || blog.title;
+    const displayExcerpt = blog.publishedExcerpt || blog.description || blog.excerpt || '';
+    const displayCoverImage = blog.publishedCoverImage || blog.coverImage || '';
+    const displayContent = blog.publishedContent || blog.content || displayExcerpt;
+
     content.innerHTML = `
         <div class="max-h-[90vh] overflow-y-auto custom-scroll">
+            ${displayCoverImage ? `
             <div class="relative h-96">
-                ${blog.coverImage ? `<img src="${blog.coverImage}" class="w-full h-full object-cover">` : '<div class="w-full h-full bg-slate-900"></div>'}
+                <img src="${displayCoverImage}" class="w-full h-full object-cover">
                 <div class="absolute inset-0 bg-gradient-to-t from-white via-white/40 to-transparent"></div>
                 <button onclick="closeModal()" class="absolute top-8 right-8 p-3 bg-white/20 backdrop-blur-md rounded-2xl text-white hover:bg-white hover:text-slate-900 transition-all border border-white/30"><i data-lucide="x" class="w-6 h-6"></i></button>
             </div>
-            <div class="p-12 -mt-32 relative z-10">
+            ` : `
+            <div class="p-6 flex justify-end">
+                <button onclick="closeModal()" class="p-2.5 bg-slate-100 hover:bg-slate-200 rounded-2xl text-slate-800 transition-all"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            `}
+            <div class="${displayCoverImage ? 'p-12 -mt-32 relative z-10' : 'p-12 pt-4'}">
                 <div class="premium-card border-none shadow-2xl p-12">
                     <div class="flex flex-wrap gap-3 mb-8">
                         <span class="px-4 py-1.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-widest border border-blue-100">${blog.category || 'Blogs'}</span>
                         <span class="px-4 py-1.5 rounded-full bg-slate-50 text-slate-500 text-[10px] font-bold uppercase tracking-widest border border-slate-100">${new Date(blog.createdAt || blog.date).toLocaleDateString('en-SG', {day: '2-digit', month: 'long', year: 'numeric'})}</span>
                     </div>
-                    <h2 class="text-4xl font-extrabold text-slate-900 mb-8 tracking-tight">${blog.title}</h2>
+                    <h2 class="text-4xl font-extrabold text-slate-900 mb-8 tracking-tight">${displayTitle}</h2>
                     <div class="prose prose-slate max-w-none text-slate-600 leading-[1.8] text-lg space-y-6">
-                        <p class="font-bold text-slate-900 text-xl leading-relaxed">${blog.description}</p>
+                        <p class="font-bold text-slate-900 text-xl leading-relaxed">${displayExcerpt}</p>
                         <div class="h-px bg-slate-100 my-10"></div>
-                        <div class="whitespace-pre-wrap">${blog.content || blog.description}</div>
+                        <div class="whitespace-pre-wrap">${displayContent}</div>
                     </div>
                     ${blog.documentUrl ? `
                         <div class="mt-12 p-8 bg-slate-50 rounded-[2rem] border border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-6">
