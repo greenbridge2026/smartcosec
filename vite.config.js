@@ -55,6 +55,7 @@ export default defineConfig({
         portal: resolve(__dirname, 'client/portal.html'),
         messages: resolve(__dirname, 'client/messages.html'),
         staffLogin: resolve(__dirname, 'staff/index.html'),
+        blogs: resolve(__dirname, 'blogs.html'),
       },
     },
   },

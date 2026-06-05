@@ -275,16 +275,29 @@
 
         let blogs = [];
 
+        function sortBlogs() {
+            const getBlogTime = (b) => {
+                if (b.lastModified) return b.lastModified;
+                if (b.date) {
+                    const parsed = Date.parse(b.date);
+                    if (!isNaN(parsed)) return parsed;
+                }
+                return 0;
+            };
+            blogs.sort((a, b) => getBlogTime(b) - getBlogTime(a));
+        }
+
         function loadBlogs() {
             const cached = localStorage.getItem('admin_blogs');
             if (cached === null) {
-                blogs = DEFAULT_BLOGS;
+                blogs = DEFAULT_BLOGS.map(b => ({ ...b, lastModified: b.lastModified || (b.date ? Date.parse(b.date) : Date.now()) }));
+                sortBlogs();
                 localStorage.setItem('admin_blogs', JSON.stringify(blogs));
             } else {
                 try {
                     blogs = JSON.parse(cached);
                     if (!Array.isArray(blogs)) {
-                        blogs = DEFAULT_BLOGS;
+                        blogs = DEFAULT_BLOGS.map(b => ({ ...b, lastModified: b.lastModified || (b.date ? Date.parse(b.date) : Date.now()) }));
                     } else {
                         let updated = false;
                         blogs = blogs.map((b, idx) => {
@@ -292,14 +305,20 @@
                                 b.id = "blog-" + Date.now() + "-" + idx;
                                 updated = true;
                             }
+                            if (!b.lastModified) {
+                                b.lastModified = b.date ? Date.parse(b.date) : Date.now();
+                                updated = true;
+                            }
                             return b;
                         });
+                        sortBlogs();
                         if (updated) {
                             localStorage.setItem('admin_blogs', JSON.stringify(blogs));
                         }
                     }
                 } catch(e) {
-                    blogs = DEFAULT_BLOGS;
+                    blogs = DEFAULT_BLOGS.map(b => ({ ...b, lastModified: b.lastModified || (b.date ? Date.parse(b.date) : Date.now()) }));
+                    sortBlogs();
                 }
             }
             renderBlogsGrid();
@@ -326,8 +345,10 @@
                         publishedExcerpt: b.publishedExcerpt || null,
                         publishedContent: b.publishedContent || null,
                         publishedCoverImage: b.publishedCoverImage || null,
-                        hasUnpublishedChanges: b.hasUnpublishedChanges !== undefined ? b.hasUnpublishedChanges : false
+                        hasUnpublishedChanges: b.hasUnpublishedChanges !== undefined ? b.hasUnpublishedChanges : false,
+                        lastModified: b.lastModified || (b.date ? Date.parse(b.date) : Date.now())
                     }));
+                    sortBlogs();
                     localStorage.setItem('admin_blogs', JSON.stringify(blogs));
                 } else {
                     loadBlogs();
@@ -490,6 +511,7 @@
                     const blogToDelete = blogs[idx];
                     if (confirm("Are you sure you want to delete this blog post?")) {
                         blogs.splice(idx, 1);
+                        sortBlogs();
                         localStorage.setItem('admin_blogs', JSON.stringify(blogs));
                         closeBlogModal();
                         renderBlogsGrid();
@@ -596,6 +618,8 @@
             
             blogs[idx].status = newStatus;
             blogs[idx].published = (newStatus === 'published');
+            blogs[idx].lastModified = Date.now();
+            blogs[idx].date = new Date().toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' });
             
             if (newStatus === 'published') {
                 blogs[idx].publishedTitle = blog.title;
@@ -611,6 +635,7 @@
                 blogs[idx].hasUnpublishedChanges = false;
             }
 
+            sortBlogs();
             localStorage.setItem('admin_blogs', JSON.stringify(blogs));
             renderBlogsGrid();
 
@@ -643,7 +668,10 @@
             blogs[idx].publishedContent = blog.content;
             blogs[idx].publishedCoverImage = blog.coverImage;
             blogs[idx].hasUnpublishedChanges = false;
+            blogs[idx].lastModified = Date.now();
+            blogs[idx].date = new Date().toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' });
 
+            sortBlogs();
             localStorage.setItem('admin_blogs', JSON.stringify(blogs));
             renderBlogsGrid();
 
@@ -670,6 +698,7 @@
             const blogToDelete = blogs[idx];
             if (confirm("Are you sure you want to delete this blog post?")) {
                 blogs.splice(idx, 1);
+                sortBlogs();
                 localStorage.setItem('admin_blogs', JSON.stringify(blogs));
                 renderBlogsGrid();
 
@@ -760,7 +789,8 @@
                 publishedContent: pubContent,
                 publishedCoverImage: pubCoverImage,
                 hasUnpublishedChanges: hasUnpublished,
-                date: idx > -1 ? blogs[idx].date : new Date().toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' })
+                lastModified: Date.now(),
+                date: new Date().toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' })
             };
             
             if (idx > -1) {
@@ -769,6 +799,7 @@
                 blogs.unshift(blogData);
             }
             
+            sortBlogs();
             localStorage.setItem('admin_blogs', JSON.stringify(blogs));
             closeBlogModal();
             renderBlogsGrid();

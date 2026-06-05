@@ -91,7 +91,16 @@ async function fetchData() {
             const bRes = await fetch('/api/blogs');
             if (bRes.ok) {
                 const allBlogs = await bRes.json() || [];
-                state.blogs = allBlogs.filter(b => b.published || b.status === 'published');
+                const filtered = allBlogs.filter(b => b.published || b.status === 'published');
+                const getBlogTime = (b) => {
+                    if (b.lastModified) return b.lastModified;
+                    if (b.date) {
+                        const parsed = Date.parse(b.date);
+                        if (!isNaN(parsed)) return parsed;
+                    }
+                    return 0;
+                };
+                state.blogs = filtered.sort((a, b) => getBlogTime(b) - getBlogTime(a));
             } else {
                 throw new Error("API response not ok");
             }
@@ -101,7 +110,16 @@ async function fetchData() {
             if (cached) {
                 try {
                     const allBlogs = JSON.parse(cached) || [];
-                    state.blogs = allBlogs.filter(b => b.published || b.status === 'published');
+                    const filtered = allBlogs.filter(b => b.published || b.status === 'published');
+                    const getBlogTime = (b) => {
+                        if (b.lastModified) return b.lastModified;
+                        if (b.date) {
+                            const parsed = Date.parse(b.date);
+                            if (!isNaN(parsed)) return parsed;
+                        }
+                        return 0;
+                    };
+                    state.blogs = filtered.sort((a, b) => getBlogTime(b) - getBlogTime(a));
                 } catch(e) {
                     state.blogs = [];
                 }
