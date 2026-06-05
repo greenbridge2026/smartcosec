@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <script src="admin-sidebar.js"></script>
     <script>
         if (!localStorage.getItem('admin_auth')) window.location.href = '/auth.html';
         tailwind.config = {
@@ -103,7 +104,6 @@
                 <div id="services-submenu" class="submenu-container hidden pl-6 flex flex-col gap-0.5 mt-0.5">
                     <button onclick="window.location.href='blogs.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-blogs"><i data-lucide="layout" class="w-3.5 h-3.5"></i> Blogs</button>
                     <button onclick="window.location.href='countries.html'" class="module-nav-btn active py-1.5 text-[0.75rem]" id="btn-countries"><i data-lucide="globe" class="w-3.5 h-3.5"></i> Countries</button>
-                    <button onclick="window.location.href='packages.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-packages"><i data-lucide="package" class="w-3.5 h-3.5"></i> Packages</button>
                     <button onclick="window.location.href='users.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-users"><i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Users</button>
                 </div>
             </div>
@@ -251,6 +251,52 @@
                                     <input type="checkbox" name="services" value="Bank Account Opening" onchange="updateServicesSummary('add')" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 w-4 h-4">
                                     <span>Bank Account Opening</span>
                                 </label>
+                                <div id="add-custom-services-checkboxes-container" class="flex flex-col gap-3"></div>
+                                <div class="flex gap-2 mt-2 pt-2 border-t border-slate-200/50 items-center">
+                                    <input type="text" id="add-custom-service-input" placeholder="Add custom service..." class="flex-1 px-3 py-1.5 bg-white/60 border border-slate-200 rounded-xl text-[10px] outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
+                                    <button type="button" onclick="handleAddCustomService('add')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-[10px] transition-all shadow-md shrink-0">+</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Accordion Section for Pricing -->
+                    <div class="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50/50 mt-4">
+                        <button type="button" onclick="toggleAccordion('add-pricing-accordion')" class="w-full flex items-center justify-between p-4 text-left font-bold text-xs text-slate-700 bg-white/40 hover:bg-white/70 transition-all outline-none">
+                            <span class="flex items-center gap-2">
+                                <i data-lucide="dollar-sign" class="w-4 h-4 text-emerald-600"></i>
+                                <span>Service Pricing (<span id="add-currency-display">SGD</span> / USD)</span>
+                            </span>
+                            <i data-lucide="chevron-down" id="add-pricing-chevron" class="w-3.5 h-3.5 transition-transform duration-200"></i>
+                        </button>
+                        <div id="add-pricing-accordion" class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out border-t border-transparent">
+                            <div class="p-4 space-y-3 text-xs bg-white/20">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-500 mb-1">Base Package Price</label>
+                                    <input type="number" id="modal-country-price-base" class="w-full px-3 py-1.5 bg-white/60 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20" value="1200" required>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-500 mb-1">Corporate Secretary Price (Annual)</label>
+                                    <input type="number" id="modal-country-price-secretary" class="w-full px-3 py-1.5 bg-white/60 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20" value="900" required>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-500 mb-1">Nominee Director Price (Annual)</label>
+                                    <input type="number" id="modal-country-price-director" class="w-full px-3 py-1.5 bg-white/60 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20" value="3000" required>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-500 mb-1">Registered Address Price (Annual)</label>
+                                    <input type="number" id="modal-country-price-address" class="w-full px-3 py-1.5 bg-white/60 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20" value="600" required>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-500 mb-1">Tax & Compliance Price (Annual)</label>
+                                    <input type="number" id="modal-country-price-tax" class="w-full px-3 py-1.5 bg-white/60 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20" value="1500" required>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-500 mb-1">Bank Account Opening Price (One-time)</label>
+                                    <input type="number" id="modal-country-price-bank" class="w-full px-3 py-1.5 bg-white/60 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20" value="500" required>
+                                </div>
+                                <!-- Custom Pricing Container inside Add Drawer -->
+                                <div id="add-custom-services-pricing-container" class="space-y-3 border-t border-slate-200/50 pt-3 mt-3 hidden"></div>
                             </div>
                         </div>
                     </div>
@@ -347,12 +393,58 @@
                                     <input type="checkbox" name="edit-services" value="Bank Account Opening" onchange="updateServicesSummary('edit')" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 w-4 h-4">
                                     <span>Bank Account Opening</span>
                                 </label>
+                                <div id="edit-custom-services-checkboxes-container" class="flex flex-col gap-3"></div>
+                                <div class="flex gap-2 mt-2 pt-2 border-t border-slate-200/50 items-center">
+                                    <input type="text" id="edit-custom-service-input" placeholder="Add custom service..." class="flex-1 px-3 py-1.5 bg-white/60 border border-slate-200 rounded-xl text-[10px] outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
+                                    <button type="button" onclick="handleAddCustomService('edit')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-[10px] transition-all shadow-md shrink-0">+</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Accordion Section for Pricing -->
+                    <div class="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50/50 mt-4">
+                        <button type="button" onclick="toggleAccordion('edit-pricing-accordion')" class="w-full flex items-center justify-between p-4 text-left font-bold text-xs text-slate-700 bg-white/40 hover:bg-white/70 transition-all outline-none">
+                            <span class="flex items-center gap-2">
+                                <i data-lucide="dollar-sign" class="w-4 h-4 text-emerald-600"></i>
+                                <span>Service Pricing (<span id="edit-currency-display">SGD</span> / USD)</span>
+                            </span>
+                            <i data-lucide="chevron-down" id="edit-pricing-chevron" class="w-3.5 h-3.5 transition-transform duration-200"></i>
+                        </button>
+                        <div id="edit-pricing-accordion" class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out border-t border-transparent">
+                            <div class="p-4 space-y-3 text-xs bg-white/20">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-500 mb-1">Base Package Price</label>
+                                    <input type="number" id="edit-country-price-base" class="w-full px-3 py-1.5 bg-white/60 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20" required>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-500 mb-1">Corporate Secretary Price (Annual)</label>
+                                    <input type="number" id="edit-country-price-secretary" class="w-full px-3 py-1.5 bg-white/60 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20" required>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-500 mb-1">Nominee Director Price (Annual)</label>
+                                    <input type="number" id="edit-country-price-director" class="w-full px-3 py-1.5 bg-white/60 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20" required>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-500 mb-1">Registered Address Price (Annual)</label>
+                                    <input type="number" id="edit-country-price-address" class="w-full px-3 py-1.5 bg-white/60 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20" required>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-500 mb-1">Tax & Compliance Price (Annual)</label>
+                                    <input type="number" id="edit-country-price-tax" class="w-full px-3 py-1.5 bg-white/60 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20" required>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-500 mb-1">Bank Account Opening Price (One-time)</label>
+                                    <input type="number" id="edit-country-price-bank" class="w-full px-3 py-1.5 bg-white/60 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20" required>
+                                </div>
+                                <!-- Custom Pricing Container inside Edit Drawer -->
+                                <div id="edit-custom-services-pricing-container" class="space-y-3 border-t border-slate-200/50 pt-3 mt-3 hidden"></div>
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <div class="flex gap-3 pt-6 mt-6 border-t border-slate-100">
+                <div class="flex gap-3 pt-6 mt-6 border-t border-slate-100 flex-shrink-0">
                     <button type="button" onclick="closeEditCountryModal()" class="flex-1 py-3.5 border border-slate-200 text-slate-500 font-bold rounded-xl text-xs transition-all hover:bg-slate-50">Cancel</button>
                     <button type="submit" class="flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all shadow-md">Save Changes</button>
                 </div>
@@ -362,6 +454,25 @@
 
     <script>
         if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        const CURRENCY_MAP = {
+            'SG': 'SGD',
+            'HK': 'HKD',
+            'USA': 'USD',
+            'UAE': 'AED',
+            'AUS': 'AUD',
+            'UK': 'GBP',
+            'ID': 'IDR',
+            'MY': 'MYR',
+            'IN': 'INR',
+            'VN': 'VND',
+            'TH': 'THB',
+            'PH': 'PHP',
+            'JP': 'JPY',
+            'DE': 'EUR',
+            'FR': 'EUR',
+            'CAN': 'CAD'
+        };
 
         window.toggleSubmenu = function(id) {
             const submenu = document.getElementById(id);
@@ -420,12 +531,32 @@
                         document.getElementById('modal-country-uen').value = info.uen;
                         document.getElementById('modal-country-tax').value = info.tax;
                         document.getElementById('modal-country-compliance').value = info.compliance;
+                        // Update Add modal currency display
+                        const addCurrencyDisplay = document.getElementById('add-currency-display');
+                        if (addCurrencyDisplay) {
+                            addCurrencyDisplay.textContent = CURRENCY_MAP[info.code] || info.code;
+                        }
                     }
                 };
                 nameInput.addEventListener('input', autofill);
                 nameInput.addEventListener('change', autofill);
                 nameInput.addEventListener('keyup', autofill);
                 nameInput.addEventListener('blur', autofill);
+            }
+
+            // Update Add modal currency display when country code is manually changed
+            const codeInput = document.getElementById('modal-country-code');
+            if (codeInput) {
+                const updateAddCurrency = () => {
+                    const code = codeInput.value.trim().toUpperCase();
+                    const addCurrencyDisplay = document.getElementById('add-currency-display');
+                    if (addCurrencyDisplay) {
+                        addCurrencyDisplay.textContent = CURRENCY_MAP[code] || (code || 'SGD');
+                    }
+                };
+                codeInput.addEventListener('input', updateAddCurrency);
+                codeInput.addEventListener('change', updateAddCurrency);
+                codeInput.addEventListener('blur', updateAddCurrency);
             }
         }
 
@@ -437,12 +568,12 @@
 
         let countries = [];
         const DEFAULT_COUNTRIES = [
-            { name: "Singapore", code: "SG", uen: "9-character alphanumeric", tax: "17% (flat rate)", compliance: "99.5%", status: "ACTIVE" },
-            { name: "Hong Kong", code: "HK", uen: "8-digit registration no.", tax: "16.5% (two-tier)", compliance: "98.8%", status: "ACTIVE" },
-            { name: "United States", code: "USA", uen: "9-digit EIN number", tax: "21% (federal flat)", compliance: "97.2%", status: "ACTIVE" },
-            { name: "Dubai", code: "UAE", uen: "Varies by Free Zone", tax: "9% (above 375k AED)", compliance: "99.1%", status: "ACTIVE" },
-            { name: "Australia", code: "AUS", uen: "9-digit ACN number", tax: "25% - 30%", compliance: "96.8%", status: "ACTIVE" },
-            { name: "United Kingdom", code: "UK", uen: "8-digit CRN number", tax: "19% - 25%", compliance: "98.5%", status: "ACTIVE" }
+            { id: "CNTRY-singapore", name: "Singapore", code: "SG", uen: "9-character alphanumeric", tax: "17% (flat rate)", compliance: "99.5%", status: "ACTIVE" },
+            { id: "CNTRY-hong-kong", name: "Hong Kong", code: "HK", uen: "8-digit registration no.", tax: "16.5% (two-tier)", compliance: "98.8%", status: "ACTIVE" },
+            { id: "CNTRY-united-states", name: "United States", code: "USA", uen: "9-digit EIN number", tax: "21% (federal flat)", compliance: "97.2%", status: "ACTIVE" },
+            { id: "CNTRY-dubai", name: "Dubai", code: "UAE", uen: "Varies by Free Zone", tax: "9% (above 375k AED)", compliance: "99.1%", status: "ACTIVE" },
+            { id: "CNTRY-australia", name: "Australia", code: "AUS", uen: "9-digit ACN number", tax: "25% - 30%", compliance: "96.8%", status: "ACTIVE" },
+            { id: "CNTRY-united-kingdom", name: "United Kingdom", code: "UK", uen: "8-digit CRN number", tax: "19% - 25%", compliance: "98.5%", status: "ACTIVE" }
         ];
 
         async function loadCountries() {
@@ -471,6 +602,16 @@
                 }
             }
             renderCountryTable();
+
+            // Handle edit parameter from URL (enables edit country drawer when redirected from packages.html)
+            const urlParams = new URLSearchParams(window.location.search);
+            const editParam = urlParams.get('edit');
+            if (editParam) {
+                const idx = countries.findIndex(c => c.id === editParam || c.code === editParam || c.name.toLowerCase() === editParam.toLowerCase());
+                if (idx !== -1) {
+                    setTimeout(() => editCountry(idx), 50);
+                }
+            }
         }
 
         function getServicePill(service) {
@@ -484,12 +625,59 @@
             return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold border ${cls} whitespace-nowrap inline-block mr-1 mb-1">${service}</span>`;
         }
 
+        function hasUnpublishedChanges(c) {
+            if (!c.published || !c.publishedData) return false;
+            const fields = ['name', 'code', 'uen', 'tax', 'compliance', 'basePrice', 'priceSecretary', 'priceDirector', 'priceAddress', 'priceTax', 'priceBank'];
+            for (let f of fields) {
+                const draftVal = c[f] !== undefined && c[f] !== null ? c[f] : '';
+                const pubVal = c.publishedData[f] !== undefined && c.publishedData[f] !== null ? c.publishedData[f] : '';
+                if (draftVal.toString() !== pubVal.toString()) return true;
+            }
+            // Check services
+            const draftSvc = (c.services || []).slice().sort().join(',');
+            const pubSvc = (c.publishedData.services || []).slice().sort().join(',');
+            if (draftSvc !== pubSvc) return true;
+            
+            // Check customPrices
+            const draftPrices = JSON.stringify(c.customPrices || {});
+            const pubPrices = JSON.stringify(c.publishedData.customPrices || {});
+            if (draftPrices !== pubPrices) return true;
+            
+            return false;
+        }
+
         function renderCountryTable() {
             const tbody = document.getElementById('country-table-body');
             if (!tbody) return;
             tbody.innerHTML = countries.map((c, idx) => {
                 const servicesList = c.services || [];
                 const servicesHtml = servicesList.map(s => getServicePill(s)).join('') || '<span class="text-slate-400 text-xs">None</span>';
+                
+                let publishButtonHtml = '';
+                if (c.published) {
+                    if (hasUnpublishedChanges(c)) {
+                        publishButtonHtml = `
+                            <button onclick="publishCountry(${idx})" class="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold rounded-lg transition-all shadow-sm flex items-center gap-1 font-outfit">
+                                ⚡ Republish Changes
+                            </button>
+                            <span class="text-amber-600 font-bold text-[9px] block mt-1 leading-none">Unpublished draft changes</span>
+                            <button onclick="unpublishCountry(${idx})" class="text-slate-500 hover:text-red-500 font-bold text-[9px] mt-1.5 block hover:underline text-left leading-none font-outfit">Unpublish</button>
+                        `;
+                    } else {
+                        publishButtonHtml = `
+                            <button onclick="unpublishCountry(${idx})" class="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 font-outfit">
+                                &#10003; Published &mdash; Unpublish
+                            </button>
+                        `;
+                    }
+                } else {
+                    publishButtonHtml = `
+                        <button onclick="publishCountry(${idx})" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-lg transition-all shadow-sm flex items-center gap-1 font-outfit">
+                            &#9654; Publish to Site
+                        </button>
+                    `;
+                }
+
                 return `
                 <tr class="hover:bg-white/30 transition-colors">
                     <td class="font-bold text-blue-600">
@@ -506,19 +694,13 @@
                     <td>${c.tax}</td>
                     <td><span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${c.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}">${c.status}</span></td>
                     <td>
-                        ${c.published
-                            ? `<button onclick="publishCountry(${idx})" class="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold rounded-lg transition-all flex items-center gap-1">
-                                &#10003; Published &mdash; Unpublish
-                               </button>`
-                            : `<button onclick="publishCountry(${idx})" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-lg transition-all shadow-sm flex items-center gap-1">
-                                &#9654; Publish to Site
-                               </button>`
-                        }
+                        ${publishButtonHtml}
                     </td>
                     <td>
                         <div class="flex items-center gap-2">
-                            <button onclick="editCountry(${idx})" class="text-blue-600 hover:text-blue-800 hover:underline font-bold text-xs">Edit</button>
-                            <button onclick="deleteCountry(${idx})" class="text-red-500 hover:text-red-700 hover:underline font-bold text-xs">Delete</button>
+                            <button onclick="editCountry(${idx})" class="text-blue-600 hover:text-blue-800 hover:underline font-bold text-xs font-outfit">Edit</button>
+                            <button onclick="window.location.href='packages.html?country=' + encodeURIComponent(c.id)" class="text-indigo-600 hover:text-indigo-800 hover:underline font-bold text-xs font-outfit">Packages</button>
+                            <button onclick="deleteCountry(${idx})" class="text-red-500 hover:text-red-700 hover:underline font-bold text-xs font-outfit">Delete</button>
                         </div>
                     </td>
                 </tr>
@@ -575,6 +757,120 @@
             }
         }
 
+        const STANDARD_SERVICES = [
+            "Company Incorporation",
+            "Corporate Secretary",
+            "Nominee Director",
+            "Office Address",
+            "Tax & Compliance",
+            "Bank Account Opening"
+        ];
+
+        function isStandardService(name) {
+            return STANDARD_SERVICES.includes(name);
+        }
+
+        function getSafeId(name) {
+            return name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+        }
+
+        window.handleAddCustomService = function(type) {
+            const inputEl = document.getElementById(`${type}-custom-service-input`);
+            if (!inputEl) return;
+            const name = inputEl.value.trim();
+            if (!name) return;
+            
+            // Check if already exists in checkboxes
+            const nameAttr = type === 'add' ? 'services' : 'edit-services';
+            const allCheckboxes = Array.from(document.querySelectorAll(`#${type}-country-form input[name="${nameAttr}"]`));
+            if (allCheckboxes.some(cb => cb.value.toLowerCase() === name.toLowerCase())) {
+                alert("Service already exists!");
+                return;
+            }
+
+            renderCustomCheckbox(type, name, true, 0);
+            inputEl.value = '';
+            
+            // Sync pricing fields and update summary
+            syncCustomPricingFields(type);
+            updateServicesSummary(type);
+        }
+
+        function renderCustomCheckbox(type, name, checked, price) {
+            const container = document.getElementById(`${type}-custom-services-checkboxes-container`);
+            if (!container) return;
+
+            const nameAttr = type === 'add' ? 'services' : 'edit-services';
+            const div = document.createElement('div');
+            div.className = 'flex items-center justify-between gap-2 mt-2';
+            div.id = `custom-checkbox-row-${type}-${getSafeId(name)}`;
+            div.innerHTML = `
+                <label class="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 hover:text-slate-900 transition-colors">
+                    <input type="checkbox" name="${nameAttr}" value="${name}" ${checked ? 'checked' : ''} onchange="handleCheckboxChange('${type}', '${name}')" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 w-4 h-4">
+                    <span>${name}</span>
+                </label>
+                <button type="button" onclick="removeCustomCheckbox('${type}', '${name}')" class="text-red-400 hover:text-red-600 transition-colors p-1 rounded hover:bg-slate-100">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                </button>
+            `;
+            container.appendChild(div);
+        }
+
+        window.handleCheckboxChange = function(type, name) {
+            syncCustomPricingFields(type);
+            updateServicesSummary(type);
+        }
+
+        window.removeCustomCheckbox = function(type, name) {
+            if (confirm(`Remove custom service "${name}"?`)) {
+                const row = document.getElementById(`custom-checkbox-row-${type}-${getSafeId(name)}`);
+                if (row) row.remove();
+                syncCustomPricingFields(type);
+                updateServicesSummary(type);
+            }
+        }
+
+        function syncCustomPricingFields(type) {
+            const nameAttr = type === 'add' ? 'services' : 'edit-services';
+            const checkedCheckboxes = Array.from(document.querySelectorAll(`#${type}-country-form input[name="${nameAttr}"]:checked`));
+            const customServicesChecked = checkedCheckboxes
+                .map(cb => cb.value)
+                .filter(val => !isStandardService(val));
+
+            const container = document.getElementById(`${type}-custom-services-pricing-container`);
+            if (!container) return;
+
+            // Save currently typed values first
+            const existingValues = {};
+            container.querySelectorAll('input').forEach(input => {
+                existingValues[input.getAttribute('data-service')] = input.value;
+            });
+
+            // Re-render the container
+            if (customServicesChecked.length === 0) {
+                container.innerHTML = '';
+                container.classList.add('hidden');
+            } else {
+                container.classList.remove('hidden');
+                container.innerHTML = customServicesChecked.map(srv => {
+                    const safeId = getSafeId(srv);
+                    const savedVal = existingValues[srv] !== undefined ? existingValues[srv] : '0';
+                    return `
+                        <div id="custom-price-field-${type}-${safeId}">
+                            <label class="block text-[10px] font-bold text-slate-500 mb-1">${srv} Price (USD)</label>
+                            <input type="number" id="${type}-price-custom-${safeId}" data-service="${srv}" class="w-full px-3 py-1.5 bg-white/60 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20" value="${savedVal}" required>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            // Adjust accordion height if open
+            const accordion = document.getElementById(`${type}-pricing-accordion`);
+            if (accordion && accordion.style.maxHeight && accordion.style.maxHeight !== '0px') {
+                accordion.style.maxHeight = accordion.scrollHeight + 'px';
+            }
+        }
+
         window.editCountry = function(idx) {
             const c = countries[idx];
             document.getElementById('edit-country-idx').value = idx;
@@ -584,11 +880,56 @@
             document.getElementById('edit-country-tax').value = c.tax;
             document.getElementById('edit-country-compliance').value = c.compliance;
             document.getElementById('edit-country-status').value = c.status;
+
+            // Update pricing header with country-specific currency
+            const editCurrencyDisplay = document.getElementById('edit-currency-display');
+            if (editCurrencyDisplay) {
+                editCurrencyDisplay.textContent = CURRENCY_MAP[c.code] || c.code || 'SGD';
+            }
             
             const checkboxes = document.querySelectorAll('#edit-country-form input[name="edit-services"]');
             const cServices = c.services || [];
             checkboxes.forEach(cb => {
                 cb.checked = cServices.includes(cb.value);
+            });
+
+            // Populate pricing
+            document.getElementById('edit-country-price-base').value = c.basePrice !== undefined && c.basePrice !== null ? c.basePrice : 1200;
+            document.getElementById('edit-country-price-secretary').value = c.priceSecretary !== undefined && c.priceSecretary !== null ? c.priceSecretary : 900;
+            document.getElementById('edit-country-price-director').value = c.priceDirector !== undefined && c.priceDirector !== null ? c.priceDirector : 3000;
+            document.getElementById('edit-country-price-address').value = c.priceAddress !== undefined && c.priceAddress !== null ? c.priceAddress : 600;
+            document.getElementById('edit-country-price-tax').value = c.priceTax !== undefined && c.priceTax !== null ? c.priceTax : 1500;
+            document.getElementById('edit-country-price-bank').value = c.priceBank !== undefined && c.priceBank !== null ? c.priceBank : 500;
+            
+            // Clear custom elements
+            document.getElementById('edit-custom-services-checkboxes-container').innerHTML = '';
+            document.getElementById('edit-custom-services-pricing-container').innerHTML = '';
+            
+            const customPrices = c.customPrices || {};
+            // Gather all custom services (both active and those that have a configured price)
+            const allCustomServices = new Set([
+                ...cServices.filter(s => !isStandardService(s)),
+                ...Object.keys(customPrices).filter(s => !isStandardService(s))
+            ]);
+            
+            allCustomServices.forEach(srv => {
+                const checked = cServices.includes(srv);
+                const price = customPrices[srv] !== undefined ? customPrices[srv] : 0;
+                renderCustomCheckbox('edit', srv, checked, price);
+            });
+            
+            // Sync pricing fields to generate inputs for checked custom services
+            syncCustomPricingFields('edit');
+            
+            // Populate values for those custom pricing inputs
+            allCustomServices.forEach(srv => {
+                const checked = cServices.includes(srv);
+                if (checked) {
+                    const price = customPrices[srv] !== undefined ? customPrices[srv] : 0;
+                    const safeId = getSafeId(srv);
+                    const inputEl = document.getElementById(`edit-price-custom-${safeId}`);
+                    if (inputEl) inputEl.value = price;
+                }
             });
             
             openEditCountryModal();
@@ -596,8 +937,9 @@
 
         window.toggleAccordion = function(id) {
             const content = document.getElementById(id);
-            const isAdd = id.startsWith('add');
-            const chevron = document.getElementById(isAdd ? 'add-services-chevron' : 'edit-services-chevron');
+            const prefix = id.startsWith('add') ? 'add' : 'edit';
+            const suffix = id.includes('services') ? 'services' : 'pricing';
+            const chevron = document.getElementById(`${prefix}-${suffix}-chevron`);
             if (content) {
                 const isOpen = content.style.maxHeight && content.style.maxHeight !== '0px';
                 if (isOpen) {
@@ -646,6 +988,12 @@
                 const chevron = document.getElementById('edit-services-chevron');
                 if (chevron) chevron.style.transform = 'rotate(0deg)';
             }
+            const pricingContent = document.getElementById('edit-pricing-accordion');
+            if (pricingContent) {
+                pricingContent.style.maxHeight = '0px';
+                const chevron = document.getElementById('edit-pricing-chevron');
+                if (chevron) chevron.style.transform = 'rotate(0deg)';
+            }
             if (window.lucide) window.lucide.createIcons();
         }
 
@@ -673,6 +1021,28 @@
             c.status = document.getElementById('edit-country-status').value;
             c.services = Array.from(document.querySelectorAll('#edit-country-form input[name="edit-services"]:checked')).map(cb => cb.value);
 
+            c.basePrice = parseFloat(document.getElementById('edit-country-price-base').value);
+            c.priceSecretary = parseFloat(document.getElementById('edit-country-price-secretary').value);
+            c.priceDirector = parseFloat(document.getElementById('edit-country-price-director').value);
+            c.priceAddress = parseFloat(document.getElementById('edit-country-price-address').value);
+            c.priceTax = parseFloat(document.getElementById('edit-country-price-tax').value);
+            c.priceBank = parseFloat(document.getElementById('edit-country-price-bank').value);
+
+            // Serialize custom prices
+            const editCustomPrices = {};
+            const checkedEditCustomServices = Array.from(document.querySelectorAll('#edit-country-form input[name="edit-services"]:checked'))
+                .map(cb => cb.value)
+                .filter(val => !isStandardService(val));
+            
+            checkedEditCustomServices.forEach(srv => {
+                const safeId = getSafeId(srv);
+                const inputEl = document.getElementById(`edit-price-custom-${safeId}`);
+                if (inputEl) {
+                    editCustomPrices[srv] = parseFloat(inputEl.value) || 0;
+                }
+            });
+            c.customPrices = editCustomPrices;
+
             try {
                 const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
                 const headers = { 
@@ -698,13 +1068,42 @@
 
         window.publishCountry = async function(idx) {
             const c = countries[idx];
-            const willPublish = !c.published;
-            const action = willPublish ? 'publish' : 'unpublish';
-            if (!confirm(`Are you sure you want to ${action} "${c.name}"? ${willPublish ? 'It will appear on the landing page.' : 'It will be removed from the landing page.'}`)) return;
+            const isRepublish = c.published;
+            const action = isRepublish ? 'republish changes for' : 'publish';
+            if (!confirm(`Are you sure you want to ${action} "${c.name}"? It will go live on the landing page.`)) return;
 
-            // Optimistic update
-            c.published = willPublish;
+            // Copy main fields to publishedData
+            c.publishedData = {
+                name: c.name,
+                code: c.code,
+                uen: c.uen,
+                tax: c.tax,
+                compliance: c.compliance,
+                services: c.services || [],
+                basePrice: c.basePrice,
+                priceSecretary: c.priceSecretary,
+                priceDirector: c.priceDirector,
+                priceAddress: c.priceAddress,
+                priceTax: c.priceTax,
+                priceBank: c.priceBank,
+                customPrices: c.customPrices || {}
+            };
+            c.published = true;
 
+            await saveCountryState(idx, isRepublish ? 'republished' : 'published', true);
+        }
+
+        window.unpublishCountry = async function(idx) {
+            const c = countries[idx];
+            if (!confirm(`Are you sure you want to unpublish "${c.name}"? It will be hidden from the landing page.`)) return;
+
+            c.published = false;
+
+            await saveCountryState(idx, 'unpublished', false);
+        }
+
+        async function saveCountryState(idx, actionText, isLive) {
+            const c = countries[idx];
             try {
                 const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
                 const headers = { 
@@ -719,16 +1118,15 @@
                 if (!res.ok) throw new Error("HTTP error " + res.status);
                 countries[idx] = await res.json();
             } catch (e) {
-                console.error("API error while publishing country:", e);
-                // Fallback to local storage
+                console.error("API error while saving country state:", e);
                 localStorage.setItem('admin_countries', JSON.stringify(countries));
             }
             renderCountryTable();
 
             // Toast notification
             const toast = document.createElement('div');
-            toast.style.cssText = `position:fixed;bottom:1.5rem;right:1.5rem;z-index:99999;padding:0.75rem 1.25rem;border-radius:1rem;font-size:0.85rem;font-weight:700;color:white;background:${willPublish ? '#059669' : '#64748b'};box-shadow:0 8px 24px rgba(0,0,0,0.15);`;
-            toast.innerText = `${willPublish ? '✅ Published!' : '⬇️ Unpublished'} — ${c.name} is now ${willPublish ? 'live on the landing page' : 'hidden from the landing page'}`;
+            toast.style.cssText = `position:fixed;bottom:1.5rem;right:1.5rem;z-index:99999;padding:0.75rem 1.25rem;border-radius:1rem;font-size:0.85rem;font-weight:700;color:white;background:${isLive ? '#059669' : '#64748b'};box-shadow:0 8px 24px rgba(0,0,0,0.15);`;
+            toast.innerText = `${actionText === 'republished' ? '⚡ Republished!' : (isLive ? '✅ Published!' : '⬇️ Unpublished')} — ${c.name} is now ${isLive ? 'live with latest updates' : 'hidden from the landing page'}`;
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 3500);
         }
@@ -773,6 +1171,18 @@
                 const chevron = document.getElementById('add-services-chevron');
                 if (chevron) chevron.style.transform = 'rotate(0deg)';
             }
+            const pricingContent = document.getElementById('add-pricing-accordion');
+            if (pricingContent) {
+                pricingContent.style.maxHeight = '0px';
+                const chevron = document.getElementById('add-pricing-chevron');
+                if (chevron) chevron.style.transform = 'rotate(0deg)';
+            }
+            
+            // Clear custom dynamic containers
+            document.getElementById('add-custom-services-checkboxes-container').innerHTML = '';
+            document.getElementById('add-custom-services-pricing-container').innerHTML = '';
+            document.getElementById('add-custom-services-pricing-container').classList.add('hidden');
+            
             if (window.lucide) window.lucide.createIcons();
         }
 
@@ -797,7 +1207,28 @@
             const status = document.getElementById('modal-country-status').value;
             const services = Array.from(document.querySelectorAll('#add-country-form input[name="services"]:checked')).map(cb => cb.value);
 
-            const newCountry = { name, code, uen, tax, compliance, status, published: false, services };
+            const basePrice = parseFloat(document.getElementById('modal-country-price-base').value);
+            const priceSecretary = parseFloat(document.getElementById('modal-country-price-secretary').value);
+            const priceDirector = parseFloat(document.getElementById('modal-country-price-director').value);
+            const priceAddress = parseFloat(document.getElementById('modal-country-price-address').value);
+            const priceTax = parseFloat(document.getElementById('modal-country-price-tax').value);
+            const priceBank = parseFloat(document.getElementById('modal-country-price-bank').value);
+
+            // Serialize custom prices
+            const addCustomPrices = {};
+            const checkedAddCustomServices = Array.from(document.querySelectorAll('#add-country-form input[name="services"]:checked'))
+                .map(cb => cb.value)
+                .filter(val => !isStandardService(val));
+            
+            checkedAddCustomServices.forEach(srv => {
+                const safeId = getSafeId(srv);
+                const inputEl = document.getElementById(`add-price-custom-${safeId}`);
+                if (inputEl) {
+                    addCustomPrices[srv] = parseFloat(inputEl.value) || 0;
+                }
+            });
+
+            const newCountry = { name, code, uen, tax, compliance, status, published: false, services, basePrice, priceSecretary, priceDirector, priceAddress, priceTax, priceBank, customPrices: addCustomPrices };
 
             try {
                 const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
