@@ -1180,7 +1180,18 @@
             
             try {
                 const res = await fetch('/api/blogs');
-                const data = await res.json();
+                let data = await res.json() || [];
+                if (Array.isArray(data)) {
+                    const getBlogTime = (b) => {
+                        if (b.lastModified) return b.lastModified;
+                        if (b.date) {
+                            const parsed = Date.parse(b.date);
+                            if (!isNaN(parsed)) return parsed;
+                        }
+                        return 0;
+                    };
+                    data.sort((a, b) => getBlogTime(b) - getBlogTime(a));
+                }
                 const list = document.getElementById('blogs-list');
                 list.innerHTML = data.map(blog => `
                     <div class="client-card group">

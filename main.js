@@ -795,6 +795,17 @@ async function init() {
         }
 
         window.landingBlogsList = blogsList;
+        
+        const getBlogTime = (b) => {
+            if (b.lastModified) return b.lastModified;
+            if (b.date) {
+                const parsed = Date.parse(b.date);
+                if (!isNaN(parsed)) return parsed;
+            }
+            return 0;
+        };
+        blogsList.sort((a, b) => getBlogTime(b) - getBlogTime(a));
+
         const publishedBlogs = blogsList.filter(b => b.published || b.status === 'published').slice(0, 3);
 
         if (publishedBlogs.length === 0) {
@@ -866,10 +877,9 @@ async function init() {
         body.innerHTML = `
             <div class="max-h-[90vh] overflow-y-auto custom-scroll">
                 ${displayCoverImage ? `
-                <div class="relative h-96">
-                    <img src="${displayCoverImage}" class="w-full h-full object-cover">
-                    <div class="absolute inset-0 bg-gradient-to-t from-white via-white/40 to-transparent"></div>
-                    <button onclick="event.stopPropagation(); window.closeLandingBlogModal()" class="absolute top-6 right-6 w-11 h-11 flex items-center justify-center bg-slate-950/65 hover:bg-red-600 text-white rounded-full border border-white/20 transition-all hover:scale-110 shadow-lg cursor-pointer z-20" title="Close details">
+                <div class="w-full bg-white border-b border-slate-100/80 flex items-center justify-center p-6 relative">
+                    <img src="${displayCoverImage}" class="max-w-full h-auto block rounded-2xl shadow-sm border border-slate-50" style="max-height: 420px; object-fit: contain;">
+                    <button onclick="event.stopPropagation(); window.closeLandingBlogModal()" class="absolute top-6 right-6 w-11 h-11 flex items-center justify-center bg-slate-100 hover:bg-red-50 hover:text-red-600 rounded-full text-slate-600 transition-all cursor-pointer border border-slate-200 shadow-sm z-20" title="Close details">
                         <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -877,25 +887,24 @@ async function init() {
                 </div>
                 ` : `
                 <div class="p-6 flex justify-end">
-                    <button onclick="event.stopPropagation(); window.closeLandingBlogModal()" class="w-10 h-10 flex items-center justify-center bg-slate-100 hover:bg-red-50 hover:text-red-600 rounded-full text-slate-600 transition-all cursor-pointer" title="Close details">
+                    <button onclick="event.stopPropagation(); window.closeLandingBlogModal()" class="w-10 h-10 flex items-center justify-center bg-slate-100 hover:bg-red-50 hover:text-red-600 rounded-full text-slate-600 transition-all cursor-pointer border border-slate-200 shadow-sm" title="Close details">
                         <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
                 </div>
                 `}
-                <div class="${displayCoverImage ? 'p-12 -mt-32 relative z-10' : 'p-12 pt-4'}">
-                    <div class="bg-white rounded-[2rem] border border-slate-100/80 shadow-2xl p-12">
-                        <div class="flex flex-wrap gap-3 mb-8">
-                            <span class="px-4 py-1.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-widest border border-blue-100">${blog.category || 'Blogs'}</span>
-                            <span class="px-4 py-1.5 rounded-full bg-slate-50 text-slate-500 text-[10px] font-bold uppercase tracking-widest border border-slate-100">${blog.date || new Date().toLocaleDateString('en-SG', {day: '2-digit', month: 'long', year: 'numeric'})}</span>
-                        </div>
-                        <h2 class="text-4xl font-extrabold text-slate-900 mb-8 tracking-tight">${displayTitle}</h2>
-                        <div class="prose prose-slate max-w-none text-slate-600 leading-[1.8] text-lg space-y-6">
-                            <p class="font-bold text-slate-900 text-xl leading-relaxed">${displayExcerpt}</p>
-                            <div class="h-px bg-slate-100 my-10"></div>
-                            <div class="whitespace-pre-wrap">${displayContent}</div>
-                        </div>
+                
+                <div class="p-8 md:p-12">
+                    <div class="flex flex-wrap gap-3 mb-8">
+                        <span class="px-4 py-1.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-widest border border-blue-100">${blog.category || 'Blogs'}</span>
+                        <span class="px-4 py-1.5 rounded-full bg-slate-50 text-slate-500 text-[10px] font-bold uppercase tracking-widest border border-slate-100">${blog.date || new Date().toLocaleDateString('en-SG', {day: '2-digit', month: 'long', year: 'numeric'})}</span>
+                    </div>
+                    <h2 class="text-3xl md:text-4xl font-extrabold text-slate-900 mb-8 tracking-tight">${displayTitle}</h2>
+                    <div class="prose prose-slate max-w-none text-slate-600 leading-[1.8] text-lg space-y-6">
+                        <p class="font-bold text-slate-900 text-xl leading-relaxed">${displayExcerpt}</p>
+                        <div class="h-px bg-slate-100 my-10"></div>
+                        <div class="whitespace-pre-wrap">${displayContent}</div>
                     </div>
                 </div>
             </div>
