@@ -12,7 +12,7 @@
     <script>
         // Authentication Check
         if (!localStorage.getItem('staff_auth')) {
-            window.location.href = '/auth.html';
+            window.location.href = '/staff/index.html';
         }
 
         tailwind.config = {
@@ -554,12 +554,34 @@
             } catch (e) { console.error("Lucide failed", e); }
 
             await fetchStaffData();
-            renderApplications();
-            renderTasks();
-            renderKYCQueue();
-            renderDocuments();
-            updateNotifications();
-            updateDashboardStats();
+
+            try {
+                renderApplications();
+            } catch (e) { console.error("renderApplications failed", e); }
+
+            try {
+                renderTasks();
+            } catch (e) { console.error("renderTasks failed", e); }
+
+            try {
+                renderKYCQueue();
+            } catch (e) { console.error("renderKYCQueue failed", e); }
+
+            try {
+                renderDocuments();
+            } catch (e) { console.error("renderDocuments failed", e); }
+
+            try {
+                updateNotifications();
+            } catch (e) { console.error("updateNotifications failed", e); }
+
+            try {
+                updateDashboardStats();
+            } catch (e) { console.error("updateDashboardStats failed", e); }
+
+            try {
+                renderDashboardTasks();
+            } catch (e) { console.error("renderDashboardTasks failed", e); }
 
             // React instantly when admin assigns/reassigns in another tab
             // (localStorage 'storage' event fires cross-tab on the same origin)
@@ -567,9 +589,18 @@
                 if (e.key && e.key.startsWith('assigned_staff_')) {
                     // An assignment changed — refresh immediately
                     fetchStaffData().then(() => {
-                        renderApplications();
-                        updateDashboardStats();
-                        updateNotifications();
+                        try {
+                            renderApplications();
+                        } catch (err) { console.error(err); }
+                        try {
+                            updateDashboardStats();
+                        } catch (err) { console.error(err); }
+                        try {
+                            updateNotifications();
+                        } catch (err) { console.error(err); }
+                        try {
+                            renderDashboardTasks();
+                        } catch (err) { console.error(err); }
                         showAssignmentToast();
                     });
                 }
@@ -579,8 +610,15 @@
             setInterval(() => {
                 if (!document.getElementById('detail-panel').classList.contains('open')) {
                     fetchStaffData().then(() => {
-                        updateDashboardStats();
-                        updateNotifications();
+                        try {
+                            updateDashboardStats();
+                        } catch (err) { console.error(err); }
+                        try {
+                            updateNotifications();
+                        } catch (err) { console.error(err); }
+                        try {
+                            renderDashboardTasks();
+                        } catch (err) { console.error(err); }
                     });
                 }
             }, 15000);
@@ -695,7 +733,10 @@
             const activeView = document.getElementById(`view-${tab}`);
             if (activeView) activeView.classList.remove('hidden');
 
-            if (tab === 'dashboard') updateDashboardStats();
+            if (tab === 'dashboard') {
+                updateDashboardStats();
+                renderDashboardTasks();
+            }
             if (tab === 'kyc') renderKYCQueue();
             if (tab === 'documents') renderDocuments();
             if (tab === 'tasks') renderTasks();
@@ -1259,10 +1300,50 @@
             }
         }
 
+        function renderDashboardTasks() {
+            const container = document.getElementById('dashboard-tasks');
+            if (!container) return;
+
+            // Show active applications assigned to the staff in the Priority Worklist
+            const activeApps = staffData.applications.filter(app => (app.status || '').toLowerCase() !== 'completed');
+            
+            if (activeApps.length === 0) {
+                container.innerHTML = '<div class="p-8 text-center text-slate-400 bg-white/20 rounded-2xl border border-dashed border-slate-300 text-xs font-semibold italic">No active tasks in your worklist</div>';
+                return;
+            }
+
+            container.innerHTML = activeApps.map(app => {
+                const priorityClass = getPriorityClass(app.priority);
+                const statusClass = (app.status || '').toLowerCase() === 'in progress' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-slate-100 text-slate-500';
+                return `
+                    <div class="app-card flex items-center justify-between p-4" onclick="openDetail('${app.id}')">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center font-bold text-xs">
+                                ${app.id.replace('APP-', '')}
+                            </div>
+                            <div>
+                                <div class="text-sm font-bold text-slate-800">${app.business || 'N/A'}</div>
+                                <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${app.client || 'N/A'}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="px-2.5 py-1 rounded-full text-[9px] font-black uppercase ${priorityClass}">
+                                ${app.priority || 'Normal'}
+                            </span>
+                            <span class="px-2.5 py-1 rounded-full text-[9px] font-black uppercase ${statusClass}">
+                                ${app.status || 'New'}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
         function signOut() {
             localStorage.removeItem('staff_auth');
             localStorage.removeItem('token');
-            window.location.href = '/auth.html';
+            window.location.href = '/staff/index.html';
         }
 
         document.addEventListener('click', () => {
@@ -1295,7 +1376,11 @@
             }, 3000);
         }
 
-        document.addEventListener('DOMContentLoaded', init);
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
     </script>
 </body>
 </html>
