@@ -924,12 +924,12 @@ async function init() {
  
     // 10. Global Presence Map Logic (Futuristic Fintech D3 Globe)
     const DEFAULT_COUNTRIES = [
-        { name: "Singapore", code: "SG", uen: "9-character alphanumeric", tax: "17% (flat rate)", compliance: "99.5%", status: "ACTIVE" },
-        { name: "Hong Kong", code: "HK", uen: "8-digit registration no.", tax: "16.5% (two-tier)", compliance: "98.8%", status: "ACTIVE" },
-        { name: "United States", code: "USA", uen: "9-digit EIN number", tax: "21% (federal flat)", compliance: "97.2%", status: "ACTIVE" },
-        { name: "Dubai", code: "UAE", uen: "Varies by Free Zone", tax: "9% (above 375k AED)", compliance: "99.1%", status: "ACTIVE" },
-        { name: "Australia", code: "AUS", uen: "9-digit ACN number", tax: "25% - 30%", compliance: "96.8%", status: "ACTIVE" },
-        { name: "United Kingdom", code: "UK", uen: "8-digit CRN number", tax: "19% - 25%", compliance: "98.5%", status: "ACTIVE" }
+        { id: "CNTRY-singapore", name: "Singapore", code: "SG", uen: "9-character alphanumeric", tax: "17% (flat rate)", compliance: "99.5%", status: "ACTIVE", basePrice: 1315, priceSecretary: 900, priceDirector: 3000, priceAddress: 600, priceTax: 1500, priceBank: 500, services: ["Company Incorporation", "Corporate Secretary", "Nominee Director", "Office Address", "Tax & Compliance"] },
+        { id: "CNTRY-hong-kong", name: "Hong Kong", code: "HK", uen: "8-digit registration no.", tax: "16.5% (two-tier)", compliance: "98.8%", status: "ACTIVE", basePrice: 1650, priceSecretary: 800, priceDirector: 2500, priceAddress: 500, priceTax: 1200, priceBank: 400, services: ["Company Incorporation", "Corporate Secretary", "Office Address", "Tax & Compliance"] },
+        { id: "CNTRY-united-states", name: "United States", code: "USA", uen: "9-digit EIN number", tax: "21% (federal flat)", compliance: "97.2%", status: "ACTIVE", basePrice: 1200, priceSecretary: 1000, priceDirector: 3000, priceAddress: 700, priceTax: 1500, priceBank: 500, services: ["Company Incorporation", "Corporate Secretary", "Nominee Director", "Office Address", "Tax & Compliance"] },
+        { id: "CNTRY-dubai", name: "Dubai", code: "UAE", uen: "Varies by Free Zone", tax: "9% (above 375k AED)", compliance: "99.1%", status: "ACTIVE", basePrice: 2500, priceSecretary: 1200, priceDirector: 4000, priceAddress: 900, priceTax: 1800, priceBank: 600, services: ["Company Incorporation", "Corporate Secretary", "Nominee Director", "Office Address", "Tax & Compliance"] },
+        { id: "CNTRY-australia", name: "Australia", code: "AUS", uen: "9-digit ACN number", tax: "25% - 30%", compliance: "96.8%", status: "ACTIVE", basePrice: 1400, priceSecretary: 950, priceDirector: 3100, priceAddress: 650, priceTax: 1600, priceBank: 550, services: ["Company Incorporation", "Corporate Secretary", "Nominee Director", "Office Address", "Tax & Compliance"] },
+        { id: "CNTRY-united-kingdom", name: "United Kingdom", code: "UK", uen: "8-digit CRN number", tax: "19% - 25%", compliance: "98.5%", status: "ACTIVE", basePrice: 1300, priceSecretary: 850, priceDirector: 2800, priceAddress: 550, priceTax: 1400, priceBank: 450, services: ["Company Incorporation", "Corporate Secretary", "Nominee Director", "Office Address", "Tax & Compliance"] }
     ];
 
     let countriesList = [];
@@ -943,17 +943,40 @@ async function init() {
     } catch (e) {
         console.warn('API error, falling back to static/localStorage:', e);
         const _cachedCountries = localStorage.getItem('admin_countries');
+        
+        const getMappedDefaultCountries = () => DEFAULT_COUNTRIES.map(c => {
+            const newC = { ...c, published: true };
+            newC.publishedData = {
+                name: c.name,
+                code: c.code,
+                uen: c.uen,
+                tax: c.tax,
+                compliance: c.compliance,
+                services: c.services ? [...c.services] : [],
+                basePrice: c.basePrice,
+                priceSecretary: c.priceSecretary,
+                priceDirector: c.priceDirector,
+                priceAddress: c.priceAddress,
+                priceTax: c.priceTax,
+                priceBank: c.priceBank,
+                customPrices: c.customPrices ? {...c.customPrices} : {}
+            };
+            return newC;
+        });
+
         if (_cachedCountries === null) {
-            countriesList = DEFAULT_COUNTRIES.map(c => ({ ...c, published: true }));
+            countriesList = getMappedDefaultCountries();
             localStorage.setItem('admin_countries', JSON.stringify(countriesList));
         } else {
             try {
                 countriesList = JSON.parse(_cachedCountries);
-                if (!Array.isArray(countriesList) || countriesList.length === 0) {
-                    countriesList = DEFAULT_COUNTRIES.map(c => ({ ...c, published: true }));
+                const isInvalid = !Array.isArray(countriesList) || countriesList.length === 0 || countriesList.some(c => !c.id || c.basePrice === undefined || c.services === undefined);
+                if (isInvalid) {
+                    throw new Error("Outdated cache format");
                 }
             } catch(err) {
-                countriesList = DEFAULT_COUNTRIES.map(c => ({ ...c, published: true }));
+                countriesList = getMappedDefaultCountries();
+                localStorage.setItem('admin_countries', JSON.stringify(countriesList));
             }
         }
     }
@@ -1445,10 +1468,11 @@ window.openCountryDetailModal = function(country) {
     ];
 
     // Filter services based on mapped services from the admin
+    const hasConfiguredServices = country.services !== undefined && country.services !== null;
     const mappedServices = country.services || [];
     const servicesList = allServicesList.filter(s => {
-        // If no services are mapped (e.g. default / empty list), show all
-        if (mappedServices.length === 0) return true;
+        // If no services are mapped (e.g. not configured at all), show all
+        if (!hasConfiguredServices) return true;
 
         if (s.id === 'local-inc' || s.id === 'foreign-inc') {
             return mappedServices.includes('Company Incorporation');
@@ -1468,8 +1492,13 @@ window.openCountryDetailModal = function(country) {
         if (s.id === 'bank-opening') {
             return mappedServices.includes('Bank Account Opening');
         }
-        // Work Visa & EP, Payroll can be shown by default or if the list is otherwise empty
-        return true;
+        if (s.id === 'visa-ep') {
+            return mappedServices.includes('Work Visa & EP') || mappedServices.includes('Visas & Immigration') || mappedServices.includes('Visa & Immigration');
+        }
+        if (s.id === 'payroll') {
+            return mappedServices.includes('Payroll') || mappedServices.includes('Payroll Services');
+        }
+        return false;
     });
 
     // Custom currency mapper

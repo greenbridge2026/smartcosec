@@ -53,7 +53,7 @@
         .main-container {
             flex: 1;
             display: flex;
-            height: 100vh;
+            height: calc(100vh - 70px);
             overflow: hidden;
         }
 
@@ -83,7 +83,7 @@
             transform: translate(-50%, -50%);
             width: 160px;
             height: 160px;
-            background: rgba(255, 255, 255, 0.65);
+            background: rgba(255, 255, 255, 0.75);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
             border-radius: 50%;
@@ -111,46 +111,55 @@
             box-shadow: 0 20px 60px rgba(0,0,0,0.08);
         }
 
-        .segment { position: absolute; width: 100%; height: 100%; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .segment:hover { filter: brightness(1.1); transform: scale(1.02); z-index: 20; }
-        .segment.active { 
-            filter: brightness(1.3) saturate(1.2); 
-            box-shadow: inset 0 0 0 6px rgba(255,255,255,0.8);
-            z-index: 25;
-        }
-        .segment.completed::after {
-            content: '✓'; position: absolute; top: 20px; right: 20px; background: var(--success); color: white;
-            width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            font-size: 0.8rem; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        .segment-svg {
+            width: 100%;
+            height: 100%;
         }
 
-        .segment.locked {
+        .segment-path {
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .segment-path:hover {
+            filter: brightness(1.1);
+        }
+        .segment-path.active {
+            filter: brightness(1.3) saturate(1.2);
+            stroke: rgba(255, 255, 255, 0.8);
+            stroke-width: 4px;
+        }
+        .segment-path.locked {
             filter: grayscale(1) opacity(0.3);
             cursor: not-allowed;
             pointer-events: none;
         }
 
-        .s1 { background: #134445; clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 25%); }
-        .s2 { background: #227072; clip-path: polygon(50% 50%, 100% 25%, 100% 75%); }
-        .s3 { background: #2d8c8e; clip-path: polygon(50% 50%, 100% 75%, 100% 100%, 50% 100%); }
-        .s4 { background: #3ab1b4; clip-path: polygon(50% 50%, 50% 100%, 0% 100%, 0% 75%); }
-        .s5 { background: #4ecacc; clip-path: polygon(50% 50%, 0% 75%, 0% 25%); }
-        .s6 { background: #1a5c5e; clip-path: polygon(50% 50%, 0% 25%, 0% 0%, 50% 0%); }
-
         .label-node {
-            position: absolute; width: 110px; color: white; z-index: 40; pointer-events: none; text-align: center;
-            display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -50%);
+            position: absolute; 
+            width: 110px; 
+            color: white; 
+            z-index: 40; 
+            pointer-events: none; 
+            text-align: center;
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            transform: translate(-50%, -50%);
         }
-        .num-tag { width: 30px; height: 30px; background: white; color: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.75rem; margin-bottom: 0.4rem; }
-        .label-node h3 { font-size: 0.78rem; font-weight: 800; text-transform: uppercase; margin: 0 0 0.2rem 0; letter-spacing: 0.02em; }
-        .label-node p { font-size: 0.68rem; line-height: 1.3; opacity: 0.9; margin: 0; }
-
-        .ln-1 { top: 20%; left: 72%; }
-        .ln-2 { top: 50%; left: 84%; }
-        .ln-3 { top: 80%; left: 72%; }
-        .ln-4 { top: 78%; left: 28%; }
-        .ln-5 { top: 50%; left: 16%; }
-        .ln-6 { top: 20%; left: 28%; }
+        .num-tag { 
+            width: 30px; 
+            height: 30px; 
+            background: white; 
+            color: #333; 
+            border-radius: 50%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-weight: 800; 
+            font-size: 0.75rem; 
+            margin-bottom: 0.4rem; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
 
         /* RIGHT PANEL: WIZARD CONTENT */
         .right-panel {
@@ -198,15 +207,17 @@
         .input-box { width: 100%; padding: 0.65rem 0.8rem; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.6); background: rgba(255, 255, 255, 0.5); font-family: inherit; font-size: 0.88rem; outline: none; transition: all 0.2s; box-sizing: border-box; }
         .input-box:focus { border-color: var(--brand-primary); background: rgba(255, 255, 255, 0.8); box-shadow: 0 0 0 3px rgba(41, 132, 134, 0.1); }
         
-        .btn { padding: 0.75rem 1.5rem; border-radius: 10px; font-weight: 700; cursor: pointer; border: none; font-family: inherit; font-size: 0.9rem; }
+        .btn { padding: 0.75rem 1.5rem; border-radius: 10px; font-weight: 700; cursor: pointer; border: none; font-family: inherit; font-size: 0.9rem; transition: all 0.2s; }
         .btn-primary { background: var(--brand-primary); color: white; }
+        .btn-primary:hover { background: var(--brand-secondary); }
         .btn-outline { background: transparent; border: 2px solid var(--border); color: var(--text-muted); }
+        .btn-outline:hover { background: rgba(255,255,255,0.3); color: var(--text-main); }
 
         .toggle-row { display: flex; background: rgba(255, 255, 255, 0.4); border: 1px solid rgba(255,255,255,0.6); padding: 4px; border-radius: 10px; margin-bottom: 1.25rem; }
         .toggle-item { flex: 1; padding: 0.6rem; border-radius: 8px; border: none; background: transparent; font-weight: 600; cursor: pointer; color: var(--text-muted); transition: all 0.2s; }
         .toggle-item.active { background: rgba(255, 255, 255, 0.8); color: var(--brand-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 
-        .upload-slot { border: 1px dashed var(--border); border-radius: 12px; padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 0.85rem; position: relative; }
+        .upload-slot { border: 1px dashed var(--border); border-radius: 12px; padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 0.85rem; position: relative; background: rgba(255,255,255,0.3); }
         .upload-slot input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
         .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warning); }
         .status-dot.done { background: var(--success); }
@@ -215,7 +226,7 @@
         .progress-fill { height: 100%; background: var(--brand-primary); transition: width 0.5s ease; }
 
         /* --- TOAST --- */
-        #toast-container { position: fixed; bottom: 2rem; right: 2rem; z-index: 1000; display: flex; flex-direction: column; gap: 0.75rem; }
+        #toast-container { position: fixed; bottom: 2rem; right: 2rem; z-index: 10000; display: flex; flex-direction: column; gap: 0.75rem; }
         .toast {
             background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); padding: 1rem 1.5rem; border-radius: 12px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-left: 5px solid var(--brand-primary); color: var(--text-main);
@@ -236,41 +247,40 @@
     </style>
 </head>
 <body class="requirements-page">
+    <!-- Preview Banner -->
+    <div id="preview-banner" style="display: none; background: linear-gradient(90deg, #1e3a8a, #2563eb); color: white; text-align: center; padding: 0.75rem; font-weight: 700; font-size: 0.9rem; z-index: 10000; position: relative; box-shadow: 0 4px 6px rgba(0,0,0,0.1); align-items: center; justify-content: center; gap: 1rem;">
+        <span>⚠️ Preview Mode: Onboarding modifications are not live. Submissions are disabled.</span>
+        <button onclick="window.close()" style="background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4); padding: 0.35rem 1rem; border-radius: 8px; color: white; cursor: pointer; font-weight: 700; font-size: 0.8rem; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.25)'">Close Preview</button>
+    </div>
+
+    <!-- NAVIGATION -->
+    <div class="nav-bar">
+        <div>
+            <img src="/logo.png" alt="Globalisor Logo" style="height: 30px; cursor: pointer;" onclick="window.location.href='/'">
+        </div>
+        <div>
+            <button onclick="logoutClient()" style="font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569; background: rgba(255, 255, 255, 0.7); border: 1px solid rgba(226, 232, 240, 0.8); padding: 0.55rem 1.2rem; border-radius: 0.75rem; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); backdrop-filter: blur(10px);" onmouseover="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.color='#ef4444'; this.style.borderColor='rgba(239, 68, 68, 0.2)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.7)'; this.style.color='#475569'; this.style.borderColor='rgba(226, 232, 240, 0.8)';">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right: 0.25rem;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                Sign Out
+            </button>
+        </div>
+    </div>
+
     <div class="main-container">
         <!-- LEFT: INFOGRAPHIC -->
         <div class="left-panel">
-            <div class="logo-overlay" style="position: absolute; top: 2rem; left: 2rem; z-index: 50;">
-                <img src="/logo.png" alt="Globalisor Logo" style="height: 30px;">
-            </div>
             <div class="infographic-wrapper">
                 <div class="hub-circle">
                     <h2><span class="highlight">Globalisor</span> Makes Company Registration Simple and Hassle-Free</h2>
                 </div>
-                <div class="segments-box">
-                    <div class="segment s1" data-step="1" onclick="wizard.open(1)"></div>
-                    <div class="segment s2" data-step="2" onclick="wizard.open(2)"></div>
-                    <div class="segment s3" data-step="3" onclick="wizard.open(3)"></div>
-                    <div class="segment s4" data-step="4" onclick="wizard.open(4)"></div>
-                    <div class="segment s5" data-step="5" onclick="wizard.open(5)"></div>
-                    <div class="segment s6" data-step="6" onclick="wizard.open(6)"></div>
+                <div class="segments-box" id="svg-segments-container">
+                    <!-- Dynamic SVG circle drawn here -->
                 </div>
-                <div class="label-node ln-1"><div class="num-tag">01</div><h3>Company Name</h3><p>Selection & Activities</p></div>
-                <div class="label-node ln-2"><div class="num-tag">02</div><h3>Directors</h3><p>Entity Setup</p></div>
-                <div class="label-node ln-3"><div class="num-tag">03</div><h3>Shareholders</h3><p>Ownership Structure</p></div>
-                <div class="label-node ln-4"><div class="num-tag">04</div><h3>Capital</h3><p>Share Structure</p></div>
-                <div class="label-node ln-5"><div class="num-tag">05</div><h3>Office</h3><p>Registered Address</p></div>
-                <div class="label-node ln-6"><div class="num-tag">06</div><h3>Secretary</h3><p>Compliance Setup</p></div>
             </div>
         </div>
 
         <!-- RIGHT: WIZARD -->
         <div class="right-panel">
-            <div style="position: absolute; top: 0.5rem; right: 2rem; z-index: 100;">
-                <button onclick="localStorage.removeItem('token'); localStorage.removeItem('client_auth'); localStorage.removeItem('globalisor_master_v3'); window.location.href = '/auth.html';" style="font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569; background: rgba(255, 255, 255, 0.7); border: 1px solid rgba(226, 232, 240, 0.8); padding: 0.55rem 1.2rem; border-radius: 0.75rem; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; align-items: center; gap: 0.5rem;" onmouseover="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.color='#ef4444'; this.style.borderColor='rgba(239, 68, 68, 0.2)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.7)'; this.style.color='#475569'; this.style.borderColor='rgba(226, 232, 240, 0.8)';">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                    Sign Out
-                </button>
-            </div>
             <div id="empty-state" class="empty-state">
                 <style>
                 @keyframes walkUp {
@@ -302,7 +312,7 @@
                   animation: walkUp 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
                 }
                 </style>
-                <div class="stepper-graphic" style="background: linear-gradient(135deg, #3b82f6, #2563eb); padding: 1rem 0.75rem 0; border-radius: 0.75rem; display: flex; align-items: flex-end; justify-content: center; height: 100px; margin-bottom: 3rem; margin-top: 2rem; width: 100%; max-width: 220px; box-shadow: 0 5px 10px rgba(37, 99, 235, 0.15); margin-left: auto; margin-right: auto; transform: scale(1.8); transform-origin: bottom center;">
+                <div class="stepper-graphic" style="background: linear-gradient(135deg, #298486, #36A9AD); padding: 1rem 0.75rem 0; border-radius: 0.75rem; display: flex; align-items: flex-end; justify-content: center; height: 100px; margin-bottom: 3rem; margin-top: 2rem; width: 100%; max-width: 220px; box-shadow: 0 5px 10px rgba(41, 132, 134, 0.15); margin-left: auto; margin-right: auto; transform: scale(1.8); transform-origin: bottom center;">
                     <div style="position: relative; display: flex; align-items: flex-end; gap: 2px; width: 164px; height: 100%;">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="human-walker" style="position: absolute; bottom: 12%; left: 6px; transform: translateX(-50%); z-index: 10;">
                            <circle cx="12" cy="5" r="4" fill="white" />
@@ -326,7 +336,7 @@
                     </div>
                 </div>
                 <h2>Start Your Incorporation</h2>
-                <a href="javascript:void(0)" onclick="wizard.open(1)" style="display: inline-block; font-size: 1.4rem; font-weight: 800; margin-top: 1.5rem; color: var(--brand-primary); text-decoration: none; position: relative; padding: 0.2rem 0.5rem; transition: all 0.2s;" onmouseover="this.style.transform='scale(1.05)'; this.style.textDecoration='underline'" onmouseout="this.style.transform='scale(1)'; this.style.textDecoration='none'">START →</a>
+                <a href="javascript:void(0)" onclick="wizard.open(1)" style="display: inline-block; font-size: 1.4rem; font-weight: 800; margin-top: 1.5rem; color: var(--brand-primary); text-decoration: none; position: relative; padding: 0.2rem 0.5rem; transition: all 0.2s;" onmouseover="this.style.transform='scale(1.05)';" onmouseout="this.style.transform='scale(1)';">START →</a>
             </div>
 
             <div id="status-state" class="empty-state" style="display: none; background: transparent; z-index: 10;">
@@ -341,7 +351,7 @@
 
             <div id="wizard-container" class="wizard-container">
                 <div class="wizard-header">
-                    <h2 id="step-title" style="margin: 0; font-size: 1.5rem; font-weight: 800;">Company Name</h2>
+                    <h2 id="step-title" style="margin: 0; font-size: 1.5rem; font-weight: 800; color: var(--text-main);">Company Name</h2>
                     <div class="progress-line"><div id="progress-bar" class="progress-fill"></div></div>
                 </div>
                 <div id="wizard-body" class="wizard-body"></div>
@@ -374,9 +384,40 @@
             }, 3000);
         }
 
-        class IncorporationWizard {
+        // Generic nested path get/set helpers
+        function getVal(obj, path) {
+            if (!path) return undefined;
+            return path.split(/[\.\[\]]+/).filter(Boolean).reduce((acc, part) => acc && acc[part], obj);
+        }
+
+        function setVal(obj, path, val) {
+            const parts = path.split(/[\.\[\]]+/).filter(Boolean);
+            const last = parts.pop();
+            const parent = parts.reduce((acc, part, idx) => {
+                if (!acc[part]) {
+                    // Check if next part is numeric
+                    const nextPart = parts[idx + 1] || last;
+                    acc[part] = /^\d+$/.test(nextPart) ? [] : {};
+                }
+                return acc[part];
+            }, obj);
+            parent[last] = val;
+        }
+
+        function logoutClient() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('client_auth');
+            localStorage.removeItem('globalisor_master_v3');
+            window.location.href = '/auth.html';
+        }
+
+        class DynamicOnboardingWizard {
             constructor() {
                 this.currentStep = null;
+                this.sections = [];
+                this.isPreview = new URLSearchParams(window.location.search).get('preview') === 'true';
+
+                // Load initial client data structure
                 const savedData = JSON.parse(localStorage.getItem('globalisor_master_v3'));
                 const defaultData = {
                     names: ['', '', ''],
@@ -388,39 +429,76 @@
                     secretary: { required: true, named: true, details: { name: '', idNum: '', nation: '', dob: '', phone: '', email: '', addr: '' } },
                     completedSteps: []
                 };
+                
                 this.data = savedData ? { ...defaultData, ...savedData, completedSteps: savedData.completedSteps || [] } : defaultData;
             }
 
             async init() {
+                if (this.isPreview) {
+                    document.getElementById('preview-banner').style.display = 'flex';
+                }
+
+                // Load dynamic sections from backend
+                const endpoint = this.isPreview ? '/api/prereg-sections/preview' : '/api/prereg-sections/published';
                 try {
                     const token = localStorage.getItem('token');
-                    if (!token) return;
-                    const res = await fetch('/api/requirements', {
-                        headers: { 'Authorization': 'Bearer ' + token }
-                    });
+                    const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+                    const res = await fetch(endpoint, { headers });
                     if (res.ok) {
-                        const response = await res.json();
-                        lastKnownStatus = response.status;
-                        if (response.data && Object.keys(response.data).length > 0) {
-                            this.data = { ...this.data, ...response.data };
-                            this.save();
-                        }
-                        if (response.status && response.status !== 'pending' && response.status !== 'none') {
-                            if (response.status === 'approved') {
-                                window.location.href = '/client/portal.html';
-                                return;
-                            }
-                            this.showStatusPage(response.status, response.data);
-                        } else if (this.data.completedSteps && this.data.completedSteps.length === 6) {
-                            this.renderFinal();
-                        } else {
-                            this.updateInfographic();
-                            if (this.currentStep) this.render();
-                        }
+                        this.sections = await res.json();
+                    } else {
+                        throw new Error("Section configuration load failed.");
                     }
                 } catch (e) {
-                    console.error("Failed to load from DB:", e);
+                    console.error("Failed to load pre-reg sections:", e);
+                    showToast("Error loading onboarding configuration", "error");
+                    return;
                 }
+
+                // Load client data from db (if not preview mode)
+                if (!this.isPreview) {
+                    try {
+                        const token = localStorage.getItem('token');
+                        if (token) {
+                            const res = await fetch('/api/requirements', {
+                                headers: { 'Authorization': 'Bearer ' + token }
+                            });
+                            if (res.ok) {
+                                const response = await res.json();
+                                lastKnownStatus = response.status;
+                                
+                                if (response.data && Object.keys(response.data).length > 0) {
+                                    this.data = { ...this.data, ...response.data };
+                                    this.save();
+                                }
+                                
+                                if (response.status && response.status !== 'pending' && response.status !== 'none') {
+                                    if (response.status === 'approved') {
+                                        window.location.href = '/client/portal.html';
+                                        return;
+                                    }
+                                    this.showStatusPage(response.status, response.data);
+                                    return;
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Failed to load client profile data:", e);
+                    }
+                }
+
+                // If all sections are completed, render dynamic final submit screen
+                if (this.data.completedSteps && this.data.completedSteps.length >= this.sections.length && this.sections.length > 0) {
+                    this.renderFinal();
+                } else {
+                    this.updateInfographic();
+                    if (this.currentStep) this.render();
+                }
+            }
+
+            save() {
+                localStorage.setItem('globalisor_master_v3', JSON.stringify(this.data));
+                this.updateInfographic();
             }
 
             showStatusPage(status, data) {
@@ -442,9 +520,8 @@
                 badge.style.background = badgeBg;
                 badge.style.border = '1px solid ' + badgeColor;
                 
-                // Add animation if status changed
                 badge.classList.remove('badge-animate');
-                void badge.offsetWidth; // Trigger reflow
+                void badge.offsetWidth;
                 badge.classList.add('badge-animate');
                 
                 const companyName = data.names?.[0] || 'New Incorporation';
@@ -460,40 +537,48 @@
             }
 
             open(step) {
-                // Hide status page when opening a step
                 document.getElementById('status-state').style.display = 'none';
 
-                // Check if step is accessible
+                // Check lock
                 if (step > 1 && !this.data.completedSteps.includes(step - 1) && !this.data.completedSteps.includes(step)) {
-                    return; // Locked
+                    return; 
                 }
 
                 this.currentStep = step;
                 document.getElementById('empty-state').style.display = 'none';
                 document.getElementById('wizard-container').classList.add('active');
                 
-                // Highlight segment
-                document.querySelectorAll('.segment').forEach(s => s.classList.remove('active'));
-                document.querySelector(`.s${step}`).classList.add('active');
+                // SVG Highlight
+                document.querySelectorAll('.segment-path').forEach(p => p.classList.remove('active'));
+                const activePath = document.getElementById(`svg-seg-${step}`);
+                if (activePath) activePath.classList.add('active');
                 
                 this.render();
             }
 
-            save() {
-                localStorage.setItem('globalisor_master_v3', JSON.stringify(this.data));
-                this.updateInfographic();
-            }
-
             async next() {
-                // Step 2 Validation (Passport Expiry & Date of Birth)
-                if (this.currentStep === 2) {
+                if (this.isPreview) {
+                    // Lock save & proceed to next
+                    this.markCompleted(this.currentStep);
+                    if (this.currentStep < this.sections.length) {
+                        this.open(this.currentStep + 1);
+                    } else {
+                        this.renderFinal();
+                    }
+                    return;
+                }
+
+                // Check Directors specific validation
+                const dirSecIndex = this.sections.findIndex(s => s.key === 'directors');
+                if (this.currentStep === dirSecIndex + 1) {
                     const todayStr = new Date().toISOString().split('T')[0];
-                    const hasFutureDob = this.data.directors.some(d => d.dob && d.dob > todayStr);
+                    const directorsList = getVal(this.data, 'directors') || [];
+                    const hasFutureDob = directorsList.some(d => d.dob && d.dob > todayStr);
                     if (hasFutureDob) {
                         showToast("Date of Birth cannot be in the future.", "error");
                         return;
                     }
-                    const invalid = this.data.directors.some(d => d.idType === 'foreigner' && this.isExpiryInvalid(d.passportExpiry));
+                    const invalid = directorsList.some(d => d.idType === 'foreigner' && this.isExpiryInvalid(d.passportExpiry));
                     if (invalid) {
                         showToast("Passport must be valid for > 6 months.", "error");
                         return;
@@ -528,30 +613,23 @@
                     showToast("Progress saved!");
                     if (btn) btn.innerText = origText;
                 } catch (e) {
-                    console.error("Failed to save to DB", e);
+                    console.error("Failed to save client requirements:", e);
                 }
 
-                if (this.currentStep < 6) {
+                if (this.currentStep < this.sections.length) {
                     this.open(this.currentStep + 1);
-                } else if (this.data.completedSteps.length === 6) {
+                } else if (this.data.completedSteps.length >= this.sections.length) {
                     this.renderFinal();
                 }
             }
 
             prev() { if (this.currentStep > 1) this.open(this.currentStep - 1); }
 
-            markCompleted(id) { if (!this.data.completedSteps.includes(id)) { this.data.completedSteps.push(id); this.save(); } }
-
-            updateInfographic() {
-                document.querySelectorAll('.segment').forEach((s, i) => {
-                    const step = i + 1;
-                    const isCompleted = this.data.completedSteps.includes(step);
-                    const isLocked = (step > 1 && !this.data.completedSteps.includes(step - 1) && !isCompleted);
-                    
-                    if (isCompleted) s.classList.add('completed');
-                    if (isLocked) s.classList.add('locked');
-                    else s.classList.remove('locked');
-                });
+            markCompleted(id) { 
+                if (!this.data.completedSteps.includes(id)) { 
+                    this.data.completedSteps.push(id); 
+                    this.save(); 
+                } 
             }
 
             isExpiryInvalid(dateStr) {
@@ -562,17 +640,101 @@
                 return expiry < minDate;
             }
 
+            updateInfographic() {
+                const container = document.getElementById('svg-segments-container');
+                if (!container || this.sections.length === 0) return;
+
+                const N = this.sections.length;
+                const Cx = 240, Cy = 240, R = 240, R_label = 195, R_icon = 150;
+                const anglePerSegment = 360 / N;
+                
+                const colors = [
+                    '#134445', '#1a5c5e', '#227072', '#2d8c8e', 
+                    '#3ab1b4', '#4ecacc', '#1e6b6d', '#298486',
+                    '#36a9ad', '#58ced1'
+                ];
+
+                let pathsHtml = '';
+                let labelsHtml = '';
+
+                this.sections.forEach((sec, idx) => {
+                    const step = idx + 1;
+                    const isCompleted = this.data.completedSteps.includes(step);
+                    const isLocked = (step > 1 && !this.data.completedSteps.includes(step - 1) && !isCompleted);
+                    
+                    const startAngle = idx * anglePerSegment - 90;
+                    const endAngle = (idx + 1) * anglePerSegment - 90;
+                    const midAngle = startAngle + (anglePerSegment / 2);
+
+                    // Path calculation
+                    const x1 = Cx + R * Math.cos(startAngle * Math.PI / 180);
+                    const y1 = Cy + R * Math.sin(startAngle * Math.PI / 180);
+                    const x2 = Cx + R * Math.cos(endAngle * Math.PI / 180);
+                    const y2 = Cy + R * Math.sin(endAngle * Math.PI / 180);
+
+                    const color = colors[idx % colors.length];
+                    const isStepActive = (this.currentStep === step);
+                    
+                    let extraClass = '';
+                    if (isStepActive) extraClass = 'active';
+                    if (isLocked) extraClass = 'locked';
+
+                    // Draw pie slice path
+                    const pathData = `M ${Cx} ${Cy} L ${x1} ${y1} A ${R} ${R} 0 0 1 ${x2} ${y2} Z`;
+                    
+                    let clickHandler = `onclick="wizard.open(${step})"`;
+                    if (isLocked) clickHandler = '';
+
+                    pathsHtml += `
+                        <g class="segment-group">
+                            <path id="svg-seg-${step}" 
+                                  d="${pathData}" 
+                                  fill="${color}" 
+                                  class="segment-path ${extraClass}" 
+                                  ${clickHandler} />
+                            ${isCompleted ? `
+                                <circle cx="${Cx + R_icon * Math.cos(midAngle * Math.PI / 180)}" cy="${Cy + R_icon * Math.sin(midAngle * Math.PI / 180)}" r="12" fill="#10b981" stroke="white" stroke-width="2"/>
+                                <text x="${Cx + R_icon * Math.cos(midAngle * Math.PI / 180)}" y="${Cy + R_icon * Math.sin(midAngle * Math.PI / 180) + 4}" fill="white" font-size="11" font-weight="bold" text-anchor="middle">✓</text>
+                            ` : ''}
+                        </g>
+                    `;
+
+                    // Absolute label node positions
+                    const xl = Cx + R_label * Math.cos(midAngle * Math.PI / 180);
+                    const yl = Cy + R_label * Math.sin(midAngle * Math.PI / 180);
+                    
+                    labelsHtml += `
+                        <div class="label-node" style="top: ${yl}px; left: ${xl}px; transform: translate(-50%, -50%); opacity: ${isLocked ? 0.4 : 1};">
+                            <div class="num-tag" style="background: ${isStepActive ? 'var(--brand-accent)' : 'white'}; color: ${isStepActive ? 'white' : '#333'}">${String(step).padStart(2, '0')}</div>
+                            <h3 style="color: white; font-weight: 800; font-size: 0.75rem; text-shadow: 0 2px 4px rgba(0,0,0,0.6); text-transform: uppercase;">${sec.title}</h3>
+                            <p style="color: white; font-size: 0.65rem; opacity: 0.9; text-shadow: 0 2px 4px rgba(0,0,0,0.6);">${sec.description}</p>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = `
+                    <svg class="segment-svg" viewBox="0 0 480 480">
+                        ${pathsHtml}
+                    </svg>
+                    ${labelsHtml}
+                `;
+            }
+
             render() {
-                const titles = ['Company Name & Activities', 'Director Profiles', 'Shareholding Structure', 'Share Capital – Paid in Cash', 'Registered Office', 'Company Secretary'];
-                document.getElementById('step-title').innerText = titles[this.currentStep - 1];
-                document.getElementById('progress-bar').style.width = `${(this.currentStep / 6) * 100}%`;
-                document.getElementById('wizard-body').innerHTML = this.getStepHTML();
+                const sec = this.sections[this.currentStep - 1];
+                if (!sec) return;
+
+                document.getElementById('step-title').innerText = sec.title;
+                document.getElementById('progress-bar').style.width = `${(this.currentStep / this.sections.length) * 100}%`;
+                
+                // Compile Form HTML
+                document.getElementById('wizard-body').innerHTML = this.getStepHTML(sec);
                 
                 const isSubmitted = (lastKnownStatus && lastKnownStatus !== 'pending' && lastKnownStatus !== 'none');
                 const nextBtn = document.getElementById('next-btn');
                 const backStatusBtn = document.getElementById('back-to-status');
                 
-                if (isSubmitted) {
+                if (isSubmitted && !this.isPreview) {
                     nextBtn.style.display = 'none';
                     backStatusBtn.style.display = 'block';
                 } else {
@@ -581,160 +743,152 @@
                 }
             }
 
-            getStepHTML() {
-                const d = this.data.directors[0];
-                switch(this.currentStep) {
-                    case 1: return `
-                        <div class="card">
-                            <div class="card-title">🏷️ Proposed Company Names</div>
-                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: -0.5rem; margin-bottom: 0.5rem;">The company name will be registered based on ACRA availability using the priority below.</p>
-                            <ul style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0; margin-bottom: 1rem; padding-left: 1.2rem;">
-                                <li><strong>Option 1</strong> → Primary preferred name</li>
-                                <li><strong>Option 2</strong> → Backup name if Option 1 is unavailable</li>
-                                <li><strong>Option 3</strong> → Alternative name or enter NA</li>
-                            </ul>
-                            ${[0, 1, 2].map(i => `
-                                <div class="form-group">
-                                    <label class="form-label">Option ${i + 1}</label>
-                                    <input type="text" class="input-box" value="${this.data.names[i]}" oninput="wizard.data.names[${i}]=this.value; wizard.save()">
-                                </div>
-                            `).join('')}
-                        </div>
-                        <div class="card">
-                            <div class="card-title">📌 Business Activities</div>
-                            <div class="form-group"><label class="form-label">Primary Activity</label><input type="text" class="input-box" value="${this.data.activities.primary}" oninput="wizard.data.activities.primary=this.value; wizard.save()"></div>
-                            <div class="form-group"><label class="form-label">Secondary Activity</label><input type="text" class="input-box" value="${this.data.activities.secondary}" oninput="wizard.data.activities.secondary=this.value; wizard.save()"></div>
-                        </div>`;
-                    case 2: return `
-                        <div id="dir-container">
-                            ${this.data.directors.map((d, i) => `
+            getStepHTML(sec) {
+                if (sec.type === 'repeater') {
+                    // Fetch list
+                    let list = getVal(this.data, sec.key);
+                    if (!list || !Array.isArray(list)) {
+                        list = [{}];
+                        setVal(this.data, sec.key, list);
+                    }
+
+                    return `
+                        <div class="space-y-4">
+                            ${list.map((item, idx) => `
                                 <div class="card">
-                                    <div class="entity-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:10px; margin-bottom:15px">
-                                        <div class="card-title" style="margin:0">👤 Director ${i+1}</div>
-                                        ${i > 0 ? `<span style="color:var(--error); cursor:pointer; font-size:0.85rem;" onclick="wizard.removeDir(${i})">Remove</span>` : ''}
+                                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:10px; margin-bottom:15px">
+                                        <div class="card-title" style="margin:0">👤 ${sec.title} #${idx + 1}</div>
+                                        ${idx > 0 ? `<span style="color:var(--error); cursor:pointer; font-size:0.85rem;" onclick="wizard.removeRepeaterItem('${sec.key}', ${idx})">Remove</span>` : ''}
                                     </div>
                                     <div class="form-grid">
-                                        <div class="form-group full"><label class="form-label">Full Name</label><input type="text" class="input-box" value="${d.name}" oninput="wizard.data.directors[${i}].name=this.value; wizard.save()"></div>
-                                        <div class="form-group">
-                                            <label class="form-label">Director Type</label>
-                                            <select class="input-box" onchange="wizard.data.directors[${i}].idType=this.value; wizard.save(); wizard.render()">
-                                                <option value="local" ${d.idType==='local'?'selected':''}>Local (NRIC/FIN)</option>
-                                                <option value="foreigner" ${d.idType==='foreigner'?'selected':''}>Foreigner (Passport)</option>
-                                            </select>
-                                        </div>
-                                        <div class="form-group">
-                                            <label class="form-label">${d.idType==='local' ? 'NRIC / FIN Number' : 'Passport Number'}</label>
-                                            <input type="text" class="input-box" value="${d.idNum}" oninput="wizard.data.directors[${i}].idNum=this.value; wizard.save()">
-                                        </div>
-                                        ${d.idType === 'foreigner' ? `
-                                            <div class="form-group">
-                                                <label class="form-label">Passport Expiry Date*</label>
-                                                <input type="date" class="input-box" value="${d.passportExpiry || ''}" onchange="wizard.data.directors[${i}].passportExpiry=this.value; wizard.save(); wizard.render()">
-                                                ${wizard.isExpiryInvalid(d.passportExpiry) ? `<p class="error-msg" style="color:var(--error); font-size:0.75rem; margin-top:5px; display:block">Passport must be valid for at least 6 months.</p>` : ''}
-                                            </div>
-                                        ` : ''}
-                                        <div class="form-group"><label class="form-label">Date of Birth</label><input type="date" class="input-box" max="${new Date().toISOString().split('T')[0]}" value="${d.dob}" oninput="wizard.data.directors[${i}].dob=this.value; wizard.save()"></div>
-                                        <div class="form-group"><label class="form-label">Contact Number</label><input type="text" class="input-box" value="${d.phone}" oninput="wizard.data.directors[${i}].phone=this.value; wizard.save()"></div>
-                                    </div>
-                                    <div class="form-grid">
-                                        <div class="form-group">
-                                            <label class="form-label">${d.idType==='local' ? 'NRIC / FIN Copy' : 'Passport Copy'}</label>
-                                            <div class="upload-slot">
-                                                <span>${d.docs.id || 'Select File...'}</span>
-                                                <input type="file" onchange="wizard.handleUpload(event, 'directors', ${i}, 'id')">
-                                                <div class="status-dot ${d.docs.id?'done':''}"></div>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label class="form-label">Address Proof (Utility Bill / Bank Statement)</label>
-                                            <div class="upload-slot">
-                                                <span>${d.docs.address || 'Select File...'}</span>
-                                                <input type="file" onchange="wizard.handleUpload(event, 'directors', ${i}, 'address')">
-                                                <div class="status-dot ${d.docs.address?'done':''}"></div>
-                                            </div>
-                                            <p style="font-size: 0.72rem; color: var(--text-muted); margin-top: 5px;">*All information must be provided in English</p>
-                                        </div>
+                                        ${(sec.fields || []).map(f => this.renderField(f, `${sec.key}[${idx}].${f.key}`)).join('')}
                                     </div>
                                 </div>
                             `).join('')}
+                            <button class="btn btn-outline" style="width:100%" onclick="wizard.addRepeaterItem('${sec.key}')">+ Add ${sec.title}</button>
                         </div>
-                        <button class="btn btn-outline" style="width:100%" onclick="wizard.addDir()">+ Add Director</button>`;
-                    case 3: return `
-                        <div id="sh-container">
-                            ${this.data.shareholders.map((s, i) => `
-                                <div class="card">
-                                    <div class="entity-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:10px; margin-bottom:15px">
-                                        <div class="card-title" style="margin:0">📊 Shareholder ${i+1}</div>
-                                        ${i > 0 ? `<span style="color:var(--error); cursor:pointer; font-size:0.85rem;" onclick="wizard.removeSh(${i})">Remove</span>` : ''}
-                                    </div>
-                                    <div class="toggle-row">
-                                        <button class="toggle-item ${s.type==='individual'?'active':''}" onclick="wizard.data.shareholders[${i}].type='individual'; wizard.save(); wizard.render()">Individual</button>
-                                        <button class="toggle-item ${s.type==='corporate'?'active':''}" onclick="wizard.data.shareholders[${i}].type='corporate'; wizard.save(); wizard.render()">Corporate</button>
-                                    </div>
-                                    <div class="form-grid">
-                                        <div class="form-group full"><label class="form-label">${s.type==='individual'?'Name':'Company Name'}</label><input type="text" class="input-box" value="${s.name}" oninput="wizard.data.shareholders[${i}].name=this.value; wizard.save()"></div>
-                                        <div class="form-group"><label class="form-label">Number of Shares</label><input type="number" class="input-box" value="${s.shares}" oninput="wizard.data.shareholders[${i}].shares=this.value; wizard.save()"></div>
-                                        <div class="form-group"><label class="form-label">% Held</label><input type="number" class="input-box" value="${s.percent}" oninput="wizard.data.shareholders[${i}].percent=this.value; wizard.save()"></div>
-                                    </div>
-                                    <div class="form-grid" style="margin-top:10px">
-                                        <div class="form-group">
-                                            <label class="form-label">${s.type==='individual' ? 'ID Proof' : 'Cert of Incorporation'}</label>
-                                            <div class="upload-slot">
-                                                <span>${s.docs.doc1 || 'Select File...'}</span>
-                                                <input type="file" onchange="wizard.handleUpload(event, 'shareholders', ${i}, 'doc1')">
-                                                <div class="status-dot ${s.docs.doc1?'done':''}"></div>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label class="form-label">${s.type==='individual' ? 'Address Proof (Utility Bill / Bank Statement)' : 'M&A / Constitution'}</label>
-                                            <div class="upload-slot">
-                                                <span>${s.docs.doc2 || 'Select File...'}</span>
-                                                <input type="file" onchange="wizard.handleUpload(event, 'shareholders', ${i}, 'doc2')">
-                                                <div class="status-dot ${s.docs.doc2?'done':''}"></div>
-                                            </div>
-                                            ${s.type==='individual' ? `<p style="font-size: 0.72rem; color: var(--text-muted); margin-top: 5px;">*All information must be provided in English</p>` : ''}
-                                        </div>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                        <button class="btn btn-outline" style="width:100%" onclick="wizard.addSh()">+ Add Shareholder</button>`;
-                    case 4: return `
+                    `;
+                } else {
+                    // Standard Form
+                    return `
                         <div class="card">
-                            <div class="card-title">💰 Share Capital – Paid in Cash</div>
                             <div class="form-grid">
-                                <div class="form-group"><label class="form-label">Issued Capital</label><input type="number" class="input-box" value="${this.data.capital.issued}" oninput="wizard.data.capital.issued=this.value; wizard.save()"></div>
-                                <div class="form-group"><label class="form-label">Num of Shares</label><input type="number" class="input-box" value="${this.data.capital.numShares}" oninput="wizard.data.capital.numShares=this.value; wizard.save()"></div>
+                                ${(sec.fields || []).map(f => this.renderField(f, f.key)).join('')}
                             </div>
-                        </div>`;
-                    case 5: return `
-                        <div class="card">
-                            <div class="card-title">📍 Registered Office Address</div>
-                            <div class="toggle-row">
-                                <button class="toggle-item ${this.data.office.useService?'active':''}" onclick="wizard.data.office.useService=true; wizard.save(); wizard.render()">Globalisor Service</button>
-                                <button class="toggle-item ${!this.data.office.useService?'active':''}" onclick="wizard.data.office.useService=false; wizard.save(); wizard.render()">Own Address</button>
+                        </div>
+                    `;
+                }
+            }
+
+            renderField(field, fullPath) {
+                const val = getVal(this.data, fullPath) || '';
+                const requiredAsterisk = field.required ? '*' : '';
+
+                switch (field.type) {
+                    case 'text':
+                        return `
+                            <div class="form-group ${field.key.includes('address') || field.key.includes('desc') ? 'full' : ''}">
+                                <label class="form-label">${field.label}${requiredAsterisk}</label>
+                                <input type="text" class="input-box" placeholder="${field.placeholder || ''}" value="${val}" oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save()">
                             </div>
-                            <textarea class="input-box" style="height:100px" ${this.data.office.useService?'readonly':''} placeholder="${this.data.office.useService ? 'Globalisor Premium CBD Address' : 'Enter Address'}" oninput="wizard.data.office.address=this.value; wizard.save()">${this.data.office.address}</textarea>
-                        </div>`;
-                    case 6: return `
-                        <div class="card">
-                            <div class="card-title">📜 Company Secretary</div>
-                            <div class="toggle-row">
-                                <button class="toggle-item ${this.data.secretary.required?'active':''}" onclick="wizard.data.secretary.required=true; wizard.save(); wizard.render()">Globalisor Service</button>
-                                <button class="toggle-item ${!this.data.secretary.required?'active':''}" onclick="wizard.data.secretary.required=false; wizard.save(); wizard.render()">Provide Own</button>
+                        `;
+                    case 'number':
+                        return `
+                            <div class="form-group">
+                                <label class="form-label">${field.label}${requiredAsterisk}</label>
+                                <input type="number" class="input-box" placeholder="${field.placeholder || ''}" value="${val}" oninput="setVal(wizard.data, '${fullPath}', parseFloat(this.value) || 0); wizard.save()">
                             </div>
-                            ${!this.data.secretary.required ? `<div class="form-grid"><div class="form-group full"><label class="form-label">Full Name</label><input type="text" class="input-box" oninput="wizard.data.secretary.details.name=this.value; wizard.save()"></div></div>` : ''}
-                        </div>`;
+                        `;
+                    case 'textarea':
+                        return `
+                            <div class="form-group full">
+                                <label class="form-label">${field.label}${requiredAsterisk}</label>
+                                <textarea class="input-box" style="height:100px" placeholder="${field.placeholder || ''}" oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save()">${val}</textarea>
+                            </div>
+                        `;
+                    case 'date':
+                        return `
+                            <div class="form-group">
+                                <label class="form-label">${field.label}${requiredAsterisk}</label>
+                                <input type="date" class="input-box" value="${val}" oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save()">
+                            </div>
+                        `;
+                    case 'select':
+                        const opts = field.options || [];
+                        return `
+                            <div class="form-group">
+                                <label class="form-label">${field.label}${requiredAsterisk}</label>
+                                <select class="input-box" onchange="setVal(wizard.data, '${fullPath}', this.value === 'true' ? true : this.value === 'false' ? false : this.value); wizard.save(); wizard.render()">
+                                    <option value="">Select Option...</option>
+                                    ${opts.map(opt => {
+                                        const p = opt.split(':');
+                                        const key = p[0];
+                                        const label = p[1] || p[0];
+                                        const selected = String(val) === key ? 'selected' : '';
+                                        return `<option value="${key}" ${selected}>${label}</option>`;
+                                    }).join('')}
+                                </select>
+                            </div>
+                        `;
+                    case 'file':
+                        return `
+                            <div class="form-group">
+                                <label class="form-label">${field.label}${requiredAsterisk}</label>
+                                <div class="upload-slot">
+                                    <span class="truncate pr-4">${val || 'Select File...'}</span>
+                                    <input type="file" onchange="wizard.handleUpload(event, '${fullPath}')">
+                                    <div class="status-dot ${val ? 'done' : ''}"></div>
+                                </div>
+                            </div>
+                        `;
+                    default:
+                        return '';
+                }
+            }
+
+            handleUpload(e, path) {
+                const file = e.target.files[0];
+                if (file) {
+                    setVal(this.data, path, file.name);
+                    this.save();
+                    this.render();
+                }
+            }
+
+            addRepeaterItem(key) {
+                let list = getVal(this.data, key);
+                if (!list) list = [];
+                
+                let defaultObj = {};
+                if (key === 'directors') {
+                    defaultObj = { name: '', idType: 'local', idNum: '', nation: '', dob: '', phone: '', email: '', addr: '', docs: {} };
+                } else if (key === 'shareholders') {
+                    defaultObj = { type: 'individual', name: '', shares: '', percent: '', regNum: '', regPlace: '', regDate: '', phone: '', email: '', addr: '', docs: {}, bo: [] };
+                }
+                
+                list.push(defaultObj);
+                setVal(this.data, key, list);
+                this.save();
+                this.render();
+            }
+
+            removeRepeaterItem(key, idx) {
+                let list = getVal(this.data, key);
+                if (list && list.length > idx) {
+                    list.splice(idx, 1);
+                    setVal(this.data, key, list);
+                    this.save();
+                    this.render();
                 }
             }
 
             renderFinal() {
-                this.currentStep = 7;
+                this.currentStep = this.sections.length + 1;
                 document.getElementById('empty-state').style.display = 'none';
                 document.getElementById('status-state').style.display = 'none';
                 document.getElementById('wizard-container').classList.add('active');
                 
-                document.querySelectorAll('.segment').forEach(s => s.classList.remove('active'));
+                document.querySelectorAll('.segment-path').forEach(p => p.classList.remove('active'));
                 
                 document.getElementById('step-title').innerText = 'Verification Ready';
                 document.getElementById('progress-bar').style.width = '100%';
@@ -743,13 +897,18 @@
                     <div style="text-align: center; padding: 3rem 1rem;">
                         <div style="font-size: 4rem; margin-bottom: 1.5rem;">🚀</div>
                         <h2 style="font-size: 2rem; font-weight: 800; color: var(--text-main);">Verification Ready</h2>
-                        <p style="color: var(--text-muted); margin-bottom: 2rem;">All 6 sections are completed. Submit now for review.</p>
+                        <p style="color: var(--text-muted); margin-bottom: 2rem;">All sections are completed. Submit now for review.</p>
                         <button class="btn btn-primary" style="padding: 1rem 3rem;" onclick="wizard.submitVerification()">Submit for Verification</button>
                     </div>`;
                 document.getElementById('next-btn').style.display = 'none';
             }
 
             async submitVerification() {
+                if (this.isPreview) {
+                    showToast("Submission is disabled in Preview Mode.", "error");
+                    return;
+                }
+
                 try {
                     const token = localStorage.getItem('token');
                     const res = await fetch('/api/requirements/submit', {
@@ -772,26 +931,14 @@
                     showToast("Submission failed.", "error");
                 }
             }
-
-            addDir() { this.data.directors.push({ name: '', idType: 'local', idNum: '', nation: '', dob: '', phone: '', email: '', addr: '', docs: {} }); this.save(); this.render(); }
-            removeDir(i) { this.data.directors.splice(i, 1); this.save(); this.render(); }
-            addSh() { this.data.shareholders.push({ type: 'individual', name: '', shares: '', percent: '', regNum: '', regPlace: '', regDate: '', phone: '', email: '', addr: '', docs: {}, bo: [] }); this.save(); this.render(); }
-            removeSh(i) { this.data.shareholders.splice(i, 1); this.save(); this.render(); }
-            handleUpload(e, ent, i, key) {
-                const file = e.target.files[0];
-                if (file) {
-                    this.data[ent][i].docs[key] = file.name;
-                    this.save();
-                    this.render();
-                }
-            }
         }
 
-        const wizard = new IncorporationWizard();
-
+        const wizard = new DynamicOnboardingWizard();
         let lastKnownStatus = null;
 
         async function checkClientStatus() {
+            if (wizard.isPreview) return; // Disregard polling in preview mode
+
             try {
                 const token = localStorage.getItem('token');
                 if (!token) return;

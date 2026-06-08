@@ -268,14 +268,39 @@
             } catch(e) {
                 console.warn("API offline, falling back to local fallback:", e);
                 const cached = localStorage.getItem('admin_countries');
+                
+                const getMappedDefaultCountries = () => DEFAULT_COUNTRIES.map(c => {
+                    const newC = { ...c, published: true };
+                    newC.publishedData = {
+                        name: c.name,
+                        code: c.code,
+                        uen: c.uen,
+                        tax: c.tax,
+                        compliance: c.compliance,
+                        services: c.services ? [...c.services] : [],
+                        basePrice: c.basePrice,
+                        priceSecretary: c.priceSecretary,
+                        priceDirector: c.priceDirector,
+                        priceAddress: c.priceAddress,
+                        priceTax: c.priceTax,
+                        priceBank: c.priceBank,
+                        customPrices: c.customPrices ? {...c.customPrices} : {}
+                    };
+                    return newC;
+                });
+
                 if (cached) {
                     try {
                         countries = JSON.parse(cached);
+                        const isInvalid = !Array.isArray(countries) || countries.length === 0 || countries.some(c => !c.code || c.basePrice === undefined || c.services === undefined);
+                        if (isInvalid) {
+                            countries = getMappedDefaultCountries();
+                        }
                     } catch(err) {
-                        countries = DEFAULT_COUNTRIES;
+                        countries = getMappedDefaultCountries();
                     }
                 } else {
-                    countries = DEFAULT_COUNTRIES;
+                    countries = getMappedDefaultCountries();
                 }
             }
  

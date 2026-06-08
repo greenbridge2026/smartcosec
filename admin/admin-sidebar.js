@@ -41,6 +41,8 @@ window.initAppSeqMap = async function() {
                 window.dispatchEvent(new CustomEvent('appSeqMapUpdated', { detail: map }));
                 return map;
             }
+        } else if (res.status === 401) {
+            window.logout();
         }
     } catch (e) {
         console.error("Failed to sync application sequence IDs", e);
@@ -180,14 +182,6 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleBtn.onclick = window.toggleSidebar;
         toggleBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`;
         topNavLeft.insertBefore(toggleBtn, topNavLeft.firstChild);
-        // Hide button to collapse sidebar
-        const hideBtn = document.createElement('button');
-        hideBtn.id = 'sidebar-hide-btn';
-        hideBtn.className = 'p-2 text-slate-600 hover:bg-slate-100/50 rounded-xl transition-colors mr-2 flex items-center justify-center cursor-pointer';
-        hideBtn.title = 'Hide Sidebar';
-        hideBtn.onclick = window.toggleSidebar;
-        hideBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M6 9l6 6 6-6"/></svg>`;
-        topNavLeft.insertBefore(hideBtn, topNavLeft.firstChild);
     }
 
     // 4. Update the content of `#module-switcher` to ensure uniform organized links across all admin pages
@@ -214,7 +208,7 @@ if (switcher) {
                 <button onclick="window.location.href='users.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-users"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg> Users</button>
             </div>
         </div>
-        <button onclick="window.location.href='packages.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-packages"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0"><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/></svg> Packages</button>
+        <button onclick="window.location.href='packages.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-packages"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6"/><path d="M9 16h6"/></svg> Pre-Reg Manager</button>
     `;
 }
 
