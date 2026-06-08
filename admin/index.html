@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -47,7 +47,7 @@
             
             <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-1.5">Password</label>
-                <input type="password" id="password" class="input-box" placeholder="••••••••" required value="admin123">
+                <input type="password" id="password" class="input-box" placeholder="••••••••" required value="password123">
             </div>
 
             <div class="flex items-center justify-between text-sm">
@@ -70,16 +70,36 @@
     </div>
 
     <script>
-        document.getElementById('admin-login-form').addEventListener('submit', (e) => {
+        document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             
-            // Mock authentication
-            if (email === 'admin@globalisor.com' && password === 'admin123') {
-                localStorage.setItem('admin_auth', JSON.stringify({ role: 'admin', token: 'mock_token_123' }));
-                window.location.href = '/admin/dashboard.html';
-            } else {
+            try {
+                const response = await fetch('/api/auth/signin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.role && data.role.toUpperCase() === 'ADMIN') {
+                        const name = (data.firstName && data.lastName) ? (data.firstName + ' ' + data.lastName) : 'Admin User';
+                        localStorage.setItem('token', data.token);
+                        localStorage.setItem('admin_auth', JSON.stringify({ role: 'admin', email: email, name: name, id: data.id, token: data.token }));
+                        window.location.href = '/admin/dashboard.html';
+                    } else {
+                        document.getElementById('error-msg').innerText = "Access denied. Only Admin users are authorized.";
+                        document.getElementById('error-msg').classList.remove('hidden');
+                    }
+                } else {
+                    document.getElementById('error-msg').innerText = "Invalid credentials or unauthorized access.";
+                    document.getElementById('error-msg').classList.remove('hidden');
+                }
+            } catch (err) {
+                console.error("Login error", err);
+                document.getElementById('error-msg').innerText = "Network error. Failed to connect to server.";
                 document.getElementById('error-msg').classList.remove('hidden');
             }
         });
@@ -87,7 +107,7 @@
         // Check if already logged in
         if (localStorage.getItem('admin_auth')) {
             const auth = JSON.parse(localStorage.getItem('admin_auth'));
-            if (auth.role === 'admin') {
+            if (auth.role === 'admin' && auth.token && auth.token !== 'mock_token_123') {
                 window.location.href = '/admin/dashboard.html';
             }
         }
