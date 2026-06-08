@@ -420,6 +420,83 @@
             document.getElementById('editor-history').innerHTML = `Last updated by <strong>${sec.lastUpdatedBy || 'System'}</strong> on <strong>${lastUpdatedDate}</strong>`;
 
             renderFieldRows(sec.fields || []);
+            validateFields();
+        }
+
+        function validateFields() {
+            const sec = sections.find(s => s.id === selectedSectionId);
+            if (!sec || !sec.fields) return true;
+
+            let isValid = true;
+            const keys = {};
+            const labels = {};
+
+            const rows = document.querySelectorAll('#fields-list > div');
+            rows.forEach((row) => {
+                const labelInput = row.querySelector('.field-label-input');
+                const keyInput = row.querySelector('.field-key-input');
+                
+                if (labelInput) labelInput.classList.remove('border-red-500', 'focus:ring-red-500/20');
+                if (keyInput) keyInput.classList.remove('border-red-500', 'focus:ring-red-500/20');
+                
+                const errorMsg = row.querySelector('.field-error-msg');
+                if (errorMsg) errorMsg.remove();
+            });
+
+            sec.fields.forEach((field, index) => {
+                const key = (field.key || '').trim().toLowerCase();
+                const label = (field.label || '').trim().toLowerCase();
+                const row = rows[index];
+                if (!row) return;
+
+                const labelInput = row.querySelector('.field-label-input');
+                const keyInput = row.querySelector('.field-key-input');
+
+                let rowHasError = false;
+                let errorText = '';
+
+                if (key) {
+                    if (keys[key] !== undefined) {
+                        rowHasError = true;
+                        errorText += `Duplicate key "${field.key}". `;
+                        if (keyInput) keyInput.classList.add('border-red-500', 'focus:ring-red-500/20');
+                        
+                        const firstRow = rows[keys[key]];
+                        if (firstRow) {
+                            const firstKeyInput = firstRow.querySelector('.field-key-input');
+                            if (firstKeyInput) firstKeyInput.classList.add('border-red-500', 'focus:ring-red-500/20');
+                        }
+                    } else {
+                        keys[key] = index;
+                    }
+                }
+
+                if (label) {
+                    if (labels[label] !== undefined) {
+                        rowHasError = true;
+                        errorText += `Duplicate label "${field.label}". `;
+                        if (labelInput) labelInput.classList.add('border-red-500', 'focus:ring-red-500/20');
+                        
+                        const firstRow = rows[labels[label]];
+                        if (firstRow) {
+                            const firstLabelInput = firstRow.querySelector('.field-label-input');
+                            if (firstLabelInput) firstLabelInput.classList.add('border-red-500', 'focus:ring-red-500/20');
+                        }
+                    } else {
+                        labels[label] = index;
+                    }
+                }
+
+                if (rowHasError) {
+                    isValid = false;
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'field-error-msg text-red-500 text-[10px] font-bold mt-1';
+                    errorDiv.innerText = errorText;
+                    row.appendChild(errorDiv);
+                }
+            });
+
+            return isValid;
         }
 
         function renderFieldRows(fields) {
@@ -441,11 +518,11 @@
                     <div class="flex flex-wrap items-center gap-3 pr-8">
                         <div class="flex-1 min-w-[150px]">
                             <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Field Label</label>
-                            <input type="text" value="${field.label || ''}" oninput="updateFieldProperty(${index}, 'label', this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none">
+                            <input type="text" value="${field.label || ''}" oninput="updateFieldProperty(${index}, 'label', this.value)" class="field-label-input w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none">
                         </div>
                         <div class="flex-1 min-w-[120px]">
                             <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Binding Key (Data Path)</label>
-                            <input type="text" value="${field.key || ''}" oninput="updateFieldProperty(${index}, 'key', this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono outline-none">
+                            <input type="text" value="${field.key || ''}" oninput="updateFieldProperty(${index}, 'key', this.value)" class="field-key-input w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono outline-none">
                         </div>
                         <div class="min-w-[100px]">
                             <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Type</label>
@@ -484,6 +561,7 @@
             const sec = sections.find(s => s.id === selectedSectionId);
             if (sec && sec.fields[index]) {
                 sec.fields[index][property] = val;
+                validateFields();
             }
         }
 
@@ -499,6 +577,7 @@
                     optContainer.classList.add('hidden');
                     delete sec.fields[index].options;
                 }
+                validateFields();
             }
         }
 
@@ -506,6 +585,7 @@
             const sec = sections.find(s => s.id === selectedSectionId);
             if (sec && sec.fields[index]) {
                 sec.fields[index].options = optionsStr.split(',').map(s => s.trim()).filter(Boolean);
+                validateFields();
             }
         }
 
@@ -514,13 +594,30 @@
             if (!sec) return;
             
             sec.fields = sec.fields || [];
+
+            let suffix = 1;
+            let label = 'New Field';
+            let key = 'custom-key';
+            
+            while (sec.fields.some(f => (f.label || '').trim().toLowerCase() === label.toLowerCase())) {
+                suffix++;
+                label = `New Field ${suffix}`;
+            }
+            
+            suffix = 1;
+            while (sec.fields.some(f => (f.key || '').trim().toLowerCase() === key.toLowerCase())) {
+                suffix++;
+                key = `custom-key-${suffix}`;
+            }
+
             sec.fields.push({
-                label: 'New Field',
-                key: 'custom-key',
+                label: label,
+                key: key,
                 type: 'text',
                 required: false
             });
             renderFieldRows(sec.fields);
+            validateFields();
         }
 
         function removeFieldRow(index) {
@@ -529,11 +626,17 @@
             
             sec.fields.splice(index, 1);
             renderFieldRows(sec.fields);
+            validateFields();
         }
 
         async function saveDraft() {
             const sec = sections.find(s => s.id === selectedSectionId);
             if (!sec) return;
+
+            if (!validateFields()) {
+                showToast("Please resolve duplicate keys/labels before saving!", "error");
+                return;
+            }
 
             // Retrieve updated inputs from UI
             sec.title = document.getElementById('sec-title-input').value.trim();
@@ -578,6 +681,11 @@
             // First save any unsaved UI state as draft
             const sec = sections.find(s => s.id === selectedSectionId);
             if (!sec) return;
+
+            if (!validateFields()) {
+                showToast("Please resolve duplicate keys/labels before publishing!", "error");
+                return;
+            }
 
             sec.title = document.getElementById('sec-title-input').value.trim();
             sec.description = document.getElementById('sec-desc-input').value.trim();
