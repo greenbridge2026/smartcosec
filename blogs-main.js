@@ -29,6 +29,7 @@ const DEFAULT_BLOGS = [
 
 let allBlogs = [];
 let currentCategory = 'All';
+let searchQuery = '';
 
 async function initBlogsPage() {
     const grid = document.getElementById('public-blog-grid');
@@ -77,6 +78,15 @@ async function initBlogsPage() {
     // Build category filters dynamically
     renderCategoryFilters();
 
+    // Setup search listener
+    const searchInput = document.getElementById('blog-search-input');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            searchQuery = e.target.value.trim().toLowerCase();
+            renderBlogGrid();
+        });
+    }
+
     // Render the grid
     renderBlogGrid();
 }
@@ -111,12 +121,29 @@ function renderBlogGrid() {
     const grid = document.getElementById('public-blog-grid');
     if (!grid) return;
 
-    const filtered = currentCategory === 'All' 
+    let filtered = currentCategory === 'All' 
         ? allBlogs 
         : allBlogs.filter(b => b.category === currentCategory);
 
+    if (searchQuery) {
+        filtered = filtered.filter(b => {
+            const displayTitle = (b.publishedTitle || b.title || '').toLowerCase();
+            const displayExcerpt = (b.publishedExcerpt || b.description || b.excerpt || '').toLowerCase();
+            const displayContent = (b.publishedContent || b.content || '').toLowerCase();
+            const category = (b.category || '').toLowerCase();
+            const author = (b.author || '').toLowerCase();
+            return displayTitle.includes(searchQuery) || 
+                   displayExcerpt.includes(searchQuery) || 
+                   displayContent.includes(searchQuery) ||
+                   category.includes(searchQuery) ||
+                   author.includes(searchQuery);
+        });
+    }
+
     if (filtered.length === 0) {
-        grid.innerHTML = '<p class="text-slate-400 text-center col-span-full py-16">No insights published in this category yet.</p>';
+        grid.innerHTML = searchQuery 
+            ? '<p class="text-slate-400 text-center col-span-full py-16">No insights found matching your search.</p>'
+            : '<p class="text-slate-400 text-center col-span-full py-16">No insights published in this category yet.</p>';
         return;
     }
 
