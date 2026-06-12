@@ -447,7 +447,13 @@ if (switcher) {
             const auth = JSON.parse(localStorage.getItem('admin_auth') || '{}');
             const adminId = auth.id || auth.userId || 'staff-admin';
             const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
-            const ws = new WebSocket(`${wsProto}://${location.host}/api/ws/chat?userId=${adminId}&role=admin`);
+            let wsHost = location.host;
+            let wsProtocol = wsProto;
+            if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1' && location.hostname !== '[::1]') {
+                wsHost = 'globalisor-77d7da9fe8c7.herokuapp.com';
+                wsProtocol = 'wss';
+            }
+            const ws = new WebSocket(`${wsProtocol}://${wsHost}/api/ws/chat?userId=${adminId}&role=admin`);
             ws.onmessage = function(evt) {
                 try {
                     const msg = JSON.parse(evt.data);
