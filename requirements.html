@@ -415,6 +415,7 @@
             constructor() {
                 this.currentStep = null;
                 this.sections = [];
+                this.sectionStatuses = {};
                 this.isPreview = new URLSearchParams(window.location.search).get('preview') === 'true';
 
                 // Load initial client data structure
@@ -433,6 +434,24 @@
                 this.data = savedData ? { ...defaultData, ...savedData, completedSteps: savedData.completedSteps || [] } : defaultData;
             }
 
+            isSectionApplicable(sec) {
+                const appSvcs = (sec.applicableServices || 'All').trim().toLowerCase();
+                if (appSvcs === 'all' || appSvcs === '') return true;
+                
+                const clientSvc = (this.data.serviceType || 'Company Incorporation').trim().toLowerCase();
+                
+                const svcList = appSvcs.split(',').map(s => s.trim());
+                return svcList.some(s => clientSvc.includes(s) || s.includes(clientSvc));
+            }
+
+            openCorrectionWizard() {
+                const firstRejectedIdx = this.sections.findIndex(s => this.sectionStatuses?.[s.id]?.status === 'REJECTED');
+                const startStep = firstRejectedIdx !== -1 ? firstRejectedIdx + 1 : 1;
+                
+                lastKnownStatus = 'pending';
+                this.open(startStep);
+            }
+
             async init() {
                 if (this.isPreview) {
                     document.getElementById('preview-banner').style.display = 'flex';
@@ -445,7 +464,8 @@
                     const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
                     const res = await fetch(endpoint, { headers });
                     if (res.ok) {
-                        this.sections = await res.json();
+                        const allSections = await res.json();
+                        this.sections = allSections.filter(sec => this.isSectionApplicable(sec));
                     } else {
                         throw new Error("Section configuration load failed.");
                     }
@@ -471,6 +491,7 @@
                                     this.data = { ...this.data, ...response.data };
                                     this.save();
                                 }
+                                this.sectionStatuses = response.sectionStatuses || {};
                                 
                                 if (response.status && response.status !== 'pending' && response.status !== 'none') {
                                     if (response.status === 'approved') {
@@ -492,7 +513,12 @@
                     this.renderFinal();
                 } else {
                     this.updateInfographic();
-                    if (this.currentStep) this.render();
+                    if (this.currentStep) {
+                        this.render();
+                    } else if (this.sections.length > 0) {
+                        // Auto-open step 1 in preview mode or fresh sessions with no prior step state
+                        this.open(1);
+                    }
                 }
             }
 
@@ -526,6 +552,15 @@
                 
                 const companyName = data.names?.[0] || 'New Incorporation';
                 
+                let actionButtonHtml = '';
+                if (status === 'rejected') {
+                    actionButtonHtml = `
+                        <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+                            <button class="btn btn-primary" style="width: 100%; font-size: 0.8rem; padding: 0.6rem;" onclick="wizard.openCorrectionWizard()">Correct Rejected Sections</button>
+                        </div>
+                    `;
+                }
+
                 document.getElementById('client-status-details').innerHTML = `
                     <div style="font-weight:700; margin-bottom:10px;">${companyName}</div>
                     <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:5px;">Service: Company Incorporation</div>
@@ -533,6 +568,7 @@
                     <div style="font-size:0.85rem; color:var(--text-muted); padding-top:10px; border-top:1px solid #eee;">
                         We will notify you by email if any additional documents are required. Keep this page open for live updates.
                     </div>
+                    ${actionButtonHtml}
                 `;
             }
 
@@ -556,7 +592,116 @@
                 this.render();
             }
 
+            validateCurrentStep() {
+                const sec = this.sections[this.currentStep - 1];
+                if (!sec || !sec.fields) return true;
+
+                let isValid = true;
+                let errorMessages = [];
+
+                sec.fields.forEach(field => {
+                    const fullPaths = [];
+                    if (sec.type === 'repeater') {
+                        const list = getVal(this.data, sec.key) || [];
+                        list.forEach((_, idx) => {
+                            fullPaths.push(`${sec.key}[${idx}].${field.key}`);
+                        });
+                    } else {
+                        fullPaths.push(field.key);
+                    }
+
+                    fullPaths.forEach(fullPath => {
+                        const containerId = `field-container-${fullPath.replace(/[.\[\]]/g, '-')}`;
+                        const container = document.getElementById(containerId);
+                        if (container && container.style.display === 'none') {
+                            return;
+                        }
+
+                        const val = getVal(this.data, fullPath);
+                        const label = field.label;
+                        
+                        if (field.required) {
+                            if (val === undefined || val === null || String(val).trim() === '') {
+                                isValid = false;
+                                errorMessages.push(field.errorMessage || `"${label}" is required.`);
+                                return;
+                            }
+                        }
+
+                        if (val !== undefined && val !== null && String(val).trim() !== '') {
+                            if (field.type === 'number') {
+                                const num = parseFloat(val);
+                                if (field.min !== undefined && field.min !== null && field.min !== '') {
+                                    if (num < parseFloat(field.min)) {
+                                        isValid = false;
+                                        errorMessages.push(field.errorMessage || `"${label}" must be at least ${field.min}.`);
+                                    }
+                                }
+                                if (field.max !== undefined && field.max !== null && field.max !== '') {
+                                    if (num > parseFloat(field.max)) {
+                                        isValid = false;
+                                        errorMessages.push(field.errorMessage || `"${label}" cannot exceed ${field.max}.`);
+                                    }
+                                }
+                            }
+                            else if (field.type === 'text' || field.type === 'textarea') {
+                                const strLen = String(val).length;
+                                if (field.min !== undefined && field.min !== null && field.min !== '') {
+                                    if (strLen < parseInt(field.min)) {
+                                        isValid = false;
+                                        errorMessages.push(field.errorMessage || `"${label}" must be at least ${field.min} characters.`);
+                                    }
+                                }
+                                if (field.max !== undefined && field.max !== null && field.max !== '') {
+                                    if (strLen > parseInt(field.max)) {
+                                        isValid = false;
+                                        errorMessages.push(field.errorMessage || `"${label}" cannot exceed ${field.max} characters.`);
+                                    }
+                                }
+                            }
+
+                            if (field.pattern) {
+                                try {
+                                    const regex = new RegExp(field.pattern);
+                                    if (!regex.test(String(val))) {
+                                        isValid = false;
+                                        errorMessages.push(field.errorMessage || `"${label}" has an invalid format.`);
+                                    }
+                                } catch(e) {
+                                    console.error("Invalid regex pattern defined:", field.pattern, e);
+                                }
+                            }
+
+                            if (field.customRule) {
+                                if (field.customRule === 'no_future_date') {
+                                    const todayStr = new Date().toISOString().split('T')[0];
+                                    if (val > todayStr) {
+                                        isValid = false;
+                                        errorMessages.push(field.errorMessage || `"${label}" cannot be in the future.`);
+                                    }
+                                } else if (field.customRule === 'passport_expiry_6m') {
+                                    if (this.isExpiryInvalid(val)) {
+                                        isValid = false;
+                                        errorMessages.push(field.errorMessage || `"${label}" must be valid for more than 6 months.`);
+                                    }
+                                }
+                            }
+                        }
+                    });
+                });
+
+                if (!isValid) {
+                    errorMessages.forEach(msg => showToast(msg, 'error'));
+                }
+                return isValid;
+            }
+
             async next() {
+                // Run dynamic validator engine
+                if (!this.validateCurrentStep()) {
+                    return;
+                }
+
                 if (this.isPreview) {
                     // Lock save & proceed to next
                     this.markCompleted(this.currentStep);
@@ -566,23 +711,6 @@
                         this.renderFinal();
                     }
                     return;
-                }
-
-                // Check Directors specific validation
-                const dirSecIndex = this.sections.findIndex(s => s.key === 'directors');
-                if (this.currentStep === dirSecIndex + 1) {
-                    const todayStr = new Date().toISOString().split('T')[0];
-                    const directorsList = getVal(this.data, 'directors') || [];
-                    const hasFutureDob = directorsList.some(d => d.dob && d.dob > todayStr);
-                    if (hasFutureDob) {
-                        showToast("Date of Birth cannot be in the future.", "error");
-                        return;
-                    }
-                    const invalid = directorsList.some(d => d.idType === 'foreigner' && this.isExpiryInvalid(d.passportExpiry));
-                    if (invalid) {
-                        showToast("Passport must be valid for > 6 months.", "error");
-                        return;
-                    }
                 }
 
                 this.markCompleted(this.currentStep);
@@ -662,6 +790,9 @@
                     const isCompleted = this.data.completedSteps.includes(step);
                     const isLocked = (step > 1 && !this.data.completedSteps.includes(step - 1) && !isCompleted);
                     
+                    const secStatusObj = this.sectionStatuses && this.sectionStatuses[sec.id];
+                    const secStatus = secStatusObj ? secStatusObj.status : '';
+
                     const startAngle = idx * anglePerSegment - 90;
                     const endAngle = (idx + 1) * anglePerSegment - 90;
                     const midAngle = startAngle + (anglePerSegment / 2);
@@ -685,6 +816,29 @@
                     let clickHandler = `onclick="wizard.open(${step})"`;
                     if (isLocked) clickHandler = '';
 
+                    let badgeHtml = '';
+                    if (secStatus === 'APPROVED') {
+                        badgeHtml = `
+                            <circle cx="${Cx + R_icon * Math.cos(midAngle * Math.PI / 180)}" cy="${Cy + R_icon * Math.sin(midAngle * Math.PI / 180)}" r="12" fill="#10b981" stroke="white" stroke-width="2"/>
+                            <text x="${Cx + R_icon * Math.cos(midAngle * Math.PI / 180)}" y="${Cy + R_icon * Math.sin(midAngle * Math.PI / 180) + 4}" fill="white" font-size="11" font-weight="bold" text-anchor="middle">✓</text>
+                        `;
+                    } else if (secStatus === 'REJECTED') {
+                        badgeHtml = `
+                            <circle cx="${Cx + R_icon * Math.cos(midAngle * Math.PI / 180)}" cy="${Cy + R_icon * Math.sin(midAngle * Math.PI / 180)}" r="12" fill="#ef4444" stroke="white" stroke-width="2"/>
+                            <text x="${Cx + R_icon * Math.cos(midAngle * Math.PI / 180)}" y="${Cy + R_icon * Math.sin(midAngle * Math.PI / 180) + 4}" fill="white" font-size="11" font-weight="bold" text-anchor="middle">⚠️</text>
+                        `;
+                    } else if (secStatus === 'PENDING') {
+                        badgeHtml = `
+                            <circle cx="${Cx + R_icon * Math.cos(midAngle * Math.PI / 180)}" cy="${Cy + R_icon * Math.sin(midAngle * Math.PI / 180)}" r="12" fill="#3b82f6" stroke="white" stroke-width="2"/>
+                            <text x="${Cx + R_icon * Math.cos(midAngle * Math.PI / 180)}" y="${Cy + R_icon * Math.sin(midAngle * Math.PI / 180) + 4}" fill="white" font-size="9" font-weight="bold" text-anchor="middle">🕒</text>
+                        `;
+                    } else if (isCompleted) {
+                        badgeHtml = `
+                            <circle cx="${Cx + R_icon * Math.cos(midAngle * Math.PI / 180)}" cy="${Cy + R_icon * Math.sin(midAngle * Math.PI / 180)}" r="12" fill="#10b981" stroke="white" stroke-width="2"/>
+                            <text x="${Cx + R_icon * Math.cos(midAngle * Math.PI / 180)}" y="${Cy + R_icon * Math.sin(midAngle * Math.PI / 180) + 4}" fill="white" font-size="11" font-weight="bold" text-anchor="middle">✓</text>
+                        `;
+                    }
+
                     pathsHtml += `
                         <g class="segment-group">
                             <path id="svg-seg-${step}" 
@@ -692,10 +846,7 @@
                                   fill="${color}" 
                                   class="segment-path ${extraClass}" 
                                   ${clickHandler} />
-                            ${isCompleted ? `
-                                <circle cx="${Cx + R_icon * Math.cos(midAngle * Math.PI / 180)}" cy="${Cy + R_icon * Math.sin(midAngle * Math.PI / 180)}" r="12" fill="#10b981" stroke="white" stroke-width="2"/>
-                                <text x="${Cx + R_icon * Math.cos(midAngle * Math.PI / 180)}" y="${Cy + R_icon * Math.sin(midAngle * Math.PI / 180) + 4}" fill="white" font-size="11" font-weight="bold" text-anchor="middle">✓</text>
-                            ` : ''}
+                            ${badgeHtml}
                         </g>
                     `;
 
@@ -720,15 +871,83 @@
                 `;
             }
 
+            evaluateConditionalFields() {
+                const sec = this.sections[this.currentStep - 1];
+                if (!sec || !sec.fields) return;
+
+                sec.fields.forEach((field, index) => {
+                    const fullPaths = [];
+                    if (sec.type === 'repeater') {
+                        const list = getVal(this.data, sec.key) || [];
+                        list.forEach((_, idx) => {
+                            fullPaths.push(`${sec.key}[${idx}].${field.key}`);
+                        });
+                    } else {
+                        fullPaths.push(field.key);
+                    }
+
+                    fullPaths.forEach(fullPath => {
+                        const containerId = `field-container-${fullPath.replace(/[.\[\]]/g, '-')}`;
+                        const container = document.getElementById(containerId);
+                        if (!container) return;
+
+                        if (field.condKey) {
+                            let checkPath = field.condKey;
+                            if (fullPath.includes('[')) {
+                                const idxMatch = fullPath.match(/\[(\d+)\]/);
+                                if (idxMatch) {
+                                    const idx = idxMatch[1];
+                                    if (!checkPath.includes('.') || checkPath.startsWith(sec.key + '.')) {
+                                        checkPath = `${sec.key}[${idx}].${checkPath.replace(sec.key + '.', '')}`;
+                                    }
+                                }
+                            }
+
+                            const checkVal = getVal(this.data, checkPath);
+                            const targetVal = field.condValue;
+                            const op = field.condOperator || 'equals';
+                            
+                            let visible = true;
+                            if (op === 'equals') {
+                                visible = (String(checkVal) === String(targetVal));
+                            } else if (op === 'not_equals') {
+                                visible = (String(checkVal) !== String(targetVal));
+                            } else if (op === 'empty') {
+                                visible = (!checkVal || String(checkVal).trim() === '');
+                            } else if (op === 'not_empty') {
+                                visible = (checkVal && String(checkVal).trim() !== '');
+                            }
+
+                            if (visible) {
+                                container.style.display = '';
+                            } else {
+                                container.style.display = 'none';
+                            }
+                        } else {
+                            container.style.display = '';
+                        }
+                    });
+                });
+            }
+
             render() {
                 const sec = this.sections[this.currentStep - 1];
                 if (!sec) return;
 
                 document.getElementById('step-title').innerText = sec.title;
-                document.getElementById('progress-bar').style.width = `${(this.currentStep / this.sections.length) * 100}%`;
+                
+                let progressPct = 0;
+                if (this.isPreview) {
+                    progressPct = (this.currentStep / this.sections.length) * 100;
+                } else {
+                    const approvedCount = this.sections.filter(s => (this.sectionStatuses?.[s.id]?.status === 'APPROVED')).length;
+                    progressPct = this.sections.length > 0 ? (approvedCount / this.sections.length) * 100 : 0;
+                }
+                document.getElementById('progress-bar').style.width = `${progressPct}%`;
                 
                 // Compile Form HTML
                 document.getElementById('wizard-body').innerHTML = this.getStepHTML(sec);
+                this.evaluateConditionalFields();
                 
                 const isSubmitted = (lastKnownStatus && lastKnownStatus !== 'pending' && lastKnownStatus !== 'none');
                 const nextBtn = document.getElementById('next-btn');
@@ -744,6 +963,19 @@
             }
 
             getStepHTML(sec) {
+                const statusObj = this.sectionStatuses?.[sec.id];
+                let rejectionBanner = '';
+                if (statusObj && statusObj.status === 'REJECTED') {
+                    rejectionBanner = `
+                        <div style="background: #fef2f2; border: 1px solid #fca5a5; border-radius: 12px; padding: 1rem; margin-bottom: 1.5rem; color: #b91c1c; font-size: 0.85rem;">
+                            <div style="font-weight: 700; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.5rem;">
+                                ⚠️ Action Required
+                            </div>
+                            <p style="margin: 0; font-weight: 500;">${statusObj.comment || 'This section requires correction.'}</p>
+                        </div>
+                    `;
+                }
+
                 if (sec.type === 'repeater') {
                     // Fetch list
                     let list = getVal(this.data, sec.key);
@@ -754,6 +986,7 @@
 
                     return `
                         <div class="space-y-4">
+                            ${rejectionBanner}
                             ${list.map((item, idx) => `
                                 <div class="card">
                                     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:10px; margin-bottom:15px">
@@ -771,9 +1004,12 @@
                 } else {
                     // Standard Form
                     return `
-                        <div class="card">
-                            <div class="form-grid">
-                                ${(sec.fields || []).map(f => this.renderField(f, f.key)).join('')}
+                        <div>
+                            ${rejectionBanner}
+                            <div class="card">
+                                <div class="form-grid">
+                                    ${(sec.fields || []).map(f => this.renderField(f, f.key)).join('')}
+                                </div>
                             </div>
                         </div>
                     `;
@@ -783,42 +1019,48 @@
             renderField(field, fullPath) {
                 const val = getVal(this.data, fullPath) || '';
                 const requiredAsterisk = field.required ? '*' : '';
+                const containerId = `field-container-${fullPath.replace(/[.\[\]]/g, '-')}`;
 
+                let html = '';
                 switch (field.type) {
                     case 'text':
-                        return `
+                        html = `
                             <div class="form-group ${field.key.includes('address') || field.key.includes('desc') ? 'full' : ''}">
                                 <label class="form-label">${field.label}${requiredAsterisk}</label>
-                                <input type="text" class="input-box" placeholder="${field.placeholder || ''}" value="${val}" oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save()">
+                                <input type="text" class="input-box" placeholder="${field.placeholder || ''}" value="${val}" oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save(); wizard.evaluateConditionalFields()">
                             </div>
                         `;
+                        break;
                     case 'number':
-                        return `
+                        html = `
                             <div class="form-group">
                                 <label class="form-label">${field.label}${requiredAsterisk}</label>
-                                <input type="number" class="input-box" placeholder="${field.placeholder || ''}" value="${val}" oninput="setVal(wizard.data, '${fullPath}', parseFloat(this.value) || 0); wizard.save()">
+                                <input type="number" class="input-box" placeholder="${field.placeholder || ''}" value="${val}" oninput="setVal(wizard.data, '${fullPath}', parseFloat(this.value) || 0); wizard.save(); wizard.evaluateConditionalFields()">
                             </div>
                         `;
+                        break;
                     case 'textarea':
-                        return `
+                        html = `
                             <div class="form-group full">
                                 <label class="form-label">${field.label}${requiredAsterisk}</label>
-                                <textarea class="input-box" style="height:100px" placeholder="${field.placeholder || ''}" oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save()">${val}</textarea>
+                                <textarea class="input-box" style="height:100px" placeholder="${field.placeholder || ''}" oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save(); wizard.evaluateConditionalFields()">${val}</textarea>
                             </div>
                         `;
+                        break;
                     case 'date':
-                        return `
+                        html = `
                             <div class="form-group">
                                 <label class="form-label">${field.label}${requiredAsterisk}</label>
-                                <input type="date" class="input-box" value="${val}" oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save()">
+                                <input type="date" class="input-box" value="${val}" oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save(); wizard.evaluateConditionalFields()">
                             </div>
                         `;
+                        break;
                     case 'select':
                         const opts = field.options || [];
-                        return `
+                        html = `
                             <div class="form-group">
                                 <label class="form-label">${field.label}${requiredAsterisk}</label>
-                                <select class="input-box" onchange="setVal(wizard.data, '${fullPath}', this.value === 'true' ? true : this.value === 'false' ? false : this.value); wizard.save(); wizard.render()">
+                                <select class="input-box" onchange="setVal(wizard.data, '${fullPath}', this.value === 'true' ? true : this.value === 'false' ? false : this.value); wizard.save(); wizard.render(); wizard.evaluateConditionalFields()">
                                     <option value="">Select Option...</option>
                                     ${opts.map(opt => {
                                         const p = opt.split(':');
@@ -830,10 +1072,12 @@
                                 </select>
                             </div>
                         `;
+                        break;
                     case 'file':
-                        return `
+                        html = `
                             <div class="form-group">
                                 <label class="form-label">${field.label}${requiredAsterisk}</label>
+                                ${field.hint ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:-0.2rem; margin-bottom:0.3rem; font-weight:500;">💡 ${field.hint}</div>` : ''}
                                 <div class="upload-slot">
                                     <span class="truncate pr-4">${val || 'Select File...'}</span>
                                     <input type="file" onchange="wizard.handleUpload(event, '${fullPath}')">
@@ -841,9 +1085,13 @@
                                 </div>
                             </div>
                         `;
+                        break;
                     default:
-                        return '';
+                        html = '';
                 }
+
+                const isFull = field.key && (field.key.includes('address') || field.key.includes('desc') || field.type === 'textarea');
+                return `<div id="${containerId}" class="${isFull ? 'full' : ''}">${html}</div>`;
             }
 
             handleUpload(e, path) {

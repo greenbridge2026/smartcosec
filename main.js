@@ -1001,6 +1001,17 @@ async function init() {
         };
     }
 
+    function getCountryFlag(code) {
+        if (!code) return '';
+        let c = code.toLowerCase().trim();
+        if (c === 'usa') c = 'us';
+        if (c === 'uk') c = 'gb';
+        if (c === 'aus') c = 'au';
+        if (c === 'uae') c = 'ae';
+        if (c === 'can') c = 'ca';
+        return `<img src="https://flagcdn.com/w20/${c}.png" srcset="https://flagcdn.com/w40/${c}.png 2x" width="20" alt="${code}" class="inline-block rounded shadow-sm align-middle">`;
+    }
+
     const activeCountries = countriesList
         .filter(c => c.published === true || (c.published === undefined && c.status === 'ACTIVE'))
         .map(getPublishedCountry);
@@ -1012,7 +1023,8 @@ async function init() {
             const dataCountry = c.name.toLowerCase().replace(/\s+/g, '_');
             return `
                 <div class="country-chip country-item" data-country="${dataCountry}" data-name="${c.name}" title="Click to view ${c.name} services">
-                    <div class="country-chip-header">
+                    <div class="country-chip-header" style="justify-content: space-between; display: flex; width: 100%; align-items: center;">
+                        ${getCountryFlag(c.code)}
                         <svg class="country-chip-arrow" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                     </div>
                     <span class="country-chip-name">${c.name}</span>

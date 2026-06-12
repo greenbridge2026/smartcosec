@@ -29,15 +29,15 @@
     <style>
         body { 
             font-family: 'Outfit', sans-serif;
-            background: radial-gradient(circle at 50% 10%, rgba(253, 242, 248, 0.9) 0%, rgba(191, 219, 254, 0.7) 40%, rgba(125, 211, 252, 0.8) 100%);
-            background-attachment: fixed;
+            background: #ffffff;
+            
             min-height: 100vh;
             overflow-x: hidden; 
         }
-        .top-nav { height: 60px; background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.6); position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1.5rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
+        .top-nav { height: 60px; background: #ffffff; backdrop-filter: blur(20px); border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1.5rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
         .main-container { padding: 2rem; max-width: 1600px; margin-left: 240px !important; margin-right: auto; }
         .module-nav-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #64748b; transition: all 0.2s; cursor: pointer !important; border: none; background: transparent; white-space: nowrap; width: 100% !important; box-sizing: border-box !important; }
-        .module-nav-btn:hover { color: #0f172a; background: rgba(255,255,255,0.6); }
+        .module-nav-btn:hover { color: #0f172a; background: #ffffff; }
         .module-nav-btn.active { color: #0f172a; background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         
         .top-nav > div:nth-child(2), #module-switcher {
@@ -46,9 +46,9 @@
             left: 0 !important;
             width: 240px !important;
             height: calc(100vh - 60px) !important;
-            background: rgba(255, 255, 255, 0.45) !important;
+            background: #ffffff !important;
             backdrop-filter: blur(20px) !important;
-            border-right: 1px solid rgba(255, 255, 255, 0.6) !important;
+            border-right: 1px solid #e2e8f0 !important;
             border-top: none !important;
             border-left: none !important;
             border-bottom: none !important;
@@ -111,6 +111,8 @@
             </div>
         </div>
         <div class="flex items-center justify-end gap-3 relative">
+            <!-- Notifications loaded dynamically by admin-sidebar.js -->
+
             <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
                 <div class="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-xs">A</div>
                 <div class="flex flex-col">
@@ -519,6 +521,36 @@
             }
         }
 
+        let notifications = [];
+        let socket = null;
+
+        async function fetchNotifications() {}
+        function renderNotificationsUI() {}
+        window.markAllAsRead = async function(event) {}
+        window.handleNotifClick = async function(notifId, type, relatedId) {}
+        function showToastNotification(n) {}
+        window.toggleNotifications = function(e) {}
+
+        document.addEventListener('click', () => {
+            const d = document.getElementById('notifications-dropdown');
+            if (d) d.classList.add('opacity-0', 'pointer-events-none', 'scale-95');
+        });
+
+        function connectWebSocket() {
+            const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+            if (!authObj.id) return;
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            socket = new WebSocket(`${wsProtocol}//${window.location.host}/api/ws/chat?userId=${authObj.id}&role=admin`);
+
+            socket.onmessage = function(event) {
+                // local page-specific messages, notifications handled by sidebar
+            };
+
+            socket.onclose = function() {
+                setTimeout(connectWebSocket, 5000);
+            };
+        }
+
         // Auto open submenu on load
         document.addEventListener('DOMContentLoaded', () => {
             const path = window.location.pathname;
@@ -528,6 +560,8 @@
                 if (submenu) submenu.classList.remove('hidden');
                 if (btn) btn.classList.add('submenu-open');
             }
+            connectWebSocket();
+            fetchNotifications();
         });
 
         fetchApplications();
@@ -547,6 +581,10 @@
         setInterval(() => {
             fetchApplications();
         }, 15000);
+
+        setInterval(() => {
+            fetchNotifications();
+        }, 5000);
     </script>
 </body>
 </html>
