@@ -770,6 +770,14 @@
     </aside>
 
     <script>
+        function safeCreateIcons() {
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            } else {
+                console.warn('Lucide icons library is not loaded.');
+            }
+        }
+
         // Read the logged-in staff from auth token
         const _staffAuth = JSON.parse(localStorage.getItem('staff_auth') || '{}');
         const CURRENT_STAFF_NAME = _staffAuth.name || '';
@@ -806,9 +814,7 @@
                 console.error("Identity injection failed", e);
             }
 
-            try {
-                lucide.createIcons();
-            } catch (e) { console.error("Lucide failed", e); }
+            safeCreateIcons();
 
             await fetchStaffData();
 
@@ -1070,7 +1076,7 @@
                     </div>
                 </div>
             `).join('') || '<div class="col-span-full p-20 text-center text-slate-400 bg-white/20 rounded-2xl border border-dashed border-slate-300">No operational guidelines available.</div>';
-            lucide.createIcons();
+            safeCreateIcons();
         }
 
         let messagePollInterval = null;
@@ -2769,8 +2775,13 @@
         // --- WebSocket connection ---
         function connectWebSocket() {
             if (socket) return;
-            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            socket = new WebSocket(`${wsProtocol}//${window.location.host}/api/ws/chat?userId=${myId}&role=staff`);
+            let wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            let wsHost = window.location.host;
+            if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && window.location.hostname !== '[::1]') {
+                wsHost = 'globalisor-77d7da9fe8c7.herokuapp.com';
+                wsProtocol = 'wss:';
+            }
+            socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${myId}&role=staff`);
 
             socket.onmessage = function(event) {
                 try {
@@ -2894,6 +2905,40 @@
                     senderRole: 'staff',
                     isTyping: isTyping
                 }));
+            }
+        }
+
+        // --- Quick Chat State & Helpers ---
+        let teamContacts = [];
+        let teamGroups = [];
+        let allTeamMessages = [];
+
+        async function fetchTeamContacts() {
+            try {
+                const res = await fetch('/api/messages/users');
+                if (res.ok) {
+                    const allUsers = await res.json();
+                    teamContacts = allUsers.filter(u => u.role === 'staff' || u.role === 'admin' || u.role === 'STAFF' || u.role === 'ADMIN');
+                }
+                if (myId) {
+                    const grpRes = await fetch(`/api/messages/groups?userId=${myId}`);
+                    if (grpRes.ok) {
+                        teamGroups = await grpRes.json();
+                    }
+                }
+            } catch (err) {
+                console.error("fetchTeamContacts error:", err);
+            }
+        }
+
+        async function fetchAllTeamMessages() {
+            try {
+                const res = await fetch('/api/messages');
+                if (res.ok) {
+                    allTeamMessages = await res.json();
+                }
+            } catch (err) {
+                console.error("fetchAllTeamMessages error:", err);
             }
         }
 
@@ -3142,7 +3187,7 @@
 
             if (staffData.applications.length === 0) {
                 body.innerHTML = `<tr><td colspan="7" class="px-6 py-16 text-center text-slate-400 italic text-sm">No applications assigned to you yet.</td></tr>`;
-                lucide.createIcons();
+                safeCreateIcons();
                 return;
             }
 
@@ -3193,7 +3238,7 @@
                     </td>
                 </tr>
             `).join('');
-            lucide.createIcons();
+            safeCreateIcons();
             try {
                 updateAllPresenceDots();
             } catch(e) { console.error(e); }

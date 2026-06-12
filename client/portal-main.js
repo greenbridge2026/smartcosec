@@ -1063,8 +1063,13 @@ let typingTimeout = null;
 
 function connectWebSocket() {
     if (!state.user || socket) return;
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    socket = new WebSocket(`${wsProtocol}//${window.location.host}/api/ws/chat?userId=${state.user.id}&role=client`);
+    let wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    let wsHost = window.location.host;
+    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && window.location.hostname !== '[::1]') {
+        wsHost = 'globalisor-77d7da9fe8c7.herokuapp.com';
+        wsProtocol = 'wss:';
+    }
+    socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${state.user.id}&role=client`);
 
     socket.onmessage = function(event) {
         try {
