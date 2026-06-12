@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="/src/tailwind.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         :root {
             --accent: #3b82f6;
@@ -208,16 +209,7 @@
     </a>
 
     <div class="onboarding-container">
-        <header class="flex justify-between items-center mb-12 pt-8">
-            <div class="w-10"></div> <!-- Spacer for back link -->
-            <a href="/">
-                <img src="/logo.png" alt="Globalisor" class="h-10">
-            </a>
-            <div class="text-right">
-                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Globalisor Onboarding</p>
-                <p class="text-sm font-bold text-slate-800" id="flow-label">Loading flow...</p>
-            </div>
-        </header>
+
 
         <div class="glass-panel">
             <!-- Progress Bar -->
@@ -230,9 +222,9 @@
                     <h2 class="text-3xl font-bold font-outfit mb-2">Upload Your ACRA Bizfile</h2>
                     <p class="text-slate-500 mb-8">You already have a company. Simply upload your ACRA Bizfile and we'll handle the data extraction and compliance transition for you.</p>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                    <div class="flex justify-center mb-8">
                         <!-- Option 1: Upload Bizfile -->
-                        <div class="upload-zone h-full min-h-[280px] flex flex-col justify-center items-center relative overflow-hidden group" id="bizfile-dropzone" onclick="document.getElementById('bizfile-input').click()">
+                        <div class="upload-zone w-full max-w-md min-h-[280px] flex flex-col justify-center items-center relative overflow-hidden group" id="bizfile-dropzone" onclick="document.getElementById('bizfile-input').click()">
                             <input type="file" id="bizfile-input" class="hidden" accept=".pdf" onchange="handleFileSelect(event)">
                             
                             <div id="upload-idle" class="flex flex-col items-center">
@@ -266,53 +258,64 @@
                                 <p class="text-xs text-slate-400 mt-2" id="uploaded-filename">BizProfile_TechNova.pdf</p>
                             </div>
                         </div>
-
-                        <!-- Option 2: Enter Manually -->
-                        <div class="upload-zone h-full min-h-[280px] flex flex-col justify-center items-center group transition-all" onclick="skipExtraction()">
-                            <div class="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform group-hover:bg-amber-50">
-                                <!-- Form / manual entry icon -->
-                                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="transition-all">
-                                    <rect x="2" y="4" width="20" height="16" rx="3" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5" class="group-hover:fill-amber-50 group-hover:stroke-amber-500" style="transition: fill 0.3s, stroke 0.3s"/>
-                                    <line x1="6" y1="9" x2="18" y2="9" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" class="group-hover:stroke-amber-500" style="transition: stroke 0.3s"/>
-                                    <line x1="6" y1="13" x2="14" y2="13" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" class="group-hover:stroke-amber-500" style="transition: stroke 0.3s"/>
-                                    <path d="M16 15l1.5-1.5L19 15" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="group-hover:stroke-amber-500" style="transition: stroke 0.3s"/>
-                                    <line x1="17.5" y1="13.5" x2="17.5" y2="17" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" class="group-hover:stroke-amber-500" style="transition: stroke 0.3s"/>
-                                </svg>
-                            </div>
-                            <p class="font-bold text-slate-800">Enter Details Manually</p>
-                            <p class="text-xs text-slate-400 mt-2 max-w-[200px] mx-auto">I'll type in the company information myself</p>
-                        </div>
                     </div>
 
                     <div class="mt-auto pt-4 flex justify-end">
-                        <button id="bizfile-continue" onclick="nextStep()" class="btn-primary w-full md:w-fit">Continue <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+                        <button id="bizfile-continue" onclick="nextStep()" class="btn-primary w-full md:w-fit opacity-40 cursor-not-allowed" disabled>Continue <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
                     </div>
                 </div>
 
                 <!-- Step 2: Details (Pre-filled) -->
                 <div class="flow-step" data-step="2">
-                    <h2 class="text-2xl font-bold font-outfit mb-8">Verify Extracted Details</h2>
-                    <div class="grid gap-6 max-w-md">
-                        <div class="input-group">
-                            <label>Company Name</label>
-                            <input type="text" id="ext-company-name" class="glass-input" placeholder="Enter company name">
+                    <div class="flex items-center gap-4 mb-6">
+                        <button type="button" onclick="prevStep()" class="flex items-center justify-center w-10 h-10 bg-white border border-slate-200 rounded-xl text-slate-600 hover:text-[#3b82f6] hover:border-[#3b82f6] transition-all shadow-sm active:scale-95">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-left"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                        </button>
+                        <h2 class="text-2xl font-bold font-outfit text-slate-800">Verify Extracted Details</h2>
+                    </div>
+                    
+                    <div class="flex flex-col lg:flex-row gap-8 w-full items-stretch lg:items-center justify-center">
+                        <!-- Left Pane: PDF Viewer -->
+                        <div class="w-full lg:w-1/2 bg-white/60 backdrop-blur-md border border-white/80 p-5 rounded-2xl flex flex-col items-center justify-between min-h-[450px]">
+                            <h3 class="text-sm font-bold text-slate-500 uppercase tracking-widest self-start mb-4">ACRA Bizfile Document View</h3>
+                            <div class="flex-1 w-full bg-slate-100/50 rounded-xl overflow-auto flex items-center justify-center p-2 relative min-h-[350px]">
+                                <canvas id="pdf-preview-canvas" class="max-w-full border shadow-sm"></canvas>
+                                <div id="pdf-placeholder-msg" class="absolute inset-0 flex items-center justify-center text-slate-400 font-medium text-center p-6 bg-slate-100/50 rounded-xl">
+                                    No PDF file loaded
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4 mt-4 justify-center w-full">
+                                <button type="button" id="btn-pdf-prev" onclick="prevPdfPage()" class="px-3 py-1.5 bg-white border rounded-xl hover:bg-slate-50 active:scale-95 text-xs font-bold text-slate-600 transition-all shadow-sm">&larr; Prev</button>
+                                <span id="pdf-page-num" class="text-xs font-bold text-slate-500">1 / 1</span>
+                                <button type="button" id="btn-pdf-next" onclick="nextPdfPage()" class="px-3 py-1.5 bg-white border rounded-xl hover:bg-slate-50 active:scale-95 text-xs font-bold text-slate-600 transition-all shadow-sm">Next &rarr;</button>
+                            </div>
                         </div>
-                        <div class="input-group">
-                            <label>Country of Registration</label>
-                            <select class="glass-input">
-                                <option>Singapore</option>
-                                <option>Malaysia</option>
-                                <option>Hong Kong</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label>Registration Number (UEN)</label>
-                            <input type="text" id="ext-uen" class="glass-input" placeholder="e.g. 2024XXXXXM">
+                        
+                        <!-- Right Pane: Extracted details form -->
+                        <div class="w-full lg:w-1/2 flex flex-col gap-6 justify-center pr-2">
+                            <!-- Section: Full PDF File Download -->
+                            <div class="bg-white/60 backdrop-blur-md border border-white/80 p-5 rounded-2xl flex items-center justify-between shadow-sm">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-text"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                                    </div>
+                                    <div>
+                                        <p class="font-bold text-slate-700 text-sm">Full ACRA Bizfile PDF</p>
+                                        <p class="text-xs text-slate-400">Complete uploaded document</p>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="window.downloadUploadedPdf()" class="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl text-xs font-bold transition-all shadow-sm border border-blue-100/50 flex items-center gap-1.5 active:scale-95">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                    Download
+                                </button>
+                            </div>
+
+
                         </div>
                     </div>
-                    <div class="mt-auto pt-12 flex gap-4">
-                        <button onclick="prevStep()" class="px-8 py-4 font-bold text-slate-400 uppercase text-xs tracking-widest hover:text-slate-600">Back</button>
-                        <button onclick="nextStep()" class="btn-primary flex-1">Continue</button>
+                    
+                    <div class="mt-8 pt-6 border-t border-slate-200/50 flex justify-center">
+                        <button onclick="nextStep()" class="btn-primary w-full max-w-md">Confirm & Continue</button>
                     </div>
                 </div>
 
@@ -320,132 +323,90 @@
                 <div class="flow-step" data-step="3">
                     <h2 class="text-2xl font-bold font-outfit mb-2">Service Selection</h2>
                     <p class="text-slate-500 mb-8">Select the services you want us to take over.</p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="service-card" onclick="this.classList.toggle('selected')">
-                            <i data-lucide="calculator" class="w-6 h-6 text-blue-600"></i>
-                            <div>
-                                <p class="font-bold">Accounting & Bookkeeping</p>
-                                <p class="text-xs text-slate-500">Monthly management reporting</p>
-                            </div>
-                        </div>
-                        <div class="service-card" onclick="this.classList.toggle('selected')">
-                            <i data-lucide="file-check" class="w-6 h-6 text-emerald-600"></i>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="service-cards-grid">
+                        <div class="service-card" onclick="toggleServiceCard(this)" data-service="secretary">
+                            <div class="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center flex-shrink-0"><i data-lucide="file-check" class="w-5 h-5"></i></div>
                             <div>
                                 <p class="font-bold">Corporate Secretary</p>
                                 <p class="text-xs text-slate-500">Statutory filings and records</p>
                             </div>
                         </div>
-                        <div class="service-card" onclick="this.classList.toggle('selected')">
-                            <i data-lucide="landmark" class="w-6 h-6 text-purple-600"></i>
+
+                        <div class="service-card" onclick="toggleServiceCard(this)" data-service="accounting">
+                            <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center flex-shrink-0"><i data-lucide="calculator" class="w-5 h-5"></i></div>
                             <div>
-                                <p class="font-bold">Tax Filing</p>
-                                <p class="text-xs text-slate-500">Corporate tax and ECI submissions</p>
+                                <p class="font-bold">Accounting &amp; Bookkeeping</p>
+                                <p class="text-xs text-slate-500">Monthly management reporting</p>
                             </div>
                         </div>
-                        <div class="service-card" onclick="this.classList.toggle('selected')">
-                            <i data-lucide="shield-check" class="w-6 h-6 text-orange-600"></i>
+
+                        <div class="service-card" onclick="toggleServiceCard(this)" data-service="visa-ep">
+                            <div class="w-10 h-10 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center flex-shrink-0"><i data-lucide="passport" class="w-5 h-5"></i></div>
                             <div>
-                                <p class="font-bold">Compliance Services</p>
-                                <p class="text-xs text-slate-500">AML/KYC and regulatory audits</p>
+                                <p class="font-bold">Visas &amp; EP Registration</p>
+                                <p class="text-xs text-slate-500">Employment Pass application and support</p>
                             </div>
                         </div>
-                        <div class="service-card" onclick="this.classList.toggle('selected')">
-                            <i data-lucide="users" class="w-6 h-6 text-amber-600"></i>
+
+                        <div class="service-card" onclick="toggleServiceCard(this)" data-service="nominee-dir">
+                            <div class="w-10 h-10 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center flex-shrink-0"><i data-lucide="user-check" class="w-5 h-5"></i></div>
+                            <div>
+                                <p class="font-bold">Nominee Director</p>
+                                <p class="text-xs text-slate-500">Local resident director service</p>
+                            </div>
+                        </div>
+
+                        <div class="service-card" onclick="toggleServiceCard(this)" data-service="payroll">
+                            <div class="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center flex-shrink-0"><i data-lucide="users" class="w-5 h-5"></i></div>
                             <div>
                                 <p class="font-bold">Payroll Services</p>
                                 <p class="text-xs text-slate-500">CPF, salary, and IR8A processing</p>
                             </div>
                         </div>
-                    </div>
-                    <div class="mt-auto pt-12 flex gap-4">
-                        <button onclick="prevStep()" class="px-8 py-4 font-bold text-slate-400 uppercase text-xs tracking-widest hover:text-slate-600">Back</button>
-                        <button onclick="nextStep()" class="btn-primary flex-1">Continue</button>
-                    </div>
-                </div>
 
-                <!-- Step 4: Documents -->
-                <div class="flow-step" data-step="4">
-                    <h2 class="text-2xl font-bold font-outfit mb-8">Document Upload</h2>
-                    <div class="upload-zone mb-6">
-                        <i data-lucide="upload-cloud" class="w-12 h-12 text-slate-300 mx-auto mb-4"></i>
-                        <p class="font-bold">Drop company documents here</p>
-                        <p class="text-xs text-slate-400 mt-2">BizProfile, Constitution, or Financial Statements</p>
-                    </div>
-                    <div class="flex flex-col gap-3">
-                        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
-                            <div class="flex items-center gap-3">
-                                <i data-lucide="file-text" class="w-5 h-5 text-slate-400"></i>
-                                <p class="text-sm font-medium">Company_Constitution.pdf</p>
+                        <div class="service-card" onclick="toggleServiceCard(this)" data-service="tax-filing">
+                            <div class="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center flex-shrink-0"><i data-lucide="landmark" class="w-5 h-5"></i></div>
+                            <div>
+                                <p class="font-bold">Tax Filing</p>
+                                <p class="text-xs text-slate-500">Corporate tax and ECI submissions</p>
                             </div>
-                            <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-500"></i>
                         </div>
-                    </div>
-                    <div class="mt-auto pt-12 flex gap-4">
-                        <button onclick="prevStep()" class="px-8 py-4 font-bold text-slate-400 uppercase text-xs tracking-widest hover:text-slate-600">Back</button>
-                        <button onclick="nextStep()" class="btn-primary flex-1">Continue to Review</button>
-                    </div>
-                </div>
 
-                <!-- Step 5: Review -->
-                <div class="flow-step" data-step="5">
-                    <h2 class="text-2xl font-bold font-outfit mb-8">Review & Submit</h2>
-                    <div class="bg-slate-50 rounded-2xl p-6 mb-8 border border-slate-100">
-                        <div class="mb-6">
-                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Company Info</p>
-                            <p class="font-bold text-lg">TechNova Singapore Pte Ltd</p>
-                            <p class="text-sm text-slate-500">UEN: 202401234M • Singapore</p>
+                        <div class="service-card" onclick="toggleServiceCard(this)" data-service="address">
+                            <div class="w-10 h-10 bg-sky-100 text-sky-600 rounded-xl flex items-center justify-center flex-shrink-0"><i data-lucide="map-pin" class="w-5 h-5"></i></div>
+                            <div>
+                                <p class="font-bold">Registered Address</p>
+                                <p class="text-xs text-slate-500">Premium CBD address and digital mailroom</p>
+                            </div>
                         </div>
-                        <div>
-                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Selected Services</p>
-                            <div class="flex flex-wrap gap-2">
-                                <span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-lg text-xs font-bold">Accounting</span>
-                                <span class="bg-emerald-100 text-emerald-600 px-3 py-1 rounded-lg text-xs font-bold">Corporate Secretary</span>
+
+                        <div class="service-card" onclick="toggleServiceCard(this)" data-service="gst-filing">
+                            <div class="w-10 h-10 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center flex-shrink-0"><i data-lucide="shield-check" class="w-5 h-5"></i></div>
+                            <div>
+                                <p class="font-bold">Compliance Services</p>
+                                <p class="text-xs text-slate-500">AML/KYC and regulatory audits</p>
                             </div>
                         </div>
                     </div>
-                    <p class="text-sm text-slate-500 mb-8 text-center">By submitting, you agree to our terms of service and data processing policy.</p>
-                    <button onclick="finishOnboarding()" class="btn-primary w-full">Submit for Review <i data-lucide="send" class="w-4 h-4"></i></button>
+                    <div class="mt-auto pt-12 flex gap-4">
+                        <button onclick="prevStep()" class="px-8 py-4 font-bold text-slate-400 uppercase text-xs tracking-widest hover:text-slate-600">Back</button>
+                        <button id="service-continue-btn" onclick="window.redirectToPricing()" class="btn-primary flex-1 opacity-40 cursor-not-allowed" disabled>Continue</button>
+                    </div>
                 </div>
             </div>
 
             <!-- FLOW 2: EXISTING CLIENT -->
             <div id="flow-client" class="hidden h-full flex flex-col flex-1">
-                <!-- Step 1: Intro -->
+                <!-- Step 1: Dashboard -->
                 <div class="flow-step" data-step="1">
-                    <h2 class="text-4xl font-bold font-outfit mb-4">Welcome Back to Globalisor</h2>
-                    <p class="text-slate-500 text-lg mb-12 max-w-xl">Access your existing services, track progress, or request new services from your personal dashboard.</p>
-                    <button onclick="nextStep()" class="btn-primary w-fit">Continue to Access <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
-                </div>
-
-                <!-- Step 2: Login -->
-                <div class="flow-step" data-step="2">
-                    <h2 class="text-2xl font-bold font-outfit mb-8">Access Your Account</h2>
-                    <div class="grid gap-6 max-w-md">
-                        <div class="input-group">
-                            <label>Email Address</label>
-                            <input type="email" class="glass-input" placeholder="name@company.com">
-                        </div>
-                        <div class="input-group">
-                            <label>Password</label>
-                            <input type="password" class="glass-input" placeholder="••••••••">
-                        </div>
-                    </div>
-                    <div class="mt-8 flex gap-4">
-                        <button onclick="prevStep()" class="px-8 py-4 font-bold text-slate-400 uppercase text-xs tracking-widest hover:text-slate-600">Back</button>
-                        <button onclick="nextStep()" class="btn-primary flex-1">Login</button>
-                    </div>
-                </div>
-
-                <!-- Step 3: Dashboard -->
-                <div class="flow-step" data-step="3">
                     <div class="flex justify-between items-end mb-8">
-                        <div>
-                            <h2 class="text-2xl font-bold font-outfit">Your Globalisor Hub</h2>
-                            <p class="text-slate-500 text-sm">Managing: TechNova Singapore Pte Ltd</p>
+                        <div class="flex items-center gap-3">
+                            <div>
+                                <p class="text-slate-500 text-sm">Managing: TechNova Singapore Pte Ltd</p>
+                            </div>
                         </div>
                         <span class="text-xs font-bold text-emerald-500 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">Live Status</span>
                     </div>
-                    
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                         <div class="dash-widget">
                             <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Active Services</p>
@@ -466,7 +427,6 @@
                             <p class="text-[10px] text-slate-400 mt-1">2 hours ago</p>
                         </div>
                     </div>
-
                     <button onclick="nextStep()" class="w-full p-6 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 hover:text-blue-500 hover:border-blue-200 hover:bg-blue-50/50 transition-all group">
                         <i data-lucide="plus-circle" class="w-8 h-8 mx-auto mb-2 group-hover:scale-110 transition-transform"></i>
                         <p class="font-bold">Request New Service</p>
@@ -474,8 +434,8 @@
                     </button>
                 </div>
 
-                <!-- Step 4: Request New Service -->
-                <div class="flow-step" data-step="4">
+                <!-- Step 2: Request New Service -->
+                <div class="flow-step" data-step="2">
                     <h2 class="text-2xl font-bold font-outfit mb-2">Available Add-ons</h2>
                     <p class="text-slate-500 mb-8">Choose from our specialized professional services. <span class="inline-flex items-center gap-1 text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full ml-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Locked = Already enrolled</span></p>
                     <div class="grid grid-cols-1 gap-3">
@@ -557,13 +517,13 @@
 
                     </div>
                     <div class="mt-auto pt-8 flex gap-4">
-                        <button onclick="goToStep(3)" class="px-8 py-4 font-bold text-slate-400 uppercase text-xs tracking-widest hover:text-slate-600">Back to Hub</button>
+                        <button onclick="goToStep(1)" class="px-8 py-4 font-bold text-slate-400 uppercase text-xs tracking-widest hover:text-slate-600">Back to Hub</button>
                         <button onclick="finishOnboarding()" class="btn-primary flex-1">Send Request</button>
                     </div>
                 </div>
 
-                <!-- Step 5: Waiting Period (Under Review) -->
-                <div class="flow-step flex flex-col justify-center items-center h-full text-center" data-step="5">
+                <!-- Step 3: Waiting Period (Under Review) -->
+                <div class="flow-step flex flex-col justify-center items-center h-full text-center" data-step="3">
                     <div class="mb-6 w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center animate-pulse">
                         <i data-lucide="clock" class="w-10 h-10"></i>
                     </div>
@@ -575,8 +535,15 @@
                             <p class="text-sm font-bold text-slate-500">Loading details...</p>
                         </div>
                     </div>
-                    <div class="mt-8">
-                        <a href="/" class="btn-primary inline-flex">Return Home</a>
+                    <div class="mt-8 flex items-center justify-center gap-4">
+                        <button onclick="localStorage.removeItem('pending_client_request'); localStorage.removeItem('pending_services'); window.goToStep(2);" class="px-8 py-4 font-bold text-slate-400 hover:text-slate-600 uppercase text-xs tracking-widest transition-colors flex items-center gap-2">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                            Back
+                        </button>
+                        <button onclick="openClientVerificationModal()" class="btn-primary inline-flex gap-2">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            Confirm &amp; Submit for Verification
+                        </button>
                     </div>
                 </div>
 
@@ -584,7 +551,65 @@
         </div>
     </div>
 
+    <!-- Client Submit for Verification Modal -->
+    <div id="client-verification-modal" class="fixed inset-0 z-[999] hidden flex items-center justify-center p-4" style="background: rgba(15,23,42,0.55); backdrop-filter: blur(8px);" onclick="if(event.target===this) closeClientVerificationModal()">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 relative">
+            <div id="cv-icon-wrap" class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <h2 id="cv-title" class="text-2xl font-bold text-slate-900 text-center mb-2" style="font-family:'Outfit',sans-serif">Submit for Verification</h2>
+            <p id="cv-desc" class="text-slate-500 text-center text-sm mb-6">You're about to submit your service request to the Globalisor team. We'll review and reach out within <strong>1-2 business hours</strong>.</p>
+            <div id="cv-summary" class="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6 text-sm text-slate-700"></div>
+            <div id="cv-actions" class="flex gap-3">
+                <button onclick="closeClientVerificationModal()" class="flex-1 py-3 px-6 border border-slate-200 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 transition-all">Cancel</button>
+                <button id="cv-confirm-btn" onclick="confirmClientVerification()" class="flex-1 py-3 px-6 bg-slate-900 hover:bg-blue-600 text-white rounded-xl font-semibold transition-all shadow-lg shadow-slate-900/20">Confirm &amp; Submit</button>
+            </div>
+        </div>
+    </div>
+    <!-- PDF Viewer Modal -->
+    <div id="pdf-viewer-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300 opacity-0" onclick="if(event.target===this) window.closePdfModal()">
+        <div class="bg-white/95 backdrop-blur-md border border-white/80 rounded-3xl max-w-2xl w-full p-6 shadow-2xl flex flex-col items-center max-h-[90vh] transform scale-95 transition-transform duration-300">
+            <div class="flex justify-between items-center w-full mb-4 border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
+                        <i data-lucide="file-text" class="w-4 h-4"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 font-outfit" id="modal-pdf-title">ACRA Bizfile Document View</h3>
+                </div>
+                <button type="button" onclick="window.closePdfModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition-colors">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            
+            <!-- Modal Canvas Container -->
+            <div class="flex-1 w-full bg-slate-100/50 rounded-2xl overflow-auto flex items-center justify-center p-4 relative min-h-[350px] max-h-[60vh] border border-slate-200/50">
+                <canvas id="modal-pdf-canvas" class="max-w-full border shadow-sm bg-white"></canvas>
+            </div>
+            
+            <!-- Modal Controls -->
+            <div class="flex items-center gap-4 mt-4 justify-center w-full border-t border-slate-100 pt-3">
+                <button type="button" id="btn-modal-prev" onclick="window.prevModalPdfPage()" class="px-3.5 py-1.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 active:scale-95 text-xs font-bold text-slate-600 transition-all shadow-sm">&larr; Prev</button>
+                <span id="modal-pdf-page-num" class="text-xs font-bold text-slate-500">1 / 1</span>
+                <button type="button" id="btn-modal-next" onclick="window.nextModalPdfPage()" class="px-3.5 py-1.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 active:scale-95 text-xs font-bold text-slate-600 transition-all shadow-sm">Next &rarr;</button>
+            </div>
+        </div>
+    </div>
     <script>
+        // Global service card toggle — must be global so inline onclick can reach it
+        window.toggleServiceCard = function(card) {
+            card.classList.toggle('selected');
+            const btn = document.getElementById('service-continue-btn');
+            if (!btn) return;
+            const anySelected = document.querySelectorAll('#flow-existing-co .flow-step[data-step="3"] .service-card.selected').length > 0;
+            if (anySelected) {
+                btn.removeAttribute('disabled');
+                btn.classList.remove('opacity-40', 'cursor-not-allowed');
+            } else {
+                btn.setAttribute('disabled', '');
+                btn.classList.add('opacity-40', 'cursor-not-allowed');
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', () => {
             try {
                 if (window.lucide) lucide.createIcons();
@@ -629,11 +654,12 @@
                 
                 const steps = flowContainer.querySelectorAll('.flow-step');
                 const totalSteps = steps.length;
-                let currentStep = 1;
+                let stepParam = parseInt(urlParams.get('step'));
+                let currentStep = (stepParam >= 1 && stepParam <= totalSteps) ? stepParam : 1;
 
                 // Check if existing client has a pending request
                 if (flow === 'client' && localStorage.getItem('pending_client_request') === 'true') {
-                    currentStep = 5;
+                    currentStep = 3;
                     window.renderWaitingServices();
                 }
 
@@ -654,11 +680,52 @@
                     }
                 }
 
+                // Step transitions
+                const nextStep = function() {
+                    if (currentStep < totalSteps) {
+                        currentStep++;
+                        window.updateSteps();
+                    }
+                };
+                const prevStep = function() {
+                    if (currentStep > 1) {
+                        currentStep--;
+                        window.updateSteps();
+                    }
+                };
+                const goToStep = function(step) {
+                    if (step >= 1 && step <= totalSteps) {
+                        currentStep = step;
+                        window.updateSteps();
+                    }
+                };
+                window.nextStep = nextStep;
+                window.prevStep = prevStep;
+                window.goToStep = goToStep;
+
+                // Initialize PDF.js
+                if (window.pdfjsLib) {
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+                }
+
+                let pdfDoc = null;
+                let currentPdfPage = 1;
+
                 window.updateSteps = function() {
                     steps.forEach(s => {
                         const stepNum = parseInt(s.getAttribute('data-step'));
                         s.classList.toggle('active', stepNum === currentStep);
                     });
+                    
+                    // Adjust container width dynamically for split-screen detail validation
+                    const container = document.querySelector('.onboarding-container');
+                    if (container) {
+                        if (currentStep === 2 && flow === 'existing-co') {
+                            container.style.maxWidth = '1200px';
+                        } else {
+                            container.style.maxWidth = '900px';
+                        }
+                    }
                     
                     // Update dots
                     for (let i = 1; i <= totalSteps; i++) {
@@ -671,66 +738,463 @@
                             }
                         }
                     }
-                };
 
-                window.nextStep = function() {
-                    if (currentStep < totalSteps) {
-                        currentStep++;
-                        window.updateSteps();
+                    // Re-render PDF page with a slight delay when transitioning to Step 2
+                    // to ensure container resizing is complete and canvas doesn't render blank.
+                    if (currentStep === 2 && flow === 'existing-co') {
+                        setTimeout(() => {
+                            if (pdfDoc) {
+                                window.renderPdfPage(currentPdfPage);
+                            }
+                        }, 150);
                     }
-                };
-
-                window.prevStep = function() {
-                    if (currentStep > 1) {
-                        currentStep--;
-                        window.updateSteps();
-                    }
-                };
-
-                window.goToStep = function(s) {
-                    currentStep = s;
-                    window.updateSteps();
-                };
-
-                window.skipExtraction = function() {
-                    currentStep = 2;
-                    window.updateSteps();
                 };
 
                 window.handleFileSelect = function(e) {
                     const file = e.target.files[0];
                     if (file) {
+                        window.uploadedFileObject = file;
                         const filenameDisplay = document.getElementById('uploaded-filename');
                         if (filenameDisplay) filenameDisplay.innerText = file.name;
-                        window.simulateExtraction();
+                        
+                        // Hide placeholder, show canvas container
+                        const placeholder = document.getElementById('pdf-placeholder-msg');
+                        const canvas = document.getElementById('pdf-preview-canvas');
+                        if (placeholder) placeholder.classList.add('hidden');
+                        if (canvas) canvas.classList.remove('hidden');
+
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            const arrayBuffer = event.target.result;
+                            window.processPdfFile(arrayBuffer, file);
+                        };
+                        reader.readAsArrayBuffer(file);
                     }
                 };
 
-                window.simulateExtraction = function() {
+                window.processPdfFile = async function(arrayBuffer, file) {
+                    window.uploadedFileObject = file;
+                    const idle = document.getElementById('upload-idle');
+                    const processing = document.getElementById('upload-processing');
+                    const success = document.getElementById('upload-success');
+                    const continueBtn = document.getElementById('bizfile-continue');
+
+                    if (idle) idle.classList.add('hidden');
+                    if (processing) processing.classList.remove('hidden');
+
+                    try {
+                        if (!window.pdfjsLib) throw new Error("PDF.js library is not loaded.");
+                        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+                        pdfDoc = await loadingTask.promise;
+                        currentPdfPage = 1;
+                        window.renderPdfPage(1);
+
+                        // Extract text from PDF
+                        let fullText = "";
+                        for (let i = 1; i <= pdfDoc.numPages; i++) {
+                            const page = await pdfDoc.getPage(i);
+                            const textContent = await page.getTextContent();
+                            const pageText = textContent.items.map(item => item.str).join(" ");
+                            fullText += pageText + "\n";
+                        }
+                        
+                        if (fullText.trim().length < 50) {
+                            throw new Error("PDF contains no extractable text (likely scanned).");
+                        }
+                        
+                        window.parseBizfileText(fullText, file);
+
+                        if (processing) processing.classList.add('hidden');
+                        if (success) success.classList.remove('hidden');
+                        // Enable Continue button now that a file was uploaded successfully
+                        if (continueBtn) {
+                            continueBtn.removeAttribute('disabled');
+                            continueBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+                        }
+
+                    } catch (err) {
+                        console.error("Error reading PDF file:", err);
+                        window.handleFailedExtraction(file);
+                    }
+                };
+
+                window.renderPdfPage = function(pageNum) {
+                    if (!pdfDoc) return;
+                    pdfDoc.getPage(pageNum).then(page => {
+                        const canvas = document.getElementById('pdf-preview-canvas');
+                        if (!canvas) return;
+                        const context = canvas.getContext('2d');
+                        
+                        // Get container width to scale canvas dynamically
+                        const container = canvas.parentElement;
+                        const containerWidth = container ? container.clientWidth - 16 : 400;
+                        
+                        const viewport = page.getViewport({ scale: 1.0 });
+                        const scale = containerWidth / viewport.width;
+                        const scaledViewport = page.getViewport({ scale: scale });
+                        
+                        canvas.height = scaledViewport.height;
+                        canvas.width = scaledViewport.width;
+
+                        const renderContext = {
+                            canvasContext: context,
+                            viewport: scaledViewport
+                        };
+                        page.render(renderContext);
+                        
+                        const pageNumDisplay = document.getElementById('pdf-page-num');
+                        if (pageNumDisplay) pageNumDisplay.innerText = `${pageNum} / ${pdfDoc.numPages}`;
+                    });
+                };
+
+                window.prevPdfPage = function() {
+                    if (pdfDoc && currentPdfPage > 1) {
+                        currentPdfPage--;
+                        window.renderPdfPage(currentPdfPage);
+                    }
+                };
+
+                window.nextPdfPage = function() {
+                    if (pdfDoc && currentPdfPage < pdfDoc.numPages) {
+                        currentPdfPage++;
+                        window.renderPdfPage(currentPdfPage);
+                    }
+                };
+
+                // Modal PDF Viewer controls
+                let currentModalPdfPage = 1;
+
+                window.openPdfModal = function() {
+                    if (!pdfDoc) {
+                        alert("No ACRA Bizfile has been uploaded yet.");
+                        return;
+                    }
+                    const modal = document.getElementById('pdf-viewer-modal');
+                    if (modal) {
+                        modal.classList.remove('hidden');
+                        setTimeout(() => {
+                            modal.classList.add('opacity-100');
+                            const transformEl = modal.querySelector('.transform');
+                            if (transformEl) {
+                                transformEl.classList.remove('scale-95');
+                                transformEl.classList.add('scale-100');
+                            }
+                        }, 10);
+                        currentModalPdfPage = 1;
+                        window.renderModalPdfPage(1);
+                    }
+                };
+
+                window.closePdfModal = function() {
+                    const modal = document.getElementById('pdf-viewer-modal');
+                    if (modal) {
+                        modal.classList.remove('opacity-100');
+                        const transformEl = modal.querySelector('.transform');
+                        if (transformEl) {
+                            transformEl.classList.remove('scale-100');
+                            transformEl.classList.add('scale-95');
+                        }
+                        setTimeout(() => {
+                            modal.classList.add('hidden');
+                        }, 300);
+                    }
+                };
+
+                window.renderModalPdfPage = function(pageNum) {
+                    if (!pdfDoc) return;
+                    pdfDoc.getPage(pageNum).then(page => {
+                        const canvas = document.getElementById('modal-pdf-canvas');
+                        if (!canvas) return;
+                        const context = canvas.getContext('2d');
+                        
+                        // Get container size
+                        const container = canvas.parentElement;
+                        const containerWidth = container ? container.clientWidth - 32 : 550;
+                        
+                        const viewport = page.getViewport({ scale: 1.0 });
+                        const scale = containerWidth / viewport.width;
+                        const scaledViewport = page.getViewport({ scale: scale });
+                        
+                        canvas.height = scaledViewport.height;
+                        canvas.width = scaledViewport.width;
+
+                        const renderContext = {
+                            canvasContext: context,
+                            viewport: scaledViewport
+                        };
+                        page.render(renderContext);
+                        
+                        const pageNumDisplay = document.getElementById('modal-pdf-page-num');
+                        if (pageNumDisplay) pageNumDisplay.innerText = `${pageNum} / ${pdfDoc.numPages}`;
+                    });
+                };
+
+                window.prevModalPdfPage = function() {
+                    if (pdfDoc && currentModalPdfPage > 1) {
+                        currentModalPdfPage--;
+                        window.renderModalPdfPage(currentModalPdfPage);
+                    }
+                };
+
+                window.nextModalPdfPage = function() {
+                    if (pdfDoc && currentModalPdfPage < pdfDoc.numPages) {
+                        currentModalPdfPage++;
+                        window.renderModalPdfPage(currentModalPdfPage);
+                    }
+                };
+
+                window.parseBizfileText = function(text, file) {
+                    console.log("Extracted PDF text length:", text.length);
+                    
+                    const cleanStr = (str) => str ? str.trim().replace(/\s+/g, ' ') : "";
+
+                    // 1. Company Name
+                    let companyName = "";
+                    let nameMatch = text.match(/BUSINESS PROFILE\s*(?:\([^)]+\))?\s*OF\s+([^\n\r:(]+)/i) || 
+                                    text.match(/Entity Name\s*:?\s*([^\n\r:(]+)/i) || 
+                                    text.match(/Company Name\s*:?\s*([^\n\r:(]+)/i) ||
+                                    text.match(/Name\s*:?\s*([^\n\r:(]+)/i);
+                    
+                    if (nameMatch && nameMatch[1]) {
+                        companyName = cleanStr(nameMatch[1]);
+                    } else {
+                        const lines = text.split('\n');
+                        for (let line of lines) {
+                            line = line.trim();
+                            if (/\b(?:PTE\.?\s*LTD\.?|LTD\.?|LIMITED)\b/i.test(line)) {
+                                if (!/address|position|shareholder|director|secretary|officer|registered|capital|charge|audit|receipt|date/i.test(line)) {
+                                    line = line.replace(/^(?:Name|Entity Name|Company Name)\s*(?::|\s)\s*/i, '');
+                                    companyName = cleanStr(line);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (companyName) {
+                        companyName = companyName.split(/\b(?:Date|UEN|Status|Incorporation|Registered|Address|Position|Director|Secretary)\b/i)[0].trim();
+                        companyName = companyName.replace(/\s*\(?[0-9]{8,9}[A-Z]\)?/gi, '');
+                        companyName = cleanStr(companyName);
+                    }
+
+                    // 2. UEN
+                    let uen = "";
+                    let uenMatch = text.match(/(?:Unique Entity Number|UEN)\s*(?:\(UEN\))?\s*:?\s*([TQS0-9][0-9]{7,8}[A-Z])/i) || 
+                                   text.match(/\b([TQS0-9][0-9]{7,8}[A-Z])\b/i);
+                    if (uenMatch && uenMatch[1]) {
+                        uen = cleanStr(uenMatch[1]).toUpperCase();
+                    }
+
+                    // 3. Incorporation Date
+                    let incorpDate = "";
+                    let dateMatch = text.match(/(?:Incorporation Date|Date of Incorporation|Registration Date)\s*:?\s*(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})/i) ||
+                                    text.match(/(?:Incorporation Date|Date of Incorporation|Registration Date)\s*:?\s*(\d{1,2}[/\-\s]\d{1,2}[/\-\s]\d{4})/i) ||
+                                    text.match(/(?:Incorporation Date|Date of Incorporation|Registration Date)\s*:?\s*([^\n\r:]+)/i);
+                    if (dateMatch && dateMatch[1]) {
+                        incorpDate = cleanStr(dateMatch[1]);
+                    } else {
+                        const lines = text.split('\n');
+                        const dateRegex = /\b\d{1,2}[\/\-\s](?:\d{1,2}|[A-Za-z]{3,9})[\/\-\s]\d{4}\b/g;
+                        for (let line of lines) {
+                            if (/incorporation|registration|incorp/i.test(line)) {
+                                let dm = line.match(dateRegex);
+                                if (dm) {
+                                    incorpDate = cleanStr(dm[0]);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (incorpDate) {
+                        incorpDate = incorpDate.split(/\b(?:Company|Type|Share|Status|Registered|Address|Position|Director|Secretary)\b/i)[0].trim();
+                        incorpDate = cleanStr(incorpDate);
+                    }
+
+                    // 4. Officers (Directors & Secretaries)
+                    let directors = [];
+                    let secretaries = [];
+                    
+                    let officersSection = text;
+                    const startOfficersIdx = text.search(/Officers' Details|Officers/i);
+                    const endOfficersIdx = text.search(/Shareholders' Details|Shareholder\(s\)|Shareholders|Members' Details/i);
+                    if (startOfficersIdx !== -1) {
+                        if (endOfficersIdx !== -1 && endOfficersIdx > startOfficersIdx) {
+                            officersSection = text.slice(startOfficersIdx, endOfficersIdx);
+                        } else {
+                            officersSection = text.slice(startOfficersIdx);
+                        }
+                    }
+
+                    const officerBlocks = officersSection.split(/\bName\s*(?::|\s)\s*/i);
+                    for (let i = 1; i < officerBlocks.length; i++) {
+                        const block = officerBlocks[i];
+                        const nameLine = block.split('\n')[0].trim();
+                        let name = nameLine.split(/\b(?:Address|ID Number|Position|Nationality|Date|Source|Sex)\b/i)[0].trim().replace(/^:/, '').trim();
+                        name = cleanStr(name).toUpperCase();
+
+                        let position = "";
+                        const posMatch = block.match(/Position\s*(?::|\s)?\s*([^\n\r:]+)/i) || 
+                                         block.match(/Position\(s\)\s*(?::|\s)?\s*([^\n\r:]+)/i);
+                        if (posMatch && posMatch[1]) {
+                            position = posMatch[1].trim();
+                        } else {
+                            if (/Director/i.test(block)) {
+                                position = "Director";
+                            } else if (/Secretary/i.test(block)) {
+                                position = "Secretary";
+                            }
+                        }
+
+                        if (name && position && !/SHAREHOLDERS|OFFICERS|DIRECTORS|CHARGES|CAPITAL|MEMBERS/i.test(name)) {
+                            const isDirector = /Director/i.test(position);
+                            const isSecretary = /Secretary|Sec/i.test(position);
+                            if (isDirector) {
+                                if (!directors.some(d => d.name === name)) {
+                                    directors.push({ name, role: "Director" });
+                                }
+                            } else if (isSecretary) {
+                                if (!secretaries.some(s => s.name === name)) {
+                                    secretaries.push({ name, role: "Secretary" });
+                                }
+                            }
+                        }
+                    }
+
+                    // 5. Shareholders
+                    let shareholders = [];
+                    let shareholdersSection = text;
+                    const startSharesIdx = text.search(/Shareholders' Details|Shareholder\(s\)|Shareholders|Members' Details|Shareholder Details/i);
+                    if (startSharesIdx !== -1) {
+                        shareholdersSection = text.slice(startSharesIdx);
+                    } else {
+                        const endIdx = text.search(/Officers' Details|Officers/i);
+                        if (endIdx !== -1) {
+                            shareholdersSection = text.slice(0, endIdx);
+                        }
+                    }
+
+                    const shareholderBlocks = shareholdersSection.split(/\bName\s*(?::|\s)\s*/i);
+                    for (let i = 1; i < shareholderBlocks.length; i++) {
+                        const block = shareholderBlocks[i];
+                        const nameLine = block.split('\n')[0].trim();
+                        let name = nameLine.split(/\b(?:Address|ID Number|Position|Nationality|Date|Number of Shares|Ordinary Shares|Shares|Allotment|Currency|Share Type)\b/i)[0].trim().replace(/^:/, '').trim();
+                        name = cleanStr(name).toUpperCase();
+
+                        if (!name || /SHAREHOLDERS|OFFICERS|DIRECTORS|CHARGES|CAPITAL|MEMBERS/i.test(name)) continue;
+
+                        let shares = "";
+                        const sharesMatch = block.match(/(?:Number of Shares|Ordinary|Preference|Shares|Capital)\s*(?::|\s)?\s*([0-9,]+)/i) ||
+                                            block.match(/\b([0-9,]+)\s*(?:Ordinary|Shares|Preference)/i) ||
+                                            block.match(/(?:Number of Shares|Shares)\s+([0-9,]+)/i);
+                        if (sharesMatch && sharesMatch[1]) {
+                            shares = cleanStr(sharesMatch[1]);
+                        } else {
+                            const numMatches = block.match(/\b\d{1,3}(?:,\d{3})+\b/) || block.match(/\b\d{2,10}\b/);
+                            if (numMatches) {
+                                shares = numMatches[0];
+                            }
+                        }
+
+                        if (!shares) shares = "0";
+
+                        if (!shareholders.some(s => s.name === name)) {
+                            shareholders.push({ name, shares });
+                        }
+                    }
+
+                    // Pre-fill inputs
+                    const compInput = document.getElementById('ext-company-name');
+                    const uenInput = document.getElementById('ext-uen');
+                    const dateInput = document.getElementById('ext-incorp-date');
+                    const countryInput = document.getElementById('ext-country');
+                    
+                    if (compInput) compInput.value = companyName;
+                    if (uenInput) uenInput.value = uen;
+                    if (dateInput) dateInput.value = incorpDate;
+                    if (countryInput) countryInput.value = "Singapore";
+                    
+                };
+
+                window.handleFailedExtraction = function(file) {
+                    window.uploadedFileObject = file;
                     const idle = document.getElementById('upload-idle');
                     const processing = document.getElementById('upload-processing');
                     const success = document.getElementById('upload-success');
                     const continueBtn = document.getElementById('bizfile-continue');
                     const compInput = document.getElementById('ext-company-name');
                     const uenInput = document.getElementById('ext-uen');
+                    const dateInput = document.getElementById('ext-incorp-date');
+                    const countryInput = document.getElementById('ext-country');
 
                     if (idle) idle.classList.add('hidden');
-                    if (processing) processing.classList.remove('hidden');
+                    if (processing) processing.classList.add('hidden');
+                    
+                    if (success) {
+                        success.classList.remove('hidden');
+                        success.innerHTML = `
+                            <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-4">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-alert-circle"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            </div>
+                            <p class="font-bold text-amber-600">Uploaded (Scanned/Unreadable)</p>
+                            <p class="text-[10px] text-slate-400 mt-2 max-w-[220px] mx-auto">Text extraction failed. Please review and fill in the details manually.</p>
+                        `;
+                    }
 
-                    setTimeout(() => {
-                        if (processing) processing.classList.add('hidden');
-                        if (success) success.classList.remove('hidden');
-                        
-                        // Pre-fill data
-                        if (compInput) compInput.value = "TechNova Singapore Pte Ltd";
-                        if (uenInput) uenInput.value = "202401234M";
-                        
-                        if (continueBtn) continueBtn.classList.remove('opacity-50', 'pointer-events-none');
-                        
-                        setTimeout(() => {
-                            window.nextStep();
-                        }, 1500);
-                    }, 3000);
+                    // Extract name from filename as a minor helper, but leave other fields blank
+                    let companyName = "";
+                    if (file && file.name) {
+                        let nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+                        nameWithoutExt = nameWithoutExt.replace(/[_-]/g, ' ').replace(/bizprofile/gi, '').replace(/acra/gi, '').replace(/bizfile/gi, '').trim();
+                        if (nameWithoutExt.length > 0) {
+                            companyName = nameWithoutExt.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                            if (!companyName.toLowerCase().includes('pte') && !companyName.toLowerCase().includes('ltd')) {
+                                companyName += " Pte Ltd";
+                            }
+                        }
+                    }
+
+                    if (compInput) compInput.value = companyName;
+                    if (uenInput) uenInput.value = "";
+                    if (dateInput) dateInput.value = "";
+                    if (countryInput) countryInput.value = "Singapore";
+
+                    // Do not fill with dummy data names, leave lists empty
+
+                    // Enable Continue button on failed extraction (file IS uploaded, just unreadable)
+                    if (continueBtn) {
+                        continueBtn.removeAttribute('disabled');
+                        continueBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+                    }
+                };
+
+                window.downloadUploadedPdf = function() {
+                    if (!window.uploadedFileObject) {
+                        alert("No ACRA Bizfile uploaded yet.");
+                        return;
+                    }
+                    const url = URL.createObjectURL(window.uploadedFileObject);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = window.uploadedFileObject.name || 'ACRA_Bizfile.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                };
+
+                window.redirectToPricing = function() {
+                    const selectedCards = document.querySelectorAll('#flow-existing-co .flow-step[data-step="3"] .service-card.selected');
+                    if (selectedCards.length === 0) {
+                        // Show inline error - should not reach here due to button guard, but safety net
+                        const btn = document.getElementById('service-continue-btn');
+                        if (btn) {
+                            btn.innerText = 'Select at least one service';
+                            setTimeout(() => { btn.innerText = 'Continue'; }, 2000);
+                        }
+                        return;
+                    }
+                    const services = Array.from(selectedCards).map(card => card.getAttribute('data-service')).filter(Boolean);
+                    // Direct redirect to pricing.html with the selected services query parameter
+                    window.location.href = `/pricing.html?services=${encodeURIComponent(services.join(','))}&from=onboarding`;
                 };
 
                 window.finishOnboarding = function() {
@@ -739,7 +1203,7 @@
 
                     if (currentFlow === 'client') {
                         const selectedServices = [];
-                        document.querySelectorAll('#flow-client .flow-step[data-step="4"] .service-card.selected').forEach(card => {
+                        document.querySelectorAll('#flow-client .flow-step[data-step="2"] .service-card.selected').forEach(card => {
                             const name = card.getAttribute('data-service');
                             const time = card.getAttribute('data-time');
                             if (name && time) {
@@ -751,7 +1215,7 @@
                         localStorage.setItem('pending_services', JSON.stringify(selectedServices));
                         
                         window.renderWaitingServices();
-                        window.goToStep(5);
+                        window.goToStep(3);
                     } else {
                         alert('Your request has been submitted to Globalisor team. We will reach out to you within 1-2 hours.');
                         window.location.href = '/';
@@ -763,6 +1227,65 @@
                 console.error('Onboarding Init Error:', err);
             }
         });
+
+        // Client Verification Modal Functions
+        window.openClientVerificationModal = function() {
+            const summaryEl = document.getElementById('cv-summary');
+            const stored = localStorage.getItem('pending_services');
+            let lines = [];
+            if (stored) {
+                try {
+                    const services = JSON.parse(stored);
+                    if (services.length > 0) {
+                        services.forEach(s => {
+                            lines.push(`<div class="flex justify-between items-center py-1 border-b border-slate-100"><span class="font-medium">${s.name}</span><span class="font-bold text-blue-600 text-xs">Est. ${s.time}</span></div>`);
+                        });
+                    }
+                } catch(e) {}
+            }
+            if (lines.length === 0) {
+                lines.push(`<p class="text-slate-500 text-sm">Service request pending Globalisor confirmation.</p>`);
+            }
+            if (summaryEl) summaryEl.innerHTML = lines.join('');
+
+            const modal = document.getElementById('client-verification-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.style.opacity = '0';
+                requestAnimationFrame(() => { modal.style.transition = 'opacity 0.3s'; modal.style.opacity = '1'; });
+            }
+        };
+
+        window.closeClientVerificationModal = function() {
+            const modal = document.getElementById('client-verification-modal');
+            if (modal) {
+                modal.style.opacity = '0';
+                setTimeout(() => modal.classList.add('hidden'), 300);
+            }
+        };
+
+        window.confirmClientVerification = function() {
+            const btn = document.getElementById('cv-confirm-btn');
+            if (btn) { btn.disabled = true; btn.innerText = 'Submitting...'; }
+
+            setTimeout(() => {
+                const iconWrap = document.getElementById('cv-icon-wrap');
+                const title = document.getElementById('cv-title');
+                const desc = document.getElementById('cv-desc');
+                const summary = document.getElementById('cv-summary');
+                const actions = document.getElementById('cv-actions');
+
+                if (iconWrap) {
+                    iconWrap.classList.remove('bg-blue-50','text-blue-600');
+                    iconWrap.classList.add('bg-emerald-50','text-emerald-600');
+                    iconWrap.innerHTML = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+                }
+                if (title) title.innerText = 'Submitted Successfully!';
+                if (desc) desc.innerHTML = 'Your request has been sent to the Globalisor team. We will review your details and contact you within <strong>1-2 business hours</strong>.';
+                if (summary) summary.classList.add('hidden');
+                if (actions) actions.innerHTML = `<button onclick="window.location.href='/'" class="w-full py-3 px-6 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold transition-all shadow-lg">Return Home</button>`;
+            }, 1200);
+        };
     </script>
 </body>
 </html>

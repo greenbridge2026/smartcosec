@@ -21,11 +21,17 @@ const services = [
 ];
 
 async function init() {
+    // If we are on the landing page, reset the clicked flags
+    const isLandingPage = window.location.pathname === '/' || window.location.pathname === '/index.html' || window.location.pathname.endsWith('/');
+    if (isLandingPage) {
+        localStorage.removeItem('singapore_clicked');
+        localStorage.removeItem('country_clicked');
+    }
+
     const grid = document.getElementById('services-grid');
     const journeyContainer = document.getElementById('journey-container');
     const journeyProgressBar = document.getElementById('journey-progress-bar');
-    const timelineProgress = document.getElementById('timeline-progress');
-    const timelineContainer = document.querySelector('.timeline-container') || document.querySelector('.process-section');
+
 
     // 1. Inject Services
     if (grid) {
@@ -94,44 +100,11 @@ async function init() {
 
     window.addEventListener('scroll', () => {
         updatePricingSidebarVisibility();
-
-        if (window.innerWidth <= 1024) {
-            document.querySelectorAll('.timeline-item').forEach(step => step.classList.add('active'));
-            return;
-        }
-
-        const processSection = document.querySelector('.process-section');
-        if (processSection && timelineProgress) {
-            const rect = processSection.getBoundingClientRect();
-            const scrollTotal = rect.height - window.innerHeight;
-            let progress = 0;
-            if (scrollTotal > 0) {
-                progress = -rect.top / scrollTotal;
-                progress = Math.max(0, Math.min(1, progress));
-            }
-            timelineProgress.style.height = `${progress * 100}%`;
-            const steps = document.querySelectorAll('.timeline-item');
-            const totalSteps = steps.length;
-            if (totalSteps > 0) {
-                let activeIndex = Math.floor(progress * totalSteps);
-                activeIndex = Math.min(activeIndex, totalSteps - 1);
-                steps.forEach((step, index) => {
-                    step.classList.toggle('active', index === activeIndex);
-                });
-            }
-        }
     });
 
     window.addEventListener('resize', () => {
         updatePricingSidebarVisibility();
-        if (window.innerWidth <= 1024) {
-            document.querySelectorAll('.timeline-item').forEach(step => step.classList.add('active'));
-        }
     });
-
-    if (window.innerWidth <= 1024) {
-        document.querySelectorAll('.timeline-item').forEach(step => step.classList.add('active'));
-    }
 
     // 4. Chatbot Window Toggle
     const chatbotTrigger = document.getElementById('chatbot-trigger');
@@ -685,22 +658,23 @@ async function init() {
             const status = card.dataset.status;
             
             if (status === 'new') {
-                const token = localStorage.getItem('token');
-                if (token) {
-                    window.location.href = '/requirements.html';
-                } else {
-                    window.location.href = '/auth.html';
-                }
+                // Store intent so after sign-in the user is redirected to pricing
+                localStorage.setItem('post_auth_redirect', '/pricing.html');
+                window.location.href = '/auth.html?mode=signup';
                 return;
             }
 
             if (status === 'existing') {
-                window.location.href = '/onboarding.html?flow=existing-co';
+                // Store intent so after sign-in the user is redirected to the correct onboarding flow
+                localStorage.setItem('post_auth_redirect', '/onboarding.html?flow=existing-co');
+                window.location.href = '/auth.html?mode=signup';
                 return;
             }
 
             if (status === 'client') {
-                window.location.href = '/onboarding.html?flow=client';
+                // Existing clients must sign in first
+                localStorage.setItem('post_auth_redirect', '/onboarding.html?flow=client');
+                window.location.href = '/auth.html';
                 return;
             }
 
@@ -1347,17 +1321,14 @@ async function init() {
                 mapCaption.classList.add('show');
             });
 
-            // Handle click redirection to details modal
+            // Handle click redirection to choose service page
             item.addEventListener('click', () => {
                 const name = item.getAttribute('data-name');
                 const countryObj = activeCountries.find(c => c.name === name);
                 if (countryObj) {
-                    if (name.toLowerCase() === 'singapore') {
-                        localStorage.setItem('selected_country_detail', JSON.stringify(countryObj));
-                        window.location.href = '/pricing.html';
-                    } else {
-                        window.openCountryDetailModal(countryObj);
-                    }
+                    localStorage.setItem('country_clicked', 'true');
+                    localStorage.setItem('singapore_clicked', 'true');
+                    window.location.href = '/choose-service.html';
                 }
             });
         });
@@ -1403,6 +1374,25 @@ async function init() {
                     targetEl.scrollIntoView({
                         behavior: 'smooth'
                     });
+
+                    if (targetId === 'service-selection') {
+                        const card = document.querySelector('.status-card[data-status="new"]');
+                        if (card) {
+                            card.classList.remove('blink-blue');
+                            void card.offsetWidth; // force reflow
+                            card.classList.add('blink-blue');
+                            setTimeout(() => {
+                                card.classList.remove('blink-blue');
+                            }, 2000);
+                        }
+                    } else if (targetId === 'worldwide-presence') {
+                        const sgItem = document.querySelector('.country-chip[data-country="singapore"]');
+                        if (sgItem) {
+                            setTimeout(() => {
+                                sgItem.dispatchEvent(new Event('mouseenter'));
+                            }, 500);
+                        }
+                    }
                 }
             }
         });
@@ -1428,9 +1418,46 @@ async function init() {
             }
         }
     }
+
+    // Scroll and flash the start new company card if hash is #service-selection on load
+    if (window.location.hash === '#service-selection') {
+        const targetEl = document.getElementById('service-selection');
+        if (targetEl) {
+            setTimeout(() => {
+                targetEl.scrollIntoView({ behavior: 'smooth' });
+                const card = document.querySelector('.status-card[data-status="new"]');
+                if (card) {
+                    card.classList.remove('blink-blue');
+                    void card.offsetWidth; // force reflow
+                    card.classList.add('blink-blue');
+                    setTimeout(() => {
+                        card.classList.remove('blink-blue');
+                    }, 2000);
+                }
+            }, 500);
+        }
+    }
+
+    // Scroll and activate Singapore if hash is #worldwide-presence on load
+    if (window.location.hash === '#worldwide-presence') {
+        const targetEl = document.getElementById('worldwide-presence');
+        if (targetEl) {
+            setTimeout(() => {
+                targetEl.scrollIntoView({ behavior: 'smooth' });
+                const sgItem = document.querySelector('.country-chip[data-country="singapore"]');
+                if (sgItem) {
+                    sgItem.dispatchEvent(new Event('mouseenter'));
+                }
+            }, 500);
+        }
+    }
 }
 
 window.openCountryDetailModal = function(country) {
+    localStorage.setItem('country_clicked', 'true');
+    localStorage.setItem('singapore_clicked', 'true');
+    window.location.href = '/choose-service.html';
+    return;
     const modal = document.getElementById('country-detail-modal');
     if (!modal) return;
     
