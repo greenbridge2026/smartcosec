@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/src/tailwind.css">
     <style>
-        body { font-family: 'Outfit', sans-serif; background-color: #f8fafc; }
+        body { font-family: 'Outfit', sans-serif; background-color: #ffffff; }
         .glass-panel {
             background: rgba(255, 255, 255, 0.9);
             backdrop-filter: blur(10px);
@@ -76,6 +76,7 @@
                 const acc = localAccounts.find(a => a.email.toLowerCase() === email.toLowerCase() && a.password === password);
                 if (acc) {
                     localStorage.setItem('staff_auth', JSON.stringify({
+                        id: acc.id || ('staff-' + acc.email.split('@')[0].replace('.', '-')),
                         role: 'staff',
                         email: acc.email,
                         name: acc.firstName + ' ' + acc.lastName,
@@ -107,6 +108,7 @@
                     const data = await response.json();
                     if (data.role === 'STAFF') {
                         localStorage.setItem('staff_auth', JSON.stringify({ 
+                            id: data.id || ('staff-' + data.email.split('@')[0].replace('.', '-')),
                             role: 'staff', 
                             email: data.email, 
                             name: data.firstName + ' ' + data.lastName,
@@ -125,7 +127,8 @@
                         // let them in using their email prefix as their name for testing purposes.
                         const nameParts = email.split('@')[0].split('.');
                         const name = nameParts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ') || 'Staff Member';
-                        localStorage.setItem('staff_auth', JSON.stringify({ role: 'staff', email: email, name: name }));
+                        const id = 'staff-' + email.split('@')[0].replace('.', '-');
+                        localStorage.setItem('staff_auth', JSON.stringify({ id: id, role: 'staff', email: email, name: name }));
                         window.location.href = '/staff/dashboard.html';
                     }
                 }
@@ -137,7 +140,8 @@
                     // FORGIVING MOCK LOGIN
                     const nameParts = email.split('@')[0].split('.');
                     const name = nameParts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ') || 'Staff Member';
-                    localStorage.setItem('staff_auth', JSON.stringify({ role: 'staff', email: email, name: name }));
+                    const id = 'staff-' + email.split('@')[0].replace('.', '-');
+                    localStorage.setItem('staff_auth', JSON.stringify({ id: id, role: 'staff', email: email, name: name }));
                     window.location.href = '/staff/dashboard.html';
                 }
             }

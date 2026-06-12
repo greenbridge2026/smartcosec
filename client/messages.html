@@ -1,17 +1,64 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Support Desk | Globalisor Client</title>
+    <title>Enterprise Workspace | Globalisor Client</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/src/tailwind.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <link rel="stylesheet" href="portal-style.css">
-    <script type="module" src="client-sidebar.js"></script>
+    <style>
+        body { 
+            font-family: 'Outfit', sans-serif;
+            background: #f8fafc;
+            min-height: 100vh;
+            overflow-x: hidden; 
+        }
+        .top-nav { height: 60px; background: #ffffff; backdrop-filter: blur(20px); border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1.5rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
+        .main-container { padding: 1.5rem; max-width: 1800px; margin-left: 240px !important; margin-right: auto; }
+        .module-nav-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #64748b; transition: all 0.2s; cursor: pointer !important; border: none; background: transparent; white-space: nowrap; width: 100% !important; box-sizing: border-box !important; }
+        .module-nav-btn:hover { color: #0f172a; background: #ffffff; }
+        .module-nav-btn.active { color: #0f172a; background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        
+        .top-nav > div:nth-child(2), #module-switcher {
+            position: fixed !important;
+            top: 60px !important;
+            left: 0 !important;
+            width: 240px !important;
+            height: calc(100vh - 60px) !important;
+            background: #ffffff !important;
+            backdrop-filter: blur(20px) !important;
+            border-right: 1px solid #e2e8f0 !important;
+            border-top: none !important;
+            border-left: none !important;
+            border-bottom: none !important;
+            border-radius: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            padding: 1.5rem 1rem !important;
+            gap: 0.5rem !important;
+            align-items: stretch !important;
+            justify-content: flex-start !important;
+            z-index: 9998 !important;
+            box-shadow: none !important;
+        }
+        .ws-filter-btn.active {
+            background: #eff6ff !important;
+            color: #1d4ed8 !important;
+        }
+        .ws-filter-btn.active i {
+            color: #1d4ed8 !important;
+        }
+        .reaction-popover {
+            display: none !important;
+        }
+        .message-bubble:hover .reaction-popover {
+            display: flex !important;
+        }
+    </style>
+    <script src="/messages-enhancements.js"></script>
     <script>
         const authString = localStorage.getItem('client_auth');
         if (!authString) {
@@ -38,214 +85,1999 @@
     </script>
 </head>
 <body>
-
     <nav class="top-nav">
-        <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='portal.html'">
-            <div class="flex flex-col leading-none">
+        <div class="flex items-center gap-4">
+            <div class="flex flex-col leading-none cursor-pointer" onclick="window.location.href='portal.html'">
                 <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Client</span>
                 <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Portal</span>
             </div>
         </div>
-
         <div id="module-switcher" class="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-white/80">
-            <button onclick="window.location.href='portal.html?tab=home'" class="module-nav-btn" id="nav-home"><i data-lucide="layout-grid" class="w-4 h-4"></i> <span>Dashboard</span></button>
-            <button onclick="window.location.href='portal.html?tab=services'" class="module-nav-btn" id="nav-services"><i data-lucide="activity" class="w-4 h-4"></i> <span>Workflows</span></button>
-            <button onclick="window.location.href='portal.html?tab=documents'" class="module-nav-btn" id="nav-documents"><i data-lucide="shield-check" class="w-4 h-4"></i> <span>Vault</span></button>
-            <button onclick="window.location.href='portal.html?tab=billing'" class="module-nav-btn" id="nav-billing"><i data-lucide="credit-card" class="w-4 h-4"></i> <span>Billing</span></button>
-            <button onclick="window.location.href='portal.html?tab=guidance'" class="module-nav-btn" id="nav-guidance"><i data-lucide="book-open" class="w-4 h-4"></i> <span>Guidance</span></button>
-            <button onclick="window.location.href='portal.html?tab=updates'" class="module-nav-btn" id="nav-updates"><i data-lucide="zap" class="w-4 h-4"></i> <span>Blogs</span></button>
-            <button onclick="window.location.href='messages.html'" class="module-nav-btn active" id="nav-messages"><i data-lucide="message-square" class="w-4 h-4"></i> <span>Messages</span></button>
+            <button onclick="window.location.href='portal.html?tab=home'" class="module-nav-btn" id="nav-home"><i data-lucide="layout-grid" class="w-4 h-4 shrink-0"></i> Dashboard</button>
+            <button onclick="window.location.href='portal.html?tab=services'" class="module-nav-btn" id="nav-services"><i data-lucide="activity" class="w-4 h-4 shrink-0"></i> Workflows</button>
+            <button onclick="window.location.href='portal.html?tab=documents'" class="module-nav-btn" id="nav-documents"><i data-lucide="shield-check" class="w-4 h-4 shrink-0"></i> Vault</button>
+            <button onclick="window.location.href='portal.html?tab=billing'" class="module-nav-btn" id="nav-billing"><i data-lucide="credit-card" class="w-4 h-4 shrink-0"></i> Billing</button>
+            <button onclick="window.location.href='portal.html?tab=guidance'" class="module-nav-btn" id="nav-guidance"><i data-lucide="book-open" class="w-4 h-4 shrink-0"></i> Guidance</button>
+            <button onclick="window.location.href='portal.html?tab=updates'" class="module-nav-btn" id="nav-updates"><i data-lucide="zap" class="w-4 h-4 shrink-0"></i> Blogs</button>
+            <button onclick="window.location.href='messages.html'" class="module-nav-btn active" id="nav-messages"><i data-lucide="message-square" class="w-4 h-4 shrink-0"></i> Messages</button>
         </div>
-
         <div class="flex items-center justify-end gap-3 relative">
+            <div id="client-presence-selector" class="relative mr-4">
+                <button onclick="togglePresenceMenu()" class="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors">
+                    <span id="current-presence-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    <span id="current-presence-text">Online</span>
+                </button>
+                <div id="presence-menu" class="hidden absolute top-8 right-0 bg-white border border-slate-150 rounded-xl shadow-xl w-32 p-1.5 z-[99999] flex flex-col gap-0.5">
+                    <button onclick="changePresence('online')" class="flex items-center gap-2 px-2 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 rounded-lg text-left border-0 bg-transparent cursor-pointer"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Online</button>
+                    <button onclick="changePresence('away')" class="flex items-center gap-2 px-2 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 rounded-lg text-left border-0 bg-transparent cursor-pointer"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Away</button>
+                    <button onclick="changePresence('busy')" class="flex items-center gap-2 px-2 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 rounded-lg text-left border-0 bg-transparent cursor-pointer"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> Busy</button>
+                    <button onclick="changePresence('offline')" class="flex items-center gap-2 px-2 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 rounded-lg text-left border-0 bg-transparent cursor-pointer"><span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span> Offline</button>
+                </div>
+            </div>
+            <button id="bell-btn" class="p-2 text-slate-600 hover:bg-white/60 rounded-full transition-colors relative border-0 bg-transparent cursor-pointer" onclick="toggleNotifs(event)" title="Notifications">
+                <i data-lucide="bell" class="w-5 h-5"></i>
+                <span id="notif-badge" class="absolute top-1 right-1 min-w-[16px] h-4 px-1 bg-red-500 rounded-full border-2 border-white text-[9px] font-bold text-white flex items-center justify-center hidden" style="line-height:12px;"></span>
+            </button>
+            <div id="notif-dropdown" class="absolute top-14 right-0 w-80 bg-white rounded-2xl border border-slate-100 shadow-2xl overflow-hidden hidden z-50 transition-all duration-200 transform origin-top-right scale-95 opacity-0">
+                <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <span class="text-xs font-bold text-slate-900 font-outfit">Notifications Center</span>
+                    <button onclick="markAllNotificationsAsRead(event)" class="text-[10px] text-blue-600 font-bold hover:underline border-0 bg-transparent cursor-pointer">Mark all read</button>
+                </div>
+                <div id="notif-list" class="max-h-[300px] overflow-y-auto divide-y divide-slate-50 font-outfit text-left">
+                    <div class="p-6 text-center text-slate-400 text-xs">No notifications yet</div>
+                </div>
+            </div>
             <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
-                <div class="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-slate-200">MA</div>
+                <div class="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-xs" id="user-avatar-text">MA</div>
                 <div class="flex flex-col">
-                    <span id="user-name" class="text-xs font-bold text-slate-900 leading-none mb-1">Mohammad Asif</span>
-                    <button onclick="localStorage.removeItem('client_auth'); localStorage.removeItem('token'); localStorage.removeItem('globalisor_master_v3'); window.location.href='/auth.html'" class="text-[10px] text-red-500 font-bold hover:underline text-left leading-none">Logout</button>
+                    <div class="text-xs font-semibold text-slate-800" id="user-name">Client User</div>
+                    <button onclick="localStorage.removeItem('client_auth'); localStorage.removeItem('token'); window.location.href='/auth.html'" class="text-[10px] text-red-500 font-bold hover:underline text-left leading-none border-0 bg-transparent cursor-pointer">Sign Out</button>
                 </div>
             </div>
         </div>
     </nav>
 
     <main class="main-container">
-        <div id="view-messages" class="grid grid-cols-12 gap-8 h-[calc(100vh-150px)]">
-            <!-- Sidebar: Conversation Context -->
-            <div class="col-span-4 bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl overflow-hidden flex flex-col shadow-sm">
-                <div class="p-8 border-b border-white/60">
-                    <h3 class="text-xl font-bold text-slate-900 tracking-tight mb-2">Support Desk</h3>
-                    <p class="text-sm text-slate-500 leading-relaxed">Direct communication with your dedicated account management team.</p>
-                </div>
-                <div class="flex-1 p-6 space-y-6">
-                    <div class="p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
-                        <div class="flex items-center gap-3 mb-3">
-                            <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-200">
-                                <i data-lucide="shield-check" class="w-5 h-5"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-sm text-slate-900 leading-none">Security Verified</h4>
-                                <span class="text-[10px] font-bold text-blue-600 uppercase tracking-widest">End-to-End Encrypted</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="space-y-4">
-                        <h5 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">Assigned Staff</h5>
-                        <div class="flex items-center gap-4 p-2">
-                            <div id="staff-avatar" class="w-10 h-10 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-slate-600 font-bold text-xs">U</div>
-                            <div>
-                                <div id="staff-name" class="text-sm font-bold text-slate-800">Unassigned</div>
-                                <div class="text-[10px] text-slate-500">Corporate Secretary</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Chat Area -->
-            <div class="col-span-8 bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl overflow-hidden flex flex-col shadow-sm">
-                <div class="p-6 border-b border-white/60 flex items-center justify-between bg-white/40">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold shadow-inner">G</div>
-                        <div>
-                            <h3 class="font-bold text-slate-900">Globalisor Operations</h3>
-                            <div class="flex items-center gap-1.5">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Now</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="chat-messages" class="flex-1 overflow-y-auto p-8 space-y-6 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:20px_20px]">
-                    <div class="text-center py-20">
-                        <i data-lucide="loader-2" class="w-8 h-8 animate-spin text-blue-200 mx-auto"></i>
-                    </div>
-                </div>
-
-                <div class="p-6 border-t border-white/60 bg-white/80 backdrop-blur-md">
-                    <form id="chat-form" class="flex gap-4">
-                        <input type="text" id="chat-input" placeholder="Type your message..." 
-                            class="flex-1 px-6 py-4 bg-white/50 border border-white/60 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all shadow-inner">
-                        <button type="submit" class="px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold text-sm shadow-xl shadow-blue-500/20 hover:scale-105 transition-all flex items-center gap-2">
-                            <span>Send</span> <i data-lucide="send" class="w-4 h-4"></i>
+        <div id="view-messages">
+            <div class="grid grid-cols-12 gap-6 h-[calc(100vh-140px)]">
+                <!-- Panel 1: Left Navigation & Filters (col-span-2) -->
+                <div class="col-span-2 bg-white border border-slate-200/80 rounded-3xl p-4 flex flex-col gap-1 shadow-sm shrink-0 overflow-y-auto">
+                    <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">Workspace</div>
+                    <button onclick="setWorkspaceFilter('all')" id="ws-all" class="ws-filter-btn active flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left border-0 bg-transparent cursor-pointer">
+                        <i data-lucide="message-square" class="w-4 h-4 text-slate-400 shrink-0"></i> All Support Channels
+                    </button>
+                    <button onclick="setWorkspaceFilter('dms')" id="ws-dms" class="ws-filter-btn flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left border-0 bg-transparent cursor-pointer">
+                        <i data-lucide="user" class="w-4 h-4 text-slate-400 shrink-0"></i> Direct Support
+                    </button>
+                    <div id="ws-groups" class="ws-filter-btn flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left cursor-pointer" onclick="setWorkspaceFilter('groups')">
+                        <span class="flex items-center gap-3"><i data-lucide="users" class="w-4 h-4 text-slate-400 shrink-0"></i> Team Channels</span>
+                        <button onclick="event.stopPropagation(); showCreateGroupModal();" class="p-1 hover:bg-blue-100 rounded-lg text-slate-400 hover:text-blue-700 transition-colors border-0 bg-transparent cursor-pointer" title="Create Group Channel">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
                         </button>
-                    </form>
+                    </div>
+                    <button onclick="setWorkspaceFilter('unread')" id="ws-unread" class="ws-filter-btn flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left justify-between border-0 bg-transparent cursor-pointer">
+                        <span class="flex items-center gap-3"><i data-lucide="mail" class="w-4 h-4 text-slate-400 shrink-0"></i> Unread</span>
+                        <span id="unread-total-badge" class="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
+                    </button>
+                    <button onclick="setWorkspaceFilter('starred')" id="ws-starred" class="ws-filter-btn flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left border-0 bg-transparent cursor-pointer">
+                        <i data-lucide="star" class="w-4 h-4 text-slate-400 shrink-0"></i> Starred Messages
+                    </button>
+                    <button onclick="setWorkspaceFilter('calls')" id="ws-calls" class="ws-filter-btn flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left border-0 bg-transparent cursor-pointer">
+                        <i data-lucide="phone" class="w-4 h-4 text-slate-400 shrink-0"></i> Call Logs
+                    </button>
+                    <button onclick="setWorkspaceFilter('files')" id="ws-files" class="ws-filter-btn flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left border-0 bg-transparent cursor-pointer">
+                        <i data-lucide="file-text" class="w-4 h-4 text-slate-400 shrink-0"></i> Vault Sharing
+                    </button>
+                    <button onclick="setWorkspaceFilter('archive')" id="ws-archive" class="ws-filter-btn flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left border-0 bg-transparent cursor-pointer">
+                        <i data-lucide="archive" class="w-4 h-4 text-slate-400 shrink-0"></i> Archive
+                    </button>
+                    <button onclick="setWorkspaceFilter('drafts')" id="ws-drafts" class="ws-filter-btn flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left border-0 bg-transparent cursor-pointer">
+                        <i data-lucide="edit" class="w-4 h-4 text-slate-400 shrink-0"></i> Drafts
+                    </button>
+                </div>
+
+                <!-- Panel 2: Center Conversation List (col-span-3) -->
+                <div class="col-span-3 bg-white border border-slate-200/80 rounded-3xl overflow-hidden flex flex-col shadow-sm">
+                    <!-- Search & Filter Area -->
+                    <div class="p-3 border-b border-slate-100 bg-slate-50/30 flex flex-col gap-2 shrink-0">
+                        <div class="relative">
+                            <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" id="chat-search" oninput="handleSearch(this.value)" placeholder="Search workspace..." class="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/10">
+                        </div>
+                        <div class="flex gap-2 justify-between">
+                            <select id="filter-role" onchange="handleRoleFilter(this.value)" class="text-[10px] font-bold text-slate-500 bg-white border border-slate-200 rounded px-1.5 py-1 focus:outline-none">
+                                <option value="all">All Channels</option>
+                                <option value="staff">Staff Assigned</option>
+                                <option value="admin">Support Team</option>
+                            </select>
+                            <select id="sort-by" onchange="handleSortChange(this.value)" class="text-[10px] font-bold text-slate-500 bg-white border border-slate-200 rounded px-1.5 py-1 focus:outline-none font-outfit">
+                                <option value="recent">Recent Active</option>
+                                <option value="name">Name A-Z</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- Queue list -->
+                    <div id="conversation-list" class="flex-1 overflow-y-auto">
+                        <div class="p-10 text-center text-slate-400 text-xs">Loading support channels...</div>
+                    </div>
+                </div>
+
+                <!-- Panel 3: Right Active Chat & Details (col-span-7) -->
+                <div class="col-span-7 bg-white border border-slate-200/80 rounded-3xl overflow-hidden flex shadow-sm relative">
+                    <!-- Main Chat Window Area -->
+                    <div id="chat-window-content" class="flex-1 flex flex-col h-full overflow-hidden">
+                        <div class="flex-1 flex flex-col items-center justify-center p-12 text-center text-slate-400">
+                            <div class="w-20 h-20 bg-blue-50 text-blue-300 rounded-3xl flex items-center justify-center mb-6">
+                                <i data-lucide="message-square" class="w-10 h-10"></i>
+                            </div>
+                            <h4 class="font-bold text-slate-900 text-lg font-outfit">Client Collaboration Hub</h4>
+                            <p class="text-sm mt-2 max-w-xs font-outfit">Select a support contact or group channel on the left to start real-time messaging.</p>
+                        </div>
+                    </div>
+
+                    <!-- Right Information Panel (Inspect Drawer) -->
+                    <div id="right-info-panel" class="w-80 h-full border-l border-slate-100 bg-slate-50/40 flex flex-col hidden transition-all duration-300 overflow-y-auto">
+                        <!-- Content injected dynamically -->
+                    </div>
                 </div>
             </div>
         </div>
     </main>
 
-    <script>
-        const state = {
-            user: auth,
-            messages: []
-        };
+    <!-- Attachment sharing modal / Integrations list -->
+    <div id="integration-share-modal" class="fixed inset-0 z-[99999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center font-outfit hidden">
+        <div class="bg-white border border-slate-150 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl p-6 relative flex flex-col">
+            <h3 class="text-lg font-bold text-slate-900 mb-4 font-outfit">Share Vault Document</h3>
+            <div id="share-list" class="max-h-60 overflow-y-auto divide-y divide-slate-50 mb-6 bg-slate-50/30 border border-slate-100 rounded-xl p-2 font-outfit">
+                <!-- Injected dynamically -->
+            </div>
+            <div class="flex gap-3 justify-end">
+                <button onclick="document.getElementById('integration-share-modal').classList.add('hidden')" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 border-0 bg-transparent cursor-pointer font-outfit">Cancel</button>
+            </div>
+        </div>
+    </div>
 
-        async function fetchMessages() {
-            try {
-                const res = await fetch(`/api/messages?clientId=${state.user.id}`);
-                const messages = await res.json();
-                renderChatMessages(messages);
-            } catch (e) { console.error('Fetch Failed:', e); }
+    <!-- Hidden native file input -->
+    <input type="file" id="chat-file-input" style="display:none" onchange="handleFileSelected(event)">
+
+    <script>
+        let messagePollInterval = null;
+        let selectedClientId = null;
+        let selectedTeamChatId = null;
+        let selectedTeamChatName = '';
+        let socket = null;
+        let typingTimeout = null;
+        
+        let currentWorkspace = 'all'; // 'all', 'dms', 'groups', 'unread', 'starred', 'calls', 'files', 'archive', 'drafts'
+        let chatSearchQuery = '';
+        let roleFilter = 'all';
+        let sortBy = 'recent';
+        let localAttachments = [];
+        let typingUsers = {};
+        
+        let allApplications = [];
+        let allUsersList = [];
+        let allDocumentsList = [];
+        let presenceStatusMap = {}; 
+        let lastSeenMap = {};
+        let currentPresenceStatus = 'online';
+
+        // Local Storage Lists
+        const myId = auth ? auth.id : 'client-user';
+        const myName = auth ? auth.name : 'Client User';
+        const myRole = 'client';
+
+        // Starred, Archive, Pinned, Favorites, Notes Lists
+        let replyToMsg = null;
+        let editingMessageId = null;
+        let isDetailsPanelOpen = true;
+
+        let activeRecordState = false;
+        let recordTickInterval = null;
+        let selectedFileCategory = 'Images';
+
+        // Workspace selection
+        window.setWorkspaceFilter = function(filter) {
+            currentWorkspace = filter;
+            document.querySelectorAll('.ws-filter-btn').forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.getElementById('ws-' + filter);
+            if (activeBtn) activeBtn.classList.add('active');
+            
+            // Clean up details panel and selected state if we switch to non-chat workspaces
+            if (filter === 'files' || filter === 'calls') {
+                selectedClientId = null;
+                selectedTeamChatId = null;
+                document.getElementById('right-info-panel').classList.add('hidden');
+            }
+            
+            refreshWorkspace();
         }
 
-        async function sendMessage(text) {
+        function refreshWorkspace() {
+            if (currentWorkspace === 'calls') {
+                loadCallHistoryWorkspace();
+            } else if (currentWorkspace === 'files') {
+                loadFileWorkspaceSidebar();
+            } else {
+                fetchConversations();
+            }
+        }
+
+        window.handleSearch = function(query) {
+            chatSearchQuery = query.toLowerCase().trim();
+            refreshWorkspace();
+        }
+
+        window.handleRoleFilter = function(val) {
+            roleFilter = val;
+            refreshWorkspace();
+        }
+
+        window.handleSortChange = function(val) {
+            sortBy = val;
+            refreshWorkspace();
+        }
+
+        // --- Fetch initial data from APIs ---
+        async function fetchApplications() {
+            try {
+                const res = await fetch('/api/applications');
+                if (res.ok) allApplications = await res.json();
+            } catch(e){}
+        }
+
+        async function fetchUsers() {
+            try {
+                const res = await fetch('/api/messages/users');
+                if (res.ok) allUsersList = await res.json();
+            } catch(e){}
+        }
+
+        async function fetchDocuments() {
+            try {
+                const res = await fetch('/api/documents');
+                if (res.ok) allDocumentsList = await res.json();
+            } catch(e){}
+        }
+
+        // --- Fetch & render DMs / Channels lists ---
+        async function fetchConversations() {
+            if (currentWorkspace === 'calls' || currentWorkspace === 'files') return;
+            try {
+                // Fetch group chats client is in
+                let dynamicGroups = [];
+                try {
+                    const grpRes = await fetch(`/api/messages/groups?userId=${myId}`);
+                    if (grpRes.ok) dynamicGroups = await grpRes.json();
+                } catch(e){}
+
+                // Build a combined conversation model mapping
+                let list = [];
+
+                // 1. Support Operations Chat (Direct channel representing myId)
+                const userNotes = localStorage.getItem(`notes_${myId}_${myId}`) || '';
+                const hasDraft = localStorage.getItem(`draft_${myId}_${myId}`);
+                const opsOnline = presenceStatusMap['staff-admin'] === 'online' || presenceStatusMap['admin'] === 'online';
+                
+                list.push({
+                    id: myId,
+                    name: 'Support Operations',
+                    role: 'admin',
+                    companyName: 'Globalisor Helpdesk',
+                    applicationId: 'General',
+                    lastMessage: 'Direct chat with Support Desk',
+                    lastMessageTime: 0,
+                    unreadCount: 0,
+                    isOnline: opsOnline,
+                    presenceStatus: presenceStatusMap['staff-admin'] || 'offline',
+                    lastSeen: null,
+                    priority: 'Normal',
+                    notes: userNotes,
+                    hasDraft: !!hasDraft,
+                    isGroup: false
+                });
+
+                // 2. Map group chats/channels
+                dynamicGroups.forEach(g => {
+                    const userNotes = localStorage.getItem(`notes_${myId}_${g.id}`) || '';
+                    const hasDraft = localStorage.getItem(`draft_${myId}_${g.id}`);
+                    
+                    list.push({
+                        id: g.id,
+                        name: `# ${g.name}`,
+                        role: 'group',
+                        companyName: g.description || 'Channel Chat',
+                        applicationId: 'Group',
+                        lastMessage: 'Group Chat Workspace',
+                        lastMessageTime: g.createdTime || 0,
+                        unreadCount: 0,
+                        isOnline: false,
+                        lastSeen: null,
+                        priority: 'Normal',
+                        notes: userNotes,
+                        hasDraft: !!hasDraft,
+                        isGroup: true,
+                        createdBy: g.createdBy,
+                        memberIds: g.memberIds
+                    });
+                });
+
+                // 3. Map Assigned Staff Contact
+                let clientServiceRes = await fetch(`/api/clients/${myId}/services`);
+                if (clientServiceRes.ok) {
+                    const servData = await clientServiceRes.json();
+                    const activeServ = servData.services?.[0];
+                    const rawStaff = activeServ ? activeServ.staff : null;
+                    if (rawStaff && rawStaff !== 'Unassigned') {
+                        // Locate staff user id
+                        const staffUser = allUsersList.find(u => u.name.toLowerCase() === rawStaff.toLowerCase());
+                        if (staffUser) {
+                            const chatId = getOneToOneChatId(myId, staffUser.id);
+                            const userNotes = localStorage.getItem(`notes_${myId}_${chatId}`) || '';
+                            const hasDraft = localStorage.getItem(`draft_${myId}_${chatId}`);
+                            const onlineStatus = presenceStatusMap[staffUser.id] || 'offline';
+                            
+                            list.push({
+                                id: chatId,
+                                realUserId: staffUser.id,
+                                name: staffUser.name,
+                                role: 'staff',
+                                companyName: staffUser.email,
+                                applicationId: 'Assigned Specialist',
+                                lastMessage: 'Direct specialist channel',
+                                lastMessageTime: 0,
+                                unreadCount: 0,
+                                isOnline: onlineStatus === 'online',
+                                presenceStatus: onlineStatus,
+                                lastSeen: null,
+                                priority: 'High',
+                                notes: userNotes,
+                                hasDraft: !!hasDraft,
+                                isGroup: false
+                            });
+                        }
+                    }
+                }
+
+                // Search all registered names to send messages (if search query is active)
+                if (chatSearchQuery) {
+                    allUsersList.forEach(u => {
+                        if (u.id === myId) return;
+                        
+                        const isClient = u.role === 'CLIENT' || u.role === 'USER';
+                        const chatId = isClient ? u.id : getOneToOneChatId(myId, u.id);
+                        
+                        // Check if already in list
+                        const exists = list.some(item => item.id === chatId);
+                        if (!exists) {
+                            const nameMatches = u.name.toLowerCase().includes(chatSearchQuery);
+                            const emailMatches = u.email && u.email.toLowerCase().includes(chatSearchQuery);
+                            if (nameMatches || emailMatches) {
+                                const userNotes = localStorage.getItem(`notes_${myId}_${chatId}`) || '';
+                                const hasDraft = localStorage.getItem(`draft_${myId}_${chatId}`);
+                                const onlineStatus = presenceStatusMap[u.id] || 'offline';
+                                
+                                list.push({
+                                    id: chatId,
+                                    realUserId: u.id,
+                                    name: u.name,
+                                    role: isClient ? 'client' : u.role.toLowerCase(),
+                                    companyName: u.email || 'Registered User',
+                                    applicationId: isClient ? 'New Client' : 'New Internal',
+                                    lastMessage: 'No messages yet - Click to start conversation',
+                                    lastMessageTime: 0,
+                                    unreadCount: 0,
+                                    isOnline: onlineStatus === 'online',
+                                    presenceStatus: onlineStatus,
+                                    lastSeen: null,
+                                    priority: 'Normal',
+                                    notes: userNotes,
+                                    hasDraft: !!hasDraft,
+                                    isGroup: false
+                                });
+                            }
+                        }
+                    });
+                }
+
+                // Fetch latest messages from DB for channels and DMs to populate last message metadata accurately
+                for (let item of list) {
+                    try {
+                        const msgRes = await fetch(`/api/messages?clientId=${item.id}`);
+                        if (msgRes.ok) {
+                            const messages = await msgRes.json();
+                            if (messages.length > 0) {
+                                const last = messages[messages.length - 1];
+                                item.lastMessage = parseMessageTextOnly(last.text);
+                                item.lastMessageTime = last.timestamp;
+                                
+                                // Parse attachment
+                                const payload = parseMessageText(last.text);
+                                item.hasAttachment = payload.attachments && payload.attachments.length > 0;
+                                
+                                // Calculate unread counts
+                                item.unreadCount = messages.filter(m => m.senderId !== myId && !m.isRead).length;
+                            }
+                        }
+                    } catch(e){}
+                }
+
+                // --- Apply Workspace Filters ---
+                const archivedList = JSON.parse(localStorage.getItem('archived_' + myId) || '[]');
+                const favoriteList = JSON.parse(localStorage.getItem('favorites_' + myId) || '[]');
+                const pinnedList = JSON.parse(localStorage.getItem('pinned_' + myId) || '[]');
+
+                if (currentWorkspace === 'archive') {
+                    list = list.filter(item => archivedList.includes(item.id));
+                } else {
+                    list = list.filter(item => !archivedList.includes(item.id));
+                }
+
+                if (currentWorkspace === 'dms') {
+                    list = list.filter(item => !item.isGroup && item.role !== 'group');
+                } else if (currentWorkspace === 'groups') {
+                    list = list.filter(item => item.isGroup);
+                } else if (currentWorkspace === 'unread') {
+                    list = list.filter(item => item.unreadCount > 0);
+                } else if (currentWorkspace === 'drafts') {
+                    list = list.filter(item => item.hasDraft);
+                } else if (currentWorkspace === 'starred') {
+                    // Handled separately
+                }
+
+                // --- Apply Search Filters ---
+                if (chatSearchQuery) {
+                    list = list.filter(item => 
+                        item.name.toLowerCase().includes(chatSearchQuery) ||
+                        item.companyName.toLowerCase().includes(chatSearchQuery) ||
+                        item.lastMessage.toLowerCase().includes(chatSearchQuery) ||
+                        item.applicationId.toLowerCase().includes(chatSearchQuery)
+                    );
+                }
+
+                // --- Apply Role Filter ---
+                if (roleFilter !== 'all') {
+                    list = list.filter(item => item.role === roleFilter);
+                }
+
+                // --- Apply Sorting ---
+                list.sort((a, b) => {
+                    // Pinned always first
+                    const aPinned = pinnedList.includes(a.id);
+                    const bPinned = pinnedList.includes(b.id);
+                    if (aPinned && !bPinned) return -1;
+                    if (!aPinned && bPinned) return 1;
+
+                    // Favorites second
+                    const aFav = favoriteList.includes(a.id);
+                    const bFav = favoriteList.includes(b.id);
+                    if (aFav && !bFav) return -1;
+                    if (!aFav && bFav) return 1;
+
+                    return b.lastMessageTime - a.lastMessageTime;
+                });
+
+                // Update unread badge counter in left nav
+                const totalUnread = list.reduce((sum, item) => sum + (item.unreadCount || 0), 0);
+                const totalUnreadBadge = document.getElementById('unread-total-badge');
+                if (totalUnreadBadge) {
+                    if (totalUnread > 0) {
+                        totalUnreadBadge.innerText = totalUnread;
+                        totalUnreadBadge.classList.remove('hidden');
+                    } else {
+                        totalUnreadBadge.classList.add('hidden');
+                    }
+                }
+
+                if (currentWorkspace === 'starred') {
+                    loadStarredWorkspaceMessages();
+                } else {
+                    renderConversationList(list);
+                }
+
+            } catch (e) {
+                console.error("fetchConversations error:", e);
+            }
+        }
+
+        function renderConversationList(list) {
+            const listDiv = document.getElementById('conversation-list');
+            if (!listDiv) return;
+
+            const pinnedList = JSON.parse(localStorage.getItem('pinned_' + myId) || '[]');
+            const favoriteList = JSON.parse(localStorage.getItem('favorites_' + myId) || '[]');
+
+            listDiv.innerHTML = list.map(c => {
+                const unreadBadge = c.unreadCount > 0 ? `<span class="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ml-2 shadow-sm">${c.unreadCount}</span>` : '';
+                
+                // Presence Color Map
+                let statusColor = 'bg-slate-300';
+                if (c.isOnline) statusColor = 'bg-emerald-500';
+                if (c.presenceStatus === 'away') statusColor = 'bg-amber-500';
+                if (c.presenceStatus === 'busy') statusColor = 'bg-red-500';
+                
+                const pinIcon = pinnedList.includes(c.id) ? `<i data-lucide="pin" class="w-3 h-3 text-blue-500 rotate-45"></i>` : '';
+                const favIcon = favoriteList.includes(c.id) ? `<i data-lucide="heart" class="w-3 h-3 text-red-500 fill-red-500"></i>` : '';
+                const attachIcon = c.hasAttachment ? `<i data-lucide="paperclip" class="w-3 h-3 text-slate-400"></i>` : '';
+                
+                let prioColor = 'bg-slate-100 text-slate-600';
+                if (c.priority === 'High') prioColor = 'bg-red-50 text-red-600 border border-red-100';
+
+                const timeStr = c.lastMessageTime > 0 ? new Date(c.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+
+                const activeSelection = selectedClientId === c.id || selectedTeamChatId === c.id;
+
+                return `
+                    <div class="p-4 border-b border-slate-100 hover:bg-slate-50/50 cursor-pointer transition-all relative flex flex-col gap-1.5 ${activeSelection ? 'bg-blue-50/40 border-l-4 border-l-blue-600' : ''}" 
+                        onclick="handleSelectConversation('${c.id}', '${c.name}', ${c.isGroup})">
+                        <div class="flex justify-between items-start">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <div class="relative shrink-0">
+                                    <div class="w-9 h-9 rounded-full ${c.isGroup ? 'bg-purple-100 text-purple-600' : 'bg-blue-50 text-blue-600'} flex items-center justify-center font-bold text-xs border border-white">
+                                        ${c.isGroup ? '#' : c.name.charAt(0)}
+                                    </div>
+                                    ${c.isGroup ? '' : `<span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${statusColor}"></span>`}
+                                </div>
+                                <div class="min-w-0">
+                                    <h4 class="font-bold text-slate-800 text-xs truncate flex items-center gap-1.5 font-outfit">
+                                        ${c.name}
+                                        <span class="text-[9px] bg-slate-100 text-slate-400 px-1 py-0.2 rounded font-normal uppercase tracking-wider font-sans">${c.role}</span>
+                                    </h4>
+                                    <div class="text-[9px] text-slate-400 font-bold uppercase tracking-widest truncate font-sans">${c.companyName}</div>
+                                </div>
+                            </div>
+                            <div class="flex flex-col items-end gap-1.5 shrink-0">
+                                <div class="flex gap-1 items-center">
+                                    ${pinIcon}
+                                    ${favIcon}
+                                    ${attachIcon}
+                                </div>
+                                <span class="text-[9px] text-slate-400 font-bold">${timeStr}</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center mt-0.5">
+                            <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                                <span class="text-[9px] bg-blue-50 text-blue-600 px-1 py-0.2 rounded font-bold">${c.applicationId}</span>
+                                <p class="text-xs text-slate-500 truncate flex-1 font-sans">${c.hasDraft ? `<span class="text-red-500 font-bold">[Draft] </span>` : ''}${c.lastMessage}</p>
+                            </div>
+                            <div class="flex items-center gap-1.5 shrink-0 ml-2">
+                                <span class="text-[9px] font-bold uppercase px-1.5 py-0.2 rounded-full ${prioColor}">${c.priority}</span>
+                                ${unreadBadge}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('') || '<div class="p-20 text-center text-slate-400 text-xs">No support channels found</div>';
+            
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        window.handleSelectConversation = async function(id, name, isGroup) {
+            if (isGroup) {
+                selectedTeamChatId = id;
+                selectedTeamChatName = name;
+                selectedClientId = null;
+            } else {
+                selectedClientId = id;
+                selectedTeamChatId = null;
+                // Fetch presence status and last seen
+                try {
+                    let targetUserId = id;
+                    if (id.startsWith('team_chat_')) {
+                        targetUserId = id.replace('team_chat_', '').replace(myId, '').replace('_', '');
+                    } else if (id.startsWith('chat_')) {
+                        targetUserId = id.replace('chat_', '').replace(myId, '').replace('_', '');
+                    } else if (id === myId) {
+                        targetUserId = 'staff-admin';
+                    }
+                    const res = await fetch(`/api/messages/presence?userId=${targetUserId}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        presenceStatusMap[targetUserId] = data.isOnline ? 'online' : 'offline';
+                        if (data.lastSeen) {
+                            lastSeenMap[targetUserId] = data.lastSeen;
+                        }
+                    }
+                } catch(e) {}
+            }
+            
+            markAsRead(id);
+            
+            renderActiveChatWindow();
+            renderRightInfoPanel();
+            fetchConversations();
+        }
+
+        // --- Active Chat Area Redesign ---
+        function renderActiveChatWindow() {
+            const container = document.getElementById('chat-window-content');
+            if (!container) return;
+
+            const activeId = selectedClientId || selectedTeamChatId;
+            const activeName = selectedClientId ? (selectedClientId === myId ? 'Support Operations' : document.querySelector(`[onclick*="${selectedClientId}"] h4`)?.innerText.split('\n')[0] || 'Assigned Staff') : selectedTeamChatName;
+            const isGroup = !!selectedTeamChatId;
+
+            const pinnedList = JSON.parse(localStorage.getItem('pinned_' + myId) || '[]');
+            const isPinned = pinnedList.includes(activeId);
+            const favoriteList = JSON.parse(localStorage.getItem('favorites_' + myId) || '[]');
+            const isFavorite = favoriteList.includes(activeId);
+            const archivedList = JSON.parse(localStorage.getItem('archived_' + myId) || '[]');
+            const isArchived = archivedList.includes(activeId);
+
+            // Draft loading
+            const savedDraft = localStorage.getItem(`draft_${myId}_${activeId}`) || '';
+
+            container.innerHTML = `
+                <!-- Chat Header -->
+                <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl ${isGroup ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'} flex items-center justify-center font-bold relative shadow-inner">
+                            ${isGroup ? '#' : activeName.charAt(0)}
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-sm leading-none flex items-center gap-1.5 font-outfit">${activeName}</h3>
+                            <div id="chat-header-status" class="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Presence loading...</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-1.5">
+                        <button onclick="triggerCallClick('voice')" class="p-2 bg-slate-50 rounded-xl hover:bg-slate-100 text-slate-600 transition-all border border-slate-100 cursor-pointer flex items-center justify-center" title="Voice Call">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                        </button>
+                        <button onclick="triggerCallClick('video')" class="p-2 bg-slate-50 rounded-xl hover:bg-slate-100 text-slate-600 transition-all border border-slate-100 cursor-pointer flex items-center justify-center" title="Video Call">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="m22 8-6 4 6 4V8Z"></path><rect width="14" height="12" x="2" y="6" rx="2" ry="2"></rect></svg>
+                        </button>
+                        <button onclick="togglePinConversation('${activeId}')" class="p-2 bg-slate-50 rounded-xl hover:bg-slate-100 text-slate-600 transition-all border border-slate-100 cursor-pointer flex items-center justify-center" title="Pin conversation">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 ${isPinned ? 'text-blue-600 fill-blue-100' : ''}"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-.44-1.24l-2.78-3.5A2 2 0 0 1 15 9.26V5a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4.26a2 2 0 0 1-.78 1.54l-2.78 3.5A2 2 0 0 0 5 15.24Z"></path></svg>
+                        </button>
+                        <button onclick="toggleFavoriteConversation('${activeId}')" class="p-2 bg-slate-50 rounded-xl hover:bg-slate-100 text-slate-600 transition-all border border-slate-100 cursor-pointer flex items-center justify-center" title="Add to Favorites">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 ${isFavorite ? 'text-red-500 fill-red-500' : ''}"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg>
+                        </button>
+                        <button onclick="toggleArchiveConversation('${activeId}')" class="p-2 bg-slate-50 rounded-xl hover:bg-slate-100 text-slate-600 transition-all border border-slate-100 cursor-pointer flex items-center justify-center" title="Archive Chat">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 ${isArchived ? 'text-amber-500 fill-amber-500' : ''}"><rect width="20" height="5" x="2" y="3" rx="1"></rect><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"></path><line x1="10" x2="14" y1="12" y2="12"></line></svg>
+                        </button>
+                        <div class="h-8 w-px bg-slate-200 mx-1"></div>
+                        <button onclick="toggleDetailsPanel()" class="p-2 bg-slate-50 rounded-xl hover:bg-slate-100 text-slate-600 transition-all border border-slate-100 cursor-pointer flex items-center justify-center" title="Toggle Information Panel">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 ${isDetailsPanelOpen ? 'text-blue-600' : ''}"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Pinned Message Banner -->
+                <div id="pinned-message-banner" class="hidden"></div>
+
+                <!-- Chat Area with Drag & Drop Dropzone -->
+                <div id="chat-messages-container" class="flex-1 overflow-hidden relative flex flex-col bg-[radial-gradient(#e2e8f0_1.2px,transparent_1.2px)] [background-size:24px_24px] bg-slate-50/50">
+                    <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-4">
+                        <div class="text-center py-10"><i data-lucide="loader" class="w-6 h-6 animate-spin text-slate-300 mx-auto"></i></div>
+                    </div>
+                    
+                    <!-- Drag & drop overlay -->
+                    <div id="drag-drop-overlay" class="absolute inset-0 bg-blue-600/10 backdrop-blur-sm border-2 border-dashed border-blue-600 rounded-2xl m-4 flex flex-col items-center justify-center gap-2 opacity-0 pointer-events-none transition-all duration-200">
+                        <div class="w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg"><i data-lucide="upload-cloud" class="w-7 h-7"></i></div>
+                        <span class="text-sm font-bold text-blue-700">Drop files here to share in support chat</span>
+                    </div>
+                </div>
+
+                <!-- Reply quote indicator -->
+                <div id="reply-quote-container" class="hidden px-4 py-2 border-t border-slate-150 bg-slate-100 flex justify-between items-center shrink-0">
+                    <div class="flex items-center gap-2 text-xs text-slate-600 font-semibold truncate">
+                        <i data-lucide="corner-down-right" class="w-3.5 h-3.5 text-blue-600 shrink-0"></i>
+                        <span>Replying to <b id="reply-quote-user" class="text-blue-600">User</b>: <span id="reply-quote-text" class="italic font-normal">Message preview...</span></span>
+                    </div>
+                    <button onclick="cancelReplyQuote()" class="p-1 hover:bg-slate-200 rounded text-slate-500 border-0 bg-transparent cursor-pointer"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+                </div>
+
+                <!-- Attachment preview container -->
+                <div id="attachment-preview-container" class="hidden px-4 py-2 border-t border-slate-100 bg-slate-50 flex flex-wrap gap-2 shrink-0"></div>
+
+                <!-- Message Input Footer -->
+                <div class="p-4 border-t border-slate-100 bg-white shrink-0 relative">
+                    <form onsubmit="handleSend(event)" class="flex gap-3 items-center">
+                        <button type="button" onclick="triggerAttachment()" class="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-100 text-slate-500 rounded-xl transition-all border-0 bg-transparent cursor-pointer" title="Attach Files">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                        </button>
+                        <button type="button" onclick="openIntegrationShare()" class="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-100 text-slate-500 rounded-xl transition-all border-0 bg-transparent cursor-pointer" title="Share Document from Vault">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                        </button>
+                        
+                        <!-- Main Chat Text Input -->
+                        <div class="flex-1 relative flex items-center">
+                            <input type="text" id="chat-input" oninput="handleInputDraft(this.value)" value="${savedDraft}" placeholder="Type message..." class="w-full pl-4 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:bg-white transition-all font-sans">
+                            <button type="button" onclick="toggleVoiceRecording()" id="btn-voice-mic" class="absolute right-2.5 p-1 text-slate-400 hover:text-slate-600 rounded-lg transition-colors border-0 bg-transparent cursor-pointer" title="Record Voice Message">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" x2="12" y1="19" y2="22"></line></svg>
+                            </button>
+                        </div>
+
+                        <!-- Voice record widget -->
+                        <div id="voice-record-widget" class="hidden flex-1 bg-red-50 border border-red-100 rounded-xl px-4 py-2 flex items-center justify-between text-xs text-red-600 font-bold">
+                            <span class="flex items-center gap-2 animate-pulse">
+                                <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> Recording voice note...
+                            </span>
+                            <div class="flex items-center gap-3">
+                                <span id="voice-record-timer">00:00</span>
+                                <button type="button" onclick="cancelVoiceRecording()" class="p-1 hover:bg-red-100 rounded text-red-700 border-0 bg-transparent cursor-pointer" title="Cancel"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md shadow-blue-600/15 transition-all flex items-center justify-center border-0 cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                        </button>
+                    </form>
+                </div>
+            `;
+
+            if (window.lucide) window.lucide.createIcons();
+
+            if (selectedTeamChatId) {
+                fetchTeamMessages(selectedTeamChatId);
+            } else {
+                fetchMessages(selectedClientId);
+            }
+            updateHeaderPresenceStatus();
+            renderPinnedMessageBanner();
+            setupDragAndDrop();
+            setupTypingListeners();
+        }
+
+        // --- Drag and Drop File Upload ---
+        function setupDragAndDrop() {
+            const container = document.getElementById('chat-messages-container');
+            const overlay = document.getElementById('drag-drop-overlay');
+            if (!container || !overlay) return;
+
+            container.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                overlay.classList.remove('opacity-0', 'pointer-events-none');
+            });
+
+            container.addEventListener('dragover', (e) => {
+                e.preventDefault();
+            });
+
+            container.addEventListener('dragleave', (e) => {
+                const rect = container.getBoundingClientRect();
+                if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+                    overlay.classList.add('opacity-0', 'pointer-events-none');
+                }
+            });
+
+            container.addEventListener('drop', (e) => {
+                e.preventDefault();
+                overlay.classList.add('opacity-0', 'pointer-events-none');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleUploadedFile(files[0]);
+                }
+            });
+        }
+
+        function handleUploadedFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                localAttachments.push({
+                    name: file.name,
+                    type: file.type,
+                    size: file.size,
+                    url: evt.target.result
+                });
+                renderAttachmentPreviews();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- Voice Recording Logic ---
+        window.toggleVoiceRecording = async function() {
+            const micBtn = document.getElementById('btn-voice-mic');
+            const widget = document.getElementById('voice-record-widget');
+            const input = document.getElementById('chat-input');
+            const timer = document.getElementById('voice-record-timer');
+
+            if (!activeRecordState) {
+                // Start
+                activeRecordState = true;
+                if (micBtn) micBtn.classList.add('text-red-500', 'bg-red-50');
+                if (widget) widget.classList.remove('hidden');
+                if (input) input.classList.add('hidden');
+
+                window.VoiceRecorder.startRecording(
+                    (sec) => {
+                        const m = Math.floor(sec / 60).toString().padStart(2, '0');
+                        const s = (sec % 60).toString().padStart(2, '0');
+                        if (timer) timer.innerText = `${m}:${s}`;
+                    },
+                    (err) => {
+                        alert('Audio recording blocked: ' + err.message);
+                        cancelVoiceRecording();
+                    }
+                );
+            } else {
+                // Stop and Send
+                activeRecordState = false;
+                if (micBtn) micBtn.classList.remove('text-red-500', 'bg-red-50');
+                if (widget) widget.classList.add('hidden');
+                if (input) input.classList.remove('hidden');
+
+                const voiceNote = await window.VoiceRecorder.stopRecording();
+                if (voiceNote) {
+                    localAttachments.push(voiceNote);
+                    await submitMessage("Voice Note attached");
+                }
+            }
+        }
+
+        window.cancelVoiceRecording = function() {
+            activeRecordState = false;
+            const micBtn = document.getElementById('btn-voice-mic');
+            const widget = document.getElementById('voice-record-widget');
+            const input = document.getElementById('chat-input');
+            
+            if (micBtn) micBtn.classList.remove('text-red-500', 'bg-red-50');
+            if (widget) widget.classList.add('hidden');
+            if (input) input.classList.remove('hidden');
+
+            window.VoiceRecorder.stopRecording();
+        }
+
+        // --- Thread Replies & Editing states ---
+        window.triggerReplyQuote = function(msgId, senderName, textSnippet) {
+            replyToMsg = { id: msgId, senderName, text: textSnippet };
+            const container = document.getElementById('reply-quote-container');
+            const userEl = document.getElementById('reply-quote-user');
+            const textEl = document.getElementById('reply-quote-text');
+            
+            if (userEl) userEl.innerText = senderName;
+            if (textEl) textEl.innerText = textSnippet;
+            if (container) container.classList.remove('hidden');
+        }
+
+        window.cancelReplyQuote = function() {
+            replyToMsg = null;
+            const container = document.getElementById('reply-quote-container');
+            if (container) container.classList.add('hidden');
+        }
+
+        window.triggerEditMessage = function(msgId, currentText) {
+            editingMessageId = msgId;
+            const input = document.getElementById('chat-input');
+            if (input) {
+                input.value = currentText;
+                input.focus();
+                input.classList.add('border-amber-400', 'ring-2', 'ring-amber-500/10');
+                input.placeholder = "Editing message...";
+            }
+        }
+
+        window.triggerDeleteMessage = async function(msgId) {
+            if (!confirm('Are you sure you want to delete this message?')) return;
+            try {
+                const res = await fetch(`/api/messages/${msgId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    const activeId = selectedClientId || selectedTeamChatId;
+                    if (selectedTeamChatId) fetchTeamMessages(activeId);
+                    else fetchMessages(activeId);
+                }
+            } catch(e){}
+        }
+
+        window.triggerForwardMessage = function(msgId, text) {
+            openIntegrationShare();
+            window.messageToForward = text;
+        }
+
+        // --- Right Inspect Panel Drawer Redesign ---
+        window.toggleDetailsPanel = function() {
+            isDetailsPanelOpen = !isDetailsPanelOpen;
+            renderRightInfoPanel();
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        async function renderRightInfoPanel() {
+            const panel = document.getElementById('right-info-panel');
+            if (!panel) return;
+
+            if (!isDetailsPanelOpen || (!selectedClientId && !selectedTeamChatId)) {
+                panel.classList.add('hidden');
+                return;
+            }
+
+            panel.classList.remove('hidden');
+            const isGroup = !!selectedTeamChatId;
+
+            if (isGroup) {
+                // Group Channel detail info
+                const grpRes = await fetch(`/api/messages/groups?userId=${myId}`);
+                const groups = await grpRes.json();
+                const group = groups.find(g => g.id === selectedTeamChatId);
+                if (!group) return;
+
+                const userNotes = localStorage.getItem(`notes_${myId}_${group.id}`) || '';
+
+                panel.innerHTML = `
+                    <div class="p-4 border-b border-slate-100 bg-white sticky top-0 z-10 flex justify-between items-center">
+                        <span class="text-xs font-bold text-slate-800 font-outfit">Channel Details</span>
+                    </div>
+                    <div class="p-6 flex flex-col gap-6 font-outfit">
+                        <div class="text-center">
+                            <div class="w-16 h-16 rounded-3xl bg-purple-100 text-purple-600 font-bold text-2xl flex items-center justify-center mx-auto mb-3 shadow-inner">#</div>
+                            <h3 class="font-bold text-slate-800 text-base">${group.name}</h3>
+                            <p class="text-xs text-slate-400 mt-1">${group.description || 'Corporate Channel chat'}</p>
+                        </div>
+                        <div class="border-t border-slate-100 pt-4">
+                            <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Members (${group.memberIds.length})</h4>
+                            <div class="space-y-2 max-h-40 overflow-y-auto">
+                                ${allUsersList.filter(u => group.memberIds.includes(u.id)).map(u => `
+                                    <div class="flex justify-between items-center py-1 border-b border-slate-50 last:border-0">
+                                        <span class="text-xs font-semibold text-slate-700">${u.name}</span>
+                                        <span class="text-[8px] bg-slate-100 text-slate-400 px-1 py-0.2 rounded font-bold uppercase tracking-wider">${u.role}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div class="border-t border-slate-100 pt-4">
+                            <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">My Channel Notes</h4>
+                            <textarea oninput="saveNotes('${group.id}', this.value)" placeholder="Type private notes..." class="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/10 min-h-[100px] shadow-inner font-sans">${userNotes}</textarea>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Client direct chat info: show client info or staff info if selected DM
+                const partnerStaff = selectedClientId === myId ? null : allUsersList.find(u => getOneToOneChatId(myId, u.id) === selectedClientId);
+                const userNotes = localStorage.getItem(`notes_${myId}_${selectedClientId}`) || '';
+                const clientDocs = allDocumentsList.filter(d => d.clientId === myId);
+
+                if (partnerStaff) {
+                    // Chatting with assigned staff
+                    panel.innerHTML = `
+                        <div class="p-4 border-b border-slate-100 bg-white sticky top-0 z-10 flex justify-between items-center font-outfit">
+                            <span class="text-xs font-bold text-slate-800">Assigned Specialist</span>
+                        </div>
+                        <div class="p-5 flex flex-col gap-5 font-outfit">
+                            <div class="text-center">
+                                <div class="w-14 h-14 rounded-full bg-blue-50 text-blue-600 font-bold text-xl flex items-center justify-center mx-auto mb-2.5 shadow-inner">${partnerStaff.name.charAt(0)}</div>
+                                <h3 class="font-bold text-slate-800 text-sm leading-none">${partnerStaff.name}</h3>
+                                <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">${partnerStaff.role}</p>
+                            </div>
+                            <div class="border-t border-slate-100 pt-4 space-y-2">
+                                <h4 class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Contact Information</h4>
+                                <div class="text-xs truncate flex items-center gap-1.5"><i data-lucide="mail" class="w-3.5 h-3.5 text-slate-400"></i> ${partnerStaff.email}</div>
+                            </div>
+                            <div class="border-t border-slate-100 pt-4">
+                                <h4 class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">My Vault Documents (${clientDocs.length})</h4>
+                                <div class="space-y-1.5 max-h-36 overflow-y-auto">
+                                    ${clientDocs.map(d => `
+                                        <div class="flex justify-between items-center p-2 bg-white rounded-lg border border-slate-150 text-xs">
+                                            <span class="truncate font-semibold text-slate-700 max-w-[120px]">${d.title}</span>
+                                            <a href="${d.file}" download class="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-0.5"><i data-lucide="download" class="w-2.5 h-2.5"></i> Download</a>
+                                        </div>
+                                    `).join('') || '<div class="text-[10px] text-slate-400 italic">No vault files loaded</div>'}
+                                </div>
+                            </div>
+                            <div class="border-t border-slate-100 pt-4">
+                                <h4 class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">My Private Notes</h4>
+                                <textarea oninput="saveNotes('${selectedClientId}', this.value)" placeholder="Add custom notes..." class="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/10 min-h-[80px] shadow-inner font-sans">${userNotes}</textarea>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Support Operations Chat
+                    panel.innerHTML = `
+                        <div class="p-4 border-b border-slate-100 bg-white sticky top-0 z-10 flex justify-between items-center font-outfit">
+                            <span class="text-xs font-bold text-slate-800">Operations Support</span>
+                        </div>
+                        <div class="p-5 flex flex-col gap-5 font-outfit">
+                            <div class="text-center">
+                                <div class="w-14 h-14 rounded-full bg-blue-50 text-blue-600 font-bold text-xl flex items-center justify-center mx-auto mb-2.5 shadow-inner">H</div>
+                                <h3 class="font-bold text-slate-800 text-sm leading-none">Helpdesk</h3>
+                                <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Globalisor Operations</p>
+                            </div>
+                            <div class="border-t border-slate-100 pt-4">
+                                <h4 class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">My Vault Documents (${clientDocs.length})</h4>
+                                <div class="space-y-1.5 max-h-36 overflow-y-auto font-sans">
+                                    ${clientDocs.map(d => `
+                                        <div class="flex justify-between items-center p-2 bg-white rounded-lg border border-slate-150 text-xs">
+                                            <span class="truncate font-semibold text-slate-700 max-w-[120px]">${d.title}</span>
+                                            <a href="${d.file}" download class="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-0.5"><i data-lucide="download" class="w-2.5 h-2.5"></i> Download</a>
+                                        </div>
+                                    `).join('') || '<div class="text-[10px] text-slate-400 italic">No files in vault</div>'}
+                                </div>
+                            </div>
+                            <div class="border-t border-slate-100 pt-4">
+                                <h4 class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Support Notes</h4>
+                                <textarea oninput="saveNotes('${myId}', this.value)" placeholder="Add custom notes..." class="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/10 min-h-[80px] shadow-inner font-sans">${userNotes}</textarea>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        window.saveNotes = function(id, text) {
+            localStorage.setItem(`notes_${myId}_${id}`, text);
+        }
+
+        // --- Pin, Favorite, Archive Controls ---
+        window.togglePinConversation = function(id) {
+            const list = JSON.parse(localStorage.getItem('pinned_' + myId) || '[]');
+            const idx = list.indexOf(id);
+            if (idx === -1) list.push(id);
+            else list.splice(idx, 1);
+            localStorage.setItem('pinned_' + myId, JSON.stringify(list));
+            
+            handleSelectConversation(id, selectedTeamChatName || '', !!selectedTeamChatId);
+        }
+
+        window.toggleFavoriteConversation = function(id) {
+            const list = JSON.parse(localStorage.getItem('favorites_' + myId) || '[]');
+            const idx = list.indexOf(id);
+            if (idx === -1) list.push(id);
+            else list.splice(idx, 1);
+            localStorage.setItem('favorites_' + myId, JSON.stringify(list));
+            
+            handleSelectConversation(id, selectedTeamChatName || '', !!selectedTeamChatId);
+        }
+
+        window.toggleArchiveConversation = function(id) {
+            const list = JSON.parse(localStorage.getItem('archived_' + myId) || '[]');
+            const idx = list.indexOf(id);
+            if (idx === -1) list.push(id);
+            else list.splice(idx, 1);
+            localStorage.setItem('archived_' + myId, JSON.stringify(list));
+            
+            setWorkspaceFilter(currentWorkspace);
+        }
+
+        window.triggerCallClick = function(type) {
+            const activeId = selectedClientId || selectedTeamChatId;
+            if (!activeId) return;
+            
+            let targetUserId = activeId;
+            if (activeId.startsWith('team_chat_')) {
+                targetUserId = activeId.replace('team_chat_', '').replace(myId, '').replace('_', '');
+            } else if (activeId.startsWith('chat_')) {
+                targetUserId = activeId.replace('chat_', '').replace(myId, '').replace('_', '');
+            }
+            
+            const name = selectedTeamChatId ? selectedTeamChatName : 'Specialist';
+            window.Calling.makeCall(targetUserId, name, type);
+        }
+
+        window.handleInputDraft = function(val) {
+            const activeId = selectedClientId || selectedTeamChatId;
+            if (!activeId) return;
+            
+            if (val.trim()) {
+                localStorage.setItem(`draft_${myId}_${activeId}`, val);
+            } else {
+                localStorage.removeItem(`draft_${myId}_${activeId}`);
+            }
+        }
+
+        // --- Message list render helper ---
+        async function fetchMessages(clientId) {
+            try {
+                const activeId = clientId || selectedClientId || myId;
+                const res = await fetch(`/api/messages?clientId=${activeId}`);
+                const messages = await res.json();
+                const container = document.getElementById('chat-messages');
+                if (!container) return;
+
+                const isMe = (m) => m.senderId === myId;
+                let starredList = JSON.parse(localStorage.getItem('starred_messages_' + myId) || '[]');
+
+                // Derive partnerId from conversation id
+                let partnerId = null;
+                if (activeId) {
+                    const parts = activeId.replace('team_chat_','').replace('chat_','').split('_');
+                    partnerId = parts.find(p => p && p !== myId) || null;
+                }
+
+                // Fetch call history and filter to this conversation's partner
+                let callEntries = [];
+                try {
+                    const cRes = await fetch(`/api/messages/calls/history?userId=${myId}`);
+                    const allCalls = await cRes.json();
+                    if (partnerId) {
+                        callEntries = allCalls.filter(c =>
+                            (c.callerId === myId && c.receiverId === partnerId) ||
+                            (c.receiverId === myId && c.callerId === partnerId)
+                        ).map(c => ({ ...c, _type: 'call' }));
+                    }
+                } catch(e) {}
+
+                // Merge messages + call entries sorted by timestamp
+                const merged = [...messages.map(m => ({ ...m, _type: 'msg' })), ...callEntries]
+                    .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+                if (merged.filter(e => e._type === 'msg').length === 0) {
+                    container.innerHTML = `<div class="p-10 text-center text-slate-400 text-xs font-outfit">No messages yet. Send a message to get assistance.</div>`;
+                    if (callEntries.length === 0) return;
+                }
+
+                const renderCallEntry = (c) => {
+                    const isCaller = c.callerId === myId;
+                    const partnerName = isCaller ? c.receiverName : c.callerName;
+                    const partnerId2 = isCaller ? c.receiverId : c.callerId;
+                    const timeStr = new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const dateStr = new Date(c.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' });
+                    const isVideo = c.mediaType === 'video';
+                    const durStr = c.duration > 0 ? `${Math.floor(c.duration/60)}m ${c.duration%60}s` : '';
+                    const statusColor = c.status === 'completed' ? 'text-emerald-500' : c.status === 'declined' ? 'text-red-500' : 'text-amber-500';
+                    const statusLabel = c.status === 'completed' ? 'Completed' : c.status === 'declined' ? 'Declined' : 'Missed';
+                    const dirArrow = isCaller ? '↗' : '↙';
+                    const phoneIcon = isVideo
+                        ? `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>`
+                        : `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.21 13.91a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.09 10.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`;
+                    return `
+                    <div class="flex justify-center my-2">
+                        <div class="inline-flex items-center gap-2.5 bg-white border border-slate-200 rounded-2xl px-4 py-2.5 shadow-sm text-xs font-outfit">
+                            <span class="w-7 h-7 rounded-full ${c.status === 'completed' ? 'bg-emerald-50 text-emerald-500' : c.status === 'declined' ? 'bg-red-50 text-red-400' : 'bg-amber-50 text-amber-500'} flex items-center justify-center shrink-0">${phoneIcon}</span>
+                            <div class="flex flex-col leading-tight">
+                                <span class="font-bold text-slate-700">${dirArrow} ${isVideo ? 'Video' : 'Voice'} Call</span>
+                                <span class="${statusColor} font-semibold text-[10px]">${statusLabel}${durStr ? ' · ' + durStr : ''} · ${dateStr} ${timeStr}</span>
+                            </div>
+                            <button onclick="window.Calling && window.Calling.makeCall('${partnerId2}','${partnerName}','${c.mediaType}')" class="ml-1 p-1.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors border-0 cursor-pointer" title="Call back">${phoneIcon}</button>
+                        </div>
+                    </div>`;
+                };
+
+                const html = merged.map(m => {
+                    if (m._type === 'call') return renderCallEntry(m);
+                    const payload = parseMessageText(m.text);
+                    const isStarred = starredList.includes(m.id);
+                    const pinnedMap = JSON.parse(localStorage.getItem('pinned_messages_map_' + myId) || '{}');
+                    const isMsgPinned = pinnedMap[activeId] && pinnedMap[activeId].id === m.id;
+                    
+                    let ticks = '';
+                    if (isMe(m)) {
+                        ticks = m.isRead ? 
+                            `<i data-lucide="check-check" class="w-3 h-3 text-blue-200 ml-1.5 animate-pulse"></i>` : 
+                            `<i data-lucide="check" class="w-3 h-3 text-blue-100 ml-1.5"></i>`;
+                    }
+                    
+                    let quoteHtml = '';
+                    if (payload.replyTo) {
+                        quoteHtml = `
+                            <div class="border-l-2 border-slate-300 pl-2 py-1 mb-1 bg-slate-50/50 rounded text-[10px] text-slate-500 flex flex-col font-medium max-w-xs">
+                                <span class="font-bold text-blue-600">@${payload.replyTo.senderName}</span>
+                                <span class="truncate">${payload.replyTo.text}</span>
+                            </div>
+                        `;
+                    }
+
+                    let attachHtml = '';
+                    if (payload.attachments && payload.attachments.length > 0) {
+                        attachHtml = `
+                            <div class="mt-2 space-y-2 select-none font-outfit">
+                                ${payload.attachments.map(att => {
+                                    if (att.type.startsWith('image/')) {
+                                        return `<div class="relative rounded-lg overflow-hidden border border-slate-100 max-w-xs"><img src="${att.url}" class="max-h-40 object-cover cursor-zoom-in" onclick="zoomImage('${att.url}')"></div>`;
+                                    } else if (att.type === 'audio/webm') {
+                                        return `<div class="flex items-center gap-2 bg-slate-50 p-2 border border-slate-200 rounded-xl max-w-xs"><i data-lucide="play" class="w-4 h-4 text-blue-600 shrink-0"></i><audio src="${att.url}" controls class="w-full h-8 text-xs shrink-0 select-none"></audio></div>`;
+                                    } else {
+                                        return `<a href="${att.url}" download="${att.name}" class="flex items-center gap-2 p-2 bg-slate-50 hover:bg-slate-100 rounded-lg text-xs text-blue-600 font-bold border border-slate-200 truncate max-w-xs"><i data-lucide="file" class="w-4 h-4 shrink-0"></i> <span>${att.name}</span></a>`;
+                                    }
+                                }).join('')}
+                            </div>
+                        `;
+                    }
+
+                    // Reactions row
+                    let reactionsHtml = '';
+                    const rKeys = Object.keys(payload.reactions || {});
+                    let hasReactions = false;
+                    rKeys.forEach(k => {
+                        if (payload.reactions[k] && payload.reactions[k].length > 0) hasReactions = true;
+                    });
+                    
+                    if (hasReactions) {
+                        reactionsHtml = `
+                            <div class="flex flex-wrap gap-1 mt-1.5 font-outfit">
+                                ${rKeys.map(emoji => {
+                                    const users = payload.reactions[emoji] || [];
+                                    if (users.length === 0) return '';
+                                    const reacted = users.includes(myId);
+                                    return `
+                                        <button onclick="toggleReaction('${m.id}', '${emoji}')" class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${reacted ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-slate-50 border-slate-200 text-slate-500'} hover:bg-slate-100 transition-colors border-0 bg-transparent cursor-pointer">
+                                            ${emoji} ${users.length}
+                                        </button>
+                                    `;
+                                }).join('')}
+                            </div>
+                        `;
+                    }
+
+                    const isDeleted = payload.isDeleted;
+
+                    return `
+                    <div class="flex ${isMe(m) ? 'justify-end' : 'justify-start'} group message-bubble" id="msg-${m.id}">
+                        <div class="max-w-[70%] relative font-sans">
+                            <div class="flex items-center gap-2 mb-1 ${isMe(m) ? 'justify-end' : 'justify-start'}">
+                                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">${m.senderName}</span>
+                                <span class="text-[9px] text-slate-300 font-medium">${new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                            <div class="px-4 py-2.5 rounded-2xl text-sm ${isMe(m) ? 'bg-blue-600 text-white rounded-tr-none shadow-md shadow-blue-500/10' : 'bg-white text-slate-700 border border-slate-250 rounded-tl-none shadow-sm'}">
+                                ${quoteHtml}
+                                <div class="flex items-end gap-3 justify-between font-outfit">
+                                    <span class="break-words ${isDeleted ? 'italic text-slate-400' : ''}" style="white-space: pre-wrap;">${isDeleted ? '[Message Deleted]' : payload.text}</span>
+                                    <span class="flex items-center select-none shrink-0">${ticks}</span>
+                                </div>
+                                ${attachHtml}
+                                ${reactionsHtml}
+                            </div>
+                            
+                            <!-- Action overlays -->
+                            ${isDeleted ? '' : `
+                            <div class="reaction-popover absolute top-1/2 -translate-y-1/2 ${isMe(m) ? '-left-44' : '-right-44'} bg-white border border-slate-150 rounded-xl px-2 py-1 shadow-xl flex items-center gap-1.5 z-50">
+                                <button onclick="toggleReaction('${m.id}', '👍')" class="p-0.5 hover:scale-125 text-xs transition-transform border-0 bg-transparent cursor-pointer">👍</button>
+                                <button onclick="toggleReaction('${m.id}', '❤️')" class="p-0.5 hover:scale-125 text-xs transition-transform border-0 bg-transparent cursor-pointer">❤️</button>
+                                <button onclick="toggleReaction('${m.id}', '😂')" class="p-0.5 hover:scale-125 text-xs transition-transform border-0 bg-transparent cursor-pointer">😂</button>
+                                <button onclick="toggleStarMessage('${m.id}')" class="p-1 text-slate-400 hover:text-amber-500 border-0 bg-transparent cursor-pointer" title="Star message"><i data-lucide="star" class="w-3.5 h-3.5 ${isStarred ? 'text-amber-500 fill-amber-500' : ''}"></i></button>
+                                <button onclick="togglePinMessage('${m.id}', '${m.senderName}', '${payload.text.replace(/'/g, "\\'")}')" class="p-1 text-slate-400 hover:text-blue-500 border-0 bg-transparent cursor-pointer" title="Pin message"><i data-lucide="pin" class="w-3.5 h-3.5 ${isMsgPinned ? 'text-blue-600 fill-blue-100 rotate-45' : ''}"></i></button>
+                                <button onclick="triggerReplyQuote('${m.id}', '${m.senderName}', '${payload.text.replace(/'/g, "\\'")}')" class="p-1 text-slate-400 hover:text-slate-700 border-0 bg-transparent cursor-pointer" title="Reply"><i data-lucide="corner-up-left" class="w-3.5 h-3.5"></i></button>
+                                <button onclick="triggerForwardMessage('${m.id}', '${payload.text.replace(/'/g, "\\'")}')" class="p-1 text-slate-400 hover:text-slate-700 border-0 bg-transparent cursor-pointer" title="Forward"><i data-lucide="forward" class="w-3.5 h-3.5"></i></button>
+                                ${isMe(m) ? `
+                                    <button onclick="triggerEditMessage('${m.id}', '${payload.text.replace(/'/g, "\\'")}')" class="p-1 text-slate-400 hover:text-slate-700 border-0 bg-transparent cursor-pointer" title="Edit"><i data-lucide="edit" class="w-3.5 h-3.5"></i></button>
+                                    <button onclick="triggerDeleteMessage('${m.id}')" class="p-1 text-slate-400 hover:text-red-500 border-0 bg-transparent cursor-pointer" title="Delete"><i data-lucide="trash" class="w-3.5 h-3.5"></i></button>
+                                ` : ''}
+                            </div>
+                            `}
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+
+                const shouldScroll = container.scrollTop + container.clientHeight >= container.scrollHeight - 100;
+                container.innerHTML = html;
+                if (window.lucide) window.lucide.createIcons();
+                if (shouldScroll || container.innerHTML.length < 1000) container.scrollTop = container.scrollHeight;
+            } catch (e) { console.error(e); }
+        }
+
+        async function fetchTeamMessages(chatId) {
+            fetchMessages(chatId);
+        }
+
+        async function markAsRead(clientId) {
+            const activeId = clientId || selectedClientId || myId;
+            try {
+                await fetch(`/api/messages/read-all?clientId=${activeId}&senderRole=client`, { method: 'POST' });
+            } catch (e) { console.error(e); }
+        }
+
+        // --- Starred Workspace messages list ---
+        async function loadStarredWorkspaceMessages() {
+            const list = document.getElementById('conversation-list');
+            if (!list) return;
+            list.innerHTML = '<div class="p-10 text-center text-slate-400 text-xs font-outfit">Loading starred messages...</div>';
+            
+            try {
+                const res = await fetch(`/api/messages/starred?userId=${myId}`);
+                const messages = await res.json();
+                
+                list.innerHTML = messages.map(m => `
+                    <div class="p-4 border-b border-slate-100 hover:bg-slate-50/50 cursor-pointer transition-all font-outfit" 
+                        onclick="jumpToStarredMessage('${m.clientId}', '${m.id}')">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">${m.senderName}</span>
+                            <span class="text-[9px] text-slate-300 font-medium">${new Date(m.timestamp).toLocaleDateString([], {month:'short', day:'numeric'})}</span>
+                        </div>
+                        <p class="text-xs text-slate-700 font-medium line-clamp-2">${parseMessageTextOnly(m.text)}</p>
+                    </div>
+                `).join('') || '<div class="p-20 text-center text-slate-400 text-xs font-outfit">No starred messages saved</div>';
+            } catch(e) { console.error(e); }
+        }
+        window.loadStarredWorkspaceMessages = loadStarredWorkspaceMessages;
+
+        window.jumpToStarredMessage = function(clientId, msgId) {
+            if (clientId.startsWith('group-') || clientId.startsWith('team_group_') || clientId.startsWith('team_chat_')) {
+                setWorkspaceFilter('groups');
+                handleSelectConversation(clientId, 'Group / Shared Channel', true);
+            } else {
+                setWorkspaceFilter('all');
+                handleSelectConversation(clientId, 'Support Channel', false);
+            }
+            setTimeout(() => {
+                const msgEl = document.getElementById(`msg-${msgId}`);
+                if (msgEl) msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 800);
+        }
+
+        // --- Call History Workspace view ---
+        async function loadCallHistoryWorkspace() {
+            const list = document.getElementById('conversation-list');
+            if (!list) return;
+            list.innerHTML = '<div class="p-10 text-center text-slate-400 text-xs font-outfit">Loading calls...</div>';
+            
+            try {
+                const res = await fetch(`/api/messages/calls/history?userId=${myId}`);
+                const calls = await res.json();
+                
+                list.innerHTML = calls.map(c => {
+                    const isCaller = c.callerId === myId;
+                    const partnerId = isCaller ? c.receiverId : c.callerId;
+                    const partnerName = isCaller ? c.receiverName : c.callerName;
+                    const dateStr = new Date(c.timestamp).toLocaleDateString([], {month:'short', day:'numeric'}) + ' ' + new Date(c.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                    const color = c.status === 'completed' ? 'text-emerald-500' : c.status === 'declined' ? 'text-red-500' : 'text-amber-500';
+                    const dirIcon = isCaller ? '↗' : '↙';
+                    return `
+                        <div class="p-4 border-b border-slate-100 hover:bg-slate-50 flex items-center justify-between transition-all font-outfit">
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-800">${dirIcon} ${partnerName}</h4>
+                                <div class="text-[9px] font-medium text-slate-400 mt-0.5 flex items-center gap-1.5">
+                                    <span>${dateStr}</span>
+                                    <span class="w-1 h-1 rounded-full bg-slate-300"></span>
+                                    <span class="${color} font-bold uppercase tracking-wider">${c.status} (${c.mediaType})</span>
+                                </div>
+                            </div>
+                            <button onclick="window.Calling.makeCall('${partnerId}', '${partnerName}', '${c.mediaType}')" class="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors border-0 cursor-pointer" title="Call back">
+                                <i data-lucide="phone" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    `;
+                }).join('') || '<div class="p-20 text-center text-slate-400 text-xs font-outfit">No call logs found</div>';
+                if (window.lucide) window.lucide.createIcons();
+            } catch(e) {}
+        }
+        window.loadCallHistoryWorkspace = loadCallHistoryWorkspace;
+        window.loadCallHistory = loadCallHistoryWorkspace;
+
+        // --- Shared Files Workspace view ---
+        window.loadFileWorkspaceSidebar = function() {
+            const list = document.getElementById('conversation-list');
+            if (!list) return;
+
+            const categories = ['Images', 'PDFs', 'Passport Copies', 'Utility Bills', 'Contracts'];
+            list.innerHTML = `
+                <div class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/30 font-outfit">Vault Categories</div>
+                ${categories.map(cat => `
+                    <div onclick="selectFileCategory('${cat}')" class="px-6 py-4 border-b border-slate-100 hover:bg-slate-50 cursor-pointer flex justify-between items-center transition-all ${selectedFileCategory === cat ? 'bg-blue-50/40 border-l-4 border-l-blue-600' : ''}">
+                        <span class="text-xs font-bold text-slate-700 font-outfit">${cat}</span>
+                        <span class="bg-slate-100 text-slate-400 text-[9px] font-bold px-1.5 py-0.5 rounded-full font-outfit">${allDocumentsList.filter(d => d.clientId === myId && window.categorizeFile(d.title, d.documentType) === cat).length}</span>
+                    </div>
+                `).join('')}
+            `;
+            
+            renderFileDirectoryView();
+        }
+
+        window.selectFileCategory = function(cat) {
+            selectedFileCategory = cat;
+            loadFileWorkspaceSidebar();
+        }
+
+        function renderFileDirectoryView() {
+            const chatWin = document.getElementById('chat-window-content');
+            if (!chatWin) return;
+
+            const files = allDocumentsList.filter(d => d.clientId === myId && window.categorizeFile(d.title, d.documentType) === selectedFileCategory);
+            
+            chatWin.innerHTML = `
+                <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-white shrink-0 font-outfit">
+                    <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i data-lucide="folder-open" class="w-4 h-4 text-blue-600"></i> Vault Sharing: ${selectedFileCategory}</h3>
+                    <div class="relative w-48 font-sans">
+                        <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" oninput="searchDirectoryFiles(this.value)" placeholder="Search category files..." class="w-full pl-9 pr-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] focus:outline-none">
+                    </div>
+                </div>
+                <div class="flex-1 p-6 overflow-y-auto bg-slate-50/20">
+                    <div class="grid grid-cols-2 gap-4" id="directory-files-grid font-outfit">
+                        ${files.map(f => `
+                            <div class="p-4 bg-white border border-slate-200 rounded-2xl flex gap-3 shadow-sm hover:shadow-md transition-all font-outfit">
+                                <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                                    <i data-lucide="file" class="w-5 h-5"></i>
+                                </div>
+                                <div class="min-w-0 flex-1 flex flex-col justify-between">
+                                    <div>
+                                        <h4 class="font-bold text-slate-800 text-xs truncate" title="${f.title}">${f.title}</h4>
+                                        <div class="text-[9px] font-bold text-slate-400 mt-0.5 truncate">${f.documentType} • ${f.date || 'N/A'}</div>
+                                    </div>
+                                    <div class="flex gap-3 mt-3">
+                                        <a href="${f.file}" download class="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-1"><i data-lucide="download" class="w-3 h-3"></i> Download</a>
+                                        <button onclick="zoomImage('${f.file}')" class="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-1 border-0 bg-transparent cursor-pointer"><i data-lucide="eye" class="w-3 h-3"></i> Zoom</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('') || '<div class="col-span-2 text-center text-slate-400 text-xs py-20 font-outfit">No documents in this category</div>'}
+                    </div>
+                </div>
+            `;
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        window.searchDirectoryFiles = function(query) {
+            const grid = document.getElementById('directory-files-grid');
+            if (!grid) return;
+            
+            const q = query.toLowerCase().trim();
+            const files = allDocumentsList.filter(d => 
+                d.clientId === myId &&
+                window.categorizeFile(d.title, d.documentType) === selectedFileCategory &&
+                d.title.toLowerCase().includes(q)
+            );
+            
+            grid.innerHTML = files.map(f => `
+                <div class="p-4 bg-white border border-slate-200 rounded-2xl flex gap-3 shadow-sm hover:shadow-md transition-all font-outfit">
+                    <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                        <i data-lucide="file" class="w-5 h-5"></i>
+                    </div>
+                    <div class="min-w-0 flex-1 flex flex-col justify-between">
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-xs truncate" title="${f.title}">${f.title}</h4>
+                            <div class="text-[9px] font-bold text-slate-400 mt-0.5 truncate">${f.documentType} • ${f.date || 'N/A'}</div>
+                        </div>
+                        <div class="flex gap-3 mt-3">
+                            <a href="${f.file}" download class="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-1"><i data-lucide="download" class="w-3 h-3"></i> Download</a>
+                            <button onclick="zoomImage('${f.file}')" class="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-1 border-0 bg-transparent cursor-pointer"><i data-lucide="eye" class="w-3 h-3"></i> Zoom</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('') || '<div class="col-span-2 text-center text-slate-400 text-xs py-20 font-outfit">No matching files found</div>';
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        // --- File upload handler ---
+        window.triggerAttachment = function() {
+            document.getElementById('chat-file-input').click();
+        }
+
+        window.handleFileSelected = function(e) {
+            const files = e.target.files;
+            if (files.length === 0) return;
+            handleUploadedFile(files[0]);
+            e.target.value = '';
+        }
+
+        function renderAttachmentPreviews() {
+            const container = document.getElementById('attachment-preview-container');
+            if (!container) return;
+            
+            if (localAttachments.length === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+            
+            container.classList.remove('hidden');
+            container.innerHTML = localAttachments.map((att, idx) => `
+                <div class="flex items-center gap-2 p-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 font-outfit">
+                    <span class="truncate max-w-[150px]">${att.name}</span>
+                    <button type="button" onclick="removeAttachment(${idx})" class="p-0.5 text-red-500 hover:bg-slate-50 rounded border-0 bg-transparent cursor-pointer">
+                        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+            `).join('');
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        window.removeAttachment = function(idx) {
+            localAttachments.splice(idx, 1);
+            renderAttachmentPreviews();
+        }
+
+        // --- Sharing modal integration ---
+        window.openIntegrationShare = function() {
+            let modal = document.getElementById('integration-share-modal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            
+            const shareList = document.getElementById('share-list');
+            if (!shareList) return;
+            
+            // Client can only share documents that belong to their own clientId
+            const myDocs = allDocumentsList.filter(d => d.clientId === myId);
+            shareList.innerHTML = myDocs.map(doc => `
+                <div class="flex justify-between items-center py-2 font-outfit">
+                    <div class="min-w-0">
+                        <h4 class="text-xs font-bold text-slate-800 truncate">${doc.title}</h4>
+                        <div class="text-[9px] text-slate-400 font-bold uppercase tracking-widest">${doc.documentType}</div>
+                    </div>
+                    <button onclick="shareItemToConversation('doc', '${doc.file}', '${doc.title}')" class="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10px] font-bold border-0 cursor-pointer">Share</button>
+                </div>
+            `).join('') || '<div class="text-center text-slate-400 text-xs py-10 font-outfit">No documents in your vault</div>';
+        }
+
+        window.shareItemToConversation = async function(type, idVal, nameVal) {
+            let text = `📁 SHARED DOCUMENT: ${nameVal} [Download](${idVal})`;
+            document.getElementById('integration-share-modal').classList.add('hidden');
+            await submitMessage(text);
+        }
+
+        // --- Message reactions toggling ---
+        window.toggleReaction = async function(msgId, emoji) {
+            const activeId = selectedClientId || selectedTeamChatId || myId;
+            try {
+                const res = await fetch(`/api/messages?clientId=${activeId}`);
+                if (!res.ok) return;
+                const messages = await res.json();
+                const m = messages.find(msg => msg.id === msgId);
+                if (!m) return;
+                
+                const payload = parseMessageText(m.text);
+                if (!payload.reactions) payload.reactions = {};
+                if (!payload.reactions[emoji]) payload.reactions[emoji] = [];
+                
+                const uIdx = payload.reactions[emoji].indexOf(myId);
+                if (uIdx === -1) {
+                    payload.reactions[emoji].push(myId);
+                } else {
+                    payload.reactions[emoji].splice(uIdx, 1);
+                }
+                
+                await fetch(`/api/messages/${msgId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: JSON.stringify(payload) })
+                });
+                
+                if (selectedTeamChatId) fetchTeamMessages(selectedTeamChatId);
+                else fetchMessages(selectedClientId);
+            } catch (e) {
+                console.error("Failed to toggle reaction", e);
+            }
+        }
+
+        window.toggleStarMessage = function(msgId) {
+            let starredList = JSON.parse(localStorage.getItem('starred_messages_' + myId) || '[]');
+            const idx = starredList.indexOf(msgId);
+            if (idx === -1) {
+                starredList.push(msgId);
+            } else {
+                starredList.splice(idx, 1);
+            }
+            localStorage.setItem('starred_messages_' + myId, JSON.stringify(starredList));
+            
+            fetch(`/api/messages/starred?userId=${myId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(starredList)
+            }).then(() => {
+                if (selectedTeamChatId) fetchTeamMessages(selectedTeamChatId);
+                else fetchMessages(selectedClientId);
+            });
+        }
+
+        // --- Message Send Logic ---
+        window.handleSend = async function(e) {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            if (!input) return;
+            
+            const val = input.value.trim();
+            if (!val && localAttachments.length === 0) return;
+            
+            await submitMessage(val);
+        }
+
+        async function submitMessage(inputText) {
+            const input = document.getElementById('chat-input');
+            const activeId = selectedClientId || selectedTeamChatId || myId;
+            
+            if (editingMessageId) {
+                // Update edited text
+                const editId = editingMessageId;
+                editingMessageId = null;
+                if (input) {
+                    input.placeholder = "Type message...";
+                    input.classList.remove('border-amber-400', 'ring-2', 'ring-amber-500/10');
+                }
+                
+                const messagePayload = {
+                    text: inputText,
+                    reactions: {},
+                    attachments: localAttachments
+                };
+                
+                try {
+                    await fetch(`/api/messages/${editId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: JSON.stringify(messagePayload) })
+                    });
+                    
+                    if (input) input.value = '';
+                    localAttachments = [];
+                    renderAttachmentPreviews();
+                    
+                    if (selectedTeamChatId) fetchTeamMessages(activeId);
+                    else fetchMessages(activeId);
+                } catch(e){}
+                return;
+            }
+
+            const messagePayload = {
+                text: inputText,
+                reactions: {},
+                attachments: localAttachments
+            };
+
+            if (replyToMsg) {
+                messagePayload.replyTo = { ...replyToMsg };
+                cancelReplyQuote();
+            }
+
             try {
                 await fetch('/api/messages', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        clientId: state.user.id,
-                        senderId: state.user.id,
-                        senderName: state.user.name,
+                        clientId: activeId,
+                        senderId: myId,
+                        senderName: myName,
                         senderRole: 'client',
-                        text: text
+                        text: JSON.stringify(messagePayload)
                     })
                 });
-                fetchMessages();
-            } catch (e) { console.error('Send Failed:', e); }
+
+                localStorage.removeItem(`draft_${myId}_${activeId}`);
+
+                if (input) input.value = '';
+                localAttachments = [];
+                renderAttachmentPreviews();
+                sendTyping(false);
+                
+                if (selectedTeamChatId) fetchTeamMessages(activeId);
+                else fetchMessages(activeId);
+                fetchConversations();
+            } catch(e){}
         }
 
-        function renderChatMessages(messages) {
-            const container = document.getElementById('chat-messages');
-            if (!container) return;
+        // --- Presence selector ---
+        window.togglePresenceMenu = function() {
+            const menu = document.getElementById('presence-menu');
+            if (menu) menu.classList.toggle('hidden');
+        }
 
-            if (messages.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center py-20">
-                        <div class="w-16 h-16 bg-blue-50 text-blue-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                            <i data-lucide="message-square" class="w-8 h-8"></i>
-                        </div>
-                        <h4 class="font-bold text-slate-900">Start a Conversation</h4>
-                        <p class="text-slate-500 text-sm mt-2">Send a message to our operations desk for assistance.</p>
-                    </div>
-                `;
-                lucide.createIcons();
+        window.changePresence = function(status) {
+            currentPresenceStatus = status;
+            document.getElementById('presence-menu').classList.add('hidden');
+            
+            const dot = document.getElementById('current-presence-dot');
+            const text = document.getElementById('current-presence-text');
+            
+            let color = 'bg-emerald-500';
+            if (status === 'away') color = 'bg-amber-500';
+            if (status === 'busy') color = 'bg-red-500';
+            if (status === 'offline') color = 'bg-slate-400';
+            
+            if (dot) {
+                dot.className = `w-2.5 h-2.5 rounded-full ${color}`;
+            }
+            if (text) {
+                text.innerText = status.charAt(0).toUpperCase() + status.slice(1);
+            }
+            
+            // Broadcast via socket
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: 'status_change',
+                    userId: myId,
+                    status: status
+                }));
+            }
+        }
+
+        function updateHeaderPresenceStatus() {
+            const statusEl = document.getElementById('chat-header-status');
+            if (!statusEl) return;
+            
+            const activeId = selectedClientId || selectedTeamChatId || myId;
+            if (selectedTeamChatId) {
+                statusEl.innerText = 'Shared Channel';
                 return;
             }
 
-            const html = messages.map(m => {
-                const isMe = m.senderId === state.user.id;
-                return `
-                    <div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
-                        <div class="max-w-[70%]">
-                            <div class="flex items-center gap-2 mb-1 ${isMe ? 'justify-end' : 'justify-start'}">
-                                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">${m.senderName}</span>
-                                <span class="text-[9px] text-slate-300 font-medium">${new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
-                            <div class="px-5 py-3 rounded-[24px] text-sm ${isMe ? 'bg-blue-600 text-white rounded-tr-none shadow-lg shadow-blue-200' : 'bg-white text-slate-700 border border-white/80 rounded-tl-none shadow-sm'}">
-                                ${m.text}
-                            </div>
+            let targetUserId = activeId;
+            if (activeId.startsWith('team_chat_')) {
+                targetUserId = activeId.replace('team_chat_', '').replace(myId, '').replace('_', '');
+            } else if (activeId.startsWith('chat_')) {
+                targetUserId = activeId.replace('chat_', '').replace(myId, '').replace('_', '');
+            } else if (activeId === myId) {
+                targetUserId = 'staff-admin';
+            }
+
+            const presence = presenceStatusMap[targetUserId] || 'offline';
+            if (presence === 'online') {
+                statusEl.innerText = 'Online';
+                statusEl.className = 'text-[9px] text-emerald-500 font-bold uppercase tracking-widest';
+            } else if (presence === 'away') {
+                statusEl.innerText = 'Away';
+                statusEl.className = 'text-[9px] text-amber-500 font-bold uppercase tracking-widest';
+            } else if (presence === 'busy') {
+                statusEl.innerText = 'Busy';
+                statusEl.className = 'text-[9px] text-red-500 font-bold uppercase tracking-widest';
+            } else {
+                const lastSeenTime = lastSeenMap[targetUserId];
+                if (lastSeenTime) {
+                    const date = new Date(lastSeenTime);
+                    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                    statusEl.innerText = `Offline (Last seen: ${dateStr} ${timeStr})`;
+                } else {
+                    statusEl.innerText = 'Offline';
+                }
+                statusEl.className = 'text-[9px] text-slate-400 font-bold uppercase tracking-widest';
+            }
+        }
+
+        // --- WebSocket connection setup ---
+        function connectWebSocket() {
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            socket = new WebSocket(`${wsProtocol}//${window.location.host}/api/ws/chat?userId=${myId}&role=client`);
+
+            socket.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'presence' || data.type === 'status_change') {
+                        presenceStatusMap[data.userId] = data.status;
+                        if (data.lastSeen) {
+                            lastSeenMap[data.userId] = data.lastSeen;
+                        }
+                        fetchConversations();
+                        if (selectedClientId === data.userId || (selectedClientId && selectedClientId.includes(data.userId))) {
+                            updateHeaderPresenceStatus();
+                        }
+                    } else if (data.type === 'message') {
+                        const m = data.message;
+                        const isGroup = m.clientId && (m.clientId.startsWith('group-') || m.clientId.startsWith('team_group_'));
+
+                        if (selectedTeamChatId === m.clientId || selectedClientId === m.clientId || (!selectedTeamChatId && !selectedClientId && m.clientId === myId)) {
+                            if (isGroup) fetchTeamMessages(m.clientId);
+                            else fetchMessages(m.clientId);
+                            markAsRead(m.clientId);
+                        }
+                        fetchConversations();
+                    } else if (data.type === 'message_deleted') {
+                        const activeId = selectedClientId || selectedTeamChatId || myId;
+                        if (activeId === data.clientId) {
+                            if (selectedTeamChatId) fetchTeamMessages(activeId);
+                            else fetchMessages(activeId);
+                        }
+                    } else if (data.type === 'notification') {
+                        const notif = data.notification;
+                        const isMessageFromMe = notif.type === 'message' && notif.message.startsWith(myName + ':');
+                        if (!isMessageFromMe && (notif.clientId === 'all' || notif.clientId === 'client' || notif.clientId === myId || 
+                            (notif.clientId.startsWith('team_group_')) ||
+                            (notif.clientId.startsWith('chat_') && notif.clientId.includes(myId)) ||
+                            (notif.clientId.startsWith('team_chat_') && notif.clientId.includes(myId)))) {
+                            const exists = state.notifications.some(n => n.id === notif.id);
+                            if (!exists) {
+                                state.notifications.unshift(notif);
+                                updateNotificationUI();
+                                showToastNotification(notif);
+                            }
+                        }
+                    } else if (data.type === 'typing') {
+                        const activeId = selectedClientId || selectedTeamChatId || myId;
+                        if (activeId === data.clientId && data.senderId !== myId) {
+                            const statusEl = document.getElementById('chat-header-status');
+                            if (statusEl) {
+                                if (data.isTyping) {
+                                    statusEl.innerText = `${data.senderName} is typing...`;
+                                    statusEl.className = 'text-[9px] text-emerald-500 font-bold uppercase tracking-widest';
+                                } else {
+                                    updateHeaderPresenceStatus();
+                                }
+                            }
+                        }
+                    } else if (data.type === 'read_receipt') {
+                        const activeId = selectedClientId || selectedTeamChatId || myId;
+                        if (activeId === data.clientId) {
+                            fetchMessages(activeId);
+                        }
+                    } else if (data.type === 'call_signal') {
+                        window.Calling.handleSignal(data);
+                    }
+                } catch(e){}
+            };
+
+            socket.onclose = function() {
+                setTimeout(connectWebSocket, 5000);
+            };
+        }
+
+        // --- Typing Indicators helper ---
+        function setupTypingListeners() {
+            const input = document.getElementById('chat-input');
+            if (!input) return;
+
+            input.addEventListener('input', () => {
+                sendTyping(true);
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => sendTyping(false), 2500);
+            });
+        }
+
+        function sendTyping(isTyping) {
+            const activeId = selectedClientId || selectedTeamChatId || myId;
+            if (socket && socket.readyState === WebSocket.OPEN && activeId) {
+                socket.send(JSON.stringify({
+                    type: 'typing',
+                    clientId: activeId,
+                    senderId: myId,
+                    senderName: myName,
+                    senderRole: 'client',
+                    isTyping: isTyping
+                }));
+            }
+        }
+
+        // --- Utility JSON parsers ---
+        function parseMessageText(text) {
+            if (text && text.startsWith('{') && text.endsWith('}')) {
+                try { return JSON.parse(text); } catch(e){}
+            }
+            return { text: text, reactions: {}, attachments: [] };
+        }
+
+        function parseMessageTextOnly(text) {
+            return parseMessageText(text).text;
+        }
+
+        function getOneToOneChatId(idA, idB) {
+            const list = [idA, idB].sort();
+            return `team_chat_${list[0]}_${list[1]}`;
+        }
+
+        window.zoomImage = function(url) {
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.95);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;backdrop-filter:blur(8px);';
+            modal.innerHTML = `<img src="${url}" class="max-w-[90%] max-h-[90%] object-contain rounded-2xl shadow-2xl">`;
+            modal.onclick = () => modal.remove();
+            document.body.appendChild(modal);
+        }
+
+        // --- Notifications dropdown triggers ---
+        window.toggleNotifs = function(event) {
+            if (event) event.stopPropagation();
+            const dropdown = document.getElementById('notif-dropdown');
+            if (!dropdown) return;
+            const isHidden = dropdown.classList.contains('hidden');
+            if (isHidden) {
+                dropdown.classList.remove('hidden');
+                dropdown.offsetHeight; // force reflow
+                dropdown.classList.remove('scale-95', 'opacity-0');
+                dropdown.classList.add('scale-100', 'opacity-100');
+                fetchNotifications();
+            } else {
+                dropdown.classList.remove('scale-100', 'opacity-100');
+                dropdown.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => dropdown.classList.add('hidden'), 200);
+            }
+        }
+
+        window.markAllNotificationsAsRead = async function(event) {
+            if (event) event.stopPropagation();
+            try {
+                const res = await fetch(`/api/notifications/read-all?clientId=${myId}`, {
+                    method: 'POST'
+                });
+                if (res.ok) {
+                    state.notifications.forEach(n => {
+                        if (!n.readBy.includes(myId)) n.readBy.push(myId);
+                    });
+                    updateNotificationUI();
+                }
+            } catch(e){}
+        }
+
+        window.handleNotifClick = async function(notifId, type, relatedId) {
+            try {
+                await fetch('/api/notifications/read', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ notifId, clientId: myId })
+                });
+            } catch (e) {
+                console.error("Failed to mark read:", e);
+            }
+            
+            const notif = state.notifications.find(n => n.id === notifId);
+            if (notif && !notif.readBy.includes(myId)) {
+                notif.readBy.push(myId);
+            }
+            updateNotificationUI();
+            
+            const dropdown = document.getElementById('notif-dropdown');
+            if (dropdown) {
+                dropdown.classList.remove('scale-100', 'opacity-100');
+                dropdown.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => dropdown.classList.add('hidden'), 200);
+            }
+            
+            if (type === 'message') {
+                setWorkspaceFilter('all');
+                handleSelectConversation(myId, 'Support Operations', false);
+            } else if (type === 'blog') {
+                window.location.href = `portal.html?tab=updates&blogId=${relatedId}`;
+            } else if (type === 'status_update' || type === 'assignment') {
+                window.location.href = 'portal.html?tab=services';
+            } else if (type === 'document_request') {
+                window.location.href = 'portal.html?tab=documents';
+            }
+        }
+
+        // --- Pinned Messages functions ---
+        window.togglePinMessage = function(msgId, senderName, text) {
+            const activeId = selectedClientId || selectedTeamChatId || myId;
+            if (!activeId) return;
+            
+            let pinnedMap = JSON.parse(localStorage.getItem('pinned_messages_map_' + myId) || '{}');
+            if (pinnedMap[activeId] && pinnedMap[activeId].id === msgId) {
+                delete pinnedMap[activeId];
+            } else {
+                pinnedMap[activeId] = { id: msgId, senderName, text };
+            }
+            localStorage.setItem('pinned_messages_map_' + myId, JSON.stringify(pinnedMap));
+            
+            renderPinnedMessageBanner();
+            if (selectedTeamChatId) fetchTeamMessages(selectedTeamChatId);
+            else fetchMessages(selectedClientId);
+        }
+
+        window.renderPinnedMessageBanner = function() {
+            const banner = document.getElementById('pinned-message-banner');
+            if (!banner) return;
+            
+            const activeId = selectedClientId || selectedTeamChatId || myId;
+            if (!activeId) {
+                banner.classList.add('hidden');
+                return;
+            }
+            
+            const pinnedMap = JSON.parse(localStorage.getItem('pinned_messages_map_' + myId) || '{}');
+            const pinData = pinnedMap[activeId];
+            
+            if (pinData) {
+                banner.innerHTML = `
+                    <div class="bg-blue-50 border-b border-blue-100 px-4 py-2 flex justify-between items-center text-xs font-semibold text-blue-800 shrink-0 font-outfit">
+                        <div class="flex items-center gap-2 truncate">
+                            <i data-lucide="pin" class="w-3.5 h-3.5 text-blue-600 rotate-45 shrink-0"></i>
+                            <span class="truncate">Pinned: <b class="text-blue-700">${pinData.senderName}:</b> <span class="font-normal text-slate-700 italic font-sans">${pinData.text}</span></span>
                         </div>
+                        <button onclick="unpinCurrentMessage()" class="text-[10px] text-blue-600 font-bold hover:underline shrink-0 ml-4 border-0 bg-transparent cursor-pointer font-outfit">Unpin</button>
                     </div>
                 `;
-            }).join('');
-
-            const shouldScroll = container.scrollTop + container.clientHeight >= container.scrollHeight - 100;
-            container.innerHTML = html;
-            if (shouldScroll || container.innerHTML.length < 1000) {
-                container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+                banner.classList.remove('hidden');
+                if (window.lucide) window.lucide.createIcons();
+            } else {
+                banner.classList.add('hidden');
             }
         }
 
-        document.getElementById('chat-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const input = document.getElementById('chat-input');
-            const text = input.value.trim();
-            if (text) {
-                sendMessage(text);
-                input.value = '';
-            }
-        });
-
-        async function fetchAssignedStaff() {
-            try {
-                const sRes = await fetch(`/api/clients/${state.user.id}/services`);
-                if (sRes.ok) {
-                    const sData = await sRes.json();
-                    const activeService = sData.services?.[0];
-                    const rawStaff = activeService ? (activeService.staff || 'Unassigned') : 'Unassigned';
-                    const staffName = (!rawStaff || rawStaff.toLowerCase() === 'sarah lim' || rawStaff.toLowerCase() === 'unassigned') ? 'Unassigned' : rawStaff;
-                    const staffInitial = staffName.charAt(0).toUpperCase();
-                    
-                    const nameEl = document.getElementById('staff-name');
-                    const avatarEl = document.getElementById('staff-avatar');
-                    if (nameEl) nameEl.innerText = staffName;
-                    if (avatarEl) avatarEl.innerText = staffInitial;
-                }
-            } catch (e) {
-                console.error('Failed to fetch assigned staff:', e);
-            }
+        window.unpinCurrentMessage = function() {
+            const activeId = selectedClientId || selectedTeamChatId || myId;
+            if (!activeId) return;
+            
+            let pinnedMap = JSON.parse(localStorage.getItem('pinned_messages_map_' + myId) || '{}');
+            delete pinnedMap[activeId];
+            localStorage.setItem('pinned_messages_map_' + myId, JSON.stringify(pinnedMap));
+            
+            renderPinnedMessageBanner();
+            if (selectedTeamChatId) fetchTeamMessages(selectedTeamChatId);
+            else fetchMessages(selectedClientId);
         }
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('user-name').innerText = state.user.name;
-            fetchMessages();
-            fetchAssignedStaff();
-            setInterval(fetchMessages, 3000);
-            lucide.createIcons();
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            document.getElementById('user-name').innerText = myName;
+            document.getElementById('user-avatar-text').innerText = myName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2) || 'MA';
+            
+            await fetchApplications();
+            await fetchUsers();
+            await fetchDocuments();
+            connectWebSocket();
+            refreshWorkspace();
+            fetchNotifications();
+            window.Calling.init('client');
+
+            // Set up polling fallback for safety
+            setInterval(async () => {
+                await fetchApplications();
+                await fetchDocuments();
+                refreshWorkspace();
+                fetchNotifications();
+            }, 6000);
         });
     </script>
 </body>

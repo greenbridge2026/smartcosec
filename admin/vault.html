@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Vault | Globalisor Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <script>
+        if (!localStorage.getItem('admin_auth')) window.location.href = '/auth.html';
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], outfit: ['Outfit', 'sans-serif'] },
+                    colors: { 
+                        slate: { 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 800: '#1e293b', 900: '#0f172a' },
+                        primary: '#0f172a',
+                        accent: '#3b82f6'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Outfit', sans-serif; background: #f8fafc; min-height: 100vh; overflow-x: hidden; }
+        .top-nav { height: 60px; background: #ffffff; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1.5rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
+        .main-container { padding: 2rem; max-width: 1600px; margin-left: 240px !important; margin-right: auto; }
+        .module-nav-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #64748b; transition: all 0.2s; cursor: pointer !important; border: none; background: transparent; white-space: nowrap; width: 100% !important; box-sizing: border-box !important; }
+        .module-nav-btn:hover { color: #0f172a; background: #ffffff; }
+        .module-nav-btn.active { color: #0f172a; background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        
+        #module-switcher {
+            position: fixed !important;
+            top: 60px !important;
+            left: 0 !important;
+            width: 240px !important;
+            height: calc(100vh - 60px) !important;
+            background: #ffffff !important;
+            border-right: 1px solid #e2e8f0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            padding: 1.5rem 1rem !important;
+            gap: 0.5rem !important;
+            align-items: stretch !important;
+            justify-content: flex-start !important;
+            z-index: 9998 !important;
+        }
+    </style>
+    <script type="module" src="admin-sidebar.js"></script>
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="flex items-center gap-4">
+            <div class="flex flex-col leading-none cursor-pointer" onclick="window.location.href='dashboard.html'">
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Admin</span>
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Portal</span>
+            </div>
+        </div>
+        <div id="module-switcher" class="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-white/80">
+            <!-- Loaded dynamically by admin-sidebar.js -->
+        </div>
+        <div class="flex items-center justify-end gap-3 relative">
+            <!-- Notification bell loaded by admin-sidebar.js -->
+            <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
+                <div class="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-xs">A</div>
+                <div class="flex flex-col">
+                    <div class="text-xs font-semibold text-slate-800">Admin Team</div>
+                    <button onclick="localStorage.removeItem('admin_auth'); localStorage.removeItem('token'); window.location.href='/auth.html'" class="text-[10px] text-red-500 font-bold hover:underline text-left leading-none">Sign Out</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-container">
+        <div class="space-y-8">
+            <!-- Title section -->
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 class="text-3xl font-bold font-outfit text-slate-900">Document Vault</h1>
+                    <p class="text-slate-500 text-sm mt-1">Single source of truth for all client files across Pre-Registration, Portals, Messages, and Workflows.</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="triggerUploadModal()" class="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 hover:scale-[1.02] transition-all flex items-center gap-2">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Upload Document
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats grid -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm flex items-center gap-4">
+                    <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                        <i data-lucide="folder" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-slate-900" id="stat-total">0</div>
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Documents</div>
+                    </div>
+                </div>
+                <div class="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm flex items-center gap-4 border-l-4 border-l-amber-500">
+                    <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+                        <i data-lucide="clock" class="w-6 h-6 animate-pulse"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-slate-900" id="stat-pending">0</div>
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pending Review</div>
+                    </div>
+                </div>
+                <div class="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm flex items-center gap-4 border-l-4 border-l-emerald-500">
+                    <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+                        <i data-lucide="check-circle" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-slate-900" id="stat-approved">0</div>
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Approved Files</div>
+                    </div>
+                </div>
+                <div class="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm flex items-center gap-4 border-l-4 border-l-rose-500">
+                    <div class="w-12 h-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center">
+                        <i data-lucide="x-circle" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-slate-900" id="stat-rejected">0</div>
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Rejected Files</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters panel -->
+            <div class="bg-white border border-slate-200/85 rounded-2xl p-6 shadow-sm space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="relative">
+                        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" id="search-input" oninput="applyFilters()" placeholder="Search client name, company, title..." class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:bg-white transition-all">
+                    </div>
+                    <div>
+                        <select id="filter-type" onchange="applyFilters()" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:bg-white transition-all">
+                            <option value="">All Document Types</option>
+                            <option value="Passport">Passport</option>
+                            <option value="Proof of Address">Proof of Address</option>
+                            <option value="Director ID">Director ID</option>
+                            <option value="Business Plan">Business Plan</option>
+                            <option value="Incorporation Form">Incorporation Form</option>
+                            <option value="Board Resolution">Board Resolution</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <select id="filter-source" onchange="applyFilters()" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:bg-white transition-all">
+                            <option value="">All Upload Sources</option>
+                            <option value="Pre-Registration">Pre-Registration</option>
+                            <option value="Client Portal">Client Portal</option>
+                            <option value="Applications">Applications</option>
+                            <option value="Messages">Messages</option>
+                            <option value="Pricing Page">Pricing Page</option>
+                        </select>
+                    </div>
+                    <div>
+                        <select id="filter-status" onchange="applyFilters()" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:bg-white transition-all">
+                            <option value="">All Statuses</option>
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Documents Grid -->
+            <div class="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50/75 border-b border-slate-200">
+                                <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Client Details</th>
+                                <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Company & Service</th>
+                                <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Document</th>
+                                <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Source</th>
+                                <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Uploaded</th>
+                                <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Status</th>
+                                <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="documents-tbody" class="divide-y divide-slate-100">
+                            <tr>
+                                <td colspan="7" class="px-6 py-16 text-center text-slate-400">
+                                    <div class="flex flex-col items-center justify-center gap-2">
+                                        <i data-lucide="loader-2" class="w-8 h-8 animate-spin text-slate-300"></i>
+                                        <span class="text-xs font-bold">Loading document repository...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Document Preview Modal -->
+    <div id="preview-modal" class="fixed inset-0 z-[10000] hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-3xl overflow-hidden shadow-2xl max-w-4xl w-full h-[85vh] flex flex-col">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
+                <div>
+                    <h3 id="preview-title" class="font-bold text-slate-900 text-base">Preview Document</h3>
+                    <p id="preview-subtitle" class="text-slate-400 text-xs mt-0.5">Passport | Ethan Tan</p>
+                </div>
+                <button onclick="closePreviewModal()" class="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-xl transition-all">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div id="preview-content" class="flex-1 bg-slate-100 overflow-auto flex items-center justify-center p-6">
+                <!-- Injected iframe or image -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Version History & Logs Modal -->
+    <div id="version-modal" class="fixed inset-0 z-[10000] hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-3xl overflow-hidden shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
+                <div>
+                    <h3 id="version-modal-title" class="font-bold text-slate-900 text-base">Document History</h3>
+                    <p id="version-modal-subtitle" class="text-slate-400 text-xs mt-0.5">Manage versions and audit activity logs.</p>
+                </div>
+                <button onclick="closeVersionModal()" class="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-xl transition-all">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                <!-- Versions list -->
+                <div class="space-y-3">
+                    <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Version History</h4>
+                    <div id="version-history-list" class="space-y-2">
+                        <!-- Injected versions -->
+                    </div>
+                    <!-- Upload new version input -->
+                    <div class="mt-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                        <label class="block text-xs font-bold text-slate-700 mb-2">Upload New Version</label>
+                        <div class="flex items-center gap-3">
+                            <input type="file" id="new-version-file-input" onchange="uploadNewVersion(event)" class="hidden">
+                            <button onclick="document.getElementById('new-version-file-input').click()" class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 shadow-sm transition-all flex items-center gap-2">
+                                <i data-lucide="upload" class="w-3.5 h-3.5"></i> Select File
+                            </button>
+                            <span id="new-version-filename" class="text-xs text-slate-400 italic">No file selected</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Logs list -->
+                <div class="space-y-3">
+                    <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Activity Audit Logs</h4>
+                    <div id="activity-logs-list" class="divide-y divide-slate-100 bg-slate-50/50 border border-slate-100 rounded-2xl p-4 max-h-48 overflow-y-auto text-xs space-y-2">
+                        <!-- Injected activity logs -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Document Upload Modal -->
+    <div id="upload-modal" class="fixed inset-0 z-[10000] hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-3xl overflow-hidden shadow-2xl max-w-lg w-full flex flex-col">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
+                <h3 class="font-bold text-slate-900 text-base">Upload Document</h3>
+                <button onclick="closeUploadModal()" class="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-xl transition-all">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form onsubmit="handleManualUpload(event)" class="p-6 space-y-4 text-xs font-semibold text-slate-600">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block mb-1 text-[10px] uppercase font-bold text-slate-400">Client ID</label>
+                        <input type="text" id="upload-client-id" required placeholder="e.g. C-1001" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10">
+                    </div>
+                    <div>
+                        <label class="block mb-1 text-[10px] uppercase font-bold text-slate-400">Client Name</label>
+                        <input type="text" id="upload-client-name" required placeholder="e.g. Ethan Tan" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block mb-1 text-[10px] uppercase font-bold text-slate-400">Company Name</label>
+                        <input type="text" id="upload-company-name" required placeholder="e.g. LionPath Trading" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10">
+                    </div>
+                    <div>
+                        <label class="block mb-1 text-[10px] uppercase font-bold text-slate-400">Application ID</label>
+                        <input type="text" id="upload-app-id" required placeholder="e.g. APP-1001" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block mb-1 text-[10px] uppercase font-bold text-slate-400">Service Type</label>
+                        <input type="text" id="upload-service" required value="Company Incorporation" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10">
+                    </div>
+                    <div>
+                        <label class="block mb-1 text-[10px] uppercase font-bold text-slate-400">Document Type</label>
+                        <select id="upload-doc-type" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10">
+                            <option value="Passport">Passport</option>
+                            <option value="Proof of Address">Proof of Address</option>
+                            <option value="Director ID">Director ID</option>
+                            <option value="Business Plan">Business Plan</option>
+                            <option value="Incorporation Form">Incorporation Form</option>
+                            <option value="Board Resolution">Board Resolution</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block mb-1 text-[10px] uppercase font-bold text-slate-400">Document Title</label>
+                    <input type="text" id="upload-title" required placeholder="e.g. passport_scan.pdf" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10">
+                </div>
+                <div>
+                    <label class="block mb-1 text-[10px] uppercase font-bold text-slate-400">Document File</label>
+                    <div class="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center hover:border-blue-400 transition-colors cursor-pointer relative" onclick="document.getElementById('manual-upload-file-input').click()">
+                        <input type="file" id="manual-upload-file-input" required class="hidden" onchange="handleManualFileSelect(event)">
+                        <div class="space-y-1">
+                            <i data-lucide="upload-cloud" class="w-8 h-8 text-slate-400 mx-auto"></i>
+                            <p class="text-xs text-slate-600 font-bold" id="manual-upload-status">Click to browse or drop file here</p>
+                            <p class="text-[10px] text-slate-400">Supports PDF, JPG, PNG up to 10MB</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="pt-4 flex justify-end gap-3">
+                    <button type="button" onclick="closeUploadModal()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold">Cancel</button>
+                    <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center gap-2">
+                        <i data-lucide="check" class="w-4 h-4"></i> Upload to Vault
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let allDocuments = [];
+        let socket = null;
+        let selectedDocId = null;
+        let selectedDocFileBase64 = null;
+        
+        const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+        const myId = authObj.id || authObj.userId || 'staff-admin';
+
+        async function fetchDocuments() {
+            try {
+                const res = await fetch('/api/documents');
+                if (res.ok) {
+                    allDocuments = await res.json();
+                    renderDocuments(allDocuments);
+                    updateStats(allDocuments);
+                }
+            } catch (e) {
+                console.error("Failed to load documents:", e);
+            }
+        }
+
+        function updateStats(docs) {
+            document.getElementById('stat-total').innerText = docs.length;
+            document.getElementById('stat-pending').innerText = docs.filter(d => d.status === 'pending').length;
+            document.getElementById('stat-approved').innerText = docs.filter(d => d.status === 'approved' || d.status === 'Approved').length;
+            document.getElementById('stat-rejected').innerText = docs.filter(d => d.status === 'rejected' || d.status === 'Rejected').length;
+        }
+
+        function renderDocuments(docs) {
+            const tbody = document.getElementById('documents-tbody');
+            if (docs.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="px-6 py-16 text-center text-slate-400">
+                            <i data-lucide="folder-open" class="w-8 h-8 text-slate-300 mx-auto mb-2"></i>
+                            <span class="text-xs font-bold">No documents match the active filters</span>
+                        </td>
+                    </tr>
+                `;
+                if (window.lucide) lucide.createIcons();
+                return;
+            }
+
+            tbody.innerHTML = docs.map(d => {
+                let statusClass = 'bg-amber-50 text-amber-600 border border-amber-100';
+                if (d.status === 'approved' || d.status === 'Approved') {
+                    statusClass = 'bg-emerald-50 text-emerald-600 border border-emerald-100';
+                } else if (d.status === 'rejected' || d.status === 'Rejected') {
+                    statusClass = 'bg-rose-50 text-rose-600 border border-rose-100';
+                }
+
+                return `
+                    <tr class="hover:bg-slate-50/50 transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="flex flex-col">
+                                <span class="font-bold text-slate-900 text-xs">${d.clientName || 'Unknown'}</span>
+                                <span class="text-[10px] text-slate-400 font-medium">${d.clientId || 'N/A'}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex flex-col">
+                                <span class="font-bold text-slate-800 text-xs truncate max-w-[150px]">${d.companyName || 'Unknown'}</span>
+                                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">${d.service || 'Incorporation'}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex flex-col">
+                                <span class="font-bold text-slate-900 text-xs truncate max-w-[180px]">${d.title}</span>
+                                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">${d.documentType || 'Other'}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200/50 rounded-full text-[10px] font-bold">${d.uploadSource || 'Client Portal'}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="text-[10px] font-semibold text-slate-600">${d.date || 'N/A'}</div>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <select onchange="updateDocStatus('${d.id}', this.value)" class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase outline-none cursor-pointer ${statusClass}">
+                                <option value="pending" ${d.status === 'pending' ? 'selected' : ''}>Pending</option>
+                                <option value="approved" ${d.status === 'approved' || d.status === 'Approved' ? 'selected' : ''}>Approved</option>
+                                <option value="rejected" ${d.status === 'rejected' || d.status === 'Rejected' ? 'selected' : ''}>Rejected</option>
+                            </select>
+                        </td>
+                        <td class="px-6 py-4 text-right relative">
+                            <div class="inline-block text-left dropdown-container">
+                                <button onclick="toggleActionsDropdown(event, '${d.id}')" class="p-2 hover:bg-slate-100 rounded-lg transition-colors flex items-center justify-center outline-none border border-transparent hover:border-slate-200" title="Actions">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                                </button>
+                                <div id="actions-dropdown-${d.id}" class="hidden absolute right-0 mt-1 w-32 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 font-outfit text-left">
+                                    <button onclick="previewDocument('${d.id}')" class="w-full text-left px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600 flex items-center gap-2">
+                                        <i data-lucide="eye" class="w-3.5 h-3.5 text-blue-600"></i> Preview
+                                    </button>
+                                    <button onclick="downloadDocument('${d.id}')" class="w-full text-left px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600 flex items-center gap-2">
+                                        <i data-lucide="download" class="w-3.5 h-3.5 text-blue-600"></i> Download
+                                    </button>
+                                    <button onclick="openVersionModal('${d.id}')" class="w-full text-left px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600 flex items-center gap-2">
+                                        <i data-lucide="history" class="w-3.5 h-3.5 text-blue-600"></i> History
+                                    </button>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function applyFilters() {
+            const search = document.getElementById('search-input').value.toLowerCase().trim();
+            const type = document.getElementById('filter-type').value;
+            const source = document.getElementById('filter-source').value;
+            const status = document.getElementById('filter-status').value;
+
+            let filtered = allDocuments;
+
+            if (search) {
+                filtered = filtered.filter(d => 
+                    (d.clientName && d.clientName.toLowerCase().includes(search)) ||
+                    (d.companyName && d.companyName.toLowerCase().includes(search)) ||
+                    (d.title && d.title.toLowerCase().includes(search)) ||
+                    (d.clientId && d.clientId.toLowerCase().includes(search))
+                );
+            }
+
+            if (type) {
+                filtered = filtered.filter(d => d.documentType === type);
+            }
+
+            if (source) {
+                filtered = filtered.filter(d => d.uploadSource === source);
+            }
+
+            if (status) {
+                filtered = filtered.filter(d => d.status === status);
+            }
+
+            renderDocuments(filtered);
+        }
+
+        async function updateDocStatus(id, newStatus) {
+            try {
+                const res = await fetch(`/api/documents/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                if (res.ok) {
+                    const updated = await res.json();
+                    const idx = allDocuments.findIndex(d => d.id === id);
+                    if (idx !== -1) {
+                        allDocuments[idx] = updated;
+                        applyFilters();
+                        updateStats(allDocuments);
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to update status:", e);
+            }
+        }
+
+        // Preview document
+        window.previewDocument = function(id) {
+            const doc = allDocuments.find(d => d.id === id);
+            if (!doc) return;
+
+            document.getElementById('preview-title').innerText = doc.title;
+            document.getElementById('preview-subtitle').innerText = `${doc.documentType || 'Other'} | ${doc.clientName}`;
+
+            const previewContent = document.getElementById('preview-content');
+            
+            // Render file correctly
+            if (doc.file) {
+                if (doc.file.startsWith('data:image/') || doc.file.startsWith('data:application/pdf') || doc.file.startsWith('http')) {
+                    if (doc.file.startsWith('data:image/') || doc.file.startsWith('http') && !doc.file.endsWith('.pdf')) {
+                        previewContent.innerHTML = `<img src="${doc.file}" class="max-w-full max-h-full object-contain rounded-xl shadow-md">`;
+                    } else {
+                        previewContent.innerHTML = `<iframe src="${doc.file}" class="w-full h-full rounded-xl border border-slate-200"></iframe>`;
+                    }
+                } else if (doc.file.startsWith('data:')) {
+                    previewContent.innerHTML = `<iframe src="${doc.file}" class="w-full h-full rounded-xl border border-slate-200"></iframe>`;
+                } else {
+                    // Raw text or fallback file logo
+                    previewContent.innerHTML = `
+                        <div class="text-center p-12 space-y-4">
+                            <div class="w-20 h-20 bg-blue-50 text-blue-500 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
+                                <i data-lucide="file-text" class="w-10 h-10"></i>
+                            </div>
+                            <h4 class="font-bold text-slate-800 text-sm">Download required to view this file type</h4>
+                            <a href="${doc.file}" download="${doc.title}" class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md shadow-blue-500/10">Download Now</a>
+                        </div>
+                    `;
+                    if (window.lucide) lucide.createIcons();
+                }
+            } else {
+                previewContent.innerHTML = '<div class="text-slate-400 font-bold text-xs">No file content available for preview</div>';
+            }
+
+            document.getElementById('preview-modal').className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4';
+        };
+
+        window.closePreviewModal = function() {
+            document.getElementById('preview-modal').className = 'fixed inset-0 z-[10000] hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4';
+            document.getElementById('preview-content').innerHTML = '';
+        };
+
+        // Download document
+        window.downloadDocument = function(id) {
+            const doc = allDocuments.find(d => d.id === id);
+            if (!doc || !doc.file) return;
+
+            const link = document.createElement('a');
+            link.href = doc.file;
+            link.download = doc.title;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+
+        // Version History Modal
+        window.openVersionModal = function(id) {
+            selectedDocId = id;
+            const doc = allDocuments.find(d => d.id === id);
+            if (!doc) return;
+
+            document.getElementById('version-modal-title').innerText = doc.title;
+            document.getElementById('version-modal-subtitle').innerText = `${doc.documentType || 'Other'} History | ${doc.clientName}`;
+
+            // Render versions list
+            const versionList = document.getElementById('version-history-list');
+            const versions = doc.versions || [];
+            if (versions.length === 0) {
+                versionList.innerHTML = '<div class="text-slate-400 italic text-xs">No versions recorded.</div>';
+            } else {
+                versionList.innerHTML = versions.map((v, index) => `
+                    <div class="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100 transition-colors">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center font-bold text-xs">v${index + 1}</div>
+                            <div class="flex flex-col">
+                                <span class="font-bold text-slate-800 text-xs">Version ${index + 1}</span>
+                                <span class="text-[9px] text-slate-400">Recorded version entry</span>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="downloadVersionContent('${v}', '${doc.title}_v${index + 1}')" class="p-1 bg-white hover:bg-slate-200 text-slate-600 rounded border border-slate-200 shadow-sm" title="Download Version">
+                                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Render logs list
+            const logList = document.getElementById('activity-logs-list');
+            const logs = doc.activityLogs || [];
+            if (logs.length === 0) {
+                logList.innerHTML = '<div class="text-slate-400 italic text-xs py-2">No activity logged for this file.</div>';
+            } else {
+                logList.innerHTML = logs.map(log => `
+                    <div class="py-1.5 flex items-start gap-2 text-slate-600 font-semibold leading-relaxed">
+                        <div class="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0"></div>
+                        <div>${log}</div>
+                    </div>
+                `).join('');
+            }
+
+            document.getElementById('new-version-filename').innerText = "No file selected";
+            document.getElementById('new-version-file-input').value = "";
+
+            document.getElementById('version-modal').className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4';
+            if (window.lucide) lucide.createIcons();
+        };
+
+        window.closeVersionModal = function() {
+            document.getElementById('version-modal').className = 'fixed inset-0 z-[10000] hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4';
+            selectedDocId = null;
+        };
+
+        window.downloadVersionContent = function(content, filename) {
+            const link = document.createElement('a');
+            link.href = content;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+
+        window.uploadNewVersion = function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('new-version-filename').innerText = file.name;
+            const reader = new FileReader();
+            reader.onload = async function(evt) {
+                const base64 = evt.target.result;
+                try {
+                    const res = await fetch(`/api/documents/${selectedDocId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ file: base64 })
+                    });
+                    if (res.ok) {
+                        const updated = await res.json();
+                        const idx = allDocuments.findIndex(d => d.id === selectedDocId);
+                        if (idx !== -1) {
+                            allDocuments[idx] = updated;
+                            applyFilters();
+                            openVersionModal(selectedDocId); // refresh version list
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to upload new version:", e);
+                }
+            };
+            reader.readAsDataURL(file);
+        };
+
+        // Manual Document Upload Modal
+        window.triggerUploadModal = function() {
+            document.getElementById('upload-modal').className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4';
+        };
+
+        window.closeUploadModal = function() {
+            document.getElementById('upload-modal').className = 'fixed inset-0 z-[10000] hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4';
+            document.getElementById('manual-upload-file-input').value = "";
+            document.getElementById('manual-upload-status').innerText = "Click to browse or drop file here";
+            selectedDocFileBase64 = null;
+        };
+
+        window.handleManualFileSelect = function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('manual-upload-status').innerText = `Selected: ${file.name}`;
+            document.getElementById('upload-title').value = file.name;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                selectedDocFileBase64 = evt.target.result;
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.handleManualUpload = async function(e) {
+            e.preventDefault();
+            if (!selectedDocFileBase64) return alert("Please select a file first");
+
+            const payload = {
+                clientId: document.getElementById('upload-client-id').value.trim(),
+                clientName: document.getElementById('upload-client-name').value.trim(),
+                companyName: document.getElementById('upload-company-name').value.trim(),
+                applicationId: document.getElementById('upload-app-id').value.trim(),
+                service: document.getElementById('upload-service').value.trim(),
+                documentType: document.getElementById('upload-doc-type').value,
+                title: document.getElementById('upload-title').value.trim(),
+                file: selectedDocFileBase64,
+                uploadSource: "Admin Portal"
+            };
+
+            try {
+                const res = await fetch('/api/documents', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    const saved = await res.json();
+                    allDocuments.unshift(saved);
+                    applyFilters();
+                    updateStats(allDocuments);
+                    closeUploadModal();
+                }
+            } catch (err) {
+                console.error("Failed to upload manual document:", err);
+            }
+        };
+
+        window.toggleActionsDropdown = function(event, id) {
+            event.stopPropagation();
+            document.querySelectorAll('[id^="actions-dropdown-"]').forEach(el => {
+                if (el.id !== `actions-dropdown-${id}`) {
+                    el.classList.add('hidden');
+                }
+            });
+            const dropdown = document.getElementById(`actions-dropdown-${id}`);
+            if (dropdown) {
+                dropdown.classList.toggle('hidden');
+            }
+        }
+
+        document.addEventListener('click', () => {
+            document.querySelectorAll('[id^="actions-dropdown-"]').forEach(el => {
+                el.classList.add('hidden');
+            });
+        });
+
+        // Connect WebSocket for real-time document synchronization
+        function connectWebSocket() {
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            socket = new WebSocket(`${wsProtocol}//${window.location.host}/api/ws/chat?userId=${myId}&role=admin`);
+
+            socket.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'document_sync') {
+                        const syncedDoc = data.document;
+                        const idx = allDocuments.findIndex(d => d.id === syncedDoc.id);
+                        if (idx !== -1) {
+                            allDocuments[idx] = syncedDoc;
+                        } else {
+                            allDocuments.unshift(syncedDoc);
+                        }
+                        applyFilters();
+                        updateStats(allDocuments);
+                    }
+                } catch (e) {
+                    console.error("WS error:", e);
+                }
+            };
+
+            socket.onclose = function() {
+                setTimeout(connectWebSocket, 5000);
+            };
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchDocuments();
+            connectWebSocket();
+        });
+    </script>
+</body>
+</html>

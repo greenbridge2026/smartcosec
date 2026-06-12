@@ -45,6 +45,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     state.user = auth;
     document.getElementById('user-name').innerText = auth.name;
+    connectWebSocket();
 
     // Sequential Data Hydration
     await fetchData();
@@ -208,11 +209,13 @@ function updateNotificationUI() {
     const badge = document.getElementById('notif-badge');
     const unread = state.notifications.filter(n => !n.readBy.includes(state.user.id));
     
-    if (unread.length > 0) {
-        badge.innerText = unread.length;
-        badge.classList.remove('hidden');
-    } else {
-        badge.classList.add('hidden');
+    if (badge) {
+        if (unread.length > 0) {
+            badge.innerText = unread.length;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
     }
 
     const list = document.getElementById('notif-list');
@@ -1055,6 +1058,107 @@ window.filterGuidance = function(category) {
     if (window.lucide) window.lucide.createIcons();
 }
 
+let socket = null;
+let typingTimeout = null;
+
+function connectWebSocket() {
+    if (!state.user || socket) return;
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    socket = new WebSocket(`${wsProtocol}//${window.location.host}/api/ws/chat?userId=${state.user.id}&role=client`);
+
+    socket.onmessage = function(event) {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'presence') {
+                updateSupportPresence();
+            } else if (data.type === 'message') {
+                if (data.message.clientId === state.user.id || (data.message.clientId.startsWith('chat_') && data.message.clientId.includes(state.user.id))) {
+                    if (state.currentTab === 'messages') {
+                        fetchMessages();
+                        markAsRead();
+                    }
+                }
+            } else if (data.type === 'notification') {
+                const notif = data.notification;
+                const isMessageFromMe = notif.type === 'message' && notif.message.startsWith(state.user.name + ':');
+                if (!isMessageFromMe && (notif.clientId === 'all' || notif.clientId === 'client' || notif.clientId === state.user.id || 
+                    (notif.clientId.startsWith('team_group_')) ||
+                    (notif.clientId.startsWith('chat_') && notif.clientId.includes(state.user.id)) ||
+                    (notif.clientId.startsWith('team_chat_') && notif.clientId.includes(state.user.id)))) {
+                    const exists = state.notifications.some(n => n.id === notif.id);
+                    if (!exists) {
+                        state.notifications.unshift(notif);
+                        if (typeof updateNotificationUI === 'function') updateNotificationUI();
+                        if (typeof showToastNotification === 'function') showToastNotification(notif);
+                    }
+                }
+            } else if (data.type === 'typing') {
+                if (data.clientId === state.user.id && state.currentTab === 'messages') {
+                    const statusEl = document.getElementById('chat-header-status');
+                    if (statusEl) {
+                        if (data.isTyping) {
+                            statusEl.innerText = `${data.senderRole === 'admin' ? 'Admin' : 'Staff'} is typing...`;
+                            statusEl.className = 'text-[10px] font-bold text-emerald-500 uppercase tracking-widest';
+                        } else {
+                            updateSupportPresence();
+                        }
+                    }
+                }
+            } else if (data.type === 'read_receipt') {
+                if (data.clientId === state.user.id && state.currentTab === 'messages') {
+                    fetchMessages();
+                }
+            }
+        } catch (e) { console.error('WS parsing error:', e); }
+    };
+
+    socket.onclose = function() {
+        socket = null;
+        setTimeout(connectWebSocket, 5000);
+    };
+}
+
+async function updateSupportPresence() {
+    try {
+        const res = await fetch('/api/messages/presence?role=support');
+        const data = await res.json();
+        const statusEl = document.getElementById('chat-header-status');
+        const dotEl = document.getElementById('chat-header-online-indicator');
+        if (!statusEl || !dotEl) return;
+
+        if (data.isOnline) {
+            statusEl.innerText = 'Active Now';
+            statusEl.className = 'text-[10px] font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-1';
+            dotEl.classList.remove('hidden');
+        } else {
+            statusEl.innerText = formatLastSeen(data.lastSeen);
+            statusEl.className = 'text-[10px] font-bold text-slate-400 uppercase tracking-widest';
+            dotEl.classList.add('hidden');
+        }
+    } catch (e) { console.error('Failed to update support presence:', e); }
+}
+
+function formatLastSeen(timestamp) {
+    if (!timestamp) return 'Offline';
+    const now = new Date();
+    const date = new Date(timestamp);
+    const isToday = now.toDateString() === date.toDateString();
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday = yesterday.toDateString() === date.toDateString();
+    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (isToday) return `Last seen: Today, ${timeStr}`;
+    if (isYesterday) return `Last seen: Yesterday, ${timeStr}`;
+    const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    return `Last seen: ${dateStr}, ${timeStr}`;
+}
+
+async function markAsRead() {
+    try {
+        await fetch(`/api/messages/read-all?clientId=${state.user.id}&senderRole=client`, { method: 'POST' });
+    } catch (e) { console.error(e); }
+}
+
 function renderMessages(container) {
     container.innerHTML = `
         <div class="max-w-4xl mx-auto">
@@ -1062,13 +1166,13 @@ function renderMessages(container) {
                 <!-- Chat Header -->
                 <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                     <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">GS</div>
+                        <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold relative shadow-inner">
+                            GS
+                            <div id="chat-header-online-indicator" class="hidden absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white animate-pulse"></div>
+                        </div>
                         <div>
                             <h3 class="font-bold text-slate-900">Globalisor Operations Desk</h3>
-                            <div class="flex items-center gap-2">
-                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Now</span>
-                            </div>
+                            <div id="chat-header-status" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Offline</div>
                         </div>
                     </div>
                 </div>
@@ -1087,7 +1191,7 @@ function renderMessages(container) {
                 <div class="p-6 border-t border-slate-100 bg-white">
                     <form id="chat-form" class="flex gap-4">
                         <input type="text" id="chat-input" placeholder="Type your message..." 
-                            class="flex-1 px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all">
+                            class="flex-1 px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all shadow-inner">
                         <button type="submit" class="px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-blue-500/20 hover:scale-105 transition-all flex items-center gap-2">
                             <span>Send</span> <i data-lucide="send" class="w-4 h-4"></i>
                         </button>
@@ -1099,7 +1203,16 @@ function renderMessages(container) {
 
     if (window.lucide) window.lucide.createIcons();
     
-    // Start polling for messages
+    // Connect WS if not connected
+    connectWebSocket();
+    
+    // Mark as read
+    markAsRead();
+    
+    // Update status
+    updateSupportPresence();
+    
+    // Start polling fallback
     startMessagePolling();
 
     // Handle form submission
@@ -1112,13 +1225,40 @@ function renderMessages(container) {
         input.value = '';
         await sendMessage(text);
     });
+
+    // Handle typing indicators
+    const chatInput = document.getElementById('chat-input');
+    if (chatInput) {
+        chatInput.addEventListener('input', () => {
+            sendTyping(true);
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                sendTyping(false);
+            }, 2000);
+        });
+    }
+}
+
+function sendTyping(isTyping) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: 'typing',
+            clientId: state.user.id,
+            senderId: state.user.id,
+            senderRole: 'client',
+            isTyping: isTyping
+        }));
+    }
 }
 
 let messagePollInterval = null;
 function startMessagePolling() {
     if (messagePollInterval) clearInterval(messagePollInterval);
     fetchMessages(); // Initial fetch
-    messagePollInterval = setInterval(fetchMessages, 3000); // Poll every 3 seconds
+    messagePollInterval = setInterval(() => {
+        fetchMessages();
+        updateSupportPresence();
+    }, 5000);
 }
 
 async function fetchMessages() {
@@ -1145,6 +1285,7 @@ async function sendMessage(text) {
             })
         });
         const newMsg = await res.json();
+        sendTyping(false);
         fetchMessages(); // Refresh immediately
     } catch (e) {
         console.error('Failed to send message:', e);
@@ -1171,6 +1312,14 @@ function renderChatMessages(messages) {
 
     const html = messages.map(msg => {
         const isMe = msg.senderId === state.user.id;
+        let ticks = '';
+        if (isMe) {
+            if (msg.isRead) {
+                ticks = `<i data-lucide="check-check" class="w-3.5 h-3.5 text-blue-400 shrink-0 select-none"></i>`;
+            } else {
+                ticks = `<i data-lucide="check" class="w-3.5 h-3.5 text-slate-300 shrink-0 select-none"></i>`;
+            }
+        }
         return `
             <div class="flex ${isMe ? 'justify-end' : 'justify-start'} group">
                 <div class="max-w-[80%] ${isMe ? 'order-1' : 'order-2'}">
@@ -1179,47 +1328,177 @@ function renderChatMessages(messages) {
                         <span class="text-[9px] text-slate-300 font-medium">${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                     <div class="px-5 py-3 rounded-2xl text-sm ${isMe ? 'bg-blue-600 text-white rounded-tr-none shadow-lg shadow-blue-500/10' : 'bg-white text-slate-700 border border-slate-100 rounded-tl-none shadow-sm'}">
-                        ${msg.text}
+                        <div class="flex items-end gap-3 justify-between">
+                            <span>${msg.text}</span>
+                            <span class="flex items-center select-none">${ticks}</span>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
     }).join('');
 
-    // Check if we need to scroll to bottom
-    const shouldScroll = container.scrollTop + container.clientHeight >= container.scrollHeight - 50;
+    const shouldScroll = container.scrollTop + container.clientHeight >= container.scrollHeight - 100;
     container.innerHTML = html;
+    if (window.lucide) window.lucide.createIcons();
     if (shouldScroll || container.innerHTML.length < 1000) { 
         container.scrollTop = container.scrollHeight;
     }
 }
 
-function toggleNotifs() {
-    const badge = document.getElementById('notif-badge');
-    if (badge) badge.classList.add('hidden');
-    
-    state.notifications.forEach(n => {
-        if (!n.readBy.includes(state.user.id)) {
-            n.readBy.push(state.user.id);
+function toggleNotifs(event) {
+    if (event) event.stopPropagation();
+    const dropdown = document.getElementById('notif-dropdown');
+    if (!dropdown) return;
+    const isHidden = dropdown.classList.contains('hidden');
+    if (isHidden) {
+        dropdown.classList.remove('hidden');
+        dropdown.offsetHeight; // force reflow
+        dropdown.classList.remove('scale-95', 'opacity-0');
+        dropdown.classList.add('scale-100', 'opacity-100');
+        fetchNotifications();
+    } else {
+        dropdown.classList.remove('scale-100', 'opacity-100');
+        dropdown.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => dropdown.classList.add('hidden'), 200);
+    }
+}
+
+// Global click listener to close notifications dropdown
+document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('notif-dropdown');
+    const bellBtn = document.getElementById('bell-btn');
+    if (dropdown && !dropdown.contains(e.target) && bellBtn && !bellBtn.contains(e.target)) {
+        dropdown.classList.remove('scale-100', 'opacity-100');
+        dropdown.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => dropdown.classList.add('hidden'), 200);
+    }
+});
+
+async function markAllNotificationsAsRead(event) {
+    if (event) event.stopPropagation();
+    try {
+        const res = await fetch(`/api/notifications/read-all?clientId=${state.user.id}`, {
+            method: 'POST'
+        });
+        if (res.ok) {
+            state.notifications.forEach(n => {
+                if (!n.readBy.includes(state.user.id)) {
+                    n.readBy.push(state.user.id);
+                }
+            });
+            updateNotificationUI();
+            
+            // Show custom toast message
+            const container = document.getElementById('toast-container') || (() => {
+                const div = document.createElement('div');
+                div.id = 'toast-container';
+                div.className = 'fixed bottom-5 right-5 space-y-3 z-[9999]';
+                document.body.appendChild(div);
+                return div;
+            })();
+            const toast = document.createElement('div');
+            toast.className = 'bg-slate-900 text-white font-semibold text-xs py-3 px-5 rounded-xl shadow-2xl flex items-center gap-2 translate-y-5 opacity-0 transition-all duration-300';
+            toast.innerHTML = `<span>🔔</span><span>All notifications marked as read</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.remove('translate-y-5', 'opacity-0');
+                toast.classList.add('translate-y-0', 'opacity-100');
+            }, 10);
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-5', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
         }
-    });
+    } catch (e) {
+        console.error("Failed to mark all read:", e);
+    }
+}
+
+async function handleNotifClick(notifId, type, relatedId) {
+    try {
+        await fetch('/api/notifications/read', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notifId, clientId: state.user.id })
+        });
+    } catch (e) {
+        console.error("Failed to mark read:", e);
+    }
+    
+    const notif = state.notifications.find(n => n.id === notifId);
+    if (notif && !notif.readBy.includes(state.user.id)) {
+        notif.readBy.push(state.user.id);
+    }
     updateNotificationUI();
     
+    const dropdown = document.getElementById('notif-dropdown');
+    if (dropdown) {
+        dropdown.classList.remove('scale-100', 'opacity-100');
+        dropdown.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => dropdown.classList.add('hidden'), 200);
+    }
+    
+    if (type === 'message') {
+        window.location.href = 'messages.html';
+    } else if (type === 'blog') {
+        switchTab('updates');
+        if (relatedId) {
+            openBlogDetail(relatedId);
+        }
+    } else if (type === 'status_update' || type === 'assignment') {
+        switchTab('services');
+    } else if (type === 'document_request') {
+        switchTab('documents');
+    }
+}
+
+function showToastNotification(n) {
     const container = document.getElementById('toast-container') || (() => {
         const div = document.createElement('div');
         div.id = 'toast-container';
+        div.className = 'fixed bottom-5 right-5 space-y-3 z-[9999]';
         document.body.appendChild(div);
         return div;
     })();
+    
     const toast = document.createElement('div');
-    toast.className = `toast success`;
-    toast.innerHTML = `<span>🔔</span><span>Notifications cleared</span>`;
+    toast.className = 'bg-white border border-slate-100 shadow-2xl p-4 rounded-2xl flex items-start gap-3 w-80 translate-y-5 opacity-0 transition-all duration-300 cursor-pointer font-outfit';
+    
+    let icon = '🔔';
+    if (n.type === 'message') icon = '💬';
+    else if (n.type === 'blog') icon = '📰';
+    else if (n.type === 'status_update') icon = '🔄';
+    else if (n.type === 'document_request') icon = '📄';
+    else if (n.type === 'assignment') icon = '👤';
+    
+    toast.innerHTML = `
+        <div class="text-xl">${icon}</div>
+        <div class="flex-1">
+            <div class="text-xs font-bold text-slate-900">${n.title}</div>
+            <div class="text-[11px] text-slate-500 mt-0.5 leading-relaxed">${n.message}</div>
+        </div>
+    `;
+    
+    toast.onclick = () => {
+        toast.remove();
+        handleNotifClick(n.id, n.type, n.relatedId);
+    };
+    
     container.appendChild(toast);
-    setTimeout(() => toast.classList.add('active'), 10);
     setTimeout(() => {
-        toast.classList.remove('active');
-        setTimeout(() => toast.remove(), 400);
-    }, 2000);
+        toast.classList.remove('translate-y-5', 'opacity-0');
+        toast.classList.add('translate-y-0', 'opacity-100');
+    }, 10);
+    
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.classList.remove('translate-y-0', 'opacity-100');
+            toast.classList.add('translate-y-5', 'opacity-0');
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, 5000);
 }
 
 // Bind to window for HTML inline event handlers
@@ -1231,4 +1510,7 @@ window.openBlogDetail = openBlogDetail;
 window.closeModal = closeModal;
 window.triggerUpload = triggerUpload;
 window.toggleNotifs = toggleNotifs;
+window.markAllNotificationsAsRead = markAllNotificationsAsRead;
+window.handleNotifClick = handleNotifClick;
+window.showToastNotification = showToastNotification;
 
