@@ -1998,6 +1998,11 @@
         window.triggerCallClick = function(type) {
             const activeId = selectedClientId || selectedTeamChatId;
             if (!activeId) return;
+
+            if (!window.Calling || typeof window.Calling.makeCall !== 'function') {
+                console.warn('Calling service not ready. Ensure messages-enhancements.js is loaded.');
+                return;
+            }
             
             let targetUserId = activeId;
             if (activeId.startsWith('team_chat_')) {
@@ -2491,7 +2496,7 @@
                                     <span class="${color} font-bold uppercase tracking-wider">${c.status} (${c.mediaType})</span>
                                 </div>
                             </div>
-                            <button onclick="window.Calling.makeCall('${partnerId}', '${partnerName}', '${c.mediaType}')" class="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-colors border-0 cursor-pointer shadow-sm flex items-center justify-center animate-none" title="Call back">
+                            <button onclick="window.Calling && window.Calling.makeCall('${partnerId}', '${partnerName}', '${c.mediaType}')" class="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-colors border-0 cursor-pointer shadow-sm flex items-center justify-center animate-none" title="Call back">
                                 <i data-lucide="phone" class="w-3.5 h-3.5"></i>
                             </button>
                         </div>
