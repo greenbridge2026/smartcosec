@@ -37,7 +37,7 @@
     <main class="max-w-7xl mx-auto px-6 pt-6 pb-12">
         <section id="pricing" class="pricing-section">
             <div class="relative w-full flex flex-col md:flex-row items-center justify-center gap-4 mb-8 border-b border-slate-200/50 pb-6">
-                <button onclick="history.back()" class="md:absolute md:left-0 md:top-1/2 md:-translate-y-1/2 flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-xl text-slate-600 font-semibold text-sm hover:bg-slate-50 transition-all bg-white/80 backdrop-blur-sm shadow-sm pointer-events-auto shrink-0">
+                <button onclick="handlePricingBack()" class="md:absolute md:left-0 md:top-1/2 md:-translate-y-1/2 flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-xl text-slate-600 font-semibold text-sm hover:bg-slate-50 transition-all bg-white/80 backdrop-blur-sm shadow-sm pointer-events-auto shrink-0">
                     <i data-lucide="arrow-left" class="w-4 h-4"></i>
                     <span>Back</span>
                 </button>
@@ -227,6 +227,26 @@
     <footer class="text-center py-12 border-t border-slate-200/20 mt-12">
         <p class="text-slate-400 text-sm">© 2026 Globalisor. All professional services are subject to local country corporate regulatory acts.</p>
     </footer>
+
+    <!-- Submit for Verification Modal -->
+    <div id="submit-verification-modal" class="fixed inset-0 z-[999] hidden flex items-center justify-center p-4" style="background: rgba(15,23,42,0.55); backdrop-filter: blur(8px);">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 relative transform transition-all" id="modal-card">
+            <!-- Icon -->
+            <div id="modal-icon-wrap" class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <!-- Title -->
+            <h2 id="modal-title" class="text-2xl font-bold text-slate-900 text-center mb-2" style="font-family: 'Outfit', sans-serif;">Submit for Verification</h2>
+            <p id="modal-desc" class="text-slate-500 text-center text-sm mb-6">You're about to submit your selected services to the Globalisor team. We'll review your information and reach out within <strong>1-2 business hours</strong>.</p>
+            <!-- Selected services summary -->
+            <div id="modal-summary" class="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6 text-sm text-slate-700"></div>
+            <!-- Actions -->
+            <div id="modal-actions" class="flex gap-3">
+                <button onclick="closeVerificationModal()" class="flex-1 py-3 px-6 border border-slate-200 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 transition-all">Cancel</button>
+                <button id="modal-confirm-btn" onclick="confirmVerification()" class="flex-1 py-3 px-6 bg-slate-900 hover:bg-blue-600 text-white rounded-xl font-semibold transition-all shadow-lg shadow-slate-900/20">Confirm &amp; Submit</button>
+            </div>
+        </div>
+    </div>
  
     <script>
         // Safe check for Lucide initialization
@@ -580,13 +600,78 @@
  
         // CTA Redirections
         function handleIncorporateRedirect() {
-            const token = localStorage.getItem('token');
-            if (token) {
-                window.location.href = '/requirements.html';
+            openVerificationModal();
+        }
+
+        function handlePricingBack() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const fromParam = urlParams.get('from');
+            if (fromParam === 'onboarding') {
+                window.location.href = '/onboarding.html?flow=existing-co&step=3';
             } else {
-                window.location.href = '/auth.html';
+                window.location.href = '/choose-service.html';
             }
         }
+
+        function openVerificationModal() {
+            // Build the summary of selected services
+            const summaryEl = document.getElementById('modal-summary');
+            const lines = [];
+            // Base package
+            lines.push(`<div class="flex justify-between items-center py-1 border-b border-slate-100"><span class="font-medium">${activeCountry ? activeCountry.name : 'Base'} Package</span><span class="font-bold text-blue-600">${currency} ${basePrice.toLocaleString()}</span></div>`);
+            // Add-ons
+            selectedAddons.forEach((price, name) => {
+                lines.push(`<div class="flex justify-between items-center py-1 border-b border-slate-100"><span>${name}</span><span class="font-bold text-slate-700">${currency} ${price.toLocaleString()}</span></div>`);
+            });
+            // Total
+            const total = basePrice + Array.from(selectedAddons.values()).reduce((a, b) => a + b, 0);
+            lines.push(`<div class="flex justify-between items-center pt-2 mt-1"><span class="font-bold text-slate-900">Total</span><span class="font-bold text-lg text-blue-700">${currency} ${total.toLocaleString()}</span></div>`);
+            if (summaryEl) summaryEl.innerHTML = lines.join('');
+
+            const modal = document.getElementById('submit-verification-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.style.opacity = '0';
+                requestAnimationFrame(() => { modal.style.transition = 'opacity 0.3s'; modal.style.opacity = '1'; });
+            }
+        }
+
+        function closeVerificationModal() {
+            const modal = document.getElementById('submit-verification-modal');
+            if (modal) {
+                modal.style.opacity = '0';
+                setTimeout(() => modal.classList.add('hidden'), 300);
+            }
+        }
+
+        function confirmVerification() {
+            const btn = document.getElementById('modal-confirm-btn');
+            const iconWrap = document.getElementById('modal-icon-wrap');
+            const title = document.getElementById('modal-title');
+            const desc = document.getElementById('modal-desc');
+            const actions = document.getElementById('modal-actions');
+            const summary = document.getElementById('modal-summary');
+
+            if (btn) { btn.disabled = true; btn.innerText = 'Submitting...'; }
+
+            // Simulate submission
+            setTimeout(() => {
+                if (iconWrap) {
+                    iconWrap.classList.remove('bg-blue-50', 'text-blue-600');
+                    iconWrap.classList.add('bg-emerald-50', 'text-emerald-600');
+                    iconWrap.innerHTML = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+                }
+                if (title) title.innerText = 'Submitted Successfully!';
+                if (desc) desc.innerHTML = 'Your request has been sent to the Globalisor team. We will review your details and contact you within <strong>1-2 business hours</strong>.';
+                if (summary) summary.classList.add('hidden');
+                if (actions) actions.innerHTML = `<button onclick="window.location.href='/'" class="w-full py-3 px-6 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold transition-all shadow-lg">Return to Home</button>`;
+            }, 1200);
+        }
+
+        // Close modal on backdrop click
+        document.getElementById('submit-verification-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeVerificationModal();
+        });
  
         const getStartedBtn = document.getElementById('pricing-get-started');
         if (getStartedBtn) getStartedBtn.addEventListener('click', handleIncorporateRedirect);

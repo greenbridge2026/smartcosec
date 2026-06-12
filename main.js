@@ -21,6 +21,13 @@ const services = [
 ];
 
 async function init() {
+    // If we are on the landing page, reset the clicked flags
+    const isLandingPage = window.location.pathname === '/' || window.location.pathname === '/index.html' || window.location.pathname.endsWith('/');
+    if (isLandingPage) {
+        localStorage.removeItem('singapore_clicked');
+        localStorage.removeItem('country_clicked');
+    }
+
     const grid = document.getElementById('services-grid');
     const journeyContainer = document.getElementById('journey-container');
     const journeyProgressBar = document.getElementById('journey-progress-bar');
@@ -651,17 +658,23 @@ async function init() {
             const status = card.dataset.status;
             
             if (status === 'new') {
-                window.location.href = '/start-company.html';
+                // Store intent so after sign-in the user is redirected to pricing
+                localStorage.setItem('post_auth_redirect', '/pricing.html');
+                window.location.href = '/auth.html?mode=signup';
                 return;
             }
 
             if (status === 'existing') {
-                window.location.href = '/onboarding.html?flow=existing-co';
+                // Store intent so after sign-in the user is redirected to the correct onboarding flow
+                localStorage.setItem('post_auth_redirect', '/onboarding.html?flow=existing-co');
+                window.location.href = '/auth.html?mode=signup';
                 return;
             }
 
             if (status === 'client') {
-                window.location.href = '/onboarding.html?flow=client';
+                // Existing clients must sign in first
+                localStorage.setItem('post_auth_redirect', '/onboarding.html?flow=client');
+                window.location.href = '/auth.html';
                 return;
             }
 
@@ -1296,28 +1309,14 @@ async function init() {
                 mapCaption.classList.add('show');
             });
 
-            // Handle click redirection to details modal
+            // Handle click redirection to choose service page
             item.addEventListener('click', () => {
                 const name = item.getAttribute('data-name');
                 const countryObj = activeCountries.find(c => c.name === name);
                 if (countryObj) {
-                    if (name.toLowerCase() === 'singapore') {
-                        const targetEl = document.getElementById('service-selection');
-                        if (targetEl) {
-                            targetEl.scrollIntoView({ behavior: 'smooth' });
-                            const card = document.querySelector('.status-card[data-status="new"]');
-                            if (card) {
-                                card.classList.remove('blink-blue');
-                                void card.offsetWidth; // force reflow
-                                card.classList.add('blink-blue');
-                                setTimeout(() => {
-                                    card.classList.remove('blink-blue');
-                                }, 2000);
-                            }
-                        }
-                    } else {
-                        window.openCountryDetailModal(countryObj);
-                    }
+                    localStorage.setItem('country_clicked', 'true');
+                    localStorage.setItem('singapore_clicked', 'true');
+                    window.location.href = '/choose-service.html';
                 }
             });
         });
@@ -1374,6 +1373,13 @@ async function init() {
                                 card.classList.remove('blink-blue');
                             }, 2000);
                         }
+                    } else if (targetId === 'worldwide-presence') {
+                        const sgItem = document.querySelector('.country-chip[data-country="singapore"]');
+                        if (sgItem) {
+                            setTimeout(() => {
+                                sgItem.dispatchEvent(new Event('mouseenter'));
+                            }, 500);
+                        }
                     }
                 }
             }
@@ -1419,25 +1425,27 @@ async function init() {
             }, 500);
         }
     }
+
+    // Scroll and activate Singapore if hash is #worldwide-presence on load
+    if (window.location.hash === '#worldwide-presence') {
+        const targetEl = document.getElementById('worldwide-presence');
+        if (targetEl) {
+            setTimeout(() => {
+                targetEl.scrollIntoView({ behavior: 'smooth' });
+                const sgItem = document.querySelector('.country-chip[data-country="singapore"]');
+                if (sgItem) {
+                    sgItem.dispatchEvent(new Event('mouseenter'));
+                }
+            }, 500);
+        }
+    }
 }
 
 window.openCountryDetailModal = function(country) {
-    if (country && country.name && country.name.toLowerCase() === 'singapore') {
-        const targetEl = document.getElementById('service-selection');
-        if (targetEl) {
-            targetEl.scrollIntoView({ behavior: 'smooth' });
-            const card = document.querySelector('.status-card[data-status="new"]');
-            if (card) {
-                card.classList.remove('blink-blue');
-                void card.offsetWidth; // force reflow
-                card.classList.add('blink-blue');
-                setTimeout(() => {
-                    card.classList.remove('blink-blue');
-                }, 2000);
-            }
-        }
-        return;
-    }
+    localStorage.setItem('country_clicked', 'true');
+    localStorage.setItem('singapore_clicked', 'true');
+    window.location.href = '/choose-service.html';
+    return;
     const modal = document.getElementById('country-detail-modal');
     if (!modal) return;
     

@@ -56,7 +56,7 @@ export default defineConfig({
         messages: resolve(__dirname, 'client/messages.html'),
         staffLogin: resolve(__dirname, 'staff/index.html'),
         blogs: resolve(__dirname, 'blogs.html'),
-        startCompany: resolve(__dirname, 'start-company.html'),
+        chooseService: resolve(__dirname, 'choose-service.html'),
       },
     },
   },
