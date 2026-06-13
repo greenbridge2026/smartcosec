@@ -28,9 +28,87 @@ const getDb = () => {
     if (!db.staticContent) db.staticContent = [];
     if (!db.documents) db.documents = [];
     if (!db.messages) db.messages = [];
+    if (!db.users) {
+        db.users = [
+            {
+                id: "usr-admin",
+                email: "admin@globalisor.com",
+                password: "password123",
+                firstName: "Admin",
+                lastName: "User",
+                role: "ADMIN"
+            },
+            {
+                id: "usr-staff",
+                email: "staff@globalisor.com",
+                password: "password123",
+                firstName: "Sarah",
+                lastName: "Lim",
+                role: "STAFF"
+            }
+        ];
+        fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+    }
     return db;
 };
 const saveDb = (data) => fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+
+// --- AUTH ENDPOINTS ---
+app.post('/api/auth/signup', (req, res) => {
+    const db = getDb();
+    const { firstName, lastName, email, password, role } = req.body;
+    
+    if (!email || !password) {
+        return res.status(400).json({ message: 'Email and password are required' });
+    }
+    
+    const normalizedEmail = email.trim().toLowerCase();
+    if (db.users.some(u => u.email.toLowerCase() === normalizedEmail)) {
+        return res.status(400).json({ message: 'User already exists' });
+    }
+    
+    const newUser = {
+        id: 'usr-' + Date.now(),
+        firstName: firstName || '',
+        lastName: lastName || '',
+        email: normalizedEmail,
+        password: password,
+        role: role || 'CLIENT'
+    };
+    
+    db.users.push(newUser);
+    saveDb(db);
+    
+    res.status(201).json({ message: 'Signup successful' });
+});
+
+app.post('/api/auth/signin', (req, res) => {
+    const db = getDb();
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+        return res.status(400).json({ message: 'Email and password are required' });
+    }
+    
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = db.users.find(u => u.email.toLowerCase() === normalizedEmail && u.password === password);
+    
+    if (!user) {
+        return res.status(401).json({ message: 'Invalid credentials or unauthorized access.' });
+    }
+    
+    const token = 'mock-jwt-token-' + Math.random().toString(36).substring(2) + '-' + user.id;
+    
+    res.json({
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+        token: token
+    });
+});
+
 
 // POST /api/clients/request → create submission (find/create client + create service)
 app.post('/api/clients/request', (req, res) => {
