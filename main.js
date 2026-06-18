@@ -665,18 +665,19 @@ async function init() {
     }
 
     statusCards.forEach(card => {
-        card.addEventListener('click', () => {
+        card.addEventListener('click', (e) => {
+            e.preventDefault();
             if (statusStep && statusStep.classList.contains('opacity-0')) return; // Guard against transitioning twice
             const status = card.dataset.status;
             
             if (status === 'new') {
+                history.pushState(null, '', '?step=local-question');
                 if (statusStep && localQuestionStep) {
-                    history.pushState(null, '', '?step=local-question');
                     const wrapper = document.getElementById('service-selection');
                     if (wrapper) wrapper.classList.add('question-mode');
-                    statusStep.classList.add('opacity-0', 'translate-y-10');
                     const header = document.getElementById('choose-service-header');
                     if (header) header.classList.add('hidden');
+                    statusStep.classList.add('opacity-0', 'translate-y-10');
                     setTimeout(() => {
                         statusStep.classList.add('hidden');
                         localQuestionStep.classList.remove('hidden');
@@ -692,8 +693,8 @@ async function init() {
                 // Auto-provision mock token to bypass sign up / sign in pages
                 localStorage.setItem('token', 'mock-guest-token-' + Math.random().toString(36).substring(2));
                 localStorage.setItem('client_auth', JSON.stringify({ email: 'guest@globalisor.com', role: 'CLIENT' }));
-                localStorage.setItem('post_auth_redirect', '/onboarding.html?flow=existing-co');
-                window.location.href = '/onboarding.html?flow=existing-co';
+                localStorage.setItem('post_auth_redirect', '/onboarding?flow=existing-co');
+                window.location.href = '/onboarding?flow=existing-co';
                 return;
             }
 
@@ -701,8 +702,8 @@ async function init() {
                 // Auto-provision mock token to bypass sign up / sign in pages
                 localStorage.setItem('token', 'mock-guest-token-' + Math.random().toString(36).substring(2));
                 localStorage.setItem('client_auth', JSON.stringify({ email: 'guest@globalisor.com', role: 'CLIENT' }));
-                localStorage.setItem('post_auth_redirect', '/onboarding.html?flow=client');
-                window.location.href = '/onboarding.html?flow=client';
+                localStorage.setItem('post_auth_redirect', '/onboarding?flow=client');
+                window.location.href = '/onboarding?flow=client';
                 return;
             }
 
@@ -720,7 +721,8 @@ async function init() {
     });
 
     if (backBtn) {
-        backBtn.addEventListener('click', () => {
+        backBtn.addEventListener('click', (e) => {
+            e.preventDefault();
             if (servicesStep && servicesStep.classList.contains('opacity-0')) return;
             servicesStep.classList.add('opacity-0', 'translate-y-10');
             setTimeout(() => {
@@ -731,14 +733,17 @@ async function init() {
     }
 
     if (clearBtn) {
-        clearBtn.addEventListener('click', () => {
+        clearBtn.addEventListener('click', (e) => {
+            e.preventDefault();
             currentSelectedServices.clear();
             updateUI();
         });
     }
 
     if (btnLocalYes) {
-        btnLocalYes.addEventListener('click', () => {
+        btnLocalYes.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             if (localQuestionStep && localQuestionStep.classList.contains('opacity-0')) return; // Guard against transitioning twice
             if (localQuestionStep && officeQuestionStep) {
                 history.pushState(null, '', '?step=office-question');
@@ -755,10 +760,12 @@ async function init() {
     }
 
     if (btnLocalNo) {
-        btnLocalNo.addEventListener('click', () => {
+        btnLocalNo.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             localStorage.setItem('token', 'mock-guest-token-' + Math.random().toString(36).substring(2));
             localStorage.setItem('client_auth', JSON.stringify({ email: 'guest@globalisor.com', role: 'CLIENT' }));
-            window.location.href = '/pricing.html';
+            window.location.href = '/pricing';
         });
     }
 
@@ -777,23 +784,29 @@ async function init() {
         masterData.office.hasOwnAddress = !useService;
         localStorage.setItem('globalisor_master_v3', JSON.stringify(masterData));
         
-        window.location.href = '/requirements.html';
+        window.location.href = '/requirements';
     }
 
     if (btnOfficeYes) {
-        btnOfficeYes.addEventListener('click', () => {
+        btnOfficeYes.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             setOfficePreconfigAndRedirect(false); // Yes, I have one (useService = false)
         });
     }
 
     if (btnOfficeNo) {
-        btnOfficeNo.addEventListener('click', () => {
+        btnOfficeNo.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             setOfficePreconfigAndRedirect(true); // No, I need one (useService = true)
         });
     }
 
     if (btnOfficeBack) {
-        btnOfficeBack.addEventListener('click', () => {
+        btnOfficeBack.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             history.pushState(null, '', '?step=local-question');
             if (officeQuestionStep && officeQuestionStep.classList.contains('opacity-0')) return; // Guard against transitioning twice
             if (localQuestionStep && officeQuestionStep) {
@@ -812,7 +825,9 @@ async function init() {
     const urlParams = new URLSearchParams(window.location.search);
 
     if (btnLocalBack) {
-        btnLocalBack.addEventListener('click', () => {
+        btnLocalBack.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             history.pushState(null, '', window.location.pathname);
             if (localQuestionStep && localQuestionStep.classList.contains('opacity-0')) return; // Guard against transitioning twice
             if (localQuestionStep) {
@@ -1529,7 +1544,7 @@ async function init() {
                 if (countryObj) {
                     localStorage.setItem('country_clicked', 'true');
                     localStorage.setItem('singapore_clicked', 'true');
-                    window.location.href = '/choose-service.html';
+                    window.location.href = '/choose-service';
                 }
             });
         });
@@ -1657,7 +1672,7 @@ async function init() {
 window.openCountryDetailModal = function(country) {
     localStorage.setItem('country_clicked', 'true');
     localStorage.setItem('singapore_clicked', 'true');
-    window.location.href = '/choose-service.html';
+    window.location.href = '/choose-service';
     return;
     const modal = document.getElementById('country-detail-modal');
     if (!modal) return;
@@ -1887,7 +1902,7 @@ window.openCountryDetailModal = function(country) {
         newContinueBtn.addEventListener('click', () => {
             // Pass all selected services as a comma-separated list in query params
             const servicesParam = Array.from(selectedServices).join(',');
-            window.location.href = `/pricing.html?services=${encodeURIComponent(servicesParam)}`;
+            window.location.href = `/pricing?services=${encodeURIComponent(servicesParam)}`;
         });
     }
 

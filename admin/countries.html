@@ -73,6 +73,12 @@
         .glass-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.02); }
         .row-toggle-btn { color: #2563eb !important; }
         .row-toggle-btn:hover { color: #1d4ed8 !important; }
+        /* Drag-to-reorder */
+        .drag-handle { cursor: grab; color: #94a3b8; padding: 4px; border-radius: 6px; display: inline-flex; align-items: center; transition: color 0.15s; }
+        .drag-handle:hover { color: #475569; background: #f1f5f9; }
+        .drag-handle:active { cursor: grabbing; }
+        .country-row.dragging { opacity: 0.4; background: #eff6ff !important; }
+        .country-row.drag-over { border-top: 2px solid #2563eb; }
     </style>
 </head>
 <body>
@@ -144,7 +150,8 @@
                 <table class="admin-table">
                     <thead>
                         <tr class="text-left">
-                            <th class="w-24">No</th>
+                            <th class="w-12"></th>
+                            <th class="w-20">No</th>
                             <th>Jurisdiction</th>
                             <th>Corporate Tax</th>
                             <th>Status</th>
@@ -709,9 +716,7 @@
             if (draftPrices !== pubPrices) return true;
             
             return false;
-        }
-
-        function renderCountryTable() {
+        }        function renderCountryTable() {
             const tbody = document.getElementById('country-table-body');
             if (!tbody) return;
             tbody.innerHTML = countries.map((c, idx) => {
@@ -744,7 +749,12 @@
                 }
 
                 return `
-                <tr class="hover:bg-white/30 transition-colors">
+                <tr class="country-row hover:bg-white/30 transition-colors" draggable="true" data-idx="${idx}">
+                    <td class="w-10 text-center">
+                        <span class="drag-handle" title="Drag to reorder">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+                        </span>
+                    </td>
                     <td class="font-bold text-blue-600">
                         <div class="flex items-center gap-2">
                             <button onclick="toggleRowDetails(${idx})" class="p-1 hover:bg-slate-200/50 rounded-lg transition-colors flex items-center justify-center outline-none row-toggle-btn">
@@ -783,7 +793,7 @@
                     </td>
                 </tr>
                 <tr class="details-row hidden bg-slate-50/40" id="details-row-${idx}">
-                    <td colspan="6" class="p-5 border-b border-slate-100/80">
+                    <td colspan="7" class="p-5 border-b border-slate-100/80">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs leading-relaxed">
                             <div class="flex flex-col bg-white/50 border border-slate-200/50 p-4 rounded-xl shadow-sm">
                                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
@@ -816,8 +826,71 @@
                     </td>
                 </tr>
                 `;
-            }).join('') || `<tr><td colspan="6" class="p-8 text-center text-slate-400">No country hubs registered.</td></tr>`;
+            }).join('') || `<tr><td colspan="7" class="p-8 text-center text-slate-400">No country hubs registered.</td></tr>`;
             if (typeof lucide !== 'undefined') lucide.createIcons();
+            initDragAndDrop();
+        }
+
+        // ── Drag-and-Drop Reorder Logic ──────────────────────────────
+        function initDragAndDrop() {
+            const tbody = document.getElementById('country-table-body');
+            if (!tbody) return;
+            let dragSrcIdx = null;
+
+            tbody.querySelectorAll('.country-row').forEach(row => {
+                row.addEventListener('dragstart', e => {
+                    dragSrcIdx = parseInt(row.dataset.idx, 10);
+                    row.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+                row.addEventListener('dragend', () => {
+                    row.classList.remove('dragging');
+                    tbody.querySelectorAll('.country-row').forEach(r => r.classList.remove('drag-over'));
+                });
+                row.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    tbody.querySelectorAll('.country-row').forEach(r => r.classList.remove('drag-over'));
+                    row.classList.add('drag-over');
+                });
+                row.addEventListener('drop', async e => {
+                    e.preventDefault();
+                    const targetIdx = parseInt(row.dataset.idx, 10);
+                    if (dragSrcIdx === null || dragSrcIdx === targetIdx) return;
+                    // Reorder array
+                    const moved = countries.splice(dragSrcIdx, 1)[0];
+                    countries.splice(targetIdx, 0, moved);
+                    // Persist
+                    try {
+                        const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
+                        const headers = { 
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        };
+                        const orderedIds = countries.map(c => c.id);
+                        const res = await fetch('/api/countries/reorder', {
+                            method: 'PUT',
+                            headers: headers,
+                            body: JSON.stringify({ orderedIds })
+                        });
+                        if (!res.ok) throw new Error("HTTP error " + res.status);
+                        countries = await res.json();
+                    } catch (err) {
+                        console.error("API error while saving country order:", err);
+                        localStorage.setItem('admin_countries', JSON.stringify(countries));
+                    }
+                    renderCountryTable();
+                    showToast('↕ Order saved!', false);
+                });
+            });
+        }
+
+        function showToast(msg, isGreen = true) {
+            const toast = document.createElement('div');
+            toast.style.cssText = `position:fixed;bottom:1.5rem;right:1.5rem;z-index:99999;padding:0.75rem 1.25rem;border-radius:1rem;font-size:0.85rem;font-weight:700;color:white;background:${isGreen ? '#059669' : '#2563eb'};box-shadow:0 8px 24px rgba(0,0,0,0.15);`;
+            toast.innerText = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2800);
         }
 
         window.toggleRowDetails = function(idx) {
@@ -1106,9 +1179,30 @@
         document.getElementById('edit-country-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const idx = parseInt(document.getElementById('edit-country-idx').value, 10);
-            const c = countries[idx];
+            const nameVal = document.getElementById('edit-country-name').value.trim();
             
-            c.name = document.getElementById('edit-country-name').value.trim();
+            // Uniqueness validation excluding the current country being edited
+            const isDuplicate = countries.some((c, i) => i !== idx && c.name.trim().toLowerCase() === nameVal.toLowerCase());
+            if (isDuplicate) {
+                const nameInput = document.getElementById('edit-country-name');
+                nameInput.style.borderColor = '#ef4444';
+                nameInput.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.15)';
+                setTimeout(() => { nameInput.style.borderColor = ''; nameInput.style.boxShadow = ''; }, 2500);
+                // Show inline error
+                let errEl = document.getElementById('edit-country-duplicate-error');
+                if (!errEl) {
+                    errEl = document.createElement('p');
+                    errEl.id = 'edit-country-duplicate-error';
+                    errEl.style.cssText = 'color:#ef4444;font-size:11px;font-weight:700;margin-top:4px;';
+                    nameInput.parentNode.appendChild(errEl);
+                }
+                errEl.textContent = `"${nameVal}" is already added. Each country can only appear once.`;
+                setTimeout(() => { if (errEl) errEl.remove(); }, 3000);
+                return;
+            }
+
+            const c = countries[idx];
+            c.name = nameVal;
             c.code = document.getElementById('edit-country-code').value.trim();
             c.uen = document.getElementById('edit-country-uen').value.trim();
             c.tax = document.getElementById('edit-country-tax').value.trim();
@@ -1295,6 +1389,27 @@
         document.getElementById('add-country-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const name = document.getElementById('modal-country-name').value.trim();
+
+            // ── Duplicate prevention ──────────────────────────────────
+            const isDuplicate = countries.some(c => c.name.trim().toLowerCase() === name.toLowerCase());
+            if (isDuplicate) {
+                const nameInput = document.getElementById('modal-country-name');
+                nameInput.style.borderColor = '#ef4444';
+                nameInput.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.15)';
+                setTimeout(() => { nameInput.style.borderColor = ''; nameInput.style.boxShadow = ''; }, 2500);
+                // Show inline error
+                let errEl = document.getElementById('country-duplicate-error');
+                if (!errEl) {
+                    errEl = document.createElement('p');
+                    errEl.id = 'country-duplicate-error';
+                    errEl.style.cssText = 'color:#ef4444;font-size:11px;font-weight:700;margin-top:4px;';
+                    nameInput.parentNode.appendChild(errEl);
+                }
+                errEl.textContent = `"${name}" is already added. Each country can only appear once.`;
+                setTimeout(() => { if (errEl) errEl.remove(); }, 3000);
+                return;
+            }
+
             const code = document.getElementById('modal-country-code').value.trim();
             const uen = document.getElementById('modal-country-uen').value.trim();
             const tax = document.getElementById('modal-country-tax').value.trim();

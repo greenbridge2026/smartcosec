@@ -52,6 +52,26 @@ window.initAppSeqMap = async function() {
 window.initAppSeqMap();
 
 document.addEventListener('DOMContentLoaded', () => {
+    // 0. Inject custom client styles (font size enlargement)
+    const style = document.createElement('style');
+    style.id = 'client-sidebar-custom-styles';
+    style.textContent = `
+        html {
+            font-size: 16.5px !important;
+        }
+
+        .main-container {
+            padding-bottom: 6.5rem !important;
+        }
+
+        @media (max-width: 1023px) {
+            .main-container {
+                padding-bottom: 6.5rem !important;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+
     // 1. Remove/Hide old top-nav
     const oldNav = document.querySelector('.top-nav');
     if (oldNav) {

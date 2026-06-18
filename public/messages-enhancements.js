@@ -559,7 +559,21 @@ window.showCreateGroupModal = async function() {
     // Fetch users for checklist
     try {
         const res = await fetch('/api/messages/users');
-        const users = await res.json();
+        let users = await res.json();
+        try {
+            const localStaff = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]');
+            localStaff.forEach(ls => {
+                const exists = users.some(u => u.email === ls.email || u.id === ls.id);
+                if (!exists) {
+                    users.push({
+                        id: ls.id,
+                        name: (ls.firstName + " " + ls.lastName).trim(),
+                        role: ls.role || 'STAFF',
+                        email: ls.email
+                    });
+                }
+            });
+        } catch(e) {}
         const checklist = document.getElementById('group-member-checklist');
         checklist.innerHTML = users.filter(u => u.id !== myId).map(u => `
             <label class="flex items-center gap-3 py-2 cursor-pointer text-xs font-semibold text-slate-700">
@@ -642,7 +656,21 @@ window.showGroupManagementPopup = async function(groupId) {
     try {
         // Fetch group details
         const res = await fetch('/api/messages/users');
-        const allUsers = await res.json();
+        let allUsers = await res.json();
+        try {
+            const localStaff = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]');
+            localStaff.forEach(ls => {
+                const exists = allUsers.some(u => u.email === ls.email || u.id === ls.id);
+                if (!exists) {
+                    allUsers.push({
+                        id: ls.id,
+                        name: (ls.firstName + " " + ls.lastName).trim(),
+                        role: ls.role || 'STAFF',
+                        email: ls.email
+                    });
+                }
+            });
+        } catch(e) {}
         
         // Find group from teamGroups or dynamic list (e.g. check standard database endpoint)
         const groupsRes = await fetch(`/api/messages/groups?userId=${myId}`);
