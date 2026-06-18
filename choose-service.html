@@ -18,67 +18,58 @@
             window.location.href = '/index.html#worldwide-presence';
         }
     </script>
+
+    <!-- Prevent flash of status grid when direct linking to questions -->
+    <script>
+        (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const step = urlParams.get('step');
+            if (step === 'local-question' || step === 'office-question') {
+                document.write(`
+                    <style>
+                        #status-step { display: none !important; opacity: 0 !important; }
+                        #choose-service-header { display: none !important; }
+                        #service-selection { background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; }
+                        #` + step + `-step { display: block !important; opacity: 1 !important; transform: none !important; }
+                    </style>
+                `);
+            }
+        })();
+    </script>
     
     <style>
         body {
             font-family: 'Outfit', sans-serif;
-            background: radial-gradient(circle at 50% 0%, #f1f5f9 0%, #e2e8f0 50%, #cbd5e1 100%);
-            background-attachment: fixed;
+            background: #ffffff;
             min-height: 100vh;
         }
         
-        /* Shifting Aurora background blobs */
-        .aurora-blob {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(140px);
-            mix-blend-mode: multiply;
-            opacity: 0.18;
-            pointer-events: none;
-            transition: all 1s ease;
+        .local-question-card {
+            background: transparent;
+            border: none;
+            padding: 0;
+            max-width: 100%;
+            margin: 0 auto;
+            box-sizing: border-box;
         }
-        .blob-blue {
-            top: -10%;
-            left: -10%;
-            width: 50vw;
-            height: 50vw;
-            background: radial-gradient(circle, #3b82f6 0%, #1d4ed8 100%);
-            animation: float-blob-1 25s infinite alternate ease-in-out;
-        }
-        .blob-purple {
-            bottom: -20%;
-            right: -10%;
-            width: 60vw;
-            height: 60vw;
-            background: radial-gradient(circle, #8b5cf6 0%, #6d28d9 100%);
-            animation: float-blob-2 30s infinite alternate ease-in-out;
-        }
-        
-        @keyframes float-blob-1 {
-            0% { transform: translate(0, 0) scale(1); }
-            50% { transform: translate(80px, 50px) scale(1.1); }
-            100% { transform: translate(-40px, -80px) scale(0.9); }
-        }
-        @keyframes float-blob-2 {
-            0% { transform: translate(0, 0) scale(1); }
-            50% { transform: translate(-100px, -60px) scale(0.9); }
-            100% { transform: translate(60px, 80px) scale(1.15); }
+
+        .question-mode {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
         }
     </style>
 </head>
 
 <body class="professional-services flex flex-col min-h-screen relative overflow-x-hidden">
-    
-    <!-- Floating Background Blobs -->
-    <div class="aurora-blob blob-blue"></div>
-    <div class="aurora-blob blob-purple"></div>
 
 
 
     <main class="flex-1 flex items-center justify-center p-4 sm:p-6 md:p-12 relative z-10">
-        <section id="service-selection" class="service-selection-section py-12 w-full max-w-6xl bg-white/40 backdrop-blur-xl border border-white/50 rounded-3xl p-6 sm:p-10 md:p-14 shadow-xl">
+        <section id="service-selection" class="service-selection-section py-12 w-full max-w-6xl bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 md:p-14 shadow-sm">
             <div class="container mx-auto">
-                <div class="section-header text-center mb-16">
+                <div class="section-header text-center mb-16" id="choose-service-header">
                     <div class="relative flex items-center justify-center min-h-[48px] mb-4">
                         <a href="/index.html#worldwide-presence" class="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-slate-500 hover:text-slate-900 transition-all font-bold uppercase text-[10px] tracking-widest bg-white/60 hover:bg-white px-3 py-2 md:px-4 md:py-2.5 border border-white/80 hover:border-slate-300 rounded-xl shadow-sm hover:scale-105 active:scale-95">
                             <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
@@ -114,6 +105,70 @@
                                 <p>Scale your business with additional high-end corporate and advisory services.</p>
                             </div>
                             <div class="status-indicator"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 1.5: Are you a local? -->
+                <div class="step-container hidden opacity-0 translate-y-10 transition-all duration-700 mt-16" id="local-question-step">
+                    <div class="local-question-card text-center">
+                        <div class="text-blue-600 font-bold text-xs tracking-widest uppercase mb-3">Onboarding Selection</div>
+                        <h3 class="text-3xl sm:text-4xl font-extrabold font-outfit uppercase tracking-tight text-slate-900 mb-4">Are you a local?</h3>
+                        <p class="text-slate-500 mb-12 font-medium text-base sm:text-lg max-w-xl mx-auto">Please select if you are a Singapore resident/local citizen or a foreigner.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-12">
+                            <button id="btn-local-yes" class="group w-full text-center p-8 sm:p-10 bg-white border border-slate-200 rounded-3xl cursor-pointer hover:border-blue-600 hover:shadow-2xl hover:shadow-blue-50/50 hover:-translate-y-1 transition-all duration-300 flex flex-col items-center">
+                                <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-4xl mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
+                                    🇸🇬
+                                </div>
+                                <h3 class="text-xl sm:text-2xl font-extrabold text-slate-900 mb-3 font-outfit uppercase tracking-wider">Yes, I am a local</h3>
+                                <p class="text-slate-500 text-sm sm:text-base leading-relaxed max-w-xs">I am a Singapore citizen, PR, or local director with a residential address.</p>
+                            </button>
+                            <button id="btn-local-no" class="group w-full text-center p-8 sm:p-10 bg-white border border-slate-200 rounded-3xl cursor-pointer hover:border-slate-900 hover:shadow-2xl hover:shadow-slate-100 hover:-translate-y-1 transition-all duration-300 flex flex-col items-center">
+                                <div class="w-20 h-20 bg-slate-50 text-slate-700 rounded-2xl flex items-center justify-center text-4xl mb-6 group-hover:bg-slate-900 group-hover:text-white transition-all duration-300">
+                                    🌎
+                                </div>
+                                <h3 class="text-xl sm:text-2xl font-extrabold text-slate-900 mb-3 font-outfit uppercase tracking-wider">No, I am a foreigner</h3>
+                                <p class="text-slate-500 text-sm sm:text-base leading-relaxed max-w-xs">I am an international founder incorporating from overseas.</p>
+                            </button>
+                        </div>
+                        
+                        <div class="mt-8">
+                            <button id="btn-local-back" class="flex items-center gap-2 mx-auto text-slate-400 hover:text-slate-600 font-bold uppercase text-xs tracking-widest transition-colors">
+                                <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Status
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 1.55: Office Address Question (for locals) -->
+                <div class="step-container hidden opacity-0 translate-y-10 transition-all duration-700 mt-16" id="office-question-step">
+                    <div class="local-question-card text-center">
+                        <div class="text-blue-600 font-bold text-xs tracking-widest uppercase mb-3">Registered Office Address</div>
+                        <h3 class="text-3xl sm:text-4xl font-extrabold font-outfit uppercase tracking-tight text-slate-900 mb-4 max-w-2xl mx-auto leading-tight">Do you have a local office address to register your company in Singapore?</h3>
+                        <p class="text-slate-500 mb-12 font-medium text-base sm:text-lg max-w-xl mx-auto">All Singapore companies must have a registered office address in Singapore.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-12">
+                            <button id="btn-office-yes" class="group w-full text-center p-8 sm:p-10 bg-white border border-slate-200 rounded-3xl cursor-pointer hover:border-blue-600 hover:shadow-2xl hover:shadow-blue-50/50 hover:-translate-y-1 transition-all duration-300 flex flex-col items-center">
+                                <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-4xl mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
+                                    🏢
+                                </div>
+                                <h3 class="text-xl sm:text-2xl font-extrabold text-slate-900 mb-3 font-outfit uppercase tracking-wider">Yes, I have one</h3>
+                                <p class="text-slate-500 text-sm sm:text-base leading-relaxed max-w-xs">I will provide my own local office address in Singapore for company registration.</p>
+                            </button>
+                            <button id="btn-office-no" class="group w-full text-center p-8 sm:p-10 bg-white border border-slate-200 rounded-3xl cursor-pointer hover:border-slate-900 hover:shadow-2xl hover:shadow-slate-100 hover:-translate-y-1 transition-all duration-300 flex flex-col items-center">
+                                <div class="w-20 h-20 bg-slate-50 text-slate-700 rounded-2xl flex items-center justify-center text-4xl mb-6 group-hover:bg-slate-900 group-hover:text-white transition-all duration-300">
+                                    💼
+                                </div>
+                                <h3 class="text-xl sm:text-2xl font-extrabold text-slate-900 mb-3 font-outfit uppercase tracking-wider">No, I need one</h3>
+                                <p class="text-slate-500 text-sm sm:text-base leading-relaxed max-w-xs">I want to subscribe to Globalisor's registered office address service.</p>
+                            </button>
+                        </div>
+                        
+                        <div class="mt-8">
+                            <button id="btn-office-back" class="flex items-center gap-2 mx-auto text-slate-400 hover:text-slate-600 font-bold uppercase text-xs tracking-widest transition-colors">
+                                <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
+                            </button>
                         </div>
                     </div>
                 </div>

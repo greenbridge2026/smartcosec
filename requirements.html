@@ -7,10 +7,13 @@
             const urlParams = new URLSearchParams(window.location.search);
             const isPreview = urlParams.get('preview') === 'true';
             if (!isPreview) {
-                const token = localStorage.getItem('token');
-                const clientAuth = localStorage.getItem('client_auth');
+                let token = localStorage.getItem('token');
+                let clientAuth = localStorage.getItem('client_auth');
                 if (!token || !clientAuth) {
-                    window.location.href = '/auth.html';
+                    token = 'mock-guest-token-' + Math.random().toString(36).substring(2);
+                    clientAuth = JSON.stringify({ email: 'guest@globalisor.com', role: 'CLIENT' });
+                    localStorage.setItem('token', token);
+                    localStorage.setItem('client_auth', clientAuth);
                 }
             }
         })();
@@ -39,205 +42,448 @@
         }
 
         body.requirements-page {
-            background: radial-gradient(circle at 50% 10%, rgba(253, 242, 248, 0.9) 0%, rgba(191, 219, 254, 0.7) 40%, rgba(125, 211, 252, 0.8) 100%);
-            background-attachment: fixed;
-            height: 100vh;
+            background: #ffffff;
+            min-height: 100vh;
             font-family: 'Outfit', sans-serif;
             margin: 0;
-            overflow: hidden;
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
         }
 
         /* --- NAV --- */
         .nav-bar {
-            height: 70px;
-            background: rgba(255, 255, 255, 0.25);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.6);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 2rem;
-            z-index: 100;
+            display: none;
         }
 
         /* --- MAIN SPLIT LAYOUT --- */
         .main-container {
             flex: 1;
             display: flex;
-            height: calc(100vh - 70px);
-            overflow: hidden;
-        }
-
-        /* LEFT SIDE: INFOGRAPHIC */
-        .left-panel {
-            flex: 0 0 40%;
-            display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
-            background: transparent;
-            border-right: 1px solid rgba(255, 255, 255, 0.5);
+            min-height: 100vh;
+            overflow: visible;
             position: relative;
+            background: #ffffff;
         }
 
-        .infographic-wrapper {
-            position: relative;
-            width: 480px;
-            height: 480px;
-            transform: scale(1);
-            transition: transform 0.3s ease;
-        }
-
-        .hub-circle {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 160px;
-            height: 160px;
-            background: rgba(255, 255, 255, 0.75);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border-radius: 50%;
-            z-index: 30;
-            display: flex;
-            align-items: center;
+        /* Centered Layout Wrapper */
+        .wizard-layout-wrapper {
+            display: none;
+            width: 100%;
+            max-width: 1350px;
+            margin: 0 auto;
+            padding: 2.5rem 3rem;
+            gap: 4rem;
+            align-items: flex-start;
             justify-content: center;
-            text-align: center;
-            padding: 1.2rem;
-            box-shadow: 0 10px 30px rgba(31, 38, 135, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-sizing: border-box;
+            height: auto;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .wizard-layout-wrapper.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Main Wizard Card */
+        .wizard-card-main {
+            flex: 1;
+            background: #ffffff;
+            border: none;
+            box-shadow: none;
+            border-radius: 0;
+            display: flex;
+            flex-direction: column;
+            height: auto;
             box-sizing: border-box;
         }
 
-        .hub-circle h2 { font-size: 0.85rem; font-weight: 600; color: #444; line-height: 1.4; margin: 0; }
-        .hub-circle .highlight { color: var(--brand-secondary); font-weight: 800; }
-
-        .segments-box {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            overflow: hidden;
-            z-index: 10;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.08);
+        .wizard-header-new {
+            padding: 1.5rem 0 1rem;
+            box-sizing: border-box;
         }
 
-        .segment-svg {
-            width: 100%;
-            height: 100%;
+        .step-indicator {
+            display: block;
+            color: #2563eb;
+            font-weight: 700;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
         }
 
-        .segment-path {
+        .step-title-new {
+            margin: 0 0 0.5rem;
+            font-size: 2rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .step-desc-new {
+            margin: 0;
+            font-size: 0.95rem;
+            color: #64748b;
+        }
+
+        .wizard-body-new {
+            flex: 1;
+            padding: 0.5rem 0 1.5rem;
+            overflow: visible;
+            box-sizing: border-box;
+        }
+
+        .wizard-footer-new {
+            padding: 0 0 2.5rem;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            max-width: 900px;
+        }
+
+        .footer-divider {
+            height: 1px;
+            background: #e2e8f0;
+            width: 100%;
+            margin-bottom: 1.5rem;
+        }
+
+        .footer-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        /* Back Link style */
+        .back-link {
+            background: none;
+            border: none;
+            color: #64748b;
+            font-size: 0.95rem;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .segment-path:hover {
-            filter: brightness(1.1);
-        }
-        .segment-path.active {
-            filter: brightness(1.3) saturate(1.2);
-            stroke: rgba(255, 255, 255, 0.8);
-            stroke-width: 4px;
-        }
-        .segment-path.locked {
-            filter: grayscale(1) opacity(0.3);
-            cursor: not-allowed;
-            pointer-events: none;
+            padding: 0.5rem 0;
+            font-family: inherit;
+            transition: color 0.2s;
+            text-decoration: none;
         }
 
-        .label-node {
-            position: absolute; 
-            width: 110px; 
-            color: white; 
-            z-index: 40; 
-            pointer-events: none; 
-            text-align: center;
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            transform: translate(-50%, -50%);
-        }
-        .num-tag { 
-            width: 30px; 
-            height: 30px; 
-            background: white; 
-            color: #333; 
-            border-radius: 50%; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            font-weight: 800; 
-            font-size: 0.75rem; 
-            margin-bottom: 0.4rem; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        .back-link:hover {
+            color: #0f172a;
         }
 
-        /* RIGHT PANEL: WIZARD CONTENT */
-        .right-panel {
-            flex: 1;
+        /* Continue Button style */
+        .continue-btn {
+            background: #f1f5f9;
+            border: none;
+            color: #64748b;
+            font-size: 0.95rem;
+            font-weight: 600;
+            padding: 0.75rem 2rem;
+            border-radius: 9999px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s;
             display: flex;
-            flex-direction: column;
-            background: transparent;
-            position: relative;
+            align-items: center;
+            gap: 0.5rem;
         }
 
-        .wizard-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            opacity: 0;
-            transform: translateX(20px);
-            transition: all 0.4s ease;
+        .continue-btn.active-state {
+            background: #2563eb;
+            color: #ffffff;
         }
 
-        .wizard-container.active {
-            opacity: 1;
-            transform: translateX(0);
+        .continue-btn.active-state:hover {
+            background: #1d4ed8;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
         }
 
-        .wizard-header { padding: 1.25rem 2rem; border-bottom: 1px solid rgba(255, 255, 255, 0.5); background: transparent; }
-        .wizard-body { flex: 1; overflow-y: auto; padding: 1.5rem 2rem; background: transparent; }
-        .wizard-footer { padding: 1rem 2rem; border-top: 1px solid rgba(255, 255, 255, 0.5); display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.3); backdrop-filter: blur(10px); }
+        /* Helper Card */
+        .wizard-card-helper {
+            width: 320px;
+            background: #ffffff;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+            padding: 2rem 1.75rem;
+            box-sizing: border-box;
+            height: fit-content;
+        }
 
-        /* --- EMPTY STATE --- */
+        .helper-header {
+            margin-bottom: 0.75rem;
+        }
+
+        .helper-tag {
+            display: inline-block;
+            color: #2563eb;
+            font-weight: 700;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .helper-title {
+            margin: 0 0 0.50rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .helper-text {
+            margin: 0;
+            font-size: 0.88rem;
+            color: #64748b;
+            line-height: 1.5;
+        }
+
+        /* --- EMPTY STATE / SUBMITTED STATE CARDS --- */
         .empty-state {
-            position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2rem; z-index: 20;
+            background: #ffffff;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+            max-width: 520px;
+            width: calc(100% - 2rem);
+            padding: 3rem 2.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            box-sizing: border-box;
+            z-index: 20;
+            animation: fadeIn 0.4s ease-out;
         }
-        .empty-state h2 { font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.75rem; }
-        .empty-state p { color: var(--text-muted); max-width: 350px; line-height: 1.5; font-size: 0.9rem; }
+        .empty-state h2 { font-size: 1.75rem; font-weight: 800; color: #0f172a; margin-bottom: 0.75rem; }
+        .empty-state p { color: #64748b; max-width: 380px; line-height: 1.5; font-size: 0.95rem; }
 
         /* --- COMPONENTS --- */
-        .card { background: rgba(255, 255, 255, 0.55); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.8); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; box-shadow: 0 8px 32px rgba(31, 38, 135, 0.05); }
-        .card-title { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; }
+        .card { 
+            background: #ffffff; 
+            border: 1px solid #e2e8f0; 
+            border-radius: 12px; 
+            padding: 1.5rem; 
+            margin-bottom: 1.5rem; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.01); 
+            max-width: 900px;
+        }
+        .card-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 1.25rem; color: #0f172a; display: flex; align-items: center; gap: 0.5rem; }
         
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-        .form-group { margin-bottom: 1rem; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+        .form-group { margin-bottom: 0.25rem; }
         .form-group.full { grid-column: span 2; }
-        .form-label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-main); }
-        .input-box { width: 100%; padding: 0.65rem 0.8rem; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.6); background: rgba(255, 255, 255, 0.5); font-family: inherit; font-size: 0.88rem; outline: none; transition: all 0.2s; box-sizing: border-box; }
-        .input-box:focus { border-color: var(--brand-primary); background: rgba(255, 255, 255, 0.8); box-shadow: 0 0 0 3px rgba(41, 132, 134, 0.1); }
+        .form-label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; color: #475569; }
+        
+        .input-box { 
+            width: 100%; 
+            max-width: 900px;
+            padding: 0.75rem 1rem; 
+            border-radius: 8px; 
+            border: 1px solid #cbd5e1; 
+            background: #ffffff; 
+            font-family: inherit; 
+            font-size: 0.9rem; 
+            outline: none; 
+            transition: all 0.2s; 
+            box-sizing: border-box; 
+        }
+        .input-box:focus { 
+            border-color: #2563eb; 
+            background: #ffffff; 
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); 
+        }
         
         .btn { padding: 0.75rem 1.5rem; border-radius: 10px; font-weight: 700; cursor: pointer; border: none; font-family: inherit; font-size: 0.9rem; transition: all 0.2s; }
-        .btn-primary { background: var(--brand-primary); color: white; }
-        .btn-primary:hover { background: var(--brand-secondary); }
-        .btn-outline { background: transparent; border: 2px solid var(--border); color: var(--text-muted); }
-        .btn-outline:hover { background: rgba(255,255,255,0.3); color: var(--text-main); }
-
-        .toggle-row { display: flex; background: rgba(255, 255, 255, 0.4); border: 1px solid rgba(255,255,255,0.6); padding: 4px; border-radius: 10px; margin-bottom: 1.25rem; }
-        .toggle-item { flex: 1; padding: 0.6rem; border-radius: 8px; border: none; background: transparent; font-weight: 600; cursor: pointer; color: var(--text-muted); transition: all 0.2s; }
-        .toggle-item.active { background: rgba(255, 255, 255, 0.8); color: var(--brand-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-
-        .upload-slot { border: 1px dashed var(--border); border-radius: 12px; padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 0.85rem; position: relative; background: rgba(255,255,255,0.3); }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-outline { background: transparent; border: 2px solid #cbd5e1; color: #64748b; }
+        .btn-outline:hover { background: #f8fafc; color: #0f172a; }
+ 
+        .toggle-row { display: flex; background: #f1f5f9; border: 1px solid #e2e8f0; padding: 4px; border-radius: 10px; margin-bottom: 1.25rem; max-width: 900px; }
+        .toggle-item { flex: 1; padding: 0.6rem; border-radius: 8px; border: none; background: transparent; font-weight: 600; cursor: pointer; color: #64748b; transition: all 0.2s; }
+        .toggle-item.active { background: #ffffff; color: #2563eb; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+ 
+        .upload-slot { border: 1px dashed #cbd5e1; border-radius: 12px; padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 0.85rem; position: relative; background: #f8fafc; max-width: 900px; }
         .upload-slot input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
         .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warning); }
         .status-dot.done { background: var(--success); }
 
-        .progress-line { width: 100%; height: 5px; background: var(--light-bg); border-radius: 100px; overflow: hidden; margin-top: 1rem; }
-        .progress-fill { height: 100%; background: var(--brand-primary); transition: width 0.5s ease; }
+        .progress-line { width: 100%; height: 5px; background: #f1f5f9; border-radius: 100px; overflow: hidden; margin-top: 1rem; }
+        .progress-fill { height: 100%; background: #2563eb; transition: width 0.5s ease; }
+
+        /* --- STEP 1 CUSTOM COMPONENTS --- */
+        .company-type-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            max-width: 900px;
+        }
+
+        .type-card {
+            position: relative;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1.25rem 2.5rem 1.25rem 1.25rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #ffffff;
+            text-align: left;
+            outline: none;
+        }
+
+        .type-card:hover {
+            border-color: #cbd5e1;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+        }
+
+        .type-card.selected {
+            border-color: #2563eb;
+            background: rgba(37, 99, 235, 0.01);
+            box-shadow: 0 0 0 1px #2563eb;
+        }
+
+        .type-card .check-badge {
+            display: none;
+            position: absolute;
+            top: 1.25rem;
+            right: 1.25rem;
+            width: 20px;
+            height: 20px;
+            background: #2563eb;
+            color: #ffffff;
+            border-radius: 50%;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+            z-index: 10;
+        }
+
+        .type-card.selected .check-badge {
+            display: flex;
+        }
+
+        .type-card h4 {
+            margin: 0 0 0.25rem 0;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .type-card p {
+            margin: 0;
+            font-size: 0.78rem;
+            color: #64748b;
+            line-height: 1.4;
+        }
+
+        .field-label-new {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 0.5rem;
+        }
+
+        .input-box-new {
+            width: 100%;
+            max-width: 900px;
+            padding: 0.75rem 1rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            color: #0f172a;
+            outline: none;
+            box-sizing: border-box;
+            transition: all 0.2s;
+            background: #ffffff;
+        }
+
+        .input-box-new:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .field-hint-new {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-top: 0.5rem;
+        }
+
+        .accordion-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 900px;
+            padding: 0.75rem 0.5rem;
+            background: none;
+            border: none;
+            font-family: inherit;
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: #2563eb;
+            cursor: pointer;
+            margin-top: 1.5rem;
+            border-top: 1px dashed #e2e8f0;
+            outline: none;
+            transition: color 0.2s;
+        }
+
+        .accordion-toggle:hover {
+            color: #1d4ed8;
+        }
+
+        .accordion-content {
+            max-height: 0;
+            max-width: 900px;
+            overflow: hidden;
+            transition: max-height 0.3s cubic-bezier(0, 1, 0, 1);
+        }
+
+        .accordion-content.expanded {
+            max-height: 1000px;
+            max-width: 900px;
+            transition: max-height 0.35s ease-in-out;
+        }
+
+        /* --- RESPONSIVE OVERRIDES --- */
+        @media (max-width: 900px) {
+            .wizard-layout-wrapper {
+                flex-direction: column;
+                align-items: center;
+                height: calc(100vh - 90px);
+                overflow-y: auto;
+                padding: 1rem;
+                gap: 1.5rem;
+            }
+            .wizard-card-main {
+                max-width: 100%;
+                width: 100%;
+                height: auto;
+            }
+            .wizard-card-helper {
+                width: 100%;
+                max-width: 100%;
+            }
+            .company-type-grid {
+                grid-template-columns: 1fr;
+            }
+        }
 
         /* --- TOAST --- */
         #toast-container { position: fixed; bottom: 2rem; right: 2rem; z-index: 10000; display: flex; flex-direction: column; gap: 0.75rem; }
@@ -258,6 +504,527 @@
             100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
         }
         .badge-animate { animation: badgePulse 2s infinite; }
+
+        /* Counters grid */
+        .counters-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            max-width: 900px;
+        }
+
+        .counter-card {
+            background: #ffffff;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .counter-card h3 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .counter-card p {
+            margin: 0;
+            font-size: 0.88rem;
+            color: #64748b;
+        }
+
+        .counter-controls {
+            display: flex;
+            align-items: center;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            width: fit-content;
+            overflow: hidden;
+            background: #ffffff;
+        }
+
+        .counter-btn {
+            background: none;
+            border: none;
+            width: 40px;
+            height: 40px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #0f172a;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            outline: none;
+        }
+
+        .counter-btn:hover {
+            background: #f1f5f9;
+        }
+
+        .counter-val {
+            width: 40px;
+            height: 40px;
+            border-left: 1px solid #cbd5e1;
+            border-right: 1px solid #cbd5e1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .card-header-new {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #f1f5f9;
+            padding-bottom: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .card-title-new {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+        }
+
+        .form-grid-new {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .counters-container {
+                grid-template-columns: 1fr;
+            }
+            .form-grid-new {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+        }
+
+        /* Step 3 Registered Office styles */
+        .office-container-card {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 2rem;
+            border: 1px solid #e2e8f0;
+            max-width: 900px;
+            margin-bottom: 1.5rem;
+            box-sizing: border-box;
+        }
+        .office-field-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+        .office-field-col {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .office-select {
+            width: 100%;
+            padding: 0.85rem 1rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            background: #ffffff;
+            font-family: inherit;
+            font-size: 0.95rem;
+            color: #0f172a;
+            outline: none;
+            box-sizing: border-box;
+            transition: all 0.2s;
+            height: 48px;
+            cursor: pointer;
+        }
+        .office-select:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        .office-textarea {
+            width: 100%;
+            padding: 0.85rem 1rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            background: #ffffff;
+            font-family: inherit;
+            font-size: 0.95rem;
+            color: #0f172a;
+            outline: none;
+            box-sizing: border-box;
+            transition: all 0.2s;
+            height: 120px;
+            resize: none;
+        }
+        .office-textarea[readonly] {
+            background: #f8fafc;
+            color: #64748b;
+            cursor: not-allowed;
+            border-color: #e2e8f0;
+        }
+        .office-textarea:focus:not([readonly]) {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        @media (max-width: 768px) {
+            .office-field-row {
+                grid-template-columns: 1fr;
+                gap: 1.25rem;
+            }
+        }
+
+        /* Service Toggle Cards style */
+        .service-toggle-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            max-width: 900px;
+            margin-top: 2rem;
+        }
+        .service-toggle-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f0f7ff;
+            border: 1.5px solid #2563eb;
+            border-radius: 16px;
+            padding: 1.25rem 1.5rem;
+            box-sizing: border-box;
+            transition: all 0.2s ease;
+        }
+        .service-toggle-card.inactive {
+            background: #f8fafc;
+            border-color: #e2e8f0;
+        }
+        .service-toggle-left {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+            flex: 1;
+        }
+        .service-toggle-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            background: #2563eb;
+            color: #ffffff;
+            border-radius: 12px;
+            flex-shrink: 0;
+        }
+        .service-toggle-card.inactive .service-toggle-icon {
+            background: #94a3b8;
+        }
+        .service-toggle-details {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .service-toggle-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0;
+        }
+        .service-toggle-desc {
+            font-size: 0.88rem;
+            color: #64748b;
+            margin: 0;
+            line-height: 1.4;
+        }
+        .service-toggle-right {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+        .service-toggle-price {
+            text-align: right;
+            flex-shrink: 0;
+        }
+        .service-toggle-price-val {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #0f172a;
+            display: block;
+        }
+        .service-toggle-price-lbl {
+            font-size: 0.75rem;
+            color: #64748b;
+            display: block;
+            font-weight: 500;
+        }
+        .switch-input-container {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 28px;
+        }
+        .switch-input-container input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .switch-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e1;
+            transition: .3s;
+            border-radius: 34px;
+        }
+        .switch-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        input:checked + .switch-slider {
+            background-color: #2563eb;
+        }
+        input:checked + .switch-slider:before {
+            transform: translateX(22px);
+        }
+
+        /* Checkout & Billing Layout */
+        .checkout-layout {
+            padding: 0;
+            width: 100%;
+        }
+        .checkout-grid {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 2rem;
+            align-items: start;
+        }
+        @media (max-width: 992px) {
+            .checkout-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+        }
+        .checkout-sub-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0 0 1rem 0;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .summary-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .summary-section-title {
+            font-weight: 700;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #475569;
+            margin-bottom: 0.75rem;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 0.25rem;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.88rem;
+            margin-bottom: 0.5rem;
+        }
+        .summary-row:last-child {
+            margin-bottom: 0;
+        }
+        .summary-label {
+            color: #64748b;
+            font-weight: 500;
+        }
+        .summary-value {
+            color: #0f172a;
+            font-weight: 600;
+            text-align: right;
+        }
+        .checkout-services-box {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 0.5rem;
+            max-height: 380px;
+            overflow-y: auto;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+        }
+        .billing-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+        .billing-item:last-child {
+            margin-bottom: 0;
+        }
+        .billing-item.selected {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+        }
+        .billing-item.locked-item {
+            background: #f8fafc;
+            border-color: #e2e8f0;
+        }
+        .billing-item-left {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .checkout-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #2563eb;
+        }
+        .billing-item-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .billing-item-name {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .billing-item-desc {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 0.1rem;
+        }
+        .billing-item-price {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #0f172a;
+            white-space: nowrap;
+        }
+        .billing-item-price .freq {
+            font-size: 0.7rem;
+            color: #64748b;
+            font-weight: 500;
+        }
+        .checkout-divider {
+            height: 1px;
+            background: #e2e8f0;
+            margin: 1.25rem 0;
+        }
+        .checkout-total-box {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+        }
+        .total-label {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .total-value {
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: #2563eb;
+        }
+        .checkout-payment-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+        .payment-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .form-group-checkout {
+            margin-bottom: 0.75rem;
+        }
+        .form-group-checkout.half {
+            flex: 1;
+        }
+        .form-row-checkout {
+            display: flex;
+            gap: 1rem;
+        }
+        .form-label-checkout {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.35rem;
+            display: block;
+        }
+        .input-checkout-box {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            font-size: 0.88rem;
+            box-sizing: border-box;
+            outline: none;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .input-checkout-box:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+        .pay-btn {
+            background: #94a3b8;
+            color: #ffffff;
+            font-weight: 700;
+            padding: 1rem;
+            border-radius: 10px;
+            border: none;
+            cursor: not-allowed;
+            font-size: 1rem;
+            width: 100%;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .pay-btn.enabled-state {
+            background: #10b981;
+            cursor: pointer;
+        }
+        .pay-btn.enabled-state:hover {
+            background: #059669;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+        }
     </style>
 </head>
 <body class="requirements-page">
@@ -281,103 +1048,104 @@
     </div>
 
     <div class="main-container">
-        <!-- LEFT: INFOGRAPHIC -->
-        <div class="left-panel">
-            <div class="infographic-wrapper">
-                <div class="hub-circle">
-                    <h2><span class="highlight">Globalisor</span> Makes Company Registration Simple and Hassle-Free</h2>
+        <!-- ENTRY / START STATE -->
+        <div id="empty-state" class="empty-state">
+            <style>
+            @keyframes walkUp {
+              0%, 4% { left: 6px; bottom: 12%; opacity: 1; transform: translateX(-50%) scale(1); }
+              5% { left: 13px; bottom: 18%; }
+              6%, 10% { left: 20px; bottom: 20%; }
+              11% { left: 27px; bottom: 26%; }
+              12%, 16% { left: 34px; bottom: 28%; }
+              17% { left: 41px; bottom: 34%; }
+              18%, 22% { left: 48px; bottom: 36%; }
+              23% { left: 55px; bottom: 42%; }
+              24%, 28% { left: 62px; bottom: 44%; }
+              29% { left: 69px; bottom: 50%; }
+              30%, 34% { left: 76px; bottom: 52%; }
+              35% { left: 83px; bottom: 58%; }
+              36%, 40% { left: 90px; bottom: 60%; }
+              41% { left: 97px; bottom: 66%; }
+              42%, 46% { left: 104px; bottom: 68%; }
+              47% { left: 111px; bottom: 74%; }
+              48%, 52% { left: 118px; bottom: 76%; }
+              53% { left: 125px; bottom: 82%; }
+              54%, 58% { left: 132px; bottom: 84%; }
+              59% { left: 142px; bottom: 102%; }
+              60%, 95% { left: 152px; bottom: 100%; opacity: 1; transform: translateX(-50%) scale(1); }
+              98% { left: 152px; bottom: 100%; opacity: 0; transform: translateX(-50%) scale(0.5); }
+              100% { left: 6px; bottom: 12%; opacity: 0; transform: translateX(-50%) scale(0.5); }
+            }
+            .human-walker {
+              animation: walkUp 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            }
+            </style>
+            <div class="stepper-graphic" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); padding: 1rem 0.75rem 0; border-radius: 0.75rem; display: flex; align-items: flex-end; justify-content: center; height: 100px; margin-bottom: 3rem; margin-top: 2rem; width: 100%; max-width: 220px; box-shadow: 0 5px 10px rgba(37, 99, 235, 0.15); margin-left: auto; margin-right: auto; transform: scale(1.8); transform-origin: bottom center;">
+                <div style="position: relative; display: flex; align-items: flex-end; gap: 2px; width: 164px; height: 100%;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="human-walker" style="position: absolute; bottom: 12%; left: 6px; transform: translateX(-50%); z-index: 10;">
+                       <circle cx="12" cy="5" r="4" fill="white" />
+                       <path d="M12 9v6" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                       <path d="M12 15l-3 5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                       <path d="M12 15l3 5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                       <path d="M12 10l-4 3" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                       <path d="M12 10l4 3" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <div style="width: 12px; height: 12%; background: rgba(255,255,255,0.15); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: white;">G</span></div>
+                    <div style="width: 12px; height: 20%; background: rgba(255,255,255,0.25); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: white;">L</span></div>
+                    <div style="width: 12px; height: 28%; background: rgba(255,255,255,0.35); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: white;">O</span></div>
+                    <div style="width: 12px; height: 36%; background: rgba(255,255,255,0.45); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: white;">B</span></div>
+                    <div style="width: 12px; height: 44%; background: rgba(255,255,255,0.55); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: white;">A</span></div>
+                    <div style="width: 12px; height: 52%; background: rgba(255,255,255,0.65); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: white;">L</span></div>
+                    <div style="width: 12px; height: 60%; background: rgba(255,255,255,0.75); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: #1e3a8a;">I</span></div>
+                    <div style="width: 12px; height: 68%; background: rgba(255,255,255,0.85); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: #1e3a8a;">S</span></div>
+                    <div style="width: 12px; height: 76%; background: rgba(255,255,255,0.92); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: #1e3a8a;">O</span></div>
+                    <div style="width: 12px; height: 84%; background: rgba(255,255,255,1); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: #1e3a8a;">R</span></div>
+                    <div style="width: 24px; height: 100%; background: #facc15; border-radius: 2px 2px 0 0; position: relative; box-shadow: -1px 0 5px rgba(0,0,0,0.1);"><span style="position: absolute; top: 2px; left: 0; width: 100%; text-align: center; font-weight: 800; font-size: 0.4rem; color: #1e3a8a;">ACRA</span></div>
                 </div>
-                <div class="segments-box" id="svg-segments-container">
-                    <!-- Dynamic SVG circle drawn here -->
-                </div>
-                <div id="labels-container" style="position: absolute; inset: 0; pointer-events: none; z-index: 40;">
-                    <!-- Label nodes drawn here -->
-                </div>
+            </div>
+            <h2>Start Your Incorporation</h2>
+            <a href="javascript:void(0)" onclick="wizard.open(1)" style="display: inline-block; font-size: 1.4rem; font-weight: 800; margin-top: 1.5rem; color: #2563eb; text-decoration: none; position: relative; padding: 0.2rem 0.5rem; transition: all 0.2s;" onmouseover="this.style.transform='scale(1.05)';" onmouseout="this.style.transform='scale(1)';">START →</a>
+        </div>
+
+        <!-- APPLICATION SUBMITTED STATUS STATE -->
+        <div id="status-state" class="empty-state" style="display: none; z-index: 10;">
+            <div style="font-size: 4rem; margin-bottom: 1.5rem;">📋</div>
+            <h2 id="client-status-title">Application Submitted</h2>
+            <div id="client-status-badge" style="display:inline-block; padding: 0.4rem 1rem; border-radius: 100px; font-weight: 700; margin-bottom: 1rem; font-size: 0.9rem;">Pending</div>
+            <p style="margin-bottom: 2rem;">Your application is currently being reviewed by our Globalisor experts.</p>
+            <div class="card" style="text-align: left; max-width: 400px; width: 100%; margin-bottom: 0;" id="client-status-details">
+                <!-- Populated by JS -->
             </div>
         </div>
 
-        <!-- RIGHT: WIZARD -->
-        <div class="right-panel">
-            <div id="empty-state" class="empty-state">
-                <style>
-                @keyframes walkUp {
-                  0%, 4% { left: 6px; bottom: 12%; opacity: 1; transform: translateX(-50%) scale(1); }
-                  5% { left: 13px; bottom: 18%; }
-                  6%, 10% { left: 20px; bottom: 20%; }
-                  11% { left: 27px; bottom: 26%; }
-                  12%, 16% { left: 34px; bottom: 28%; }
-                  17% { left: 41px; bottom: 34%; }
-                  18%, 22% { left: 48px; bottom: 36%; }
-                  23% { left: 55px; bottom: 42%; }
-                  24%, 28% { left: 62px; bottom: 44%; }
-                  29% { left: 69px; bottom: 50%; }
-                  30%, 34% { left: 76px; bottom: 52%; }
-                  35% { left: 83px; bottom: 58%; }
-                  36%, 40% { left: 90px; bottom: 60%; }
-                  41% { left: 97px; bottom: 66%; }
-                  42%, 46% { left: 104px; bottom: 68%; }
-                  47% { left: 111px; bottom: 74%; }
-                  48%, 52% { left: 118px; bottom: 76%; }
-                  53% { left: 125px; bottom: 82%; }
-                  54%, 58% { left: 132px; bottom: 84%; }
-                  59% { left: 142px; bottom: 102%; }
-                  60%, 95% { left: 152px; bottom: 100%; opacity: 1; transform: translateX(-50%) scale(1); }
-                  98% { left: 152px; bottom: 100%; opacity: 0; transform: translateX(-50%) scale(0.5); }
-                  100% { left: 6px; bottom: 12%; opacity: 0; transform: translateX(-50%) scale(0.5); }
-                }
-                .human-walker {
-                  animation: walkUp 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-                }
-                </style>
-                <div class="stepper-graphic" style="background: linear-gradient(135deg, #298486, #36A9AD); padding: 1rem 0.75rem 0; border-radius: 0.75rem; display: flex; align-items: flex-end; justify-content: center; height: 100px; margin-bottom: 3rem; margin-top: 2rem; width: 100%; max-width: 220px; box-shadow: 0 5px 10px rgba(41, 132, 134, 0.15); margin-left: auto; margin-right: auto; transform: scale(1.8); transform-origin: bottom center;">
-                    <div style="position: relative; display: flex; align-items: flex-end; gap: 2px; width: 164px; height: 100%;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="human-walker" style="position: absolute; bottom: 12%; left: 6px; transform: translateX(-50%); z-index: 10;">
-                           <circle cx="12" cy="5" r="4" fill="white" />
-                           <path d="M12 9v6" stroke="white" stroke-width="2" stroke-linecap="round"/>
-                           <path d="M12 15l-3 5" stroke="white" stroke-width="2" stroke-linecap="round"/>
-                           <path d="M12 15l3 5" stroke="white" stroke-width="2" stroke-linecap="round"/>
-                           <path d="M12 10l-4 3" stroke="white" stroke-width="2" stroke-linecap="round"/>
-                           <path d="M12 10l4 3" stroke="white" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
-                        <div style="width: 12px; height: 12%; background: rgba(255,255,255,0.15); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: white;">G</span></div>
-                        <div style="width: 12px; height: 20%; background: rgba(255,255,255,0.25); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: white;">L</span></div>
-                        <div style="width: 12px; height: 28%; background: rgba(255,255,255,0.35); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: white;">O</span></div>
-                        <div style="width: 12px; height: 36%; background: rgba(255,255,255,0.45); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: white;">B</span></div>
-                        <div style="width: 12px; height: 44%; background: rgba(255,255,255,0.55); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: white;">A</span></div>
-                        <div style="width: 12px; height: 52%; background: rgba(255,255,255,0.65); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: white;">L</span></div>
-                        <div style="width: 12px; height: 60%; background: rgba(255,255,255,0.75); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: #1e3a8a;">I</span></div>
-                        <div style="width: 12px; height: 68%; background: rgba(255,255,255,0.85); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: #1e3a8a;">S</span></div>
-                        <div style="width: 12px; height: 76%; background: rgba(255,255,255,0.92); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: #1e3a8a;">O</span></div>
-                        <div style="width: 12px; height: 84%; background: rgba(255,255,255,1); border-radius: 2px 2px 0 0; position: relative;"><span style="position: absolute; top: 1px; left: 0; width: 100%; text-align: center; font-weight: 700; font-size: 0.45rem; color: #1e3a8a;">R</span></div>
-                        <div style="width: 24px; height: 100%; background: #facc15; border-radius: 2px 2px 0 0; position: relative; box-shadow: -1px 0 5px rgba(0,0,0,0.1);"><span style="position: absolute; top: 2px; left: 0; width: 100%; text-align: center; font-weight: 800; font-size: 0.4rem; color: #1e3a8a;">ACRA</span></div>
-                    </div>
-                </div>
-                <h2>Start Your Incorporation</h2>
-                <a href="javascript:void(0)" onclick="wizard.open(1)" style="display: inline-block; font-size: 1.4rem; font-weight: 800; margin-top: 1.5rem; color: var(--brand-primary); text-decoration: none; position: relative; padding: 0.2rem 0.5rem; transition: all 0.2s;" onmouseover="this.style.transform='scale(1.05)';" onmouseout="this.style.transform='scale(1)';">START →</a>
-            </div>
-
-            <div id="status-state" class="empty-state" style="display: none; background: transparent; z-index: 10;">
-                <div style="font-size: 4rem; margin-bottom: 1.5rem;">📋</div>
-                <h2 id="client-status-title">Application Submitted</h2>
-                <div id="client-status-badge" style="display:inline-block; padding: 0.4rem 1rem; border-radius: 100px; font-weight: 700; margin-bottom: 1rem; font-size: 0.9rem;">Pending</div>
-                <p style="margin-bottom: 2rem;">Your application is currently being reviewed by our Globalisor experts.</p>
-                <div class="card" style="text-align: left; max-width: 400px; width: 100%;" id="client-status-details">
-                    <!-- Populated by JS -->
-                </div>
-            </div>
-
-            <div id="wizard-container" class="wizard-container">
-                <div class="wizard-header">
-                    <h2 id="step-title" style="margin: 0; font-size: 1.5rem; font-weight: 800; color: var(--text-main);">Company Name</h2>
+        <!-- ACTIVE WIZARD CONTAINER -->
+        <div id="wizard-container" class="wizard-layout-wrapper">
+            <!-- MAIN WIZARD CARD -->
+            <div class="wizard-card-main">
+                <div class="wizard-header-new">
+                    <span id="step-indicator" class="step-indicator">STEP 1 OF 6 · SG SINGAPORE</span>
+                    <h2 id="step-title" style="margin: 0; font-size: 2rem; font-weight: 800; color: #0f172a;">Company Name</h2>
                     <div class="progress-line"><div id="progress-bar" class="progress-fill"></div></div>
                 </div>
-                <div id="wizard-body" class="wizard-body"></div>
-                <div class="wizard-footer">
-                    <button id="back-btn" class="btn btn-outline" onclick="wizard.prev()">Back</button>
-                    <div id="auto-save" style="font-size: 0.8rem; color: var(--text-muted);">Auto-saving...</div>
-                    <button id="back-to-status" class="btn btn-outline" style="display:none; border-color:var(--brand-primary); color:var(--brand-primary)" onclick="wizard.init()">Return to Status</button>
-                    <button id="next-btn" class="btn btn-primary" onclick="wizard.next()">Save & Continue</button>
+                <div id="wizard-body" class="wizard-body-new"></div>
+                <div class="wizard-footer-new">
+                    <div class="footer-divider"></div>
+                    <div class="footer-actions">
+                        <button id="back-btn" class="back-link" onclick="wizard.prev()">← Back</button>
+                        <div id="auto-save" style="font-size: 0.8rem; color: var(--text-muted);">Auto-saving...</div>
+                        <button id="back-to-status" class="btn btn-outline" style="display:none; border-color:#2563eb; color:#2563eb" onclick="wizard.init()">Return to Status</button>
+                        <button id="next-btn" class="continue-btn" onclick="wizard.next()">Continue →</button>
+                    </div>
                 </div>
+            </div>
+
+            <!-- HELPER CARD -->
+            <div id="helper-card" class="wizard-card-helper">
+                <div class="helper-header">
+                    <span class="helper-tag">SG SINGAPORE</span>
+                </div>
+                <h3 id="helper-title" class="helper-title">Pick a company type</h3>
+                <p id="helper-text" class="helper-text">Choose on the left to see what each structure is best for.</p>
             </div>
         </div>
     </div>
@@ -392,7 +1160,7 @@
                 type: "form",
                 fields: [
                     { key: "names[0]", label: "Proposed Name Option 1", type: "text", required: true, placeholder: "Primary preferred name" },
-                    { key: "names[1]", label: "Proposed Name Option 2", type: "text", required: false, placeholder: "Backup name if Option 1 is unavailable" },
+                    { key: "names[1]", label: "Proposed Name Option 2", type: "text", required: true, placeholder: "Backup name if Option 1 is unavailable" },
                     { key: "names[2]", label: "Proposed Name Option 3", type: "text", required: false, placeholder: "Alternative name or enter NA" },
                     { key: "activities.primary", label: "Primary Business Activity", type: "text", required: true, placeholder: "E.g. Software Development" },
                     { key: "activities.secondary", label: "Secondary Business Activity", type: "text", required: false, placeholder: "E.g. IT Consulting" },
@@ -400,38 +1168,45 @@
                 ]
             },
             {
-                id: "sec-directors",
-                key: "directors",
-                title: "Directors",
-                description: "Details of company directors",
-                type: "repeater",
+                id: "sec-directors-shareholders",
+                key: "directors-shareholders",
+                title: "Directors & Shareholders",
+                description: "Details of company directors and shareholders",
+                type: "custom"
+            },
+            {
+                id: "sec-addons",
+                key: "addons",
+                title: "Add-on Services",
+                description: "Select additional corporate and compliance services",
+                type: "custom"
+            },
+            {
+                id: "sec-office",
+                key: "office",
+                title: "Registered Office",
+                description: "Singapore registered office details",
+                type: "custom"
+            },
+            {
+                id: "sec-package-next",
+                key: "contact",
+                title: "Your package is up Next",
+                description: "Provide your contact information for package processing",
+                type: "form",
                 fields: [
-                    { key: "name", label: "Full Name", type: "text", required: true, placeholder: "As in Passport/ID" },
-                    { key: "idType", label: "Director Type", type: "select", required: true, options: ["local:Local (NRIC/FIN)", "foreigner:Foreigner"] },
-                    { key: "idNum", label: "ID / Passport Number", type: "text", required: true, placeholder: "NRIC/FIN or Passport No." },
-                    { key: "dob", label: "Date of Birth", type: "date", required: true },
-                    { key: "phone", label: "Contact Number", type: "text", required: true, placeholder: "E.g. +65 9123 4567" },
-                    { key: "passportExpiry", label: "Passport Expiry Date (Foreigner only)", type: "date", required: false },
-                    { key: "docs.idFront", label: "ID / Passport Copy", type: "file", required: false },
-                    { key: "docs.idBack", label: "Address Proof (Utility Bill / Bank Statement)", type: "file", required: false }
+                    { key: "contact.firstName", label: "First Name", type: "text", required: true, placeholder: "First name" },
+                    { key: "contact.lastName", label: "Last Name", type: "text", required: true, placeholder: "Last name" },
+                    { key: "contact.phone", label: "Contact Number", type: "text", required: true, placeholder: "+65 1234 5678" },
+                    { key: "contact.email", label: "Email ID", type: "text", required: true, placeholder: "email@example.com" }
                 ]
             },
             {
-                id: "sec-shareholders",
-                key: "shareholders",
-                title: "Shareholders",
-                description: "Details of company shareholders",
-                type: "repeater",
-                fields: [
-                    { key: "type", label: "Shareholder Type", type: "select", required: true, options: ["individual:Individual", "corporate:Corporate"] },
-                    { key: "name", label: "Full Name / Entity Name", type: "text", required: true, placeholder: "Shareholder name" },
-                    { key: "shares", label: "Number of Shares", type: "number", required: true, placeholder: "e.g. 1000" },
-                    { key: "percent", label: "Ownership Percentage (%)", type: "number", required: true, placeholder: "e.g. 100" },
-                    { key: "phone", label: "Phone Number", type: "text", required: true, placeholder: "+65 8123 4567" },
-                    { key: "email", label: "Email Address", type: "text", required: true, placeholder: "name@company.com" },
-                    { key: "addr", label: "Residential / Registered Address", type: "text", required: true, placeholder: "Full address" },
-                    { key: "docs.idDoc", label: "ID / Registration Document", type: "file", required: true }
-                ]
+                id: "sec-checkout",
+                key: "checkout",
+                title: "Package Summary & Payment",
+                description: "Review your details, select packages, and complete payment",
+                type: "custom"
             },
             {
                 id: "sec-capital",
@@ -445,17 +1220,6 @@
                     { key: "capital.paidUp", label: "Paid-Up Share Capital (Amount)", type: "number", required: true, placeholder: "e.g. 1000" },
                     { key: "capital.currency", label: "Currency", type: "select", required: true, options: ["SGD:Singapore Dollar (SGD)", "USD:US Dollar (USD)"] },
                     { key: "capital.type", label: "Share Type", type: "select", required: true, options: ["Ordinary:Ordinary Shares", "Preference:Preference Shares"] }
-                ]
-            },
-            {
-                id: "sec-office",
-                key: "office",
-                title: "Registered Office",
-                description: "Singapore registered office details",
-                type: "form",
-                fields: [
-                    { key: "office.useService", label: "Use Local Address Service?", type: "select", required: true, options: ["true:Yes, use Globalisor address service", "false:No, I will use my own local address"] },
-                    { key: "office.address", label: "Physical Address (if not using service)", type: "text", required: false, placeholder: "Singapore address" }
                 ]
             },
             {
@@ -515,7 +1279,7 @@
             localStorage.removeItem('token');
             localStorage.removeItem('client_auth');
             localStorage.removeItem('globalisor_master_v3');
-            window.location.href = '/auth.html';
+            window.location.href = '/choose-service.html';
         }
 
         class DynamicOnboardingWizard {
@@ -528,13 +1292,17 @@
                 // Load initial client data structure
                 const savedData = JSON.parse(localStorage.getItem('globalisor_master_v3'));
                 const defaultData = {
+                    companyType: 'Pte Ltd',
                     names: ['', '', '', ''],
                     activities: { primary: '', secondary: '' },
                     directors: [{ name: '', idType: 'local', idNum: '', dob: '', phone: '', passportExpiry: '', docs: {} }],
                     shareholders: [{ type: 'individual', name: '', shares: '', percent: '', regNum: '', regPlace: '', regDate: '', phone: '', email: '', addr: '', docs: {}, bo: [] }],
                     capital: { issued: 1000, numShares: 1000, paidUp: 1000, currency: 'SGD', type: 'Ordinary' },
-                    office: { useService: true, address: '' },
+                    office: { useService: true, address: '', hasOwnAddress: false },
+                    contact: { firstName: '', lastName: '', phone: '', email: '' },
+                    paymentStatus: 'pending',
                     secretary: { required: true, named: true, details: { name: '', idNum: '', nation: '', dob: '', phone: '', email: '', addr: '' } },
+                    addons: { bankIntro: false, statCompliance: false, accounting: false, taxCompliance: false, crossBorderTax: false, apostille: false },
                     completedSteps: []
                 };
                 
@@ -700,12 +1468,32 @@
 
             validateCurrentStep() {
                 const sec = this.sections[this.currentStep - 1];
-                if (!sec || !sec.fields) return true;
+                if (!sec) return true;
 
                 let isValid = true;
                 let errorMessages = [];
 
-                sec.fields.forEach(field => {
+                if (sec.id === 'sec-checkout') {
+                    const isPaid = this.data.paymentStatus === 'paid';
+                    if (!isPaid) {
+                        isValid = false;
+                        errorMessages.push("Payment Required: Please complete your package payment to proceed.");
+                    }
+                } else if (sec.id === 'sec-office') {
+                    const useService = this.data.office ? (this.data.office.useService !== false) : true;
+                    const address = this.data.office ? this.data.office.address : '';
+                    if (useService === false && (!address || address.trim() === '')) {
+                        isValid = false;
+                        errorMessages.push("Office Address: Please enter your own local address.");
+                    }
+                } else if (sec.id === 'sec-directors-shareholders') {
+                    // Directors and Shareholders details forms have been removed, only counts are verified
+                    isValid = true;
+                } else if (sec.id === 'sec-addons') {
+                    // Add-on Services step is optional and always valid
+                    isValid = true;
+                } else if (sec.fields) {
+                    sec.fields.forEach(field => {
                     const fullPaths = [];
                     if (sec.type === 'repeater') {
                         const list = getVal(this.data, sec.key) || [];
@@ -795,6 +1583,7 @@
                         }
                     });
                 });
+            }
 
                 if (!isValid) {
                     errorMessages.forEach(msg => showToast(msg, 'error'));
@@ -857,7 +1646,13 @@
                 }
             }
 
-            prev() { if (this.currentStep > 1) this.open(this.currentStep - 1); }
+            prev() {
+                if (this.currentStep === 1) {
+                    window.location.href = '/choose-service.html?step=office-question';
+                } else if (this.currentStep > 1) {
+                    this.open(this.currentStep - 1);
+                }
+            }
 
             markCompleted(id) { 
                 if (!this.data.completedSteps.includes(id)) { 
@@ -1039,12 +1834,23 @@
                     });
                 });
             }
-
             render() {
                 const sec = this.sections[this.currentStep - 1];
                 if (!sec) return;
 
-                document.getElementById('step-title').innerText = sec.title;
+                // Update dynamic headers
+                const stepIndicator = document.getElementById('step-indicator');
+                if (stepIndicator) {
+                    stepIndicator.innerText = `STEP ${this.currentStep} OF ${this.sections.length} · SG SINGAPORE`;
+                }
+                const titleNew = document.getElementById('step-title');
+                if (titleNew) {
+                    if (this.currentStep === 1) {
+                        titleNew.innerText = "Which company type?";
+                    } else {
+                        titleNew.innerText = sec.title;
+                    }
+                }
                 
                 let progressPct = 0;
                 if (this.isPreview) {
@@ -1058,6 +1864,8 @@
                 // Compile Form HTML
                 document.getElementById('wizard-body').innerHTML = this.getStepHTML(sec);
                 this.evaluateConditionalFields();
+                this.updateHelperCard();
+                this.updateContinueButtonState();
                 
                 const isSubmitted = (lastKnownStatus && lastKnownStatus !== 'pending' && lastKnownStatus !== 'none');
                 const nextBtn = document.getElementById('next-btn');
@@ -1069,14 +1877,15 @@
                     backStatusBtn.style.display = 'block';
                     if (backBtn) backBtn.style.display = 'none';
                 } else {
-                    nextBtn.style.display = 'block';
+                    if (sec.id === 'sec-checkout') {
+                        const isPaid = this.data.paymentStatus === 'paid';
+                        nextBtn.style.display = isPaid ? 'block' : 'none';
+                    } else {
+                        nextBtn.style.display = 'block';
+                    }
                     backStatusBtn.style.display = 'none';
                     if (backBtn) {
-                        if (this.currentStep === 1) {
-                            backBtn.style.display = 'none';
-                        } else {
-                            backBtn.style.display = 'block';
-                        }
+                        backBtn.style.display = 'block';
                     }
                 }
             }
@@ -1093,6 +1902,342 @@
                             <p style="margin: 0; font-weight: 500;">${statusObj.comment || 'This section requires correction.'}</p>
                         </div>
                     `;
+                }
+
+                if (this.currentStep === 1) {
+                    const selectedType = (this.data.companyType || 'Pte Ltd').trim().toLowerCase();
+                    const proposedName = getVal(this.data, 'names[0]') || '';
+                    
+                    return `
+                        <div>
+                            ${rejectionBanner}
+                            
+                            <!-- Company Types Grid -->
+                            <div class="company-type-grid">
+                                <div class="type-card ${selectedType === 'pte ltd' ? 'selected' : ''}" data-type="Pte Ltd" onclick="wizard.selectCompanyType('Pte Ltd')" onmouseover="wizard.previewCompanyType('Pte Ltd')" onmouseout="wizard.resetCompanyTypePreview()">
+                                    <div class="check-badge">✓</div>
+                                    <h4>Pte Ltd</h4>
+                                    <p>Private limited company. The standard for operating businesses.</p>
+                                </div>
+                                <div class="type-card ${selectedType === 'llp' ? 'selected' : ''}" data-type="LLP" onclick="wizard.selectCompanyType('LLP')" onmouseover="wizard.previewCompanyType('LLP')" onmouseout="wizard.resetCompanyTypePreview()">
+                                    <div class="check-badge">✓</div>
+                                    <h4>LLP</h4>
+                                    <p>Limited liability partnership. Common for professional firms.</p>
+                                </div>
+                                <div class="type-card ${selectedType === 'vcc' ? 'selected' : ''}" data-type="VCC" onclick="wizard.selectCompanyType('VCC')" onmouseover="wizard.previewCompanyType('VCC')" onmouseout="wizard.resetCompanyTypePreview()">
+                                    <div class="check-badge">✓</div>
+                                    <h4>VCC</h4>
+                                    <p>Variable Capital Company. Fund vehicle for licensed managers.</p>
+                                </div>
+                                <div class="type-card ${selectedType === 'sole proprietorship' ? 'selected' : ''}" data-type="Sole Proprietorship" onclick="wizard.selectCompanyType('Sole Proprietorship')" onmouseover="wizard.previewCompanyType('Sole Proprietorship')" onmouseout="wizard.resetCompanyTypePreview()">
+                                    <div class="check-badge">✓</div>
+                                    <h4>Sole Proprietorship</h4>
+                                    <p>No liability shield. Rarely suitable for foreign founders.</p>
+                                </div>
+                            </div>
+
+                            <!-- Proposed Company Name Input -->
+                            <div style="margin-bottom: 1.5rem;">
+                                <label class="field-label-new">Proposed company name*</label>
+                                <input type="text" class="input-box-new" placeholder="e.g. Veridian Holdings (Primary)" value="${proposedName}" oninput="setVal(wizard.data, 'names[0]', this.value); wizard.save(); wizard.updateContinueButtonState();">
+                                <div class="field-hint-new">We'll check name availability within 24 hours.</div>
+                            </div>
+
+                            <!-- Proposed Company Name 2 Input -->
+                            <div style="margin-bottom: 1.5rem;">
+                                <label class="field-label-new">Proposed company name 2*</label>
+                                <input type="text" class="input-box-new" placeholder="Backup name if Option 1 is unavailable" value="${getVal(this.data, 'names[1]') || ''}" oninput="setVal(wizard.data, 'names[1]', this.value); wizard.save(); wizard.updateContinueButtonState();">
+                                <div class="field-hint-new">Mandatory backup option.</div>
+                            </div>
+
+                            <!-- Primary Business Activity Input -->
+                            <div style="margin-bottom: 1.5rem;">
+                                <label class="field-label-new">Primary Business Activity*</label>
+                                <input type="text" class="input-box-new" placeholder="E.g. Software Development" value="${getVal(this.data, 'activities.primary') || ''}" oninput="setVal(wizard.data, 'activities.primary', this.value); wizard.save(); wizard.updateContinueButtonState();">
+                                <div class="field-hint-new">Describe your main business operations.</div>
+                            </div>
+
+                            <!-- Secondary Business Activity Input -->
+                            <div style="margin-bottom: 1.5rem;">
+                                <label class="field-label-new">Secondary Business Activity</label>
+                                <input type="text" class="input-box-new" placeholder="E.g. IT Consulting" value="${getVal(this.data, 'activities.secondary') || ''}" oninput="setVal(wizard.data, 'activities.secondary', this.value); wizard.save(); wizard.updateContinueButtonState();">
+                                <div class="field-hint-new">Describe your secondary business operations (Optional).</div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (this.currentStep === 2) {
+                    const directors = this.data.directors || [];
+                    const shareholders = this.data.shareholders || [];
+                    
+                    const officeChecked = (this.data.office && this.data.office.useService !== false);
+                    const secretaryChecked = (this.data.secretary && this.data.secretary.required !== false);
+                    
+                    return `
+                        <div>
+                            ${rejectionBanner}
+                            
+                            <!-- Counter cards grid -->
+                            <div class="counters-container">
+                                <div class="counter-card">
+                                    <h3>Directors</h3>
+                                    <p>People who legally direct the company.</p>
+                                    <div class="counter-controls">
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('directors', -1)">-</button>
+                                        <div class="counter-val" id="directors-count-val">${directors.length}</div>
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('directors', 1)">+</button>
+                                    </div>
+                                </div>
+                                <div class="counter-card">
+                                    <h3>Shareholders</h3>
+                                    <p>Beneficial owners of the company.</p>
+                                    <div class="counter-controls">
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('shareholders', -1)">-</button>
+                                        <div class="counter-val" id="shareholders-count-val">${shareholders.length}</div>
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('shareholders', 1)">+</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Additional Services Toggles -->
+                            <div class="service-toggle-container">
+                                <div class="service-toggle-card ${officeChecked ? '' : 'inactive'}">
+                                    <div class="service-toggle-left">
+                                        <div class="service-toggle-icon">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                        </div>
+                                        <div class="service-toggle-details">
+                                            <h4 class="service-toggle-title">Registered office address</h4>
+                                            <p class="service-toggle-desc">Statutorily required. Real address in Singapore, mail scanned weekly.</p>
+                                        </div>
+                                    </div>
+                                    <div class="service-toggle-right">
+                                        <div class="service-toggle-price">
+                                            <span class="service-toggle-price-val">$480</span>
+                                            <span class="service-toggle-price-lbl">per year</span>
+                                        </div>
+                                        <label class="switch-input-container">
+                                            <input type="checkbox" ${officeChecked ? 'checked' : ''} onchange="wizard.toggleServiceOption('office', this.checked)">
+                                            <span class="switch-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="service-toggle-card ${secretaryChecked ? '' : 'inactive'}">
+                                    <div class="service-toggle-left">
+                                        <div class="service-toggle-icon">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                        </div>
+                                        <div class="service-toggle-details">
+                                            <h4 class="service-toggle-title">Corporate secretary</h4>
+                                            <p class="service-toggle-desc">Required within 6 months. Handles annual filings and board minutes.</p>
+                                        </div>
+                                    </div>
+                                    <div class="service-toggle-right">
+                                        <div class="service-toggle-price">
+                                            <span class="service-toggle-price-val">$720</span>
+                                            <span class="service-toggle-price-lbl">per year</span>
+                                        </div>
+                                        <label class="switch-input-container">
+                                            <input type="checkbox" ${secretaryChecked ? 'checked' : ''} onchange="wizard.toggleServiceOption('secretary', this.checked)">
+                                            <span class="switch-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (sec.id === 'sec-addons') {
+                    const bankIntro = this.data.addons?.bankIntro || false;
+                    const statCompliance = this.data.addons?.statCompliance || false;
+                    const accounting = this.data.addons?.accounting || false;
+                    const taxCompliance = this.data.addons?.taxCompliance || false;
+                    const crossBorderTax = this.data.addons?.crossBorderTax || false;
+                    const apostille = this.data.addons?.apostille || false;
+
+                    return `
+                        <div>
+                            ${rejectionBanner}
+                            <div class="service-toggle-container">
+                                <!-- Bank account introduction -->
+                                <div class="service-toggle-card ${bankIntro ? '' : 'inactive'}">
+                                    <div class="service-toggle-left">
+                                        <div class="service-toggle-icon">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" ry="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                                        </div>
+                                        <div class="service-toggle-details">
+                                            <h4 class="service-toggle-title">Bank account introduction</h4>
+                                            <p class="service-toggle-desc">Warm intros to DBS, OCBC, HSBC, Aspire, Wio, Mashreq. We prepare KYC and stay on the call.</p>
+                                        </div>
+                                    </div>
+                                    <div class="service-toggle-right">
+                                        <div class="service-toggle-price">
+                                            <span class="service-toggle-price-val">$350</span>
+                                            <span class="service-toggle-price-lbl">one-time</span>
+                                        </div>
+                                        <label class="switch-input-container">
+                                            <input type="checkbox" ${bankIntro ? 'checked' : ''} onchange="wizard.toggleAddonOption('bankIntro', this.checked)">
+                                            <span class="switch-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Statutory & compliance package -->
+                                <div class="service-toggle-card ${statCompliance ? '' : 'inactive'}">
+                                    <div class="service-toggle-left">
+                                        <div class="service-toggle-icon">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                                        </div>
+                                        <div class="service-toggle-details">
+                                            <h4 class="service-toggle-title">Statutory & compliance package</h4>
+                                            <p class="service-toggle-desc">Annual filings, AGM resolutions, statutory registers maintained, ESOP support when needed.</p>
+                                        </div>
+                                    </div>
+                                    <div class="service-toggle-right">
+                                        <div class="service-toggle-price">
+                                            <span class="service-toggle-price-val">$480</span>
+                                            <span class="service-toggle-price-lbl">per year</span>
+                                        </div>
+                                        <label class="switch-input-container">
+                                            <input type="checkbox" ${statCompliance ? 'checked' : ''} onchange="wizard.toggleAddonOption('statCompliance', this.checked)">
+                                            <span class="switch-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Accounting & bookkeeping -->
+                                <div class="service-toggle-card ${accounting ? '' : 'inactive'}">
+                                    <div class="service-toggle-left">
+                                        <div class="service-toggle-icon">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                                        </div>
+                                        <div class="service-toggle-details">
+                                            <h4 class="service-toggle-title">Accounting & bookkeeping</h4>
+                                            <p class="service-toggle-desc">Monthly bookkeeping in Xero, financial statements compiled to standards, payroll with CPF processing.</p>
+                                        </div>
+                                    </div>
+                                    <div class="service-toggle-right">
+                                        <div class="service-toggle-price">
+                                            <span class="service-toggle-price-val">$220</span>
+                                            <span class="service-toggle-price-lbl">per month</span>
+                                        </div>
+                                        <label class="switch-input-container">
+                                            <input type="checkbox" ${accounting ? 'checked' : ''} onchange="wizard.toggleAddonOption('accounting', this.checked)">
+                                            <span class="switch-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Tax compliance package -->
+                                <div class="service-toggle-card ${taxCompliance ? '' : 'inactive'}">
+                                    <div class="service-toggle-left">
+                                        <div class="service-toggle-icon">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="10" y2="21"></line></svg>
+                                        </div>
+                                        <div class="service-toggle-details">
+                                            <h4 class="service-toggle-title">Tax compliance package</h4>
+                                            <p class="service-toggle-desc">Corporate tax computation and filing, GST / VAT registration and returns, transfer pricing documentation for intra-group transactions.</p>
+                                        </div>
+                                    </div>
+                                    <div class="service-toggle-right">
+                                        <div class="service-toggle-price">
+                                            <span class="service-toggle-price-val">$720</span>
+                                            <span class="service-toggle-price-lbl">per year</span>
+                                        </div>
+                                        <label class="switch-input-container">
+                                            <input type="checkbox" ${taxCompliance ? 'checked' : ''} onchange="wizard.toggleAddonOption('taxCompliance', this.checked)">
+                                            <span class="switch-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Cross-border tax structuring -->
+                                <div class="service-toggle-card ${crossBorderTax ? '' : 'inactive'}">
+                                    <div class="service-toggle-left">
+                                        <div class="service-toggle-icon">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                                        </div>
+                                        <div class="service-toggle-details">
+                                            <h4 class="service-toggle-title">Cross-border tax structuring</h4>
+                                            <p class="service-toggle-desc">Written tax opinion: treaty analysis, holdco placement, IP migration. Board-file quality.</p>
+                                        </div>
+                                    </div>
+                                    <div class="service-toggle-right">
+                                        <div class="service-toggle-price">
+                                            <span class="service-toggle-price-val">$4,500</span>
+                                            <span class="service-toggle-price-lbl">one-time</span>
+                                        </div>
+                                        <label class="switch-input-container">
+                                            <input type="checkbox" ${crossBorderTax ? 'checked' : ''} onchange="wizard.toggleAddonOption('crossBorderTax', this.checked)">
+                                            <span class="switch-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Apostille + notarisation -->
+                                <div class="service-toggle-card ${apostille ? '' : 'inactive'}">
+                                    <div class="service-toggle-left">
+                                        <div class="service-toggle-icon">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                                        </div>
+                                        <div class="service-toggle-details">
+                                            <h4 class="service-toggle-title">Apostille + notarisation</h4>
+                                            <p class="service-toggle-desc">Apostilled copies of incorporation documents. Required for foreign bank accounts and multi-jurisdiction structures.</p>
+                                        </div>
+                                    </div>
+                                    <div class="service-toggle-right">
+                                        <div class="service-toggle-price">
+                                            <span class="service-toggle-price-val">$280</span>
+                                            <span class="service-toggle-price-lbl">one-time</span>
+                                        </div>
+                                        <label class="switch-input-container">
+                                            <input type="checkbox" ${apostille ? 'checked' : ''} onchange="wizard.toggleAddonOption('apostille', this.checked)">
+                                            <span class="switch-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (sec.id === 'sec-office') {
+                    const GLOBALISOR_OFFICE_ADDRESS = "12 Marina Boulevard, Marina Bay Financial Centre Tower 3, Singapore 018982";
+                    const useService = this.data.office ? (this.data.office.useService !== false) : true;
+                    const address = this.data.office ? this.data.office.address : '';
+                    const addressVal = useService ? GLOBALISOR_OFFICE_ADDRESS : address;
+                    const hasOwnAddress = this.data.office ? (this.data.office.hasOwnAddress === true) : false;
+                    
+                    return `
+                        <div>
+                            ${rejectionBanner}
+                            <div class="office-container-card">
+                                <div class="office-field-row">
+                                    <div class="office-field-col">
+                                        <label class="field-label-new" style="font-weight:700; color:#1e293b;">Office Address Option*</label>
+                                        <select class="office-select" onchange="wizard.setOfficeService(this.value)">
+                                            <option value="true" ${useService === true ? 'selected' : ''} ${hasOwnAddress ? 'disabled' : ''}>Globalisor Premium CBD Address</option>
+                                            <option value="false" ${useService === false ? 'selected' : ''}>Use my own local address</option>
+                                        </select>
+                                    </div>
+                                    <div class="office-field-col">
+                                        <label class="field-label-new" style="font-weight:700; color:#1e293b;">Office Address</label>
+                                        <textarea class="office-textarea" 
+                                                  placeholder="Enter your own address if not using Globalisor service"
+                                                  ${useService === true ? 'readonly' : ''}
+                                                  oninput="wizard.setOfficeAddress(this.value)">${addressVal || ''}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (sec.id === 'sec-checkout') {
+                    return this.getCheckoutHTML(rejectionBanner);
                 }
 
                 if (sec.type === 'repeater') {
@@ -1135,7 +2280,687 @@
                 }
             }
 
-            renderField(field, fullPath) {
+            adjustCount(key, change) {
+                let list = getVal(this.data, key);
+                if (!list || !Array.isArray(list)) {
+                    list = [];
+                }
+                
+                if (change > 0) {
+                    let defaultObj = {};
+                    if (key === 'directors') {
+                        defaultObj = { name: '', idType: 'local', idNum: '', dob: '', phone: '', passportExpiry: '', docs: {} };
+                    } else if (key === 'shareholders') {
+                        defaultObj = { type: 'individual', name: '', shares: '', percent: '', regNum: '', regPlace: '', regDate: '', phone: '', email: '', addr: '', docs: {}, bo: [] };
+                    }
+                    list.push(defaultObj);
+                } else if (change < 0 && list.length > 1) {
+                    list.pop();
+                }
+                
+                setVal(this.data, key, list);
+                this.save();
+                this.render();
+            }
+
+            removeCounterItem(key, idx) {
+                let list = getVal(this.data, key);
+                if (list && list.length > 1) {
+                    list.splice(idx, 1);
+                    setVal(this.data, key, list);
+                    this.save();
+                    this.render();
+                }
+            }
+
+            handleUploadAt(e, path) {
+                const file = e.target.files[0];
+                if (file) {
+                    setVal(this.data, path, file.name);
+                    this.save();
+                    this.render();
+                }
+            }
+
+            setOfficeService(val) {
+                const useSvc = (val === 'true');
+                if (!this.data.office) this.data.office = {};
+                this.data.office.useService = useSvc;
+                if (useSvc) {
+                    this.data.office.address = '';
+                }
+                this.save();
+                this.render();
+                this.updateContinueButtonState();
+            }
+
+            setOfficeAddress(val) {
+                if (!this.data.office) this.data.office = {};
+                this.data.office.address = val;
+                this.save();
+                this.updateContinueButtonState();
+            }
+
+            toggleServiceOption(serviceKey, isChecked) {
+                if (serviceKey === 'office') {
+                    if (!this.data.office) this.data.office = {};
+                    this.data.office.useService = isChecked;
+                    if (isChecked) {
+                        this.data.office.address = '';
+                    }
+                } else if (serviceKey === 'secretary') {
+                    if (!this.data.secretary) this.data.secretary = {};
+                    this.data.secretary.required = isChecked;
+                }
+                this.save();
+                this.render();
+                this.updateContinueButtonState();
+            }
+
+            toggleAddonOption(key, isChecked) {
+                if (!this.data.addons) {
+                    this.data.addons = {
+                        bankIntro: false,
+                        statCompliance: false,
+                        accounting: false,
+                        taxCompliance: false,
+                        crossBorderTax: false,
+                        apostille: false
+                    };
+                }
+                this.data.addons[key] = isChecked;
+                this.save();
+                this.render();
+                this.updateContinueButtonState();
+            }
+
+            toggleCheckoutService(serviceKey, isChecked) {
+                if (serviceKey === 'office') {
+                    if (!this.data.office) this.data.office = {};
+                    this.data.office.useService = isChecked;
+                    if (isChecked) {
+                        this.data.office.address = '';
+                    }
+                } else if (serviceKey === 'secretary') {
+                    if (!this.data.secretary) this.data.secretary = {};
+                    this.data.secretary.required = isChecked;
+                } else {
+                    if (!this.data.addons) this.data.addons = {};
+                    this.data.addons[serviceKey] = isChecked;
+                }
+                this.save();
+                this.render();
+            }
+
+            updatePayButtonState() {
+                const payBtn = document.getElementById('pay-confirm-btn');
+                const ccNum = document.getElementById('cc-number')?.value || '';
+                const ccExp = document.getElementById('cc-expiry')?.value || '';
+                const ccCvc = document.getElementById('cc-cvc')?.value || '';
+                
+                const isFormFilled = ccNum.trim().length >= 12 && ccExp.trim().length >= 4 && ccCvc.trim().length >= 3;
+                
+                if (payBtn) {
+                    if (isFormFilled) {
+                        payBtn.classList.add('enabled-state');
+                        payBtn.disabled = false;
+                    } else {
+                        payBtn.classList.remove('enabled-state');
+                        payBtn.disabled = true;
+                    }
+                }
+            }
+
+            async confirmAndPay() {
+                const payBtn = document.getElementById('pay-confirm-btn');
+                if (payBtn) {
+                    payBtn.innerText = 'Processing Payment...';
+                    payBtn.disabled = true;
+                }
+                
+                // Simulate loading for 1.5 seconds
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                this.data.paymentStatus = 'paid';
+                this.markCompleted(this.currentStep);
+                this.save();
+                
+                showToast("Payment Successful!");
+                
+                try {
+                    const token = localStorage.getItem('token');
+                    await fetch('/api/requirements/pay', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify(this.data)
+                    });
+                } catch (e) {
+                    console.warn("Failed to notify backend of payment (simulated offline mode)", e);
+                }
+                
+                this.render();
+            }
+
+            getCheckoutHTML(rejectionBanner) {
+                const basePrice = 350;
+                let total = basePrice;
+                
+                const officeChecked = (this.data.office && this.data.office.useService !== false);
+                const secretaryChecked = (this.data.secretary && this.data.secretary.required !== false);
+                
+                const addons = this.data.addons || {};
+                const bankIntro = addons.bankIntro || false;
+                const statCompliance = addons.statCompliance || false;
+                const accounting = addons.accounting || false;
+                const taxCompliance = addons.taxCompliance || false;
+                const crossBorderTax = addons.crossBorderTax || false;
+                const apostille = addons.apostille || false;
+                
+                if (officeChecked) total += 480;
+                if (secretaryChecked) total += 720;
+                if (bankIntro) total += 350;
+                if (statCompliance) total += 480;
+                if (accounting) total += 220;
+                if (taxCompliance) total += 720;
+                if (crossBorderTax) total += 4500;
+                if (apostille) total += 280;
+                
+                const formattedTotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(total).replace('$', 'SGD ');
+
+                const name1 = getVal(this.data, 'names[0]') || 'Not specified';
+                const name2 = getVal(this.data, 'names[1]') || 'Not specified';
+                const primaryAct = getVal(this.data, 'activities.primary') || 'Not specified';
+                const compType = getVal(this.data, 'companyType') || 'Pte Ltd';
+                
+                const dirsCount = this.data.directors ? this.data.directors.length : 1;
+                const shsCount = this.data.shareholders ? this.data.shareholders.length : 1;
+                
+                const firstName = getVal(this.data, 'contact.firstName') || '';
+                const lastName = getVal(this.data, 'contact.lastName') || '';
+                const phone = getVal(this.data, 'contact.phone') || '';
+                const email = getVal(this.data, 'contact.email') || '';
+                
+                const useOwnOffice = this.data.office ? (this.data.office.useService === false) : false;
+                const officeAddressText = useOwnOffice ? (this.data.office.address || 'Not entered yet') : 'Globalisor Premium CBD Address';
+
+                const isPaid = this.data.paymentStatus === 'paid';
+                if (isPaid) {
+                    return `
+                        <div class="checkout-success-container" style="text-align: center; padding: 3rem 1.5rem; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.02); max-width: 600px; margin: 1rem auto;">
+                            <div style="font-size: 4rem; margin-bottom: 1rem;">🎉</div>
+                            <h2 style="font-size: 2rem; font-weight: 800; color: #10b981; margin: 0 0 1rem 0;">Payment Successful!</h2>
+                            <p style="color: #64748b; font-size: 1rem; line-height: 1.6; margin-bottom: 2rem;">
+                                Thank you for your payment, <strong>${firstName}</strong>. A summary email containing your selected package and incorporation details has been sent to <strong>${email}</strong>.
+                            </p>
+                            <div style="background: #f8fafc; border-radius: 12px; padding: 1.25rem; border: 1px dashed #e2e8f0; text-align: left; margin-bottom: 2rem; font-size: 0.9rem; color: #475569;">
+                                <div style="font-weight: 700; margin-bottom: 0.5rem;">Billing Transaction Details:</div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                    <span>Amount Paid:</span>
+                                    <span style="font-weight: 700; color: #0f172a;">${formattedTotal}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                    <span>Receipt Recipient:</span>
+                                    <span style="font-weight: 700; color: #0f172a;">${email}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span>Reference Number:</span>
+                                    <span style="font-weight: 700; color: #0f172a;">GL-TX-${Date.now().toString().slice(-6)}</span>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-primary" style="padding: 0.8rem 2.5rem; font-size: 1rem; width: 100%;" onclick="wizard.open(7)">Proceed to Step 7 (Share Capital) &rarr;</button>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="checkout-layout">
+                        ${rejectionBanner}
+                        
+                        <div class="checkout-grid">
+                            <!-- Left: Summary Column -->
+                            <div class="checkout-summary-column">
+                                <h3 class="checkout-sub-title">1. Review Your Details</h3>
+                                
+                                <div class="summary-card">
+                                    <div class="summary-section-title">🏢 Company Details</div>
+                                    <div class="summary-row">
+                                        <span class="summary-label">Company Type:</span>
+                                        <span class="summary-value">${compType}</span>
+                                    </div>
+                                    <div class="summary-row">
+                                        <span class="summary-label">Proposed Name 1:</span>
+                                        <span class="summary-value">${name1}</span>
+                                    </div>
+                                    <div class="summary-row">
+                                        <span class="summary-label">Proposed Name 2:</span>
+                                        <span class="summary-value">${name2}</span>
+                                    </div>
+                                    <div class="summary-row">
+                                        <span class="summary-label">Primary Business Activity:</span>
+                                        <span class="summary-value">${primaryAct}</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="summary-card">
+                                    <div class="summary-section-title">👥 Structure & Team</div>
+                                    <div class="summary-row">
+                                        <span class="summary-label">Directors:</span>
+                                        <span class="summary-value">${dirsCount} member(s)</span>
+                                    </div>
+                                    <div class="summary-row">
+                                        <span class="summary-label">Shareholders:</span>
+                                        <span class="summary-value">${shsCount} member(s)</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="summary-card">
+                                    <div class="summary-section-title">📍 Registered Office</div>
+                                    <div class="summary-row">
+                                        <span class="summary-label">Address:</span>
+                                        <span class="summary-value text-truncate" style="display:inline-block; max-width:200px; overflow:hidden; text-overflow:ellipsis;" title="${officeAddressText}">${officeAddressText}</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="summary-card">
+                                    <div class="summary-section-title">✉️ Personal & Contact Details</div>
+                                    <div class="summary-row">
+                                        <span class="summary-label">Full Name:</span>
+                                        <span class="summary-value">${firstName} ${lastName}</span>
+                                    </div>
+                                    <div class="summary-row">
+                                        <span class="summary-label">Contact Number:</span>
+                                        <span class="summary-value">${phone}</span>
+                                    </div>
+                                    <div class="summary-row">
+                                        <span class="summary-label">Email Address:</span>
+                                        <span class="summary-value">${email}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Right: Service Selection & Payment Column -->
+                            <div class="checkout-billing-column">
+                                <h3 class="checkout-sub-title">2. Select Services & Pay</h3>
+                                
+                                <div class="checkout-services-box">
+                                    <!-- Base Package -->
+                                    <div class="billing-item locked-item">
+                                        <div class="billing-item-left">
+                                            <input type="checkbox" checked disabled class="checkout-checkbox">
+                                            <div class="billing-item-info">
+                                                <div class="billing-item-name">Singapore Incorporation</div>
+                                                <div class="billing-item-desc">ACRA registration, filing fees & setup</div>
+                                            </div>
+                                        </div>
+                                        <span class="billing-item-price">SGD 350</span>
+                                    </div>
+                                    
+                                    <!-- Office Address -->
+                                    <div class="billing-item ${officeChecked ? 'selected' : ''}">
+                                        <div class="billing-item-left">
+                                            <input type="checkbox" id="chk-office" ${officeChecked ? 'checked' : ''} 
+                                                   onchange="wizard.toggleCheckoutService('office', this.checked)" class="checkout-checkbox">
+                                            <label for="chk-office" class="billing-item-info" style="cursor:pointer; margin:0;">
+                                                <div class="billing-item-name">Registered Office Address</div>
+                                                <div class="billing-item-desc">CBD commercial address & weekly scanning</div>
+                                            </label>
+                                        </div>
+                                        <span class="billing-item-price">SGD 480<span class="freq">/yr</span></span>
+                                    </div>
+                                    
+                                    <!-- Corporate Secretary -->
+                                    <div class="billing-item ${secretaryChecked ? 'selected' : ''}">
+                                        <div class="billing-item-left">
+                                            <input type="checkbox" id="chk-secretary" ${secretaryChecked ? 'checked' : ''} 
+                                                   onchange="wizard.toggleCheckoutService('secretary', this.checked)" class="checkout-checkbox">
+                                            <label for="chk-secretary" class="billing-item-info" style="cursor:pointer; margin:0;">
+                                                <div class="billing-item-name">Corporate Secretary</div>
+                                                <div class="billing-item-desc">Required statutory filings & board minutes</div>
+                                            </label>
+                                        </div>
+                                        <span class="billing-item-price">SGD 720<span class="freq">/yr</span></span>
+                                    </div>
+                                    
+                                    <!-- Bank Account Intro -->
+                                    <div class="billing-item ${bankIntro ? 'selected' : ''}">
+                                        <div class="billing-item-left">
+                                            <input type="checkbox" id="chk-bankIntro" ${bankIntro ? 'checked' : ''} 
+                                                   onchange="wizard.toggleCheckoutService('bankIntro', this.checked)" class="checkout-checkbox">
+                                            <label for="chk-bankIntro" class="billing-item-info" style="cursor:pointer; margin:0;">
+                                                <div class="billing-item-name">Bank Account Introduction</div>
+                                                <div class="billing-item-desc">Guaranteed warm intro & KYC support</div>
+                                            </label>
+                                        </div>
+                                        <span class="billing-item-price">SGD 350</span>
+                                    </div>
+                                    
+                                    <!-- Statutory & Compliance -->
+                                    <div class="billing-item ${statCompliance ? 'selected' : ''}">
+                                        <div class="billing-item-left">
+                                            <input type="checkbox" id="chk-statCompliance" ${statCompliance ? 'checked' : ''} 
+                                                   onchange="wizard.toggleCheckoutService('statCompliance', this.checked)" class="checkout-checkbox">
+                                            <label for="chk-statCompliance" class="billing-item-info" style="cursor:pointer; margin:0;">
+                                                <div class="billing-item-name">Statutory & Compliance Package</div>
+                                                <div class="billing-item-desc">AGMs, returns & board files support</div>
+                                            </label>
+                                        </div>
+                                        <span class="billing-item-price">SGD 480<span class="freq">/yr</span></span>
+                                    </div>
+                                    
+                                    <!-- Accounting -->
+                                    <div class="billing-item ${accounting ? 'selected' : ''}">
+                                        <div class="billing-item-left">
+                                            <input type="checkbox" id="chk-accounting" ${accounting ? 'checked' : ''} 
+                                                   onchange="wizard.toggleCheckoutService('accounting', this.checked)" class="checkout-checkbox">
+                                            <label for="chk-accounting" class="billing-item-info" style="cursor:pointer; margin:0;">
+                                                <div class="billing-item-name">Accounting & Bookkeeping</div>
+                                                <div class="billing-item-desc">Monthly Xero bookkeeping & payroll</div>
+                                            </label>
+                                        </div>
+                                        <span class="billing-item-price">SGD 220<span class="freq">/mo</span></span>
+                                    </div>
+                                    
+                                    <!-- Tax Compliance -->
+                                    <div class="billing-item ${taxCompliance ? 'selected' : ''}">
+                                        <div class="billing-item-left">
+                                            <input type="checkbox" id="chk-taxCompliance" ${taxCompliance ? 'checked' : ''} 
+                                                   onchange="wizard.toggleCheckoutService('taxCompliance', this.checked)" class="checkout-checkbox">
+                                            <label for="chk-taxCompliance" class="billing-item-info" style="cursor:pointer; margin:0;">
+                                                <div class="billing-item-name">Tax Compliance Package</div>
+                                                <div class="billing-item-desc">Filing of corporate taxes & GST setup</div>
+                                            </label>
+                                        </div>
+                                        <span class="billing-item-price">SGD 720<span class="freq">/yr</span></span>
+                                    </div>
+                                    
+                                    <!-- Cross Border Tax -->
+                                    <div class="billing-item ${crossBorderTax ? 'selected' : ''}">
+                                        <div class="billing-item-left">
+                                            <input type="checkbox" id="chk-crossBorderTax" ${crossBorderTax ? 'checked' : ''} 
+                                                   onchange="wizard.toggleCheckoutService('crossBorderTax', this.checked)" class="checkout-checkbox">
+                                            <label for="chk-crossBorderTax" class="billing-item-info" style="cursor:pointer; margin:0;">
+                                                <div class="billing-item-name">Cross-Border Tax Structuring</div>
+                                                <div class="billing-item-desc">Expert treaty analysis & written opinion</div>
+                                            </label>
+                                        </div>
+                                        <span class="billing-item-price">SGD 4,500</span>
+                                    </div>
+                                    
+                                    <!-- Apostille -->
+                                    <div class="billing-item ${apostille ? 'selected' : ''}">
+                                        <div class="billing-item-left">
+                                            <input type="checkbox" id="chk-apostille" ${apostille ? 'checked' : ''} 
+                                                   onchange="wizard.toggleCheckoutService('apostille', this.checked)" class="checkout-checkbox">
+                                            <label for="chk-apostille" class="billing-item-info" style="cursor:pointer; margin:0;">
+                                                <div class="billing-item-name">Apostille + Notarisation</div>
+                                                <div class="billing-item-desc">Official legalized docs for overseas use</div>
+                                            </label>
+                                        </div>
+                                        <span class="billing-item-price">SGD 280</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="checkout-divider"></div>
+                                
+                                <!-- Total Calculation -->
+                                <div class="checkout-total-box">
+                                    <div class="total-label">Total Amount Due:</div>
+                                    <div class="total-value" id="checkout-total-val">${formattedTotal}</div>
+                                </div>
+                                
+                                <!-- Payment mock details -->
+                                <div class="checkout-payment-box">
+                                    <div class="payment-title">🔒 Secure Credit Card Payment</div>
+                                    <div class="form-group-checkout">
+                                        <label class="form-label-checkout">Card Number</label>
+                                        <input type="text" id="cc-number" placeholder="4111 2222 3333 4444" class="input-checkout-box" oninput="wizard.updatePayButtonState()">
+                                    </div>
+                                    <div class="form-row-checkout">
+                                        <div class="form-group-checkout half">
+                                            <label class="form-label-checkout">Expiry Date</label>
+                                            <input type="text" id="cc-expiry" placeholder="MM/YY" class="input-checkout-box" oninput="wizard.updatePayButtonState()">
+                                        </div>
+                                        <div class="form-group-checkout half">
+                                            <label class="form-label-checkout">CVC</label>
+                                            <input type="password" id="cc-cvc" placeholder="***" class="input-checkout-box" oninput="wizard.updatePayButtonState()">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <button type="button" id="pay-confirm-btn" class="pay-btn" disabled onclick="wizard.confirmAndPay()">Confirm & Pay ${formattedTotal}</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            selectCompanyType(type) {
+                this.data.companyType = type;
+                this.save();
+                
+                // Update UI cards using data-type attribute
+                document.querySelectorAll('.type-card').forEach(card => {
+                    const cardType = card.getAttribute('data-type') || '';
+                    if (cardType.trim().toLowerCase() === type.trim().toLowerCase()) {
+                        card.classList.add('selected');
+                    } else {
+                        card.classList.remove('selected');
+                    }
+                });
+                
+                this.updateHelperCard();
+            }
+
+            previewCompanyType(type) {
+                const titleEl = document.getElementById('helper-title');
+                const textEl = document.getElementById('helper-text');
+                if (!titleEl || !textEl) return;
+
+                const descriptions = {
+                    'Pte Ltd': 'Private Limited Company is the most common and scalable business structure in Singapore. It provides a separate legal entity and limits shareholders liability to their capital contribution.',
+                    'LLP': 'Limited Liability Partnership is ideal for two or more professionals (e.g., lawyers, accountants) who want to combine their expertise while maintaining limited personal liability.',
+                    'VCC': 'Variable Capital Company is a flexible framework for investment funds, enabling multiple sub-funds under a single corporate umbrella.',
+                    'Sole Proprietorship': 'Sole Proprietorship is a business owned by a single person. It has no separate legal entity, meaning the owner has unlimited personal liability for all debts.'
+                };
+
+                const normalizedType = Object.keys(descriptions).find(
+                    k => k.trim().toLowerCase() === type.trim().toLowerCase()
+                ) || type;
+
+                titleEl.innerText = `${normalizedType} Structure`;
+                textEl.innerText = descriptions[normalizedType] || '';
+            }
+
+            resetCompanyTypePreview() {
+                this.updateHelperCard();
+            }
+
+            toggleAccordion() {
+                const content = document.getElementById('additional-name-fields');
+                const arrow = document.getElementById('accordion-arrow');
+                const text = document.getElementById('accordion-title-text');
+                if (!content) return;
+
+                if (content.classList.contains('expanded')) {
+                    content.classList.remove('expanded');
+                    content.style.maxHeight = null;
+                    arrow.innerText = '▼';
+                    text.innerText = 'Show Backup Names & Business Activities';
+                } else {
+                    content.classList.add('expanded');
+                    content.style.maxHeight = content.scrollHeight + "px";
+                    arrow.innerText = '▲';
+                    text.innerText = 'Hide Backup Names & Business Activities';
+                }
+            }
+
+            updateContinueButtonState() {
+                const nextBtn = document.getElementById('next-btn');
+                if (!nextBtn) return;
+                
+                let isValid = true;
+                if (this.currentStep === 1) {
+                    const name1 = getVal(this.data, 'names[0]') || '';
+                    const name2 = getVal(this.data, 'names[1]') || '';
+                    const activity = getVal(this.data, 'activities.primary') || '';
+                    if (name1.trim() === '' || name2.trim() === '' || activity.trim() === '') {
+                        isValid = false;
+                    }
+                } else if (this.currentStep === 2) {
+                    // Step 2 only checks the number of directors and shareholders (no detailed form validation required)
+                    isValid = true;
+                } else if (this.currentStep === 3) {
+                    // Step 3 (Add-on Services) is optional and always valid
+                    isValid = true;
+                } else if (this.currentStep === 4) {
+                    const useService = this.data.office ? (this.data.office.useService !== false) : true;
+                    const address = this.data.office ? this.data.office.address : '';
+                    if (useService === false && (!address || address.trim() === '')) {
+                        isValid = false;
+                    }
+                } else if (this.currentStep === 5) {
+                    const firstName = getVal(this.data, 'contact.firstName') || '';
+                    const lastName = getVal(this.data, 'contact.lastName') || '';
+                    const phone = getVal(this.data, 'contact.phone') || '';
+                    const email = getVal(this.data, 'contact.email') || '';
+                    if (firstName.trim() === '' || lastName.trim() === '' || phone.trim() === '' || email.trim() === '') {
+                        isValid = false;
+                    }
+                }
+                
+                if (isValid) {
+                    nextBtn.classList.add('active-state');
+                } else {
+                    nextBtn.classList.remove('active-state');
+                }
+
+                if (this.currentStep === this.sections.length) {
+                    nextBtn.innerHTML = 'Finish & Submit';
+                } else {
+                    nextBtn.innerHTML = 'Continue →';
+                }
+            }
+
+            updateHelperCard() {
+                const titleEl = document.getElementById('helper-title');
+                const textEl = document.getElementById('helper-text');
+                if (!titleEl || !textEl) return;
+
+                if (this.currentStep === 1) {
+                    const selectedType = this.data.companyType || 'Pte Ltd';
+                    const descriptions = {
+                        'Pte Ltd': 'Private Limited Company is the most common and scalable business structure in Singapore. It provides a separate legal entity and limits shareholders liability to their capital contribution.',
+                        'LLP': 'Limited Liability Partnership is ideal for two or more professionals (e.g., lawyers, accountants) who want to combine their expertise while maintaining limited personal liability.',
+                        'VCC': 'Variable Capital Company is a flexible framework for investment funds, enabling multiple sub-funds under a single corporate umbrella.',
+                        'Sole Proprietorship': 'Sole Proprietorship is a business owned by a single person. It has no separate legal entity, meaning the owner has unlimited personal liability for all debts.'
+                    };
+
+                    const normalizedType = Object.keys(descriptions).find(
+                        k => k.trim().toLowerCase() === selectedType.trim().toLowerCase()
+                    ) || 'Pte Ltd';
+
+                    titleEl.innerText = `Singapore ${normalizedType}`;
+                    textEl.innerText = descriptions[normalizedType] || 'Choose on the left to see what each structure is best for.';
+                } else if (this.currentStep === 2) {
+                    const dirsCount = this.data.directors ? this.data.directors.length : 1;
+                    const shsCount = this.data.shareholders ? this.data.shareholders.length : 1;
+                    const dirsText = `${dirsCount} director${dirsCount > 1 ? 's' : ''}`;
+                    const shsText = `${shsCount} shareholder${shsCount > 1 ? 's' : ''}`;
+                    
+                    const officeChecked = (this.data.office && this.data.office.useService !== false);
+                    const secretaryChecked = (this.data.secretary && this.data.secretary.required !== false);
+                    
+                    titleEl.innerText = 'Your structure';
+                    textEl.innerHTML = `
+                        <div style="font-weight: 700; color: #0f172a; font-size: 1rem; margin-bottom: 1.25rem;">
+                            ${dirsText}, ${shsText}
+                        </div>
+                        <div style="border-top: 1px solid #e2e8f0; padding-top: 1.25rem; margin-top: 1rem;">
+                            <h4 style="font-weight: 700; color: #0f172a; font-size: 0.95rem; margin: 0 0 0.5rem 0;">Director residency</h4>
+                            <p style="color: #64748b; font-size: 0.85rem; line-height: 1.5; margin: 0; margin-bottom: 1.25rem;">
+                                Singapore requires at least one director to be locally resident. Nominee director not added — please ensure at least one director is locally resident, or add a nominee.
+                            </p>
+                        </div>
+                        <div style="border-top: 1px solid #e2e8f0; padding-top: 1.25rem; margin-top: 1rem;">
+                            <h4 style="font-weight: 700; color: #0f172a; font-size: 0.95rem; margin: 0 0 0.75rem 0;">Additional Services</h4>
+                            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem;">
+                                    <span style="color: #64748b; font-weight: 500;">Registered office address</span>
+                                    <span style="font-weight: 700; color: ${officeChecked ? '#2563eb' : '#94a3b8'};">${officeChecked ? 'Added ($480/yr)' : 'Not added'}</span>
+                                </div>
+                                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem;">
+                                    <span style="color: #64748b; font-weight: 500;">Corporate secretary</span>
+                                    <span style="font-weight: 700; color: ${secretaryChecked ? '#2563eb' : '#94a3b8'};">${secretaryChecked ? 'Added ($720/yr)' : 'Not added'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else if (this.currentStep === 3) {
+                    const addons = this.data.addons || {};
+                    const bankIntro = addons.bankIntro || false;
+                    const statCompliance = addons.statCompliance || false;
+                    const accounting = addons.accounting || false;
+                    const taxCompliance = addons.taxCompliance || false;
+                    const crossBorderTax = addons.crossBorderTax || false;
+                    const apostille = addons.apostille || false;
+
+                    titleEl.innerText = 'Add-on Services';
+                    textEl.innerHTML = `
+                        <div style="font-size: 0.88rem; color: #64748b; margin-bottom: 1.25rem; line-height: 1.5;">
+                            Review your selected corporate and compliance services. You can toggle any of these on the left.
+                        </div>
+                        <div style="border-top: 1px solid #e2e8f0; padding-top: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem;">
+                                <span style="color: #64748b; font-weight: 500;">Bank account introduction</span>
+                                <span style="font-weight: 700; color: ${bankIntro ? '#2563eb' : '#94a3b8'};">${bankIntro ? 'Added ($350)' : 'Not added'}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem;">
+                                <span style="color: #64748b; font-weight: 500;">Statutory & compliance</span>
+                                <span style="font-weight: 700; color: ${statCompliance ? '#2563eb' : '#94a3b8'};">${statCompliance ? 'Added ($480/yr)' : 'Not added'}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem;">
+                                <span style="color: #64748b; font-weight: 500;">Accounting & bookkeeping</span>
+                                <span style="font-weight: 700; color: ${accounting ? '#2563eb' : '#94a3b8'};">${accounting ? 'Added ($220/mo)' : 'Not added'}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem;">
+                                <span style="color: #64748b; font-weight: 500;">Tax compliance package</span>
+                                <span style="font-weight: 700; color: ${taxCompliance ? '#2563eb' : '#94a3b8'};">${taxCompliance ? 'Added ($720/yr)' : 'Not added'}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem;">
+                                <span style="color: #64748b; font-weight: 500;">Cross-border tax structuring</span>
+                                <span style="font-weight: 700; color: ${crossBorderTax ? '#2563eb' : '#94a3b8'};">${crossBorderTax ? 'Added ($4,500)' : 'Not added'}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem;">
+                                <span style="color: #64748b; font-weight: 500;">Apostille + notarisation</span>
+                                <span style="font-weight: 700; color: ${apostille ? '#2563eb' : '#94a3b8'};">${apostille ? 'Added ($280)' : 'Not added'}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    const sec = this.sections[this.currentStep - 1];
+                    if (!sec) return;
+                    
+                    const titleMap = {
+                        4: 'Office address requirements',
+                        5: 'Package details',
+                        6: 'Package summary & payment',
+                        7: 'Initial capital details',
+                        8: 'Appoint secretary service'
+                    };
+                    const descMap = {
+                        4: 'All Singapore companies must have a physical registered office address in Singapore. If you do not have one, you can subscribe to Globalisor\'s address service.',
+                        5: 'Provide your contact information so we can prepare and process your package setup.',
+                        6: 'Review your selected services and enter card details to complete payment. We will email you a complete receipt and confirmation summary.',
+                        7: 'The minimum paid-up capital is SGD 1, but we recommend starting with a reasonable amount like SGD 1,000 or USD 1,000 to show financial commitment.',
+                        8: 'A company secretary must be appointed within 6 months of incorporation. Globalisor provides corporate secretary services to ensure full compliance.'
+                    };
+                    titleEl.innerText = titleMap[this.currentStep] || sec.title;
+                    textEl.innerHTML = descMap[this.currentStep] || sec.description || '';
+                }
+            }            renderField(field, fullPath) {
                 const val = getVal(this.data, fullPath) || '';
                 const requiredAsterisk = field.required ? '*' : '';
                 const containerId = `field-container-${fullPath.replace(/[.\[\]]/g, '-')}`;
