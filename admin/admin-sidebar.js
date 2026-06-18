@@ -54,20 +54,33 @@ window.initAppSeqMap = async function() {
 window.initAppSeqMap();
 
 // Global navigation functions
-window.toggleSubmenu = function(id) {
+window.toggleSubmenu = function(id, btnId) {
     const submenu = document.getElementById(id);
-    const btn = document.getElementById('btn-services');
+    let btn = btnId ? document.getElementById(btnId) : null;
+    if (!btn) {
+        btn = document.querySelector(`button[onclick*="${id}"]`);
+    }
+    
     if (submenu) {
-        const isOpen = !submenu.classList.contains('hidden');
-        const arrow = btn ? btn.querySelector('.submenu-arrow') : null;
+        const isOpen = submenu.classList.contains('open');
         if (isOpen) {
-            submenu.classList.add('hidden');
-            if (btn) btn.classList.remove('submenu-open');
-            if (arrow) arrow.style.transform = 'rotate(0deg)';
+            submenu.classList.remove('open');
+            if (btn) btn.classList.remove('open-category');
         } else {
-            submenu.classList.remove('hidden');
-            if (btn) btn.classList.add('submenu-open');
-            if (arrow) arrow.style.transform = 'rotate(180deg)';
+            // Close other submenus first to reduce clutter
+            document.querySelectorAll('.submenu-wrapper').forEach(sub => {
+                if (sub.id !== id) {
+                    sub.classList.remove('open');
+                }
+            });
+            document.querySelectorAll('.category-btn').forEach(cBtn => {
+                if (cBtn.id !== btnId) {
+                    cBtn.classList.remove('open-category');
+                }
+            });
+            
+            submenu.classList.add('open');
+            if (btn) btn.classList.add('open-category');
         }
     }
 };
@@ -81,12 +94,15 @@ window.logout = function() {
 window.toggleMobileSidebar = function() {
     const switcher = document.getElementById('module-switcher');
     const overlay = document.getElementById('sidebar-overlay');
+    const toggleBtn = document.getElementById('sidebar-toggle');
     if (switcher && overlay) {
         const isOpen = switcher.classList.toggle('open');
         if (isOpen) {
             overlay.classList.remove('hidden');
+            if (toggleBtn) toggleBtn.classList.add('mobile-open');
         } else {
             overlay.classList.add('hidden');
+            if (toggleBtn) toggleBtn.classList.remove('mobile-open');
         }
     }
 };
@@ -108,154 +124,655 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.add('sidebar-collapsed');
     }
 
-    // 1. Inject responsive CSS styles dynamically
+    // 1. Inject responsive CSS styles
     const style = document.createElement('style');
+    style.id = 'admin-sidebar-custom-styles';
     style.textContent = `
-        /* Sidebar transition styles */
         #module-switcher {
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            padding: 1.25rem 0.75rem !important;
+            gap: 0.25rem !important;
+            background: #f8fafc !important;
+            overflow-y: auto;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            box-sizing: border-box !important;
         }
+        
         .main-container {
-            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease !important;
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            padding-bottom: 6.5rem !important;
         }
 
-        /* On screens smaller than 1024px (mobile/tablet) */
+        .category-group {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+        
+        .category-btn {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0.65rem 0.75rem;
+            font-size: 0.75rem;
+            font-weight: 750;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-radius: 10px;
+            transition: all 0.2s ease-in-out;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            outline: none;
+            box-sizing: border-box;
+        }
+        
+        .category-btn:hover {
+            color: #0f172a;
+            background: #f1f5f9;
+        }
+        
+        .submenu-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.55rem 0.75rem;
+            font-size: 0.825rem;
+            font-weight: 600;
+            color: #64748b;
+            border-radius: 8px;
+            transition: all 0.15s ease-in-out;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            width: 100%;
+            box-sizing: border-box;
+            outline: none;
+        }
+        
+        .submenu-item:hover {
+            color: #0f172a;
+            background: #ffffff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+        
+        .submenu-item.active {
+            color: #3b82f6;
+            background: #eff6ff !important;
+            font-weight: 700;
+        }
+        
+        .category-btn.active-category {
+            color: #3b82f6;
+        }
+        
+        .submenu-wrapper {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.25s ease-out;
+        }
+        
+        .submenu-wrapper.open {
+            grid-template-rows: 1fr;
+        }
+        
+        .submenu-content {
+            overflow: hidden;
+            padding-left: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            margin-top: 0.125rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .direct-link-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            width: 100%;
+            padding: 0.65rem 0.75rem;
+            font-size: 0.825rem;
+            font-weight: 750;
+            color: #475569;
+            border-radius: 10px;
+            transition: all 0.2s ease-in-out;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            box-sizing: border-box;
+            outline: none;
+        }
+        
+        .direct-link-btn:hover {
+            color: #0f172a;
+            background: #f1f5f9;
+        }
+        
+        .direct-link-btn.active {
+            color: #3b82f6;
+            background: #eff6ff !important;
+            font-weight: 800;
+        }
+        
+        .category-arrow {
+            transition: transform 0.2s ease;
+        }
+        
+        .category-btn.open-category .category-arrow {
+            transform: rotate(180deg);
+        }
+
+        @media (min-width: 1024px) {
+            body.sidebar-collapsed #module-switcher {
+                width: 70px !important;
+                padding: 1.25rem 0.5rem !important;
+                overflow: visible !important;
+            }
+            body.sidebar-collapsed .main-container {
+                margin-left: 70px !important;
+            }
+            body.sidebar-collapsed .submenu-item span,
+            body.sidebar-collapsed .category-btn > span > span,
+            body.sidebar-collapsed .direct-link-btn span,
+            body.sidebar-collapsed .category-arrow {
+                display: none !important;
+            }
+            body.sidebar-collapsed .submenu-item,
+            body.sidebar-collapsed .category-btn,
+            body.sidebar-collapsed .direct-link-btn {
+                justify-content: center !important;
+                padding: 0.65rem 0 !important;
+            }
+            body.sidebar-collapsed .submenu-content {
+                padding-left: 0 !important;
+            }
+            body.sidebar-collapsed .submenu-wrapper.open .submenu-content {
+                overflow: visible !important;
+            }
+            
+            /* Tooltips for collapsed sidebar items */
+            body.sidebar-collapsed .direct-link-btn,
+            body.sidebar-collapsed .category-btn,
+            body.sidebar-collapsed .submenu-item {
+                position: relative !important;
+            }
+            
+            /* Tooltip bubble styling */
+            body.sidebar-collapsed .direct-link-btn::after,
+            body.sidebar-collapsed .category-btn::after,
+            body.sidebar-collapsed .submenu-item::after {
+                content: attr(data-tooltip);
+                position: absolute;
+                left: 100%;
+                top: 50%;
+                transform: translateY(-50%) translateX(8px);
+                background: #0f172a;
+                color: #ffffff;
+                padding: 0.35rem 0.65rem;
+                font-size: 0.75rem;
+                font-weight: 600;
+                border-radius: 6px;
+                white-space: nowrap;
+                opacity: 0;
+                pointer-events: none;
+                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+                z-index: 99999;
+                font-family: 'Outfit', sans-serif;
+                text-transform: none;
+                letter-spacing: normal;
+            }
+            
+            /* Tooltip arrow styling */
+            body.sidebar-collapsed .direct-link-btn::before,
+            body.sidebar-collapsed .category-btn::before,
+            body.sidebar-collapsed .submenu-item::before {
+                content: '';
+                position: absolute;
+                left: 100%;
+                top: 50%;
+                transform: translateY(-50%) translateX(2px);
+                border-width: 4px;
+                border-style: solid;
+                border-color: transparent #0f172a transparent transparent;
+                opacity: 0;
+                pointer-events: none;
+                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                z-index: 99999;
+            }
+            
+            /* Tooltip hover trigger states */
+            body.sidebar-collapsed .direct-link-btn:hover::after,
+            body.sidebar-collapsed .category-btn:hover::after,
+            body.sidebar-collapsed .submenu-item:hover::after {
+                opacity: 1;
+                transform: translateY(-50%) translateX(12px);
+            }
+            
+            body.sidebar-collapsed .direct-link-btn:hover::before,
+            body.sidebar-collapsed .category-btn:hover::before,
+            body.sidebar-collapsed .submenu-item:hover::before {
+                opacity: 1;
+                transform: translateY(-50%) translateX(4px);
+            }
+
+            /* Center Header in Top Nav */
+            .top-nav-header {
+                position: absolute;
+                left: 50%;
+                top: 50%;
+                transform: translate(-50%, -50%);
+                font-size: 0.85rem;
+                font-weight: 700;
+                color: #0f172a;
+                pointer-events: none;
+                font-family: 'Outfit', sans-serif;
+                letter-spacing: 0.03em;
+                display: flex;
+                align-items: center;
+                gap: 0.4rem;
+                text-transform: uppercase;
+                z-index: 10;
+            }
+            .top-nav-header span.category {
+                color: #94a3b8;
+                font-weight: 600;
+            }
+            .top-nav-header span.separator {
+                color: #cbd5e1;
+                font-weight: 400;
+            }
+            .top-nav-header span.page {
+                color: #0f172a;
+                font-weight: 800;
+            }
+        }
+
+        @media (max-width: 1023px) {
+            .top-nav-header {
+                display: none !important;
+            }
+        }
+        
         @media (max-width: 1023px) {
             #module-switcher {
-                transform: translateX(-100%);
-                top: 60px !important;
+                transform: translateX(-100%) !important;
                 left: 0 !important;
+                position: fixed !important;
+                top: 60px !important;
                 height: calc(100vh - 60px) !important;
                 width: 240px !important;
                 z-index: 9999 !important;
-                display: flex !important;
-                flex-direction: column !important;
-                background: rgba(255, 255, 255, 0.95) !important;
-                backdrop-filter: blur(25px) !important;
-                border-right: 1px solid rgba(0, 0, 0, 0.1) !important;
+                box-shadow: 10px 0 30px rgba(0,0,0,0.05) !important;
             }
             #module-switcher.open {
                 transform: translateX(0) !important;
             }
             .main-container {
                 margin-left: 0 !important;
-                padding: 1rem !important;
+                padding: 1.5rem 1.5rem 6.5rem 1.5rem !important;
+            }
+            #sidebar-overlay {
+                position: fixed;
+                inset: 60px 0 0 0;
+                background: rgba(15, 23, 42, 0.3);
+                backdrop-filter: blur(4px);
+                z-index: 9998;
+                transition: opacity 0.3s ease;
+            }
+            #sidebar-overlay.hidden {
+                display: none !important;
             }
         }
-        /* On desktop screens (1024px and up) */
-        @media (min-width: 1024px) {
-            #module-switcher {
-                transform: translateX(0);
-            }
-            body.sidebar-collapsed #module-switcher {
-                transform: translateX(-100%) !important;
-            }
-            body.sidebar-collapsed .main-container {
-                margin-left: 0 !important;
-            }
+
+        #sidebar-toggle {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 5px !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        #sidebar-toggle span {
+            display: block;
+            width: 20px;
+            height: 2px;
+            background: #64748b;
+            border-radius: 2px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: center;
+        }
+        body.sidebar-collapsed #sidebar-toggle span:nth-child(1) {
+            transform: translateY(7px) rotate(45deg);
+        }
+        body.sidebar-collapsed #sidebar-toggle span:nth-child(2) {
+            opacity: 0;
+            transform: scaleX(0);
+        }
+        body.sidebar-collapsed #sidebar-toggle span:nth-child(3) {
+            transform: translateY(-7px) rotate(-45deg);
         }
         
-        /* Submenu rotation */
-        .submenu-arrow {
-            transition: transform 0.2s ease;
+        #sidebar-toggle.mobile-open span:nth-child(1) {
+            transform: translateY(7px) rotate(45deg);
         }
-        .submenu-open .submenu-arrow {
-            transform: rotate(180deg);
+        #sidebar-toggle.mobile-open span:nth-child(2) {
+            opacity: 0;
+            transform: scaleX(0);
+        }
+        #sidebar-toggle.mobile-open span:nth-child(3) {
+            transform: translateY(-7px) rotate(-45deg);
+        }
+
+        /* Fix actions dropdown clipping */
+        tr:last-child .staff-actions-dropdown,
+        tr:nth-last-child(2) .staff-actions-dropdown,
+        tr:last-child .dropdown-container div[id^="actions-dropdown-"],
+        tr:nth-last-child(2) .dropdown-container div[id^="actions-dropdown-"] {
+            top: auto !important;
+            bottom: calc(100% + 4px) !important;
+            margin-top: 0 !important;
+            margin-bottom: 4px !important;
+        }
+
+        /* Increase base font-size across admin portal */
+        html {
+            font-size: 16.5px !important;
+        }
+        
+        .admin-table th {
+            font-size: 11px !important;
         }
     `;
     document.head.appendChild(style);
 
-    // 2. Inject Mobile Overlay backdrop
-    const overlay = document.createElement('div');
-    overlay.id = 'sidebar-overlay';
-    overlay.className = 'fixed inset-0 z-[9990] bg-slate-900/40 backdrop-blur-sm hidden lg:hidden';
-    overlay.onclick = window.toggleMobileSidebar;
-    document.body.appendChild(overlay);
-
-    // 3. Inject hamburger toggle button into top-nav
-    const topNavLeft = document.querySelector('.top-nav > div.flex.items-center');
-    if (topNavLeft) {
+    // 2. Inject mobile toggle button if missing
+    const topNav = document.querySelector('.top-nav > div.flex.items-center');
+    if (topNav && !document.getElementById('sidebar-toggle')) {
         const toggleBtn = document.createElement('button');
         toggleBtn.id = 'sidebar-toggle';
-        toggleBtn.className = 'p-2 text-slate-600 hover:bg-slate-100/50 rounded-xl transition-colors mr-2 flex items-center justify-center cursor-pointer';
+        toggleBtn.className = 'p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 cursor-pointer mr-2 flex flex-col gap-1.5 items-center justify-center shrink-0';
+        toggleBtn.style.width = '32px';
+        toggleBtn.style.height = '32px';
+        toggleBtn.style.background = 'transparent';
+        toggleBtn.style.border = 'none';
         toggleBtn.title = 'Toggle Sidebar';
+        toggleBtn.innerHTML = `
+            <span class="block w-5 h-0.5 bg-slate-500 rounded-sm transition-all duration-300 transform-origin-center"></span>
+            <span class="block w-5 h-0.5 bg-slate-500 rounded-sm transition-all duration-300 transform-origin-center"></span>
+            <span class="block w-5 h-0.5 bg-slate-500 rounded-sm transition-all duration-300 transform-origin-center"></span>
+        `;
         toggleBtn.onclick = window.toggleSidebar;
-        toggleBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`;
-        topNavLeft.insertBefore(toggleBtn, topNavLeft.firstChild);
+        topNav.insertBefore(toggleBtn, topNav.firstChild);
     }
 
-    // 4. Update the content of `#module-switcher` to ensure uniform organized links across all admin pages
+    // 3. Inject mobile overlay
+    if (!document.getElementById('sidebar-overlay')) {
+        const overlay = document.createElement('div');
+        overlay.id = 'sidebar-overlay';
+        overlay.className = 'hidden';
+        overlay.onclick = window.toggleMobileSidebar;
+        document.body.appendChild(overlay);
+    }
+
+    // 4. Inject switcher innerHTML
     const switcher = document.getElementById('module-switcher');
-if (switcher) {
-    switcher.innerHTML = `
-        <button onclick="window.location.href='dashboard.html'" class="module-nav-btn" id="btn-clients"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Clients</button>
-        <button onclick="window.location.href='applications.html'" class="module-nav-btn" id="btn-applications"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> Applications</button>
-        <button onclick="window.location.href='kyc.html'" class="module-nav-btn" id="btn-kyc"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg> KYC Review</button>
-        <button onclick="window.location.href='compliance.html'" class="module-nav-btn" id="btn-compliance"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="m16 16 3-8 3 8c-.87.65-2.24.83-3 .83s-2.13-.18-3-.83Z"/><path d="m2 16 3-8 3 8c-.87.65-2.24.83-3 .83s-2.13-.18-3-.83Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h18"/></svg> Compliance</button>
-        <button onclick="window.location.href='reports.html'" class="module-nav-btn" id="btn-reports"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> Reports</button>
-        <button onclick="window.location.href='messages.html'" class="module-nav-btn" id="btn-messages"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Messages</button>
-        <button onclick="window.location.href='content.html'" class="module-nav-btn" id="btn-content"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> Content</button>
-        <button onclick="window.location.href='vault.html'" class="module-nav-btn" id="btn-vault"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><rect width="20" height="20" x="2" y="2" rx="2"/><path d="M20 8H4"/><path d="M4 13h16"/><rect width="4" height="4" x="10" y="15" rx="1"/></svg> Document Vault</button>
-        <!-- Services Accordion Group -->
-        <div class="w-full flex flex-col gap-0.5">
-            <button onclick="window.toggleSubmenu('services-submenu')" class="module-nav-btn" id="btn-services">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-                <span class="flex-1 text-left">Services</span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 submenu-arrow transition-transform duration-200 shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <div id="services-submenu" class="submenu-container hidden pl-6 flex flex-col gap-0.5 mt-0.5">
-                <button onclick="window.location.href='blogs.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-blogs"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Blogs</button>
-                <button onclick="window.location.href='countries.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-countries"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg> Countries</button>
-                <button onclick="window.location.href='users.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-users"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg> Users</button>
+    if (switcher) {
+        switcher.innerHTML = `
+            <!-- Dashboard (Direct Link) -->
+            <a href="dashboard.html" class="direct-link-btn" id="nav-dashboard" data-tooltip="Dashboard">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="10" rx="1"/><rect width="7" height="5" x="3" y="14" rx="1"/></svg>
+                <span>Dashboard</span>
+            </a>
+            
+            <div class="h-[1px] bg-slate-200/60 my-1 shrink-0"></div>
+            
+            <!-- Operations Accordion -->
+            <div class="category-group">
+                <button class="category-btn" id="cat-operations" onclick="window.toggleSubmenu('sub-operations', 'cat-operations')" data-tooltip="Operations">
+                    <span class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M20 7h-9M14 17H5M10 12H3M21 17h-3M17 7H7"/></svg>
+                        <span>Operations</span>
+                    </span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div id="sub-operations" class="submenu-wrapper">
+                    <div class="submenu-content">
+                        <a href="dashboard.html?view=clients" class="submenu-item" id="nav-clients" data-tooltip="Clients">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            <span>Clients</span>
+                        </a>
+                        <a href="applications.html" class="submenu-item" id="nav-applications" data-tooltip="Applications">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                            <span>Applications</span>
+                        </a>
+                        <a href="kyc.html" class="submenu-item" id="nav-kyc" data-tooltip="KYC Review">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                            <span>KYC Review</span>
+                        </a>
+                        <a href="compliance.html" class="submenu-item" id="nav-compliance" data-tooltip="Compliance">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="m16 16 3-8 3 8c-.87.65-2.24.83-3 .83s-2.13-.18-3-.83Z"/><path d="m2 16 3-8 3 8c-.87.65-2.24.83-3 .83s-2.13-.18-3-.83Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h18"/></svg>
+                            <span>Compliance</span>
+                        </a>
+                    </div>
+                </div>
             </div>
-        </div>
-        <button onclick="window.location.href='packages.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-packages"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6"/><path d="M9 16h6"/></svg> Pre-Reg Manager</button>
-    `;
-}
+            
+            <!-- Communication Accordion -->
+            <div class="category-group">
+                <button class="category-btn" id="cat-communication" onclick="window.toggleSubmenu('sub-communication', 'cat-communication')" data-tooltip="Communication">
+                    <span class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        <span>Communication</span>
+                    </span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div id="sub-communication" class="submenu-wrapper">
+                    <div class="submenu-content">
+                        <a href="messages.html" class="submenu-item" id="nav-messages" data-tooltip="Messages">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            <span>Messages</span>
+                        </a>
+                        <a href="content.html" class="submenu-item" id="nav-content" data-tooltip="Content">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                            <span>Content</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Services Accordion -->
+            <div class="category-group">
+                <button class="category-btn" id="cat-services" onclick="window.toggleSubmenu('sub-services', 'cat-services')" data-tooltip="Services">
+                    <span class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                        <span>Services</span>
+                    </span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div id="sub-services" class="submenu-wrapper">
+                    <div class="submenu-content">
+                        <a href="blogs.html" class="submenu-item" id="nav-blogs" data-tooltip="Blogs">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                            <span>Blogs</span>
+                        </a>
+                        <a href="countries.html" class="submenu-item" id="nav-countries" data-tooltip="Countries">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                            <span>Countries</span>
+                        </a>
+                        <a href="users.html" class="submenu-item" id="nav-users" data-tooltip="Users">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
+                            <span>Users</span>
+                        </a>
+                        <a href="packages.html" class="submenu-item" id="nav-packages" data-tooltip="Requirements Page Manager">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-8M16 2v5M8 2v5M3 11h18"/></svg>
+                            <span>Requirements Page Manager</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Documents Accordion -->
+            <div class="category-group">
+                <button class="category-btn" id="cat-documents" onclick="window.toggleSubmenu('sub-documents', 'cat-documents')" data-tooltip="Documents">
+                    <span class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10M6 10h10"/></svg>
+                        <span>Documents</span>
+                    </span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div id="sub-documents" class="submenu-wrapper">
+                    <div class="submenu-content">
+                        <a href="vault.html" class="submenu-item" id="nav-vault" data-tooltip="Document Vault">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                            <span>Document Vault</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Analytics Accordion -->
+            <div class="category-group">
+                <button class="category-btn" id="cat-analytics" onclick="window.toggleSubmenu('sub-analytics', 'cat-analytics')" data-tooltip="Analytics">
+                    <span class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                        <span>Analytics</span>
+                    </span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div id="sub-analytics" class="submenu-wrapper">
+                    <div class="submenu-content">
+                        <a href="reports.html" class="submenu-item" id="nav-reports" data-tooltip="Reports">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                            <span>Reports</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
 
-
-    // 5. Highlight active menu item
+    // 5. Active category and submenu auto-expanding logic based on URL route
     const path = window.location.pathname;
+    const search = window.location.search;
     let activeId = '';
-        if (path.includes('dashboard.html')) activeId = 'btn-clients';
-        else if (path.includes('applications.html')) activeId = 'btn-applications';
-        else if (path.includes('kyc.html')) activeId = 'btn-kyc';
-        else if (path.includes('compliance.html')) activeId = 'btn-compliance';
-        else if (path.includes('reports.html')) activeId = 'btn-reports';
-        else if (path.includes('messages.html')) activeId = 'btn-messages';
-        else if (path.includes('content.html')) activeId = 'btn-content';
-        else if (path.includes('vault.html')) activeId = 'btn-vault';
-        else if (path.includes('blogs.html')) activeId = 'btn-blogs';
-        else if (path.includes('countries.html')) activeId = 'btn-countries';
-        else if (path.includes('packages.html')) activeId = 'btn-packages';
-        else if (path.includes('users.html')) activeId = 'btn-users';
-
-    // Remove active class from all buttons
-    document.querySelectorAll('.module-nav-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-
+    let activeCatId = '';
+    let activeSubId = '';
+    
+    if (path.includes('dashboard.html')) {
+        if (search.includes('view=clients') || search.includes('tab=clients')) {
+            activeId = 'nav-clients';
+            activeCatId = 'cat-operations';
+            activeSubId = 'sub-operations';
+        } else {
+            activeId = 'nav-dashboard';
+        }
+    } else if (path.includes('applications.html')) {
+        activeId = 'nav-applications';
+        activeCatId = 'cat-operations';
+        activeSubId = 'sub-operations';
+    } else if (path.includes('kyc.html')) {
+        activeId = 'nav-kyc';
+        activeCatId = 'cat-operations';
+        activeSubId = 'sub-operations';
+    } else if (path.includes('compliance.html')) {
+        activeId = 'nav-compliance';
+        activeCatId = 'cat-operations';
+        activeSubId = 'sub-operations';
+    } else if (path.includes('messages.html')) {
+        activeId = 'nav-messages';
+        activeCatId = 'cat-communication';
+        activeSubId = 'sub-communication';
+    } else if (path.includes('content.html')) {
+        activeId = 'nav-content';
+        activeCatId = 'cat-communication';
+        activeSubId = 'sub-communication';
+    } else if (path.includes('blogs.html')) {
+        activeId = 'nav-blogs';
+        activeCatId = 'cat-services';
+        activeSubId = 'sub-services';
+    } else if (path.includes('countries.html')) {
+        activeId = 'nav-countries';
+        activeCatId = 'cat-services';
+        activeSubId = 'sub-services';
+    } else if (path.includes('users.html')) {
+        activeId = 'nav-users';
+        activeCatId = 'cat-services';
+        activeSubId = 'sub-services';
+    } else if (path.includes('packages.html')) {
+        activeId = 'nav-packages';
+        activeCatId = 'cat-services';
+        activeSubId = 'sub-services';
+    } else if (path.includes('vault.html')) {
+        activeId = 'nav-vault';
+        activeCatId = 'cat-documents';
+        activeSubId = 'sub-documents';
+    } else if (path.includes('reports.html')) {
+        activeId = 'nav-reports';
+        activeCatId = 'cat-analytics';
+        activeSubId = 'sub-analytics';
+    }
+    
     if (activeId) {
         const activeEl = document.getElementById(activeId);
         if (activeEl) {
             activeEl.classList.add('active');
         }
+    }
+    
+    if (activeCatId && activeSubId) {
+        const catBtn = document.getElementById(activeCatId);
+        const subWrapper = document.getElementById(activeSubId);
+        if (catBtn) catBtn.classList.add('active-category', 'open-category');
+        if (subWrapper) subWrapper.classList.add('open');
+    }
 
-        // Expand submenu if active item is under Services
-        if (['btn-blogs', 'btn-countries', 'btn-packages', 'btn-users'].includes(activeId)) {
-            const submenu = document.getElementById('services-submenu');
-            const servicesBtn = document.getElementById('btn-services');
-            if (submenu) {
-                submenu.classList.remove('hidden');
-            }
-            if (servicesBtn) {
-                servicesBtn.classList.add('submenu-open');
-                const arrow = servicesBtn.querySelector('.submenu-arrow');
-                if (arrow) {
-                    arrow.style.transform = 'rotate(180deg)';
-                }
-            }
+    // Injected Top Nav Header Logic
+    const topNavContainer = document.querySelector('.top-nav');
+    if (topNavContainer && !document.getElementById('top-nav-page-header')) {
+        const headerDiv = document.createElement('div');
+        headerDiv.id = 'top-nav-page-header';
+        headerDiv.className = 'top-nav-header';
+        
+        const menuNames = {
+            'nav-dashboard': 'Dashboard',
+            'nav-clients': 'Clients',
+            'nav-applications': 'Applications',
+            'nav-kyc': 'KYC Review',
+            'nav-compliance': 'Compliance',
+            'nav-messages': 'Messages',
+            'nav-content': 'Content',
+            'nav-blogs': 'Blogs',
+            'nav-countries': 'Countries',
+            'nav-users': 'Users',
+            'nav-packages': 'Requirements Page Manager',
+            'nav-vault': 'Document Vault',
+            'nav-reports': 'Reports'
+        };
+        
+        const categoryNames = {
+            'cat-operations': 'Operations',
+            'cat-communication': 'Communication',
+            'cat-services': 'Services',
+            'cat-documents': 'Documents',
+            'cat-analytics': 'Analytics'
+        };
+
+        let breadcrumbHtml = '';
+        if (activeCatId && activeId) {
+            const catName = categoryNames[activeCatId] || '';
+            const pageName = menuNames[activeId] || '';
+            breadcrumbHtml = `<span class="category">${catName}</span> <span class="separator">/</span> <span class="page">${pageName}</span>`;
+        } else if (activeId) {
+            const pageName = menuNames[activeId] || '';
+            breadcrumbHtml = `<span class="page">${pageName}</span>`;
         }
+        
+        headerDiv.innerHTML = breadcrumbHtml;
+        topNavContainer.appendChild(headerDiv);
     }
 
     // 6. Inject notification bell into nav right section (if not already present)

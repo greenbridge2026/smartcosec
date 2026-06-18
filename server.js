@@ -19,6 +19,8 @@ if (!fs.existsSync(DB_FILE)) {
     fs.writeFileSync(DB_FILE, JSON.stringify({ clients: [], services: [], kyc: [], compliance: [] }));
 }
 
+const userPresenceStatus = {};
+
 const getDb = () => {
     const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
     if (!db.kyc) db.kyc = [];
@@ -28,6 +30,7 @@ const getDb = () => {
     if (!db.staticContent) db.staticContent = [];
     if (!db.documents) db.documents = [];
     if (!db.messages) db.messages = [];
+    if (!db.groups) db.groups = [];
     if (!db.users) {
         db.users = [
             {
@@ -46,6 +49,17 @@ const getDb = () => {
                 lastName: "Lim",
                 role: "STAFF"
             }
+        ];
+        fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+    }
+    if (!db.countries) {
+        db.countries = [
+            { id: "CNTRY-singapore", name: "Singapore", code: "SG", uen: "9-character alphanumeric", tax: "17% (flat rate)", compliance: "99.5%", status: "ACTIVE", basePrice: 1315, priceSecretary: 900, priceDirector: 3000, priceAddress: 600, priceTax: 1500, priceBank: 500, services: ["Company Incorporation", "Corporate Secretary", "Nominee Director", "Office Address", "Tax & Compliance"], published: true, orderIndex: 0, customPrices: {}, publishedData: { name: "Singapore", code: "SG", uen: "9-character alphanumeric", tax: "17% (flat rate)", compliance: "99.5%", basePrice: 1315, priceSecretary: 900, priceDirector: 3000, priceAddress: 600, priceTax: 1500, priceBank: 500, services: ["Company Incorporation", "Corporate Secretary", "Nominee Director", "Office Address", "Tax & Compliance"], customPrices: {} } },
+            { id: "CNTRY-hong-kong", name: "Hong Kong", code: "HK", uen: "8-digit registration no.", tax: "16.5% (two-tier)", compliance: "98.8%", status: "ACTIVE", basePrice: 1650, priceSecretary: 800, priceDirector: 2500, priceAddress: 500, priceTax: 1200, priceBank: 400, services: ["Company Incorporation", "Corporate Secretary", "Office Address", "Tax & Compliance"], published: true, orderIndex: 1, customPrices: {}, publishedData: { name: "Hong Kong", code: "HK", uen: "8-digit registration no.", tax: "16.5% (two-tier)", compliance: "98.8%", basePrice: 1650, priceSecretary: 800, priceDirector: 2500, priceAddress: 500, priceTax: 1200, priceBank: 400, services: ["Company Incorporation", "Corporate Secretary", "Office Address", "Tax & Compliance"], customPrices: {} } },
+            { id: "CNTRY-united-states", name: "United States", code: "USA", uen: "9-digit EIN number", tax: "21% (federal flat)", compliance: "97.2%", status: "ACTIVE", basePrice: 1200, priceSecretary: 1000, priceDirector: 3000, priceAddress: 700, priceTax: 1500, priceBank: 500, services: ["Company Incorporation", "Corporate Secretary", "Nominee Director", "Office Address", "Tax & Compliance"], published: true, orderIndex: 2, customPrices: {}, publishedData: { name: "United States", code: "USA", uen: "9-digit EIN number", tax: "21% (federal flat)", compliance: "97.2%", basePrice: 1200, priceSecretary: 1000, priceDirector: 3000, priceAddress: 700, priceTax: 1500, priceBank: 500, services: ["Company Incorporation", "Corporate Secretary", "Nominee Director", "Office Address", "Tax & Compliance"], customPrices: {} } },
+            { id: "CNTRY-dubai", name: "Dubai", code: "UAE", uen: "Varies by Free Zone", tax: "9% (above 375k AED)", compliance: "99.1%", status: "ACTIVE", basePrice: 2500, priceSecretary: 1200, priceDirector: 4000, priceAddress: 900, priceTax: 1800, priceBank: 600, services: ["Company Incorporation", "Corporate Secretary", "Nominee Director", "Office Address", "Tax & Compliance"], published: true, orderIndex: 3, customPrices: {}, publishedData: { name: "Dubai", code: "UAE", uen: "Varies by Free Zone", tax: "9% (above 375k AED)", compliance: "99.1%", basePrice: 2500, priceSecretary: 1200, priceDirector: 4000, priceAddress: 900, priceTax: 1800, priceBank: 600, services: ["Company Incorporation", "Corporate Secretary", "Nominee Director", "Office Address", "Tax & Compliance"], customPrices: {} } },
+            { id: "CNTRY-australia", name: "Australia", code: "AUS", uen: "9-digit ACN number", tax: "25% - 30%", compliance: "96.8%", status: "ACTIVE", basePrice: 1400, priceSecretary: 950, priceDirector: 3100, priceAddress: 650, priceTax: 1600, priceBank: 550, services: ["Company Incorporation", "Corporate Secretary", "Nominee Director", "Office Address", "Tax & Compliance"], published: true, orderIndex: 4, customPrices: {}, publishedData: { name: "Australia", code: "AUS", uen: "9-digit ACN number", tax: "25% - 30%", compliance: "96.8%", basePrice: 1400, priceSecretary: 950, priceDirector: 3100, priceAddress: 650, priceTax: 1600, priceBank: 550, services: ["Company Incorporation", "Corporate Secretary", "Nominee Director", "Office Address", "Tax & Compliance"], customPrices: {} } },
+            { id: "CNTRY-united-kingdom", name: "United Kingdom", code: "UK", uen: "8-digit CRN number", tax: "19% - 25%", compliance: "98.5%", status: "ACTIVE", basePrice: 1300, priceSecretary: 850, priceDirector: 2800, priceAddress: 550, priceTax: 1400, priceBank: 450, services: ["Company Incorporation", "Corporate Secretary", "Nominee Director", "Office Address", "Tax & Compliance"], published: true, orderIndex: 5, customPrices: {}, publishedData: { name: "United Kingdom", code: "UK", uen: "8-digit CRN number", tax: "19% - 25%", compliance: "98.5%", basePrice: 1300, priceSecretary: 850, priceDirector: 2800, priceAddress: 550, priceTax: 1400, priceBank: 450, services: ["Company Incorporation", "Corporate Secretary", "Nominee Director", "Office Address", "Tax & Compliance"], customPrices: {} } }
         ];
         fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
     }
@@ -503,6 +517,7 @@ app.post('/api/messages', (req, res) => {
     const db = getDb();
     const newMessage = {
         id: 'msg-' + Date.now(),
+        isRead: false,
         ...req.body,
         timestamp: Date.now()
     };
@@ -510,6 +525,65 @@ app.post('/api/messages', (req, res) => {
     db.messages.push(newMessage);
     saveDb(db);
     res.status(201).json(newMessage);
+});
+
+app.patch('/api/messages/:id', (req, res) => {
+    const db = getDb();
+    const { id } = req.params;
+    const index = db.messages ? db.messages.findIndex(m => m.id === id) : -1;
+    if (index !== -1) {
+        db.messages[index] = { ...db.messages[index], ...req.body };
+        saveDb(db);
+        res.json(db.messages[index]);
+    } else {
+        res.status(404).json({ error: 'Message not found' });
+    }
+});
+
+app.post('/api/messages/read-all', (req, res) => {
+    const db = getDb();
+    const { clientId, senderRole, userId } = req.query;
+    
+    if (!clientId) {
+        return res.status(400).json({ error: 'clientId is required' });
+    }
+    
+    let changed = false;
+    if (db.messages && Array.isArray(db.messages)) {
+        db.messages.forEach(m => {
+            if (m.clientId === clientId) {
+                if (userId) {
+                    if (m.senderId !== userId && !m.isRead) {
+                        m.isRead = true;
+                        changed = true;
+                    }
+                } else if (senderRole) {
+                    if (senderRole === 'client') {
+                        if ((m.senderRole === 'admin' || m.senderRole === 'staff') && !m.isRead) {
+                            m.isRead = true;
+                            changed = true;
+                        }
+                    } else {
+                        if (m.senderRole === 'client' && !m.isRead) {
+                            m.isRead = true;
+                            changed = true;
+                        }
+                    }
+                } else {
+                    if (!m.isRead) {
+                        m.isRead = true;
+                        changed = true;
+                    }
+                }
+            }
+        });
+    }
+    
+    if (changed) {
+        saveDb(db);
+    }
+    
+    res.json({ success: true, changed });
 });
 
 // GET /api/messages/conversations - For Admin/Staff to see list of chats
@@ -521,17 +595,278 @@ app.get('/api/messages/conversations', (req, res) => {
     messages.forEach(m => {
         if (!conversations[m.clientId] || m.timestamp > conversations[m.clientId].lastMessageTime) {
             const client = db.clients.find(c => c.clientId === m.clientId);
+            const clientMsgs = messages.filter(msg => msg.clientId === m.clientId);
+            const unreadCount = clientMsgs.filter(msg => msg.senderRole === 'client' && !msg.isRead).length;
+            
             conversations[m.clientId] = {
                 clientId: m.clientId,
                 clientName: client ? client.name : 'Unknown',
                 lastMessage: m.text,
                 lastMessageTime: m.timestamp,
-                unreadCount: 0 // Mock for now
+                unreadCount: unreadCount
             };
         }
     });
     
     res.json(Object.values(conversations).sort((a, b) => b.lastMessageTime - a.lastMessageTime));
+});
+
+// --- COUNTRIES ENDPOINTS ---
+app.get('/api/countries', (req, res) => {
+    const db = getDb();
+    const sorted = [...db.countries].sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+    res.json(sorted);
+});
+
+app.post('/api/countries', (req, res) => {
+    const db = getDb();
+    const newCountry = req.body;
+    if (!newCountry.id) {
+        newCountry.id = "CNTRY-" + Date.now();
+    }
+    if (newCountry.orderIndex === undefined) {
+        newCountry.orderIndex = db.countries.length;
+    }
+    db.countries.push(newCountry);
+    saveDb(db);
+    res.status(201).json(newCountry);
+});
+
+app.put('/api/countries/reorder', (req, res) => {
+    const db = getDb();
+    const { orderedIds } = req.body;
+    if (orderedIds && Array.isArray(orderedIds)) {
+        orderedIds.forEach((id, index) => {
+            const country = db.countries.find(c => c.id === id);
+            if (country) {
+                country.orderIndex = index;
+            }
+        });
+        saveDb(db);
+    }
+    const sorted = [...db.countries].sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+    res.json(sorted);
+});
+
+app.put('/api/countries/:id', (req, res) => {
+    const db = getDb();
+    const id = req.params.id;
+    const index = db.countries.findIndex(c => c.id === id);
+    if (index !== -1) {
+        db.countries[index] = { ...db.countries[index], ...req.body };
+        saveDb(db);
+        res.json(db.countries[index]);
+    } else {
+        res.status(404).json({ error: 'Country not found' });
+    }
+});
+
+app.delete('/api/countries/:id', (req, res) => {
+    const db = getDb();
+    const id = req.params.id;
+    db.countries = db.countries.filter(c => c.id !== id);
+    saveDb(db);
+    res.status(204).send();
+});
+
+// --- STAFF ENDPOINTS ---
+app.get('/api/admin/staff', (req, res) => {
+    const db = getDb();
+    const staffList = db.users
+        .filter(u => u.role === 'STAFF')
+        .map(u => ({
+            id: u.id,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            email: u.email,
+            password: u.password // plain password, in mock it's raw
+        }));
+    res.json(staffList);
+});
+
+app.post('/api/admin/staff', (req, res) => {
+    const db = getDb();
+    const { firstName, lastName } = req.body;
+    
+    // Generate email: firstname.lastname@globalisor.com
+    const baseEmail = (firstName + "." + lastName).toLowerCase().replace(/[^a-z0-9]/g, "");
+    let email = baseEmail + "@globalisor.com";
+    
+    let suffix = 1;
+    while (db.users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
+        email = baseEmail + suffix + "@globalisor.com";
+        suffix++;
+    }
+    
+    const randomNum = Math.floor(Math.random() * 9000) + 1000;
+    const password = "Glob-" + randomNum;
+    
+    const newStaff = {
+        id: "usr-" + Date.now(),
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
+        password: password,
+        role: "STAFF"
+    };
+    
+    db.users.push(newStaff);
+    saveDb(db);
+    
+    res.status(201).json({
+        id: newStaff.id,
+        email: newStaff.email,
+        password: newStaff.password,
+        firstName: newStaff.firstName,
+        lastName: newStaff.lastName
+    });
+});
+
+app.put('/api/admin/staff/update', (req, res) => {
+    const db = getDb();
+    const { email, firstName, lastName } = req.body;
+    
+    const index = db.users.findIndex(u => u.email.toLowerCase() === email.toLowerCase() && u.role === 'STAFF');
+    if (index !== -1) {
+        if (firstName) db.users[index].firstName = firstName;
+        if (lastName) db.users[index].lastName = lastName;
+        saveDb(db);
+        res.json({
+            id: db.users[index].id,
+            email: db.users[index].email,
+            firstName: db.users[index].firstName,
+            lastName: db.users[index].lastName
+        });
+    } else {
+        res.status(404).json({ error: 'Staff not found' });
+    }
+});
+
+app.delete('/api/admin/staff/:id', (req, res) => {
+    const db = getDb();
+    const id = req.params.id;
+    const index = db.users.findIndex(u => u.id === id && u.role === 'STAFF');
+    if (index !== -1) {
+        db.users.splice(index, 1);
+        saveDb(db);
+        res.status(204).send();
+    } else {
+        res.status(404).json({ error: 'Staff not found' });
+    }
+});
+
+// --- ADDITIONAL COLLABORATION ENDPOINTS (PRESENCE, USER DIRECTORY, GROUP CHATS) ---
+
+app.get('/api/messages/users', (req, res) => {
+    const db = getDb();
+    const list = db.users.map(u => ({
+        id: u.id,
+        name: (u.firstName + ' ' + u.lastName).trim(),
+        role: u.role,
+        email: u.email
+    }));
+    res.json(list);
+});
+
+app.get('/api/messages/presence', (req, res) => {
+    const { userId, role } = req.query;
+    if (userId) {
+        const status = userPresenceStatus[userId] || 'offline';
+        res.json({
+            userId,
+            isOnline: status !== 'offline',
+            status: status,
+            lastSeen: Date.now() - 60000
+        });
+    } else if (role === 'support') {
+        const db = getDb();
+        const supportUsers = db.users.filter(u => u.role === 'ADMIN' || u.role === 'STAFF');
+        const anyOnline = supportUsers.some(u => (userPresenceStatus[u.id] || 'offline') !== 'offline');
+        res.json({
+            isOnline: anyOnline,
+            lastSeen: Date.now()
+        });
+    } else {
+        res.json({ isOnline: false });
+    }
+});
+
+app.post('/api/messages/presence', (req, res) => {
+    const { userId, status } = req.body;
+    if (userId && status) {
+        userPresenceStatus[userId] = status;
+        res.json({ success: true, userId, status });
+    } else {
+        res.status(400).json({ error: 'Missing userId or status' });
+    }
+});
+
+app.get('/api/messages/groups', (req, res) => {
+    const { userId } = req.query;
+    const db = getDb();
+    const groups = (db.groups || []).filter(g => !userId || g.memberIds.includes(userId));
+    res.json(groups);
+});
+
+app.post('/api/messages/groups', (req, res) => {
+    const db = getDb();
+    const group = req.body;
+    if (!group.id) {
+        group.id = "group-" + Date.now();
+    }
+    if (!group.createdTime) {
+        group.createdTime = Date.now();
+    }
+    if (!db.groups) db.groups = [];
+    db.groups.push(group);
+    saveDb(db);
+    res.status(201).json(group);
+});
+
+app.put('/api/messages/groups/:id', (req, res) => {
+    const db = getDb();
+    const { name, description } = req.body;
+    const index = db.groups.findIndex(g => g.id === req.params.id);
+    if (index !== -1) {
+        if (name) db.groups[index].name = name;
+        if (description) db.groups[index].description = description;
+        saveDb(db);
+        res.json(db.groups[index]);
+    } else {
+        res.status(404).json({ error: 'Group not found' });
+    }
+});
+
+app.post('/api/messages/groups/:id/members', (req, res) => {
+    const db = getDb();
+    const { userIds } = req.body;
+    const index = db.groups.findIndex(g => g.id === req.params.id);
+    if (index !== -1) {
+        if (userIds && Array.isArray(userIds)) {
+            userIds.forEach(uid => {
+                if (!db.groups[index].memberIds.includes(uid)) {
+                    db.groups[index].memberIds.push(uid);
+                }
+            });
+            saveDb(db);
+        }
+        res.json(db.groups[index]);
+    } else {
+        res.status(404).json({ error: 'Group not found' });
+    }
+});
+
+app.delete('/api/messages/groups/:id/members/:userId', (req, res) => {
+    const db = getDb();
+    const { id, userId } = req.params;
+    const index = db.groups.findIndex(g => g.id === id);
+    if (index !== -1) {
+        db.groups[index].memberIds = db.groups[index].memberIds.filter(uid => uid !== userId);
+        saveDb(db);
+        res.json(db.groups[index]);
+    } else {
+        res.status(404).json({ error: 'Group not found' });
+    }
 });
 
 app.get(/^\/admin(\/.*)?$/, (req, res) => {

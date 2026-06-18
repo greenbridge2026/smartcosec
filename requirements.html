@@ -1025,6 +1025,72 @@
             background: #059669;
             box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
         }
+        
+        /* Multi-step Header Progress Styles */
+        .header-progress-steps {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 0.75rem;
+            margin-bottom: 2rem;
+            width: 100%;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .progress-step-col {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .progress-step-line {
+            height: 4px;
+            border-radius: 2px;
+            width: 100%;
+            transition: background-color 0.3s;
+        }
+        .progress-step-line.completed {
+            background-color: #10b981;
+        }
+        .progress-step-line.active {
+            background-color: #2563eb;
+        }
+        .progress-step-line.upcoming {
+            background-color: #e2e8f0;
+        }
+        .progress-step-label {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.78rem;
+            font-weight: 500;
+            font-family: 'Outfit', sans-serif;
+            transition: color 0.3s;
+        }
+        .progress-step-label .step-num {
+            font-weight: 700;
+            font-size: 0.82rem;
+        }
+        .progress-step-label .step-name {
+            white-space: nowrap;
+        }
+        .progress-step-label.completed {
+            color: #10b981;
+        }
+        .progress-step-label.completed .step-name {
+            color: #475569;
+        }
+        .progress-step-label.active {
+            color: #2563eb;
+        }
+        .progress-step-label.active .step-name {
+            color: #0f172a;
+            font-weight: 700;
+        }
+        .progress-step-label.upcoming {
+            color: #94a3b8;
+        }
+        .progress-step-label.upcoming .step-name {
+            color: #94a3b8;
+        }
     </style>
 </head>
 <body class="requirements-page">
@@ -1049,7 +1115,7 @@
 
     <div class="main-container">
         <!-- ENTRY / START STATE -->
-        <div id="empty-state" class="empty-state">
+        <div id="empty-state" class="empty-state" style="display: none;">
             <style>
             @keyframes walkUp {
               0%, 4% { left: 6px; bottom: 12%; opacity: 1; transform: translateX(-50%) scale(1); }
@@ -1123,9 +1189,10 @@
             <!-- MAIN WIZARD CARD -->
             <div class="wizard-card-main">
                 <div class="wizard-header-new">
+                    <div id="wizard-progress-steps" class="header-progress-steps"></div>
                     <span id="step-indicator" class="step-indicator">STEP 1 OF 6 · SG SINGAPORE</span>
                     <h2 id="step-title" style="margin: 0; font-size: 2rem; font-weight: 800; color: #0f172a;">Company Name</h2>
-                    <div class="progress-line"><div id="progress-bar" class="progress-fill"></div></div>
+                    <div class="progress-line" style="display: none;"><div id="progress-bar" class="progress-fill"></div></div>
                 </div>
                 <div id="wizard-body" class="wizard-body-new"></div>
                 <div class="wizard-footer-new">
@@ -1207,33 +1274,6 @@
                 title: "Package Summary & Payment",
                 description: "Review your details, select packages, and complete payment",
                 type: "custom"
-            },
-            {
-                id: "sec-capital",
-                key: "capital",
-                title: "Share Capital",
-                description: "Company capitalization details",
-                type: "form",
-                fields: [
-                    { key: "capital.issued", label: "Issued Share Capital (Amount)", type: "number", required: true, placeholder: "e.g. 1000" },
-                    { key: "capital.numShares", label: "Number of Shares", type: "number", required: true, placeholder: "e.g. 1000" },
-                    { key: "capital.paidUp", label: "Paid-Up Share Capital (Amount)", type: "number", required: true, placeholder: "e.g. 1000" },
-                    { key: "capital.currency", label: "Currency", type: "select", required: true, options: ["SGD:Singapore Dollar (SGD)", "USD:US Dollar (USD)"] },
-                    { key: "capital.type", label: "Share Type", type: "select", required: true, options: ["Ordinary:Ordinary Shares", "Preference:Preference Shares"] }
-                ]
-            },
-            {
-                id: "sec-secretary",
-                key: "secretary",
-                title: "Corporate Secretary",
-                description: "Company corporate secretary details",
-                type: "form",
-                fields: [
-                    { key: "secretary.required", label: "Appoint Globalisor Secretary?", type: "select", required: true, options: ["true:Yes, appoint Globalisor secretary service", "false:No, I will appoint my own"] },
-                    { key: "secretary.named", label: "Appoint Named Secretary?", type: "select", required: false, options: ["true:Yes", "false:No"] },
-                    { key: "secretary.details.name", label: "Secretary Full Name (if not using service)", type: "text", required: false, placeholder: "Secretary name" },
-                    { key: "secretary.details.idNum", label: "Secretary ID/Passport Number", type: "text", required: false, placeholder: "ID number" }
-                ]
             }
         ];
 
@@ -1279,7 +1319,7 @@
             localStorage.removeItem('token');
             localStorage.removeItem('client_auth');
             localStorage.removeItem('globalisor_master_v3');
-            window.location.href = '/choose-service.html';
+            window.location.href = '/choose-service';
         }
 
         class DynamicOnboardingWizard {
@@ -1369,7 +1409,7 @@
                                 
                                 if (response.status && response.status !== 'pending' && response.status !== 'none') {
                                     if (response.status === 'approved') {
-                                        window.location.href = '/client/portal.html';
+                                        window.location.href = '/client/portal';
                                         return;
                                     }
                                     this.showStatusPage(response.status, response.data);
@@ -1388,7 +1428,7 @@
                 } else {
                     this.updateInfographic();
                     if (this.currentStep) {
-                        this.render();
+                        this.open(this.currentStep);
                     } else if (this.sections.length > 0) {
                         // Auto-open step 1 in preview mode or fresh sessions with no prior step state
                         this.open(1);
@@ -1648,7 +1688,7 @@
 
             prev() {
                 if (this.currentStep === 1) {
-                    window.location.href = '/choose-service.html?step=office-question';
+                    window.location.href = '/choose-service?step=office-question';
                 } else if (this.currentStep > 1) {
                     this.open(this.currentStep - 1);
                 }
@@ -1776,6 +1816,29 @@
                 }
             }
 
+            updateProgressBar() {
+                const step = this.currentStep;
+                const container = document.getElementById('wizard-progress-steps');
+                if (!container || !this.sections || this.sections.length === 0) return;
+
+                container.style.gridTemplateColumns = `repeat(${this.sections.length}, 1fr)`;
+
+                container.innerHTML = this.sections.map((sec, idx) => {
+                    const stepNum = idx + 1;
+                    const state = step === stepNum ? 'active' : step > stepNum ? 'completed' : 'upcoming';
+                    const numStr = String(stepNum).padStart(2, '0');
+                    return `
+                        <div class="progress-step-col">
+                            <div class="progress-step-line ${state}"></div>
+                            <div class="progress-step-label ${state}">
+                                <span class="step-num">${numStr}</span>
+                                <span class="step-name">${sec.title}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
             evaluateConditionalFields() {
                 const sec = this.sections[this.currentStep - 1];
                 if (!sec || !sec.fields) return;
@@ -1845,11 +1908,18 @@
                 }
                 const titleNew = document.getElementById('step-title');
                 if (titleNew) {
-                    if (this.currentStep === 1) {
-                        titleNew.innerText = "Which company type?";
-                    } else {
-                        titleNew.innerText = sec.title;
-                    }
+                    const friendlyHeaders = {
+                        'sec-names': "Which company type?",
+                        'sec-company-name': "Which company type?",
+                        'sec-directors-shareholders': "How many directors & shareholders?",
+                        'sec-directors': "Specify company directors",
+                        'sec-shareholders': "Specify company shareholders",
+                        'sec-addons': "Do you need add-on services?",
+                        'sec-office': "Where is your registered office?",
+                        'sec-package-next': "What are your contact details?",
+                        'sec-checkout': "Review your package & pay"
+                    };
+                    titleNew.innerText = friendlyHeaders[sec.id] || sec.title;
                 }
                 
                 let progressPct = 0;
@@ -1859,7 +1929,10 @@
                     const approvedCount = this.sections.filter(s => (this.sectionStatuses?.[s.id]?.status === 'APPROVED')).length;
                     progressPct = this.sections.length > 0 ? (approvedCount / this.sections.length) * 100 : 0;
                 }
-                document.getElementById('progress-bar').style.width = `${progressPct}%`;
+                const pb = document.getElementById('progress-bar');
+                if (pb) pb.style.width = `${progressPct}%`;
+                
+                this.updateProgressBar();
                 
                 // Compile Form HTML
                 document.getElementById('wizard-body').innerHTML = this.getStepHTML(sec);
@@ -1904,7 +1977,7 @@
                     `;
                 }
 
-                if (this.currentStep === 1) {
+                if (sec.id === 'sec-names' || sec.key === 'names') {
                     const selectedType = (this.data.companyType || 'Pte Ltd').trim().toLowerCase();
                     const proposedName = getVal(this.data, 'names[0]') || '';
                     
@@ -1967,7 +2040,7 @@
                     `;
                 }
 
-                if (this.currentStep === 2) {
+                if (sec.id === 'sec-directors-shareholders' || sec.key === 'directors-shareholders') {
                     const directors = this.data.directors || [];
                     const shareholders = this.data.shareholders || [];
                     
@@ -2801,27 +2874,30 @@
                 const nextBtn = document.getElementById('next-btn');
                 if (!nextBtn) return;
                 
+                const sec = this.sections[this.currentStep - 1];
+                if (!sec) return;
+
                 let isValid = true;
-                if (this.currentStep === 1) {
+                if (sec.id === 'sec-names' || sec.key === 'names') {
                     const name1 = getVal(this.data, 'names[0]') || '';
                     const name2 = getVal(this.data, 'names[1]') || '';
                     const activity = getVal(this.data, 'activities.primary') || '';
                     if (name1.trim() === '' || name2.trim() === '' || activity.trim() === '') {
                         isValid = false;
                     }
-                } else if (this.currentStep === 2) {
+                } else if (sec.id === 'sec-directors-shareholders' || sec.key === 'directors-shareholders') {
                     // Step 2 only checks the number of directors and shareholders (no detailed form validation required)
                     isValid = true;
-                } else if (this.currentStep === 3) {
+                } else if (sec.id === 'sec-addons' || sec.key === 'addons') {
                     // Step 3 (Add-on Services) is optional and always valid
                     isValid = true;
-                } else if (this.currentStep === 4) {
+                } else if (sec.id === 'sec-office' || sec.key === 'office') {
                     const useService = this.data.office ? (this.data.office.useService !== false) : true;
                     const address = this.data.office ? this.data.office.address : '';
                     if (useService === false && (!address || address.trim() === '')) {
                         isValid = false;
                     }
-                } else if (this.currentStep === 5) {
+                } else if (sec.id === 'sec-package-next' || sec.key === 'contact') {
                     const firstName = getVal(this.data, 'contact.firstName') || '';
                     const lastName = getVal(this.data, 'contact.lastName') || '';
                     const phone = getVal(this.data, 'contact.phone') || '';
@@ -2844,12 +2920,92 @@
                 }
             }
 
+            getHelperExtraHTML(sec) {
+                if (!sec) return '';
+                let html = '';
+
+                // Required Documents
+                if (sec.documents && sec.documents.length > 0) {
+                    html += `
+                        <div style="margin-top: 1.25rem; border-top: 1px solid #e2e8f0; padding-top: 1rem;">
+                            <h4 style="font-weight: 700; color: #0f172a; font-size: 0.85rem; margin: 0 0 0.5rem 0; display: flex; align-items: center; gap: 0.35rem;">
+                                📁 Required Documents
+                            </h4>
+                            <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.8rem; color: #475569; display: flex; flex-direction: column; gap: 0.25rem;">
+                                ${sec.documents.map(doc => `<li>${doc}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+
+                // Checklist Items
+                if (sec.checklists && sec.checklists.length > 0) {
+                    html += `
+                        <div style="margin-top: 1.25rem; border-top: 1px solid #e2e8f0; padding-top: 1rem;">
+                            <h4 style="font-weight: 700; color: #0f172a; font-size: 0.85rem; margin: 0 0 0.5rem 0; display: flex; align-items: center; gap: 0.35rem;">
+                                ✅ Pre-arrival Checklist
+                            </h4>
+                            <div style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.8rem; color: #475569;">
+                                ${sec.checklists.map((item, idx) => `
+                                    <label style="display: flex; align-items: flex-start; gap: 0.4rem; cursor: pointer;">
+                                        <input type="checkbox" style="margin-top: 0.15rem; accent-color: #2563eb;" id="chk-item-${sec.id}-${idx}">
+                                        <span>${item}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Downloadable Attachments
+                if (sec.attachments && sec.attachments.length > 0) {
+                    html += `
+                        <div style="margin-top: 1.25rem; border-top: 1px solid #e2e8f0; padding-top: 1rem;">
+                            <h4 style="font-weight: 700; color: #0f172a; font-size: 0.85rem; margin: 0 0 0.5rem 0; display: flex; align-items: center; gap: 0.35rem;">
+                                📎 SOPs & Attachments
+                            </h4>
+                            <div style="display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.8rem;">
+                                ${sec.attachments.map(att => `
+                                    <a href="${att.url || '#'}" target="_blank" style="color: #2563eb; text-decoration: none; font-weight: 600; display: flex; align-items: center; gap: 0.25rem; hover: underline;">
+                                        📥 ${att.name || 'Download Template'}
+                                    </a>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // FAQs
+                if (sec.faqs && sec.faqs.length > 0) {
+                    html += `
+                        <div style="margin-top: 1.25rem; border-top: 1px solid #e2e8f0; padding-top: 1rem;">
+                            <h4 style="font-weight: 700; color: #0f172a; font-size: 0.85rem; margin: 0 0 0.5rem 0;">
+                                💬 Frequently Asked Questions
+                            </h4>
+                            <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+                                ${sec.faqs.map((faq, idx) => `
+                                    <details style="font-size: 0.8rem; color: #475569; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.5rem; background: #f8fafc; cursor: pointer;">
+                                        <summary style="font-weight: 700; color: #0f172a; outline: none;">${faq.question}</summary>
+                                        <p style="margin: 0.35rem 0 0; color: #64748b; line-height: 1.4;">${faq.answer}</p>
+                                    </details>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                return html;
+            }
+
             updateHelperCard() {
                 const titleEl = document.getElementById('helper-title');
                 const textEl = document.getElementById('helper-text');
                 if (!titleEl || !textEl) return;
 
-                if (this.currentStep === 1) {
+                const sec = this.sections[this.currentStep - 1];
+                if (!sec) return;
+
+                if (sec.id === 'sec-names' || sec.key === 'names') {
                     const selectedType = this.data.companyType || 'Pte Ltd';
                     const descriptions = {
                         'Pte Ltd': 'Private Limited Company is the most common and scalable business structure in Singapore. It provides a separate legal entity and limits shareholders liability to their capital contribution.',
@@ -2863,8 +3019,8 @@
                     ) || 'Pte Ltd';
 
                     titleEl.innerText = `Singapore ${normalizedType}`;
-                    textEl.innerText = descriptions[normalizedType] || 'Choose on the left to see what each structure is best for.';
-                } else if (this.currentStep === 2) {
+                    textEl.innerHTML = (descriptions[normalizedType] || 'Choose on the left to see what each structure is best for.') + this.getHelperExtraHTML(sec);
+                } else if (sec.id === 'sec-directors-shareholders' || sec.key === 'directors-shareholders') {
                     const dirsCount = this.data.directors ? this.data.directors.length : 1;
                     const shsCount = this.data.shareholders ? this.data.shareholders.length : 1;
                     const dirsText = `${dirsCount} director${dirsCount > 1 ? 's' : ''}`;
@@ -2897,8 +3053,8 @@
                                 </div>
                             </div>
                         </div>
-                    `;
-                } else if (this.currentStep === 3) {
+                    ` + this.getHelperExtraHTML(sec);
+                } else if (sec.id === 'sec-addons' || sec.key === 'addons') {
                     const addons = this.data.addons || {};
                     const bankIntro = addons.bankIntro || false;
                     const statCompliance = addons.statCompliance || false;
@@ -2938,27 +3094,20 @@
                                 <span style="font-weight: 700; color: ${apostille ? '#2563eb' : '#94a3b8'};">${apostille ? 'Added ($280)' : 'Not added'}</span>
                             </div>
                         </div>
-                    `;
+                    ` + this.getHelperExtraHTML(sec);
                 } else {
-                    const sec = this.sections[this.currentStep - 1];
-                    if (!sec) return;
-                    
                     const titleMap = {
-                        4: 'Office address requirements',
-                        5: 'Package details',
-                        6: 'Package summary & payment',
-                        7: 'Initial capital details',
-                        8: 'Appoint secretary service'
+                        'sec-office': 'Office address requirements',
+                        'sec-package-next': 'Package details',
+                        'sec-checkout': 'Package summary & payment'
                     };
                     const descMap = {
-                        4: 'All Singapore companies must have a physical registered office address in Singapore. If you do not have one, you can subscribe to Globalisor\'s address service.',
-                        5: 'Provide your contact information so we can prepare and process your package setup.',
-                        6: 'Review your selected services and enter card details to complete payment. We will email you a complete receipt and confirmation summary.',
-                        7: 'The minimum paid-up capital is SGD 1, but we recommend starting with a reasonable amount like SGD 1,000 or USD 1,000 to show financial commitment.',
-                        8: 'A company secretary must be appointed within 6 months of incorporation. Globalisor provides corporate secretary services to ensure full compliance.'
+                        'sec-office': 'All Singapore companies must have a physical registered office address in Singapore. If you do not have one, you can subscribe to Globalisor\'s address service.',
+                        'sec-package-next': 'Provide your contact information so we can prepare and process your package setup.',
+                        'sec-checkout': 'Review your selected services and enter card details to complete payment. We will email you a complete receipt and confirmation summary.'
                     };
-                    titleEl.innerText = titleMap[this.currentStep] || sec.title;
-                    textEl.innerHTML = descMap[this.currentStep] || sec.description || '';
+                    titleEl.innerText = titleMap[sec.id] || sec.title;
+                    textEl.innerHTML = (descMap[sec.id] || sec.description || '') + this.getHelperExtraHTML(sec);
                 }
             }            renderField(field, fullPath) {
                 const val = getVal(this.data, fullPath) || '';
@@ -2971,7 +3120,7 @@
                         html = `
                             <div class="form-group ${field.key.includes('address') || field.key.includes('desc') ? 'full' : ''}">
                                 <label class="form-label">${field.label}${requiredAsterisk}</label>
-                                <input type="text" class="input-box" placeholder="${field.placeholder || ''}" value="${val}" oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save(); wizard.evaluateConditionalFields()">
+                                <input type="text" class="input-box" placeholder="${field.placeholder || ''}" value="${val}" oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save(); wizard.evaluateConditionalFields(); wizard.updateContinueButtonState()">
                             </div>
                         `;
                         break;
@@ -2979,7 +3128,7 @@
                         html = `
                             <div class="form-group">
                                 <label class="form-label">${field.label}${requiredAsterisk}</label>
-                                <input type="number" class="input-box" placeholder="${field.placeholder || ''}" value="${val}" oninput="setVal(wizard.data, '${fullPath}', parseFloat(this.value) || 0); wizard.save(); wizard.evaluateConditionalFields()">
+                                <input type="number" class="input-box" placeholder="${field.placeholder || ''}" value="${val}" oninput="setVal(wizard.data, '${fullPath}', parseFloat(this.value) || 0); wizard.save(); wizard.evaluateConditionalFields(); wizard.updateContinueButtonState()">
                             </div>
                         `;
                         break;
@@ -2987,7 +3136,7 @@
                         html = `
                             <div class="form-group full">
                                 <label class="form-label">${field.label}${requiredAsterisk}</label>
-                                <textarea class="input-box" style="height:100px" placeholder="${field.placeholder || ''}" oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save(); wizard.evaluateConditionalFields()">${val}</textarea>
+                                <textarea class="input-box" style="height:100px" placeholder="${field.placeholder || ''}" oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save(); wizard.evaluateConditionalFields(); wizard.updateContinueButtonState()">${val}</textarea>
                             </div>
                         `;
                         break;
@@ -2995,7 +3144,7 @@
                         html = `
                             <div class="form-group">
                                 <label class="form-label">${field.label}${requiredAsterisk}</label>
-                                <input type="date" class="input-box" value="${val}" oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save(); wizard.evaluateConditionalFields()">
+                                <input type="date" class="input-box" value="${val}" oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save(); wizard.evaluateConditionalFields(); wizard.updateContinueButtonState()">
                             </div>
                         `;
                         break;
@@ -3004,7 +3153,7 @@
                         html = `
                             <div class="form-group">
                                 <label class="form-label">${field.label}${requiredAsterisk}</label>
-                                <select class="input-box" onchange="setVal(wizard.data, '${fullPath}', this.value === 'true' ? true : this.value === 'false' ? false : this.value); wizard.save(); wizard.render(); wizard.evaluateConditionalFields()">
+                                <select class="input-box" onchange="setVal(wizard.data, '${fullPath}', this.value === 'true' ? true : this.value === 'false' ? false : this.value); wizard.save(); wizard.render(); wizard.evaluateConditionalFields(); wizard.updateContinueButtonState()">
                                     <option value="">Select Option...</option>
                                     ${opts.map(opt => {
                                         const p = opt.split(':');
@@ -3083,7 +3232,10 @@
                 document.querySelectorAll('.segment-path').forEach(p => p.classList.remove('active'));
                 
                 document.getElementById('step-title').innerText = 'Verification Ready';
-                document.getElementById('progress-bar').style.width = '100%';
+                const pb = document.getElementById('progress-bar');
+                if (pb) pb.style.width = '100%';
+
+                this.updateProgressBar();
 
                 document.getElementById('wizard-body').innerHTML = `
                     <div style="text-align: center; padding: 3rem 1rem;">

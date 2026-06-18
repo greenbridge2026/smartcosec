@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pre-Registration Manager | Globalisor Admin</title>
+    <title>Requirements Page Manager | Globalisor Admin</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
@@ -118,9 +118,9 @@
                 <div>
                     <h2 class="text-3xl font-bold font-outfit text-slate-900 flex items-center gap-2">
                         <i data-lucide="clipboard-list" class="w-8 h-8 text-blue-600"></i>
-                        Pre-Registration Manager
+                        Requirements Page Manager
                     </h2>
-                    <p class="text-slate-500 text-sm mt-1">Manage, structure, and control the client pre-registration onboarding sections and dynamic fields.</p>
+                    <p class="text-slate-500 text-sm mt-1">Manage, structure, and control the client onboarding requirements page sections, checklists, documents, SOPs, and FAQs.</p>
                 </div>
                 <div class="flex items-center gap-3">
                     <button onclick="previewOnboarding()" class="bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-all shadow-sm">
@@ -191,36 +191,83 @@
                                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Section Key (Unique API Name)</label>
                                 <input type="text" id="sec-key-input" class="w-100 w-full px-4 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all" placeholder="e.g. required-documents">
                             </div>
-                            <div class="md:col-span-2">
+                            <div>
                                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Section Description (Sub-title)</label>
                                 <input type="text" id="sec-desc-input" class="w-full px-4 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Layout Type</label>
-                                <select id="sec-type-select" class="w-full px-4 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer">
-                                    <option value="form">Standard Form</option>
-                                    <option value="repeater">Repeater / List</option>
-                                </select>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Applicable Services (Comma-separated or 'All')</label>
                                 <input type="text" id="sec-services-input" class="w-full px-4 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all" placeholder="e.g. Incorporation, Nominee Director, or All">
                             </div>
+                            <input type="hidden" id="sec-type-select" value="form">
                         </div>
 
-                        <!-- Fields Configuration List -->
-                        <div class="space-y-4 pt-4">
-                            <div class="flex justify-between items-center pb-2 border-b border-slate-100">
-                                <h4 class="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-1.5">
-                                    <i data-lucide="columns" class="w-4 h-4 text-blue-500"></i> Fields Configuration
-                                </h4>
-                                <button onclick="addFieldRow()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] flex items-center gap-1 transition-all shadow-sm">
-                                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Field
-                                </button>
+                        <!-- Fields Configuration (Hidden fallback to prevent JS runtime errors) -->
+                        <div id="fields-list" class="hidden"></div>
+
+                        <!-- Documents & Checklist configuration row -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-slate-100">
+                            <!-- Required Documents -->
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+                                    <h4 class="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-1.5">
+                                        <i data-lucide="file-text" class="w-4 h-4 text-blue-500"></i> Required Documents
+                                    </h4>
+                                    <button onclick="addDocument()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-1 rounded-lg text-[9px] flex items-center gap-1 transition-all shadow-sm">
+                                        <i data-lucide="plus" class="w-3 h-3"></i> Add
+                                    </button>
+                                </div>
+                                <div id="documents-list" class="space-y-2">
+                                    <!-- Dynamic list of documents -->
+                                </div>
                             </div>
 
-                            <div id="fields-list" class="space-y-3">
-                                <!-- Dynamic list of fields -->
+                            <!-- Pre-arrival Checklist -->
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+                                    <h4 class="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-1.5">
+                                        <i data-lucide="check-square" class="w-4 h-4 text-blue-500"></i> Pre-arrival Checklist
+                                    </h4>
+                                    <button onclick="addChecklistItem()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-1 rounded-lg text-[9px] flex items-center gap-1 transition-all shadow-sm">
+                                        <i data-lucide="plus" class="w-3 h-3"></i> Add
+                                    </button>
+                                </div>
+                                <div id="checklist-list" class="space-y-2">
+                                    <!-- Dynamic list of checklist items -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Attachments & FAQs configuration row -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-slate-100">
+                            <!-- SOPs & Attachments -->
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+                                    <h4 class="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-1.5">
+                                        <i data-lucide="paperclip" class="w-4 h-4 text-blue-500"></i> SOPs & Attachments
+                                    </h4>
+                                    <button onclick="addAttachment()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-1 rounded-lg text-[9px] flex items-center gap-1 transition-all shadow-sm">
+                                        <i data-lucide="plus" class="w-3 h-3"></i> Add
+                                    </button>
+                                </div>
+                                <div id="attachments-list" class="space-y-3">
+                                    <!-- Dynamic list of attachments -->
+                                </div>
+                            </div>
+
+                            <!-- Section FAQs -->
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+                                    <h4 class="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-1.5">
+                                        <i data-lucide="help-circle" class="w-4 h-4 text-blue-500"></i> Section FAQs
+                                    </h4>
+                                    <button onclick="addFaq()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-1 rounded-lg text-[9px] flex items-center gap-1 transition-all shadow-sm">
+                                        <i data-lucide="plus" class="w-3 h-3"></i> Add
+                                    </button>
+                                </div>
+                                <div id="faqs-list" class="space-y-3">
+                                    <!-- Dynamic list of FAQs -->
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -232,7 +279,7 @@
     <!-- Create Section Modal -->
     <div id="add-section-modal" class="fixed inset-0 z-[10000] bg-slate-900/40 backdrop-blur-sm hidden flex items-center justify-center p-4">
         <div class="bg-white/95 backdrop-blur-md border border-slate-200/60 p-6 rounded-2xl max-w-md w-full space-y-4 shadow-2xl scale-95 transition-all duration-300">
-            <h3 class="text-lg font-bold text-slate-950 font-outfit">Create New Pre-Registration Section</h3>
+            <h3 class="text-lg font-bold text-slate-950 font-outfit">Create New Onboarding Section</h3>
             <div class="space-y-3">
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Section Title</label>
@@ -247,16 +294,10 @@
                     <input type="text" id="modal-sec-desc" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none" placeholder="e.g. Upload optional credentials">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Layout Type</label>
-                    <select id="modal-sec-type" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none cursor-pointer">
-                        <option value="form">Standard Form</option>
-                        <option value="repeater">Repeater / List</option>
-                    </select>
-                </div>
-                <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Applicable Services (Comma-separated or 'All')</label>
                     <input type="text" id="modal-sec-services" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none" placeholder="e.g. Incorporation, Nominee Director, or All" value="All">
                 </div>
+                <input type="hidden" id="modal-sec-type" value="form">
             </div>
             <div class="flex justify-end gap-2 pt-2">
                 <button onclick="closeAddSectionModal()" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all">Cancel</button>
@@ -428,8 +469,212 @@
             const lastUpdatedDate = sec.lastUpdatedAt ? new Date(sec.lastUpdatedAt).toLocaleString() : 'N/A';
             document.getElementById('editor-history').innerHTML = `Last updated by <strong>${sec.lastUpdatedBy || 'System'}</strong> on <strong>${lastUpdatedDate}</strong>`;
 
+            // Ensure array fields exist
+            sec.documents = sec.documents || [];
+            sec.checklists = sec.checklists || [];
+            sec.attachments = sec.attachments || [];
+            sec.faqs = sec.faqs || [];
+
             renderFieldRows(sec.fields || []);
+            renderDocumentRows(sec.documents || []);
+            renderChecklistRows(sec.checklists || []);
+            renderAttachmentRows(sec.attachments || []);
+            renderFaqRows(sec.faqs || []);
             validateFields();
+        }
+
+        function renderDocumentRows(docs) {
+            const container = document.getElementById('documents-list');
+            container.innerHTML = '';
+            
+            if (docs.length === 0) {
+                container.innerHTML = `<div class="text-slate-400 text-[10px] p-2 text-center border border-dashed border-slate-200 rounded-lg">No documents added.</div>`;
+                return;
+            }
+
+            docs.forEach((doc, index) => {
+                const row = document.createElement('div');
+                row.className = "flex items-center gap-2";
+                row.innerHTML = `
+                    <input type="text" value="${doc || ''}" oninput="updateDocument(${index}, this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none" placeholder="e.g. Passport copy">
+                    <button onclick="removeDocument(${index})" class="text-slate-400 hover:text-red-500 p-1.5 rounded-lg shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+                    </button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function addDocument() {
+            const sec = sections.find(s => s.id === selectedSectionId);
+            if (!sec) return;
+            sec.documents = sec.documents || [];
+            sec.documents.push('');
+            renderDocumentRows(sec.documents);
+        }
+
+        function updateDocument(idx, val) {
+            const sec = sections.find(s => s.id === selectedSectionId);
+            if (sec && sec.documents) {
+                sec.documents[idx] = val;
+            }
+        }
+
+        function removeDocument(idx) {
+            const sec = sections.find(s => s.id === selectedSectionId);
+            if (sec && sec.documents) {
+                sec.documents.splice(idx, 1);
+                renderDocumentRows(sec.documents);
+            }
+        }
+
+        function renderChecklistRows(items) {
+            const container = document.getElementById('checklist-list');
+            container.innerHTML = '';
+            
+            if (items.length === 0) {
+                container.innerHTML = `<div class="text-slate-400 text-[10px] p-2 text-center border border-dashed border-slate-200 rounded-lg">No checklist items added.</div>`;
+                return;
+            }
+
+            items.forEach((item, index) => {
+                const row = document.createElement('div');
+                row.className = "flex items-center gap-2";
+                row.innerHTML = `
+                    <input type="text" value="${item || ''}" oninput="updateChecklistItem(${index}, this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none" placeholder="e.g. Approve company name">
+                    <button onclick="removeChecklistItem(${index})" class="text-slate-400 hover:text-red-500 p-1.5 rounded-lg shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+                    </button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function addChecklistItem() {
+            const sec = sections.find(s => s.id === selectedSectionId);
+            if (!sec) return;
+            sec.checklists = sec.checklists || [];
+            sec.checklists.push('');
+            renderChecklistRows(sec.checklists);
+        }
+
+        function updateChecklistItem(idx, val) {
+            const sec = sections.find(s => s.id === selectedSectionId);
+            if (sec && sec.checklists) {
+                sec.checklists[idx] = val;
+            }
+        }
+
+        function removeChecklistItem(idx) {
+            const sec = sections.find(s => s.id === selectedSectionId);
+            if (sec && sec.checklists) {
+                sec.checklists.splice(idx, 1);
+                renderChecklistRows(sec.checklists);
+            }
+        }
+
+        function renderAttachmentRows(attachments) {
+            const container = document.getElementById('attachments-list');
+            container.innerHTML = '';
+            
+            if (attachments.length === 0) {
+                container.innerHTML = `<div class="text-slate-400 text-[10px] p-2 text-center border border-dashed border-slate-200 rounded-lg">No attachments added.</div>`;
+                return;
+            }
+
+            attachments.forEach((att, index) => {
+                const row = document.createElement('div');
+                row.className = "grid grid-cols-2 gap-2 relative pr-8 bg-slate-50/50 p-2.5 rounded-lg border border-slate-200/40";
+                row.innerHTML = `
+                    <div>
+                        <label class="block text-[9px] font-bold text-slate-400 uppercase mb-0.5">File Name</label>
+                        <input type="text" value="${att.name || ''}" oninput="updateAttachment(${index}, 'name', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs outline-none" placeholder="e.g. Board Resolution Template">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-bold text-slate-400 uppercase mb-0.5">Download URL / Path</label>
+                        <input type="text" value="${att.url || ''}" oninput="updateAttachment(${index}, 'url', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs outline-none" placeholder="e.g. /templates/board_resolution.pdf">
+                    </div>
+                    <button onclick="removeAttachment(${index})" class="absolute top-1 right-1 text-slate-300 hover:text-red-500 p-1 rounded transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+                    </button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function addAttachment() {
+            const sec = sections.find(s => s.id === selectedSectionId);
+            if (!sec) return;
+            sec.attachments = sec.attachments || [];
+            sec.attachments.push({ name: '', url: '' });
+            renderAttachmentRows(sec.attachments);
+        }
+
+        function updateAttachment(idx, prop, val) {
+            const sec = sections.find(s => s.id === selectedSectionId);
+            if (sec && sec.attachments && sec.attachments[idx]) {
+                sec.attachments[idx][prop] = val;
+            }
+        }
+
+        function removeAttachment(idx) {
+            const sec = sections.find(s => s.id === selectedSectionId);
+            if (sec && sec.attachments) {
+                sec.attachments.splice(idx, 1);
+                renderAttachmentRows(sec.attachments);
+            }
+        }
+
+        function renderFaqRows(faqs) {
+            const container = document.getElementById('faqs-list');
+            container.innerHTML = '';
+            
+            if (faqs.length === 0) {
+                container.innerHTML = `<div class="text-slate-400 text-[10px] p-2 text-center border border-dashed border-slate-200 rounded-lg">No FAQs added.</div>`;
+                return;
+            }
+
+            faqs.forEach((faq, index) => {
+                const row = document.createElement('div');
+                row.className = "space-y-2 relative pr-8 bg-slate-50/50 p-2.5 rounded-lg border border-slate-200/40";
+                row.innerHTML = `
+                    <div>
+                        <label class="block text-[9px] font-bold text-slate-400 uppercase mb-0.5">Question</label>
+                        <input type="text" value="${faq.question || ''}" oninput="updateFaq(${index}, 'question', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs outline-none" placeholder="e.g. What documents are required?">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-bold text-slate-400 uppercase mb-0.5">Answer</label>
+                        <textarea oninput="updateFaq(${index}, 'answer', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs outline-none" rows="2" placeholder="e.g. We require a passport copy and address proof.">${faq.answer || ''}</textarea>
+                    </div>
+                    <button onclick="removeFaq(${index})" class="absolute top-1 right-1 text-slate-300 hover:text-red-500 p-1 rounded transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+                    </button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function addFaq() {
+            const sec = sections.find(s => s.id === selectedSectionId);
+            if (!sec) return;
+            sec.faqs = sec.faqs || [];
+            sec.faqs.push({ question: '', answer: '' });
+            renderFaqRows(sec.faqs);
+        }
+
+        function updateFaq(idx, prop, val) {
+            const sec = sections.find(s => s.id === selectedSectionId);
+            if (sec && sec.faqs && sec.faqs[idx]) {
+                sec.faqs[idx][prop] = val;
+            }
+        }
+
+        function removeFaq(idx) {
+            const sec = sections.find(s => s.id === selectedSectionId);
+            if (sec && sec.faqs) {
+                sec.faqs.splice(idx, 1);
+                renderFaqRows(sec.faqs);
+            }
         }
 
         function validateFields() {
@@ -723,6 +968,12 @@
                 sec.key = document.getElementById('sec-key-input').value.trim();
             }
 
+            // Clean lists
+            if (sec.documents) sec.documents = sec.documents.map(d => d.trim()).filter(Boolean);
+            if (sec.checklists) sec.checklists = sec.checklists.map(c => c.trim()).filter(Boolean);
+            if (sec.attachments) sec.attachments = sec.attachments.filter(a => a.name.trim() !== '' || a.url.trim() !== '');
+            if (sec.faqs) sec.faqs = sec.faqs.filter(f => f.question.trim() !== '' || f.answer.trim() !== '');
+
             if (!sec.title || !sec.key) {
                 showToast("Title and Key are required!", "error");
                 return;
@@ -771,6 +1022,12 @@
             if (!sec.id.startsWith('sec-')) {
                 sec.key = document.getElementById('sec-key-input').value.trim();
             }
+
+            // Clean lists
+            if (sec.documents) sec.documents = sec.documents.map(d => d.trim()).filter(Boolean);
+            if (sec.checklists) sec.checklists = sec.checklists.map(c => c.trim()).filter(Boolean);
+            if (sec.attachments) sec.attachments = sec.attachments.filter(a => a.name.trim() !== '' || a.url.trim() !== '');
+            if (sec.faqs) sec.faqs = sec.faqs.filter(f => f.question.trim() !== '' || f.answer.trim() !== '');
 
             try {
                 const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
@@ -895,7 +1152,11 @@
                 description,
                 type,
                 applicableServices,
-                fields: []
+                fields: [],
+                documents: [],
+                checklists: [],
+                attachments: [],
+                faqs: []
             };
 
             try {

@@ -154,9 +154,7 @@
                     <button onclick="setWorkspaceFilter('starred')" id="ws-starred" class="ws-filter-btn flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left">
                         <i data-lucide="star" class="w-4 h-4 text-slate-400 shrink-0"></i> Starred Messages
                     </button>
-                    <button onclick="setWorkspaceFilter('calls')" id="ws-calls" class="ws-filter-btn flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left">
-                        <i data-lucide="phone" class="w-4 h-4 text-slate-400 shrink-0"></i> Call History
-                    </button>
+
                     <button onclick="setWorkspaceFilter('files')" id="ws-files" class="ws-filter-btn flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left">
                         <i data-lucide="file-text" class="w-4 h-4 text-slate-400 shrink-0"></i> Shared Files
                     </button>
@@ -256,6 +254,7 @@
         let allApplications = [];
         let allUsersList = [];
         let allDocumentsList = [];
+        let allConversationsList = [];
         let presenceStatusMap = {}; 
         let lastSeenMap = {};
         let currentPresenceStatus = 'online';
@@ -329,6 +328,20 @@
                 const res = await fetch('/api/messages/users');
                 if (res.ok) allUsersList = await res.json();
             } catch(e){}
+            try {
+                const localStaff = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]');
+                localStaff.forEach(ls => {
+                    const exists = allUsersList.some(u => u.email === ls.email || u.id === ls.id);
+                    if (!exists) {
+                        allUsersList.push({
+                            id: ls.id,
+                            name: (ls.firstName + " " + ls.lastName).trim(),
+                            role: ls.role || 'STAFF',
+                            email: ls.email
+                        });
+                    }
+                });
+            } catch(e) {}
         }
 
         async function fetchDocuments() {
@@ -405,81 +418,45 @@
                         notes: userNotes,
                         hasDraft: !!hasDraft,
                         isGroup: true,
+                        icon: g.icon || '💬',
                         createdBy: g.createdBy,
                         memberIds: g.memberIds
                     });
                 });
-
-                // 3. Map staff/admin contacts (Direct Messages)
+                // 3. Map all staff, admin, and client contacts (Direct Messages)
                 allUsersList.forEach(u => {
                     if (u.id === myId) return;
-                    if (u.role === 'CLIENT' || u.role === 'USER') return; // clients handled by conversation endpoint
                     
-                    const chatId = getOneToOneChatId(myId, u.id);
-                    const userNotes = localStorage.getItem(`notes_${myId}_${chatId}`) || '';
-                    const hasDraft = localStorage.getItem(`draft_${myId}_${chatId}`);
-                    const onlineStatus = presenceStatusMap[u.id] || 'offline';
+                    const isClient = u.role === 'CLIENT' || u.role === 'USER';
+                    const chatId = isClient ? u.id : getOneToOneChatId(myId, u.id);
                     
-                    list.push({
-                        id: chatId,
-                        realUserId: u.id,
-                        name: u.name,
-                        role: u.role.toLowerCase(),
-                        companyName: u.email,
-                        applicationId: 'Internal',
-                        lastMessage: 'Internal chat',
-                        lastMessageTime: 0,
-                        unreadCount: 0,
-                        isOnline: onlineStatus === 'online',
-                        presenceStatus: onlineStatus,
-                        lastSeen: null,
-                        priority: 'Normal',
-                        notes: userNotes,
-                        hasDraft: !!hasDraft,
-                        isGroup: false
-                    });
+                    // Check if already in list
+                    const exists = list.some(item => item.id === chatId);
+                    if (!exists) {
+                        const userNotes = localStorage.getItem(`notes_${myId}_${chatId}`) || '';
+                        const hasDraft = localStorage.getItem(`draft_${myId}_${chatId}`);
+                        const onlineStatus = presenceStatusMap[u.id] || 'offline';
+                        
+                        list.push({
+                            id: chatId,
+                            realUserId: u.id,
+                            name: u.name,
+                            role: isClient ? 'client' : u.role.toLowerCase(),
+                            companyName: u.email || 'Registered Contact',
+                            applicationId: isClient ? 'Client Portal' : 'Internal Portal',
+                            lastMessage: 'No messages yet - Click to start conversation',
+                            lastMessageTime: 0,
+                            unreadCount: 0,
+                            isOnline: onlineStatus === 'online',
+                            presenceStatus: onlineStatus,
+                            lastSeen: null,
+                            priority: 'Normal',
+                            notes: userNotes,
+                            hasDraft: !!hasDraft,
+                            isGroup: false
+                        });
+                    }
                 });
-
-                // Search all registered names to send messages (if search query is active)
-                if (chatSearchQuery) {
-                    allUsersList.forEach(u => {
-                        if (u.id === myId) return;
-                        
-                        const isClient = u.role === 'CLIENT' || u.role === 'USER';
-                        const chatId = isClient ? u.id : getOneToOneChatId(myId, u.id);
-                        
-                        // Check if already in list
-                        const exists = list.some(item => item.id === chatId);
-                        if (!exists) {
-                            const nameMatches = u.name.toLowerCase().includes(chatSearchQuery);
-                            const emailMatches = u.email && u.email.toLowerCase().includes(chatSearchQuery);
-                            if (nameMatches || emailMatches) {
-                                const userNotes = localStorage.getItem(`notes_${myId}_${chatId}`) || '';
-                                const hasDraft = localStorage.getItem(`draft_${myId}_${chatId}`);
-                                const onlineStatus = presenceStatusMap[u.id] || 'offline';
-                                
-                                list.push({
-                                    id: chatId,
-                                    realUserId: u.id,
-                                    name: u.name,
-                                    role: isClient ? 'client' : u.role.toLowerCase(),
-                                    companyName: u.email || 'Registered User',
-                                    applicationId: isClient ? 'New Client' : 'New Internal',
-                                    lastMessage: 'No messages yet - Click to start conversation',
-                                    lastMessageTime: 0,
-                                    unreadCount: 0,
-                                    isOnline: onlineStatus === 'online',
-                                    presenceStatus: onlineStatus,
-                                    lastSeen: null,
-                                    priority: 'Normal',
-                                    notes: userNotes,
-                                    hasDraft: !!hasDraft,
-                                    isGroup: false
-                                });
-                            }
-                        }
-                    });
-                }
 
                 // Fetch latest messages from DB for channels and DMs to populate last message metadata accurately
                 for (let item of list) {
@@ -497,9 +474,7 @@
                                 item.hasAttachment = payload.attachments && payload.attachments.length > 0;
                                 
                                 // Calculate accurate unread counts
-                                if (item.isGroup || item.id.startsWith('team_chat_')) {
-                                    item.unreadCount = messages.filter(m => m.senderId !== myId && !m.isRead).length;
-                                }
+                                item.unreadCount = messages.filter(m => m.senderId !== myId && !m.isRead).length;
                             }
                         }
                     } catch(e){}
@@ -579,6 +554,8 @@
                     }
                 }
 
+                allConversationsList = list;
+
                 if (currentWorkspace === 'starred') {
                     loadStarredWorkspaceMessages();
                 } else {
@@ -627,7 +604,7 @@
                             <div class="flex items-center gap-2.5 min-w-0">
                                 <div class="relative shrink-0">
                                     <div class="w-9 h-9 rounded-full ${c.isGroup ? 'bg-purple-100 text-purple-600' : 'bg-blue-50 text-blue-600'} flex items-center justify-center font-bold text-xs border border-white">
-                                        ${c.isGroup ? '#' : c.name.charAt(0)}
+                                        ${c.isGroup ? (c.icon || '#') : c.name.charAt(0)}
                                     </div>
                                     ${c.isGroup ? '' : `<span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${statusColor}"></span>`}
                                 </div>
@@ -694,14 +671,14 @@
             
             // Mark read
             if (isGroup || id.startsWith('team_chat_')) {
-                markTeamMessagesAsRead(id);
+                await markTeamMessagesAsRead(id);
             } else {
-                markAsRead(id);
+                await markAsRead(id);
             }
             
             renderActiveChatWindow();
             renderRightInfoPanel();
-            fetchConversations();
+            await fetchConversations();
         }
 
         // --- Active Chat Area Redesign ---
@@ -714,7 +691,7 @@
             const isGroup = !!selectedTeamChatId;
             
             function activeNameDefault() {
-                const DMUser = allUsersList.find(u => getOneToOneChatId(myId, u.id) === selectedClientId);
+                const DMUser = allUsersList.find(u => u.id === selectedClientId || getOneToOneChatId(myId, u.id) === selectedClientId);
                 return DMUser ? DMUser.name : 'Active Chat';
             }
 
@@ -733,7 +710,7 @@
                 <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 rounded-xl ${isGroup ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'} flex items-center justify-center font-bold relative shadow-inner">
-                            ${isGroup ? '#' : activeName.charAt(0)}
+                            ${isGroup ? (typeof allConversationsList !== 'undefined' && allConversationsList.find(x => x.id === selectedTeamChatId)?.icon || '💬') : activeName.charAt(0)}
                         </div>
                         <div>
                             <h3 class="font-bold text-slate-800 text-sm leading-none flex items-center gap-1.5">${activeName}</h3>
@@ -741,12 +718,6 @@
                         </div>
                     </div>
                     <div class="flex gap-1.5">
-                        <button onclick="triggerCallClick('voice')" class="p-2 bg-slate-50 rounded-xl hover:bg-slate-100 text-slate-600 transition-all border border-slate-100 cursor-pointer flex items-center justify-center" title="Voice Call">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
-                        </button>
-                        <button onclick="triggerCallClick('video')" class="p-2 bg-slate-50 rounded-xl hover:bg-slate-100 text-slate-600 transition-all border border-slate-100 cursor-pointer flex items-center justify-center" title="Video Call">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="m22 8-6 4 6 4V8Z"></path><rect width="14" height="12" x="2" y="6" rx="2" ry="2"></rect></svg>
-                        </button>
                         <button onclick="togglePinConversation('${activeId}')" class="p-2 bg-slate-50 rounded-xl hover:bg-slate-100 text-slate-600 transition-all border border-slate-100 cursor-pointer flex items-center justify-center" title="Pin conversation">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 ${isPinned ? 'text-blue-600 fill-blue-100' : ''}"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-.44-1.24l-2.78-3.5A2 2 0 0 1 15 9.26V5a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4.26a2 2 0 0 1-.78 1.54l-2.78 3.5A2 2 0 0 0 5 15.24Z"></path></svg>
                         </button>
@@ -1080,7 +1051,7 @@
                     </div>
                     <div class="p-6 flex flex-col gap-6 font-outfit">
                         <div class="text-center">
-                            <div class="w-16 h-16 rounded-3xl bg-purple-100 text-purple-600 font-bold text-2xl flex items-center justify-center mx-auto mb-3 shadow-inner">#</div>
+                            <div class="w-16 h-16 rounded-3xl bg-purple-100 text-purple-600 font-bold text-2xl flex items-center justify-center mx-auto mb-3 shadow-inner">${group.icon || '💬'}</div>
                             <h3 class="font-bold text-slate-800 text-base">${group.name}</h3>
                             <p class="text-xs text-slate-400 mt-1">${group.description || 'No description provided'}</p>
                         </div>
@@ -1173,7 +1144,7 @@
             }
 
             function activeName() {
-                const DMUser = allUsersList.find(u => getOneToOneChatId(myId, u.id) === selectedClientId);
+                const DMUser = allUsersList.find(u => u.id === selectedClientId || getOneToOneChatId(myId, u.id) === selectedClientId);
                 return DMUser ? DMUser.name : 'Client';
             }
         }
@@ -1415,8 +1386,8 @@
                                 <button onclick="triggerForwardMessage('${m.id}', '${payload.text.replace(/'/g, "\\'")}')" class="p-1 text-slate-400 hover:text-slate-700" title="Forward"><i data-lucide="forward" class="w-3.5 h-3.5"></i></button>
                                 ${isMe(m) ? `
                                     <button onclick="triggerEditMessage('${m.id}', '${payload.text.replace(/'/g, "\\'")}')" class="p-1 text-slate-400 hover:text-slate-700" title="Edit"><i data-lucide="edit" class="w-3.5 h-3.5"></i></button>
-                                    <button onclick="triggerDeleteMessage('${m.id}')" class="p-1 text-slate-400 hover:text-red-500" title="Delete"><i data-lucide="trash" class="w-3.5 h-3.5"></i></button>
                                 ` : ''}
+                                <button onclick="triggerDeleteMessage('${m.id}')" class="p-1 text-slate-400 hover:text-red-500" title="Delete"><i data-lucide="trash" class="w-3.5 h-3.5"></i></button>
                             </div>
                             `}
                         </div>
@@ -1437,7 +1408,7 @@
 
         async function markAsRead(clientId) {
             try {
-                await fetch(`/api/messages/read-all?clientId=${clientId}&senderRole=admin`, { method: 'POST' });
+                await fetch(`/api/messages/read-all?clientId=${clientId}&senderRole=admin&userId=${myId}`, { method: 'POST' });
             } catch (e) { console.error(e); }
         }
 
@@ -1994,7 +1965,7 @@
             }
             socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${myId}&role=admin`);
 
-            socket.onmessage = function(event) {
+            socket.onmessage = async function(event) {
                 try {
                     const data = JSON.parse(event.data);
                     
@@ -2003,9 +1974,15 @@
                         if (data.lastSeen) {
                             lastSeenMap[data.userId] = data.lastSeen;
                         }
-                        fetchConversations();
+                        await fetchConversations();
                         if (selectedClientId === data.userId || (selectedClientId && selectedClientId.includes(data.userId))) {
                             updateHeaderPresenceStatus();
+                        }
+                    } else if (data.type === 'new_user') {
+                        const newUser = data.user;
+                        if (newUser && !allUsersList.some(u => u.id === newUser.id)) {
+                            allUsersList.push(newUser);
+                            await fetchConversations();
                         }
                     } else if (data.type === 'message') {
                         const m = data.message;
@@ -2013,17 +1990,23 @@
                         const isTeamDM = m.clientId && m.clientId.startsWith('team_chat_');
 
                         if (selectedTeamChatId === m.clientId || selectedClientId === m.clientId) {
-                            if (isGroup || isTeamDM) fetchTeamMessages(m.clientId);
-                            else fetchMessages(m.clientId);
-                            markAsRead(m.clientId);
+                            if (isGroup || isTeamDM) {
+                                fetchTeamMessages(m.clientId);
+                                await markTeamMessagesAsRead(m.clientId);
+                            } else {
+                                fetchMessages(m.clientId);
+                                await markAsRead(m.clientId);
+                            }
                         }
-                        fetchConversations();
+                        await fetchConversations();
                     } else if (data.type === 'message_deleted') {
                         const activeId = selectedClientId || selectedTeamChatId;
                         if (activeId === data.clientId) {
                             if (selectedTeamChatId) fetchTeamMessages(activeId);
                             else fetchMessages(activeId);
                         }
+                    } else if (data.type === 'group_update') {
+                        await fetchConversations();
                     } else if (data.type === 'call_signal') {
                         window.Calling.handleSignal(data);
                     }
@@ -2210,6 +2193,24 @@
                     class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all placeholder:font-normal placeholder:text-slate-400">
             </div>
 
+            <!-- Group Icon -->
+            <div>
+                <label class="block mb-1.5 text-[10px] uppercase font-bold text-slate-400 tracking-wider">Group Icon / Emoji</label>
+                <div class="flex gap-2.5">
+                    <input type="text" id="cg-icon" readonly value="💬" class="w-12 text-center px-2 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-lg font-bold focus:outline-none">
+                    <div class="flex-1 flex gap-1.5 overflow-x-auto py-1 items-center">
+                        <button type="button" onclick="selectGroupEmoji('💬')" class="text-lg hover:scale-125 transition-transform p-1 cursor-pointer border-0 bg-transparent">💬</button>
+                        <button type="button" onclick="selectGroupEmoji('💼')" class="text-lg hover:scale-125 transition-transform p-1 cursor-pointer border-0 bg-transparent">💼</button>
+                        <button type="button" onclick="selectGroupEmoji('📣')" class="text-lg hover:scale-125 transition-transform p-1 cursor-pointer border-0 bg-transparent">📣</button>
+                        <button type="button" onclick="selectGroupEmoji('🔧')" class="text-lg hover:scale-125 transition-transform p-1 cursor-pointer border-0 bg-transparent">🔧</button>
+                        <button type="button" onclick="selectGroupEmoji('🚀')" class="text-lg hover:scale-125 transition-transform p-1 cursor-pointer border-0 bg-transparent">🚀</button>
+                        <button type="button" onclick="selectGroupEmoji('⚠️')" class="text-lg hover:scale-125 transition-transform p-1 cursor-pointer border-0 bg-transparent">⚠️</button>
+                        <button type="button" onclick="selectGroupEmoji('📅')" class="text-lg hover:scale-125 transition-transform p-1 cursor-pointer border-0 bg-transparent">📅</button>
+                        <button type="button" onclick="selectGroupEmoji('🔒')" class="text-lg hover:scale-125 transition-transform p-1 cursor-pointer border-0 bg-transparent">🔒</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Description -->
             <div>
                 <label class="block mb-1.5 text-[10px] uppercase font-bold text-slate-400 tracking-wider">Description</label>
@@ -2252,11 +2253,17 @@
     // =================== GROUP CREATION MODAL LOGIC ===================
     let _cgSelectedMembers = {}; // id -> { id, name }
 
+    window.selectGroupEmoji = function(emoji) {
+        const input = document.getElementById('cg-icon');
+        if (input) input.value = emoji;
+    };
+
     window.showCreateGroupModal = function() {
         _cgSelectedMembers = {};
         document.getElementById('cg-name').value = '';
         document.getElementById('cg-description').value = '';
         document.getElementById('cg-member-search').value = '';
+        if (document.getElementById('cg-icon')) document.getElementById('cg-icon').value = '💬';
         document.getElementById('cg-selected-chips').innerHTML = '';
         renderGroupMemberList('');
         const modal = document.getElementById('create-group-modal');
@@ -2343,6 +2350,7 @@
             return;
         }
         const description = document.getElementById('cg-description').value.trim();
+        const icon = document.getElementById('cg-icon') ? document.getElementById('cg-icon').value : '💬';
         const memberIds = [myId, ...Object.keys(_cgSelectedMembers)];
 
         const btn = document.getElementById('cg-submit-btn');
@@ -2353,7 +2361,7 @@
             const res = await fetch('/api/messages/groups', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, description, memberIds, createdBy: myId })
+                body: JSON.stringify({ name, description, icon, memberIds, createdBy: myId })
             });
             if (!res.ok) throw new Error('Failed');
             const group = await res.json();
