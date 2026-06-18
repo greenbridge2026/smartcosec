@@ -447,6 +447,43 @@ app.delete('/api/static-content/:id', (req, res) => {
     res.status(204).send();
 });
 
+// POST /api/requirements/pay → mock payment and email dispatch
+app.post('/api/requirements/pay', (req, res) => {
+    const data = req.body;
+    const email = data.contact?.email || 'customer@example.com';
+    const name = `${data.contact?.firstName || ''} ${data.contact?.lastName || ''}`.trim() || 'Valued Customer';
+    
+    console.log(`\n==================================================`);
+    console.log(`[Email Dispatch Simulation] Sending receipt & summary to: ${email}`);
+    console.log(`--------------------------------------------------`);
+    console.log(`Dear ${name},`);
+    console.log(`Thank you for choosing Globalisor! We have received your payment.`);
+    console.log(`Here is a summary of your company setup details:`);
+    console.log(`- Company Type: ${data.companyType || 'Pte Ltd'}`);
+    console.log(`- Proposed Name 1: ${data.names?.[0] || 'N/A'}`);
+    console.log(`- Proposed Name 2: ${data.names?.[1] || 'N/A'}`);
+    console.log(`- Primary Activity: ${data.activities?.primary || 'N/A'}`);
+    console.log(`- Registered Office: ${data.office?.useService ? 'Globalisor Premium CBD Address' : (data.office?.address || 'Own Address')}`);
+    
+    const selectedServices = [];
+    if (data.office?.useService) selectedServices.push('Registered Office Address ($480/yr)');
+    if (data.secretary?.required) selectedServices.push('Corporate Secretary Service ($720/yr)');
+    if (data.addons?.bankIntro) selectedServices.push('Bank Account Introduction ($350)');
+    if (data.addons?.statCompliance) selectedServices.push('Statutory & Compliance ($480/yr)');
+    if (data.addons?.accounting) selectedServices.push('Accounting & Bookkeeping ($220/mo)');
+    if (data.addons?.taxCompliance) selectedServices.push('Tax Compliance Package ($720/yr)');
+    if (data.addons?.crossBorderTax) selectedServices.push('Cross-Border Tax Structuring ($4,500)');
+    if (data.addons?.apostille) selectedServices.push('Apostille + Notarisation ($280)');
+    
+    console.log(`- Selected Add-on Services (${selectedServices.length}):`);
+    selectedServices.forEach(srv => console.log(`  * ${srv}`));
+    console.log(`\nPlease complete the remaining details (Share Capital & Secretary fields) in the portal.`);
+    console.log(`Best regards,\nThe Globalisor Team`);
+    console.log(`==================================================\n`);
+    
+    res.json({ success: true, message: 'Payment registered, email sent.' });
+});
+
 app.listen(port, () => {
     console.log(`Backend API running on http://localhost:${port}`);
 });

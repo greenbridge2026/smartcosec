@@ -21,6 +21,9 @@ const services = [
 ];
 
 async function init() {
+    if (window.__globalisor_init_executed) return;
+    window.__globalisor_init_executed = true;
+
     // If we are on the landing page, reset the clicked flags
     const isLandingPage = window.location.pathname === '/' || window.location.pathname === '/index.html' || window.location.pathname.endsWith('/');
     if (isLandingPage) {
@@ -551,6 +554,14 @@ async function init() {
     const selectedNamesText = document.getElementById('selected-services-names');
     const clearBtn = document.querySelector('.btn-clear-selection');
     const dropdownOptions = document.getElementById('dropdown-options');
+    const localQuestionStep = document.getElementById('local-question-step');
+    const btnLocalYes = document.getElementById('btn-local-yes');
+    const btnLocalNo = document.getElementById('btn-local-no');
+    const btnLocalBack = document.getElementById('btn-local-back');
+    const officeQuestionStep = document.getElementById('office-question-step');
+    const btnOfficeYes = document.getElementById('btn-office-yes');
+    const btnOfficeNo = document.getElementById('btn-office-no');
+    const btnOfficeBack = document.getElementById('btn-office-back');
 
     const allServices = [
         { id: 'inc-local', name: 'Incorporation for Locals', category: 'Incorporation', icon: 'building', desc: 'Fast-track registration for Singapore citizens and PRs.' },
@@ -655,26 +666,43 @@ async function init() {
 
     statusCards.forEach(card => {
         card.addEventListener('click', () => {
+            if (statusStep && statusStep.classList.contains('opacity-0')) return; // Guard against transitioning twice
             const status = card.dataset.status;
             
             if (status === 'new') {
-                // Store intent so after sign-in the user is redirected to pricing
-                localStorage.setItem('post_auth_redirect', '/pricing.html');
-                window.location.href = '/auth.html?mode=signup';
+                if (statusStep && localQuestionStep) {
+                    history.pushState(null, '', '?step=local-question');
+                    const wrapper = document.getElementById('service-selection');
+                    if (wrapper) wrapper.classList.add('question-mode');
+                    statusStep.classList.add('opacity-0', 'translate-y-10');
+                    const header = document.getElementById('choose-service-header');
+                    if (header) header.classList.add('hidden');
+                    setTimeout(() => {
+                        statusStep.classList.add('hidden');
+                        localQuestionStep.classList.remove('hidden');
+                        setTimeout(() => {
+                            localQuestionStep.classList.remove('opacity-0', 'translate-y-10');
+                        }, 50);
+                    }, 500);
+                }
                 return;
             }
 
             if (status === 'existing') {
-                // Store intent so after sign-in the user is redirected to the correct onboarding flow
+                // Auto-provision mock token to bypass sign up / sign in pages
+                localStorage.setItem('token', 'mock-guest-token-' + Math.random().toString(36).substring(2));
+                localStorage.setItem('client_auth', JSON.stringify({ email: 'guest@globalisor.com', role: 'CLIENT' }));
                 localStorage.setItem('post_auth_redirect', '/onboarding.html?flow=existing-co');
-                window.location.href = '/auth.html?mode=signup';
+                window.location.href = '/onboarding.html?flow=existing-co';
                 return;
             }
 
             if (status === 'client') {
-                // Existing clients must sign in first
+                // Auto-provision mock token to bypass sign up / sign in pages
+                localStorage.setItem('token', 'mock-guest-token-' + Math.random().toString(36).substring(2));
+                localStorage.setItem('client_auth', JSON.stringify({ email: 'guest@globalisor.com', role: 'CLIENT' }));
                 localStorage.setItem('post_auth_redirect', '/onboarding.html?flow=client');
-                window.location.href = '/auth.html';
+                window.location.href = '/onboarding.html?flow=client';
                 return;
             }
 
@@ -693,6 +721,7 @@ async function init() {
 
     if (backBtn) {
         backBtn.addEventListener('click', () => {
+            if (servicesStep && servicesStep.classList.contains('opacity-0')) return;
             servicesStep.classList.add('opacity-0', 'translate-y-10');
             setTimeout(() => {
                 servicesStep.classList.add('hidden');
@@ -706,6 +735,178 @@ async function init() {
             currentSelectedServices.clear();
             updateUI();
         });
+    }
+
+    if (btnLocalYes) {
+        btnLocalYes.addEventListener('click', () => {
+            if (localQuestionStep && localQuestionStep.classList.contains('opacity-0')) return; // Guard against transitioning twice
+            if (localQuestionStep && officeQuestionStep) {
+                history.pushState(null, '', '?step=office-question');
+                localQuestionStep.classList.add('opacity-0', 'translate-y-10');
+                setTimeout(() => {
+                    localQuestionStep.classList.add('hidden');
+                    officeQuestionStep.classList.remove('hidden');
+                    setTimeout(() => {
+                        officeQuestionStep.classList.remove('opacity-0', 'translate-y-10');
+                    }, 50);
+                }, 500);
+            }
+        });
+    }
+
+    if (btnLocalNo) {
+        btnLocalNo.addEventListener('click', () => {
+            localStorage.setItem('token', 'mock-guest-token-' + Math.random().toString(36).substring(2));
+            localStorage.setItem('client_auth', JSON.stringify({ email: 'guest@globalisor.com', role: 'CLIENT' }));
+            window.location.href = '/pricing.html';
+        });
+    }
+
+    function setOfficePreconfigAndRedirect(useService) {
+        localStorage.setItem('token', 'mock-guest-token-' + Math.random().toString(36).substring(2));
+        localStorage.setItem('client_auth', JSON.stringify({ email: 'guest@globalisor.com', role: 'CLIENT' }));
+        
+        let masterData = {};
+        try {
+            masterData = JSON.parse(localStorage.getItem('globalisor_master_v3')) || {};
+        } catch (e) {
+            masterData = {};
+        }
+        if (!masterData.office) masterData.office = {};
+        masterData.office.useService = useService;
+        masterData.office.hasOwnAddress = !useService;
+        localStorage.setItem('globalisor_master_v3', JSON.stringify(masterData));
+        
+        window.location.href = '/requirements.html';
+    }
+
+    if (btnOfficeYes) {
+        btnOfficeYes.addEventListener('click', () => {
+            setOfficePreconfigAndRedirect(false); // Yes, I have one (useService = false)
+        });
+    }
+
+    if (btnOfficeNo) {
+        btnOfficeNo.addEventListener('click', () => {
+            setOfficePreconfigAndRedirect(true); // No, I need one (useService = true)
+        });
+    }
+
+    if (btnOfficeBack) {
+        btnOfficeBack.addEventListener('click', () => {
+            history.pushState(null, '', '?step=local-question');
+            if (officeQuestionStep && officeQuestionStep.classList.contains('opacity-0')) return; // Guard against transitioning twice
+            if (localQuestionStep && officeQuestionStep) {
+                officeQuestionStep.classList.add('opacity-0', 'translate-y-10');
+                setTimeout(() => {
+                    officeQuestionStep.classList.add('hidden');
+                    localQuestionStep.classList.remove('hidden');
+                    setTimeout(() => {
+                        localQuestionStep.classList.remove('opacity-0', 'translate-y-10');
+                    }, 50);
+                }, 500);
+            }
+        });
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+
+    if (btnLocalBack) {
+        btnLocalBack.addEventListener('click', () => {
+            history.pushState(null, '', window.location.pathname);
+            if (localQuestionStep && localQuestionStep.classList.contains('opacity-0')) return; // Guard against transitioning twice
+            if (localQuestionStep) {
+                localQuestionStep.classList.add('opacity-0', 'translate-y-10');
+                const header = document.getElementById('choose-service-header');
+                const wrapper = document.getElementById('service-selection');
+                setTimeout(() => {
+                    if (wrapper) wrapper.classList.remove('question-mode');
+                    localQuestionStep.classList.add('hidden');
+                    if (header) header.classList.remove('hidden');
+                    if (statusStep) {
+                        statusStep.classList.remove('hidden');
+                        setTimeout(() => {
+                            statusStep.classList.remove('opacity-0', 'translate-y-10');
+                        }, 50);
+                    }
+                }, 500);
+            }
+        });
+    }
+
+    window.addEventListener('popstate', () => {
+        const currentParams = new URLSearchParams(window.location.search);
+        const step = currentParams.get('step');
+        
+        // Hide all steps first
+        if (statusStep) {
+            statusStep.classList.add('hidden', 'opacity-0', 'translate-y-10');
+        }
+        if (localQuestionStep) {
+            localQuestionStep.classList.add('hidden', 'opacity-0', 'translate-y-10');
+        }
+        if (officeQuestionStep) {
+            officeQuestionStep.classList.add('hidden', 'opacity-0', 'translate-y-10');
+        }
+        
+        const header = document.getElementById('choose-service-header');
+        const wrapper = document.getElementById('service-selection');
+        
+        if (step === 'local-question') {
+            if (wrapper) wrapper.classList.add('question-mode');
+            if (header) header.classList.add('hidden');
+            if (localQuestionStep) {
+                localQuestionStep.classList.remove('hidden');
+                setTimeout(() => {
+                    localQuestionStep.classList.remove('opacity-0', 'translate-y-10');
+                }, 50);
+            }
+        } else if (step === 'office-question') {
+            if (wrapper) wrapper.classList.add('question-mode');
+            if (header) header.classList.add('hidden');
+            if (officeQuestionStep) {
+                officeQuestionStep.classList.remove('hidden');
+                setTimeout(() => {
+                    officeQuestionStep.classList.remove('opacity-0', 'translate-y-10');
+                }, 50);
+            }
+        } else {
+            // Default status page
+            if (wrapper) wrapper.classList.remove('question-mode');
+            if (header) header.classList.remove('hidden');
+            if (statusStep) {
+                statusStep.classList.remove('hidden');
+                setTimeout(() => {
+                    statusStep.classList.remove('opacity-0', 'translate-y-10');
+                }, 50);
+            }
+        }
+    });
+
+    // Check if we need to show the local question step on page load
+    if (urlParams.get('step') === 'local-question') {
+        if (statusStep && localQuestionStep) {
+            const wrapper = document.getElementById('service-selection');
+            if (wrapper) wrapper.classList.add('question-mode');
+            statusStep.classList.add('hidden', 'opacity-0', 'translate-y-10');
+            const header = document.getElementById('choose-service-header');
+            if (header) header.classList.add('hidden');
+            localQuestionStep.classList.remove('hidden');
+            localQuestionStep.classList.remove('opacity-0', 'translate-y-10');
+        }
+    }
+
+    // Check if we need to show the office question step on page load
+    if (urlParams.get('step') === 'office-question') {
+        if (statusStep && officeQuestionStep) {
+            const wrapper = document.getElementById('service-selection');
+            if (wrapper) wrapper.classList.add('question-mode');
+            statusStep.classList.add('hidden', 'opacity-0', 'translate-y-10');
+            const header = document.getElementById('choose-service-header');
+            if (header) header.classList.add('hidden');
+            officeQuestionStep.classList.remove('hidden');
+            officeQuestionStep.classList.remove('opacity-0', 'translate-y-10');
+        }
     }
 
     // 9. Dynamic Blog System
