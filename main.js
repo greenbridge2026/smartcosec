@@ -671,21 +671,7 @@ async function init() {
             const status = card.dataset.status;
             
             if (status === 'new') {
-                history.pushState(null, '', '?step=local-question');
-                if (statusStep && localQuestionStep) {
-                    const wrapper = document.getElementById('service-selection');
-                    if (wrapper) wrapper.classList.add('question-mode');
-                    const header = document.getElementById('choose-service-header');
-                    if (header) header.classList.add('hidden');
-                    statusStep.classList.add('opacity-0', 'translate-y-10');
-                    setTimeout(() => {
-                        statusStep.classList.add('hidden');
-                        localQuestionStep.classList.remove('hidden');
-                        setTimeout(() => {
-                            localQuestionStep.classList.remove('opacity-0', 'translate-y-10');
-                        }, 50);
-                    }, 500);
-                }
+                window.location.href = '/choose-service?step=local-question';
                 return;
             }
 

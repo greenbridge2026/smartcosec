@@ -23,6 +23,40 @@
     </script>
     <style>
         body { font-family: 'Outfit', sans-serif; background: #ffffff;  min-height: 100vh; overflow-x: hidden; }
+        
+        /* Modern Info Tooltips */
+        .custom-tooltip-trigger .custom-tooltip-box {
+            display: block;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.2s;
+        }
+        .tooltip-center {
+            left: 50%;
+            transform: translateX(-50%) translateY(4px) scale(0.95);
+        }
+        .tooltip-left {
+            left: 0;
+            transform: translateY(4px) scale(0.95);
+        }
+        .tooltip-right {
+            right: 0;
+            left: auto;
+            transform: translateY(4px) scale(0.95);
+        }
+        .custom-tooltip-trigger:hover .custom-tooltip-box {
+            visibility: visible;
+            opacity: 1;
+        }
+        .custom-tooltip-trigger:hover .tooltip-center {
+            transform: translateX(-50%) translateY(0) scale(1);
+        }
+        .custom-tooltip-trigger:hover .tooltip-left {
+            transform: translateY(0) scale(1);
+        }
+        .custom-tooltip-trigger:hover .tooltip-right {
+            transform: translateY(0) scale(1);
+        }
         .top-nav { height: 60px; background: #ffffff; backdrop-filter: blur(20px); border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1.5rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
         .main-container { padding: 2rem; max-width: 1600px; margin-left: 240px !important; margin-right: auto; }
         .module-nav-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #64748b; transition: all 0.2s; cursor: pointer !important; border: none; background: transparent; white-space: nowrap; width: 100% !important; box-sizing: border-box !important; }
@@ -199,11 +233,30 @@
                                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Applicable Services (Comma-separated or 'All')</label>
                                 <input type="text" id="sec-services-input" class="w-full px-4 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all" placeholder="e.g. Incorporation, Nominee Director, or All">
                             </div>
-                            <input type="hidden" id="sec-type-select" value="form">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Section Type</label>
+                                <select id="sec-type-select" class="w-full px-4 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer">
+                                    <option value="form">Standard Form</option>
+                                    <option value="repeater">Repeater Form (Multi-item)</option>
+                                    <option value="custom">Custom Component</option>
+                                </select>
+                            </div>
                         </div>
 
-                        <!-- Fields Configuration (Hidden fallback to prevent JS runtime errors) -->
-                        <div id="fields-list" class="hidden"></div>
+                        <!-- Form Fields Configuration -->
+                        <div class="space-y-4 pt-6 border-t border-slate-100">
+                            <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+                                <h4 class="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-1.5">
+                                    <i data-lucide="sliders" class="w-4 h-4 text-blue-500"></i> Form Fields
+                                </h4>
+                                <button onclick="addFieldRow()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 transition-all shadow-sm">
+                                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Field
+                                </button>
+                            </div>
+                            <div id="fields-list" class="space-y-4">
+                                <!-- Dynamic list of fields -->
+                            </div>
+                        </div>
 
                         <!-- Documents & Checklist configuration row -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-slate-100">
@@ -297,7 +350,14 @@
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Applicable Services (Comma-separated or 'All')</label>
                     <input type="text" id="modal-sec-services" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none" placeholder="e.g. Incorporation, Nominee Director, or All" value="All">
                 </div>
-                <input type="hidden" id="modal-sec-type" value="form">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Section Type</label>
+                    <select id="modal-sec-type" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none cursor-pointer">
+                        <option value="form">Standard Form</option>
+                        <option value="repeater">Repeater Form (Multi-item)</option>
+                        <option value="custom">Custom Component</option>
+                    </select>
+                </div>
             </div>
             <div class="flex justify-end gap-2 pt-2">
                 <button onclick="closeAddSectionModal()" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all">Cancel</button>
@@ -753,6 +813,31 @@
             return isValid;
         }
 
+        function renderTooltip(text, align = 'center') {
+            let positionClass = '';
+            let arrowClass = '';
+            if (align === 'left') {
+                positionClass = 'tooltip-left';
+                arrowClass = 'left-4';
+            } else if (align === 'right') {
+                positionClass = 'tooltip-right';
+                arrowClass = 'right-4';
+            } else {
+                positionClass = 'tooltip-center';
+                arrowClass = 'left-1/2 -translate-x-1/2';
+            }
+            
+            return `
+                <span class="custom-tooltip-trigger relative inline-flex items-center ml-1 cursor-help select-none">
+                    <span class="inline-flex items-center justify-center text-[9px] w-[13px] h-[13px] bg-slate-200 text-slate-500 hover:bg-slate-600 hover:text-white rounded-full font-bold transition-all duration-200">i</span>
+                    <span class="custom-tooltip-box pointer-events-none absolute bottom-full ${positionClass} z-50 mb-2 w-52 rounded-lg bg-slate-800 p-2.5 text-[10px] font-medium text-white shadow-xl line-clamp-none whitespace-normal normal-case text-left leading-normal">
+                        ${text}
+                        <span class="absolute top-full ${arrowClass} border-4 border-solid border-transparent border-t-slate-800"></span>
+                    </span>
+                </span>
+            `;
+        }
+
         function renderFieldRows(fields) {
             const container = document.getElementById('fields-list');
             container.innerHTML = '';
@@ -771,15 +856,31 @@
                 row.innerHTML = `
                     <div class="flex flex-wrap items-center gap-3 pr-8">
                         <div class="flex-1 min-w-[150px]">
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Field Label</label>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                                Field Label
+                                ${renderTooltip("The display name of the field shown to the user on the onboarding page (e.g. 'First Name' or 'Proposed Name Option 1').", 'left')}
+                            </label>
                             <input type="text" value="${field.label || ''}" oninput="updateFieldProperty(${index}, 'label', this.value)" class="field-label-input w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none">
                         </div>
                         <div class="flex-1 min-w-[120px]">
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Binding Key (Data Path)</label>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                                Binding Key (Data Path)
+                                ${renderTooltip("The exact variable path where the field value is stored in the database. Supports dot/array notation (e.g. 'contact.firstName' or 'names[0]').", 'center')}
+                            </label>
                             <input type="text" value="${field.key || ''}" oninput="updateFieldProperty(${index}, 'key', this.value)" class="field-key-input w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono outline-none">
                         </div>
+                        <div class="flex-1 min-w-[150px]">
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                                Placeholder
+                                ${renderTooltip("Temporary helper text shown inside the input. For 'switch' fields, this defines the price (e.g., '$480 per year' or '$350 one-time').", 'center')}
+                            </label>
+                            <input type="text" value="${field.placeholder || ''}" oninput="updateFieldProperty(${index}, 'placeholder', this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none" placeholder="e.g. Enter name option">
+                        </div>
                         <div class="min-w-[100px]">
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Type</label>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                                Type
+                                ${renderTooltip("The input format type (Text, Number, Date, Select List, Textarea, File, or Switch Toggle).", 'right')}
+                            </label>
                             <select onchange="updateFieldType(${index}, this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none cursor-pointer">
                                 <option value="text" ${field.type==='text'?'selected':''}>Text</option>
                                 <option value="number" ${field.type==='number'?'selected':''}>Number</option>
@@ -787,18 +888,24 @@
                                 <option value="date" ${field.type==='date'?'selected':''}>Date</option>
                                 <option value="select" ${field.type==='select'?'selected':''}>Select List</option>
                                 <option value="file" ${field.type==='file'?'selected':''}>File Upload</option>
+                                <option value="switch" ${field.type==='switch'?'selected':''}>Switch Toggle</option>
+                                <option value="ssic" ${field.type==='ssic'?'selected':''}>ACRA SSIC Selector</option>
                             </select>
                         </div>
                         <div class="flex items-center pt-5">
                             <label class="inline-flex items-center gap-1 cursor-pointer">
                                 <input type="checkbox" ${field.required?'checked':''} onchange="updateFieldProperty(${index}, 'required', this.checked)" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4">
                                 <span class="text-xs font-semibold text-slate-600">Required</span>
+                                ${renderTooltip("If checked, this field is mandatory and the user cannot continue to the next onboarding step without filling it out.", 'right')}
                             </label>
                         </div>
                     </div>
 
                     <div class="options-container ${isSelect ? '' : 'hidden'}" id="opt-container-${index}">
-                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Dropdown Options (Format: value:Label, separated by commas)</label>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                            Dropdown Options (Format: value:Label, separated by commas)
+                            ${renderTooltip("Specify option choices as 'value:Label' pairs separated by commas (e.g. 'true:Premium CBD Address ($480/yr), false:Use my own local address'). Only applicable for 'Select List' type.", 'left')}
+                        </label>
                         <input type="text" value="${selectOptions}" placeholder="e.g. true:Yes, false:No" oninput="updateFieldOptions(${index}, this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none">
                     </div>
 
@@ -806,19 +913,31 @@
                     <div class="border-t border-slate-200/60 pt-3 mt-3 grid grid-cols-1 md:grid-cols-5 gap-3">
                         <div class="md:col-span-5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Validation Rules</div>
                         <div>
-                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Min (Len/Val)</label>
+                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">
+                                Min (Len/Val)
+                                ${renderTooltip("Minimum character length for text/textarea inputs, or minimum numeric value for number inputs.", 'left')}
+                            </label>
                             <input type="number" value="${field.min !== undefined ? field.min : ''}" oninput="updateFieldProperty(${index}, 'min', this.value ? parseFloat(this.value) : undefined)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs outline-none">
                         </div>
                         <div>
-                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Max (Len/Val)</label>
+                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">
+                                Max (Len/Val)
+                                ${renderTooltip("Maximum character length for text/textarea inputs, or maximum numeric value for number inputs.", 'center')}
+                            </label>
                             <input type="number" value="${field.max !== undefined ? field.max : ''}" oninput="updateFieldProperty(${index}, 'max', this.value ? parseFloat(this.value) : undefined)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs outline-none">
                         </div>
                         <div>
-                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Regex Pattern</label>
+                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">
+                                Regex Pattern
+                                ${renderTooltip("Regular expression pattern constraints (e.g. '^[A-Z]{9}$' for exactly 9 uppercase letters).", 'center')}
+                            </label>
                             <input type="text" value="${field.pattern || ''}" oninput="updateFieldProperty(${index}, 'pattern', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono outline-none" placeholder="e.g. ^[A-Z]{3}$">
                         </div>
                         <div>
-                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Custom Date Check</label>
+                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">
+                                Custom Date Check
+                                ${renderTooltip("Built-in validation presets for date inputs (e.g. 'No Future Date' or 'Passport Expiry (> 6 Months)').", 'right')}
+                            </label>
                             <select onchange="updateFieldProperty(${index}, 'customRule', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs outline-none cursor-pointer">
                                 <option value="" ${!field.customRule?'selected':''}>None</option>
                                 <option value="no_future_date" ${field.customRule==='no_future_date'?'selected':''}>No Future Date</option>
@@ -826,26 +945,38 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Custom Error Alert</label>
+                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">
+                                Custom Error Alert
+                                ${renderTooltip("The custom validation error alert message to display when input constraints fail.", 'right')}
+                            </label>
                             <input type="text" value="${field.errorMessage || ''}" oninput="updateFieldProperty(${index}, 'errorMessage', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs outline-none" placeholder="Invalid input">
                         </div>
                     </div>
 
-                    <!-- File Guideline Hints (Visible only if type is file) -->
-                    <div class="border-t border-slate-200/60 pt-3 mt-3 ${field.type === 'file' ? '' : 'hidden'}" id="hint-container-${index}">
-                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Upload Guidelines & Description Hints</label>
-                        <input type="text" value="${field.hint || ''}" oninput="updateFieldProperty(${index}, 'hint', this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none" placeholder="e.g. Color copy of passport photo page, clear and legible.">
+                    <!-- File / Switch Guideline Hints -->
+                    <div class="border-t border-slate-200/60 pt-3 mt-3 ${field.type === 'file' || field.type === 'switch' ? '' : 'hidden'}" id="hint-container-${index}">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                            Description Hints / Guidelines
+                            ${renderTooltip("Acts as the main description text for 'Switch Toggle' types, or guideline descriptions for 'File Upload' types.", 'left')}
+                        </label>
+                        <input type="text" value="${field.hint || ''}" oninput="updateFieldProperty(${index}, 'hint', this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none" placeholder="e.g. For toggle switch, this acts as the description text.">
                     </div>
 
                     <!-- Conditional Display Sub-section -->
                     <div class="border-t border-slate-200/60 pt-3 mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div class="md:col-span-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Conditional Visibility (Optional)</div>
                         <div>
-                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Depends on Field Key</label>
+                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">
+                                Depends on Field Key
+                                ${renderTooltip("Conditional display rule. Enter the field key this field's visibility depends on (e.g. 'office.useService').", 'left')}
+                            </label>
                             <input type="text" value="${field.condKey || ''}" oninput="updateFieldProperty(${index}, 'condKey', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono outline-none" placeholder="e.g. office.useService">
                         </div>
                         <div>
-                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Operator</label>
+                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">
+                                Operator
+                                ${renderTooltip("Comparison operator for conditional visibility ('Equals', 'Does Not Equal', 'Is Empty', 'Is Not Empty').", 'center')}
+                            </label>
                             <select onchange="updateFieldProperty(${index}, 'condOperator', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs outline-none cursor-pointer">
                                 <option value="equals" ${field.condOperator==='equals'?'selected':''}>Equals</option>
                                 <option value="not_equals" ${field.condOperator==='not_equals'?'selected':''}>Does Not Equal</option>
@@ -854,7 +985,10 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Compare Value</label>
+                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">
+                                Compare Value
+                                ${renderTooltip("The target value to compare against for conditional visibility (e.g. 'false').", 'right')}
+                            </label>
                             <input type="text" value="${field.condValue || ''}" oninput="updateFieldProperty(${index}, 'condValue', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs outline-none" placeholder="e.g. false">
                         </div>
                     </div>
@@ -891,7 +1025,7 @@
                 
                 const hintContainer = document.getElementById(`hint-container-${index}`);
                 if (hintContainer) {
-                    if (type === 'file') {
+                    if (type === 'file' || type === 'switch') {
                         hintContainer.classList.remove('hidden');
                     } else {
                         hintContainer.classList.add('hidden');
@@ -935,6 +1069,7 @@
                 label: label,
                 key: key,
                 type: 'text',
+                placeholder: '',
                 required: false
             });
             renderFieldRows(sec.fields);
