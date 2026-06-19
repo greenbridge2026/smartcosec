@@ -726,22 +726,71 @@ async function init() {
         });
     }
 
+    function selectLocalOptionAndRedirect(isLocal, buttonElement) {
+        if (!buttonElement) return;
+
+        // Apply active styling to the clicked button
+        if (isLocal) {
+            buttonElement.classList.add('!border-blue-600', 'bg-blue-50/30', 'scale-[1.02]', 'shadow-2xl', 'ring-4', 'ring-blue-100');
+            const iconDiv = buttonElement.querySelector('.w-20');
+            if (iconDiv) {
+                iconDiv.classList.remove('bg-blue-50', 'text-blue-600');
+                iconDiv.classList.add('bg-blue-600', 'text-white');
+            }
+            
+            // Fade and disable the foreigner button
+            if (btnLocalNo) {
+                btnLocalNo.classList.add('opacity-40', 'scale-95', 'pointer-events-none');
+            }
+        } else {
+            buttonElement.classList.add('!border-slate-900', 'bg-slate-50/30', 'scale-[1.02]', 'shadow-2xl', 'ring-4', 'ring-slate-100');
+            const iconDiv = buttonElement.querySelector('.w-20');
+            if (iconDiv) {
+                iconDiv.classList.remove('bg-slate-50', 'text-slate-700');
+                iconDiv.classList.add('bg-slate-900', 'text-white');
+            }
+            
+            // Fade and disable the local button
+            if (btnLocalYes) {
+                btnLocalYes.classList.add('opacity-40', 'scale-95', 'pointer-events-none');
+            }
+        }
+
+        // Mock guest login settings
+        localStorage.setItem('token', 'mock-guest-token-' + Math.random().toString(36).substring(2));
+        localStorage.setItem('client_auth', JSON.stringify({ email: 'guest@globalisor.com', role: 'CLIENT' }));
+
+        // Update local wizard configurations
+        let masterData = {};
+        try {
+            masterData = JSON.parse(localStorage.getItem('globalisor_master_v3')) || {};
+        } catch (e) {
+            masterData = {};
+        }
+        
+        masterData.serviceType = isLocal ? 'Incorporation for Locals' : 'Incorporation for Foreigners';
+        
+        // Also pre-configure first director's idType based on the choice
+        if (!masterData.directors || masterData.directors.length === 0) {
+            masterData.directors = [{ name: '', idType: isLocal ? 'local' : 'passport', idNum: '', dob: '', phone: '', passportExpiry: '', docs: {} }];
+        } else {
+            masterData.directors[0].idType = isLocal ? 'local' : 'passport';
+        }
+
+        localStorage.setItem('globalisor_master_v3', JSON.stringify(masterData));
+
+        // Delay redirect slightly so the click action is visually visible to the user
+        setTimeout(() => {
+            window.location.href = '/requirements';
+        }, 500);
+    }
+
     if (btnLocalYes) {
         btnLocalYes.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
             if (localQuestionStep && localQuestionStep.classList.contains('opacity-0')) return; // Guard against transitioning twice
-            if (localQuestionStep && officeQuestionStep) {
-                history.pushState(null, '', '?step=office-question');
-                localQuestionStep.classList.add('opacity-0', 'translate-y-10');
-                setTimeout(() => {
-                    localQuestionStep.classList.add('hidden');
-                    officeQuestionStep.classList.remove('hidden');
-                    setTimeout(() => {
-                        officeQuestionStep.classList.remove('opacity-0', 'translate-y-10');
-                    }, 50);
-                }, 500);
-            }
+            selectLocalOptionAndRedirect(true, btnLocalYes);
         });
     }
 
@@ -749,9 +798,8 @@ async function init() {
         btnLocalNo.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            localStorage.setItem('token', 'mock-guest-token-' + Math.random().toString(36).substring(2));
-            localStorage.setItem('client_auth', JSON.stringify({ email: 'guest@globalisor.com', role: 'CLIENT' }));
-            window.location.href = '/pricing';
+            if (localQuestionStep && localQuestionStep.classList.contains('opacity-0')) return; // Guard against transitioning twice
+            selectLocalOptionAndRedirect(false, btnLocalNo);
         });
     }
 
