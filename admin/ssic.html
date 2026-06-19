@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSIC Codes Manager | Globalisor Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <script type="module" src="admin-sidebar.js"></script>
+    <script>
+        if (!localStorage.getItem('admin_auth')) window.location.href = '/auth.html';
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], outfit: ['Outfit', 'sans-serif'] },
+                    colors: { slate: { 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 800: '#1e293b', 900: '#0f172a' } }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Outfit', sans-serif; background: #ffffff; min-height: 100vh; overflow-x: hidden; }
+        .top-nav { height: 60px; background: #ffffff; backdrop-filter: blur(20px); border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1.5rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
+        .main-container { padding: 2rem; max-width: 1600px; margin-left: 240px !important; margin-right: auto; }
+        
+        .top-nav > div:nth-child(2), #module-switcher {
+            position: fixed !important;
+            top: 60px !important;
+            left: 0 !important;
+            width: 240px !important;
+            height: calc(100vh - 60px) !important;
+            background: #ffffff !important;
+            backdrop-filter: blur(20px) !important;
+            border-right: 1px solid #e2e8f0 !important;
+            border-top: none !important;
+            border-left: none !important;
+            border-bottom: none !important;
+            border-radius: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            padding: 1.5rem 1rem !important;
+            gap: 0.5rem !important;
+            align-items: stretch !important;
+            justify-content: flex-start !important;
+            z-index: 9998 !important;
+            box-shadow: none !important;
+        }
+
+        /* Increase base font-size across admin portal */
+        html { font-size: 16.5px !important; }
+        .admin-table th { font-size: 11px !important; }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50/50">
+
+    <!-- Top Navigation Header -->
+    <div class="top-nav">
+        <div class="flex items-center">
+            <!-- Mobile Toggle icon injected by sidebar.js -->
+        </div>
+        <div class="flex items-center justify-end gap-4">
+            <!-- Notification bell injected by sidebar.js -->
+            <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
+                <div class="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-sm" id="admin-avatar">A</div>
+                <div class="hidden md:block">
+                    <div class="text-xs font-semibold text-slate-800" id="admin-name">Administrator</div>
+                    <div class="text-[10px] text-slate-400 font-medium">Globalisor Admin</div>
+                </div>
+                <button onclick="window.logout()" class="p-1 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-red-500 transition-colors ml-1 cursor-pointer">
+                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Toast container -->
+        <div id="toast-container" class="fixed top-20 right-6 z-[99999] flex flex-col gap-2"></div>
+
+        <!-- Header Controls -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900 tracking-tight">SSIC & Business Activities</h1>
+                <p class="text-xs font-medium text-slate-400 mt-1">Manage the ACRA-style Standard Industrial Classification (SSIC) master list for client onboarding.</p>
+            </div>
+            <div>
+                <button onclick="openModal()" class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-blue-500/10 cursor-pointer">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Add SSIC Code
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter & Search Section -->
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 mb-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="relative flex-1 max-w-md">
+                    <span class="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">
+                        <i data-lucide="search" class="w-4 h-4"></i>
+                    </span>
+                    <input type="text" id="search-input" oninput="handleSearch()" placeholder="Search SSIC code, activity name, or industry category..." class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-medium">
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Filter:</span>
+                    <select id="status-filter" onchange="handleSearch()" class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none font-medium cursor-pointer">
+                        <option value="ALL">All Statuses</option>
+                        <option value="PUBLISHED">Published</option>
+                        <option value="DRAFT">Draft</option>
+                        <option value="UNPUBLISHED">Unpublished</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- SSIC List Table -->
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-100">
+                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">SSIC Code</th>
+                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Business Activity Name</th>
+                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Category / Group</th>
+                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Last Updated By</th>
+                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ssic-table-body" class="divide-y divide-slate-50">
+                        <!-- Loading State -->
+                        <tr>
+                            <td colspan="6" class="px-6 py-12 text-center text-xs font-semibold text-slate-400">
+                                <div class="flex justify-center items-center gap-2">
+                                    <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                    <span>Loading SSIC master list...</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Form (Add / Edit) -->
+    <div id="ssic-modal" class="fixed inset-0 z-[100000] hidden flex items-center justify-center bg-slate-900/40 backdrop-blur-sm transition-all duration-300">
+        <div class="bg-white rounded-2xl w-full max-w-xl mx-4 overflow-hidden border border-slate-100 shadow-2xl transition-all scale-95 duration-200" id="ssic-modal-box">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider" id="modal-title">Add SSIC Code</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-6 flex flex-col gap-4">
+                <input type="hidden" id="modal-id">
+                
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="col-span-1">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">SSIC Code*</label>
+                        <input type="text" id="modal-code" placeholder="E.g. 62011" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Category / Group*</label>
+                        <input type="text" id="modal-category" placeholder="E.g. Information and Communications" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Business Activity Name*</label>
+                    <input type="text" id="modal-name" placeholder="E.g. Development of software for interactive digital media" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Default Business Activity Description (Sub-text)</label>
+                    <textarea id="modal-description" placeholder="E.g. Includes development of e-commerce, mobile applications, games..." class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800 h-24 resize-none"></textarea>
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50">
+                <button onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 transition-all cursor-pointer">
+                    Cancel
+                </button>
+                <button onclick="saveActivity()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-blue-500/10 cursor-pointer">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Block -->
+    <script>
+        let activities = [];
+        let filteredActivities = [];
+
+        function showToast(message, type = "success") {
+            const container = document.getElementById("toast-container");
+            const toast = document.createElement("div");
+            toast.className = `flex items-center gap-2.5 px-4 py-3 rounded-xl border text-xs font-semibold shadow-lg transition-all duration-300 transform translate-y-2 opacity-0`;
+            if (type === "success") {
+                toast.className += " bg-emerald-50 border-emerald-200 text-emerald-800";
+                toast.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4 shrink-0"></i> <span>${message}</span>`;
+            } else {
+                toast.className += " bg-rose-50 border-rose-200 text-rose-800";
+                toast.innerHTML = `<i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i> <span>${message}</span>`;
+            }
+            container.appendChild(toast);
+            if (window.lucide) window.lucide.createIcons();
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        async function loadActivities() {
+            try {
+                const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
+                const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+                const res = await fetch('/api/ssic-activities', { headers });
+                
+                if (res.ok) {
+                    activities = await res.json();
+                    handleSearch();
+                } else if (res.status === 401) {
+                    window.logout();
+                } else {
+                    showToast("Failed to fetch SSIC activities", "error");
+                }
+            } catch (error) {
+                console.error("Fetch error:", error);
+                showToast("Network error fetching SSIC activities", "error");
+            }
+        }
+
+        function handleSearch() {
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            const statusFilter = document.getElementById('status-filter').value;
+
+            filteredActivities = activities.filter(act => {
+                const matchesSearch = 
+                    (act.code || '').toLowerCase().includes(query) ||
+                    (act.name || '').toLowerCase().includes(query) ||
+                    (act.category || '').toLowerCase().includes(query);
+                
+                const matchesStatus = (statusFilter === 'ALL') || (act.status === statusFilter);
+
+                return matchesSearch && matchesStatus;
+            });
+
+            // Sort by code numeric/alphabetic order
+            filteredActivities.sort((a, b) => (a.code || '').localeCompare(b.code || ''));
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('ssic-table-body');
+            tbody.innerHTML = '';
+
+            if (filteredActivities.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center text-xs font-semibold text-slate-400">
+                            No SSIC activities found matching your filters.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            filteredActivities.forEach(act => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50/50 transition-colors';
+
+                // Status Badge styling
+                let statusBadge = '';
+                if (act.status === 'PUBLISHED') {
+                    statusBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">PUBLISHED</span>';
+                } else if (act.status === 'DRAFT') {
+                    statusBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200">DRAFT</span>';
+                } else {
+                    statusBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-100 text-slate-600 border border-slate-200">UNPUBLISHED</span>';
+                }
+
+                const dateStr = act.lastUpdatedAt ? new Date(act.lastUpdatedAt).toLocaleString() : 'N/A';
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4 text-xs font-bold text-slate-900">${act.code}</td>
+                    <td class="px-6 py-4 text-xs font-semibold text-slate-700 max-w-md truncate" title="${act.name}">${act.name}</td>
+                    <td class="px-6 py-4 text-xs font-semibold text-slate-500">${act.category || 'N/A'}</td>
+                    <td class="px-6 py-4">${statusBadge}</td>
+                    <td class="px-6 py-4">
+                        <div class="text-xs font-semibold text-slate-700">${act.lastUpdatedBy || 'System'}</div>
+                        <div class="text-[9px] text-slate-400 font-medium mt-0.5">${dateStr}</div>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <div class="flex items-center justify-end gap-1">
+                            ${act.status === 'PUBLISHED' ? 
+                              `<button onclick="unpublishActivity('${act.id}')" title="Unpublish" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-amber-500 cursor-pointer"><i data-lucide="eye-off" class="w-4 h-4"></i></button>` :
+                              `<button onclick="publishActivity('${act.id}')" title="Publish" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-emerald-500 cursor-pointer"><i data-lucide="eye" class="w-4 h-4"></i></button>`
+                            }
+                            <button onclick="openModal('${act.id}')" title="Edit" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-blue-500 cursor-pointer"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                            <button onclick="deleteActivity('${act.id}')" title="Delete" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-red-500 cursor-pointer"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        // Modal Operations
+        function openModal(id = null) {
+            const modal = document.getElementById('ssic-modal');
+            const box = document.getElementById('ssic-modal-box');
+            
+            document.getElementById('modal-id').value = '';
+            document.getElementById('modal-code').value = '';
+            document.getElementById('modal-name').value = '';
+            document.getElementById('modal-category').value = '';
+            document.getElementById('modal-description').value = '';
+
+            if (id) {
+                document.getElementById('modal-title').innerText = "Edit SSIC Code";
+                const act = activities.find(a => a.id === id);
+                if (act) {
+                    document.getElementById('modal-id').value = act.id;
+                    document.getElementById('modal-code').value = act.code;
+                    document.getElementById('modal-name').value = act.name;
+                    document.getElementById('modal-category').value = act.category || '';
+                    document.getElementById('modal-description').value = act.description || '';
+                }
+            } else {
+                document.getElementById('modal-title').innerText = "Add SSIC Code";
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                box.classList.remove('scale-95');
+                box.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('ssic-modal');
+            const box = document.getElementById('ssic-modal-box');
+            box.classList.remove('scale-100');
+            box.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+        }
+
+        async function saveActivity() {
+            const id = document.getElementById('modal-id').value.trim();
+            const code = document.getElementById('modal-code').value.trim();
+            const name = document.getElementById('modal-name').value.trim();
+            const category = document.getElementById('modal-category').value.trim();
+            const description = document.getElementById('modal-description').value.trim();
+
+            if (!code || !name || !category) {
+                showToast("Code, Category, and Name are required fields!", "error");
+                return;
+            }
+
+            const payload = { code, name, category, description };
+            const method = id ? 'PUT' : 'POST';
+            const url = id ? `/api/ssic-activities/${id}` : '/api/ssic-activities';
+
+            try {
+                const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                };
+                const res = await fetch(url, {
+                    method,
+                    headers,
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    showToast(id ? "SSIC Activity updated successfully!" : "SSIC Activity added successfully!");
+                    closeModal();
+                    loadActivities();
+                } else {
+                    const text = await res.text();
+                    showToast(`Error saving: ${text}`, "error");
+                }
+            } catch (error) {
+                showToast("Network error saving SSIC activity", "error");
+            }
+        }
+
+        async function deleteActivity(id) {
+            if (!confirm("Are you sure you want to delete this SSIC code? This cannot be undone.")) return;
+
+            try {
+                const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
+                const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+                const res = await fetch(`/api/ssic-activities/${id}`, {
+                    method: 'DELETE',
+                    headers
+                });
+
+                if (res.ok) {
+                    showToast("SSIC Code deleted successfully");
+                    loadActivities();
+                } else {
+                    showToast("Error deleting SSIC activity", "error");
+                }
+            } catch (error) {
+                showToast("Network error deleting SSIC activity", "error");
+            }
+        }
+
+        async function publishActivity(id) {
+            try {
+                const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
+                const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+                const res = await fetch(`/api/ssic-activities/${id}/publish`, {
+                    method: 'POST',
+                    headers
+                });
+
+                if (res.ok) {
+                    showToast("SSIC Code published and live for clients!");
+                    loadActivities();
+                } else {
+                    showToast("Error publishing SSIC Code", "error");
+                }
+            } catch (error) {
+                showToast("Network error publishing", "error");
+            }
+        }
+
+        async function unpublishActivity(id) {
+            try {
+                const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
+                const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+                const res = await fetch(`/api/ssic-activities/${id}/unpublish`, {
+                    method: 'POST',
+                    headers
+                });
+
+                if (res.ok) {
+                    showToast("SSIC Code unpublished successfully");
+                    loadActivities();
+                } else {
+                    showToast("Error unpublishing SSIC Code", "error");
+                }
+            } catch (error) {
+                showToast("Network error unpublishing", "error");
+            }
+        }
+
+        // Initialize and load
+        document.addEventListener('DOMContentLoaded', () => {
+            const adminAuth = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+            if (adminAuth.username) {
+                document.getElementById('admin-name').innerText = adminAuth.username;
+                document.getElementById('admin-avatar').innerText = adminAuth.username.charAt(0).toUpperCase();
+            }
+            if (window.lucide) window.lucide.createIcons();
+            loadActivities();
+        });
+    </script>
+</body>
+</html>

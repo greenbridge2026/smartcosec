@@ -1100,6 +1100,11 @@
         <button onclick="window.close()" style="background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4); padding: 0.35rem 1rem; border-radius: 8px; color: white; cursor: pointer; font-weight: 700; font-size: 0.8rem; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.25)'">Close Preview</button>
     </div>
 
+    <!-- Header -->
+    <header class="pre-registration-header" style="text-align: center; padding: 2.5rem 1rem 0; font-family: 'Outfit', sans-serif;">
+        <h1 style="font-size: 1.15rem; font-weight: 800; letter-spacing: 0.15em; color: #0f172a; margin: 0; text-transform: uppercase;">PRE REGISTRATION PAGE</h1>
+    </header>
+
     <!-- NAVIGATION -->
     <div class="nav-bar">
         <div>
@@ -1222,15 +1227,14 @@
             {
                 id: "sec-names",
                 key: "names",
-                title: "Company Name",
+                title: "SSIC & Industry Name",
                 description: "Proposed names and activities for ACRA verification",
                 type: "form",
                 fields: [
                     { key: "names[0]", label: "Proposed Name Option 1", type: "text", required: true, placeholder: "Primary preferred name" },
                     { key: "names[1]", label: "Proposed Name Option 2", type: "text", required: true, placeholder: "Backup name if Option 1 is unavailable" },
                     { key: "names[2]", label: "Proposed Name Option 3", type: "text", required: false, placeholder: "Alternative name or enter NA" },
-                    { key: "activities.primary", label: "Primary Business Activity", type: "text", required: true, placeholder: "E.g. Software Development" },
-                    { key: "activities.secondary", label: "Secondary Business Activity", type: "text", required: false, placeholder: "E.g. IT Consulting" },
+                    { key: "activities", label: "Business Activities", type: "ssic", required: true, placeholder: "Search by SSIC code or activity name" },
                     { key: "names[3]", label: "Proposed Name Option 4", type: "text", required: false, placeholder: "" }
                 ]
             },
@@ -1328,13 +1332,17 @@
                 this.sections = [];
                 this.sectionStatuses = {};
                 this.isPreview = new URLSearchParams(window.location.search).get('preview') === 'true';
+                
+                this.ssicActivities = [];
+                this.ssicSearchQuery = '';
+                this.ssicActiveDropdownIndex = -1;
 
                 // Load initial client data structure
                 const savedData = JSON.parse(localStorage.getItem('globalisor_master_v3'));
                 const defaultData = {
                     companyType: 'Pte Ltd',
                     names: ['', '', '', ''],
-                    activities: { primary: '', secondary: '' },
+                    activities: [],
                     directors: [{ name: '', idType: 'local', idNum: '', dob: '', phone: '', passportExpiry: '', docs: {} }],
                     shareholders: [{ type: 'individual', name: '', shares: '', percent: '', regNum: '', regPlace: '', regDate: '', phone: '', email: '', addr: '', docs: {}, bo: [] }],
                     capital: { issued: 1000, numShares: 1000, paidUp: 1000, currency: 'SGD', type: 'Ordinary' },
@@ -1347,6 +1355,7 @@
                 };
                 
                 this.data = savedData ? { ...defaultData, ...savedData, completedSteps: savedData.completedSteps || [] } : defaultData;
+                this.migrateActivitiesData();
             }
 
             isSectionApplicable(sec) {
@@ -1389,6 +1398,16 @@
                     this.sections = DEFAULT_SECTIONS;
                 }
 
+                // Load SSIC activities list
+                try {
+                    const res = await fetch('/api/ssic-activities/published');
+                    if (res.ok) {
+                        this.ssicActivities = await res.json();
+                    }
+                } catch (e) {
+                    console.error("Failed to load published SSIC activities:", e);
+                }
+
                 // Load client data from db (if not preview mode)
                 if (!this.isPreview) {
                     try {
@@ -1403,6 +1422,7 @@
                                 
                                 if (response.data && Object.keys(response.data).length > 0) {
                                     this.data = { ...this.data, ...response.data };
+                                    this.migrateActivitiesData();
                                     this.save();
                                 }
                                 this.sectionStatuses = response.sectionStatuses || {};
@@ -1439,6 +1459,242 @@
             save() {
                 localStorage.setItem('globalisor_master_v3', JSON.stringify(this.data));
                 this.updateInfographic();
+            }
+
+            migrateActivitiesData() {
+                let acts = getVal(this.data, 'activities');
+                if (!Array.isArray(acts)) {
+                    const oldPrimary = acts && acts.primary;
+                    const oldSecondary = acts && acts.secondary;
+                    acts = [];
+                    if (oldPrimary && typeof oldPrimary === 'string' && oldPrimary.trim() !== '') {
+                        acts.push({
+                            code: "MANUAL",
+                            name: oldPrimary,
+                            description: oldPrimary,
+                            category: "Manual Entry"
+                        });
+                    }
+                    if (oldSecondary && typeof oldSecondary === 'string' && oldSecondary.trim() !== '') {
+                        acts.push({
+                            code: "MANUAL",
+                            name: oldSecondary,
+                            description: oldSecondary,
+                            category: "Manual Entry"
+                        });
+                    }
+                    setVal(this.data, 'activities', acts);
+                    this.save();
+                }
+            }
+
+            openSsicDropdown(containerId, fullPath) {
+                const dropdown = document.getElementById(`ssic-dropdown-${containerId}`);
+                if (dropdown) {
+                    dropdown.classList.remove('hidden');
+                    this.ssicActiveDropdownIndex = -1;
+                    const inputVal = document.getElementById(`ssic-search-${containerId}`).value;
+                    this.filterSsic(containerId, fullPath, inputVal);
+                }
+            }
+
+            closeSsicDropdown(containerId) {
+                const dropdown = document.getElementById(`ssic-dropdown-${containerId}`);
+                if (dropdown) {
+                    // Delay slightly to allow onmousedown clicks to register first
+                    setTimeout(() => {
+                        dropdown.classList.add('hidden');
+                    }, 200);
+                }
+            }
+
+            filterSsic(containerId, fullPath, query) {
+                this.ssicSearchQuery = query.toLowerCase().trim();
+                const dropdown = document.getElementById(`ssic-dropdown-${containerId}`);
+                if (!dropdown) return;
+
+                const list = this.ssicActivities || [];
+                const matches = list.filter(act => 
+                    (act.code || '').toLowerCase().includes(this.ssicSearchQuery) ||
+                    (act.name || '').toLowerCase().includes(this.ssicSearchQuery) ||
+                    (act.category || '').toLowerCase().includes(this.ssicSearchQuery)
+                );
+
+                this.renderSsicDropdownOptions(containerId, fullPath, matches, this.ssicSearchQuery);
+            }
+
+            renderSsicDropdownOptions(containerId, fullPath, matches, query) {
+                const dropdown = document.getElementById(`ssic-dropdown-${containerId}`);
+                if (!dropdown) return;
+
+                dropdown.innerHTML = '';
+                this.ssicCurrentMatches = matches; // Cache current matches for keydown
+
+                if (matches.length === 0) {
+                    dropdown.innerHTML = `
+                        <div style="padding: 1rem; text-align: center;">
+                            <div style="font-size: 0.75rem; color: #64748b; font-weight: 500; margin-bottom: 0.5rem;">No matching activities found</div>
+                            <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.7rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer;" onmousedown="event.preventDefault(); event.stopPropagation(); wizard.showManualSsicEntry('${containerId}', '${fullPath}')">Continue with manual entry</button>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const highlightText = (text, q) => {
+                    if (!q) return text;
+                    const regex = new RegExp(`(${q.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi');
+                    return text.replace(regex, '<mark style="background: #fef08a; color: #854d0e; padding: 0px 1px; border-radius: 2px;">$1</mark>');
+                };
+
+                matches.forEach((act, idx) => {
+                    const div = document.createElement('div');
+                    div.style.cssText = "padding: 0.6rem 0.8rem; font-size: 0.75rem; font-weight: 500; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.15rem; transition: background 0.15s;";
+                    div.className = `ssic-item-${containerId} ${idx === this.ssicActiveDropdownIndex ? 'bg-blue-50' : 'hover:bg-slate-50'}`;
+                    
+                    div.onmousedown = (e) => {
+                        e.preventDefault(); // Prevent input blur
+                        e.stopPropagation();
+                        this.selectSsicActivity(containerId, fullPath, act);
+                    };
+                    
+                    div.innerHTML = `
+                        <div style="display: flex; gap: 0.4rem; align-items: center;">
+                            <span style="font-weight: 800; color: #1e293b; font-family: 'Inter', sans-serif;">${highlightText(act.code, query)}</span>
+                            <span style="font-size: 0.7rem; color: #3b82f6; background: #eff6ff; font-weight: 700; padding: 0px 4px; border-radius: 4px; border: 1px solid #dbeafe;">${highlightText(act.category || 'N/A', query)}</span>
+                        </div>
+                        <div style="color: #475569; font-weight: 600; font-family: 'Outfit', sans-serif;">${highlightText(act.name, query)}</div>
+                    `;
+                    dropdown.appendChild(div);
+                });
+            }
+
+            handleSsicKeydown(containerId, fullPath, event) {
+                const matches = this.ssicCurrentMatches || [];
+                const dropdown = document.getElementById(`ssic-dropdown-${containerId}`);
+                
+                if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    if (!dropdown || dropdown.classList.contains('hidden')) {
+                        this.openSsicDropdown(containerId, fullPath);
+                        return;
+                    }
+                    this.ssicActiveDropdownIndex = (this.ssicActiveDropdownIndex + 1) % matches.length;
+                    this.renderSsicDropdownOptions(containerId, fullPath, matches, this.ssicSearchQuery);
+                    this.scrollToActiveSsicItem(containerId);
+                } else if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    if (!dropdown || dropdown.classList.contains('hidden')) return;
+                    this.ssicActiveDropdownIndex = (this.ssicActiveDropdownIndex - 1 + matches.length) % matches.length;
+                    this.renderSsicDropdownOptions(containerId, fullPath, matches, this.ssicSearchQuery);
+                    this.scrollToActiveSsicItem(containerId);
+                } else if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (!dropdown || dropdown.classList.contains('hidden')) return;
+                    if (this.ssicActiveDropdownIndex >= 0 && this.ssicActiveDropdownIndex < matches.length) {
+                        this.selectSsicActivity(containerId, fullPath, matches[this.ssicActiveDropdownIndex]);
+                    } else if (matches.length > 0) {
+                        this.selectSsicActivity(containerId, fullPath, matches[0]);
+                    }
+                } else if (event.key === 'Escape') {
+                    event.preventDefault();
+                    this.closeSsicDropdown(containerId);
+                }
+            }
+
+            scrollToActiveSsicItem(containerId) {
+                const dropdown = document.getElementById(`ssic-dropdown-${containerId}`);
+                if (!dropdown) return;
+                const activeEl = dropdown.querySelector('.bg-blue-50');
+                if (activeEl) {
+                    activeEl.scrollIntoView({ block: 'nearest' });
+                }
+            }
+
+            selectSsicActivity(containerId, fullPath, activity) {
+                let list = getVal(this.data, fullPath);
+                if (!Array.isArray(list)) {
+                    list = [];
+                }
+
+                // Check for duplicates
+                if (list.some(act => act.code === activity.code && act.code !== 'MANUAL')) {
+                    showToast("This business activity is already added!", "error");
+                    this.closeSsicDropdown(containerId);
+                    return;
+                }
+
+                const newActivity = {
+                    code: activity.code,
+                    name: activity.name,
+                    category: activity.category || 'ACRA Activity',
+                    description: activity.description || activity.name
+                };
+
+                list.push(newActivity);
+                setVal(this.data, fullPath, list);
+                
+                this.save();
+                this.render();
+                this.evaluateConditionalFields();
+                this.updateContinueButtonState();
+            }
+
+            removeSsicActivity(fullPath, index) {
+                const list = getVal(this.data, fullPath);
+                if (Array.isArray(list)) {
+                    list.splice(index, 1);
+                    setVal(this.data, fullPath, list);
+                    this.save();
+                    this.render();
+                    this.evaluateConditionalFields();
+                    this.updateContinueButtonState();
+                }
+            }
+
+            updateSsicDescription(fullPath, index, value) {
+                const list = getVal(this.data, fullPath);
+                if (Array.isArray(list) && list[index]) {
+                    list[index].description = value;
+                    setVal(this.data, fullPath, list);
+                    localStorage.setItem('globalisor_master_v3', JSON.stringify(this.data));
+                    this.evaluateConditionalFields();
+                    this.updateContinueButtonState();
+                }
+            }
+
+            showManualSsicEntry(containerId, fullPath) {
+                const dropdown = document.getElementById(`ssic-dropdown-${containerId}`);
+                if (!dropdown) return;
+
+                dropdown.innerHTML = `
+                    <div style="padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;" onmousedown="event.stopPropagation()">
+                        <div style="font-size: 0.75rem; font-weight: 700; color: #1e293b; font-family: 'Outfit', sans-serif;">MANUAL ACTIVITY ENTRY</div>
+                        <input type="text" id="manual-code-${containerId}" placeholder="Enter SSIC Code (optional)" style="width: 100%; font-size: 0.7rem; padding: 0.35rem 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; font-family: 'Inter', sans-serif;">
+                        <input type="text" id="manual-name-${containerId}" placeholder="Enter Business Activity Name" style="width: 100%; font-size: 0.7rem; padding: 0.35rem 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; font-family: 'Outfit', sans-serif;">
+                        <div style="display: flex; gap: 0.25rem; justify-content: flex-end; margin-top: 0.25rem;">
+                            <button type="button" style="padding: 0.3rem 0.6rem; font-size: 0.65rem; border: 1px solid #e2e8f0; border-radius: 4px; background: white; cursor: pointer;" onmousedown="event.preventDefault(); event.stopPropagation(); wizard.filterSsic('${containerId}', '${fullPath}', '')">Cancel</button>
+                            <button type="button" style="padding: 0.3rem 0.6rem; font-size: 0.65rem; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer;" onmousedown="event.preventDefault(); event.stopPropagation(); wizard.addManualSsicActivity('${containerId}', '${fullPath}')">Add Activity</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            addManualSsicActivity(containerId, fullPath) {
+                const codeInput = document.getElementById(`manual-code-${containerId}`);
+                const nameInput = document.getElementById(`manual-name-${containerId}`);
+                if (!nameInput || !nameInput.value.trim()) {
+                    showToast("Business Activity Name is required for manual entry!", "error");
+                    return;
+                }
+
+                const manualActivity = {
+                    code: codeInput.value.trim() || 'MANUAL',
+                    name: nameInput.value.trim(),
+                    category: 'Manual Entry',
+                    description: nameInput.value.trim()
+                };
+
+                this.selectSsicActivity(containerId, fullPath, manualActivity);
             }
 
             showStatusPage(status, data) {
@@ -1909,17 +2165,17 @@
                 const titleNew = document.getElementById('step-title');
                 if (titleNew) {
                     const friendlyHeaders = {
-                        'sec-names': "Which company type?",
-                        'sec-company-name': "Which company type?",
-                        'sec-directors-shareholders': "How many directors & shareholders?",
-                        'sec-directors': "Specify company directors",
-                        'sec-shareholders': "Specify company shareholders",
-                        'sec-addons': "Do you need add-on services?",
-                        'sec-office': "Where is your registered office?",
-                        'sec-package-next': "What are your contact details?",
-                        'sec-checkout': "Review your package & pay"
+                        'sec-names': "Company Name",
+                        'sec-company-name': "Company Name",
+                        'sec-directors-shareholders': "Directors & Shareholders",
+                        'sec-directors': "Directors & Shareholders",
+                        'sec-shareholders': "Directors & Shareholders",
+                        'sec-addons': "Add-on Services",
+                        'sec-office': "Registered Office",
+                        'sec-package-next': "Your package is up Next",
+                        'sec-checkout': "Package Summary & Payment"
                     };
-                    titleNew.innerText = friendlyHeaders[sec.id] || sec.title;
+                    titleNew.innerText = sec.title || friendlyHeaders[sec.id] || '';
                 }
                 
                 let progressPct = 0;
@@ -1979,7 +2235,6 @@
 
                 if (sec.id === 'sec-names' || sec.key === 'names') {
                     const selectedType = (this.data.companyType || 'Pte Ltd').trim().toLowerCase();
-                    const proposedName = getVal(this.data, 'names[0]') || '';
                     
                     return `
                         <div>
@@ -2009,32 +2264,10 @@
                                 </div>
                             </div>
 
-                            <!-- Proposed Company Name Input -->
-                            <div style="margin-bottom: 1.5rem;">
-                                <label class="field-label-new">Proposed company name*</label>
-                                <input type="text" class="input-box-new" placeholder="e.g. Veridian Holdings (Primary)" value="${proposedName}" oninput="setVal(wizard.data, 'names[0]', this.value); wizard.save(); wizard.updateContinueButtonState();">
-                                <div class="field-hint-new">We'll check name availability within 24 hours.</div>
-                            </div>
-
-                            <!-- Proposed Company Name 2 Input -->
-                            <div style="margin-bottom: 1.5rem;">
-                                <label class="field-label-new">Proposed company name 2*</label>
-                                <input type="text" class="input-box-new" placeholder="Backup name if Option 1 is unavailable" value="${getVal(this.data, 'names[1]') || ''}" oninput="setVal(wizard.data, 'names[1]', this.value); wizard.save(); wizard.updateContinueButtonState();">
-                                <div class="field-hint-new">Mandatory backup option.</div>
-                            </div>
-
-                            <!-- Primary Business Activity Input -->
-                            <div style="margin-bottom: 1.5rem;">
-                                <label class="field-label-new">Primary Business Activity*</label>
-                                <input type="text" class="input-box-new" placeholder="E.g. Software Development" value="${getVal(this.data, 'activities.primary') || ''}" oninput="setVal(wizard.data, 'activities.primary', this.value); wizard.save(); wizard.updateContinueButtonState();">
-                                <div class="field-hint-new">Describe your main business operations.</div>
-                            </div>
-
-                            <!-- Secondary Business Activity Input -->
-                            <div style="margin-bottom: 1.5rem;">
-                                <label class="field-label-new">Secondary Business Activity</label>
-                                <input type="text" class="input-box-new" placeholder="E.g. IT Consulting" value="${getVal(this.data, 'activities.secondary') || ''}" oninput="setVal(wizard.data, 'activities.secondary', this.value); wizard.save(); wizard.updateContinueButtonState();">
-                                <div class="field-hint-new">Describe your secondary business operations (Optional).</div>
+                            <div class="card" style="margin-top: 1.5rem;">
+                                <div class="form-grid">
+                                    ${(sec.fields || []).map(f => this.renderField(f, f.key)).join('')}
+                                </div>
                             </div>
                         </div>
                     `;
@@ -2074,235 +2307,35 @@
                             </div>
 
                             <!-- Additional Services Toggles -->
-                            <div class="service-toggle-container">
-                                <div class="service-toggle-card ${officeChecked ? '' : 'inactive'}">
-                                    <div class="service-toggle-left">
-                                        <div class="service-toggle-icon">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                                        </div>
-                                        <div class="service-toggle-details">
-                                            <h4 class="service-toggle-title">Registered office address</h4>
-                                            <p class="service-toggle-desc">Statutorily required. Real address in Singapore, mail scanned weekly.</p>
-                                        </div>
-                                    </div>
-                                    <div class="service-toggle-right">
-                                        <div class="service-toggle-price">
-                                            <span class="service-toggle-price-val">$480</span>
-                                            <span class="service-toggle-price-lbl">per year</span>
-                                        </div>
-                                        <label class="switch-input-container">
-                                            <input type="checkbox" ${officeChecked ? 'checked' : ''} onchange="wizard.toggleServiceOption('office', this.checked)">
-                                            <span class="switch-slider"></span>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <div class="service-toggle-card ${secretaryChecked ? '' : 'inactive'}">
-                                    <div class="service-toggle-left">
-                                        <div class="service-toggle-icon">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                                        </div>
-                                        <div class="service-toggle-details">
-                                            <h4 class="service-toggle-title">Corporate secretary</h4>
-                                            <p class="service-toggle-desc">Required within 6 months. Handles annual filings and board minutes.</p>
-                                        </div>
-                                    </div>
-                                    <div class="service-toggle-right">
-                                        <div class="service-toggle-price">
-                                            <span class="service-toggle-price-val">$720</span>
-                                            <span class="service-toggle-price-lbl">per year</span>
-                                        </div>
-                                        <label class="switch-input-container">
-                                            <input type="checkbox" ${secretaryChecked ? 'checked' : ''} onchange="wizard.toggleServiceOption('secretary', this.checked)">
-                                            <span class="switch-slider"></span>
-                                        </label>
-                                    </div>
-                                </div>
+                            <div class="service-toggle-container" style="display: flex; flex-direction: column; gap: 1.5rem; width: 100%;">
+                                ${(sec.fields || []).filter(f => f.type === 'switch').map(f => this.renderField(f, f.key)).join('')}
+                            </div>
+                            <!-- Other custom fields -->
+                            <div class="form-grid" style="margin-top: 1.5rem;">
+                                ${(sec.fields || []).filter(f => f.type !== 'switch').map(f => this.renderField(f, f.key)).join('')}
                             </div>
                         </div>
                     `;
                 }
 
                 if (sec.id === 'sec-addons') {
-                    const bankIntro = this.data.addons?.bankIntro || false;
-                    const statCompliance = this.data.addons?.statCompliance || false;
-                    const accounting = this.data.addons?.accounting || false;
-                    const taxCompliance = this.data.addons?.taxCompliance || false;
-                    const crossBorderTax = this.data.addons?.crossBorderTax || false;
-                    const apostille = this.data.addons?.apostille || false;
-
                     return `
                         <div>
                             ${rejectionBanner}
-                            <div class="service-toggle-container">
-                                <!-- Bank account introduction -->
-                                <div class="service-toggle-card ${bankIntro ? '' : 'inactive'}">
-                                    <div class="service-toggle-left">
-                                        <div class="service-toggle-icon">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" ry="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
-                                        </div>
-                                        <div class="service-toggle-details">
-                                            <h4 class="service-toggle-title">Bank account introduction</h4>
-                                            <p class="service-toggle-desc">Warm intros to DBS, OCBC, HSBC, Aspire, Wio, Mashreq. We prepare KYC and stay on the call.</p>
-                                        </div>
-                                    </div>
-                                    <div class="service-toggle-right">
-                                        <div class="service-toggle-price">
-                                            <span class="service-toggle-price-val">$350</span>
-                                            <span class="service-toggle-price-lbl">one-time</span>
-                                        </div>
-                                        <label class="switch-input-container">
-                                            <input type="checkbox" ${bankIntro ? 'checked' : ''} onchange="wizard.toggleAddonOption('bankIntro', this.checked)">
-                                            <span class="switch-slider"></span>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <!-- Statutory & compliance package -->
-                                <div class="service-toggle-card ${statCompliance ? '' : 'inactive'}">
-                                    <div class="service-toggle-left">
-                                        <div class="service-toggle-icon">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
-                                        </div>
-                                        <div class="service-toggle-details">
-                                            <h4 class="service-toggle-title">Statutory & compliance package</h4>
-                                            <p class="service-toggle-desc">Annual filings, AGM resolutions, statutory registers maintained, ESOP support when needed.</p>
-                                        </div>
-                                    </div>
-                                    <div class="service-toggle-right">
-                                        <div class="service-toggle-price">
-                                            <span class="service-toggle-price-val">$480</span>
-                                            <span class="service-toggle-price-lbl">per year</span>
-                                        </div>
-                                        <label class="switch-input-container">
-                                            <input type="checkbox" ${statCompliance ? 'checked' : ''} onchange="wizard.toggleAddonOption('statCompliance', this.checked)">
-                                            <span class="switch-slider"></span>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <!-- Accounting & bookkeeping -->
-                                <div class="service-toggle-card ${accounting ? '' : 'inactive'}">
-                                    <div class="service-toggle-left">
-                                        <div class="service-toggle-icon">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-                                        </div>
-                                        <div class="service-toggle-details">
-                                            <h4 class="service-toggle-title">Accounting & bookkeeping</h4>
-                                            <p class="service-toggle-desc">Monthly bookkeeping in Xero, financial statements compiled to standards, payroll with CPF processing.</p>
-                                        </div>
-                                    </div>
-                                    <div class="service-toggle-right">
-                                        <div class="service-toggle-price">
-                                            <span class="service-toggle-price-val">$220</span>
-                                            <span class="service-toggle-price-lbl">per month</span>
-                                        </div>
-                                        <label class="switch-input-container">
-                                            <input type="checkbox" ${accounting ? 'checked' : ''} onchange="wizard.toggleAddonOption('accounting', this.checked)">
-                                            <span class="switch-slider"></span>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <!-- Tax compliance package -->
-                                <div class="service-toggle-card ${taxCompliance ? '' : 'inactive'}">
-                                    <div class="service-toggle-left">
-                                        <div class="service-toggle-icon">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="10" y2="21"></line></svg>
-                                        </div>
-                                        <div class="service-toggle-details">
-                                            <h4 class="service-toggle-title">Tax compliance package</h4>
-                                            <p class="service-toggle-desc">Corporate tax computation and filing, GST / VAT registration and returns, transfer pricing documentation for intra-group transactions.</p>
-                                        </div>
-                                    </div>
-                                    <div class="service-toggle-right">
-                                        <div class="service-toggle-price">
-                                            <span class="service-toggle-price-val">$720</span>
-                                            <span class="service-toggle-price-lbl">per year</span>
-                                        </div>
-                                        <label class="switch-input-container">
-                                            <input type="checkbox" ${taxCompliance ? 'checked' : ''} onchange="wizard.toggleAddonOption('taxCompliance', this.checked)">
-                                            <span class="switch-slider"></span>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <!-- Cross-border tax structuring -->
-                                <div class="service-toggle-card ${crossBorderTax ? '' : 'inactive'}">
-                                    <div class="service-toggle-left">
-                                        <div class="service-toggle-icon">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                                        </div>
-                                        <div class="service-toggle-details">
-                                            <h4 class="service-toggle-title">Cross-border tax structuring</h4>
-                                            <p class="service-toggle-desc">Written tax opinion: treaty analysis, holdco placement, IP migration. Board-file quality.</p>
-                                        </div>
-                                    </div>
-                                    <div class="service-toggle-right">
-                                        <div class="service-toggle-price">
-                                            <span class="service-toggle-price-val">$4,500</span>
-                                            <span class="service-toggle-price-lbl">one-time</span>
-                                        </div>
-                                        <label class="switch-input-container">
-                                            <input type="checkbox" ${crossBorderTax ? 'checked' : ''} onchange="wizard.toggleAddonOption('crossBorderTax', this.checked)">
-                                            <span class="switch-slider"></span>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <!-- Apostille + notarisation -->
-                                <div class="service-toggle-card ${apostille ? '' : 'inactive'}">
-                                    <div class="service-toggle-left">
-                                        <div class="service-toggle-icon">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                                        </div>
-                                        <div class="service-toggle-details">
-                                            <h4 class="service-toggle-title">Apostille + notarisation</h4>
-                                            <p class="service-toggle-desc">Apostilled copies of incorporation documents. Required for foreign bank accounts and multi-jurisdiction structures.</p>
-                                        </div>
-                                    </div>
-                                    <div class="service-toggle-right">
-                                        <div class="service-toggle-price">
-                                            <span class="service-toggle-price-val">$280</span>
-                                            <span class="service-toggle-price-lbl">one-time</span>
-                                        </div>
-                                        <label class="switch-input-container">
-                                            <input type="checkbox" ${apostille ? 'checked' : ''} onchange="wizard.toggleAddonOption('apostille', this.checked)">
-                                            <span class="switch-slider"></span>
-                                        </label>
-                                    </div>
-                                </div>
+                            <div class="service-toggle-container" style="display: flex; flex-direction: column; gap: 1.5rem; width: 100%;">
+                                ${(sec.fields || []).map(f => this.renderField(f, f.key)).join('')}
                             </div>
                         </div>
                     `;
                 }
 
                 if (sec.id === 'sec-office') {
-                    const GLOBALISOR_OFFICE_ADDRESS = "12 Marina Boulevard, Marina Bay Financial Centre Tower 3, Singapore 018982";
-                    const useService = this.data.office ? (this.data.office.useService !== false) : true;
-                    const address = this.data.office ? this.data.office.address : '';
-                    const addressVal = useService ? GLOBALISOR_OFFICE_ADDRESS : address;
-                    const hasOwnAddress = this.data.office ? (this.data.office.hasOwnAddress === true) : false;
-                    
                     return `
                         <div>
                             ${rejectionBanner}
-                            <div class="office-container-card">
-                                <div class="office-field-row">
-                                    <div class="office-field-col">
-                                        <label class="field-label-new" style="font-weight:700; color:#1e293b;">Office Address Option*</label>
-                                        <select class="office-select" onchange="wizard.setOfficeService(this.value)">
-                                            <option value="true" ${useService === true ? 'selected' : ''} ${hasOwnAddress ? 'disabled' : ''}>Globalisor Premium CBD Address</option>
-                                            <option value="false" ${useService === false ? 'selected' : ''}>Use my own local address</option>
-                                        </select>
-                                    </div>
-                                    <div class="office-field-col">
-                                        <label class="field-label-new" style="font-weight:700; color:#1e293b;">Office Address</label>
-                                        <textarea class="office-textarea" 
-                                                  placeholder="Enter your own address if not using Globalisor service"
-                                                  ${useService === true ? 'readonly' : ''}
-                                                  oninput="wizard.setOfficeAddress(this.value)">${addressVal || ''}</textarea>
-                                    </div>
+                            <div class="card">
+                                <div class="form-grid">
+                                    ${(sec.fields || []).map(f => this.renderField(f, f.key)).join('')}
                                 </div>
                             </div>
                         </div>
@@ -2447,19 +2480,11 @@
                 this.updateContinueButtonState();
             }
 
-            toggleCheckoutService(serviceKey, isChecked) {
-                if (serviceKey === 'office') {
+            toggleCheckoutService(key, isChecked) {
+                setVal(this.data, key, isChecked);
+                if (key === 'office.useService' && isChecked) {
                     if (!this.data.office) this.data.office = {};
-                    this.data.office.useService = isChecked;
-                    if (isChecked) {
-                        this.data.office.address = '';
-                    }
-                } else if (serviceKey === 'secretary') {
-                    if (!this.data.secretary) this.data.secretary = {};
-                    this.data.secretary.required = isChecked;
-                } else {
-                    if (!this.data.addons) this.data.addons = {};
-                    this.data.addons[serviceKey] = isChecked;
+                    this.data.office.address = '';
                 }
                 this.save();
                 this.render();
@@ -2518,34 +2543,109 @@
             }
 
             getCheckoutHTML(rejectionBanner) {
-                const basePrice = 350;
-                let total = basePrice;
+                const billingItems = [
+                    {
+                        key: 'base',
+                        name: 'Singapore Incorporation',
+                        desc: 'ACRA registration, filing fees & setup',
+                        price: 350,
+                        period: '',
+                        locked: true,
+                        checked: true
+                    }
+                ];
                 
-                const officeChecked = (this.data.office && this.data.office.useService !== false);
-                const secretaryChecked = (this.data.secretary && this.data.secretary.required !== false);
+                const addedKeys = new Set();
                 
-                const addons = this.data.addons || {};
-                const bankIntro = addons.bankIntro || false;
-                const statCompliance = addons.statCompliance || false;
-                const accounting = addons.accounting || false;
-                const taxCompliance = addons.taxCompliance || false;
-                const crossBorderTax = addons.crossBorderTax || false;
-                const apostille = addons.apostille || false;
-                
-                if (officeChecked) total += 480;
-                if (secretaryChecked) total += 720;
-                if (bankIntro) total += 350;
-                if (statCompliance) total += 480;
-                if (accounting) total += 220;
-                if (taxCompliance) total += 720;
-                if (crossBorderTax) total += 4500;
-                if (apostille) total += 280;
-                
+                this.sections.forEach(sec => {
+                    if (sec.id === 'sec-checkout') return;
+                    (sec.fields || []).forEach(f => {
+                        if (addedKeys.has(f.key)) return;
+                        
+                        if (f.type === 'switch') {
+                            addedKeys.add(f.key);
+                            const isChecked = getVal(this.data, f.key) === true;
+                            let price = 0;
+                            let period = '';
+                            if (f.placeholder) {
+                                const priceMatch = f.placeholder.replace(/,/g, '').match(/\$?(\d+)/);
+                                if (priceMatch) {
+                                    price = parseFloat(priceMatch[1]);
+                                }
+                                if (f.placeholder.toLowerCase().includes('year')) {
+                                    period = '/yr';
+                                } else if (f.placeholder.toLowerCase().includes('month')) {
+                                    period = '/mo';
+                                }
+                            }
+                            if (price > 0) {
+                                billingItems.push({
+                                    key: f.key,
+                                    name: f.label,
+                                    desc: f.hint || '',
+                                    price: price,
+                                    period: period,
+                                    locked: false,
+                                    checked: isChecked
+                                });
+                            }
+                        } else if (f.type === 'select') {
+                            addedKeys.add(f.key);
+                            const selectedVal = getVal(this.data, f.key);
+                            const opts = f.options || [];
+                            opts.forEach(opt => {
+                                const parts = opt.split(':');
+                                const val = parts[0];
+                                const label = parts[1] || parts[0];
+                                if (String(selectedVal) === String(val)) {
+                                    const priceMatch = label.replace(/,/g, '').match(/\$?(\d+)/);
+                                    if (priceMatch) {
+                                        const price = parseFloat(priceMatch[1]);
+                                        let period = '';
+                                        if (label.toLowerCase().includes('yr') || label.toLowerCase().includes('year')) {
+                                            period = '/yr';
+                                        } else if (label.toLowerCase().includes('mo') || label.toLowerCase().includes('month')) {
+                                            period = '/mo';
+                                        }
+                                        if (price > 0) {
+                                            billingItems.push({
+                                                key: f.key + '::' + val,
+                                                name: f.label + ': ' + label.split('(')[0].trim(),
+                                                desc: '',
+                                                price: price,
+                                                period: period,
+                                                locked: true,
+                                                checked: true
+                                            });
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    });
+                });
+
+                let total = 0;
+                billingItems.forEach(item => {
+                    if (item.checked) {
+                        total += item.price;
+                    }
+                });
+
                 const formattedTotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(total).replace('$', 'SGD ');
 
                 const name1 = getVal(this.data, 'names[0]') || 'Not specified';
                 const name2 = getVal(this.data, 'names[1]') || 'Not specified';
-                const primaryAct = getVal(this.data, 'activities.primary') || 'Not specified';
+                let primaryAct = 'Not specified';
+                const activitiesList = getVal(this.data, 'activities');
+                if (Array.isArray(activitiesList) && activitiesList.length > 0) {
+                    primaryAct = activitiesList.map(a => `${a.code === 'MANUAL' ? '' : a.code + ' - '}${a.name}`).join(', ');
+                } else {
+                    const oldPrimary = getVal(this.data, 'activities.primary');
+                    if (oldPrimary) {
+                        primaryAct = typeof oldPrimary === 'object' ? `${oldPrimary.code || ''} ${oldPrimary.name || ''}`.trim() : oldPrimary;
+                    }
+                }
                 const compType = getVal(this.data, 'companyType') || 'Pte Ltd';
                 
                 const dirsCount = this.data.directors ? this.data.directors.length : 1;
@@ -2587,6 +2687,27 @@
                         </div>
                     `;
                 }
+
+                const billingItemsHtml = billingItems.map(item => {
+                    const isSelected = item.checked ? 'selected' : '';
+                    const isDisabled = item.locked ? 'disabled' : '';
+                    const periodLabel = item.period ? `<span class="freq">${item.period}</span>` : '';
+                    const inputId = `chk-${item.key.replace(/[.\[\]:]/g, '-')}`;
+                    
+                    return `
+                        <div class="billing-item ${isSelected} ${item.locked ? 'locked-item' : ''}">
+                            <div class="billing-item-left">
+                                <input type="checkbox" id="${inputId}" ${item.checked ? 'checked' : ''} ${isDisabled}
+                                       onchange="wizard.toggleCheckoutService('${item.key}', this.checked)" class="checkout-checkbox">
+                                <label for="${inputId}" class="billing-item-info" style="cursor:pointer; margin:0;">
+                                    <div class="billing-item-name">${item.name}</div>
+                                    ${item.desc ? `<div class="billing-item-desc">${item.desc}</div>` : ''}
+                                </label>
+                            </div>
+                            <span class="billing-item-price">SGD ${item.price.toLocaleString()}${periodLabel}</span>
+                        </div>
+                    `;
+                }).join('');
 
                 return `
                     <div class="checkout-layout">
@@ -2659,121 +2780,7 @@
                                 <h3 class="checkout-sub-title">2. Select Services & Pay</h3>
                                 
                                 <div class="checkout-services-box">
-                                    <!-- Base Package -->
-                                    <div class="billing-item locked-item">
-                                        <div class="billing-item-left">
-                                            <input type="checkbox" checked disabled class="checkout-checkbox">
-                                            <div class="billing-item-info">
-                                                <div class="billing-item-name">Singapore Incorporation</div>
-                                                <div class="billing-item-desc">ACRA registration, filing fees & setup</div>
-                                            </div>
-                                        </div>
-                                        <span class="billing-item-price">SGD 350</span>
-                                    </div>
-                                    
-                                    <!-- Office Address -->
-                                    <div class="billing-item ${officeChecked ? 'selected' : ''}">
-                                        <div class="billing-item-left">
-                                            <input type="checkbox" id="chk-office" ${officeChecked ? 'checked' : ''} 
-                                                   onchange="wizard.toggleCheckoutService('office', this.checked)" class="checkout-checkbox">
-                                            <label for="chk-office" class="billing-item-info" style="cursor:pointer; margin:0;">
-                                                <div class="billing-item-name">Registered Office Address</div>
-                                                <div class="billing-item-desc">CBD commercial address & weekly scanning</div>
-                                            </label>
-                                        </div>
-                                        <span class="billing-item-price">SGD 480<span class="freq">/yr</span></span>
-                                    </div>
-                                    
-                                    <!-- Corporate Secretary -->
-                                    <div class="billing-item ${secretaryChecked ? 'selected' : ''}">
-                                        <div class="billing-item-left">
-                                            <input type="checkbox" id="chk-secretary" ${secretaryChecked ? 'checked' : ''} 
-                                                   onchange="wizard.toggleCheckoutService('secretary', this.checked)" class="checkout-checkbox">
-                                            <label for="chk-secretary" class="billing-item-info" style="cursor:pointer; margin:0;">
-                                                <div class="billing-item-name">Corporate Secretary</div>
-                                                <div class="billing-item-desc">Required statutory filings & board minutes</div>
-                                            </label>
-                                        </div>
-                                        <span class="billing-item-price">SGD 720<span class="freq">/yr</span></span>
-                                    </div>
-                                    
-                                    <!-- Bank Account Intro -->
-                                    <div class="billing-item ${bankIntro ? 'selected' : ''}">
-                                        <div class="billing-item-left">
-                                            <input type="checkbox" id="chk-bankIntro" ${bankIntro ? 'checked' : ''} 
-                                                   onchange="wizard.toggleCheckoutService('bankIntro', this.checked)" class="checkout-checkbox">
-                                            <label for="chk-bankIntro" class="billing-item-info" style="cursor:pointer; margin:0;">
-                                                <div class="billing-item-name">Bank Account Introduction</div>
-                                                <div class="billing-item-desc">Guaranteed warm intro & KYC support</div>
-                                            </label>
-                                        </div>
-                                        <span class="billing-item-price">SGD 350</span>
-                                    </div>
-                                    
-                                    <!-- Statutory & Compliance -->
-                                    <div class="billing-item ${statCompliance ? 'selected' : ''}">
-                                        <div class="billing-item-left">
-                                            <input type="checkbox" id="chk-statCompliance" ${statCompliance ? 'checked' : ''} 
-                                                   onchange="wizard.toggleCheckoutService('statCompliance', this.checked)" class="checkout-checkbox">
-                                            <label for="chk-statCompliance" class="billing-item-info" style="cursor:pointer; margin:0;">
-                                                <div class="billing-item-name">Statutory & Compliance Package</div>
-                                                <div class="billing-item-desc">AGMs, returns & board files support</div>
-                                            </label>
-                                        </div>
-                                        <span class="billing-item-price">SGD 480<span class="freq">/yr</span></span>
-                                    </div>
-                                    
-                                    <!-- Accounting -->
-                                    <div class="billing-item ${accounting ? 'selected' : ''}">
-                                        <div class="billing-item-left">
-                                            <input type="checkbox" id="chk-accounting" ${accounting ? 'checked' : ''} 
-                                                   onchange="wizard.toggleCheckoutService('accounting', this.checked)" class="checkout-checkbox">
-                                            <label for="chk-accounting" class="billing-item-info" style="cursor:pointer; margin:0;">
-                                                <div class="billing-item-name">Accounting & Bookkeeping</div>
-                                                <div class="billing-item-desc">Monthly Xero bookkeeping & payroll</div>
-                                            </label>
-                                        </div>
-                                        <span class="billing-item-price">SGD 220<span class="freq">/mo</span></span>
-                                    </div>
-                                    
-                                    <!-- Tax Compliance -->
-                                    <div class="billing-item ${taxCompliance ? 'selected' : ''}">
-                                        <div class="billing-item-left">
-                                            <input type="checkbox" id="chk-taxCompliance" ${taxCompliance ? 'checked' : ''} 
-                                                   onchange="wizard.toggleCheckoutService('taxCompliance', this.checked)" class="checkout-checkbox">
-                                            <label for="chk-taxCompliance" class="billing-item-info" style="cursor:pointer; margin:0;">
-                                                <div class="billing-item-name">Tax Compliance Package</div>
-                                                <div class="billing-item-desc">Filing of corporate taxes & GST setup</div>
-                                            </label>
-                                        </div>
-                                        <span class="billing-item-price">SGD 720<span class="freq">/yr</span></span>
-                                    </div>
-                                    
-                                    <!-- Cross Border Tax -->
-                                    <div class="billing-item ${crossBorderTax ? 'selected' : ''}">
-                                        <div class="billing-item-left">
-                                            <input type="checkbox" id="chk-crossBorderTax" ${crossBorderTax ? 'checked' : ''} 
-                                                   onchange="wizard.toggleCheckoutService('crossBorderTax', this.checked)" class="checkout-checkbox">
-                                            <label for="chk-crossBorderTax" class="billing-item-info" style="cursor:pointer; margin:0;">
-                                                <div class="billing-item-name">Cross-Border Tax Structuring</div>
-                                                <div class="billing-item-desc">Expert treaty analysis & written opinion</div>
-                                            </label>
-                                        </div>
-                                        <span class="billing-item-price">SGD 4,500</span>
-                                    </div>
-                                    
-                                    <!-- Apostille -->
-                                    <div class="billing-item ${apostille ? 'selected' : ''}">
-                                        <div class="billing-item-left">
-                                            <input type="checkbox" id="chk-apostille" ${apostille ? 'checked' : ''} 
-                                                   onchange="wizard.toggleCheckoutService('apostille', this.checked)" class="checkout-checkbox">
-                                            <label for="chk-apostille" class="billing-item-info" style="cursor:pointer; margin:0;">
-                                                <div class="billing-item-name">Apostille + Notarisation</div>
-                                                <div class="billing-item-desc">Official legalized docs for overseas use</div>
-                                            </label>
-                                        </div>
-                                        <span class="billing-item-price">SGD 280</span>
-                                    </div>
+                                    ${billingItemsHtml}
                                 </div>
                                 
                                 <div class="checkout-divider"></div>
@@ -2870,6 +2877,38 @@
                 }
             }
 
+            isFieldVisible(field, fullPath) {
+                if (!field.condKey) return true;
+
+                const sec = this.sections[this.currentStep - 1];
+                if (!sec) return true;
+                let checkPath = field.condKey;
+                if (fullPath.includes('[')) {
+                    const idxMatch = fullPath.match(/\[(\d+)\]/);
+                    if (idxMatch) {
+                        const idx = idxMatch[1];
+                        if (!checkPath.includes('.') || checkPath.startsWith(sec.key + '.')) {
+                            checkPath = `${sec.key}[${idx}].${checkPath.replace(sec.key + '.', '')}`;
+                        }
+                    }
+                }
+
+                const checkVal = getVal(this.data, checkPath);
+                const targetVal = field.condValue;
+                const op = field.condOperator || 'equals';
+                
+                if (op === 'equals') {
+                    return (String(checkVal) === String(targetVal));
+                } else if (op === 'not_equals') {
+                    return (String(checkVal) !== String(targetVal));
+                } else if (op === 'empty') {
+                    return (!checkVal || String(checkVal).trim() === '');
+                } else if (op === 'not_empty') {
+                    return (checkVal && String(checkVal).trim() !== '');
+                }
+                return true;
+            }
+
             updateContinueButtonState() {
                 const nextBtn = document.getElementById('next-btn');
                 if (!nextBtn) return;
@@ -2878,26 +2917,104 @@
                 if (!sec) return;
 
                 let isValid = true;
-                if (sec.id === 'sec-names' || sec.key === 'names') {
+
+                // 1. Dynamic field-based validation
+                if (sec.fields && sec.fields.length > 0) {
+                    if (sec.type === 'repeater') {
+                        const list = getVal(this.data, sec.key) || [];
+                        list.forEach((_, idx) => {
+                            sec.fields.forEach(field => {
+                                const fullPath = `${sec.key}[${idx}].${field.key}`;
+                                if (this.isFieldVisible(field, fullPath)) {
+                                    if (field.type === 'ssic') {
+                                        const val = getVal(this.data, fullPath);
+                                        if (field.required) {
+                                            if (!Array.isArray(val) || val.length === 0) {
+                                                isValid = false;
+                                            }
+                                        }
+                                        if (Array.isArray(val)) {
+                                            if (val.some(act => !act.description || act.description.trim() === '')) {
+                                                isValid = false;
+                                            }
+                                        }
+                                    } else if (field.required) {
+                                        const val = getVal(this.data, fullPath);
+                                        if (val === undefined || val === null || String(val).trim() === '') {
+                                            isValid = false;
+                                        }
+                                    }
+                                    const val = getVal(this.data, fullPath);
+                                    if (field.type !== 'ssic' && val !== undefined && val !== null && String(val).trim() !== '') {
+                                        if (field.min !== undefined && String(val).length < field.min) isValid = false;
+                                        if (field.max !== undefined && String(val).length > field.max) isValid = false;
+                                        if (field.pattern) {
+                                            try {
+                                                const regex = new RegExp(field.pattern);
+                                                if (!regex.test(String(val))) isValid = false;
+                                            } catch(e) {}
+                                        }
+                                    }
+                                }
+                            });
+                        });
+                    } else {
+                        sec.fields.forEach(field => {
+                            const fullPath = field.key;
+                            if (this.isFieldVisible(field, fullPath)) {
+                                if (field.type === 'ssic') {
+                                    const val = getVal(this.data, fullPath);
+                                    if (field.required) {
+                                        if (!Array.isArray(val) || val.length === 0) {
+                                            isValid = false;
+                                        }
+                                    }
+                                    if (Array.isArray(val)) {
+                                        if (val.some(act => !act.description || act.description.trim() === '')) {
+                                            isValid = false;
+                                        }
+                                    }
+                                } else if (field.required) {
+                                    const val = getVal(this.data, fullPath);
+                                    if (val === undefined || val === null || String(val).trim() === '') {
+                                        isValid = false;
+                                    }
+                                }
+                                const val = getVal(this.data, fullPath);
+                                if (field.type !== 'ssic' && val !== undefined && val !== null && String(val).trim() !== '') {
+                                    if (field.min !== undefined && String(val).length < field.min) isValid = false;
+                                    if (field.max !== undefined && String(val).length > field.max) isValid = false;
+                                    if (field.pattern) {
+                                        try {
+                                            const regex = new RegExp(field.pattern);
+                                            if (!regex.test(String(val))) isValid = false;
+                                        } catch(e) {}
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+
+                // 2. Custom validation override rules
+                if (sec.id === 'sec-office' || sec.key === 'office') {
+                    const useService = this.data.office ? (this.data.office.useService !== false) : true;
+                    const address = this.data.office ? this.data.office.address : '';
+                    if (useService === false && (!address || address.trim() === '')) {
+                        isValid = false;
+                    }
+                }
+                
+                // Fallbacks if field configs are completely missing
+                if ((sec.id === 'sec-names' || sec.key === 'names') && (!sec.fields || sec.fields.length === 0)) {
                     const name1 = getVal(this.data, 'names[0]') || '';
                     const name2 = getVal(this.data, 'names[1]') || '';
                     const activity = getVal(this.data, 'activities.primary') || '';
                     if (name1.trim() === '' || name2.trim() === '' || activity.trim() === '') {
                         isValid = false;
                     }
-                } else if (sec.id === 'sec-directors-shareholders' || sec.key === 'directors-shareholders') {
-                    // Step 2 only checks the number of directors and shareholders (no detailed form validation required)
-                    isValid = true;
-                } else if (sec.id === 'sec-addons' || sec.key === 'addons') {
-                    // Step 3 (Add-on Services) is optional and always valid
-                    isValid = true;
-                } else if (sec.id === 'sec-office' || sec.key === 'office') {
-                    const useService = this.data.office ? (this.data.office.useService !== false) : true;
-                    const address = this.data.office ? this.data.office.address : '';
-                    if (useService === false && (!address || address.trim() === '')) {
-                        isValid = false;
-                    }
-                } else if (sec.id === 'sec-package-next' || sec.key === 'contact') {
+                }
+                if ((sec.id === 'sec-package-next' || sec.key === 'contact') && (!sec.fields || sec.fields.length === 0)) {
                     const firstName = getVal(this.data, 'contact.firstName') || '';
                     const lastName = getVal(this.data, 'contact.lastName') || '';
                     const phone = getVal(this.data, 'contact.phone') || '';
@@ -3116,6 +3233,73 @@
 
                 let html = '';
                 switch (field.type) {
+                    case 'ssic':
+                        const list = Array.isArray(val) ? val : [];
+                        html = `
+                            <div class="form-group full" style="position: relative; flex: 1 1 100%; display: flex; flex-direction: column;" id="ssic-container-${containerId}">
+                                <label class="form-label">${field.label}${requiredAsterisk}</label>
+                                
+                                <!-- Chips / Selected tags -->
+                                <div class="flex flex-wrap gap-2 mb-2" id="ssic-chips-${containerId}" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                    ${list.map((act, idx) => `
+                                        <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-800 rounded-full text-xs font-semibold border border-blue-100 shadow-sm animate-fade-in" style="display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.75rem; background: #eff6ff; color: #1e40af; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; border: 1px solid #dbeafe; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                            <span><strong>${act.code === 'MANUAL' ? 'Manual' : act.code}</strong>: ${act.name}</span>
+                                            <button type="button" onclick="wizard.removeSsicActivity('${fullPath}', ${idx})" class="text-blue-400 hover:text-blue-600 font-bold outline-none border-none bg-transparent p-0 cursor-pointer text-sm" style="background: none; border: none; padding: 0; margin: 0; color: #93c5fd; font-weight: bold; cursor: pointer; line-height: 1; font-size: 0.9rem;">&times;</button>
+                                        </span>
+                                    `).join('')}
+                                </div>
+
+                                <!-- Input and Search Dropdown -->
+                                <div class="relative w-full" style="position: relative; width: 100%;">
+                                    <div style="position: relative; display: flex; align-items: center; width: 100%;">
+                                        <span style="position: absolute; left: 0.75rem; color: #94a3b8; pointer-events: none; font-size: 0.8rem;">🔍</span>
+                                        <input type="text" id="ssic-search-${containerId}" 
+                                               class="input-box w-full" 
+                                               style="padding-left: 2.2rem; width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; outline: none; height: 38px;" 
+                                               placeholder="${field.placeholder || 'Search by SSIC code or name...'}" 
+                                               onfocus="wizard.openSsicDropdown('${containerId}', '${fullPath}')" 
+                                               oninput="wizard.filterSsic('${containerId}', '${fullPath}', this.value)" 
+                                               onkeydown="wizard.handleSsicKeydown('${containerId}', '${fullPath}', event)"
+                                               onblur="wizard.closeSsicDropdown('${containerId}')">
+                                    </div>
+                                    <div id="ssic-dropdown-${containerId}" 
+                                         class="hidden absolute left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto mt-1 z-[9999]" 
+                                         style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #cbd5e1; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-h: 240px; overflow-y: auto; margin-top: 4px; z-index: 9999;">
+                                        <!-- Autocomplete options -->
+                                    </div>
+                                </div>
+
+                                <!-- Detailed forms for each selected activity -->
+                                <div class="mt-4 flex flex-col gap-4" id="ssic-details-${containerId}" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; width: 100%;">
+                                    ${list.map((act, idx) => `
+                                        <div class="p-4 bg-slate-50/50 border border-slate-100 rounded-xl flex flex-col gap-3" style="padding: 1rem; background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 12px; display: flex; flex-direction: column; gap: 0.75rem;">
+                                            <div class="flex items-center justify-between" style="display: flex; justify-content: space-between; align-items: center;">
+                                                <span class="text-xs font-bold text-slate-800 uppercase tracking-wider" style="font-size: 0.7rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.05em;">Business Activity #${idx + 1}</span>
+                                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider" style="font-size: 0.6rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;">${act.category || 'Manual Entry'}</span>
+                                            </div>
+                                            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem;">
+                                                <div>
+                                                    <label style="display: block; font-size: 0.6rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 0.25rem;">SSIC Code</label>
+                                                    <input type="text" readonly class="input-box bg-slate-100/50 cursor-not-allowed text-xs font-semibold text-slate-500" value="${act.code === 'MANUAL' ? 'Manual' : act.code}" style="height: 34px; width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0 0.5rem; background: #f1f5f9; color: #64748b; font-weight: 650; cursor: not-allowed;">
+                                                </div>
+                                                <div style="grid-column: span 2 / span 2;">
+                                                    <label style="display: block; font-size: 0.6rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 0.25rem;">Industry Name</label>
+                                                    <input type="text" readonly class="input-box bg-slate-100/50 cursor-not-allowed text-xs font-semibold text-slate-500" value="${act.name}" style="height: 34px; width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0 0.5rem; background: #f1f5f9; color: #64748b; font-weight: 650; cursor: not-allowed;">
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label style="display: block; font-size: 0.6rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 0.25rem;">Business Activity Description*</label>
+                                                <textarea class="input-box w-full text-xs font-medium text-slate-700 resize-none h-16" 
+                                                          style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; outline: none; padding: 0.5rem; height: 60px; font-size: 0.75rem; font-weight: 500; font-family: inherit; resize: none;"
+                                                          placeholder="Provide a brief description of this business activity..." 
+                                                          oninput="wizard.updateSsicDescription('${fullPath}', ${idx}, this.value)">${act.description || ''}</textarea>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                        break;
                     case 'text':
                         html = `
                             <div class="form-group ${field.key.includes('address') || field.key.includes('desc') ? 'full' : ''}">
@@ -3175,6 +3359,46 @@
                                     <span class="truncate pr-4">${val || 'Select File...'}</span>
                                     <input type="file" onchange="wizard.handleUpload(event, '${fullPath}')">
                                     <div class="status-dot ${val ? 'done' : ''}"></div>
+                                </div>
+                            </div>
+                        `;
+                        break;
+                    case 'switch':
+                        const isChecked = getVal(this.data, fullPath) === true;
+                        let priceVal = '';
+                        let periodVal = '';
+                        if (field.placeholder) {
+                            const parts = field.placeholder.split(/\s+(per\s+\w+|one-time)/i);
+                            priceVal = parts[0] || '';
+                            periodVal = parts[1] || '';
+                        }
+                        
+                        html = `
+                            <div class="service-toggle-card ${isChecked ? '' : 'inactive'}" style="margin-bottom: 0px;" id="switch-card-${containerId}">
+                                <div class="service-toggle-left">
+                                    <div class="service-toggle-icon">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                                    </div>
+                                    <div class="service-toggle-details">
+                                        <h4 class="service-toggle-title">${field.label}</h4>
+                                        <p class="service-toggle-desc">${field.hint || ''}</p>
+                                    </div>
+                                </div>
+                                <div class="service-toggle-right">
+                                    <div class="service-toggle-price">
+                                        <span class="service-toggle-price-val">${priceVal}</span>
+                                        <span class="service-toggle-price-lbl">${periodVal}</span>
+                                    </div>
+                                    <label class="switch-input-container">
+                                        <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="
+                                            setVal(wizard.data, '${fullPath}', this.checked);
+                                            document.getElementById('switch-card-${containerId}').className = 'service-toggle-card ' + (this.checked ? '' : 'inactive');
+                                            wizard.save();
+                                            wizard.updateContinueButtonState();
+                                            wizard.render();
+                                        ">
+                                        <span class="switch-slider"></span>
+                                    </label>
                                 </div>
                             </div>
                         `;

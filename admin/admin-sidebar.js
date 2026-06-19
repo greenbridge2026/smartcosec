@@ -611,6 +611,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-8M16 2v5M8 2v5M3 11h18"/></svg>
                             <span>Requirements Page Manager</span>
                         </a>
+                        <a href="ssic.html" class="submenu-item" id="nav-ssic" data-tooltip="SSIC Codes Manager">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5V2.5A2.5 2.5 0 0 1 6.5 0H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M6 6h10M6 10h10"/></svg>
+                            <span>SSIC Codes Manager</span>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -706,6 +710,10 @@ document.addEventListener('DOMContentLoaded', () => {
         activeId = 'nav-packages';
         activeCatId = 'cat-services';
         activeSubId = 'sub-services';
+    } else if (path.includes('ssic.html')) {
+        activeId = 'nav-ssic';
+        activeCatId = 'cat-services';
+        activeSubId = 'sub-services';
     } else if (path.includes('vault.html')) {
         activeId = 'nav-vault';
         activeCatId = 'cat-documents';
@@ -749,6 +757,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'nav-countries': 'Countries',
             'nav-users': 'Users',
             'nav-packages': 'Requirements Page Manager',
+            'nav-ssic': 'SSIC Codes Manager',
             'nav-vault': 'Document Vault',
             'nav-reports': 'Reports'
         };
