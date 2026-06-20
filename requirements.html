@@ -328,6 +328,16 @@
         .toggle-row { display: flex; background: #f1f5f9; border: 1px solid #e2e8f0; padding: 4px; border-radius: 10px; margin-bottom: 1.25rem; max-width: 900px; }
         .toggle-item { flex: 1; padding: 0.6rem; border-radius: 8px; border: none; background: transparent; font-weight: 600; cursor: pointer; color: #64748b; transition: all 0.2s; }
         .toggle-item.active { background: #ffffff; color: #2563eb; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+
+        .input-error {
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+            background-color: #fef2f2 !important;
+        }
+        .upload-slot.input-error {
+            border: 1.5px dashed #ef4444 !important;
+            background-color: #fef2f2 !important;
+        }
  
         .upload-slot { border: 1px dashed #cbd5e1; border-radius: 12px; padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 0.85rem; position: relative; background: #f8fafc; max-width: 900px; }
         .upload-slot input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
@@ -1559,9 +1569,19 @@
                     <div id="wizard-body" class="wizard-body-new"></div>
                     <div class="wizard-footer-new">
                         <div class="footer-divider"></div>
-                        <div class="footer-actions" style="display: flex; justify-content: flex-end; align-items: center;">
-                            <button id="back-to-status" class="btn btn-outline" style="display:none; border-color:#2563eb; color:#2563eb; margin-right: 1rem;" onclick="wizard.init()">Return to Status</button>
-                            <button id="next-btn" class="continue-btn" onclick="wizard.next()">Continue →</button>
+                        <div class="footer-actions" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <button type="button" class="btn btn-outline" style="border-color: #cbd5e1; color: #475569; padding: 0.5rem 1rem; font-size: 0.8rem; height: 38px; display: flex; align-items: center; gap: 0.35rem;" onclick="wizard.manualSaveDraft()">
+                                    💾 Save Draft
+                                </button>
+                                <span id="draft-status-indicator" style="font-size: 0.75rem; color: #10b981; font-weight: 600; display: flex; align-items: center; gap: 0.25rem; opacity: 0.85; transition: opacity 0.3s;">
+                                    ● Auto-saved
+                                </span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <button id="back-to-status" class="btn btn-outline" style="display:none; border-color:#2563eb; color:#2563eb; margin-right: 1rem;" onclick="wizard.init()">Return to Status</button>
+                                <button id="next-btn" class="continue-btn" onclick="wizard.next()">Continue →</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1692,13 +1712,14 @@
                 this.ssicActivities = [];
                 this.ssicSearchQuery = '';
                 this.ssicActiveDropdownIndex = -1;
+                this.autoSaveTimeout = null;
 
                 // Load initial client data structure
                 const savedData = JSON.parse(localStorage.getItem('globalisor_master_v3'));
                 const defaultData = {
                     companyType: 'Pte Ltd',
                     names: ['', '', '', ''],
-                    activities: [],
+                    activities: { primary: null, secondary: null },
                     directors: [{ name: '', idType: 'local', idNum: '', dob: '', phone: '', passportExpiry: '', docs: {} }],
                     shareholders: [{ type: 'individual', name: '', shares: '', percent: '', regNum: '', regPlace: '', regDate: '', phone: '', email: '', addr: '', docs: {}, bo: [] }],
                     capital: { issued: 1000, numShares: 1000, paidUp: 1000, currency: 'SGD', type: 'Ordinary' },
@@ -1870,7 +1891,10 @@
                     this.renderFinal();
                 } else {
                     this.updateInfographic();
-                    if (this.currentStep) {
+                    const savedStep = parseInt(localStorage.getItem('globalisor_requirements_current_step'));
+                    if (savedStep && savedStep <= this.sections.length) {
+                        this.open(savedStep);
+                    } else if (this.currentStep) {
                         this.open(this.currentStep);
                     } else if (this.sections.length > 0) {
                         // Auto-open step 1 in preview mode or fresh sessions with no prior step state
@@ -1882,31 +1906,103 @@
             save() {
                 localStorage.setItem('globalisor_master_v3', JSON.stringify(this.data));
                 this.updateInfographic();
+                this.triggerAutoSave();
+            }
+
+            triggerAutoSave() {
+                const indicator = document.getElementById('draft-status-indicator');
+                if (indicator) {
+                    indicator.innerHTML = `● Saving...`;
+                    indicator.style.color = `#3b82f6`;
+                }
+
+                if (this.autoSaveTimeout) {
+                    clearTimeout(this.autoSaveTimeout);
+                }
+
+                this.autoSaveTimeout = setTimeout(async () => {
+                    try {
+                        const token = localStorage.getItem('token');
+                        if (token) {
+                            await fetch('/api/requirements', {
+                                method: 'POST',
+                                headers: { 
+                                    'Content-Type': 'application/json',
+                                    'Authorization': 'Bearer ' + token
+                                },
+                                body: JSON.stringify(this.data)
+                            });
+                        }
+                    } catch (e) {
+                        console.error("Auto-save draft failed:", e);
+                    }
+                    if (indicator) {
+                        indicator.innerHTML = `● Auto-saved`;
+                        indicator.style.color = `#10b981`;
+                    }
+                }, 1000);
+            }
+
+            async saveDraft(showToastNotice = false) {
+                this.save();
+                
+                const indicator = document.getElementById('draft-status-indicator');
+                if (indicator) {
+                    indicator.innerHTML = `● Saving draft...`;
+                    indicator.style.color = `#3b82f6`;
+                }
+
+                try {
+                    const token = localStorage.getItem('token');
+                    if (token) {
+                        const res = await fetch('/api/requirements', {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Authorization': 'Bearer ' + token
+                            },
+                            body: JSON.stringify(this.data)
+                        });
+                        
+                        if (res.ok) {
+                            if (showToastNotice) {
+                                showToast('Draft saved successfully to cloud!', 'success');
+                            }
+                        }
+                    } else {
+                        if (showToastNotice) {
+                            showToast('Draft saved locally.', 'success');
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to save client requirements draft:", e);
+                    if (showToastNotice) {
+                        showToast('Draft saved locally (offline).', 'info');
+                    }
+                }
+
+                if (indicator) {
+                    indicator.innerHTML = `● Auto-saved`;
+                    indicator.style.color = `#10b981`;
+                }
+            }
+
+            manualSaveDraft() {
+                this.saveDraft(true);
             }
 
             migrateActivitiesData() {
                 let acts = getVal(this.data, 'activities');
-                if (!Array.isArray(acts)) {
-                    const oldPrimary = acts && acts.primary;
-                    const oldSecondary = acts && acts.secondary;
-                    acts = [];
-                    if (oldPrimary && typeof oldPrimary === 'string' && oldPrimary.trim() !== '') {
-                        acts.push({
-                            code: "MANUAL",
-                            name: oldPrimary,
-                            description: oldPrimary,
-                            category: "Manual Entry"
-                        });
-                    }
-                    if (oldSecondary && typeof oldSecondary === 'string' && oldSecondary.trim() !== '') {
-                        acts.push({
-                            code: "MANUAL",
-                            name: oldSecondary,
-                            description: oldSecondary,
-                            category: "Manual Entry"
-                        });
-                    }
-                    setVal(this.data, 'activities', acts);
+                if (Array.isArray(acts)) {
+                    const primary = acts[0] || null;
+                    const secondary = acts[1] || null;
+                    this.data.activities = {
+                        primary: primary,
+                        secondary: secondary
+                    };
+                    this.save();
+                } else if (!acts) {
+                    this.data.activities = { primary: null, secondary: null };
                     this.save();
                 }
             }
@@ -1994,7 +2090,7 @@
 
             updateSsicDescription(fullPath, index, value) {
                 const list = getVal(this.data, fullPath);
-                if (Array.isArray(list) && list[index]) { list[index].description = value; setVal(this.data, fullPath, list); localStorage.setItem('globalisor_master_v3', JSON.stringify(this.data)); this.evaluateConditionalFields(); this.updateContinueButtonState(); }
+                if (Array.isArray(list) && list[index]) { list[index].description = value; setVal(this.data, fullPath, list); this.save(); this.evaluateConditionalFields(); this.updateContinueButtonState(); }
             }
 
             showManualSsicEntry(containerId, fullPath) {
@@ -2040,6 +2136,48 @@
             updateOfficeField(field, value) {
                 if (!this.data.office) this.data.office = {};
                 this.data.office[field] = value;
+
+                if (field === 'postalCode' && value && value.trim().length === 6) {
+                    const cleanPostal = value.trim();
+                    fetch(`https://www.onemap.gov.sg/api/common/elastic/search?searchVal=${cleanPostal}&returnGeom=N&getAddrDetails=Y`)
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data && data.results && data.results.length > 0) {
+                                const result = data.results[0];
+                                const blockVal = result.BLK_NO || '';
+                                let streetVal = result.ROAD_NAME || '';
+                                if (streetVal) {
+                                    streetVal = streetVal.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+                                }
+                                
+                                this.data.office.block = blockVal;
+                                this.data.office.streetName = streetVal;
+                                
+                                const blockEl = document.getElementById('office-input-block');
+                                const streetEl = document.getElementById('office-input-streetName');
+                                if (blockEl) {
+                                    blockEl.value = blockVal;
+                                    blockEl.classList.remove('input-error');
+                                }
+                                if (streetEl) {
+                                    streetEl.value = streetVal;
+                                    streetEl.classList.remove('input-error');
+                                }
+                                
+                                this.recompileOwnAddress();
+                                this.save();
+                                const previewEl = document.getElementById('office-address-preview');
+                                if (previewEl) {
+                                    previewEl.innerText = this.data.office.useService !== false
+                                        ? '10 Anson Road, #16-04 International Plaza, Singapore 079903'
+                                        : this.getFormattedOwnAddressPreview();
+                                }
+                                this.updateContinueButtonState();
+                            }
+                        })
+                        .catch(err => console.error("Error fetching address details:", err));
+                }
+
                 this.recompileOwnAddress();
                 this.save();
                 
@@ -2212,7 +2350,7 @@
             updateSsicSingleDescription(slot, value) {
                 if (this.data.activities && this.data.activities[slot]) {
                     this.data.activities[slot].description = value;
-                    localStorage.setItem('globalisor_master_v3', JSON.stringify(this.data));
+                    this.save();
                     this.evaluateConditionalFields();
                     this.updateContinueButtonState();
                 }
@@ -2285,6 +2423,7 @@
                 }
 
                 this.currentStep = step;
+                localStorage.setItem('globalisor_requirements_current_step', step);
                 document.getElementById('empty-state').style.display = 'none';
                 document.getElementById('wizard-container').classList.add('active');
                 
@@ -2297,6 +2436,9 @@
             }
 
             validateCurrentStep() {
+                // Clear any existing highlights in the wizard container
+                document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+
                 const sec = this.sections[this.currentStep - 1];
                 if (!sec) return true;
 
@@ -2310,11 +2452,30 @@
                         errorMessages.push("Payment Required: Please complete your package payment to proceed.");
                     }
                 } else if (sec.id === 'sec-office') {
-                    const useService = this.data.office ? (this.data.office.useService !== false) : true;
-                    const address = this.data.office ? this.data.office.address : '';
-                    if (useService === false && (!address || address.trim() === '')) {
+                    const useService = this.data.office ? this.data.office.useService : null;
+                    if (useService === null || useService === undefined || useService === "") {
                         isValid = false;
-                        errorMessages.push("Office Address: Please enter your own local address.");
+                        errorMessages.push("Registered Address Option: Please select an address option.");
+                        const el = document.getElementById('office-service-option-container');
+                        if (el) el.classList.add('input-error');
+                    } else if (useService === false) {
+                        const office = this.data.office || {};
+                        const requiredFields = [
+                            { key: 'block', label: 'Block Number', id: 'office-input-block' },
+                            { key: 'streetName', label: 'Street Name', id: 'office-input-streetName' },
+                            { key: 'floor', label: 'Floor', id: 'office-input-floor' },
+                            { key: 'unit', label: 'Unit', id: 'office-input-unit' },
+                            { key: 'postalCode', label: 'Postal Code', id: 'office-input-postalCode' }
+                        ];
+                        requiredFields.forEach(f => {
+                            const val = office[f.key];
+                            if (!val || String(val).trim() === '') {
+                                isValid = false;
+                                errorMessages.push(`Office Address "${f.label}" is required.`);
+                                const el = document.getElementById(f.id);
+                                if (el) el.classList.add('input-error');
+                            }
+                        });
                     }
                 } else if (sec.id === 'sec-directors-shareholders') {
                     // Directors and Shareholders details forms have been removed, only counts are verified
@@ -2324,99 +2485,151 @@
                     isValid = true;
                 } else if (sec.fields) {
                     sec.fields.forEach(field => {
-                    const fullPaths = [];
-                    if (sec.type === 'repeater') {
-                        const list = getVal(this.data, sec.key) || [];
-                        list.forEach((_, idx) => {
-                            fullPaths.push(`${sec.key}[${idx}].${field.key}`);
-                        });
-                    } else {
-                        fullPaths.push(field.key);
-                    }
-
-                    fullPaths.forEach(fullPath => {
-                        const containerId = `field-container-${fullPath.replace(/[.\[\]]/g, '-')}`;
-                        const container = document.getElementById(containerId);
-                        if (container && container.style.display === 'none') {
-                            return;
+                        const fullPaths = [];
+                        if (sec.type === 'repeater') {
+                            const list = getVal(this.data, sec.key) || [];
+                            list.forEach((_, idx) => {
+                                fullPaths.push(`${sec.key}[${idx}].${field.key}`);
+                            });
+                        } else {
+                            fullPaths.push(field.key);
                         }
 
-                        const val = getVal(this.data, fullPath);
-                        const label = field.label;
-                        
-                        if (field.required) {
-                            if (val === undefined || val === null || String(val).trim() === '') {
-                                isValid = false;
-                                errorMessages.push(field.errorMessage || `"${label}" is required.`);
+                        fullPaths.forEach(fullPath => {
+                            const containerId = `field-container-${fullPath.replace(/[.\[\]]/g, '-')}`;
+                            const container = document.getElementById(containerId);
+                            if (container && container.style.display === 'none') {
                                 return;
                             }
-                        }
 
-                        if (val !== undefined && val !== null && String(val).trim() !== '') {
-                            if (field.type === 'number') {
-                                const num = parseFloat(val);
-                                if (field.min !== undefined && field.min !== null && field.min !== '') {
-                                    if (num < parseFloat(field.min)) {
-                                        isValid = false;
-                                        errorMessages.push(field.errorMessage || `"${label}" must be at least ${field.min}.`);
+                            const val = getVal(this.data, fullPath);
+                            const label = field.label;
+                            let fieldIsValid = true;
+                            
+                            if (field.required) {
+                                let isEmpty = false;
+                                if (field.type === 'ssic') {
+                                    const primaryAct = this.data.activities ? this.data.activities.primary : null;
+                                    if (!primaryAct || !primaryAct.code || String(primaryAct.code).trim() === '') {
+                                        isEmpty = true;
+                                    }
+                                } else if (field.type === 'ssic-single') {
+                                    if (fullPath === 'activities.primary') {
+                                        const primaryAct = this.data.activities ? this.data.activities.primary : null;
+                                        if (!primaryAct || !primaryAct.code || String(primaryAct.code).trim() === '') {
+                                            isEmpty = true;
+                                        }
+                                    } else if (fullPath === 'activities.secondary') {
+                                        const secAct = this.data.activities ? this.data.activities.secondary : null;
+                                        if (!secAct || !secAct.code || String(secAct.code).trim() === '') {
+                                            isEmpty = true;
+                                        }
+                                    }
+                                } else {
+                                    if (val === undefined || val === null) {
+                                        isEmpty = true;
+                                    } else if (String(val).trim() === '') {
+                                        isEmpty = true;
                                     }
                                 }
-                                if (field.max !== undefined && field.max !== null && field.max !== '') {
-                                    if (num > parseFloat(field.max)) {
-                                        isValid = false;
-                                        errorMessages.push(field.errorMessage || `"${label}" cannot exceed ${field.max}.`);
-                                    }
-                                }
-                            }
-                            else if (field.type === 'text' || field.type === 'textarea') {
-                                const strLen = String(val).length;
-                                if (field.min !== undefined && field.min !== null && field.min !== '') {
-                                    if (strLen < parseInt(field.min)) {
-                                        isValid = false;
-                                        errorMessages.push(field.errorMessage || `"${label}" must be at least ${field.min} characters.`);
-                                    }
-                                }
-                                if (field.max !== undefined && field.max !== null && field.max !== '') {
-                                    if (strLen > parseInt(field.max)) {
-                                        isValid = false;
-                                        errorMessages.push(field.errorMessage || `"${label}" cannot exceed ${field.max} characters.`);
-                                    }
-                                }
-                            }
 
-                            if (field.pattern) {
-                                try {
-                                    const regex = new RegExp(field.pattern);
-                                    if (!regex.test(String(val))) {
-                                        isValid = false;
-                                        errorMessages.push(field.errorMessage || `"${label}" has an invalid format.`);
-                                    }
-                                } catch(e) {
-                                    console.error("Invalid regex pattern defined:", field.pattern, e);
+                                if (isEmpty) {
+                                    fieldIsValid = false;
+                                    isValid = false;
+                                    errorMessages.push(field.errorMessage || `"${label}" is required.`);
                                 }
                             }
 
-                            if (field.customRule) {
-                                if (field.customRule === 'no_future_date') {
-                                    const todayStr = new Date().toISOString().split('T')[0];
-                                    if (val > todayStr) {
-                                        isValid = false;
-                                        errorMessages.push(field.errorMessage || `"${label}" cannot be in the future.`);
+                            if (fieldIsValid && val !== undefined && val !== null && String(val).trim() !== '' && typeof val !== 'object') {
+                                if (field.type === 'number') {
+                                    const num = parseFloat(val);
+                                    if (field.min !== undefined && field.min !== null && field.min !== '') {
+                                        if (num < parseFloat(field.min)) {
+                                            fieldIsValid = false;
+                                            isValid = false;
+                                            errorMessages.push(field.errorMessage || `"${label}" must be at least ${field.min}.`);
+                                        }
                                     }
-                                } else if (field.customRule === 'passport_expiry_6m') {
-                                    if (this.isExpiryInvalid(val)) {
-                                        isValid = false;
-                                        errorMessages.push(field.errorMessage || `"${label}" must be valid for more than 6 months.`);
+                                    if (field.max !== undefined && field.max !== null && field.max !== '') {
+                                        if (num > parseFloat(field.max)) {
+                                            fieldIsValid = false;
+                                            isValid = false;
+                                            errorMessages.push(field.errorMessage || `"${label}" cannot exceed ${field.max}.`);
+                                        }
+                                    }
+                                }
+                                else if (field.type === 'text' || field.type === 'textarea') {
+                                    const strLen = String(val).length;
+                                    if (field.min !== undefined && field.min !== null && field.min !== '') {
+                                        if (strLen < parseInt(field.min)) {
+                                            fieldIsValid = false;
+                                            isValid = false;
+                                            errorMessages.push(field.errorMessage || `"${label}" must be at least ${field.min} characters.`);
+                                        }
+                                    }
+                                    if (field.max !== undefined && field.max !== null && field.max !== '') {
+                                        if (strLen > parseInt(field.max)) {
+                                            fieldIsValid = false;
+                                            isValid = false;
+                                            errorMessages.push(field.errorMessage || `"${label}" cannot exceed ${field.max} characters.`);
+                                        }
+                                    }
+                                }
+
+                                if (field.pattern) {
+                                    try {
+                                        const regex = new RegExp(field.pattern);
+                                        if (!regex.test(String(val))) {
+                                            fieldIsValid = false;
+                                            isValid = false;
+                                            errorMessages.push(field.errorMessage || `"${label}" has an invalid format.`);
+                                        }
+                                    } catch(e) {
+                                        console.error("Invalid regex pattern defined:", field.pattern, e);
+                                    }
+                                }
+
+                                if (field.customRule) {
+                                    if (field.customRule === 'no_future_date') {
+                                        const todayStr = new Date().toISOString().split('T')[0];
+                                        if (val > todayStr) {
+                                            fieldIsValid = false;
+                                            isValid = false;
+                                            errorMessages.push(field.errorMessage || `"${label}" cannot be in the future.`);
+                                        }
+                                    } else if (field.customRule === 'passport_expiry_6m') {
+                                        if (this.isExpiryInvalid(val)) {
+                                            fieldIsValid = false;
+                                            isValid = false;
+                                            errorMessages.push(field.errorMessage || `"${label}" must be valid for more than 6 months.`);
+                                        }
                                     }
                                 }
                             }
-                        }
+
+                            if (!fieldIsValid && container) {
+                                const inputEl = container.querySelector('input, select, textarea, .upload-slot');
+                                if (inputEl) {
+                                    inputEl.classList.add('input-error');
+                                }
+                            }
+                            
+                            if (!fieldIsValid) {
+                                if (field.type === 'ssic' || fullPath === 'activities.primary') {
+                                    const el = document.getElementById('ssic-search-primary');
+                                    if (el) el.classList.add('input-error');
+                                } else if (fullPath === 'activities.secondary') {
+                                    const el = document.getElementById('ssic-search-secondary');
+                                    if (el) el.classList.add('input-error');
+                                }
+                            }
+                        });
                     });
-                });
-            }
+                }
 
                 if (!isValid) {
-                    errorMessages.forEach(msg => showToast(msg, 'error'));
+                    const listHtml = `<div style="font-weight:700;margin-bottom:0.25rem;">Please fill in the required fields:</div><ul style="margin:0;padding-left:1.2rem;font-size:0.8rem;text-align:left;">` + errorMessages.map(m => `<li>${m}</li>`).join('') + `</ul>`;
+                    showToast(listHtml, 'error');
                 }
                 return isValid;
             }
@@ -3061,21 +3274,33 @@
                                     </div>
                                 </div>
                                 <div class="counter-card">
-                                    <h3>👤 Individual Shareholders</h3>
-                                    <p>Beneficial owners who are individual people.</p>
-                                    <div class="counter-controls">
-                                        <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('individual', -1)">-</button>
-                                        <div class="counter-val" id="individual-shareholders-count-val">${shareholders.filter(s => s.type === 'individual').length}</div>
-                                        <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('individual', 1)">+</button>
+                                    <h3>👥 Shareholders</h3>
+                                    <p>Beneficial owners who hold shares in the company.</p>
+                                    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+                                        <select id="shareholder-type-select" style="flex: 1; padding: 0.5rem 0.75rem; border: 1.5px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem; outline: none; background: white; cursor: pointer; height: 38px;">
+                                            <option value="individual" ${shareholders.length > 1 && shareholders[0].type === 'corporate' ? 'disabled' : ''} ${shareholders[0] && shareholders[0].type === 'individual' ? 'selected' : ''}>Individual Shareholder</option>
+                                            <option value="corporate" ${shareholders.length > 1 && shareholders[0].type === 'individual' ? 'disabled' : ''} ${shareholders[0] && shareholders[0].type === 'corporate' ? 'selected' : ''}>Corporate Shareholder</option>
+                                        </select>
+                                        <button type="button" onclick="wizard.addShareholder(document.getElementById('shareholder-type-select').value)" style="padding: 0.5rem 1rem; font-size: 0.85rem; font-weight: 700; background: #2563eb; color: white; border: none; border-radius: 8px; cursor: pointer; transition: background 0.2s; height: 38px;">
+                                            Add
+                                        </button>
                                     </div>
-                                </div>
-                                <div class="counter-card">
-                                    <h3>🏢 Corporate Shareholders</h3>
-                                    <p>Beneficial owners that are corporate entities.</p>
-                                    <div class="counter-controls">
-                                        <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('corporate', -1)">-</button>
-                                        <div class="counter-val" id="corporate-shareholders-count-val">${shareholders.filter(s => s.type === 'corporate').length}</div>
-                                        <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('corporate', 1)">+</button>
+                                    <div style="display: flex; flex-direction: column; gap: 0.4rem; max-height: 180px; overflow-y: auto; padding-right: 2px;">
+                                        ${shareholders.map((s, idx) => `
+                                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.55rem 0.75rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+                                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                    <span style="font-size: 1.1rem; line-height: 1;">${s.type === 'individual' ? '👤' : '🏢'}</span>
+                                                    <span style="font-size: 0.825rem; font-weight: 600; color: #1e293b;">
+                                                        ${s.type === 'individual' ? 'Individual Shareholder' : 'Corporate Shareholder'} ${idx + 1}
+                                                    </span>
+                                                </div>
+                                                ${shareholders.length > 1 ? `
+                                                    <button type="button" onclick="wizard.removeShareholder(${idx})" style="background: none; border: none; color: #ef4444; font-size: 0.75rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; padding: 0;">
+                                                        Remove
+                                                    </button>
+                                                ` : ''}
+                                            </div>
+                                        `).join('')}
                                     </div>
                                 </div>
                             </div>
@@ -3192,33 +3417,21 @@
                                     All Singapore companies must have a registered office address in Singapore. If you do not have one, you can subscribe to Globalisor's registered address service.
                                 </p>
 
-                                <!-- Residency Radio Buttons -->
-                                <div style="margin-bottom: 1.5rem; background: #ffffff; border: 1px solid rgba(226, 232, 240, 0.8); border-radius: 12px; padding: 1.25rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);">
-                                    <label style="font-size: 0.875rem; font-weight: 700; color: #1e293b; display: block; margin-bottom: 0.75rem;">
-                                        Are you a Local or Foreigner? *
-                                    </label>
-                                    <div style="display: flex; gap: 1.5rem;">
-                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; font-weight: 600; color: #475569;">
-                                            <input type="radio" name="residency-option" value="local" ${residency === 'local' ? 'checked' : ''} onchange="wizard.updateOfficeResidency('local')" style="accent-color: #2563eb; width: 1.1rem; height: 1.1rem;">
-                                            Yes (Local)
-                                        </label>
-                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; font-weight: 600; color: #475569;">
-                                            <input type="radio" name="residency-option" value="foreigner" ${residency === 'foreigner' ? 'checked' : ''} onchange="wizard.updateOfficeResidency('foreigner')" style="accent-color: #2563eb; width: 1.1rem; height: 1.1rem;">
-                                            No (Foreigner)
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <!-- Registered Address Option Dropdown -->
-                                <div style="margin-bottom: 1.5rem; background: #ffffff; border: 1px solid rgba(226, 232, 240, 0.8); border-radius: 12px; padding: 1.25rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);">
+                                <!-- Registered Address Option Radio Group -->
+                                <div id="office-service-option-container" style="margin-bottom: 1.5rem; background: #ffffff; border: 1px solid rgba(226, 232, 240, 0.8); border-radius: 12px; padding: 1.25rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02); transition: all 0.2s;">
                                     <label style="font-size: 0.875rem; font-weight: 700; color: #1e293b; display: block; margin-bottom: 0.75rem;">
                                         Registered Address Option *
                                     </label>
-                                    <select id="office-service-select" class="input-box" style="width: 100%; border: 1.5px solid #cbd5e1; border-radius: 9px; padding: 0.6rem 0.75rem; font-size: 0.875rem; background: white; cursor: pointer; outline: none;" onchange="wizard.handleOfficeServiceChange(this.value)">
-                                        <option value="" ${useService === undefined || useService === null ? 'selected' : ''}>Select Option...</option>
-                                        <option value="true" ${useService === true ? 'selected' : ''}>Globalisor Premium CBD Address ($480/yr)</option>
-                                        <option value="false" ${useService === false ? 'selected' : ''}>Use my own local address</option>
-                                    </select>
+                                    <div style="display: flex; gap: 1.5rem;">
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; font-weight: 600; color: #475569;">
+                                            <input type="radio" name="office-service-option" value="false" ${useService === false ? 'checked' : ''} onchange="wizard.handleOfficeServiceChange('false')" style="accent-color: #2563eb; width: 1.1rem; height: 1.1rem;">
+                                            Yes, I have
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; font-weight: 600; color: #475569;">
+                                            <input type="radio" name="office-service-option" value="true" ${useService === true ? 'checked' : ''} onchange="wizard.handleOfficeServiceChange('true')" style="accent-color: #2563eb; width: 1.1rem; height: 1.1rem;">
+                                            No, I need
+                                        </label>
+                                    </div>
                                 </div>
 
                                 <!-- Conditional Step 2 Block -->
@@ -3237,7 +3450,7 @@
                                             <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 1rem; display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 1.5rem;">
                                                 <div style="color: #2563eb; font-size: 1.25rem; line-height: 1;">ℹ️</div>
                                                 <div style="font-size: 0.825rem; color: #1e3a8a; line-height: 1.5;">
-                                                    <div style="font-weight: 600; margin-bottom: 0.25rem;">Premium CBD Registered Address Service</div>
+                                                    <div style="font-weight: 600; margin-bottom: 0.25rem;">Globalisor Premium CBD Registered Address Service</div>
                                                     Subscription Pricing: <span style="font-weight: bold;">SGD 480 / year</span>. This includes mail scanning and notifications. The address will be registered with ACRA for your company.
                                                 </div>
                                             </div>
@@ -4037,6 +4250,34 @@
                 this.render();
             }
 
+            addShareholder(type) {
+                let list = getVal(this.data, 'shareholders');
+                if (!list || !Array.isArray(list)) {
+                    list = [];
+                }
+                if (list.length === 1 && list[0].type !== type) {
+                    list[0].type = type;
+                } else {
+                    const defaultObj = { type: type, name: '', shares: '', percent: '', regNum: '', regPlace: '', regDate: '', phone: '', email: '', addr: '', docs: {}, bo: [] };
+                    list.push(defaultObj);
+                }
+                setVal(this.data, 'shareholders', list);
+                this.save();
+                this.render();
+            }
+
+            removeShareholder(index) {
+                let list = getVal(this.data, 'shareholders');
+                if (list && list.length > 1) {
+                    list.splice(index, 1);
+                    setVal(this.data, 'shareholders', list);
+                    this.save();
+                    this.render();
+                } else {
+                    showToast("At least one shareholder is required.", "error");
+                }
+            }
+
 
             removeCounterItem(key, idx) {
                 let list = getVal(this.data, key);
@@ -4201,20 +4442,9 @@
 
             updatePayButtonState() {
                 const payBtn = document.getElementById('pay-confirm-btn');
-                const ccNum = document.getElementById('cc-number')?.value || '';
-                const ccExp = document.getElementById('cc-expiry')?.value || '';
-                const ccCvc = document.getElementById('cc-cvc')?.value || '';
-                
-                const isFormFilled = ccNum.trim().length >= 12 && ccExp.trim().length >= 4 && ccCvc.trim().length >= 3;
-                
                 if (payBtn) {
-                    if (isFormFilled) {
-                        payBtn.classList.add('enabled-state');
-                        payBtn.disabled = false;
-                    } else {
-                        payBtn.classList.remove('enabled-state');
-                        payBtn.disabled = true;
-                    }
+                    payBtn.classList.add('enabled-state');
+                    payBtn.disabled = false;
                 }
             }
 
@@ -4494,31 +4724,12 @@
                                 <div class="checkout-divider"></div>
                                 
                                 <!-- Total Calculation -->
-                                <div class="checkout-total-box">
+                                <div class="checkout-total-box" style="margin-bottom: 1.5rem;">
                                     <div class="total-label">Total Amount Due:</div>
                                     <div class="total-value" id="checkout-total-val">${formattedTotal}</div>
                                 </div>
                                 
-                                <!-- Payment mock details -->
-                                <div class="checkout-payment-box">
-                                    <div class="payment-title">🔒 Secure Credit Card Payment</div>
-                                    <div class="form-group-checkout">
-                                        <label class="form-label-checkout">Card Number</label>
-                                        <input type="text" id="cc-number" placeholder="4111 2222 3333 4444" class="input-checkout-box" oninput="wizard.updatePayButtonState()">
-                                    </div>
-                                    <div class="form-row-checkout">
-                                        <div class="form-group-checkout half">
-                                            <label class="form-label-checkout">Expiry Date</label>
-                                            <input type="text" id="cc-expiry" placeholder="MM/YY" class="input-checkout-box" oninput="wizard.updatePayButtonState()">
-                                        </div>
-                                        <div class="form-group-checkout half">
-                                            <label class="form-label-checkout">CVC</label>
-                                            <input type="password" id="cc-cvc" placeholder="***" class="input-checkout-box" oninput="wizard.updatePayButtonState()">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <button type="button" id="pay-confirm-btn" class="pay-btn" disabled onclick="wizard.confirmAndPay()">Confirm & Pay ${formattedTotal}</button>
+                                <button type="button" id="pay-confirm-btn" class="pay-btn enabled-state" onclick="wizard.confirmAndPay()">Confirm & Pay ${formattedTotal}</button>
                             </div>
                         </div>
                     </div>
@@ -5553,6 +5764,26 @@
         window.onload = () => {
             wizard.init();
             setInterval(checkClientStatus, 10000); // Polling for real-time status update
+
+            // Clear input-error when user changes the value
+            document.body.addEventListener('input', (e) => {
+                if (e.target.classList.contains('input-error')) {
+                    e.target.classList.remove('input-error');
+                }
+            });
+            document.body.addEventListener('change', (e) => {
+                if (e.target.classList.contains('input-error')) {
+                    e.target.classList.remove('input-error');
+                }
+                const slot = e.target.closest('.upload-slot');
+                if (slot && slot.classList.contains('input-error')) {
+                    slot.classList.remove('input-error');
+                }
+                if (e.target.name === 'office-service-option') {
+                    const container = document.getElementById('office-service-option-container');
+                    if (container) container.classList.remove('input-error');
+                }
+            });
         };
     </script>
 </body>
