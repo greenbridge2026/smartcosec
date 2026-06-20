@@ -57,6 +57,9 @@
         .custom-tooltip-trigger:hover .tooltip-right {
             transform: translateY(0) scale(1);
         }
+        body.hide-tooltips .custom-tooltip-trigger {
+            display: none !important;
+        }
         .top-nav { height: 60px; background: #ffffff; backdrop-filter: blur(20px); border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1.5rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
         .main-container { padding: 2rem; max-width: 1600px; margin-left: 240px !important; margin-right: auto; }
         .module-nav-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #64748b; transition: all 0.2s; cursor: pointer !important; border: none; background: transparent; white-space: nowrap; width: 100% !important; box-sizing: border-box !important; }
@@ -124,6 +127,11 @@
     </style>
 </head>
 <body>
+    <script>
+        if (localStorage.getItem('show_tooltips') === 'false') {
+            document.body.classList.add('hide-tooltips');
+        }
+    </script>
     <nav class="top-nav">
         <div class="flex items-center gap-4">
             <div class="flex flex-col leading-none cursor-pointer" onclick="window.location.href='dashboard.html'">
@@ -157,6 +165,10 @@
                     <p class="text-slate-500 text-sm mt-1">Manage, structure, and control the client onboarding requirements page sections, checklists, documents, SOPs, and FAQs.</p>
                 </div>
                 <div class="flex items-center gap-3">
+                    <label class="inline-flex items-center gap-2 cursor-pointer bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 select-none hover:bg-slate-100 transition-all shadow-sm">
+                        <input type="checkbox" id="tooltip-toggle" checked onchange="toggleTooltips(this.checked)" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                        Show Definitions
+                    </label>
                     <button onclick="previewOnboarding()" class="bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-all shadow-sm">
                         <i data-lucide="eye" class="w-4 h-4"></i> Preview Mode
                     </button>
@@ -218,23 +230,68 @@
                         <!-- Config Form -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Section Title</label>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                                    Section Title
+                                    <span class="custom-tooltip-trigger relative inline-flex items-center ml-1 cursor-help select-none">
+                                        <span class="inline-flex items-center justify-center text-[9px] w-[13px] h-[13px] bg-slate-200 text-slate-500 hover:bg-slate-600 hover:text-white rounded-full font-bold transition-all duration-200">i</span>
+                                        <span class="custom-tooltip-box pointer-events-none absolute bottom-full tooltip-left z-50 mb-2 w-52 rounded-lg bg-slate-800 p-2.5 text-[10px] font-medium text-white shadow-xl line-clamp-none whitespace-normal normal-case text-left leading-normal">
+                                            The main display title of this onboarding step shown to the user.
+                                            <span class="absolute top-full left-4 border-4 border-solid border-transparent border-t-slate-800"></span>
+                                        </span>
+                                    </span>
+                                </label>
                                 <input type="text" id="sec-title-input" class="w-100 w-full px-4 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all" oninput="document.getElementById('editor-section-title').innerText = this.value || 'Section Editor'">
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Section Key (Unique API Name)</label>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                                    Section Key (Unique API Name)
+                                    <span class="custom-tooltip-trigger relative inline-flex items-center ml-1 cursor-help select-none">
+                                        <span class="inline-flex items-center justify-center text-[9px] w-[13px] h-[13px] bg-slate-200 text-slate-500 hover:bg-slate-600 hover:text-white rounded-full font-bold transition-all duration-200">i</span>
+                                        <span class="custom-tooltip-box pointer-events-none absolute bottom-full tooltip-center z-50 mb-2 w-52 rounded-lg bg-slate-800 p-2.5 text-[10px] font-medium text-white shadow-xl line-clamp-none whitespace-normal normal-case text-left leading-normal">
+                                            Unique identifier used for binding form data in the backend database.
+                                            <span class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-solid border-transparent border-t-slate-800"></span>
+                                        </span>
+                                    </span>
+                                </label>
                                 <input type="text" id="sec-key-input" class="w-100 w-full px-4 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all" placeholder="e.g. required-documents">
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Section Description (Sub-title)</label>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                                    Section Description (Sub-title)
+                                    <span class="custom-tooltip-trigger relative inline-flex items-center ml-1 cursor-help select-none">
+                                        <span class="inline-flex items-center justify-center text-[9px] w-[13px] h-[13px] bg-slate-200 text-slate-500 hover:bg-slate-600 hover:text-white rounded-full font-bold transition-all duration-200">i</span>
+                                        <span class="custom-tooltip-box pointer-events-none absolute bottom-full tooltip-left z-50 mb-2 w-52 rounded-lg bg-slate-800 p-2.5 text-[10px] font-medium text-white shadow-xl line-clamp-none whitespace-normal normal-case text-left leading-normal">
+                                            Sub-heading explanation of this onboarding step's purpose.
+                                            <span class="absolute top-full left-4 border-4 border-solid border-transparent border-t-slate-800"></span>
+                                        </span>
+                                    </span>
+                                </label>
                                 <input type="text" id="sec-desc-input" class="w-full px-4 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Applicable Services (Comma-separated or 'All')</label>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                                    Applicable Services (Comma-separated or 'All')
+                                    <span class="custom-tooltip-trigger relative inline-flex items-center ml-1 cursor-help select-none">
+                                        <span class="inline-flex items-center justify-center text-[9px] w-[13px] h-[13px] bg-slate-200 text-slate-500 hover:bg-slate-600 hover:text-white rounded-full font-bold transition-all duration-200">i</span>
+                                        <span class="custom-tooltip-box pointer-events-none absolute bottom-full tooltip-center z-50 mb-2 w-52 rounded-lg bg-slate-800 p-2.5 text-[10px] font-medium text-white shadow-xl line-clamp-none whitespace-normal normal-case text-left leading-normal">
+                                            Defines which packages/services this step is shown for.
+                                            <span class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-solid border-transparent border-t-slate-800"></span>
+                                        </span>
+                                    </span>
+                                </label>
                                 <input type="text" id="sec-services-input" class="w-full px-4 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all" placeholder="e.g. Incorporation, Nominee Director, or All">
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Section Type</label>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                                    Section Type
+                                    <span class="custom-tooltip-trigger relative inline-flex items-center ml-1 cursor-help select-none">
+                                        <span class="inline-flex items-center justify-center text-[9px] w-[13px] h-[13px] bg-slate-200 text-slate-500 hover:bg-slate-600 hover:text-white rounded-full font-bold transition-all duration-200">i</span>
+                                        <span class="custom-tooltip-box pointer-events-none absolute bottom-full tooltip-right z-50 mb-2 w-52 rounded-lg bg-slate-800 p-2.5 text-[10px] font-medium text-white shadow-xl line-clamp-none whitespace-normal normal-case text-left leading-normal">
+                                            Render style: Standard single-form, repeater multi-form, or customized layout.
+                                            <span class="absolute top-full right-4 border-4 border-solid border-transparent border-t-slate-800"></span>
+                                        </span>
+                                    </span>
+                                </label>
                                 <select id="sec-type-select" class="w-full px-4 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer">
                                     <option value="form">Standard Form</option>
                                     <option value="repeater">Repeater Form (Multi-item)</option>
@@ -908,10 +965,10 @@
 
                     <div class="options-container ${isSelect ? '' : 'hidden'}" id="opt-container-${index}">
                         <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                            Dropdown Options (Format: value:Label, separated by commas)
-                            ${renderTooltip("Specify option choices as 'value:Label' pairs separated by commas (e.g. 'true:Premium CBD Address ($480/yr), false:Use my own local address'). Only applicable for 'Select List' type.", 'left')}
+                            Dropdown Options (Format: value:Label, separated by semicolons or commas)
+                            ${renderTooltip("Specify option choices as 'value:Label' pairs separated by semicolons (e.g. 'true:No, I Need Address; false:Yes, I have Address') or commas. Only applicable for 'Select List' type.", 'left')}
                         </label>
-                        <input type="text" value="${selectOptions}" placeholder="e.g. true:Yes, false:No" oninput="updateFieldOptions(${index}, this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none">
+                        <input type="text" value="${selectOptions}" placeholder="e.g. true:Yes; false:No" oninput="updateFieldOptions(${index}, this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none">
                     </div>
 
                     <!-- Validation Rules Sub-section -->
@@ -1056,7 +1113,8 @@
         function updateFieldOptions(index, optionsStr) {
             const sec = sections.find(s => s.id === selectedSectionId);
             if (sec && sec.fields[index]) {
-                sec.fields[index].options = optionsStr.split(',').map(s => s.trim()).filter(Boolean);
+                const sep = optionsStr.includes(';') ? ';' : ',';
+                sec.fields[index].options = optionsStr.split(sep).map(s => s.trim()).filter(Boolean);
                 validateFields();
             }
         }
@@ -1417,9 +1475,27 @@
             window.open('/requirements.html?preview=true', '_blank');
         }
 
+        function toggleTooltips(enabled) {
+            if (enabled) {
+                document.body.classList.remove('hide-tooltips');
+                localStorage.setItem('show_tooltips', 'true');
+            } else {
+                document.body.classList.add('hide-tooltips');
+                localStorage.setItem('show_tooltips', 'false');
+            }
+        }
+
         // Initialize Lucide & load items
         document.addEventListener('DOMContentLoaded', () => {
             if (window.lucide) window.lucide.createIcons();
+            
+            const showTooltips = localStorage.getItem('show_tooltips') !== 'false';
+            const toggleEl = document.getElementById('tooltip-toggle');
+            if (toggleEl) {
+                toggleEl.checked = showTooltips;
+            }
+            toggleTooltips(showTooltips);
+
             loadSections();
         });
     </script>

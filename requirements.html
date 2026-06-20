@@ -1464,18 +1464,7 @@
         <div style="width: 60px; flex-shrink: 0;"></div>
     </header>
 
-    <!-- NAVIGATION -->
-    <div class="nav-bar">
-        <div>
-            <img src="/logo.png" alt="Globalisor Logo" style="height: 30px; cursor: pointer;" onclick="window.location.href='/'">
-        </div>
-        <div>
-            <button onclick="logoutClient()" style="font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569; background: rgba(255, 255, 255, 0.7); border: 1px solid rgba(226, 232, 240, 0.8); padding: 0.55rem 1.2rem; border-radius: 0.75rem; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); backdrop-filter: blur(10px);" onmouseover="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.color='#ef4444'; this.style.borderColor='rgba(239, 68, 68, 0.2)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.7)'; this.style.color='#475569'; this.style.borderColor='rgba(226, 232, 240, 0.8)';">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right: 0.25rem;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                Sign Out
-            </button>
-        </div>
-    </div>
+
 
     <div class="main-container">
         <!-- ENTRY / START STATE -->
@@ -1571,12 +1560,9 @@
                         <div class="footer-divider"></div>
                         <div class="footer-actions" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                             <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                <button type="button" class="btn btn-outline" style="border-color: #cbd5e1; color: #475569; padding: 0.5rem 1rem; font-size: 0.8rem; height: 38px; display: flex; align-items: center; gap: 0.35rem;" onclick="wizard.manualSaveDraft()">
-                                    💾 Save Draft
+                                <button type="button" class="btn btn-outline" style="border-color: #cbd5e1; color: #475569; padding: 0.5rem 1rem; font-size: 0.8rem; height: 38px; display: flex; align-items: center; gap: 0.35rem;" onclick="wizard.autofill()">
+                                    ⚡ Autofill
                                 </button>
-                                <span id="draft-status-indicator" style="font-size: 0.75rem; color: #10b981; font-weight: 600; display: flex; align-items: center; gap: 0.25rem; opacity: 0.85; transition: opacity 0.3s;">
-                                    ● Auto-saved
-                                </span>
                             </div>
                             <div style="display: flex; align-items: center; gap: 0.5rem;">
                                 <button id="back-to-status" class="btn btn-outline" style="display:none; border-color:#2563eb; color:#2563eb; margin-right: 1rem;" onclick="wizard.init()">Return to Status</button>
@@ -1991,6 +1977,121 @@
                 this.saveDraft(true);
             }
 
+            autofill() {
+                const sec = this.sections[this.currentStep - 1];
+                if (!sec) return;
+                
+                if (sec.id === 'sec-names' || sec.key === 'names') {
+                    this.data.companyType = 'Pte Ltd';
+                    this.data.names[0] = 'Globalisor Tech Solutions Pte Ltd';
+                    this.data.names[1] = 'Globalisor Digital Group Pte Ltd';
+                    this.data.names[2] = 'Globalisor Ventures Pte Ltd';
+                    this.data.names[3] = 'Globalisor Global Pte Ltd';
+                    
+                    this.data.activities = {
+                        primary: {
+                            code: '62011',
+                            name: 'Development of software for interactive digital media',
+                            category: 'Information and Communications',
+                            description: 'Development of mobile applications and interactive digital products.'
+                        },
+                        secondary: {
+                            code: '62021',
+                            name: 'Information technology consultancy',
+                            category: 'Information and Communications',
+                            description: 'Consulting services for computer systems, network designs, and IT systems integration.'
+                        }
+                    };
+
+                    if (!this.data.nameChecks) this.data.nameChecks = {};
+                    const checkedAt = Date.now();
+                    this.data.nameChecks['names[0]'] = { status: 'available', message: 'Name is available', checkedAt };
+                    this.data.nameChecks['names[1]'] = { status: 'available', message: 'Name is available', checkedAt };
+                    this.data.nameChecks['names[2]'] = { status: 'available', message: 'Name is available', checkedAt };
+                    this.data.nameChecks['names[3]'] = { status: 'available', message: 'Name is available', checkedAt };
+                    
+                } else if (sec.id === 'sec-directors-shareholders' || sec.key === 'directors-shareholders') {
+                    this.data.directors = [
+                        {
+                            name: 'Marcus Ng',
+                            idType: 'local',
+                            idNum: 'S8812345Z',
+                            dob: '1988-08-08',
+                            phone: '+65 9123 4567',
+                            email: 'marcus.ng@example.com',
+                            addr: 'Blk 123 Ang Mo Kio Ave 4 #05-67, Singapore 560123',
+                            docs: {}
+                        }
+                    ];
+                    this.data.shareholders = [
+                        {
+                            type: 'individual',
+                            name: 'Sarah Lim',
+                            shares: '10000',
+                            percent: '100',
+                            phone: '+65 9876 5432',
+                            email: 'sarah.lim@example.com',
+                            addr: 'Blk 456 Jurong West St 42 #12-34, Singapore 640456',
+                            docs: {},
+                            bo: []
+                        }
+                    ];
+                    this.data.capital = {
+                        issued: 10000,
+                        numShares: 10000,
+                        paidUp: 10000,
+                        currency: 'SGD',
+                        type: 'Ordinary'
+                    };
+                } else if (sec.id === 'sec-office' || sec.key === 'office') {
+                    this.data.office = {
+                        useService: true,
+                        block: '10',
+                        streetName: 'Anson Road',
+                        floor: '16',
+                        unit: '04',
+                        building: 'International Plaza',
+                        country: 'Singapore',
+                        postalCode: '079903',
+                        address: '10 Anson Road, #16-04 International Plaza, Singapore 079903',
+                        residency: 'local'
+                    };
+                } else if (sec.id === 'sec-addons' || sec.key === 'addons') {
+                    this.data.addons = {
+                        bankIntro: true,
+                        statCompliance: true,
+                        accounting: false,
+                        taxCompliance: false,
+                        crossBorderTax: false,
+                        apostille: false
+                    };
+                    this.data.secretary = {
+                        required: true,
+                        named: true,
+                        details: {
+                            name: 'Sarah Lim',
+                            idNum: 'S7654321B',
+                            nation: 'Singaporean',
+                            dob: '1985-05-15',
+                            phone: '+65 9876 5432',
+                            email: 'sarahlim@globalisor.com',
+                            addr: '10 Anson Road, Singapore 079903'
+                        }
+                    };
+                } else if (sec.id === 'sec-package-next' || sec.key === 'contact') {
+                    this.data.contact = {
+                        firstName: 'Mohd',
+                        lastName: 'Asif',
+                        phone: '+65 9123 4567',
+                        email: 'asif@globalisor.com'
+                    };
+                }
+                
+                this.save();
+                this.render();
+                showToast('Form step autofilled successfully!', 'success');
+            }
+
             migrateActivitiesData() {
                 let acts = getVal(this.data, 'activities');
                 if (Array.isArray(acts)) {
@@ -2137,45 +2238,8 @@
                 if (!this.data.office) this.data.office = {};
                 this.data.office[field] = value;
 
-                if (field === 'postalCode' && value && value.trim().length === 6) {
-                    const cleanPostal = value.trim();
-                    fetch(`https://www.onemap.gov.sg/api/common/elastic/search?searchVal=${cleanPostal}&returnGeom=N&getAddrDetails=Y`)
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data && data.results && data.results.length > 0) {
-                                const result = data.results[0];
-                                const blockVal = result.BLK_NO || '';
-                                let streetVal = result.ROAD_NAME || '';
-                                if (streetVal) {
-                                    streetVal = streetVal.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
-                                }
-                                
-                                this.data.office.block = blockVal;
-                                this.data.office.streetName = streetVal;
-                                
-                                const blockEl = document.getElementById('office-input-block');
-                                const streetEl = document.getElementById('office-input-streetName');
-                                if (blockEl) {
-                                    blockEl.value = blockVal;
-                                    blockEl.classList.remove('input-error');
-                                }
-                                if (streetEl) {
-                                    streetEl.value = streetVal;
-                                    streetEl.classList.remove('input-error');
-                                }
-                                
-                                this.recompileOwnAddress();
-                                this.save();
-                                const previewEl = document.getElementById('office-address-preview');
-                                if (previewEl) {
-                                    previewEl.innerText = this.data.office.useService !== false
-                                        ? '10 Anson Road, #16-04 International Plaza, Singapore 079903'
-                                        : this.getFormattedOwnAddressPreview();
-                                }
-                                this.updateContinueButtonState();
-                            }
-                        })
-                        .catch(err => console.error("Error fetching address details:", err));
+                if (field === 'postalCode' && value && value.trim().length === 6 && /^\d{6}$/.test(value.trim())) {
+                    this.fetchAddressDetails(true);
                 }
 
                 this.recompileOwnAddress();
@@ -2190,29 +2254,178 @@
                 this.updateContinueButtonState();
             }
 
+            async fetchAddressDetails(isSilent = false) {
+                if (!this.data.office) this.data.office = {};
+                const postalEl = document.getElementById('office-input-postalCode');
+                const postalCode = postalEl ? postalEl.value.trim() : (this.data.office.postalCode || '').trim();
+                
+                if (!postalCode) {
+                    if (!isSilent) showToast('Please enter a postal code first.', 'error');
+                    return;
+                }
+
+                // Read country input
+                const countryEl = document.getElementById('office-input-country');
+                const typedCountry = (countryEl ? countryEl.value.trim() : (this.data.office.country || '')).toLowerCase();
+
+                // Check if country is Singapore (or empty) and postcode matches Singapore format (6 digits)
+                const isSingaporePostcode = /^\d{6}$/.test(postalCode);
+                const isSingaporeCountry = !typedCountry || typedCountry === 'singapore' || typedCountry === 'sg';
+
+                if (!isSingaporePostcode || !isSingaporeCountry) {
+                    if (!isSilent) showToast('Postal code lookup is only available for Singapore addresses.', 'error');
+                    return;
+                }
+                
+                if (!isSilent) showToast('Fetching address details...', 'info');
+
+                // Helper to update fields
+                const fillAndSave = (block, street, building, country, postal) => {
+                    this.data.office.block = block;
+                    this.data.office.streetName = street;
+                    this.data.office.building = building;
+                    this.data.office.country = country;
+                    this.data.office.postalCode = postal;
+                    
+                    const blockEl = document.getElementById('office-input-block');
+                    const streetEl = document.getElementById('office-input-streetName');
+                    const buildingEl = document.getElementById('office-input-building');
+                    const countryEl2 = document.getElementById('office-input-country');
+                    const postalEl2 = document.getElementById('office-input-postalCode');
+                    
+                    if (blockEl) blockEl.value = block;
+                    if (streetEl) streetEl.value = street;
+                    if (buildingEl) buildingEl.value = building;
+                    if (countryEl2) countryEl2.value = country;
+                    if (postalEl2) postalEl2.value = postal;
+                    
+                    this.recompileOwnAddress();
+                    this.save();
+                    
+                    const previewEl = document.getElementById('office-address-preview');
+                    if (previewEl) {
+                        previewEl.innerText = this.data.office.useService !== false
+                            ? '10 Anson Road, #16-04 International Plaza, Singapore 079903'
+                            : (this.getFormattedOwnAddressPreview() || 'No address details entered yet.');
+                    }
+                    this.updateContinueButtonState();
+                };
+
+                // Local lookup for Singapore test postcodes for instant resolution/reliability
+                const SG_POSTCODE_DB = {
+                    '079903': { block: '10', streetName: 'Anson Road', building: 'International Plaza', country: 'Singapore', postalCode: '079903' },
+                    '419593': { block: '84', streetName: 'Jalan Daud', building: 'Windy Heights', country: 'Singapore', postalCode: '419593' }
+                };
+
+                if (SG_POSTCODE_DB[postalCode]) {
+                    const matched = SG_POSTCODE_DB[postalCode];
+                    fillAndSave(matched.block, matched.streetName, matched.building, matched.country, matched.postalCode);
+                    if (!isSilent) showToast('Address details fetched successfully!', 'success');
+                    return;
+                }
+
+                // Singapore OneMap API Check
+                try {
+                    const res = await fetch(`https://www.onemap.gov.sg/api/common/elastic/search?searchVal=${postalCode}&returnGeom=N&getAddrDetails=Y`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data && data.results && data.results.length > 0) {
+                            const result = data.results[0];
+                            const blockVal = result.BLK_NO || '';
+                            let streetVal = result.ROAD_NAME || '';
+                            if (streetVal) {
+                                streetVal = streetVal.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+                            }
+                            const buildingVal = result.BUILDING && result.BUILDING !== 'N/A' 
+                                ? result.BUILDING.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) 
+                                : '';
+                            
+                            fillAndSave(blockVal, streetVal, buildingVal, 'Singapore', postalCode);
+                            if (!isSilent) showToast('Address details fetched successfully!', 'success');
+                            return;
+                        }
+                    }
+                } catch (err) {
+                    console.error('OneMap fetch failed:', err);
+                }
+
+                if (!isSilent) showToast('No Singapore address found for this postal code.', 'error');
+            }
+
             recompileOwnAddress() {
                 if (!this.data.office) return;
+                
                 const block = (this.data.office.block || '').trim();
                 const street = (this.data.office.streetName || '').trim();
                 const floor = (this.data.office.floor || '').trim();
                 const unit = (this.data.office.unit || '').trim();
+                const building = (this.data.office.building || '').trim();
+                const country = (this.data.office.country || 'Singapore').trim();
                 const postal = (this.data.office.postalCode || '').trim();
                 
-                if (block && street && floor && unit && postal) {
-                    this.data.office.address = `${block} ${street}, #${floor}-${unit}, Singapore ${postal}`;
-                } else {
-                    this.data.office.address = '';
+                let parts = [];
+                // 1. Block Number & Street Name
+                let streetPart = '';
+                if (block) streetPart += block;
+                if (street) streetPart += (streetPart ? ' ' : '') + street;
+                if (streetPart) parts.push(streetPart);
+                
+                // 2. Floor & Unit (#Floor-Unit)
+                if (floor || unit) {
+                    let level = '';
+                    if (floor) level += `#${floor}`;
+                    if (unit) level += (level ? `-${unit}` : `${unit}`);
+                    parts.push(level);
                 }
+                
+                // 3. Building
+                if (building) parts.push(building);
+                
+                // 4. Country & Postal Code
+                let loc = '';
+                if (country) loc += country;
+                if (postal) loc += (loc ? ` ${postal}` : postal);
+                if (loc) parts.push(loc);
+                
+                this.data.office.address = parts.join(', ');
             }
 
             getFormattedOwnAddressPreview() {
-                if (!this.data.office) return '[Block Number] [Street Name], #[Floor]-[Unit], Singapore [Postal Code]';
-                const block = this.data.office.block || '[Block Number]';
-                const street = this.data.office.streetName || '[Street Name]';
-                const floor = this.data.office.floor || '[Floor]';
-                const unit = this.data.office.unit || '[Unit]';
-                const postal = this.data.office.postalCode || '[Postal Code]';
-                return `${block} ${street}, #${floor}-${unit}, Singapore ${postal}`;
+                if (!this.data.office) return '';
+                
+                const block = (this.data.office.block || '').trim();
+                const street = (this.data.office.streetName || '').trim();
+                const floor = (this.data.office.floor || '').trim();
+                const unit = (this.data.office.unit || '').trim();
+                const building = (this.data.office.building || '').trim();
+                const country = (this.data.office.country || '').trim();
+                const postal = (this.data.office.postalCode || '').trim();
+                
+                let parts = [];
+                // 1. Block Number & Street Name
+                let streetPart = '';
+                if (block) streetPart += block;
+                if (street) streetPart += (streetPart ? ' ' : '') + street;
+                if (streetPart) parts.push(streetPart);
+                
+                // 2. Floor & Unit (#Floor-Unit)
+                if (floor || unit) {
+                    let level = '';
+                    if (floor) level += `#${floor}`;
+                    if (unit) level += (level ? `-${unit}` : `${unit}`);
+                    parts.push(level);
+                }
+                
+                // 3. Building
+                if (building) parts.push(building);
+                
+                // 4. Country & Postal Code
+                let loc = '';
+                if (country) loc += country;
+                if (postal) loc += (loc ? ` ${postal}` : postal);
+                if (loc) parts.push(loc);
+                
+                return parts.join(', ');
             }
 
             // ── NEW ssic-single methods for Primary/Secondary pickers ──
@@ -2460,20 +2673,18 @@
                         if (el) el.classList.add('input-error');
                     } else if (useService === false) {
                         const office = this.data.office || {};
-                        const requiredFields = [
-                            { key: 'block', label: 'Block Number', id: 'office-input-block' },
-                            { key: 'streetName', label: 'Street Name', id: 'office-input-streetName' },
-                            { key: 'floor', label: 'Floor', id: 'office-input-floor' },
-                            { key: 'unit', label: 'Unit', id: 'office-input-unit' },
-                            { key: 'postalCode', label: 'Postal Code', id: 'office-input-postalCode' }
-                        ];
-                        requiredFields.forEach(f => {
-                            const val = office[f.key];
-                            if (!val || String(val).trim() === '') {
-                                isValid = false;
-                                errorMessages.push(`Office Address "${f.label}" is required.`);
-                                const el = document.getElementById(f.id);
-                                if (el) el.classList.add('input-error');
+                        const fields = sec.fields || [];
+                        fields.forEach(f => {
+                            if (f.key === 'office.useService') return;
+                            const fieldName = f.key.split('.').pop();
+                            if (f.required) {
+                                const val = office[fieldName];
+                                if (!val || String(val).trim() === '') {
+                                    isValid = false;
+                                    errorMessages.push(`Office Address "${f.label}" is required.`);
+                                    const el = document.getElementById(`office-input-${fieldName}`);
+                                    if (el) el.classList.add('input-error');
+                                }
                             }
                         });
                     }
@@ -2869,7 +3080,6 @@
                                     </div>
                                 </div>
                                 <h3 class="step-card-title">${sec.title}</h3>
-                                <p class="step-card-desc">${sec.description || ''}</p>
                             </div>
                             ${lineHtml}
                         </div>
@@ -3276,31 +3486,14 @@
                                 <div class="counter-card">
                                     <h3>👥 Shareholders</h3>
                                     <p>Beneficial owners who hold shares in the company.</p>
-                                    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
-                                        <select id="shareholder-type-select" style="flex: 1; padding: 0.5rem 0.75rem; border: 1.5px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem; outline: none; background: white; cursor: pointer; height: 38px;">
-                                            <option value="individual" ${shareholders.length > 1 && shareholders[0].type === 'corporate' ? 'disabled' : ''} ${shareholders[0] && shareholders[0].type === 'individual' ? 'selected' : ''}>Individual Shareholder</option>
-                                            <option value="corporate" ${shareholders.length > 1 && shareholders[0].type === 'individual' ? 'disabled' : ''} ${shareholders[0] && shareholders[0].type === 'corporate' ? 'selected' : ''}>Corporate Shareholder</option>
-                                        </select>
-                                        <button type="button" onclick="wizard.addShareholder(document.getElementById('shareholder-type-select').value)" style="padding: 0.5rem 1rem; font-size: 0.85rem; font-weight: 700; background: #2563eb; color: white; border: none; border-radius: 8px; cursor: pointer; transition: background 0.2s; height: 38px;">
-                                            Add
-                                        </button>
-                                    </div>
-                                    <div style="display: flex; flex-direction: column; gap: 0.4rem; max-height: 180px; overflow-y: auto; padding-right: 2px;">
-                                        ${shareholders.map((s, idx) => `
-                                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.55rem 0.75rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
-                                                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                                    <span style="font-size: 1.1rem; line-height: 1;">${s.type === 'individual' ? '👤' : '🏢'}</span>
-                                                    <span style="font-size: 0.825rem; font-weight: 600; color: #1e293b;">
-                                                        ${s.type === 'individual' ? 'Individual Shareholder' : 'Corporate Shareholder'} ${idx + 1}
-                                                    </span>
-                                                </div>
-                                                ${shareholders.length > 1 ? `
-                                                    <button type="button" onclick="wizard.removeShareholder(${idx})" style="background: none; border: none; color: #ef4444; font-size: 0.75rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; padding: 0;">
-                                                        Remove
-                                                    </button>
-                                                ` : ''}
-                                            </div>
-                                        `).join('')}
+                                    <select id="shareholder-type-select" onchange="wizard.changeShareholderType(this.value)" style="width: 100%; padding: 0.5rem 0.75rem; border: 1.5px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem; outline: none; background: white; cursor: pointer; height: 38px; box-sizing: border-box; margin-bottom: 0.25rem;">
+                                        <option value="individual" ${shareholders[0] && shareholders[0].type === 'individual' ? 'selected' : ''}>Individual Shareholder</option>
+                                        <option value="corporate" ${shareholders[0] && shareholders[0].type === 'corporate' ? 'selected' : ''}>Corporate Shareholder</option>
+                                    </select>
+                                    <div class="counter-controls">
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('shareholders', -1)">-</button>
+                                        <div class="counter-val" id="shareholders-count-val">${shareholders.length}</div>
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('shareholders', 1)">+</button>
                                     </div>
                                 </div>
                             </div>
@@ -3406,30 +3599,52 @@
                         ? '10 Anson Road, #16-04 International Plaza, Singapore 079903'
                         : this.getFormattedOwnAddressPreview();
 
+                    const useServiceField = (sec.fields || []).find(f => f.key === 'office.useService') || {
+                        label: 'Registered Address Option *',
+                        options: ['false:Yes, I have Office Address', 'true:No, I Need Globalisor Registered Address']
+                    };
+                    const optionLabel = useServiceField.label || 'Registered Address Option *';
+                    const parsedOptions = (useServiceField.options || []).map(opt => {
+                        const parts = opt.split(':');
+                        return {
+                            value: parts[0],
+                            label: parts.slice(1).join(':')
+                        };
+                    });
+                    const opt1 = parsedOptions[0] || { value: 'false', label: 'Yes, I have Office Address' };
+                    const opt2 = parsedOptions[1] || { value: 'true', label: 'No, I Need Globalisor Registered Address' };
+
+                    const serviceTitle = useServiceField.label || 'Registered office address';
+                    const serviceDesc = useServiceField.hint || 'Statutorily required. Real address in Singapore, mail scanned weekly.';
+                    const pricePlaceholder = useServiceField.placeholder || '$480 per year';
+                    const priceParts = pricePlaceholder.split(' ');
+                    const priceVal = priceParts[0] || '$480';
+                    const priceLbl = priceParts.slice(1).join(' ') || 'per year';
+
                     return `
                         <div>
                             ${rejectionBanner}
                             <div class="office-container-card" style="border: none; padding: 0;">
                                 <h3 style="font-size: 1.15rem; font-weight: 600; color: #1e293b; margin-top: 0; margin-bottom: 0.25rem;">
-                                    Do you have a local office address to register your company in Singapore?
+                                    ${sec.title || 'Do you have a local office address to register your company in Singapore?'}
                                 </h3>
                                 <p style="font-size: 0.875rem; color: #64748b; margin-top: 0; margin-bottom: 1.5rem;">
-                                    All Singapore companies must have a registered office address in Singapore. If you do not have one, you can subscribe to Globalisor's registered address service.
+                                    ${sec.description || "All Singapore companies must have a registered office address in Singapore. If you do not have one, you can subscribe to Globalisor's registered address service."}
                                 </p>
 
                                 <!-- Registered Address Option Radio Group -->
                                 <div id="office-service-option-container" style="margin-bottom: 1.5rem; background: #ffffff; border: 1px solid rgba(226, 232, 240, 0.8); border-radius: 12px; padding: 1.25rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02); transition: all 0.2s;">
                                     <label style="font-size: 0.875rem; font-weight: 700; color: #1e293b; display: block; margin-bottom: 0.75rem;">
-                                        Registered Address Option *
+                                        ${optionLabel}
                                     </label>
                                     <div style="display: flex; gap: 1.5rem;">
                                         <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; font-weight: 600; color: #475569;">
-                                            <input type="radio" name="office-service-option" value="false" ${useService === false ? 'checked' : ''} onchange="wizard.handleOfficeServiceChange('false')" style="accent-color: #2563eb; width: 1.1rem; height: 1.1rem;">
-                                            Yes, I have
+                                            <input type="radio" name="office-service-option" value="${opt1.value}" ${String(useService) === opt1.value ? 'checked' : ''} onchange="wizard.handleOfficeServiceChange('${opt1.value}')" style="accent-color: #2563eb; width: 1.1rem; height: 1.1rem;">
+                                            ${opt1.label}
                                         </label>
                                         <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; font-weight: 600; color: #475569;">
-                                            <input type="radio" name="office-service-option" value="true" ${useService === true ? 'checked' : ''} onchange="wizard.handleOfficeServiceChange('true')" style="accent-color: #2563eb; width: 1.1rem; height: 1.1rem;">
-                                            No, I need
+                                            <input type="radio" name="office-service-option" value="${opt2.value}" ${String(useService) === opt2.value ? 'checked' : ''} onchange="wizard.handleOfficeServiceChange('${opt2.value}')" style="accent-color: #2563eb; width: 1.1rem; height: 1.1rem;">
+                                            ${opt2.label}
                                         </label>
                                     </div>
                                 </div>
@@ -3458,81 +3673,44 @@
 
                                         <!-- Inputs Grid -->
                                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                                            
-                                            <div class="office-field-col">
-                                                <label style="font-size: 0.75rem; font-weight: 600; color: #475569;">Block Number *</label>
-                                                <input type="text" 
-                                                       id="office-input-block" 
-                                                       value="${(this.data.office && this.data.office.block) || ''}" 
-                                                       oninput="wizard.updateOfficeField('block', this.value)" 
-                                                       class="input-box" 
-                                                       placeholder="e.g. 10" 
-                                                       ${isGlobalisor ? 'readonly style="background:#f8fafc; color:#64748b; cursor:not-allowed;"' : ''}>
-                                            </div>
-
-                                            <div class="office-field-col">
-                                                <label style="font-size: 0.75rem; font-weight: 600; color: #475569;">Street Name *</label>
-                                                <input type="text" 
-                                                       id="office-input-streetName" 
-                                                       value="${(this.data.office && this.data.office.streetName) || ''}" 
-                                                       oninput="wizard.updateOfficeField('streetName', this.value)" 
-                                                       class="input-box" 
-                                                       placeholder="e.g. Anson Road" 
-                                                       ${isGlobalisor ? 'readonly style="background:#f8fafc; color:#64748b; cursor:not-allowed;"' : ''}>
-                                            </div>
-
-                                            <div class="office-field-col">
-                                                <label style="font-size: 0.75rem; font-weight: 600; color: #475569;">Floor *</label>
-                                                <input type="text" 
-                                                       id="office-input-floor" 
-                                                       value="${(this.data.office && this.data.office.floor) || ''}" 
-                                                       oninput="wizard.updateOfficeField('floor', this.value)" 
-                                                       class="input-box" 
-                                                       placeholder="e.g. 16" 
-                                                       ${isGlobalisor ? 'readonly style="background:#f8fafc; color:#64748b; cursor:not-allowed;"' : ''}>
-                                            </div>
-
-                                            <div class="office-field-col">
-                                                <label style="font-size: 0.75rem; font-weight: 600; color: #475569;">Unit *</label>
-                                                <input type="text" 
-                                                       id="office-input-unit" 
-                                                       value="${(this.data.office && this.data.office.unit) || ''}" 
-                                                       oninput="wizard.updateOfficeField('unit', this.value)" 
-                                                       class="input-box" 
-                                                       placeholder="e.g. 04" 
-                                                       ${isGlobalisor ? 'readonly style="background:#f8fafc; color:#64748b; cursor:not-allowed;"' : ''}>
-                                            </div>
-
-                                            <!-- Conditional visibility for Building and Country. Show ONLY when Globalisor service is selected -->
-                                            <div class="office-field-col" style="${isGlobalisor ? '' : 'display: none;'}">
-                                                <label style="font-size: 0.75rem; font-weight: 600; color: #475569;">Building</label>
-                                                <input type="text" 
-                                                       id="office-input-building" 
-                                                       value="${(this.data.office && this.data.office.building) || ''}" 
-                                                       class="input-box" 
-                                                       readonly style="background:#f8fafc; color:#64748b; cursor:not-allowed;">
-                                            </div>
-
-                                            <div class="office-field-col" style="${isGlobalisor ? '' : 'display: none;'}">
-                                                <label style="font-size: 0.75rem; font-weight: 600; color: #475569;">Country</label>
-                                                <input type="text" 
-                                                       id="office-input-country" 
-                                                       value="${(this.data.office && this.data.office.country) || ''}" 
-                                                       class="input-box" 
-                                                       readonly style="background:#f8fafc; color:#64748b; cursor:not-allowed;">
-                                            </div>
-
-                                            <div class="office-field-col">
-                                                <label style="font-size: 0.75rem; font-weight: 600; color: #475569;">Postal Code *</label>
-                                                <input type="text" 
-                                                       id="office-input-postalCode" 
-                                                       value="${(this.data.office && this.data.office.postalCode) || ''}" 
-                                                       oninput="wizard.updateOfficeField('postalCode', this.value)" 
-                                                       class="input-box" 
-                                                       placeholder="e.g. 079903" 
-                                                       ${isGlobalisor ? 'readonly style="background:#f8fafc; color:#64748b; cursor:not-allowed;"' : ''}>
-                                            </div>
-
+                                            ${(sec.fields || [])
+                                                .filter(f => f.key !== 'office.useService')
+                                                .map(f => {
+                                                    const fieldName = f.key.split('.').pop();
+                                                    const val = (this.data.office && this.data.office[fieldName]) || '';
+                                                    const isPostal = fieldName === 'postalCode';
+                                                    
+                                                    return `
+                                                        <div class="office-field-col" style="${isPostal ? 'display: flex; flex-direction: column;' : ''}">
+                                                            <label style="font-size: 0.75rem; font-weight: 600; color: #475569;">${f.label}${f.required ? ' *' : ''}</label>
+                                                            ${isPostal ? `
+                                                                <div style="display: flex; gap: 0.5rem; align-items: center; width: 100%;">
+                                                                    <input type="text" 
+                                                                           id="office-input-${fieldName}" 
+                                                                           value="${val}" 
+                                                                           oninput="wizard.updateOfficeField('${fieldName}', this.value)" 
+                                                                           class="input-box" 
+                                                                           placeholder="${f.placeholder || ''}" 
+                                                                           style="flex: 1;"
+                                                                           ${isGlobalisor ? 'readonly style="background:#f8fafc; color:#64748b; cursor:not-allowed;"' : ''}>
+                                                                    ${isGlobalisor ? '' : `
+                                                                    <button type="button" class="name-check-btn" onclick="wizard.fetchAddressDetails()">
+                                                                        Fetch
+                                                                    </button>
+                                                                    `}
+                                                                </div>
+                                                            ` : `
+                                                                <input type="text" 
+                                                                       id="office-input-${fieldName}" 
+                                                                       value="${val}" 
+                                                                       oninput="wizard.updateOfficeField('${fieldName}', this.value)" 
+                                                                       class="input-box" 
+                                                                       placeholder="${f.placeholder || ''}" 
+                                                                       ${isGlobalisor ? 'readonly style="background:#f8fafc; color:#64748b; cursor:not-allowed;"' : ''}>
+                                                            `}
+                                                        </div>
+                                                    `;
+                                                }).join('')}
                                         </div>
 
                                         <!-- Live Formatted Preview / Display Box -->
@@ -3629,14 +3807,34 @@
                     if (key === 'directors') {
                         defaultObj = { name: '', idType: 'local', idNum: '', dob: '', phone: '', passportExpiry: '', docs: {} };
                     } else if (key === 'shareholders') {
-                        defaultObj = { type: 'individual', name: '', shares: '', percent: '', regNum: '', regPlace: '', regDate: '', phone: '', email: '', addr: '', docs: {}, bo: [] };
+                        const typeSelect = document.getElementById('shareholder-type-select');
+                        const shType = typeSelect ? typeSelect.value : (list[0] ? list[0].type : 'individual');
+                        defaultObj = { type: shType, name: '', shares: '', percent: '', regNum: '', regPlace: '', regDate: '', phone: '', email: '', addr: '', docs: {}, bo: [] };
                     }
                     list.push(defaultObj);
-                } else if (change < 0 && list.length > 1) {
-                    list.pop();
+                } else if (change < 0) {
+                    if (list.length > 1) {
+                        list.pop();
+                    } else {
+                        showToast(`At least one ${key === 'directors' ? 'director' : 'shareholder'} is required.`, "error");
+                        return;
+                    }
                 }
                 
                 setVal(this.data, key, list);
+                this.save();
+                this.render();
+            }
+
+            changeShareholderType(type) {
+                if (!this.data.shareholders) this.data.shareholders = [];
+                if (this.data.shareholders.length === 0) {
+                    this.data.shareholders.push({ type: type, name: '', shares: '', percent: '', regNum: '', regPlace: '', regDate: '', phone: '', email: '', addr: '', docs: {}, bo: [] });
+                } else {
+                    this.data.shareholders.forEach(sh => {
+                        sh.type = type;
+                    });
+                }
                 this.save();
                 this.render();
             }
@@ -4919,14 +5117,27 @@
                 if (sec.id === 'sec-office' || sec.key === 'office') {
                     const residency = this.data.office ? this.data.office.residency : '';
                     const useService = this.data.office ? this.data.office.useService : null;
-                    const address = this.data.office ? this.data.office.address : '';
                     if (!residency) {
                         isValid = false;
                     }
                     if (useService === null || useService === undefined) {
                         isValid = false;
-                    } else if (useService === false && (!address || address.trim() === '')) {
-                        isValid = false;
+                    } else if (useService === false) {
+                        const block = this.data.office ? this.data.office.block : '';
+                        const street = this.data.office ? this.data.office.streetName : '';
+                        const floor = this.data.office ? this.data.office.floor : '';
+                        const unit = this.data.office ? this.data.office.unit : '';
+                        const postal = this.data.office ? this.data.office.postalCode : '';
+                        const country = this.data.office ? this.data.office.country : '';
+                        
+                        if (!block || block.trim() === '' ||
+                            !street || street.trim() === '' ||
+                            !floor || floor.trim() === '' ||
+                            !unit || unit.trim() === '' ||
+                            !postal || postal.trim() === '' ||
+                            !country || country.trim() === '') {
+                            isValid = false;
+                        }
                     }
                 }
                 
