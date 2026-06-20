@@ -859,6 +859,8 @@
                             <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">
                                 Field Label
                                 ${renderTooltip("The display name of the field shown to the user on the onboarding page (e.g. 'First Name' or 'Proposed Name Option 1').", 'left')}
+                                ${field.key && field.key.includes('primary') ? '<span class="ml-1 text-xs font-semibold text-indigo-600">(Primary)</span>' : ''}
+                                ${field.key && field.key.includes('secondary') ? '<span class="ml-1 text-xs font-semibold text-emerald-600">(Secondary)</span>' : ''}
                             </label>
                             <input type="text" value="${field.label || ''}" oninput="updateFieldProperty(${index}, 'label', this.value)" class="field-label-input w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none">
                         </div>
@@ -873,6 +875,8 @@
                             <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">
                                 Placeholder
                                 ${renderTooltip("Temporary helper text shown inside the input. For 'switch' fields, this defines the price (e.g., '$480 per year' or '$350 one-time').", 'center')}
+                                ${field.key && field.key.includes('primary') ? '<span class="ml-1 text-xs font-semibold text-indigo-600">(Primary)</span>' : ''}
+                                ${field.key && field.key.includes('secondary') ? '<span class="ml-1 text-xs font-semibold text-emerald-600">(Secondary)</span>' : ''}
                             </label>
                             <input type="text" value="${field.placeholder || ''}" oninput="updateFieldProperty(${index}, 'placeholder', this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none" placeholder="e.g. Enter name option">
                         </div>
@@ -881,16 +885,17 @@
                                 Type
                                 ${renderTooltip("The input format type (Text, Number, Date, Select List, Textarea, File, or Switch Toggle).", 'right')}
                             </label>
-                            <select onchange="updateFieldType(${index}, this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none cursor-pointer">
-                                <option value="text" ${field.type==='text'?'selected':''}>Text</option>
-                                <option value="number" ${field.type==='number'?'selected':''}>Number</option>
-                                <option value="textarea" ${field.type==='textarea'?'selected':''}>Textarea</option>
-                                <option value="date" ${field.type==='date'?'selected':''}>Date</option>
-                                <option value="select" ${field.type==='select'?'selected':''}>Select List</option>
-                                <option value="file" ${field.type==='file'?'selected':''}>File Upload</option>
-                                <option value="switch" ${field.type==='switch'?'selected':''}>Switch Toggle</option>
-                                <option value="ssic" ${field.type==='ssic'?'selected':''}>ACRA SSIC Selector</option>
-                            </select>
+                                <select onchange="updateFieldType(${index}, this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none cursor-pointer">
+                                    <option value="text" ${field.type==='text'?'selected':''}>Text</option>
+                                    <option value="number" ${field.type==='number'?'selected':''}>Number</option>
+                                    <option value="textarea" ${field.type==='textarea'?'selected':''}>Textarea</option>
+                                    <option value="date" ${field.type==='date'?'selected':''}>Date</option>
+                                    <option value="select" ${field.type==='select'?'selected':''}>Select List</option>
+                                    <option value="file" ${field.type==='file'?'selected':''}>File Upload</option>
+                                    <option value="switch" ${field.type==='switch'?'selected':''}>Switch Toggle</option>
+                                    <option value="ssic" ${field.type==='ssic'?'selected':''}>ACRA SSIC Selector (Multi)</option>
+                                    <option value="ssic-single" ${field.type==='ssic-single'?'selected':''}>ACRA SSIC Picker (Single)</option>
+                                </select>
                         </div>
                         <div class="flex items-center pt-5">
                             <label class="inline-flex items-center gap-1 cursor-pointer">
@@ -953,13 +958,25 @@
                         </div>
                     </div>
 
-                    <!-- File / Switch Guideline Hints -->
-                    <div class="border-t border-slate-200/60 pt-3 mt-3 ${field.type === 'file' || field.type === 'switch' ? '' : 'hidden'}" id="hint-container-${index}">
+                    <!-- File / Switch / SSIC-Single Guideline Hints -->
+                    <div class="border-t border-slate-200/60 pt-3 mt-3 ${field.type === 'file' || field.type === 'switch' || field.type === 'ssic-single' ? '' : 'hidden'}" id="hint-container-${index}">
                         <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                            Description Hints / Guidelines
-                            ${renderTooltip("Acts as the main description text for 'Switch Toggle' types, or guideline descriptions for 'File Upload' types.", 'left')}
+                            ${field.type === 'ssic-single' ? 'Picker Subtitle / Description' : 'Description Hints / Guidelines'}
+                            ${renderTooltip(field.type === 'ssic-single' ? 'The subtitle text shown below the SSIC picker label to guide users (e.g. "Select the main business activity that best represents your company."' : "Acts as the main description text for 'Switch Toggle' types, or guideline descriptions for 'File Upload' types.", 'left')}
                         </label>
-                        <input type="text" value="${field.hint || ''}" oninput="updateFieldProperty(${index}, 'hint', this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none" placeholder="e.g. For toggle switch, this acts as the description text.">
+                        <input type="text" value="${field.hint || ''}" oninput="updateFieldProperty(${index}, 'hint', this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none" placeholder="${field.type === 'ssic-single' ? 'e.g. Select the main business activity for your company...' : 'e.g. For toggle switch, this acts as the description text.'}">
+
+                        ${field.type === 'ssic-single' ? `
+                        <div class="mt-2 p-2.5 bg-indigo-50 border border-indigo-100 rounded-lg flex items-start gap-2">
+                            <span class="text-indigo-500 text-sm shrink-0">ℹ️</span>
+                            <p class="text-[10px] text-indigo-700 font-semibold leading-relaxed">
+                                <strong>SSIC Single Picker</strong> — renders as a searchable ACRA SSIC dropdown with chip selection and a summary card.
+                                Set <strong>Binding Key</strong> to <code class="bg-white px-1 rounded">activities.primary</code> for primary or <code class="bg-white px-1 rounded">activities.secondary</code> for secondary.
+                                The <strong>Label</strong> appears as the section heading. The <strong>Subtitle</strong> above appears as the helper text below the heading.
+                                The <strong>Placeholder</strong> is the search input placeholder.
+                                If <strong>Required</strong> is checked, the user must select an activity before continuing.
+                            </p>
+                        </div>` : ''}
                     </div>
 
                     <!-- Conditional Display Sub-section -->
@@ -1025,7 +1042,7 @@
                 
                 const hintContainer = document.getElementById(`hint-container-${index}`);
                 if (hintContainer) {
-                    if (type === 'file' || type === 'switch') {
+                    if (type === 'file' || type === 'switch' || type === 'ssic-single') {
                         hintContainer.classList.remove('hidden');
                     } else {
                         hintContainer.classList.add('hidden');

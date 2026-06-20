@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Verification | Globalisor Compliance</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], outfit: ['Outfit', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            color: #f8fafc;
+        }
+        .glass-container {
+            background: rgba(30, 41, 59, 0.45);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 32px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 440px;
+            overflow: hidden;
+            animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .card-glow {
+            position: absolute;
+            top: -50px;
+            left: -50px;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, transparent 70%);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="glass-container relative p-8">
+        <div class="card-glow" id="status-glow"></div>
+        
+        <!-- Header / Logo -->
+        <div class="flex flex-col items-center mb-8 shrink-0 text-center">
+            <div class="flex items-center gap-2 mb-2">
+                <div class="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center font-bold text-white shadow-lg shadow-emerald-500/20">G</div>
+                <span class="font-outfit font-extrabold text-white text-base tracking-wider uppercase">Globalisor</span>
+            </div>
+            <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Enterprise Directory Registry</div>
+        </div>
+
+        <div id="loading-view" class="py-12 flex flex-col items-center justify-center space-y-4">
+            <div class="w-10 h-10 border-4 border-slate-700 border-t-emerald-500 rounded-full animate-spin"></div>
+            <div class="text-sm font-semibold text-slate-400">Performing validation checks...</div>
+        </div>
+
+        <div id="error-view" class="hidden py-8 flex flex-col items-center text-center space-y-5">
+            <div class="w-14 h-14 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/5">
+                <i data-lucide="shield-alert" class="w-7 h-7"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-white mb-2">Verification Failed</h3>
+                <p id="error-message" class="text-xs text-slate-400 leading-relaxed px-4">This credentials file could not be verified by our servers. Staff member might be inactive or credentials might be invalid.</p>
+            </div>
+            <button onclick="window.location.reload()" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-xl transition-all">Retry Lookup</button>
+        </div>
+
+        <div id="verified-view" class="hidden flex flex-col items-center space-y-6">
+            <!-- Status Badge -->
+            <div id="verification-status-badge" class="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold shadow-md">
+                <i data-lucide="check-circle" class="w-4 h-4"></i>
+                <span id="verification-status-text">Active Staff</span>
+            </div>
+
+            <!-- Profile Frame -->
+            <div class="relative shrink-0">
+                <div id="avatar-container" class="w-28 h-28 rounded-full overflow-hidden border-2 border-slate-700/50 bg-slate-800 flex items-center justify-center text-3xl font-bold font-outfit text-white shadow-xl shadow-black/10">
+                    SL
+                </div>
+            </div>
+
+            <!-- Details Block -->
+            <div class="text-center w-full">
+                <h2 id="staff-name" class="text-xl font-bold text-white mb-1">Sarah Lim</h2>
+                <div id="staff-title" class="text-xs font-bold text-emerald-400">Lead Compliance Specialist</div>
+                <div id="staff-dept" class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">AML & Governance</div>
+            </div>
+
+            <div class="w-full h-[1px] bg-slate-800/80 my-2"></div>
+
+            <!-- Meta details grid -->
+            <div class="w-full space-y-3.5 text-xs">
+                <div class="flex justify-between items-center bg-slate-900/40 p-3 rounded-xl border border-slate-800/40">
+                    <span class="text-slate-400 font-medium">Employee ID:</span>
+                    <span id="staff-id" class="text-white font-bold font-mono">GLOB-STF-1001</span>
+                </div>
+                <div class="flex justify-between items-center bg-slate-900/40 p-3 rounded-xl border border-slate-800/40">
+                    <span class="text-slate-400 font-medium">Card Issue Date:</span>
+                    <span id="issue-date" class="text-white font-bold">2026-01-01</span>
+                </div>
+                <div class="flex justify-between items-center bg-slate-900/40 p-3 rounded-xl border border-slate-800/40">
+                    <span class="text-slate-400 font-medium">Valid Until:</span>
+                    <span id="valid-date" class="text-white font-bold">2028-01-01</span>
+                </div>
+            </div>
+
+            <!-- Trust stamp footer -->
+            <div class="text-center pt-2">
+                <div class="text-[9px] text-slate-400 font-semibold flex items-center gap-1 justify-center">
+                    <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-500"></i> Verified Secure Live Directory Lookup
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function runVerification() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const staffId = urlParams.get('id');
+
+            const loading = document.getElementById('loading-view');
+            const errorView = document.getElementById('error-view');
+            const verifiedView = document.getElementById('verified-view');
+
+            if (!staffId) {
+                loading.classList.add('hidden');
+                errorView.classList.remove('hidden');
+                document.getElementById('error-message').innerText = "Missing verification parameter. Please scan a valid QR code on the official Globalisor staff card.";
+                if (window.lucide) window.lucide.createIcons();
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/hr/verify/${staffId}`);
+                if (!response.ok) {
+                    throw new Error("API response error");
+                }
+                const data = await response.json();
+                
+                loading.classList.add('hidden');
+
+                // Determine active state
+                const isActive = data.cardStatus && data.cardStatus.toUpperCase() === 'ACTIVE';
+
+                if (isActive) {
+                    verifiedView.classList.remove('hidden');
+                    
+                    // Render details
+                    document.getElementById('staff-name').innerText = data.name;
+                    document.getElementById('staff-title').innerText = data.designation;
+                    document.getElementById('staff-dept').innerText = data.department;
+                    document.getElementById('staff-id').innerText = data.employeeId;
+                    document.getElementById('issue-date').innerText = data.cardIssueDate || 'N/A';
+                    document.getElementById('valid-date').innerText = data.cardValidUntil || 'N/A';
+                    
+                    // Badge styling
+                    const badge = document.getElementById('verification-status-badge');
+                    badge.className = "flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold shadow-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+                    document.getElementById('verification-status-text').innerText = "Verified Active";
+
+                    // Glow effect
+                    document.getElementById('status-glow').style.background = "radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, transparent 70%)";
+
+                    // Photo/Avatar
+                    const avatarContainer = document.getElementById('avatar-container');
+                    if (data.staffPhoto && data.staffPhoto.trim().startsWith('data:image')) {
+                        avatarContainer.innerHTML = `<img src="${data.staffPhoto}" alt="${data.name}" class="w-full h-full object-cover">`;
+                    } else {
+                        const initials = data.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+                        avatarContainer.innerText = initials;
+                    }
+                } else {
+                    verifiedView.classList.remove('hidden');
+                    
+                    document.getElementById('staff-name').innerText = data.name;
+                    document.getElementById('staff-title').innerText = data.designation;
+                    document.getElementById('staff-dept').innerText = data.department;
+                    document.getElementById('staff-id').innerText = data.employeeId;
+                    document.getElementById('issue-date').innerText = data.cardIssueDate || 'N/A';
+                    document.getElementById('valid-date').innerText = data.cardValidUntil || 'N/A';
+                    
+                    // Deactivated styling
+                    const badge = document.getElementById('verification-status-badge');
+                    badge.className = "flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold shadow-md bg-red-500/10 text-red-400 border border-red-500/20";
+                    document.getElementById('verification-status-text').innerText = "Deactivated / Inactive";
+                    badge.querySelector('i')?.setAttribute('data-lucide', 'x-circle');
+
+                    document.getElementById('status-glow').style.background = "radial-gradient(circle, rgba(239, 68, 68, 0.15) 0%, transparent 70%)";
+
+                    const avatarContainer = document.getElementById('avatar-container');
+                    if (data.staffPhoto && data.staffPhoto.trim().startsWith('data:image')) {
+                        avatarContainer.innerHTML = `<img src="${data.staffPhoto}" alt="${data.name}" class="w-full h-full object-cover grayscale">`;
+                    } else {
+                        const initials = data.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+                        avatarContainer.innerText = initials;
+                    }
+                }
+            } catch (err) {
+                loading.classList.add('hidden');
+                errorView.classList.remove('hidden');
+                document.getElementById('error-message').innerText = "Database verify lookup failed. Staff credentials may be invalid, or this card has been revoked.";
+            }
+
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        document.addEventListener('DOMContentLoaded', runVerification);
+    </script>
+</body>
+</html>

@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Attendance Monitor | Globalisor Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <script>
+        if (!localStorage.getItem('admin_auth')) window.location.href = '/auth.html';
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], outfit: ['Outfit', 'sans-serif'] },
+                    colors: { slate: { 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 800: '#1e293b', 900: '#0f172a' } }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Outfit', sans-serif; background: #ffffff; min-height: 100vh; overflow-x: hidden; }
+        .top-nav { height: 60px; background: #ffffff; backdrop-filter: blur(20px); border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1.5rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
+        .main-container { padding: 2rem; max-width: 1600px; margin-left: 240px !important; margin-right: auto; }
+        #module-switcher {
+            position: fixed !important;
+            top: 60px !important;
+            left: 0 !important;
+            width: 240px !important;
+            height: calc(100vh - 60px) !important;
+            background: #ffffff !important;
+            border-right: 1px solid #e2e8f0 !important;
+            z-index: 9998 !important;
+        }
+        .glass-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.02); }
+        .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin-bottom: 2rem; }
+        .stat-card { background: #ffffff; border: 1px solid #e2e8f0; padding: 1.25rem; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.02); }
+        .admin-table { width: 100%; border-collapse: collapse; }
+        .admin-table th { padding: 1rem 1.5rem; font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #f1f5f9; background: #f8fafc; }
+        .admin-table td { padding: 1rem 1.5rem; font-size: 0.85rem; color: #1e293b; border-bottom: 1px solid #f1f5f9; }
+        
+        /* Correction Drawer */
+        .drawer-overlay {
+            position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 10000;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+        }
+        .drawer-overlay.open { opacity: 1; pointer-events: auto; }
+        .drawer {
+            position: fixed; top: 0; right: -500px; width: 440px; height: 100vh; background: #ffffff;
+            box-shadow: -10px 0 40px rgba(0,0,0,0.1); z-index: 10001; transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex; flex-direction: column; overflow-y: auto;
+        }
+        .drawer.open { right: 0; }
+
+        @media print {
+            body * { visibility: hidden; }
+            #printable-table, #printable-table * { visibility: visible; }
+            #printable-table { position: absolute; left: 0; top: 0; width: 100%; }
+        }
+    </style>
+    <script type="module" src="admin-sidebar.js"></script>
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="flex items-center gap-4">
+            <div class="flex flex-col leading-none cursor-pointer" onclick="window.location.href='dashboard.html'">
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Admin</span>
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Portal</span>
+            </div>
+        </div>
+        <div id="module-switcher"></div>
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-xs">A</div>
+            <div class="flex flex-col">
+                <div class="text-xs font-semibold text-slate-800">Admin Team</div>
+                <button onclick="localStorage.removeItem('admin_auth'); localStorage.removeItem('token'); window.location.href='/auth.html'" class="text-[10px] text-red-500 font-bold hover:underline text-left leading-none">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-container space-y-8">
+        <div>
+            <h1 class="text-3xl font-bold font-outfit text-slate-900">Live Attendance Monitor</h1>
+            <p class="text-slate-500 text-sm">Monitor live check-in events, breaks, total working hours, and correct logs with full audit trails.</p>
+        </div>
+
+        <!-- Dashboard widgets -->
+        <div class="stats-grid" id="widgets-container">
+            <!-- Widgets will be injected dynamically -->
+            <div class="stat-card flex flex-col justify-between h-24 bg-slate-50 border border-slate-100 animate-pulse"></div>
+            <div class="stat-card flex flex-col justify-between h-24 bg-slate-50 border border-slate-100 animate-pulse"></div>
+            <div class="stat-card flex flex-col justify-between h-24 bg-slate-50 border border-slate-100 animate-pulse"></div>
+            <div class="stat-card flex flex-col justify-between h-24 bg-slate-50 border border-slate-100 animate-pulse"></div>
+            <div class="stat-card flex flex-col justify-between h-24 bg-slate-50 border border-slate-100 animate-pulse"></div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="glass-card p-6 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-4 flex-1 min-w-[300px]">
+                <div class="relative flex-1">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="search-input" oninput="applyFilters()" placeholder="Search staff member, ID, department..." class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-semibold">
+                </div>
+                <select id="status-filter" onchange="applyFilters()" class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-600 focus:outline-none focus:bg-white cursor-pointer min-w-[120px]">
+                    <option value="">All Presence</option>
+                    <option value="ONLINE">Online Status</option>
+                    <option value="AWAY">Away / Break</option>
+                    <option value="OFFLINE">Offline</option>
+                </select>
+                <select id="attendance-filter" onchange="applyFilters()" class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-600 focus:outline-none focus:bg-white cursor-pointer min-w-[125px]">
+                    <option value="">All Attendance</option>
+                    <option value="SIGNED_IN">Signed In</option>
+                    <option value="BREAK_IN">On Break</option>
+                    <option value="SIGNED_OUT">Signed Out / Absent</option>
+                </select>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button onclick="exportToCSV()" class="px-4 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i> Export Excel CSV
+                </button>
+                <button onclick="window.print()" class="px-4 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2">
+                    <i data-lucide="printer" class="w-4 h-4 text-slate-600"></i> Print Report
+                </button>
+            </div>
+        </div>
+
+        <!-- Attendance Grid Table -->
+        <div class="glass-card overflow-hidden" id="printable-table">
+            <table class="admin-table">
+                <thead>
+                    <tr class="text-left">
+                        <th>Staff Profile</th>
+                        <th>Status</th>
+                        <th>SignIn Time</th>
+                        <th>SignOut Time</th>
+                        <th>Hours Today</th>
+                        <th>Last Activity</th>
+                        <th class="text-right">Correction</th>
+                    </tr>
+                </thead>
+                <tbody id="attendance-table-body">
+                    <tr>
+                        <td colspan="7" class="p-16 text-center text-slate-400 font-medium">Fetching today's attendance logs...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Side Correction Drawer -->
+    <div id="drawer-overlay" class="drawer-overlay" onclick="closeDrawer()"></div>
+    <div id="correction-drawer" class="drawer">
+        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <div>
+                <h3 class="font-bold text-slate-900 text-base">Correct Clock Log</h3>
+                <p class="text-slate-400 text-xs mt-0.5" id="drawer-staff-name"></p>
+            </div>
+            <button onclick="closeDrawer()" class="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-xl transition-all">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <div class="p-6 flex-1 flex flex-col justify-between">
+            <form id="correction-form" class="space-y-5 text-xs font-semibold text-slate-600">
+                <input type="hidden" id="correct-userid">
+                <input type="hidden" id="correct-recordid">
+
+                <div>
+                    <label class="block mb-1.5 text-[10px] uppercase font-bold text-slate-400">Log Date</label>
+                    <input type="date" id="correct-date" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block mb-1.5 text-[10px] uppercase font-bold text-slate-400">Sign In Time</label>
+                        <input type="time" id="correct-signin-time" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10">
+                    </div>
+                    <div>
+                        <label class="block mb-1.5 text-[10px] uppercase font-bold text-slate-400">Sign Out Time</label>
+                        <input type="time" id="correct-signout-time" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block mb-1.5 text-[10px] uppercase font-bold text-slate-400">Audit correction reason</label>
+                    <textarea id="correct-reason" required placeholder="Describe the reason for manually overriding this attendance entry (e.g. forgot to check-in, system correction)..." class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10 min-h-[100px]"></textarea>
+                </div>
+
+                <div class="pt-4">
+                    <button type="submit" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md">
+                        Save Correction Log
+                    </button>
+                </div>
+            </form>
+            
+            <div class="mt-8 border-t border-slate-100 pt-6">
+                <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Logs & Corrections History</h4>
+                <div id="correction-logs-list" class="space-y-2 max-h-48 overflow-y-auto">
+                    <div class="text-[10px] text-slate-400 italic">No historical corrections logged.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let liveAttendanceData = [];
+        let filteredAttendanceData = [];
+
+        async function fetchAttendancePayload() {
+            try {
+                // Get Widgets Data
+                const widgetRes = await fetch('/api/hr/attendance/dashboard-widgets');
+                if (widgetRes.ok) {
+                    const wData = await widgetRes.json();
+                    renderWidgets(wData);
+                }
+
+                // Get Live Directory List
+                const liveRes = await fetch('/api/hr/attendance/live');
+                if (liveRes.ok) {
+                    liveAttendanceData = await liveRes.json();
+                    applyFilters();
+                }
+            } catch (err) {
+                console.error("Failed to load attendance metrics", err);
+            }
+        }
+
+        function renderWidgets(data) {
+            const container = document.getElementById('widgets-container');
+            container.innerHTML = `
+                <div class="stat-card flex flex-col justify-between">
+                    <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Present Today</span>
+                    <div class="flex items-baseline gap-2 mt-2">
+                        <span class="text-2xl font-black text-slate-900">${data.presentToday}</span>
+                        <span class="text-[10px] font-bold text-slate-400">/ ${data.totalStaff} staff</span>
+                    </div>
+                </div>
+                <div class="stat-card flex flex-col justify-between">
+                    <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Currently Online</span>
+                    <div class="flex items-baseline gap-2 mt-2">
+                        <span class="text-2xl font-black text-emerald-600">${data.onlineStaff}</span>
+                        <span class="text-[10px] font-bold text-emerald-500">active</span>
+                    </div>
+                </div>
+                <div class="stat-card flex flex-col justify-between">
+                    <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Late Arrivals</span>
+                    <div class="flex items-baseline gap-2 mt-2">
+                        <span class="text-2xl font-black ${data.lateSignIn > 0 ? 'text-amber-500' : 'text-slate-900'}">${data.lateSignIn}</span>
+                        <span class="text-[10px] font-bold text-slate-400">after 9:15 AM</span>
+                    </div>
+                </div>
+                <div class="stat-card flex flex-col justify-between">
+                    <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Early Departures</span>
+                    <div class="flex items-baseline gap-2 mt-2">
+                        <span class="text-2xl font-black ${data.earlySignOut > 0 ? 'text-rose-500' : 'text-slate-900'}">${data.earlySignOut}</span>
+                        <span class="text-[10px] font-bold text-slate-400">before 5:00 PM</span>
+                    </div>
+                </div>
+                <div class="stat-card flex flex-col justify-between">
+                    <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Man-Hours Today</span>
+                    <div class="flex items-baseline gap-2 mt-2">
+                        <span class="text-2xl font-black text-blue-600">${data.totalWorkingHours} hr</span>
+                        <span class="text-[10px] font-bold text-slate-400">total cumulative</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function applyFilters() {
+            const search = document.getElementById('search-input').value.toLowerCase().trim();
+            const statusFilter = document.getElementById('status-filter').value;
+            const attFilter = document.getElementById('attendance-filter').value;
+
+            filteredAttendanceData = liveAttendanceData.filter(s => {
+                const matchesSearch = 
+                    s.name.toLowerCase().includes(search) || 
+                    s.employeeId.toLowerCase().includes(search) || 
+                    s.department.toLowerCase().includes(search) ||
+                    s.designation.toLowerCase().includes(search);
+
+                const matchesStatus = !statusFilter || s.onlineStatus === statusFilter;
+                const matchesAtt = !attFilter || s.attendanceStatus === attFilter;
+
+                return matchesSearch && matchesStatus && matchesAtt;
+            });
+
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('attendance-table-body');
+            if (!tbody) return;
+
+            if (filteredAttendanceData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-16 text-center text-slate-400">No staff members found matching active filters.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filteredAttendanceData.map(s => {
+                // Format presence dot
+                let presenceBadge = '';
+                if (s.onlineStatus === 'ONLINE') {
+                    presenceBadge = `<span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">● Online</span>`;
+                } else if (s.onlineStatus === 'AWAY' || s.attendanceStatus === 'BREAK_IN') {
+                    presenceBadge = `<span class="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">● Break / Away</span>`;
+                } else if (s.onlineStatus === 'BUSY') {
+                    presenceBadge = `<span class="inline-flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">● Busy</span>`;
+                } else {
+                    presenceBadge = `<span class="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200/60">○ Offline</span>`;
+                }
+
+                // Format Time stamps
+                const clockInText = s.signInTime ? formatTime(s.signInTime) : '—';
+                const clockOutText = s.signOutTime ? formatTime(s.signOutTime) : '—';
+                const activityText = s.lastActivity ? formatTime(s.lastActivity) : '—';
+
+                // Check Late arrival color
+                let lateClass = '';
+                if (s.signInTime) {
+                    const timeStr = formatTime(s.signInTime);
+                    const [h, m] = timeStr.split(':').map(Number);
+                    if (h > 9 || (h === 9 && m > 15)) {
+                        lateClass = 'text-amber-600 font-extrabold';
+                    }
+                }
+
+                return `
+                    <tr class="hover:bg-slate-50/50 transition-colors">
+                        <td>
+                            <div class="flex flex-col">
+                                <span class="font-bold text-slate-800 text-xs">${s.name}</span>
+                                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">${s.designation} (${s.department})</span>
+                            </div>
+                        </td>
+                        <td>${presenceBadge}</td>
+                        <td class="${lateClass}">${clockInText}</td>
+                        <td>${clockOutText}</td>
+                        <td class="font-bold text-xs">${s.totalWorkingHours ? s.totalWorkingHours + ' hrs' : '0.00 hrs'}</td>
+                        <td class="text-slate-400 font-medium">${activityText}</td>
+                        <td class="text-right">
+                            <button onclick="openCorrectionDrawer('${s.userId}', '${s.attendanceRecordId || ''}', '${s.name}')" class="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-xs font-bold transition-all text-blue-600 shadow-sm" title="Correct Time Log">
+                                <i data-lucide="edit-3" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+        }
+
+        // --- Correction Drawer Actions ---
+        async function openCorrectionDrawer(userId, recordId, staffName) {
+            document.getElementById('drawer-staff-name').innerText = staffName;
+            document.getElementById('correct-userid').value = userId;
+            document.getElementById('correct-recordid').value = recordId;
+            document.getElementById('correct-date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('correct-signin-time').value = "09:00";
+            document.getElementById('correct-signout-time').value = "18:00";
+            document.getElementById('correct-reason').value = "";
+
+            // Reset history
+            const logsContainer = document.getElementById('correction-logs-list');
+            logsContainer.innerHTML = '<div class="text-[10px] text-slate-400 italic">No historical corrections logged.</div>';
+
+            // If existing attendance record exists, fetch historical logs
+            if (recordId) {
+                const target = liveAttendanceData.find(s => s.userId === userId);
+                if (target) {
+                    // Populate times
+                    if (target.signInTime) {
+                        document.getElementById('correct-signin-time').value = formatTime(target.signInTime);
+                    }
+                    if (target.signOutTime) {
+                        document.getElementById('correct-signout-time').value = formatTime(target.signOutTime);
+                    }
+                    
+                    // Fetch logs (requires fetching the specific attendance entity details)
+                    try {
+                        const res = await fetch(`/api/hr/attendance/history?userId=${userId}`);
+                        if (res.ok) {
+                            const list = await res.json();
+                            const todayRecord = list.find(a => a.id === recordId);
+                            if (todayRecord && todayRecord.auditLogs && todayRecord.auditLogs.length > 0) {
+                                renderAuditLogs(todayRecord.auditLogs);
+                            }
+                        }
+                    } catch(e) {}
+                }
+            }
+
+            document.getElementById('drawer-overlay').classList.add('open');
+            document.getElementById('correction-drawer').classList.add('open');
+        }
+
+        function renderAuditLogs(logs) {
+            const logsContainer = document.getElementById('correction-logs-list');
+            logsContainer.innerHTML = logs.map(l => `
+                <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-[10px] flex flex-col gap-0.5">
+                    <div class="flex justify-between font-bold text-slate-600">
+                        <span>${l.action} (${l.performedBy})</span>
+                        <span class="font-normal text-slate-400">${new Date(l.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                    <p class="text-slate-500 font-medium">${l.description}</p>
+                </div>
+            `).join('');
+        }
+
+        function closeDrawer() {
+            document.getElementById('drawer-overlay').classList.remove('open');
+            document.getElementById('correction-drawer').classList.remove('open');
+        }
+
+        // Handle Correction Form Submit
+        document.getElementById('correction-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userId = document.getElementById('correct-userid').value;
+            const recordId = document.getElementById('correct-recordid').value;
+            const date = document.getElementById('correct-date').value;
+            const signInStr = document.getElementById('correct-signin-time').value;
+            const signOutStr = document.getElementById('correct-signout-time').value;
+            const reason = document.getElementById('correct-reason').value.trim();
+
+            // Convert hh:mm strings to epoch timestamps
+            const baseDate = new Date(date);
+            const [siH, siM] = signInStr.split(':').map(Number);
+            const signInTime = new Date(baseDate.setHours(siH, siM, 0, 0)).getTime();
+
+            let signOutTime = null;
+            if (signOutStr) {
+                const [soH, soM] = signOutStr.split(':').map(Number);
+                signOutTime = new Date(new Date(date).setHours(soH, soM, 0, 0)).getTime();
+            }
+
+            const payload = {
+                userId,
+                attendanceId: recordId || null,
+                date,
+                signInTime,
+                signOutTime,
+                reason,
+                correctedBy: "admin"
+            };
+
+            try {
+                const res = await fetch('/api/hr/attendance/correct', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    alert("Correction saved and synchronized.");
+                    closeDrawer();
+                    await fetchAttendancePayload();
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        });
+
+        // --- Export to CSV ---
+        function exportToCSV() {
+            let csv = 'Staff Name,Employee ID,Department,Designation,Presence,Clock In,Clock Out,Working Hours,Last Active\n';
+            
+            filteredAttendanceData.forEach(s => {
+                const clockIn = s.signInTime ? formatTime(s.signInTime) : 'N/A';
+                const clockOut = s.signOutTime ? formatTime(s.signOutTime) : 'N/A';
+                const workingHrs = s.totalWorkingHours ? s.totalWorkingHours : '0.00';
+                const lastAct = s.lastActivity ? formatTime(s.lastActivity) : 'N/A';
+                
+                csv += `"${s.name}","${s.employeeId}","${s.department}","${s.designation}","${s.onlineStatus}","${clockIn}","${clockOut}","${workingHrs} hrs","${lastAct}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Globalisor_Attendance_Report_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // WebSocket handling for instant synchronization
+        let socket = null;
+        function connectWebSocket() {
+            if (socket) return;
+            const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+            const adminId = authObj.id || 'admin';
+            let wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            let wsHost = window.location.host;
+            if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && window.location.hostname !== '[::1]') {
+                wsHost = 'globalisor-77d7da9fe8c7.herokuapp.com';
+                wsProtocol = 'wss:';
+            }
+            socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${adminId}&role=admin`);
+
+            socket.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    // Refresh if any user checked in/out/presence changes
+                    if (data.type === 'attendance_update' || data.type === 'presence') {
+                        fetchAttendancePayload();
+                    }
+                } catch (e) {
+                    console.error("WS error parsing:", e);
+                }
+            };
+
+            socket.onclose = function() {
+                socket = null;
+                setTimeout(connectWebSocket, 5000);
+            };
+        }
+
+        // Initialize Page
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchAttendancePayload();
+            connectWebSocket();
+        });
+    </script>
+</body>
+</html>
