@@ -74,10 +74,11 @@
             width: 100%;
             max-width: 1350px;
             margin: 0 auto;
-            padding: 2.5rem 3rem;
-            gap: 4rem;
-            align-items: flex-start;
-            justify-content: center;
+            padding: 1.25rem 3rem 2.5rem;
+            flex-direction: column;
+            gap: 2rem;
+            align-items: stretch;
+            justify-content: flex-start;
             box-sizing: border-box;
             height: auto;
             animation: fadeIn 0.4s ease-out;
@@ -85,6 +86,20 @@
 
         .wizard-layout-wrapper.active {
             display: flex;
+        }
+
+        .wizard-top-header-full {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .wizard-content-split {
+            display: flex;
+            width: 100%;
+            gap: 4rem;
+            align-items: flex-start;
+            justify-content: center;
+            box-sizing: border-box;
         }
 
         @keyframes fadeIn {
@@ -99,6 +114,7 @@
             border: none;
             box-shadow: none;
             border-radius: 0;
+            min-width: 0; /* Prevent flex children from forcing width expansion */
             display: flex;
             flex-direction: column;
             height: auto;
@@ -321,6 +337,168 @@
         .progress-line { width: 100%; height: 5px; background: #f1f5f9; border-radius: 100px; overflow: hidden; margin-top: 1rem; }
         .progress-fill { height: 100%; background: #2563eb; transition: width 0.5s ease; }
 
+        /* --- SSIC TOOLTIP --- */
+        .ssic-tooltip-wrap:hover .ssic-tooltip-bubble { display: block !important; animation: tooltipFadeIn 0.15s ease; }
+        @keyframes tooltipFadeIn { from { opacity: 0; transform: translateX(-50%) translateY(4px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+        /* --- ACRA NAME CHECKER --- */
+        .name-check-field-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-width: 900px;
+        }
+        .name-check-input-row {
+            display: flex;
+            gap: 0.6rem;
+            align-items: center;
+        }
+        .name-check-input-row .input-box {
+            flex: 1;
+            margin: 0;
+        }
+        .name-check-btn {
+            flex-shrink: 0;
+            padding: 0.68rem 1rem;
+            border-radius: 8px;
+            border: 1.5px solid #2563eb;
+            background: transparent;
+            color: #2563eb;
+            font-family: inherit;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .name-check-btn:hover:not(:disabled) {
+            background: #2563eb;
+            color: white;
+        }
+        .name-check-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            border-color: #94a3b8;
+            color: #94a3b8;
+        }
+        .name-check-status {
+            display: none;
+            border-radius: 8px;
+            padding: 0.65rem 0.9rem;
+            font-size: 0.82rem;
+            font-weight: 600;
+            animation: ncFadeIn 0.25s ease;
+        }
+        .name-check-status.visible { display: block; }
+        @keyframes ncFadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .name-check-status.loading {
+            background: #f1f5f9;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .name-check-status.available {
+            background: #f0fdf4;
+            color: #166534;
+            border: 1.5px solid #86efac;
+        }
+        .name-check-status.taken {
+            background: #fef2f2;
+            color: #991b1b;
+            border: 1.5px solid #fca5a5;
+        }
+        .name-check-status.similar {
+            background: #fffbeb;
+            color: #92400e;
+            border: 1.5px solid #fde68a;
+        }
+        .name-check-status.invalid {
+            background: #fef2f2;
+            color: #991b1b;
+            border: 1.5px solid #fca5a5;
+        }
+        .name-check-status.unavailable {
+            background: #f8fafc;
+            color: #64748b;
+            border: 1px dashed #cbd5e1;
+        }
+        .nc-suggestions {
+            margin-top: 0.5rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+        .nc-suggestion-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.3rem 0.65rem;
+            background: white;
+            border: 1.5px solid #fde68a;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #78350f;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .nc-suggestion-chip:hover {
+            background: #fef9c3;
+            border-color: #f59e0b;
+            color: #451a03;
+            transform: translateY(-1px);
+        }
+        .nc-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid #cbd5e1;
+            border-top-color: #2563eb;
+            border-radius: 50%;
+            animation: ncSpin 0.7s linear infinite;
+            flex-shrink: 0;
+        }
+        @keyframes ncSpin {
+            to { transform: rotate(360deg); }
+        }
+        .name-duplicate-warning {
+            display: none;
+            padding: 0.5rem 0.75rem;
+            background: #fef2f2;
+            border: 1.5px solid #fca5a5;
+            border-radius: 8px;
+            color: #991b1b;
+            font-size: 0.8rem;
+            font-weight: 600;
+            animation: ncFadeIn 0.2s ease;
+        }
+        .name-duplicate-warning.visible { display: flex; align-items: center; gap: 0.4rem; }
+        .input-box.nc-duplicate { border-color: #f87171 !important; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important; }
+        .nc-history-link {
+            font-size: 0.75rem;
+            color: #64748b;
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        .nc-history-link:hover { color: #2563eb; }
+        .nc-timestamp {
+            font-size: 0.72rem;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+        .nc-status-icon {
+            font-size: 1rem;
+            margin-right: 0.25rem;
+        }
+
         /* --- STEP 1 CUSTOM COMPONENTS --- */
         .company-type-grid {
             display: grid;
@@ -471,6 +649,12 @@
                 padding: 1rem;
                 gap: 1.5rem;
             }
+            .wizard-content-split {
+                flex-direction: column;
+                align-items: center;
+                width: 100%;
+                gap: 1.5rem;
+            }
             .wizard-card-main {
                 max-width: 100%;
                 width: 100%;
@@ -508,10 +692,10 @@
         /* Counters grid */
         .counters-container {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 1.5rem;
             margin-bottom: 2rem;
-            max-width: 900px;
+            max-width: 1000px;
         }
 
         .counter-card {
@@ -615,6 +799,24 @@
         }
 
         /* Step 3 Registered Office styles */
+        .office-card {
+            border: 2.2px solid #e2e8f0;
+            background: #ffffff;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .office-card:hover {
+            border-color: #cbd5e1;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+            transform: translateY(-1.5px);
+        }
+        .office-card.selected {
+            border-color: #2563eb !important;
+            background: #eff6ff !important;
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.06) !important;
+        }
+        .office-card.selected:hover {
+            border-color: #2563eb !important;
+        }
         .office-container-card {
             background: #ffffff;
             border-radius: 16px;
@@ -1027,69 +1229,214 @@
         }
         
         /* Multi-step Header Progress Styles */
-        .header-progress-steps {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 0.75rem;
-            margin-bottom: 2rem;
+        .header-progress-scroll {
             width: 100%;
-            padding-bottom: 1.5rem;
+            overflow-x: auto;
+            overflow-y: visible;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            margin-bottom: 2rem;
+            padding-bottom: 1.75rem;
             border-bottom: 1px solid #f1f5f9;
         }
-        .progress-step-col {
+        .header-progress-scroll::-webkit-scrollbar {
+            display: none;
+        }
+        .header-progress-steps {
             display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-        .progress-step-line {
-            height: 4px;
-            border-radius: 2px;
+            align-items: stretch;
+            gap: 0.75rem;
             width: 100%;
-            transition: background-color 0.3s;
+            padding-top: 6px; /* room for hover translateY lift */
+            padding-bottom: 6px; /* room for hover shadow */
+            overflow: visible;
         }
-        .progress-step-line.completed {
-            background-color: #10b981;
-        }
-        .progress-step-line.active {
-            background-color: #2563eb;
-        }
-        .progress-step-line.upcoming {
-            background-color: #e2e8f0;
-        }
-        .progress-step-label {
+        
+        .step-card-wrapper {
             display: flex;
             align-items: center;
+            flex: 1;
+            min-width: 190px;
+            position: relative;
+        }
+        
+        .step-card {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem 1.25rem;
+            background: #ffffff;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            user-select: none;
+            box-sizing: border-box;
             gap: 0.25rem;
-            font-size: 0.78rem;
-            font-weight: 500;
-            font-family: 'Outfit', sans-serif;
-            transition: color 0.3s;
         }
-        .progress-step-label .step-num {
-            font-weight: 700;
-            font-size: 0.82rem;
+        
+        /* Hover effects for clickable steps */
+        .step-card.clickable:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 16px rgba(37, 99, 235, 0.06);
+            border-color: #93c5fd;
+            cursor: pointer;
         }
-        .progress-step-label .step-name {
-            white-space: nowrap;
+        
+        /* Active Step: Premium Blue Gradient */
+        .step-card.active {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            border-color: transparent;
+            box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2);
+            color: #ffffff;
         }
-        .progress-step-label.completed {
+        .step-card.active .step-card-number {
+            color: rgba(255, 255, 255, 0.75);
+        }
+        .step-card.active .step-card-title {
+            color: #ffffff;
+        }
+        .step-card.active .step-card-desc {
+            color: rgba(255, 255, 255, 0.85);
+        }
+        .step-card.active .step-card-icon-container {
+            background: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+        }
+        
+        /* Completed Step: Green highlights */
+        .step-card.completed {
+            border-color: #10b981;
+            background: #f0fdf4;
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.03);
+        }
+        .step-card.completed .step-card-number {
             color: #10b981;
         }
-        .progress-step-label.completed .step-name {
+        .step-card.completed .step-card-title {
+            color: #0f172a;
+        }
+        .step-card.completed .step-card-desc {
             color: #475569;
         }
-        .progress-step-label.active {
-            color: #2563eb;
+        .step-card.completed .step-card-icon-container {
+            background: #d1fae5;
+            color: #10b981;
         }
-        .progress-step-label.active .step-name {
-            color: #0f172a;
+        
+        /* Upcoming/Neutral step */
+        .step-card.upcoming {
+            background: #f8fafc;
+            border-color: #e2e8f0;
+        }
+        .step-card.upcoming .step-card-number {
+            color: #94a3b8;
+        }
+        .step-card.upcoming .step-card-title {
+            color: #64748b;
+        }
+        .step-card.upcoming .step-card-desc {
+            color: #94a3b8;
+        }
+        .step-card.upcoming .step-card-icon-container {
+            background: #f1f5f9;
+            color: #94a3b8;
+        }
+        
+        /* Card inner layouts */
+        .step-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            width: 100%;
+        }
+        
+        .step-card-number {
+            font-size: 0.8rem;
             font-weight: 700;
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: 0.05em;
         }
-        .progress-step-label.upcoming {
-            color: #94a3b8;
+        
+        .step-card-icon-container {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
         }
-        .progress-step-label.upcoming .step-name {
-            color: #94a3b8;
+        
+        .step-card-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            margin: 0;
+            line-height: 1.2;
+            transition: color 0.3s;
+        }
+        
+        .step-card-desc {
+            font-size: 0.72rem;
+            line-height: 1.3;
+            margin: 0;
+            transition: color 0.3s;
+        }
+        
+        /* Animated Progress Connector Line */
+        .step-connector-line {
+            flex: 0 0 1.25rem;
+            height: 3px;
+            background: #e2e8f0;
+            margin: 0 0.5rem;
+            position: relative;
+            overflow: hidden;
+            border-radius: 2px;
+        }
+        
+        .step-connector-line.completed {
+            background: #10b981;
+        }
+        
+        .step-connector-line.active {
+            background: #e2e8f0;
+        }
+        
+        .step-connector-line.active .step-connector-progress {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #2563eb, #1d4ed8);
+            animation: animateConnector 2s infinite linear;
+        }
+        
+        @keyframes animateConnector {
+            0% {
+                transform: translateX(-100%);
+            }
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .step-card-wrapper {
+                min-width: 0;
+            }
+            .step-card {
+                padding: 0.75rem 0.5rem;
+            }
+            .step-card-title {
+                font-size: 0.82rem;
+            }
+            .step-card-desc {
+                font-size: 0.65rem;
+                line-height: 1.25;
+            }
+            .step-connector-line {
+                flex: 0 0 0.75rem;
+                margin: 0 0.25rem;
+            }
         }
     </style>
 </head>
@@ -1101,8 +1448,10 @@
     </div>
 
     <!-- Header -->
-    <header class="pre-registration-header" style="text-align: center; padding: 2.5rem 1rem 0; font-family: 'Outfit', sans-serif;">
-        <h1 style="font-size: 1.15rem; font-weight: 800; letter-spacing: 0.15em; color: #0f172a; margin: 0; text-transform: uppercase;">PRE REGISTRATION PAGE</h1>
+    <header class="pre-registration-header" style="display: flex; align-items: center; justify-content: space-between; padding: 1.75rem 3rem 0; font-family: 'Outfit', sans-serif; max-width: 1350px; margin: 0 auto; width: 100%; box-sizing: border-box;">
+        <button id="back-btn" class="back-link" onclick="wizard.prev()" style="border: none; background: none; cursor: pointer; padding: 0; display: inline-flex; align-items: center; gap: 0.35rem; flex-shrink: 0;">← Back</button>
+        <h1 style="font-size: 1.15rem; font-weight: 800; letter-spacing: 0.15em; color: #0f172a; margin: 0; text-transform: uppercase; flex: 1; text-align: center;">PRE REGISTRATION PAGE</h1>
+        <div style="width: 60px; flex-shrink: 0;"></div>
     </header>
 
     <!-- NAVIGATION -->
@@ -1191,33 +1540,40 @@
 
         <!-- ACTIVE WIZARD CONTAINER -->
         <div id="wizard-container" class="wizard-layout-wrapper">
-            <!-- MAIN WIZARD CARD -->
-            <div class="wizard-card-main">
-                <div class="wizard-header-new">
+            <!-- FULL-WIDTH TOP HEADER SECTION -->
+            <div class="wizard-top-header-full">
+                <div class="header-progress-scroll">
                     <div id="wizard-progress-steps" class="header-progress-steps"></div>
-                    <span id="step-indicator" class="step-indicator">STEP 1 OF 6 · SG SINGAPORE</span>
-                    <h2 id="step-title" style="margin: 0; font-size: 2rem; font-weight: 800; color: #0f172a;">Company Name</h2>
-                    <div class="progress-line" style="display: none;"><div id="progress-bar" class="progress-fill"></div></div>
                 </div>
-                <div id="wizard-body" class="wizard-body-new"></div>
-                <div class="wizard-footer-new">
-                    <div class="footer-divider"></div>
-                    <div class="footer-actions">
-                        <button id="back-btn" class="back-link" onclick="wizard.prev()">← Back</button>
-                        <div id="auto-save" style="font-size: 0.8rem; color: var(--text-muted);">Auto-saving...</div>
-                        <button id="back-to-status" class="btn btn-outline" style="display:none; border-color:#2563eb; color:#2563eb" onclick="wizard.init()">Return to Status</button>
-                        <button id="next-btn" class="continue-btn" onclick="wizard.next()">Continue →</button>
-                    </div>
-                </div>
+                <span id="step-indicator" class="step-indicator">STEP 1 OF 6 · SG SINGAPORE</span>
+                <div class="progress-line" style="display: none;"><div id="progress-bar" class="progress-fill"></div></div>
             </div>
 
-            <!-- HELPER CARD -->
-            <div id="helper-card" class="wizard-card-helper">
-                <div class="helper-header">
-                    <span class="helper-tag">SG SINGAPORE</span>
+            <!-- SPLIT CONTENT SECTION -->
+            <div class="wizard-content-split">
+                <!-- MAIN WIZARD CARD -->
+                <div class="wizard-card-main">
+                    <div class="wizard-header-new">
+                        <h2 id="step-title" style="margin: 0; font-size: 2rem; font-weight: 800; color: #0f172a;">Company Details</h2>
+                    </div>
+                    <div id="wizard-body" class="wizard-body-new"></div>
+                    <div class="wizard-footer-new">
+                        <div class="footer-divider"></div>
+                        <div class="footer-actions" style="display: flex; justify-content: flex-end; align-items: center;">
+                            <button id="back-to-status" class="btn btn-outline" style="display:none; border-color:#2563eb; color:#2563eb; margin-right: 1rem;" onclick="wizard.init()">Return to Status</button>
+                            <button id="next-btn" class="continue-btn" onclick="wizard.next()">Continue →</button>
+                        </div>
+                    </div>
                 </div>
-                <h3 id="helper-title" class="helper-title">Pick a company type</h3>
-                <p id="helper-text" class="helper-text">Choose on the left to see what each structure is best for.</p>
+
+                <!-- HELPER CARD -->
+                <div id="helper-card" class="wizard-card-helper">
+                    <div class="helper-header">
+                        <span class="helper-tag">SG SINGAPORE</span>
+                    </div>
+                    <h3 id="helper-title" class="helper-title">Pick a company type</h3>
+                    <p id="helper-text" class="helper-text">Choose on the left to see what each structure is best for.</p>
+                </div>
             </div>
         </div>
     </div>
@@ -1227,7 +1583,7 @@
             {
                 id: "sec-names",
                 key: "names",
-                title: "SSIC & Industry Name",
+                title: "Company Details",
                 description: "Proposed names and activities for ACRA verification",
                 type: "form",
                 fields: [
@@ -1246,13 +1602,6 @@
                 type: "custom"
             },
             {
-                id: "sec-addons",
-                key: "addons",
-                title: "Add-on Services",
-                description: "Select additional corporate and compliance services",
-                type: "custom"
-            },
-            {
                 id: "sec-office",
                 key: "office",
                 title: "Registered Office",
@@ -1260,10 +1609,17 @@
                 type: "custom"
             },
             {
+                id: "sec-addons",
+                key: "addons",
+                title: "Add-on Services",
+                description: "Select additional corporate and compliance services",
+                type: "custom"
+            },
+            {
                 id: "sec-package-next",
                 key: "contact",
-                title: "Your package is up Next",
-                description: "Provide your contact information for package processing",
+                title: "Package Review",
+                description: "Provide contact information for package processing",
                 type: "form",
                 fields: [
                     { key: "contact.firstName", label: "First Name", type: "text", required: true, placeholder: "First name" },
@@ -1275,8 +1631,8 @@
             {
                 id: "sec-checkout",
                 key: "checkout",
-                title: "Package Summary & Payment",
-                description: "Review your details, select packages, and complete payment",
+                title: "Summary & Payment",
+                description: "Review details and complete payment",
                 type: "custom"
             }
         ];
@@ -1346,7 +1702,7 @@
                     directors: [{ name: '', idType: 'local', idNum: '', dob: '', phone: '', passportExpiry: '', docs: {} }],
                     shareholders: [{ type: 'individual', name: '', shares: '', percent: '', regNum: '', regPlace: '', regDate: '', phone: '', email: '', addr: '', docs: {}, bo: [] }],
                     capital: { issued: 1000, numShares: 1000, paidUp: 1000, currency: 'SGD', type: 'Ordinary' },
-                    office: { useService: true, address: '', hasOwnAddress: false },
+                    office: { useService: true, address: '', hasOwnAddress: false, residency: 'local' },
                     contact: { firstName: '', lastName: '', phone: '', email: '' },
                     paymentStatus: 'pending',
                     secretary: { required: true, named: true, details: { name: '', idNum: '', nation: '', dob: '', phone: '', email: '', addr: '' } },
@@ -1376,6 +1732,57 @@
                 this.open(startStep);
             }
 
+            preprocessSections(sectionsList) {
+                if (!sectionsList || !Array.isArray(sectionsList)) return [];
+
+                const SECTION_METADATA = {
+                    'names': {
+                        title: 'Company Details',
+                        description: 'Proposed names and activities for ACRA verification',
+                        order: 1
+                    },
+                    'directors-shareholders': {
+                        title: 'Directors & Shareholders',
+                        description: 'Details of company directors and shareholders',
+                        order: 2
+                    },
+                    'office': {
+                        title: 'Registered Office',
+                        description: 'Singapore registered office details',
+                        order: 3
+                    },
+                    'addons': {
+                        title: 'Add-on Services',
+                        description: 'Select additional corporate and compliance services',
+                        order: 4
+                    },
+                    'contact': {
+                        title: 'Package Review',
+                        description: 'Provide contact information for package processing',
+                        order: 5
+                    },
+                    'checkout': {
+                        title: 'Summary & Payment',
+                        description: 'Review details and complete payment',
+                        order: 6
+                    }
+                };
+
+                sectionsList.forEach(sec => {
+                    const meta = SECTION_METADATA[sec.key];
+                    if (meta) {
+                        sec.title = meta.title;
+                        sec.description = meta.description;
+                        sec.sortOrder = meta.order;
+                    } else {
+                        sec.sortOrder = 99;
+                    }
+                });
+
+                sectionsList.sort((a, b) => a.sortOrder - b.sortOrder);
+                return sectionsList;
+            }
+
             async init() {
                 if (this.isPreview) {
                     document.getElementById('preview-banner').style.display = 'flex';
@@ -1389,13 +1796,14 @@
                     const res = await fetch(endpoint, { headers });
                     if (res.ok) {
                         const allSections = await res.json();
-                        this.sections = allSections.filter(sec => this.isSectionApplicable(sec));
+                        const filtered = allSections.filter(sec => this.isSectionApplicable(sec));
+                        this.sections = this.preprocessSections(filtered);
                     } else {
                         throw new Error("Section configuration load failed.");
                     }
                 } catch (e) {
                     console.warn("Failed to load pre-reg sections from backend. Using local fallback config.", e);
-                    this.sections = DEFAULT_SECTIONS;
+                    this.sections = this.preprocessSections(JSON.parse(JSON.stringify(DEFAULT_SECTIONS)));
                 }
 
                 // Load SSIC activities list
@@ -1439,6 +1847,21 @@
                         }
                     } catch (e) {
                         console.error("Failed to load client profile data:", e);
+                    }
+                }
+
+                // Pre-populate defaults for Globalisor Premium CBD Address if useService is active and fields are empty
+                if (this.data.office && this.data.office.useService !== false) {
+                    if (!this.data.office.block) {
+                        this.data.office.block = '10';
+                        this.data.office.streetName = 'Anson Road';
+                        this.data.office.floor = '16';
+                        this.data.office.unit = '04';
+                        this.data.office.building = 'International Plaza';
+                        this.data.office.country = 'Singapore';
+                        this.data.office.postalCode = '079903';
+                        this.data.office.address = '10 Anson Road, #16-04 International Plaza, Singapore 079903';
+                        this.save();
                     }
                 }
 
@@ -1488,23 +1911,21 @@
                 }
             }
 
+            // ── OLD ssic-array methods kept for backward compat ──
             openSsicDropdown(containerId, fullPath) {
                 const dropdown = document.getElementById(`ssic-dropdown-${containerId}`);
                 if (dropdown) {
                     dropdown.classList.remove('hidden');
                     this.ssicActiveDropdownIndex = -1;
-                    const inputVal = document.getElementById(`ssic-search-${containerId}`).value;
-                    this.filterSsic(containerId, fullPath, inputVal);
+                    const inputEl = document.getElementById(`ssic-search-${containerId}`);
+                    this.filterSsic(containerId, fullPath, inputEl ? inputEl.value : '');
                 }
             }
 
             closeSsicDropdown(containerId) {
                 const dropdown = document.getElementById(`ssic-dropdown-${containerId}`);
                 if (dropdown) {
-                    // Delay slightly to allow onmousedown clicks to register first
-                    setTimeout(() => {
-                        dropdown.classList.add('hidden');
-                    }, 200);
+                    setTimeout(() => { dropdown.classList.add('hidden'); }, 200);
                 }
             }
 
@@ -1512,58 +1933,36 @@
                 this.ssicSearchQuery = query.toLowerCase().trim();
                 const dropdown = document.getElementById(`ssic-dropdown-${containerId}`);
                 if (!dropdown) return;
-
                 const list = this.ssicActivities || [];
-                const matches = list.filter(act => 
+                const matches = list.filter(act =>
                     (act.code || '').toLowerCase().includes(this.ssicSearchQuery) ||
                     (act.name || '').toLowerCase().includes(this.ssicSearchQuery) ||
                     (act.category || '').toLowerCase().includes(this.ssicSearchQuery)
                 );
-
                 this.renderSsicDropdownOptions(containerId, fullPath, matches, this.ssicSearchQuery);
             }
 
             renderSsicDropdownOptions(containerId, fullPath, matches, query) {
                 const dropdown = document.getElementById(`ssic-dropdown-${containerId}`);
                 if (!dropdown) return;
-
                 dropdown.innerHTML = '';
-                this.ssicCurrentMatches = matches; // Cache current matches for keydown
-
-                if (matches.length === 0) {
-                    dropdown.innerHTML = `
-                        <div style="padding: 1rem; text-align: center;">
-                            <div style="font-size: 0.75rem; color: #64748b; font-weight: 500; margin-bottom: 0.5rem;">No matching activities found</div>
-                            <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.7rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer;" onmousedown="event.preventDefault(); event.stopPropagation(); wizard.showManualSsicEntry('${containerId}', '${fullPath}')">Continue with manual entry</button>
-                        </div>
-                    `;
-                    return;
-                }
-
+                this.ssicCurrentMatches = matches;
                 const highlightText = (text, q) => {
                     if (!q) return text;
                     const regex = new RegExp(`(${q.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi');
-                    return text.replace(regex, '<mark style="background: #fef08a; color: #854d0e; padding: 0px 1px; border-radius: 2px;">$1</mark>');
+                    return text.replace(regex, '<mark style="background:#fef08a;color:#854d0e;padding:0 1px;border-radius:2px;">$1</mark>');
                 };
-
+                if (matches.length === 0) {
+                    dropdown.innerHTML = `<div style="padding:1rem;text-align:center;"><div style="font-size:0.75rem;color:#64748b;margin-bottom:0.4rem;">No matching activities found</div><button type="button" style="padding:0.35rem 0.7rem;font-size:0.7rem;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;" onmousedown="event.preventDefault();wizard.showManualSsicEntry('${containerId}','${fullPath}')">Manual entry</button></div>`;
+                    return;
+                }
                 matches.forEach((act, idx) => {
                     const div = document.createElement('div');
-                    div.style.cssText = "padding: 0.6rem 0.8rem; font-size: 0.75rem; font-weight: 500; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.15rem; transition: background 0.15s;";
-                    div.className = `ssic-item-${containerId} ${idx === this.ssicActiveDropdownIndex ? 'bg-blue-50' : 'hover:bg-slate-50'}`;
-                    
-                    div.onmousedown = (e) => {
-                        e.preventDefault(); // Prevent input blur
-                        e.stopPropagation();
-                        this.selectSsicActivity(containerId, fullPath, act);
-                    };
-                    
-                    div.innerHTML = `
-                        <div style="display: flex; gap: 0.4rem; align-items: center;">
-                            <span style="font-weight: 800; color: #1e293b; font-family: 'Inter', sans-serif;">${highlightText(act.code, query)}</span>
-                            <span style="font-size: 0.7rem; color: #3b82f6; background: #eff6ff; font-weight: 700; padding: 0px 4px; border-radius: 4px; border: 1px solid #dbeafe;">${highlightText(act.category || 'N/A', query)}</span>
-                        </div>
-                        <div style="color: #475569; font-weight: 600; font-family: 'Outfit', sans-serif;">${highlightText(act.name, query)}</div>
-                    `;
+                    div.style.cssText = 'padding:0.6rem 0.8rem;font-size:0.75rem;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:background 0.1s;';
+                    div.onmouseover = () => div.style.background = '#f8fafc';
+                    div.onmouseout = () => div.style.background = '';
+                    div.onmousedown = (e) => { e.preventDefault(); this.selectSsicActivity(containerId, fullPath, act); };
+                    div.innerHTML = `<span style="font-weight:800;color:#1e293b;">${highlightText(act.code, query)}</span> <span style="font-size:0.68rem;color:#3b82f6;background:#eff6ff;padding:0 4px;border-radius:4px;">${highlightText(act.category||'',query)}</span><div style="color:#475569;font-weight:600;">${highlightText(act.name,query)}</div>`;
                     dropdown.appendChild(div);
                 });
             }
@@ -1571,130 +1970,265 @@
             handleSsicKeydown(containerId, fullPath, event) {
                 const matches = this.ssicCurrentMatches || [];
                 const dropdown = document.getElementById(`ssic-dropdown-${containerId}`);
-                
-                if (event.key === 'ArrowDown') {
-                    event.preventDefault();
-                    if (!dropdown || dropdown.classList.contains('hidden')) {
-                        this.openSsicDropdown(containerId, fullPath);
-                        return;
-                    }
-                    this.ssicActiveDropdownIndex = (this.ssicActiveDropdownIndex + 1) % matches.length;
-                    this.renderSsicDropdownOptions(containerId, fullPath, matches, this.ssicSearchQuery);
-                    this.scrollToActiveSsicItem(containerId);
-                } else if (event.key === 'ArrowUp') {
-                    event.preventDefault();
-                    if (!dropdown || dropdown.classList.contains('hidden')) return;
-                    this.ssicActiveDropdownIndex = (this.ssicActiveDropdownIndex - 1 + matches.length) % matches.length;
-                    this.renderSsicDropdownOptions(containerId, fullPath, matches, this.ssicSearchQuery);
-                    this.scrollToActiveSsicItem(containerId);
-                } else if (event.key === 'Enter') {
-                    event.preventDefault();
-                    if (!dropdown || dropdown.classList.contains('hidden')) return;
-                    if (this.ssicActiveDropdownIndex >= 0 && this.ssicActiveDropdownIndex < matches.length) {
-                        this.selectSsicActivity(containerId, fullPath, matches[this.ssicActiveDropdownIndex]);
-                    } else if (matches.length > 0) {
-                        this.selectSsicActivity(containerId, fullPath, matches[0]);
-                    }
-                } else if (event.key === 'Escape') {
-                    event.preventDefault();
-                    this.closeSsicDropdown(containerId);
-                }
+                if (event.key === 'ArrowDown') { event.preventDefault(); this.ssicActiveDropdownIndex = (this.ssicActiveDropdownIndex+1)%matches.length; this.renderSsicDropdownOptions(containerId, fullPath, matches, this.ssicSearchQuery); }
+                else if (event.key === 'ArrowUp') { event.preventDefault(); this.ssicActiveDropdownIndex = (this.ssicActiveDropdownIndex-1+matches.length)%matches.length; this.renderSsicDropdownOptions(containerId, fullPath, matches, this.ssicSearchQuery); }
+                else if (event.key === 'Enter') { event.preventDefault(); if (matches[this.ssicActiveDropdownIndex]) this.selectSsicActivity(containerId, fullPath, matches[this.ssicActiveDropdownIndex]); else if (matches[0]) this.selectSsicActivity(containerId, fullPath, matches[0]); }
+                else if (event.key === 'Escape') { event.preventDefault(); this.closeSsicDropdown(containerId); }
             }
 
-            scrollToActiveSsicItem(containerId) {
-                const dropdown = document.getElementById(`ssic-dropdown-${containerId}`);
-                if (!dropdown) return;
-                const activeEl = dropdown.querySelector('.bg-blue-50');
-                if (activeEl) {
-                    activeEl.scrollIntoView({ block: 'nearest' });
-                }
-            }
+            scrollToActiveSsicItem(containerId) {}
 
             selectSsicActivity(containerId, fullPath, activity) {
                 let list = getVal(this.data, fullPath);
-                if (!Array.isArray(list)) {
-                    list = [];
-                }
+                if (!Array.isArray(list)) list = [];
+                if (list.some(a => a.code === activity.code && a.code !== 'MANUAL')) { showToast('Already added!', 'error'); return; }
+                list.push({ code: activity.code, name: activity.name, category: activity.category||'ACRA Activity', description: activity.description||activity.name });
+                setVal(this.data, fullPath, list);
+                this.save(); this.render(); this.evaluateConditionalFields(); this.updateContinueButtonState();
+            }
 
-                // Check for duplicates
-                if (list.some(act => act.code === activity.code && act.code !== 'MANUAL')) {
-                    showToast("This business activity is already added!", "error");
-                    this.closeSsicDropdown(containerId);
+            removeSsicActivity(fullPath, index) {
+                const list = getVal(this.data, fullPath);
+                if (Array.isArray(list)) { list.splice(index,1); setVal(this.data, fullPath, list); this.save(); this.render(); this.evaluateConditionalFields(); this.updateContinueButtonState(); }
+            }
+
+            updateSsicDescription(fullPath, index, value) {
+                const list = getVal(this.data, fullPath);
+                if (Array.isArray(list) && list[index]) { list[index].description = value; setVal(this.data, fullPath, list); localStorage.setItem('globalisor_master_v3', JSON.stringify(this.data)); this.evaluateConditionalFields(); this.updateContinueButtonState(); }
+            }
+
+            showManualSsicEntry(containerId, fullPath) {
+                const dropdown = document.getElementById(`ssic-dropdown-${containerId}`);
+                if (!dropdown) return;
+                dropdown.innerHTML = `<div style="padding:1rem;display:flex;flex-direction:column;gap:0.5rem;" onmousedown="event.stopPropagation()"><input type="text" id="manual-code-${containerId}" placeholder="SSIC Code (optional)" style="width:100%;font-size:0.7rem;padding:0.35rem 0.6rem;border:1px solid #cbd5e1;border-radius:6px;outline:none;"><input type="text" id="manual-name-${containerId}" placeholder="Business Activity Name" style="width:100%;font-size:0.7rem;padding:0.35rem 0.6rem;border:1px solid #cbd5e1;border-radius:6px;outline:none;"><div style="display:flex;gap:0.25rem;justify-content:flex-end;"><button type="button" style="padding:0.3rem 0.6rem;font-size:0.65rem;border:1px solid #e2e8f0;border-radius:4px;background:white;cursor:pointer;" onmousedown="event.preventDefault();wizard.filterSsic('${containerId}','${fullPath}','')">Cancel</button><button type="button" style="padding:0.3rem 0.6rem;font-size:0.65rem;background:#2563eb;color:white;border:none;border-radius:4px;cursor:pointer;" onmousedown="event.preventDefault();wizard.addManualSsicActivity('${containerId}','${fullPath}')">Add</button></div></div>`;
+            }
+
+            addManualSsicActivity(containerId, fullPath) {
+                const codeInput = document.getElementById(`manual-code-${containerId}`);
+                const nameInput = document.getElementById(`manual-name-${containerId}`);
+                if (!nameInput||!nameInput.value.trim()) { showToast('Name required','error'); return; }
+                this.selectSsicActivity(containerId, fullPath, { code: codeInput.value.trim()||'MANUAL', name: nameInput.value.trim(), category:'Manual Entry', description:nameInput.value.trim() });
+            }
+
+            updateOfficeServiceOption(useService) {
+                if (!this.data.office) this.data.office = {};
+                this.data.office.useService = useService;
+                if (useService) {
+                    this.data.office.block = '10';
+                    this.data.office.streetName = 'Anson Road';
+                    this.data.office.floor = '16';
+                    this.data.office.unit = '04';
+                    this.data.office.building = 'International Plaza';
+                    this.data.office.country = 'Singapore';
+                    this.data.office.postalCode = '079903';
+                    this.data.office.address = '10 Anson Road, #16-04 International Plaza, Singapore 079903';
+                } else {
+                    this.data.office.block = '';
+                    this.data.office.streetName = '';
+                    this.data.office.floor = '';
+                    this.data.office.unit = '';
+                    this.data.office.building = '';
+                    this.data.office.country = '';
+                    this.data.office.postalCode = '';
+                    this.data.office.address = '';
+                }
+                this.save();
+                this.render();
+                this.updateContinueButtonState();
+            }
+
+            updateOfficeField(field, value) {
+                if (!this.data.office) this.data.office = {};
+                this.data.office[field] = value;
+                this.recompileOwnAddress();
+                this.save();
+                
+                const previewEl = document.getElementById('office-address-preview');
+                if (previewEl) {
+                    previewEl.innerText = this.data.office.useService !== false
+                        ? '10 Anson Road, #16-04 International Plaza, Singapore 079903'
+                        : this.getFormattedOwnAddressPreview();
+                }
+                this.updateContinueButtonState();
+            }
+
+            recompileOwnAddress() {
+                if (!this.data.office) return;
+                const block = (this.data.office.block || '').trim();
+                const street = (this.data.office.streetName || '').trim();
+                const floor = (this.data.office.floor || '').trim();
+                const unit = (this.data.office.unit || '').trim();
+                const postal = (this.data.office.postalCode || '').trim();
+                
+                if (block && street && floor && unit && postal) {
+                    this.data.office.address = `${block} ${street}, #${floor}-${unit}, Singapore ${postal}`;
+                } else {
+                    this.data.office.address = '';
+                }
+            }
+
+            getFormattedOwnAddressPreview() {
+                if (!this.data.office) return '[Block Number] [Street Name], #[Floor]-[Unit], Singapore [Postal Code]';
+                const block = this.data.office.block || '[Block Number]';
+                const street = this.data.office.streetName || '[Street Name]';
+                const floor = this.data.office.floor || '[Floor]';
+                const unit = this.data.office.unit || '[Unit]';
+                const postal = this.data.office.postalCode || '[Postal Code]';
+                return `${block} ${street}, #${floor}-${unit}, Singapore ${postal}`;
+            }
+
+            // ── NEW ssic-single methods for Primary/Secondary pickers ──
+            _ssicSingleState = { primary: { index: -1, matches: [], query: '' }, secondary: { index: -1, matches: [], query: '' } };
+
+            openSsicSingleDropdown(slot) {
+                if (!this._ssicSingleState) this._ssicSingleState = { primary:{index:-1,matches:[],query:''}, secondary:{index:-1,matches:[],query:''} };
+                const dd = document.getElementById(`ssic-dropdown-${slot}`);
+                if (dd) { dd.style.display = 'block'; this._ssicSingleState[slot].index = -1; this.filterSsicSingle(slot, this._ssicSingleState[slot].query || ''); }
+            }
+
+            closeSsicSingleDropdown(slot) {
+                setTimeout(() => {
+                    const dd = document.getElementById(`ssic-dropdown-${slot}`);
+                    if (dd) dd.style.display = 'none';
+                }, 200);
+            }
+
+            filterSsicSingle(slot, query) {
+                if (!this._ssicSingleState) this._ssicSingleState = { primary:{index:-1,matches:[],query:''}, secondary:{index:-1,matches:[],query:''} };
+                const q = query.toLowerCase().trim();
+                this._ssicSingleState[slot].query = query;
+                const dd = document.getElementById(`ssic-dropdown-${slot}`);
+                if (!dd) return;
+                dd.style.display = 'block';
+                const list = this.ssicActivities || [];
+                const matches = q ? list.filter(a =>
+                    (a.code||'').toLowerCase().includes(q) ||
+                    (a.name||'').toLowerCase().includes(q) ||
+                    (a.category||'').toLowerCase().includes(q) ||
+                    (a.keywords||'').toLowerCase().includes(q) ||
+                    (a.synonyms||'').toLowerCase().includes(q) ||
+                    (a.abbreviations||'').toLowerCase().includes(q) ||
+                    (a.sectionName||'').toLowerCase().includes(q) ||
+                    (a.divisionName||'').toLowerCase().includes(q) ||
+                    (a.groupName||'').toLowerCase().includes(q) ||
+                    (a.className||'').toLowerCase().includes(q)
+                ) : list.slice(0, 80);
+                this._ssicSingleState[slot].matches = matches;
+                this._renderSsicSingleDropdown(slot, matches, q);
+            }
+
+            _renderSsicSingleDropdown(slot, matches, q) {
+                const dd = document.getElementById(`ssic-dropdown-${slot}`);
+                if (!dd) return;
+                dd.innerHTML = '';
+                const hl = (text, q) => {
+                    if (!q) return text;
+                    return text.replace(new RegExp(`(${q.replace(/[-\/\\^$*+?.()|[\]{}]/g,'\\$&')})`, 'gi'), '<mark style="background:#fef08a;color:#854d0e;padding:0 1px;border-radius:2px;">$1</mark>');
+                };
+                if (matches.length === 0) {
+                    dd.innerHTML = `<div style="padding:0.9rem;text-align:center;"><div style="font-size:0.72rem;color:#64748b;margin-bottom:0.4rem;">No matching activities found</div><button type="button" style="padding:0.35rem 0.8rem;font-size:0.7rem;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;" onmousedown="event.preventDefault();wizard._showManualSsicSingle('${slot}')">Manual entry</button></div>`;
                     return;
                 }
+                matches.forEach((act, idx) => {
+                    const div = document.createElement('div');
+                    div.style.cssText = `padding:0.55rem 0.85rem;font-size:0.73rem;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;flex-direction:column;gap:0.1rem;background:${idx===this._ssicSingleState[slot].index?'#eff6ff':''};`;
+                    div.onmouseover = () => div.style.background = '#f8fafc';
+                    div.onmouseout = () => div.style.background = idx===this._ssicSingleState[slot].index?'#eff6ff':'';
+                    div.onmousedown = (e) => { e.preventDefault(); this.selectSsicSingle(slot, act); };
+                    
+                    let matchMetaHtml = '';
+                    if (q) {
+                        const matchedSynonyms = [];
+                        if ((act.synonyms || '').toLowerCase().includes(q)) {
+                            const listSyns = (act.synonyms || '').split(',').map(s => s.trim());
+                            listSyns.forEach(s => {
+                                if (s.toLowerCase().includes(q)) matchedSynonyms.push(s);
+                            });
+                        }
+                        const matchedKeywords = [];
+                        if ((act.keywords || '').toLowerCase().includes(q)) {
+                            const listKeys = (act.keywords || '').split(',').map(s => s.trim());
+                            listKeys.forEach(s => {
+                                if (s.toLowerCase().includes(q)) matchedKeywords.push(s);
+                            });
+                        }
+                        const matchedAbbrs = [];
+                        if ((act.abbreviations || '').toLowerCase().includes(q)) {
+                            const listAbbrs = (act.abbreviations || '').split(',').map(s => s.trim());
+                            listAbbrs.forEach(s => {
+                                if (s.toLowerCase().includes(q)) matchedAbbrs.push(s);
+                            });
+                        }
+                        
+                        const allMatches = [...matchedSynonyms, ...matchedKeywords, ...matchedAbbrs];
+                        if (allMatches.length > 0) {
+                            const matchesText = Array.from(new Set(allMatches)).join(', ');
+                            matchMetaHtml = `<div style="font-size:0.65rem;color:#4f46e5;margin-top:0.15rem;font-weight:600;">Matched keyword: ${hl(matchesText, q)}</div>`;
+                        }
+                    }
 
-                const newActivity = {
+                    div.innerHTML = `
+                        <div style="display:flex;gap:0.4rem;align-items:center;">
+                            <span style="font-weight:800;color:#1e293b;font-family:monospace;">${hl(act.code,q)}</span>
+                            <span style="font-size:0.65rem;color:#3b82f6;background:#eff6ff;font-weight:700;padding:0 4px;border-radius:4px;border:1px solid #dbeafe;">${hl(act.category||'',q)}</span>
+                        </div>
+                        <span style="color:#475569;font-weight:600;">${hl(act.name,q)}</span>
+                        ${matchMetaHtml}
+                    `;
+                    dd.appendChild(div);
+                });
+            }
+
+            handleSsicSingleKeydown(slot, event) {
+                if (!this._ssicSingleState) return;
+                const state = this._ssicSingleState[slot];
+                const matches = state.matches || [];
+                if (event.key === 'ArrowDown') { event.preventDefault(); state.index = (state.index+1)%matches.length; this._renderSsicSingleDropdown(slot, matches, state.query); }
+                else if (event.key === 'ArrowUp') { event.preventDefault(); state.index = (state.index-1+matches.length)%matches.length; this._renderSsicSingleDropdown(slot, matches, state.query); }
+                else if (event.key === 'Enter') { event.preventDefault(); const a = matches[state.index] || matches[0]; if (a) this.selectSsicSingle(slot, a); }
+                else if (event.key === 'Escape') { event.preventDefault(); this.closeSsicSingleDropdown(slot); }
+            }
+
+            selectSsicSingle(slot, activity) {
+                if (!this.data.activities) this.data.activities = {};
+                this.data.activities[slot] = {
                     code: activity.code,
                     name: activity.name,
                     category: activity.category || 'ACRA Activity',
                     description: activity.description || activity.name
                 };
-
-                list.push(newActivity);
-                setVal(this.data, fullPath, list);
-                
-                this.save();
-                this.render();
-                this.evaluateConditionalFields();
-                this.updateContinueButtonState();
+                const input = document.getElementById(`ssic-search-${slot}`);
+                if (input) input.value = '';
+                const dd = document.getElementById(`ssic-dropdown-${slot}`);
+                if (dd) dd.style.display = 'none';
+                this.save(); this.render(); this.evaluateConditionalFields(); this.updateContinueButtonState();
             }
 
-            removeSsicActivity(fullPath, index) {
-                const list = getVal(this.data, fullPath);
-                if (Array.isArray(list)) {
-                    list.splice(index, 1);
-                    setVal(this.data, fullPath, list);
-                    this.save();
-                    this.render();
-                    this.evaluateConditionalFields();
-                    this.updateContinueButtonState();
-                }
+            removeSsicSingle(slot) {
+                if (this.data.activities) { delete this.data.activities[slot]; }
+                this.save(); this.render(); this.evaluateConditionalFields(); this.updateContinueButtonState();
             }
 
-            updateSsicDescription(fullPath, index, value) {
-                const list = getVal(this.data, fullPath);
-                if (Array.isArray(list) && list[index]) {
-                    list[index].description = value;
-                    setVal(this.data, fullPath, list);
+            updateSsicSingleDescription(slot, value) {
+                if (this.data.activities && this.data.activities[slot]) {
+                    this.data.activities[slot].description = value;
                     localStorage.setItem('globalisor_master_v3', JSON.stringify(this.data));
                     this.evaluateConditionalFields();
                     this.updateContinueButtonState();
                 }
             }
 
-            showManualSsicEntry(containerId, fullPath) {
-                const dropdown = document.getElementById(`ssic-dropdown-${containerId}`);
-                if (!dropdown) return;
-
-                dropdown.innerHTML = `
-                    <div style="padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;" onmousedown="event.stopPropagation()">
-                        <div style="font-size: 0.75rem; font-weight: 700; color: #1e293b; font-family: 'Outfit', sans-serif;">MANUAL ACTIVITY ENTRY</div>
-                        <input type="text" id="manual-code-${containerId}" placeholder="Enter SSIC Code (optional)" style="width: 100%; font-size: 0.7rem; padding: 0.35rem 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; font-family: 'Inter', sans-serif;">
-                        <input type="text" id="manual-name-${containerId}" placeholder="Enter Business Activity Name" style="width: 100%; font-size: 0.7rem; padding: 0.35rem 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; font-family: 'Outfit', sans-serif;">
-                        <div style="display: flex; gap: 0.25rem; justify-content: flex-end; margin-top: 0.25rem;">
-                            <button type="button" style="padding: 0.3rem 0.6rem; font-size: 0.65rem; border: 1px solid #e2e8f0; border-radius: 4px; background: white; cursor: pointer;" onmousedown="event.preventDefault(); event.stopPropagation(); wizard.filterSsic('${containerId}', '${fullPath}', '')">Cancel</button>
-                            <button type="button" style="padding: 0.3rem 0.6rem; font-size: 0.65rem; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer;" onmousedown="event.preventDefault(); event.stopPropagation(); wizard.addManualSsicActivity('${containerId}', '${fullPath}')">Add Activity</button>
-                        </div>
-                    </div>
-                `;
+            _showManualSsicSingle(slot) {
+                const dd = document.getElementById(`ssic-dropdown-${slot}`);
+                if (!dd) return;
+                dd.innerHTML = `<div style="padding:1rem;display:flex;flex-direction:column;gap:0.5rem;" onmousedown="event.stopPropagation()"><div style="font-size:0.72rem;font-weight:800;color:#1e293b;">MANUAL ENTRY</div><input type="text" id="manual-ssic-code-${slot}" placeholder="SSIC Code (optional)" style="width:100%;font-size:0.7rem;padding:0.35rem 0.6rem;border:1px solid #cbd5e1;border-radius:6px;outline:none;"><input type="text" id="manual-ssic-name-${slot}" placeholder="Business Activity Name" style="width:100%;font-size:0.7rem;padding:0.35rem 0.6rem;border:1px solid #cbd5e1;border-radius:6px;outline:none;"><div style="display:flex;gap:0.25rem;justify-content:flex-end;"><button type="button" style="padding:0.3rem 0.6rem;font-size:0.65rem;border:1px solid #e2e8f0;border-radius:4px;background:white;cursor:pointer;" onmousedown="event.preventDefault();wizard.filterSsicSingle('${slot}','')">Cancel</button><button type="button" style="padding:0.3rem 0.6rem;font-size:0.65rem;background:#2563eb;color:white;border:none;border-radius:4px;cursor:pointer;" onmousedown="event.preventDefault();wizard._addManualSsicSingle('${slot}')">Add</button></div></div>`;
             }
 
-            addManualSsicActivity(containerId, fullPath) {
-                const codeInput = document.getElementById(`manual-code-${containerId}`);
-                const nameInput = document.getElementById(`manual-name-${containerId}`);
-                if (!nameInput || !nameInput.value.trim()) {
-                    showToast("Business Activity Name is required for manual entry!", "error");
-                    return;
-                }
-
-                const manualActivity = {
-                    code: codeInput.value.trim() || 'MANUAL',
-                    name: nameInput.value.trim(),
-                    category: 'Manual Entry',
-                    description: nameInput.value.trim()
-                };
-
-                this.selectSsicActivity(containerId, fullPath, manualActivity);
+            _addManualSsicSingle(slot) {
+                const code = document.getElementById(`manual-ssic-code-${slot}`);
+                const name = document.getElementById(`manual-ssic-name-${slot}`);
+                if (!name || !name.value.trim()) { showToast('Name required', 'error'); return; }
+                this.selectSsicSingle(slot, { code: code.value.trim()||'MANUAL', name: name.value.trim(), category:'Manual Entry', description:name.value.trim() });
             }
 
             showStatusPage(status, data) {
@@ -1908,9 +2442,6 @@
                 
                 try {
                     const token = localStorage.getItem('token');
-                    const btn = document.getElementById('next-btn');
-                    const origText = btn ? btn.innerText : 'Save & Continue';
-                    if (btn) btn.innerText = 'Saving...';
                     
                     const res = await fetch('/api/requirements', {
                         method: 'POST',
@@ -1928,9 +2459,6 @@
                             return;
                         }
                     }
-                    
-                    showToast("Progress saved!");
-                    if (btn) btn.innerText = origText;
                 } catch (e) {
                     console.error("Failed to save client requirements:", e);
                 }
@@ -2077,22 +2605,77 @@
                 const container = document.getElementById('wizard-progress-steps');
                 if (!container || !this.sections || this.sections.length === 0) return;
 
-                container.style.gridTemplateColumns = `repeat(${this.sections.length}, 1fr)`;
+                container.style.gridTemplateColumns = '';
+
+                const ICONS = {
+                    'names': `<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width: 1.1rem; height: 1.1rem;"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>`,
+                    'directors-shareholders': `<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width: 1.1rem; height: 1.1rem;"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>`,
+                    'office': `<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width: 1.1rem; height: 1.1rem;"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>`,
+                    'addons': `<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width: 1.1rem; height: 1.1rem;"><path stroke-linecap="round" stroke-linejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>`,
+                    'contact': `<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width: 1.1rem; height: 1.1rem;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>`,
+                    'checkout': `<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width: 1.1rem; height: 1.1rem;"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>`
+                };
+
+                const CHECK_ICON = `<svg fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24" style="width: 1.1rem; height: 1.1rem; color: #10b981;"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>`;
 
                 container.innerHTML = this.sections.map((sec, idx) => {
                     const stepNum = idx + 1;
                     const state = step === stepNum ? 'active' : step > stepNum ? 'completed' : 'upcoming';
                     const numStr = String(stepNum).padStart(2, '0');
-                    return `
-                        <div class="progress-step-col">
-                            <div class="progress-step-line ${state}"></div>
-                            <div class="progress-step-label ${state}">
-                                <span class="step-num">${numStr}</span>
-                                <span class="step-name">${sec.title}</span>
+                    
+                    const isCompleted = this.data.completedSteps.includes(stepNum);
+                    const isLocked = (stepNum > 1 && !this.data.completedSteps.includes(stepNum - 1) && !isCompleted && step !== stepNum);
+                    
+                    let clickHandler = `onclick="wizard.open(${stepNum})"`;
+                    let extraClass = 'clickable';
+                    if (isLocked) {
+                        clickHandler = '';
+                        extraClass = 'locked';
+                    }
+                    
+                    const iconHtml = state === 'completed' ? CHECK_ICON : (ICONS[sec.key] || '');
+
+                    // Connection line between steps
+                    let lineHtml = '';
+                    if (idx < this.sections.length - 1) {
+                        const lineState = step > stepNum ? 'completed' : step === stepNum ? 'active' : 'upcoming';
+                        lineHtml = `
+                            <div class="step-connector-line ${lineState}">
+                                <div class="step-connector-progress"></div>
                             </div>
+                        `;
+                    }
+
+                    return `
+                        <div class="step-card-wrapper">
+                            <div class="step-card ${state} ${extraClass}" ${clickHandler}>
+                                <div class="step-card-header">
+                                    <span class="step-card-number">${numStr}</span>
+                                    <div class="step-card-icon-container">
+                                        ${iconHtml}
+                                    </div>
+                                </div>
+                                <h3 class="step-card-title">${sec.title}</h3>
+                                <p class="step-card-desc">${sec.description || ''}</p>
+                            </div>
+                            ${lineHtml}
                         </div>
                     `;
                 }).join('');
+
+                // Auto-scroll active card into view within the container only
+                setTimeout(() => {
+                    const activeCard = container.querySelector('.step-card.active');
+                    if (activeCard) {
+                        const containerRect = container.getBoundingClientRect();
+                        const cardRect = activeCard.getBoundingClientRect();
+                        
+                        if (cardRect.left < containerRect.left || cardRect.right > containerRect.right) {
+                            const scrollOffset = (cardRect.left - containerRect.left) - (containerRect.width / 2) + (cardRect.width / 2);
+                            container.scrollBy({ left: scrollOffset, behavior: 'smooth' });
+                        }
+                    }
+                }, 100);
             }
 
             evaluateConditionalFields() {
@@ -2157,25 +2740,48 @@
                 const sec = this.sections[this.currentStep - 1];
                 if (!sec) return;
 
+                // Calculate progress percentage (Step 1 is 0%, Step 6 is 100%)
+                let progressPct = 0;
+                if (this.currentStep >= this.sections.length) {
+                    progressPct = 100;
+                } else if (this.isPreview) {
+                    progressPct = Math.round(((this.currentStep - 1) / (this.sections.length - 1)) * 100);
+                } else {
+                    const isSubmitted = (lastKnownStatus && lastKnownStatus !== 'pending' && lastKnownStatus !== 'none');
+                    if (isSubmitted) {
+                        const approvedCount = this.sections.filter(s => (this.sectionStatuses?.[s.id]?.status === 'APPROVED')).length;
+                        progressPct = this.sections.length > 0 ? Math.round((approvedCount / this.sections.length) * 100) : 0;
+                    } else {
+                        progressPct = Math.round(((this.currentStep - 1) / (this.sections.length - 1)) * 100);
+                    }
+                }
+
                 // Update dynamic headers
                 const stepIndicator = document.getElementById('step-indicator');
                 if (stepIndicator) {
-                    stepIndicator.innerText = `STEP ${this.currentStep} OF ${this.sections.length} · SG SINGAPORE`;
+                    const stepNumVal = Math.min(this.currentStep, this.sections.length);
+                    stepIndicator.innerText = `Step ${stepNumVal} of ${this.sections.length} (${progressPct}% Completed)`;
+                    stepIndicator.style.textTransform = 'none';
+                    stepIndicator.style.fontSize = '0.85rem';
                 }
                 const titleNew = document.getElementById('step-title');
                 if (titleNew) {
                     titleNew.innerText = sec.title || '';
                 }
                 
-                let progressPct = 0;
-                if (this.isPreview) {
-                    progressPct = (this.currentStep / this.sections.length) * 100;
-                } else {
-                    const approvedCount = this.sections.filter(s => (this.sectionStatuses?.[s.id]?.status === 'APPROVED')).length;
-                    progressPct = this.sections.length > 0 ? (approvedCount / this.sections.length) * 100 : 0;
-                }
                 const pb = document.getElementById('progress-bar');
-                if (pb) pb.style.width = `${progressPct}%`;
+                if (pb) {
+                    pb.style.width = `${progressPct}%`;
+                    pb.style.background = 'linear-gradient(90deg, #2563eb, #1d4ed8)';
+                }
+                const pl = document.querySelector('.progress-line');
+                if (pl) {
+                    pl.style.display = 'block';
+                    pl.style.height = '6px';
+                    pl.style.marginTop = '0.75rem';
+                    pl.style.marginBottom = '1.5rem';
+                    pl.style.background = '#e2e8f0';
+                }
                 
                 this.updateProgressBar();
                 
@@ -2188,12 +2794,10 @@
                 const isSubmitted = (lastKnownStatus && lastKnownStatus !== 'pending' && lastKnownStatus !== 'none');
                 const nextBtn = document.getElementById('next-btn');
                 const backStatusBtn = document.getElementById('back-to-status');
-                const backBtn = document.getElementById('back-btn');
                 
                 if (isSubmitted && !this.isPreview) {
                     nextBtn.style.display = 'none';
                     backStatusBtn.style.display = 'block';
-                    if (backBtn) backBtn.style.display = 'none';
                 } else {
                     if (sec.id === 'sec-checkout') {
                         const isPaid = this.data.paymentStatus === 'paid';
@@ -2202,9 +2806,6 @@
                         nextBtn.style.display = 'block';
                     }
                     backStatusBtn.style.display = 'none';
-                    if (backBtn) {
-                        backBtn.style.display = 'block';
-                    }
                 }
             }
 
@@ -2224,7 +2825,35 @@
 
                 if (sec.id === 'sec-names' || sec.key === 'names') {
                     const selectedType = (this.data.companyType || 'Pte Ltd').trim().toLowerCase();
-                    
+                    const primary = (this.data.activities && this.data.activities.primary) || null;
+                    const secondary = (this.data.activities && this.data.activities.secondary) || null;
+                    // Filter out ssic/ssic-single fields — render those separately as the dual picker
+                    const nameFields = (sec.fields || []).filter(f => f.type !== 'ssic' && f.type !== 'ssic-single');
+
+                    // Read admin-configured ssic-single field configs for primary and secondary
+                    const primaryFieldCfg = (sec.fields || []).find(f => f.type === 'ssic-single' && (f.key === 'activities.primary' || (f.key || '').includes('primary'))) || {};
+                    const secondaryFieldCfg = (sec.fields || []).find(f => f.type === 'ssic-single' && (f.key === 'activities.secondary' || (f.key || '').includes('secondary'))) || {};
+
+                    const primaryLabel = primaryFieldCfg.label || 'Primary Business Activity (SSIC Code)';
+                    const primarySubtitle = primaryFieldCfg.hint || "Select the main business activity that best represents your company's primary source of revenue.";
+                    const primaryPlaceholder = primaryFieldCfg.placeholder || 'Search by SSIC code or activity name';
+                    const primaryRequired = primaryFieldCfg.required !== false;
+
+                    const secondaryLabel = secondaryFieldCfg.label || 'Secondary Business Activity (SSIC Code)';
+                    const secondarySubtitle = secondaryFieldCfg.hint || 'Select an additional business activity if your company operates in more than one area.';
+                    const secondaryPlaceholder = secondaryFieldCfg.placeholder || 'Search by SSIC code or activity name';
+
+                    const ssicTooltipHtml = `
+                        <div class="ssic-tooltip-wrap" style="position:relative;display:inline-flex;align-items:center;margin-left:0.4rem;cursor:pointer;vertical-align:middle;">
+                            <span style="width:16px;height:16px;border-radius:50%;background:#e0e7ff;color:#3730a3;font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid #c7d2fe;" class="ssic-info-icon">ⓘ</span>
+                            <div class="ssic-tooltip-bubble" style="display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#1e293b;color:#f1f5f9;font-size:0.7rem;font-weight:500;padding:0.6rem 0.8rem;border-radius:10px;width:220px;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.18);pointer-events:none;line-height:1.5;">
+                                <strong style="font-weight:800;color:#fff;display:block;margin-bottom:0.25rem;">What is SSIC?</strong>
+                                Singapore Standard Industrial Classification (SSIC) codes identify your business activity for regulatory &amp; tax purposes. ACRA requires at least 1 code.
+                                <div style="position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);width:10px;height:10px;background:#1e293b;clip-path:polygon(0 0,100% 0,50% 100%)"></div>
+                            </div>
+                        </div>
+                    `;
+
                     return `
                         <div>
                             ${rejectionBanner}
@@ -2253,9 +2882,156 @@
                                 </div>
                             </div>
 
-                            <div class="card" style="margin-top: 1.5rem;">
+                            <!-- Proposed Names + SSIC in card -->
+                            <div class="card" style="margin-top:1.5rem;">
+                                <!-- Name fields (all non-ssic fields) -->
                                 <div class="form-grid">
-                                    ${(sec.fields || []).map(f => this.renderField(f, f.key)).join('')}
+                                    ${nameFields.map(f => this.renderField(f, f.key)).join('')}
+                                </div>
+
+                                <!-- SSIC Dual Picker -->
+                                <div style="margin-top:1.75rem;border-top:1px solid #e2e8f0;padding-top:1.75rem;">
+                                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;">
+
+                                        <!-- PRIMARY -->
+                                        <div style="border:1.5px solid ${primary ? '#c7d2fe' : '#e2e8f0'};border-radius:14px;padding:1.1rem 1.1rem 1rem;background:${primary ? '#f5f7ff' : '#fafafa'};transition:all 0.2s;">
+                                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+                                                <div style="display:flex;align-items:center;gap:0.35rem;">
+                                                    <span style="font-size:0.78rem;font-weight:800;color:#1e293b;letter-spacing:0.01em;">${primaryLabel}</span>
+                                                    ${primaryRequired ? '<span style="font-size:0.65rem;font-weight:700;color:#dc2626;margin-left:1px;">*</span>' : ''}
+                                                    ${ssicTooltipHtml}
+                                                </div>
+                                            </div>
+                                            <p style="font-size:0.7rem;color:#64748b;font-weight:500;margin:0 0 0.75rem;line-height:1.5;">${primarySubtitle}</p>
+
+                                            <!-- Search Input -->
+                                            <div style="position:relative;">
+                                                <span style="position:absolute;left:0.65rem;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:0.85rem;pointer-events:none;">🔍</span>
+                                                <input type="text" id="ssic-search-primary"
+                                                    style="width:100%;box-sizing:border-box;padding:0.55rem 2.2rem 0.55rem 2rem;border:1.5px solid #cbd5e1;border-radius:9px;font-size:0.75rem;outline:none;font-family:inherit;background:white;transition:border-color 0.15s;"
+                                                    placeholder="${primaryPlaceholder}"
+                                                    onfocus="wizard.openSsicSingleDropdown('primary'); this.style.borderColor='#6366f1';"
+                                                    oninput="wizard.filterSsicSingle('primary', this.value)"
+                                                    onkeydown="wizard.handleSsicSingleKeydown('primary', event)"
+                                                    onblur="wizard.closeSsicSingleDropdown('primary'); this.style.borderColor='#cbd5e1';">
+                                                <span style="position:absolute;right:0.65rem;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:0.7rem;pointer-events:none;">▾</span>
+                                                <div id="ssic-dropdown-primary" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:white;border:1.5px solid #e2e8f0;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;z-index:9999;"></div>
+                                            </div>
+
+                                            <!-- Selected Chip -->
+                                            ${primary ? `
+                                            <div style="margin-top:0.6rem;display:flex;flex-wrap:wrap;gap:0.4rem;">
+                                                <span style="display:inline-flex;align-items:center;gap:0.4rem;padding:0.28rem 0.7rem;background:#e0e7ff;color:#3730a3;border-radius:9999px;font-size:0.7rem;font-weight:700;border:1.5px solid #c7d2fe;">
+                                                    <strong>${primary.code}</strong> · ${primary.name}
+                                                    <button type="button" onclick="wizard.removeSsicSingle('primary')" style="background:none;border:none;color:#6366f1;font-size:0.9rem;cursor:pointer;line-height:1;padding:0;margin-left:2px;">&times;</button>
+                                                </span>
+                                            </div>` : ''}
+
+                                            <!-- Summary Card -->
+                                            ${primary ? `
+                                            <div style="margin-top:0.75rem;padding:0.85rem;background:white;border:1.5px solid #e0e7ff;border-radius:12px;display:flex;flex-direction:column;gap:0.6rem;">
+                                                <div style="display:flex;align-items:center;justify-content:space-between;">
+                                                    <div style="display:flex;align-items:center;gap:0.5rem;">
+                                                        <span style="width:28px;height:28px;border-radius:8px;background:#e0e7ff;display:flex;align-items:center;justify-content:center;font-size:0.8rem;">💻</span>
+                                                        <span style="font-size:0.65rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">SSIC Code</span>
+                                                    </div>
+                                                    <span style="font-size:0.65rem;font-weight:800;color:#6366f1;text-transform:uppercase;letter-spacing:0.05em;">${primary.category || ''}</span>
+                                                </div>
+                                                <div style="display:grid;grid-template-columns:auto 1fr;gap:0.75rem;align-items:start;">
+                                                    <div>
+                                                        <div style="font-size:0.6rem;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:0.2rem;">SSIC Code</div>
+                                                        <div style="font-size:0.8rem;font-weight:800;color:#1e293b;padding:0.25rem 0.5rem;background:#f1f5f9;border-radius:6px;border:1px solid #e2e8f0;">${primary.code}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div style="font-size:0.6rem;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:0.2rem;">Industry Name</div>
+                                                        <div style="font-size:0.75rem;font-weight:700;color:#334155;">${primary.name}</div>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div style="font-size:0.6rem;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:0.2rem;">Description</div>
+                                                    <textarea style="width:100%;box-sizing:border-box;border:1.5px solid #e2e8f0;border-radius:8px;padding:0.5rem;font-size:0.72rem;font-family:inherit;font-weight:500;color:#475569;resize:none;height:64px;outline:none;background:#fafafa;"
+                                                        placeholder="Brief description of this activity..."
+                                                        oninput="wizard.updateSsicSingleDescription('primary', this.value)">${primary.description || ''}</textarea>
+                                                </div>
+                                            </div>` : `
+                                            <div style="margin-top:0.75rem;padding:1rem;border:1.5px dashed #e2e8f0;border-radius:12px;text-align:center;">
+                                                <div style="font-size:0.72rem;color:#94a3b8;font-weight:500;">Search and select a primary business activity above</div>
+                                            </div>`}
+                                        </div>
+
+                                        <!-- SECONDARY -->
+                                        <div style="border:1.5px solid ${secondary ? '#bbf7d0' : '#e2e8f0'};border-radius:14px;padding:1.1rem 1.1rem 1rem;background:${secondary ? '#f0fdf4' : '#fafafa'};transition:all 0.2s;">
+                                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+                                                <div style="display:flex;align-items:center;gap:0.35rem;">
+                                                    <span style="font-size:0.78rem;font-weight:800;color:#1e293b;letter-spacing:0.01em;">${secondaryLabel}</span>
+                                                    ${ssicTooltipHtml}
+                                                </div>
+                                                <span style="font-size:0.65rem;font-weight:700;color:#64748b;background:#f1f5f9;padding:0.15rem 0.5rem;border-radius:6px;border:1px solid #e2e8f0;">Optional</span>
+                                            </div>
+                                            <p style="font-size:0.7rem;color:#64748b;font-weight:500;margin:0 0 0.75rem;line-height:1.5;">${secondarySubtitle}</p>
+
+                                            <!-- Search Input -->
+                                            <div style="position:relative;">
+                                                <span style="position:absolute;left:0.65rem;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:0.85rem;pointer-events:none;">🔍</span>
+                                                <input type="text" id="ssic-search-secondary"
+                                                    style="width:100%;box-sizing:border-box;padding:0.55rem 2.2rem 0.55rem 2rem;border:1.5px solid #cbd5e1;border-radius:9px;font-size:0.75rem;outline:none;font-family:inherit;background:white;transition:border-color 0.15s;"
+                                                    placeholder="${secondaryPlaceholder}"
+                                                    onfocus="wizard.openSsicSingleDropdown('secondary'); this.style.borderColor='#16a34a';"
+                                                    oninput="wizard.filterSsicSingle('secondary', this.value)"
+                                                    onkeydown="wizard.handleSsicSingleKeydown('secondary', event)"
+                                                    onblur="wizard.closeSsicSingleDropdown('secondary'); this.style.borderColor='#cbd5e1';">
+                                                <span style="position:absolute;right:0.65rem;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:0.7rem;pointer-events:none;">▾</span>
+                                                <div id="ssic-dropdown-secondary" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:white;border:1.5px solid #e2e8f0;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;z-index:9999;"></div>
+                                            </div>
+
+                                            <!-- Selected Chip -->
+                                            ${secondary ? `
+                                            <div style="margin-top:0.6rem;display:flex;flex-wrap:wrap;gap:0.4rem;">
+                                                <span style="display:inline-flex;align-items:center;gap:0.4rem;padding:0.28rem 0.7rem;background:#dcfce7;color:#166534;border-radius:9999px;font-size:0.7rem;font-weight:700;border:1.5px solid #bbf7d0;">
+                                                    <strong>${secondary.code}</strong> · ${secondary.name}
+                                                    <button type="button" onclick="wizard.removeSsicSingle('secondary')" style="background:none;border:none;color:#16a34a;font-size:0.9rem;cursor:pointer;line-height:1;padding:0;margin-left:2px;">&times;</button>
+                                                </span>
+                                            </div>` : ''}
+
+                                            <!-- Summary Card -->
+                                            ${secondary ? `
+                                            <div style="margin-top:0.75rem;padding:0.85rem;background:white;border:1.5px solid #bbf7d0;border-radius:12px;display:flex;flex-direction:column;gap:0.6rem;">
+                                                <div style="display:flex;align-items:center;justify-content:space-between;">
+                                                    <div style="display:flex;align-items:center;gap:0.5rem;">
+                                                        <span style="width:28px;height:28px;border-radius:8px;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-size:0.8rem;">🤝</span>
+                                                        <span style="font-size:0.65rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">SSIC Code</span>
+                                                    </div>
+                                                    <span style="font-size:0.65rem;font-weight:800;color:#16a34a;text-transform:uppercase;letter-spacing:0.05em;">${secondary.category || ''}</span>
+                                                </div>
+                                                <div style="display:grid;grid-template-columns:auto 1fr;gap:0.75rem;align-items:start;">
+                                                    <div>
+                                                        <div style="font-size:0.6rem;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:0.2rem;">SSIC Code</div>
+                                                        <div style="font-size:0.8rem;font-weight:800;color:#1e293b;padding:0.25rem 0.5rem;background:#f1f5f9;border-radius:6px;border:1px solid #e2e8f0;">${secondary.code}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div style="font-size:0.6rem;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:0.2rem;">Industry Name</div>
+                                                        <div style="font-size:0.75rem;font-weight:700;color:#334155;">${secondary.name}</div>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div style="font-size:0.6rem;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:0.2rem;">Description</div>
+                                                    <textarea style="width:100%;box-sizing:border-box;border:1.5px solid #e2e8f0;border-radius:8px;padding:0.5rem;font-size:0.72rem;font-family:inherit;font-weight:500;color:#475569;resize:none;height:64px;outline:none;background:#fafafa;"
+                                                        placeholder="Brief description of this activity..."
+                                                        oninput="wizard.updateSsicSingleDescription('secondary', this.value)">${secondary.description || ''}</textarea>
+                                                </div>
+                                            </div>` : `
+                                            <div style="margin-top:0.75rem;padding:1rem;border:1.5px dashed #e2e8f0;border-radius:12px;text-align:center;">
+                                                <div style="font-size:0.72rem;color:#94a3b8;font-weight:500;">Optional — search and select a secondary business activity</div>
+                                            </div>`}
+                                        </div>
+
+                                    </div>
+
+                                    <!-- ACRA Info Banner -->
+                                    <div style="margin-top:1.1rem;padding:0.75rem 1rem;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;display:flex;align-items:flex-start;gap:0.6rem;">
+                                        <span style="font-size:1rem;flex-shrink:0;">ℹ️</span>
+                                        <p style="margin:0;font-size:0.72rem;color:#1d4ed8;font-weight:600;line-height:1.5;">ACRA allows up to 2 SSIC codes. The primary activity should represent the main business operation.</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -2276,7 +3052,7 @@
                             <!-- Counter cards grid -->
                             <div class="counters-container">
                                 <div class="counter-card">
-                                    <h3>Directors</h3>
+                                    <h3>👥 Directors</h3>
                                     <p>People who legally direct the company.</p>
                                     <div class="counter-controls">
                                         <button type="button" class="counter-btn" onclick="wizard.adjustCount('directors', -1)">-</button>
@@ -2285,16 +3061,24 @@
                                     </div>
                                 </div>
                                 <div class="counter-card">
-                                    <h3>Shareholders</h3>
-                                    <p>Beneficial owners of the company.</p>
+                                    <h3>👤 Individual Shareholders</h3>
+                                    <p>Beneficial owners who are individual people.</p>
                                     <div class="counter-controls">
-                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('shareholders', -1)">-</button>
-                                        <div class="counter-val" id="shareholders-count-val">${shareholders.length}</div>
-                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('shareholders', 1)">+</button>
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('individual', -1)">-</button>
+                                        <div class="counter-val" id="individual-shareholders-count-val">${shareholders.filter(s => s.type === 'individual').length}</div>
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('individual', 1)">+</button>
+                                    </div>
+                                </div>
+                                <div class="counter-card">
+                                    <h3>🏢 Corporate Shareholders</h3>
+                                    <p>Beneficial owners that are corporate entities.</p>
+                                    <div class="counter-controls">
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('corporate', -1)">-</button>
+                                        <div class="counter-val" id="corporate-shareholders-count-val">${shareholders.filter(s => s.type === 'corporate').length}</div>
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('corporate', 1)">+</button>
                                     </div>
                                 </div>
                             </div>
-
                             <!-- Additional Services Toggles -->
                             <div class="service-toggle-container" style="display: flex; flex-direction: column; gap: 1.5rem; width: 100%;">
                                 ${(sec.fields || []).filter(f => f.type === 'switch').map(f => this.renderField(f, f.key)).join('')}
@@ -2303,10 +3087,75 @@
                             <div class="form-grid" style="margin-top: 1.5rem;">
                                 ${(sec.fields || []).filter(f => f.type !== 'switch').map(f => this.renderField(f, f.key)).join('')}
                             </div>
+
+                            <!-- KYC Verification Section -->
+                            <div class="kyc-verification-section" style="margin-top: 2rem; border-top: 1px solid #e2e8f0; padding-top: 1.5rem; width: 100%;">
+                                <h3 style="font-weight: 700; color: #0f172a; font-size: 1.1rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                                    <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="width: 1.25rem; height: 1.25rem; color: #2563eb;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                                    KYC & AML Compliance Checks
+                                </h3>
+                                <p style="color: #64748b; font-size: 0.85rem; line-height: 1.5; margin: 0 0 1.25rem 0;">
+                                    Verify the identities and screen backgrounds of all directors against PEP & Sanctions watchlists using Shufti Pro.
+                                </p>
+                                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                                    ${directors.map((dir, idx) => {
+                                        const kycStatus = dir.kyc ? dir.kyc.status : 'unverified';
+                                        let statusBadge = '';
+                                        let detailsHtml = '';
+                                        
+                                        if (kycStatus === 'approved') {
+                                            statusBadge = `<span style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.6rem; border-radius: 9999px; background: #ecfdf5; color: #059669; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">🟢 KYC Verified</span>`;
+                                        } else if (kycStatus === 'flagged') {
+                                            statusBadge = `<span style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.6rem; border-radius: 9999px; background: #fef2f2; color: #dc2626; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">🔴 AML ALERT</span>`;
+                                        } else if (kycStatus === 'under review') {
+                                            statusBadge = `<span style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.6rem; border-radius: 9999px; background: #fffbeb; color: #d97706; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">🟡 Under Review</span>`;
+                                        } else {
+                                            statusBadge = `<span style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.6rem; border-radius: 9999px; background: #f1f5f9; color: #475569; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">⚪ Unverified</span>`;
+                                        }
+
+                                        if (dir.kyc) {
+                                            detailsHtml = `
+                                                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px dashed #e2e8f0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 1rem; font-size: 0.75rem; color: #475569; text-align: left;">
+                                                    <div><strong>Doc Verification:</strong> ${dir.kyc.identityStatus === 'verified' ? '🟢 Verified' : dir.kyc.identityStatus === 'failed' ? '🔴 Failed' : '⚪ Pending'}</div>
+                                                    <div><strong>AML Screening:</strong> ${dir.kyc.amlStatus === 'clean' ? '🟢 Clean' : dir.kyc.amlStatus === 'flagged' ? '🔴 Flagged' : '⚪ Pending'}</div>
+                                                    <div><strong>PEP Check:</strong> ${dir.kyc.pepStatus === 'clean' ? '🟢 Clean' : dir.kyc.pepStatus === 'match' ? '🔴 Match Found' : '⚪ Pending'}</div>
+                                                    <div><strong>Sanctions Check:</strong> ${dir.kyc.sanctionsStatus === 'clean' ? '🟢 Clean' : dir.kyc.sanctionsStatus === 'match' ? '🔴 Match Found' : '⚪ Pending'}</div>
+                                                    <div style="grid-column: span 2;"><strong>Shufti Ref:</strong> <code style="font-family: monospace; font-size: 0.7rem; background: #f1f5f9; padding: 0.1rem 0.3rem; border-radius: 4px;">${dir.kyc.shuftiRef}</code></div>
+                                                </div>
+                                            `;
+                                        }
+
+                                        return `
+                                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+                                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                                                    <div style="display: flex; flex-direction: column; gap: 0.25rem; text-align: left;">
+                                                        <input type="text" 
+                                                            placeholder="Enter Director ${idx + 1} Full Name" 
+                                                            value="${dir.name || ''}" 
+                                                            onchange="wizard.updateDirectorName(${idx}, this.value)"
+                                                            style="font-size: 0.9rem; font-weight: 700; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.4rem 0.75rem; width: 220px; outline: none;"
+                                                        >
+                                                        <span style="font-size: 0.75rem; color: #64748b;">Director ${idx + 1} (${dir.idType === 'local' ? 'Singapore Resident' : 'Foreigner'})</span>
+                                                    </div>
+                                                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                                        ${statusBadge}
+                                                        <button type="button" 
+                                                            onclick="wizard.openShuftiModal(${idx})"
+                                                            style="padding: 0.5rem 0.9rem; font-size: 0.75rem; font-weight: 700; color: #2563eb; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                                                        >
+                                                            ${dir.kyc ? 'Recheck' : 'Verify Identity'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                ${detailsHtml}
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            </div>
                         </div>
                     `;
                 }
-
                 if (sec.id === 'sec-addons') {
                     return `
                         <div>
@@ -2319,13 +3168,194 @@
                 }
 
                 if (sec.id === 'sec-office') {
+                    if (!this.data.office) {
+                        this.data.office = { useService: true, address: '', residency: 'local' };
+                    }
+                    if (this.data.office.residency === undefined) {
+                        this.data.office.residency = 'local';
+                    }
+                    const residency = this.data.office.residency;
+                    const isGlobalisor = this.data.office.useService === true;
+                    const useService = this.data.office.useService;
+                    const previewText = isGlobalisor 
+                        ? '10 Anson Road, #16-04 International Plaza, Singapore 079903'
+                        : this.getFormattedOwnAddressPreview();
+
                     return `
                         <div>
                             ${rejectionBanner}
-                            <div class="card">
-                                <div class="form-grid">
-                                    ${(sec.fields || []).map(f => this.renderField(f, f.key)).join('')}
+                            <div class="office-container-card" style="border: none; padding: 0;">
+                                <h3 style="font-size: 1.15rem; font-weight: 600; color: #1e293b; margin-top: 0; margin-bottom: 0.25rem;">
+                                    Do you have a local office address to register your company in Singapore?
+                                </h3>
+                                <p style="font-size: 0.875rem; color: #64748b; margin-top: 0; margin-bottom: 1.5rem;">
+                                    All Singapore companies must have a registered office address in Singapore. If you do not have one, you can subscribe to Globalisor's registered address service.
+                                </p>
+
+                                <!-- Residency Radio Buttons -->
+                                <div style="margin-bottom: 1.5rem; background: #ffffff; border: 1px solid rgba(226, 232, 240, 0.8); border-radius: 12px; padding: 1.25rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);">
+                                    <label style="font-size: 0.875rem; font-weight: 700; color: #1e293b; display: block; margin-bottom: 0.75rem;">
+                                        Are you a Local or Foreigner? *
+                                    </label>
+                                    <div style="display: flex; gap: 1.5rem;">
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; font-weight: 600; color: #475569;">
+                                            <input type="radio" name="residency-option" value="local" ${residency === 'local' ? 'checked' : ''} onchange="wizard.updateOfficeResidency('local')" style="accent-color: #2563eb; width: 1.1rem; height: 1.1rem;">
+                                            Yes (Local)
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; font-weight: 600; color: #475569;">
+                                            <input type="radio" name="residency-option" value="foreigner" ${residency === 'foreigner' ? 'checked' : ''} onchange="wizard.updateOfficeResidency('foreigner')" style="accent-color: #2563eb; width: 1.1rem; height: 1.1rem;">
+                                            No (Foreigner)
+                                        </label>
+                                    </div>
                                 </div>
+
+                                <!-- Registered Address Option Dropdown -->
+                                <div style="margin-bottom: 1.5rem; background: #ffffff; border: 1px solid rgba(226, 232, 240, 0.8); border-radius: 12px; padding: 1.25rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);">
+                                    <label style="font-size: 0.875rem; font-weight: 700; color: #1e293b; display: block; margin-bottom: 0.75rem;">
+                                        Registered Address Option *
+                                    </label>
+                                    <select id="office-service-select" class="input-box" style="width: 100%; border: 1.5px solid #cbd5e1; border-radius: 9px; padding: 0.6rem 0.75rem; font-size: 0.875rem; background: white; cursor: pointer; outline: none;" onchange="wizard.handleOfficeServiceChange(this.value)">
+                                        <option value="" ${useService === undefined || useService === null ? 'selected' : ''}>Select Option...</option>
+                                        <option value="true" ${useService === true ? 'selected' : ''}>Globalisor Premium CBD Address ($480/yr)</option>
+                                        <option value="false" ${useService === false ? 'selected' : ''}>Use my own local address</option>
+                                    </select>
+                                </div>
+
+                                <!-- Conditional Step 2 Block -->
+                                ${useService === undefined || useService === null ? `
+                                    <div style="padding: 2rem; border-radius: 12px; border: 1.5px dashed #cbd5e1; background: #fafafa; text-align: center; color: #94a3b8; font-size: 0.85rem; font-weight: 500; margin-top: 1rem; margin-bottom: 1rem;">
+                                        Please select a registered address option above to view address details.
+                                    </div>
+                                ` : `
+                                    <div id="office-step2-block" class="card" style="padding: 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0; background: #ffffff; margin-top: 1rem; margin-bottom: 1.5rem;">
+                                        <h4 style="font-size: 1rem; font-weight: 600; color: #0f172a; margin-top: 0; margin-bottom: 1rem;">
+                                            ${isGlobalisor ? 'Registered Address Service Details' : 'Enter Your Office Address Details'}
+                                        </h4>
+
+                                        ${isGlobalisor ? `
+                                            <!-- Globalisor Info / Details Card -->
+                                            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 1rem; display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 1.5rem;">
+                                                <div style="color: #2563eb; font-size: 1.25rem; line-height: 1;">ℹ️</div>
+                                                <div style="font-size: 0.825rem; color: #1e3a8a; line-height: 1.5;">
+                                                    <div style="font-weight: 600; margin-bottom: 0.25rem;">Premium CBD Registered Address Service</div>
+                                                    Subscription Pricing: <span style="font-weight: bold;">SGD 480 / year</span>. This includes mail scanning and notifications. The address will be registered with ACRA for your company.
+                                                </div>
+                                            </div>
+                                        ` : ''}
+
+                                        <!-- Inputs Grid -->
+                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                                            
+                                            <div class="office-field-col">
+                                                <label style="font-size: 0.75rem; font-weight: 600; color: #475569;">Block Number *</label>
+                                                <input type="text" 
+                                                       id="office-input-block" 
+                                                       value="${(this.data.office && this.data.office.block) || ''}" 
+                                                       oninput="wizard.updateOfficeField('block', this.value)" 
+                                                       class="input-box" 
+                                                       placeholder="e.g. 10" 
+                                                       ${isGlobalisor ? 'readonly style="background:#f8fafc; color:#64748b; cursor:not-allowed;"' : ''}>
+                                            </div>
+
+                                            <div class="office-field-col">
+                                                <label style="font-size: 0.75rem; font-weight: 600; color: #475569;">Street Name *</label>
+                                                <input type="text" 
+                                                       id="office-input-streetName" 
+                                                       value="${(this.data.office && this.data.office.streetName) || ''}" 
+                                                       oninput="wizard.updateOfficeField('streetName', this.value)" 
+                                                       class="input-box" 
+                                                       placeholder="e.g. Anson Road" 
+                                                       ${isGlobalisor ? 'readonly style="background:#f8fafc; color:#64748b; cursor:not-allowed;"' : ''}>
+                                            </div>
+
+                                            <div class="office-field-col">
+                                                <label style="font-size: 0.75rem; font-weight: 600; color: #475569;">Floor *</label>
+                                                <input type="text" 
+                                                       id="office-input-floor" 
+                                                       value="${(this.data.office && this.data.office.floor) || ''}" 
+                                                       oninput="wizard.updateOfficeField('floor', this.value)" 
+                                                       class="input-box" 
+                                                       placeholder="e.g. 16" 
+                                                       ${isGlobalisor ? 'readonly style="background:#f8fafc; color:#64748b; cursor:not-allowed;"' : ''}>
+                                            </div>
+
+                                            <div class="office-field-col">
+                                                <label style="font-size: 0.75rem; font-weight: 600; color: #475569;">Unit *</label>
+                                                <input type="text" 
+                                                       id="office-input-unit" 
+                                                       value="${(this.data.office && this.data.office.unit) || ''}" 
+                                                       oninput="wizard.updateOfficeField('unit', this.value)" 
+                                                       class="input-box" 
+                                                       placeholder="e.g. 04" 
+                                                       ${isGlobalisor ? 'readonly style="background:#f8fafc; color:#64748b; cursor:not-allowed;"' : ''}>
+                                            </div>
+
+                                            <!-- Conditional visibility for Building and Country. Show ONLY when Globalisor service is selected -->
+                                            <div class="office-field-col" style="${isGlobalisor ? '' : 'display: none;'}">
+                                                <label style="font-size: 0.75rem; font-weight: 600; color: #475569;">Building</label>
+                                                <input type="text" 
+                                                       id="office-input-building" 
+                                                       value="${(this.data.office && this.data.office.building) || ''}" 
+                                                       class="input-box" 
+                                                       readonly style="background:#f8fafc; color:#64748b; cursor:not-allowed;">
+                                            </div>
+
+                                            <div class="office-field-col" style="${isGlobalisor ? '' : 'display: none;'}">
+                                                <label style="font-size: 0.75rem; font-weight: 600; color: #475569;">Country</label>
+                                                <input type="text" 
+                                                       id="office-input-country" 
+                                                       value="${(this.data.office && this.data.office.country) || ''}" 
+                                                       class="input-box" 
+                                                       readonly style="background:#f8fafc; color:#64748b; cursor:not-allowed;">
+                                            </div>
+
+                                            <div class="office-field-col">
+                                                <label style="font-size: 0.75rem; font-weight: 600; color: #475569;">Postal Code *</label>
+                                                <input type="text" 
+                                                       id="office-input-postalCode" 
+                                                       value="${(this.data.office && this.data.office.postalCode) || ''}" 
+                                                       oninput="wizard.updateOfficeField('postalCode', this.value)" 
+                                                       class="input-box" 
+                                                       placeholder="e.g. 079903" 
+                                                       ${isGlobalisor ? 'readonly style="background:#f8fafc; color:#64748b; cursor:not-allowed;"' : ''}>
+                                            </div>
+
+                                        </div>
+
+                                        <!-- Live Formatted Preview / Display Box -->
+                                        <div style="border-top: 1px dashed #cbd5e1; padding-top: 1.25rem;">
+                                            <div style="font-size: 0.75rem; font-weight: 600; color: #64748b; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                                                Live Address Preview
+                                            </div>
+                                            <div id="office-address-preview" style="font-family: monospace; font-size: 0.9rem; padding: 0.85rem 1rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #0f172a; min-height: 1.5rem; word-break: break-all; font-weight: 500;">
+                                                ${previewText}
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                `}
+
+                                <!-- Service summary card moved to the bottom -->
+                                ${isGlobalisor ? `
+                                <div class="service-toggle-card" style="margin-top: 1.5rem; width: 100%; box-sizing: border-box; border: 1.5px solid rgba(226, 232, 240, 0.8); background: #f8fafc;">
+                                    <div class="service-toggle-left">
+                                        <div class="service-toggle-icon" style="color: #4f46e5; background: #e0e7ff;">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                                        </div>
+                                        <div class="service-toggle-details">
+                                            <h4 class="service-toggle-title">Registered office address</h4>
+                                            <p class="service-toggle-desc">Statutorily required. Real address in Singapore, mail scanned weekly.</p>
+                                        </div>
+                                    </div>
+                                    <div class="service-toggle-right">
+                                        <div class="service-toggle-price">
+                                            <span class="service-toggle-price-val">$480</span>
+                                            <span class="service-toggle-price-lbl">per year</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                ` : ''}
+
                             </div>
                         </div>
                     `;
@@ -2398,6 +3428,616 @@
                 this.render();
             }
 
+            updateDirectorName(idx, name) {
+                if (!this.data.directors) this.data.directors = [];
+                if (!this.data.directors[idx]) {
+                    this.data.directors[idx] = { name: '', idType: 'local', idNum: '', dob: '', phone: '', passportExpiry: '', docs: {} };
+                }
+                this.data.directors[idx].name = name;
+                this.save();
+            }
+
+            openShuftiModal(idx) {
+                const dir = this.data.directors[idx] || { name: '', idType: 'local', idNum: '', nation: 'Singapore' };
+                const modalId = 'shufti-modal-container';
+                let modal = document.getElementById(modalId);
+                if (modal) modal.remove();
+
+                modal = document.createElement('div');
+                modal.id = modalId;
+                modal.style.cssText = `
+                    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                    background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);
+                    display: flex; align-items: center; justify-content: center;
+                    z-index: 99999; font-family: 'Outfit', sans-serif;
+                    animation: fadeIn 0.3s ease;
+                `;
+
+                modal.innerHTML = `
+                    <div style="background: #ffffff; width: 100%; max-width: 520px; border-radius: 24px; padding: 2rem; box-shadow: 0 20px 50px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.8); position: relative; animation: slideUp 0.3s ease;">
+                        <button type="button" onclick="document.getElementById('${modalId}').remove()" style="position: absolute; top: 1.25rem; right: 1.25rem; background: none; border: none; font-size: 1.5rem; color: #94a3b8; cursor: pointer;">&times;</button>
+                        
+                        <div style="text-align: center; margin-bottom: 1.5rem;">
+                            <div style="width: 56px; height: 56px; background: #eff6ff; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; color: #2563eb;">
+                                <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="width: 2rem; height: 2rem;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                            </div>
+                            <h3 style="font-size: 1.3rem; font-weight: 800; color: #0f172a; margin: 0;">Shufti Pro Identity Verification</h3>
+                            <p style="font-size: 0.85rem; color: #64748b; margin: 0.25rem 0 0;">Real-time biometric & document compliance check</p>
+                        </div>
+
+                        <form id="shufti-verification-form" style="display: flex; flex-direction: column; gap: 1rem;">
+                            <div>
+                                <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 0.4rem; text-align: left;">Full Name (As in ID)</label>
+                                <input type="text" id="shufti-name" required value="${dir.name || ''}" placeholder="Enter full legal name" style="width: 100%; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 0.65rem 0.85rem; font-size: 0.85rem; outline: none; transition: all 0.2s;" onfocus="this.style.borderColor='#2563eb'">
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 0.25rem;">
+                                <div>
+                                    <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 0.4rem; text-align: left;">Nationality</label>
+                                    <div class="custom-select-wrapper" style="position: relative; width: 100%;">
+                                        <div id="shufti-nation-trigger" style="box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 0.65rem 0.85rem; font-size: 0.85rem; background: #ffffff; cursor: pointer; user-select: none; transition: border-color 0.2s;">
+                                            <span id="shufti-nation-selected" style="display: flex; align-items: center; gap: 8px;">
+                                                <img src="https://flagcdn.com/w20/sg.png" style="width: 20px; border-radius: 2px; border: 1px solid #f1f5f9;"> Singapore
+                                            </span>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #64748b;"><polyline points="6 9 12 15 18 9"/></svg>
+                                        </div>
+                                        <div id="shufti-nation-dropdown" style="display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); z-index: 100000; padding: 8px; box-sizing: border-box;">
+                                            <input type="text" id="shufti-nation-search" placeholder="Search countries..." style="box-sizing: border-box; width: 100%; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; font-size: 0.8rem; margin-bottom: 6px; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='#2563eb'">
+                                            <div id="shufti-nation-options" style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;">
+                                            </div>
+                                        </div>
+                                        <input type="hidden" id="shufti-nation" value="${dir.nation || 'Singapore'}">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 0.4rem; text-align: left;">ID Type</label>
+                                    <select id="shufti-idType" required style="box-sizing: border-box; width: 100%; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 0.65rem 0.85rem; font-size: 0.85rem; background: #ffffff; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='#2563eb'">
+                                        <option value="Passport" ${dir.idType === 'Passport' ? 'selected' : ''}>Passport</option>
+                                        <option value="National ID" ${dir.idType !== 'Passport' && dir.idType !== 'Driving License' ? 'selected' : ''}>National ID (NRIC/FIN)</option>
+                                        <option value="Driving License" ${dir.idType === 'Driving License' ? 'selected' : ''}>Driving License</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 0.4rem; text-align: left;">Document ID Number</label>
+                                <input type="text" id="shufti-idNum" required value="${dir.idNum || ''}" placeholder="Passport or NRIC Number" style="box-sizing: border-box; width: 100%; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 0.65rem 0.85rem; font-size: 0.85rem; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='#2563eb'">
+                            </div>
+
+                            <button type="submit" style="width: 100%; background: #2563eb; color: #ffffff; border: none; border-radius: 12px; padding: 0.85rem; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-top: 0.5rem;" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">
+                                Start Shufti Verification
+                            </button>
+                        </form>
+
+                        <div id="shufti-progress-container" style="display: none; flex-direction: column; gap: 1rem; margin-top: 1rem; text-align: center;">
+                            <div style="width: 40px; height: 40px; border: 3px solid #f3f3f3; border-top: 3px solid #2563eb; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+                            <div id="shufti-step-status" style="font-size: 0.85rem; font-weight: 600; color: #1e293b;">Initializing Shufti verification engine...</div>
+                            <div style="width: 100%; height: 6px; background: #e2e8f0; border-radius: 9999px; overflow: hidden; position: relative;">
+                                <div id="shufti-progress-bar" style="width: 10%; height: 100%; background: #2563eb; transition: width 0.3s ease;"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+
+                // Add change listeners to update placeholder dynamically and load Custom Nationality Select
+                const idTypeSelect = document.getElementById('shufti-idType');
+                const idNumInput = document.getElementById('shufti-idNum');
+                const updatePlaceholder = () => {
+                    const val = idTypeSelect.value;
+                    if (val === 'Passport') {
+                        idNumInput.placeholder = 'Enter Passport Number';
+                    } else if (val === 'National ID') {
+                        idNumInput.placeholder = 'Enter NRIC or FIN Number';
+                    } else if (val === 'Driving License') {
+                        idNumInput.placeholder = 'Enter Driving License Number';
+                    } else {
+                        idNumInput.placeholder = 'Enter Document ID Number';
+                    }
+                };
+                idTypeSelect.addEventListener('change', updatePlaceholder);
+                updatePlaceholder();
+
+                const countriesList = [
+                    { code: "af", name: "Afghanistan" },
+                    { code: "ax", name: "Aland Islands" },
+                    { code: "al", name: "Albania" },
+                    { code: "dz", name: "Algeria" },
+                    { code: "as", name: "American Samoa" },
+                    { code: "ad", name: "Andorra" },
+                    { code: "ao", name: "Angola" },
+                    { code: "ai", name: "Anguilla" },
+                    { code: "aq", name: "Antarctica" },
+                    { code: "ag", name: "Antigua and Barbuda" },
+                    { code: "ar", name: "Argentina" },
+                    { code: "am", name: "Armenia" },
+                    { code: "aw", name: "Aruba" },
+                    { code: "au", name: "Australia" },
+                    { code: "at", name: "Austria" },
+                    { code: "az", name: "Azerbaijan" },
+                    { code: "bs", name: "Bahamas" },
+                    { code: "bh", name: "Bahrain" },
+                    { code: "bd", name: "Bangladesh" },
+                    { code: "bb", name: "Barbados" },
+                    { code: "by", name: "Belarus" },
+                    { code: "be", name: "Belgium" },
+                    { code: "bz", name: "Belize" },
+                    { code: "bj", name: "Benin" },
+                    { code: "bm", name: "Bermuda" },
+                    { code: "bt", name: "Bhutan" },
+                    { code: "bo", name: "Bolivia" },
+                    { code: "ba", name: "Bosnia and Herzegovina" },
+                    { code: "bw", name: "Botswana" },
+                    { code: "bv", name: "Bouvet Island" },
+                    { code: "br", name: "Brazil" },
+                    { code: "io", name: "British Indian Ocean Territory" },
+                    { code: "bn", name: "Brunei" },
+                    { code: "bg", name: "Bulgaria" },
+                    { code: "bf", name: "Burkina Faso" },
+                    { code: "bi", name: "Burundi" },
+                    { code: "kh", name: "Cambodia" },
+                    { code: "cm", name: "Cameroon" },
+                    { code: "ca", name: "Canada" },
+                    { code: "cv", name: "Cape Verde" },
+                    { code: "ky", name: "Cayman Islands" },
+                    { code: "cf", name: "Central African Republic" },
+                    { code: "td", name: "Chad" },
+                    { code: "cl", name: "Chile" },
+                    { code: "cn", name: "China" },
+                    { code: "cx", name: "Christmas Island" },
+                    { code: "cc", name: "Cocos (Keeling) Islands" },
+                    { code: "co", name: "Colombia" },
+                    { code: "km", name: "Comoros" },
+                    { code: "cg", name: "Congo" },
+                    { code: "cd", name: "Congo, Democratic Republic" },
+                    { code: "ck", name: "Cook Islands" },
+                    { code: "cr", name: "Costa Rica" },
+                    { code: "ci", name: "Cote d'Ivoire" },
+                    { code: "hr", name: "Croatia" },
+                    { code: "cu", name: "Cuba" },
+                    { code: "cy", name: "Cyprus" },
+                    { code: "cz", name: "Czech Republic" },
+                    { code: "dk", name: "Denmark" },
+                    { code: "dj", name: "Djibouti" },
+                    { code: "dm", name: "Dominica" },
+                    { code: "do", name: "Dominican Republic" },
+                    { code: "ec", name: "Ecuador" },
+                    { code: "eg", name: "Egypt" },
+                    { code: "sv", name: "El Salvador" },
+                    { code: "gq", name: "Equatorial Guinea" },
+                    { code: "er", name: "Eritrea" },
+                    { code: "ee", name: "Estonia" },
+                    { code: "et", name: "Ethiopia" },
+                    { code: "fk", name: "Falkland Islands" },
+                    { code: "fo", name: "Faroe Islands" },
+                    { code: "fj", name: "Fiji" },
+                    { code: "fi", name: "Finland" },
+                    { code: "fr", name: "France" },
+                    { code: "gf", name: "French Guiana" },
+                    { code: "pf", name: "French Polynesia" },
+                    { code: "tf", name: "French Southern Territories" },
+                    { code: "ga", name: "Gabon" },
+                    { code: "gm", name: "Gambia" },
+                    { code: "ge", name: "Georgia" },
+                    { code: "de", name: "Germany" },
+                    { code: "gh", name: "Ghana" },
+                    { code: "gi", name: "Gibraltar" },
+                    { code: "gr", name: "Greece" },
+                    { code: "gl", name: "Greenland" },
+                    { code: "gd", name: "Grenada" },
+                    { code: "gp", name: "Guadeloupe" },
+                    { code: "gu", name: "Guam" },
+                    { code: "gt", name: "Guatemala" },
+                    { code: "gg", name: "Guernsey" },
+                    { code: "gn", name: "Guinea" },
+                    { code: "gw", name: "Guinea-Bissau" },
+                    { code: "gy", name: "Guyana" },
+                    { code: "ht", name: "Haiti" },
+                    { code: "hm", name: "Heard Island and McDonald Islands" },
+                    { code: "va", name: "Holy See (Vatican City)" },
+                    { code: "hn", name: "Honduras" },
+                    { code: "hk", name: "Hong Kong" },
+                    { code: "hu", name: "Hungary" },
+                    { code: "is", name: "Iceland" },
+                    { code: "in", name: "India" },
+                    { code: "id", name: "Indonesia" },
+                    { code: "ir", name: "Iran" },
+                    { code: "iq", name: "Iraq" },
+                    { code: "ie", name: "Ireland" },
+                    { code: "im", name: "Isle of Man" },
+                    { code: "il", name: "Israel" },
+                    { code: "it", name: "Italy" },
+                    { code: "jm", name: "Jamaica" },
+                    { code: "jp", name: "Japan" },
+                    { code: "je", name: "Jersey" },
+                    { code: "jo", name: "Jordan" },
+                    { code: "kz", name: "Kazakhstan" },
+                    { code: "ke", name: "Kenya" },
+                    { code: "ki", name: "Kiribati" },
+                    { code: "kp", name: "North Korea" },
+                    { code: "kr", name: "South Korea" },
+                    { code: "kw", name: "Kuwait" },
+                    { code: "kg", name: "Kyrgyzstan" },
+                    { code: "la", name: "Laos" },
+                    { code: "lv", name: "Latvia" },
+                    { code: "lb", name: "Lebanon" },
+                    { code: "ls", name: "Lesotho" },
+                    { code: "lr", name: "Liberia" },
+                    { code: "ly", name: "Libya" },
+                    { code: "li", name: "Liechtenstein" },
+                    { code: "lt", name: "Lithuania" },
+                    { code: "lu", name: "Luxembourg" },
+                    { code: "mo", name: "Macao" },
+                    { code: "mk", name: "Macedonia" },
+                    { code: "mg", name: "Madagascar" },
+                    { code: "mw", name: "Malawi" },
+                    { code: "my", name: "Malaysia" },
+                    { code: "mv", name: "Maldives" },
+                    { code: "ml", name: "Mali" },
+                    { code: "mt", name: "Malta" },
+                    { code: "mh", name: "Marshall Islands" },
+                    { code: "mq", name: "Martinique" },
+                    { code: "mr", name: "Mauritania" },
+                    { code: "mu", name: "Mauritius" },
+                    { code: "yt", name: "Mayotte" },
+                    { code: "mx", name: "Mexico" },
+                    { code: "fm", name: "Micronesia" },
+                    { code: "md", name: "Moldova" },
+                    { code: "mc", name: "Monaco" },
+                    { code: "mn", name: "Mongolia" },
+                    { code: "me", name: "Montenegro" },
+                    { code: "ms", name: "Montserrat" },
+                    { code: "ma", name: "Morocco" },
+                    { code: "mz", name: "Mozambique" },
+                    { code: "mm", name: "Myanmar" },
+                    { code: "na", name: "Namibia" },
+                    { code: "nr", name: "Nauru" },
+                    { code: "np", name: "Nepal" },
+                    { code: "nl", name: "Netherlands" },
+                    { code: "nc", name: "New Caledonia" },
+                    { code: "nz", name: "New Zealand" },
+                    { code: "ni", name: "Nicaragua" },
+                    { code: "ne", name: "Niger" },
+                    { code: "ng", name: "Nigeria" },
+                    { code: "nu", name: "Niue" },
+                    { code: "nf", name: "Norfolk Island" },
+                    { code: "mp", name: "Northern Mariana Islands" },
+                    { code: "no", name: "Norway" },
+                    { code: "om", name: "Oman" },
+                    { code: "pk", name: "Pakistan" },
+                    { code: "pw", name: "Palau" },
+                    { code: "ps", name: "Palestine" },
+                    { code: "pa", name: "Panama" },
+                    { code: "pg", name: "Papua New Guinea" },
+                    { code: "py", name: "Paraguay" },
+                    { code: "pe", name: "Peru" },
+                    { code: "ph", name: "Philippines" },
+                    { code: "pn", name: "Pitcairn" },
+                    { code: "pl", name: "Poland" },
+                    { code: "pt", name: "Portugal" },
+                    { code: "pr", name: "Puerto Rico" },
+                    { code: "qa", name: "Qatar" },
+                    { code: "re", name: "Reunion" },
+                    { code: "ro", name: "Romania" },
+                    { code: "ru", name: "Russia" },
+                    { code: "rw", name: "Rwanda" },
+                    { code: "bl", name: "Saint Barthelemy" },
+                    { code: "sh", name: "Saint Helena" },
+                    { code: "kn", name: "Saint Kitts and Nevis" },
+                    { code: "lc", name: "Saint Lucia" },
+                    { code: "mf", name: "Saint Martin" },
+                    { code: "pm", name: "Saint Pierre and Miquelon" },
+                    { code: "vc", name: "Saint Vincent and the Grenadines" },
+                    { code: "ws", name: "Samoa" },
+                    { code: "sm", name: "San Marino" },
+                    { code: "st", name: "Sao Tome and Principe" },
+                    { code: "sa", name: "Saudi Arabia" },
+                    { code: "sn", name: "Senegal" },
+                    { code: "rs", name: "Serbia" },
+                    { code: "sc", name: "Seychelles" },
+                    { code: "sl", name: "Sierra Leone" },
+                    { code: "sg", name: "Singapore" },
+                    { code: "sx", name: "Sint Maarten" },
+                    { code: "sk", name: "Slovakia" },
+                    { code: "si", name: "Slovenia" },
+                    { code: "sb", name: "Solomon Islands" },
+                    { code: "so", name: "Somalia" },
+                    { code: "za", name: "South Africa" },
+                    { code: "gs", name: "South Georgia and South Sandwich Islands" },
+                    { code: "ss", name: "South Sudan" },
+                    { code: "es", name: "Spain" },
+                    { code: "lk", name: "Sri Lanka" },
+                    { code: "sd", name: "Sudan" },
+                    { code: "sr", name: "Suriname" },
+                    { code: "sj", name: "Svalbard and Jan Mayen" },
+                    { code: "sz", name: "Swaziland" },
+                    { code: "se", name: "Sweden" },
+                    { code: "ch", name: "Switzerland" },
+                    { code: "sy", name: "Syria" },
+                    { code: "tw", name: "Taiwan" },
+                    { code: "tj", name: "Tajikistan" },
+                    { code: "tz", name: "Tanzania" },
+                    { code: "th", name: "Thailand" },
+                    { code: "tl", name: "Timor-Leste" },
+                    { code: "tg", name: "Togo" },
+                    { code: "tk", name: "Tokelau" },
+                    { code: "to", name: "Tonga" },
+                    { code: "tt", name: "Trinidad and Tobago" },
+                    { code: "tn", name: "Tunisia" },
+                    { code: "tr", name: "Turkey" },
+                    { code: "tm", name: "Turkmenistan" },
+                    { code: "tc", name: "Turks and Caicos Islands" },
+                    { code: "tv", name: "Tuvalu" },
+                    { code: "ug", name: "Uganda" },
+                    { code: "ua", name: "Ukraine" },
+                    { code: "ae", name: "United Arab Emirates" },
+                    { code: "gb", name: "United Kingdom" },
+                    { code: "us", name: "United States" },
+                    { code: "uy", name: "Uruguay" },
+                    { code: "uz", name: "Uzbekistan" },
+                    { code: "vu", name: "Vanuatu" },
+                    { code: "ve", name: "Venezuela" },
+                    { code: "vn", name: "Vietnam" },
+                    { code: "vg", name: "Virgin Islands, British" },
+                    { code: "vi", name: "Virgin Islands, U.S." },
+                    { code: "wf", name: "Wallis and Futuna" },
+                    { code: "eh", name: "Western Sahara" },
+                    { code: "ye", name: "Yemen" },
+                    { code: "zm", name: "Zambia" },
+                    { code: "zw", name: "Zimbabwe" }
+                ];
+
+                const trigger = document.getElementById('shufti-nation-trigger');
+                const dropdown = document.getElementById('shufti-nation-dropdown');
+                const search = document.getElementById('shufti-nation-search');
+                const optionsContainer = document.getElementById('shufti-nation-options');
+                const hiddenInput = document.getElementById('shufti-nation');
+                const selectedSpan = document.getElementById('shufti-nation-selected');
+
+                let highlightedIdx = 0;
+                let filteredCountries = [...countriesList];
+
+                const setVal = (country) => {
+                    hiddenInput.value = country.name;
+                    selectedSpan.innerHTML = `
+                        <span style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 14px; background: #f1f5f9; border-radius: 2px; border: 1px solid #cbd5e1; overflow: hidden; flex-shrink: 0; font-size: 8px; font-weight: bold; color: #64748b; text-transform: uppercase; box-sizing: border-box; margin-right: 8px;">
+                            <span style="position: absolute; font-family: monospace; z-index: 1;">${country.code}</span>
+                            <img src="https://flagcdn.com/w20/${country.code}.png" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2;" onerror="this.style.display='none';">
+                        </span>
+                        ${country.name}
+                    `;
+                    dropdown.style.display = 'none';
+                    trigger.style.borderColor = '#e2e8f0';
+                };
+
+                const updateHighlight = (newIdx) => {
+                    const options = optionsContainer.querySelectorAll('.nation-opt');
+                    options.forEach((opt, idx) => {
+                        if (idx === newIdx) {
+                            opt.style.background = '#f1f5f9';
+                            opt.style.fontWeight = '600';
+                        } else {
+                            opt.style.background = 'transparent';
+                            opt.style.fontWeight = 'normal';
+                        }
+                    });
+                    highlightedIdx = newIdx;
+                    const activeEl = optionsContainer.children[highlightedIdx];
+                    if (activeEl) {
+                        activeEl.scrollIntoView({ block: 'nearest' });
+                    }
+                };
+
+                const renderOptions = () => {
+                    optionsContainer.innerHTML = filteredCountries.map((c, i) => {
+                        return `
+                            <div class="nation-opt" data-code="${c.code}" data-name="${c.name}" style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-size: 0.8rem; cursor: pointer; border-radius: 6px; background: transparent; font-weight: normal;">
+                                <span class="flag-box" style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 14px; background: #f1f5f9; border-radius: 2px; border: 1px solid #cbd5e1; overflow: hidden; flex-shrink: 0; font-size: 8px; font-weight: bold; color: #64748b; text-transform: uppercase; box-sizing: border-box;">
+                                    <span style="position: absolute; font-family: monospace; z-index: 1;">${c.code}</span>
+                                    <img src="https://flagcdn.com/w20/${c.code}.png" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2;" onerror="this.style.display='none';">
+                                </span>
+                                <span>${c.name}</span>
+                            </div>
+                        `;
+                    }).join('') || `<div style="padding: 8px; text-align: center; font-size: 0.75rem; color: #94a3b8;">No countries found</div>`;
+
+                    // Bind clicks and mouseover
+                    Array.from(optionsContainer.children).forEach((el, index) => {
+                        if (el.classList.contains('nation-opt')) {
+                            el.onclick = () => {
+                                const code = el.getAttribute('data-code');
+                                const name = el.getAttribute('data-name');
+                                setVal({ code, name });
+                            };
+                            el.onmouseover = () => {
+                                updateHighlight(index);
+                            };
+                        }
+                    });
+
+                    // Set initial highlight style
+                    if (filteredCountries.length > 0) {
+                        updateHighlight(highlightedIdx);
+                    }
+                };
+
+                trigger.onclick = (e) => {
+                    e.stopPropagation();
+                    const isOpen = dropdown.style.display === 'block';
+                    if (isOpen) {
+                        dropdown.style.display = 'none';
+                        trigger.style.borderColor = '#e2e8f0';
+                    } else {
+                        dropdown.style.display = 'block';
+                        trigger.style.borderColor = '#2563eb';
+                        search.value = '';
+                        filteredCountries = [...countriesList];
+                        highlightedIdx = filteredCountries.findIndex(c => c.name.toLowerCase() === hiddenInput.value.toLowerCase());
+                        if (highlightedIdx === -1) highlightedIdx = 0;
+                        renderOptions();
+                        setTimeout(() => search.focus(), 50);
+                    }
+                };
+
+                search.onclick = (e) => e.stopPropagation();
+
+                search.oninput = (e) => {
+                    const val = e.target.value.toLowerCase();
+                    filteredCountries = countriesList.filter(c => c.name.toLowerCase().includes(val));
+                    highlightedIdx = 0;
+                    renderOptions();
+                };
+
+                search.onkeydown = (e) => {
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        if (filteredCountries.length > 0) {
+                            const nextIdx = (highlightedIdx + 1) % filteredCountries.length;
+                            updateHighlight(nextIdx);
+                        }
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        if (filteredCountries.length > 0) {
+                            const prevIdx = (highlightedIdx - 1 + filteredCountries.length) % filteredCountries.length;
+                            updateHighlight(prevIdx);
+                        }
+                    } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (filteredCountries[highlightedIdx]) {
+                            setVal(filteredCountries[highlightedIdx]);
+                        }
+                    } else if (e.key === 'Escape') {
+                        dropdown.style.display = 'none';
+                        trigger.style.borderColor = '#e2e8f0';
+                    }
+                };
+
+                document.addEventListener('click', () => {
+                    dropdown.style.display = 'none';
+                    trigger.style.borderColor = '#e2e8f0';
+                });
+
+                const initialCountry = countriesList.find(c => c.name.toLowerCase() === (hiddenInput.value || '').toLowerCase()) || { code: 'sg', name: 'Singapore' };
+                setVal(initialCountry);
+
+                // Add animations
+                const styleSheet = document.getElementById('shufti-animations') || (() => {
+                    const style = document.createElement('style');
+                    style.id = 'shufti-animations';
+                    style.innerHTML = `
+                        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+                        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                    `;
+                    document.head.appendChild(style);
+                    return style;
+                })();
+
+                // Form submit handler
+                const form = document.getElementById('shufti-verification-form');
+                form.onsubmit = async (e) => {
+                    e.preventDefault();
+                    
+                    const nameVal = document.getElementById('shufti-name').value;
+                    const nationVal = document.getElementById('shufti-nation').value;
+                    const idTypeVal = document.getElementById('shufti-idType').value;
+                    const idNumVal = document.getElementById('shufti-idNum').value;
+
+                    // Update director name input value in wizard data right away
+                    this.data.directors[idx].name = nameVal;
+                    this.data.directors[idx].idType = idTypeVal;
+                    this.data.directors[idx].idNum = idNumVal;
+                    this.data.directors[idx].nation = nationVal;
+
+                    form.style.display = 'none';
+                    const progContainer = document.getElementById('shufti-progress-container');
+                    progContainer.style.display = 'flex';
+
+                    const steps = [
+                        { progress: 25, text: "Scanning identity document & performing OCR..." },
+                        { progress: 50, text: "Running background database AML checks..." },
+                        { progress: 75, text: "Screening PEP & Politically Exposed Lists..." },
+                        { progress: 95, text: "Running global sanctions list monitoring checks..." },
+                        { progress: 100, text: "Syncing compliance records with Globalisor engine..." }
+                    ];
+
+                    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+                    
+                    for (let step of steps) {
+                        document.getElementById('shufti-progress-bar').style.width = `${step.progress}%`;
+                        document.getElementById('shufti-step-status').innerText = step.text;
+                        await sleep(1000);
+                    }
+
+                    // Call backend API
+                    try {
+                        const token = localStorage.getItem('token');
+                        const authObj = JSON.parse(localStorage.getItem('client_auth') || '{}');
+                        const clientId = authObj.id || 'C-1001';
+
+                        const res = await fetch('/api/compliance/shufti-verify', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': 'Bearer ' + token
+                            },
+                            body: JSON.stringify({
+                                clientId: clientId,
+                                name: nameVal,
+                                idType: idTypeVal,
+                                idNum: idNumVal,
+                                nation: nationVal
+                            })
+                        });
+
+                        if (res.ok) {
+                            const result = await res.json();
+                            this.data.directors[idx].kyc = result;
+                            this.save();
+                            showToast("Verification Completed successfully!", 'success');
+                            
+                            // Reload section and re-render
+                            document.getElementById(modalId).remove();
+                            this.render();
+                        } else {
+                            throw new Error("Verification failed on server");
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        showToast("Compliance service temporarily offline.", 'error');
+                        document.getElementById(modalId).remove();
+                    }
+                };
+            }
+
+            adjustShareholderCount(type, change) {
+                let list = getVal(this.data, 'shareholders');
+                if (!list || !Array.isArray(list)) {
+                    list = [];
+                }
+                
+                if (change > 0) {
+                    const defaultObj = { type: type, name: '', shares: '', percent: '', regNum: '', regPlace: '', regDate: '', phone: '', email: '', addr: '', docs: {}, bo: [] };
+                    list.push(defaultObj);
+                } else if (change < 0) {
+                    const lastIdx = list.map(s => s.type).lastIndexOf(type);
+                    if (lastIdx !== -1) {
+                        if (list.length > 1) {
+                            list.splice(lastIdx, 1);
+                        } else {
+                            showToast("At least one shareholder is required.", "error");
+                            return;
+                        }
+                    }
+                }
+                
+                setVal(this.data, 'shareholders', list);
+                this.save();
+                this.render();
+            }
+
+
             removeCounterItem(key, idx) {
                 let list = getVal(this.data, key);
                 if (list && list.length > 1) {
@@ -2436,11 +4076,73 @@
                 this.updateContinueButtonState();
             }
 
+            updateOfficeResidency(val) {
+                if (!this.data.office) this.data.office = {};
+                this.data.office.residency = val;
+                this.save();
+                this.render();
+                this.updateContinueButtonState();
+            }
+
+            handleOfficeServiceChange(value) {
+                if (!this.data.office) this.data.office = {};
+                if (value === "true") {
+                    this.data.office.useService = true;
+                    this.data.office.block = '10';
+                    this.data.office.streetName = 'Anson Road';
+                    this.data.office.floor = '16';
+                    this.data.office.unit = '04';
+                    this.data.office.building = 'International Plaza';
+                    this.data.office.country = 'Singapore';
+                    this.data.office.postalCode = '079903';
+                    this.data.office.address = '10 Anson Road, #16-04 International Plaza, Singapore 079903';
+                } else if (value === "false") {
+                    this.data.office.useService = false;
+                    this.data.office.block = '';
+                    this.data.office.streetName = '';
+                    this.data.office.floor = '';
+                    this.data.office.unit = '';
+                    this.data.office.building = '';
+                    this.data.office.country = '';
+                    this.data.office.postalCode = '';
+                    this.data.office.address = '';
+                } else {
+                    this.data.office.useService = undefined;
+                    this.data.office.block = '';
+                    this.data.office.streetName = '';
+                    this.data.office.floor = '';
+                    this.data.office.unit = '';
+                    this.data.office.building = '';
+                    this.data.office.country = '';
+                    this.data.office.postalCode = '';
+                    this.data.office.address = '';
+                }
+                this.save();
+                this.render();
+                this.updateContinueButtonState();
+            }
+
             toggleServiceOption(serviceKey, isChecked) {
                 if (serviceKey === 'office') {
                     if (!this.data.office) this.data.office = {};
                     this.data.office.useService = isChecked;
                     if (isChecked) {
+                        this.data.office.block = '10';
+                        this.data.office.streetName = 'Anson Road';
+                        this.data.office.floor = '16';
+                        this.data.office.unit = '04';
+                        this.data.office.building = 'International Plaza';
+                        this.data.office.country = 'Singapore';
+                        this.data.office.postalCode = '079903';
+                        this.data.office.address = '10 Anson Road, #16-04 International Plaza, Singapore 079903';
+                    } else {
+                        this.data.office.block = '';
+                        this.data.office.streetName = '';
+                        this.data.office.floor = '';
+                        this.data.office.unit = '';
+                        this.data.office.building = '';
+                        this.data.office.country = '';
+                        this.data.office.postalCode = '';
                         this.data.office.address = '';
                     }
                 } else if (serviceKey === 'secretary') {
@@ -2471,9 +4173,27 @@
 
             toggleCheckoutService(key, isChecked) {
                 setVal(this.data, key, isChecked);
-                if (key === 'office.useService' && isChecked) {
+                if (key === 'office.useService') {
                     if (!this.data.office) this.data.office = {};
-                    this.data.office.address = '';
+                    if (isChecked) {
+                        this.data.office.block = '10';
+                        this.data.office.streetName = 'Anson Road';
+                        this.data.office.floor = '16';
+                        this.data.office.unit = '04';
+                        this.data.office.building = 'International Plaza';
+                        this.data.office.country = 'Singapore';
+                        this.data.office.postalCode = '079903';
+                        this.data.office.address = '10 Anson Road, #16-04 International Plaza, Singapore 079903';
+                    } else {
+                        this.data.office.block = '';
+                        this.data.office.streetName = '';
+                        this.data.office.floor = '';
+                        this.data.office.unit = '';
+                        this.data.office.building = '';
+                        this.data.office.country = '';
+                        this.data.office.postalCode = '';
+                        this.data.office.address = '';
+                    }
                 }
                 this.save();
                 this.render();
@@ -2672,7 +4392,6 @@
                                     <span style="font-weight: 700; color: #0f172a;">GL-TX-${Date.now().toString().slice(-6)}</span>
                                 </div>
                             </div>
-                            <button type="button" class="btn btn-primary" style="padding: 0.8rem 2.5rem; font-size: 1rem; width: 100%;" onclick="wizard.open(7)">Proceed to Step 7 (Share Capital) &rarr;</button>
                         </div>
                     `;
                 }
@@ -2987,9 +4706,15 @@
 
                 // 2. Custom validation override rules
                 if (sec.id === 'sec-office' || sec.key === 'office') {
-                    const useService = this.data.office ? (this.data.office.useService !== false) : true;
+                    const residency = this.data.office ? this.data.office.residency : '';
+                    const useService = this.data.office ? this.data.office.useService : null;
                     const address = this.data.office ? this.data.office.address : '';
-                    if (useService === false && (!address || address.trim() === '')) {
+                    if (!residency) {
+                        isValid = false;
+                    }
+                    if (useService === null || useService === undefined) {
+                        isValid = false;
+                    } else if (useService === false && (!address || address.trim() === '')) {
                         isValid = false;
                     }
                 }
@@ -2998,8 +4723,14 @@
                 if ((sec.id === 'sec-names' || sec.key === 'names') && (!sec.fields || sec.fields.length === 0)) {
                     const name1 = getVal(this.data, 'names[0]') || '';
                     const name2 = getVal(this.data, 'names[1]') || '';
-                    const activity = getVal(this.data, 'activities.primary') || '';
-                    if (name1.trim() === '' || name2.trim() === '' || activity.trim() === '') {
+                    if (name1.trim() === '' || name2.trim() === '') {
+                        isValid = false;
+                    }
+                }
+                // Primary SSIC always required for sec-names
+                if (sec.id === 'sec-names' || sec.key === 'names') {
+                    const primary = this.data.activities && this.data.activities.primary;
+                    if (!primary || !primary.code) {
                         isValid = false;
                     }
                 }
@@ -3124,8 +4855,40 @@
                         k => k.trim().toLowerCase() === selectedType.trim().toLowerCase()
                     ) || 'Pte Ltd';
 
-                    titleEl.innerText = sec.title || 'Company Type';
-                    textEl.innerHTML = (descriptions[normalizedType] || 'Choose on the left to see what each structure is best for.') + this.getHelperExtraHTML(sec);
+                    const primary = this.data.activities && this.data.activities.primary;
+                    const secondary = this.data.activities && this.data.activities.secondary;
+
+                    titleEl.innerText = sec.title || 'Company Name & Activities';
+                    textEl.innerHTML = `
+                        <div style="font-size:0.85rem;color:#475569;margin-bottom:1rem;line-height:1.5;">
+                            ${descriptions[normalizedType] || 'Choose on the left to see what each structure is best for.'}
+                        </div>
+                        <div style="border:1.5px solid #e0e7ff;border-radius:12px;padding:1rem;background:#f5f7ff;">
+                            <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.6rem;">
+                                <span style="font-size:1rem;">🏷️</span>
+                                <span style="font-size:0.8rem;font-weight:800;color:#3730a3;">About SSIC Codes</span>
+                            </div>
+                            <p style="font-size:0.75rem;color:#4338ca;font-weight:500;margin:0 0 0.75rem;line-height:1.5;">SSIC (Singapore Standard Industrial Classification) codes classify your business activities for regulatory and statistical purposes.</p>
+                            <div style="display:flex;flex-direction:column;gap:0.5rem;border-top:1px solid #c7d2fe;padding-top:0.75rem;">
+                                <div style="font-size:0.72rem;font-weight:800;color:#3730a3;margin-bottom:0.25rem;">✦ Why it matters</div>
+                                ${['Ensures compliance with ACRA requirements','Helps government agencies understand your business nature','Important for licensing, tax and other regulatory purposes'].map(item => `
+                                    <div style="display:flex;align-items:flex-start;gap:0.4rem;font-size:0.7rem;color:#4338ca;font-weight:600;">
+                                        <span style="color:#6366f1;flex-shrink:0;">✓</span> ${item}
+                                    </div>
+                                `).join('')}
+                            </div>
+                            ${primary ? `
+                            <div style="border-top:1px solid #c7d2fe;padding-top:0.75rem;margin-top:0.75rem;">
+                                <div style="font-size:0.65rem;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:0.35rem;">Selected Activities</div>
+                                <div style="font-size:0.72rem;color:#1e293b;font-weight:700;">${primary.code} – ${primary.name}</div>
+                                ${secondary ? `<div style="font-size:0.72rem;color:#64748b;font-weight:600;margin-top:0.2rem;">${secondary.code} – ${secondary.name}</div>` : ''}
+                            </div>` : ''}
+                            <div style="border-top:1px solid #c7d2fe;padding-top:0.75rem;margin-top:0.75rem;display:flex;align-items:flex-start;gap:0.4rem;background:#eff6ff;border-radius:8px;padding:0.6rem 0.75rem;">
+                                <span style="font-size:0.85rem;">💡</span>
+                                <p style="margin:0;font-size:0.7rem;color:#1d4ed8;font-weight:600;line-height:1.4;">Tip: Choose the activity that best describes your main business operations.</p>
+                            </div>
+                        </div>
+                    ` + this.getHelperExtraHTML(sec);
                 } else if (sec.id === 'sec-directors-shareholders' || sec.key === 'directors-shareholders') {
                     const dirsCount = this.data.directors ? this.data.directors.length : 1;
                     const shsCount = this.data.shareholders ? this.data.shareholders.length : 1;
@@ -3149,10 +4912,6 @@
                         <div style="border-top: 1px solid #e2e8f0; padding-top: 1.25rem; margin-top: 1rem;">
                             <h4 style="font-weight: 700; color: #0f172a; font-size: 0.95rem; margin: 0 0 0.75rem 0;">Additional Services</h4>
                             <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem;">
-                                    <span style="color: #64748b; font-weight: 500;">Registered office address</span>
-                                    <span style="font-weight: 700; color: ${officeChecked ? '#2563eb' : '#94a3b8'};">${officeChecked ? 'Added ($480/yr)' : 'Not added'}</span>
-                                </div>
                                 <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem;">
                                     <span style="color: #64748b; font-weight: 500;">Corporate secretary</span>
                                     <span style="font-weight: 700; color: ${secretaryChecked ? '#2563eb' : '#94a3b8'};">${secretaryChecked ? 'Added ($720/yr)' : 'Not added'}</span>
@@ -3201,14 +4960,47 @@
                             </div>
                         </div>
                     ` + this.getHelperExtraHTML(sec);
+                } else if (sec.id === 'sec-office' || sec.key === 'office') {
+                    const residency = this.data.office ? this.data.office.residency : 'local';
+                    const useService = this.data.office ? this.data.office.useService : null;
+                    const address = this.data.office ? this.data.office.address : '';
+                    
+                    const residencyText = residency === 'local' ? 'Local (Singapore Resident)' : 'Foreigner (Non-Resident)';
+                    let serviceText = 'Not selected';
+                    if (useService === true) {
+                        serviceText = 'Globalisor Premium CBD Address ($480/yr)';
+                    } else if (useService === false) {
+                        serviceText = 'Use my own local address';
+                    }
+                    
+                    titleEl.innerText = 'Registered Office Selection';
+                    textEl.innerHTML = `
+                        <div style="font-size:0.85rem;color:#475569;margin-bottom:1.25rem;line-height:1.5;">
+                            All Singapore companies must have a physical registered office address in Singapore. Here is a summary of your selected options.
+                        </div>
+                        <div style="border:1.5px solid #e0e7ff;border-radius:12px;padding:1rem;background:#f5f7ff;display:flex;flex-direction:column;gap:0.75rem;">
+                            <div>
+                                <div style="font-size:0.65rem;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:0.25rem;">Residency status</div>
+                                <div style="font-size:0.825rem;font-weight:700;color:#1e293b;">${residencyText}</div>
+                            </div>
+                            <div style="border-top:1px solid #e2e8f0;padding-top:0.75rem;">
+                                <div style="font-size:0.65rem;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:0.25rem;">Registered address option</div>
+                                <div style="font-size:0.825rem;font-weight:700;color:#1e293b;">${serviceText}</div>
+                            </div>
+                            ${useService !== null && useService !== undefined ? `
+                            <div style="border-top:1px solid #e2e8f0;padding-top:0.75rem;">
+                                <div style="font-size:0.65rem;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:0.25rem;">Registered address details</div>
+                                <div style="font-size:0.825rem;font-weight:700;color:#1e293b;font-family:monospace;white-space:pre-line;line-height:1.4;">${address || 'Address details not entered yet.'}</div>
+                            </div>
+                            ` : ''}
+                        </div>
+                    ` + this.getHelperExtraHTML(sec);
                 } else {
                     const titleMap = {
-                        'sec-office': 'Office address requirements',
                         'sec-package-next': 'Package details',
                         'sec-checkout': 'Package summary & payment'
                     };
                     const descMap = {
-                        'sec-office': 'All Singapore companies must have a physical registered office address in Singapore. If you do not have one, you can subscribe to Globalisor\'s address service.',
                         'sec-package-next': 'Provide your contact information so we can prepare and process your package setup.',
                         'sec-checkout': 'Review your selected services and enter card details to complete payment. We will email you a complete receipt and confirmation summary.'
                     };
@@ -3290,12 +5082,65 @@
                         `;
                         break;
                     case 'text':
-                        html = `
-                            <div class="form-group ${field.key.includes('address') || field.key.includes('desc') ? 'full' : ''}">
-                                <label class="form-label">${field.label}${requiredAsterisk}</label>
-                                <input type="text" class="input-box" placeholder="${field.placeholder || ''}" value="${val}" oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save(); wizard.evaluateConditionalFields(); wizard.updateContinueButtonState()">
-                            </div>
-                        `;
+                        // Check if this is a name field — render ACRA name checker
+                        if (fullPath && (fullPath === 'names[0]' || fullPath === 'names[1]' || fullPath === 'names[2]' || fullPath === 'names[3]')) {
+                            const fieldIdx = fullPath.replace('names[', '').replace(']', '');
+                            const ncId = `nc-${fullPath.replace(/[\[\]]/g, '_')}`;
+                            const cachedCheck = wizard.data.nameChecks && wizard.data.nameChecks[fullPath];
+                            let statusHtml = '';
+                            if (cachedCheck && cachedCheck.status) {
+                                const icons = { available: '🟢', taken: '🔴', similar: '🟡', invalid: '🔴' };
+                                const icon = icons[cachedCheck.status] || '';
+                                const timeAgo = cachedCheck.checkedAt ? nameChecker.timeAgo(cachedCheck.checkedAt) : '';
+                                const suggestionsHtml = (cachedCheck.suggestions && cachedCheck.suggestions.length > 0)
+                                    ? `<div class="nc-suggestions">${cachedCheck.suggestions.map(s => `<span class="nc-suggestion-chip" onclick="nameChecker.applyName('${fullPath}', '${s.replace(/'/g, "\\'")}')" title="Click to use this name" role="button" tabindex="0" onkeydown="if(event.key==='Enter')nameChecker.applyName('${fullPath}','${s.replace(/'/g, "\\'")}')">↩ ${s}</span>`).join('')}</div>`
+                                    : '';
+                                statusHtml = `<div id="${ncId}-status" class="name-check-status ${cachedCheck.status} visible">
+                                    <span class="nc-status-icon">${icon}</span>${cachedCheck.message || cachedCheck.status}
+                                    ${timeAgo ? `<span class="nc-timestamp" style="margin-left:0.5rem;font-weight:400;">· ${timeAgo}</span>` : ''}
+                                    ${suggestionsHtml}
+                                </div>`;
+                            } else {
+                                statusHtml = `<div id="${ncId}-status" class="name-check-status"></div>`;
+                            }
+                            const dupHtml = `<div id="${ncId}-dup" class="name-duplicate-warning">⚠️ This name is already used in another option above.</div>`;
+                            html = `
+                                <div class="form-group ${field.key.includes('address') || field.key.includes('desc') ? 'full' : ''}">
+                                    <label class="form-label">${field.label}${requiredAsterisk}</label>
+                                    <div class="name-check-field-wrapper">
+                                        <div class="name-check-input-row">
+                                            <input type="text"
+                                                id="${ncId}-input"
+                                                class="input-box"
+                                                placeholder="${field.placeholder || ''}"
+                                                value="${val}"
+                                                autocomplete="off"
+                                                aria-label="${field.label}"
+                                                oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save(); wizard.evaluateConditionalFields(); wizard.updateContinueButtonState(); nameChecker.onInput('${fullPath}', this.value);"
+                                                onkeydown="if(event.key === 'Enter') nameChecker.check('${fullPath}', document.getElementById('${ncId}-input').value, true);"
+                                            >
+                                            <button class="name-check-btn"
+                                                id="${ncId}-btn"
+                                                type="button"
+                                                aria-label="Check ACRA name availability"
+                                                onclick="nameChecker.check('${fullPath}', document.getElementById('${ncId}-input').value, true);">
+                                                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="m21 21-4.35-4.35"/></svg>
+                                                Check
+                                            </button>
+                                        </div>
+                                        ${dupHtml}
+                                        ${statusHtml}
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            html = `
+                                <div class="form-group ${field.key.includes('address') || field.key.includes('desc') ? 'full' : ''}">
+                                    <label class="form-label">${field.label}${requiredAsterisk}</label>
+                                    <input type="text" class="input-box" placeholder="${field.placeholder || ''}" value="${val}" oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save(); wizard.evaluateConditionalFields(); wizard.updateContinueButtonState()">
+                                </div>
+                            `;
+                        }
                         break;
                     case 'number':
                         html = `
@@ -3444,9 +5289,27 @@
                 
                 document.querySelectorAll('.segment-path').forEach(p => p.classList.remove('active'));
                 
+                const stepIndicator = document.getElementById('step-indicator');
+                if (stepIndicator) {
+                    stepIndicator.innerText = `Step 6 of 6 (100% Completed)`;
+                    stepIndicator.style.textTransform = 'none';
+                    stepIndicator.style.fontSize = '0.85rem';
+                }
+
                 document.getElementById('step-title').innerText = 'Verification Ready';
                 const pb = document.getElementById('progress-bar');
-                if (pb) pb.style.width = '100%';
+                if (pb) {
+                    pb.style.width = '100%';
+                    pb.style.background = 'linear-gradient(90deg, #2563eb, #1d4ed8)';
+                }
+                const pl = document.querySelector('.progress-line');
+                if (pl) {
+                    pl.style.display = 'block';
+                    pl.style.height = '6px';
+                    pl.style.marginTop = '0.75rem';
+                    pl.style.marginBottom = '1.5rem';
+                    pl.style.background = '#e2e8f0';
+                }
 
                 this.updateProgressBar();
 
@@ -3491,6 +5354,172 @@
                 }
             }
         }
+
+        // ─── ACRA Name Checker ───────────────────────────────────────────────
+        const nameChecker = {
+            DEBOUNCE_MS: 850,
+            CACHE_TTL_MS: 5 * 60 * 1000, // 5 minutes
+            _timers: {},
+
+            // Called on every keystroke — debounced auto-check
+            onInput(fieldPath, value) {
+                clearTimeout(this._timers[fieldPath]);
+                const ncId = `nc-${fieldPath.replace(/[\[\]]/g, '_')}`;
+                // Clear status when user is typing
+                const statusEl = document.getElementById(`${ncId}-status`);
+                if (statusEl && value !== (wizard.data.nameChecks?.[fieldPath]?.name || '')) {
+                    statusEl.className = 'name-check-status';
+                }
+                this.detectDuplicates();
+                if (value.trim().length < 2) return;
+                this._timers[fieldPath] = setTimeout(() => {
+                    this.check(fieldPath, value, false);
+                }, this.DEBOUNCE_MS);
+            },
+
+            // Main check function — called by button or auto-debounce
+            async check(fieldPath, name, isManual) {
+                name = (name || '').trim();
+                if (!name || name.length < 2) return;
+
+                const ncId = `nc-${fieldPath.replace(/[\[\]]/g, '_')}`;
+                const statusEl = document.getElementById(`${ncId}-status`);
+                const btn = document.getElementById(`${ncId}-btn`);
+                if (!statusEl) return;
+
+                // Check cache first
+                const cached = wizard.data.nameChecks?.[fieldPath];
+                if (cached && cached.name === name && cached.checkedAt) {
+                    const age = Date.now() - new Date(cached.checkedAt).getTime();
+                    if (age < this.CACHE_TTL_MS) {
+                        this.renderStatus(fieldPath, cached, true);
+                        return;
+                    }
+                }
+
+                // Show loading state
+                if (btn) btn.disabled = true;
+                statusEl.className = 'name-check-status loading visible';
+                statusEl.innerHTML = `<div class="nc-spinner"></div> Checking ACRA name availability...`;
+
+                try {
+                    const res = await fetch('/api/name-check', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name })
+                    });
+
+                    if (!res.ok) throw new Error('Service error');
+                    const result = await res.json();
+                    result.name = name;
+
+                    // Save to wizard data (persisted automatically on next save)
+                    if (!wizard.data.nameChecks) wizard.data.nameChecks = {};
+                    wizard.data.nameChecks[fieldPath] = result;
+                    wizard.save();
+
+                    this.renderStatus(fieldPath, result, true);
+                } catch (e) {
+                    // Fallback: service unavailable
+                    statusEl.className = 'name-check-status unavailable visible';
+                    statusEl.innerHTML = `⚠️ ACRA name check is temporarily unavailable. You can continue with manual submission, and our team will verify the name.`;
+                } finally {
+                    if (btn) btn.disabled = false;
+                }
+            },
+
+            // Renders the status badge for a field
+            renderStatus(fieldPath, result, animate) {
+                const ncId = `nc-${fieldPath.replace(/[\[\]]/g, '_')}`;
+                const statusEl = document.getElementById(`${ncId}-status`);
+                if (!statusEl) return;
+
+                const icons = { available: '🟢', taken: '🔴', similar: '🟡', invalid: '🔴', unavailable: '⚠️' };
+                const icon = icons[result.status] || '⚪';
+                const timeAgo = result.checkedAt ? this.timeAgo(result.checkedAt) : '';
+
+                const suggestionsHtml = (result.suggestions && result.suggestions.length > 0)
+                    ? `<div class="nc-suggestions">${result.suggestions.map(s =>
+                        `<span class="nc-suggestion-chip"
+                            onclick="nameChecker.applyName('${fieldPath}', '${s.replace(/'/g, "\\'")}')"
+                            title="Click to use this name"
+                            role="button" tabindex="0"
+                            onkeydown="if(event.key==='Enter')nameChecker.applyName('${fieldPath}','${s.replace(/'/g, "\\'")}')">↩ ${s}</span>`
+                      ).join('')}</div>`
+                    : '';
+
+                statusEl.className = `name-check-status ${result.status}${animate ? ' visible' : ''}`;
+                statusEl.innerHTML = `
+                    <span class="nc-status-icon">${icon}</span>
+                    <span>${result.message || result.status}</span>
+                    ${timeAgo ? `<span class="nc-timestamp" style="margin-left:0.5rem;font-weight:400;">· Checked ${timeAgo}</span>` : ''}
+                    ${suggestionsHtml}
+                `;
+                if (animate) {
+                    statusEl.classList.add('visible');
+                }
+            },
+
+            // Apply a suggested name to the field
+            applyName(fieldPath, name) {
+                const ncId = `nc-${fieldPath.replace(/[\[\]]/g, '_')}`;
+                const input = document.getElementById(`${ncId}-input`);
+                if (!input) return;
+                input.value = name;
+                setVal(wizard.data, fieldPath, name);
+                wizard.save();
+                wizard.evaluateConditionalFields();
+                wizard.updateContinueButtonState();
+                this.detectDuplicates();
+                // Immediately check the applied name
+                setTimeout(() => this.check(fieldPath, name, false), 100);
+            },
+
+            // Detect duplicate names across all name fields
+            detectDuplicates() {
+                const fields = ['names[0]', 'names[1]', 'names[2]', 'names[3]'];
+                const values = fields.map(f => {
+                    const ncId = `nc-${f.replace(/[\[\]]/g, '_')}`;
+                    const input = document.getElementById(`${ncId}-input`);
+                    return (input ? input.value : (getVal(wizard.data, f) || '')).trim().toLowerCase();
+                });
+
+                fields.forEach((f, i) => {
+                    const ncId = `nc-${f.replace(/[\[\]]/g, '_')}`;
+                    const input = document.getElementById(`${ncId}-input`);
+                    const dupEl = document.getElementById(`${ncId}-dup`);
+                    if (!input || !dupEl) return;
+
+                    const myVal = values[i];
+                    if (!myVal) {
+                        dupEl.classList.remove('visible');
+                        input.classList.remove('nc-duplicate');
+                        return;
+                    }
+
+                    // Check if any OTHER field has the same non-empty value
+                    const isDup = values.some((v, j) => j !== i && v && v === myVal);
+                    if (isDup) {
+                        dupEl.classList.add('visible');
+                        input.classList.add('nc-duplicate');
+                    } else {
+                        dupEl.classList.remove('visible');
+                        input.classList.remove('nc-duplicate');
+                    }
+                });
+            },
+
+            // Format timestamp as "X minutes ago"
+            timeAgo(isoString) {
+                try {
+                    const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
+                    if (diff < 60) return 'just now';
+                    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+                    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+                    return `${Math.floor(diff / 86400)}d ago`;
+                } catch { return ''; }
+            }
+        };
 
         const wizard = new DynamicOnboardingWizard();
         let lastKnownStatus = null;

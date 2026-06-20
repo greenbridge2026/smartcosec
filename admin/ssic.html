@@ -49,7 +49,6 @@
             box-shadow: none !important;
         }
 
-        /* Increase base font-size across admin portal */
         html { font-size: 16.5px !important; }
         .admin-table th { font-size: 11px !important; }
         
@@ -64,19 +63,24 @@
 
     <!-- Top Navigation Header -->
     <div class="top-nav">
-        <div class="flex items-center">
-            <!-- Mobile Toggle icon injected by sidebar.js -->
+        <div class="flex items-center gap-4">
+            <div class="flex flex-col leading-none cursor-pointer" onclick="window.location.href='dashboard.html'">
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Admin</span>
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Portal</span>
+            </div>
+        </div>
+        <div id="module-switcher" class="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-white/80">
+            <!-- Dynamically overwritten by admin-sidebar.js -->
         </div>
         <div class="flex items-center justify-end gap-4">
-            <!-- Notification bell injected by sidebar.js -->
             <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
                 <div class="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-sm" id="admin-avatar">A</div>
                 <div class="hidden md:block">
                     <div class="text-xs font-semibold text-slate-800" id="admin-name">Administrator</div>
                     <div class="text-[10px] text-slate-400 font-medium">Globalisor Admin</div>
                 </div>
-                <button onclick="window.logout()" class="p-1 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-red-500 transition-colors ml-1 cursor-pointer">
-                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                <button onclick="window.logout()" class="p-1 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-red-500 transition-colors ml-1 cursor-pointer" title="Log Out">
+                    🚪 Log Out
                 </button>
             </div>
         </div>
@@ -90,108 +94,352 @@
         <!-- Header Controls -->
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
             <div>
-                <h1 class="text-2xl font-bold text-slate-900 tracking-tight">SSIC & Business Activities</h1>
-                <p class="text-xs font-medium text-slate-400 mt-1">Manage the ACRA-style Standard Industrial Classification (SSIC) master list for client onboarding.</p>
+                <h1 class="text-2xl font-bold text-slate-900 tracking-tight">SSIC 2025 Master Management</h1>
+                <p class="text-xs font-medium text-slate-400 mt-1">Configure Standard Industrial Classification (SSIC) codes, synonyms, metadata, and preview onboarding dropdowns.</p>
             </div>
-            <div>
+            <div class="flex items-center gap-3">
+                <button onclick="openImportModal()" class="flex items-center gap-2 px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer">
+                    📥 Import CSV / JSON
+                </button>
                 <button onclick="openModal()" class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-blue-500/10 cursor-pointer">
-                    <i data-lucide="plus" class="w-4 h-4"></i> Add SSIC Code
+                    ➕ Add SSIC Code
                 </button>
             </div>
         </div>
 
-        <!-- Filter & Search Section -->
-        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 mb-6">
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div class="relative flex-1 max-w-md">
-                    <span class="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">
-                        <i data-lucide="search" class="w-4 h-4"></i>
-                    </span>
-                    <input type="text" id="search-input" oninput="handleSearch()" placeholder="Search SSIC code, activity name, or industry category..." class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-medium">
+        <!-- Two Column Main Grid -->
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-8">
+            
+            <!-- Left Side: Table List and Search (Col span 8) -->
+            <div class="xl:col-span-8 flex flex-col gap-6">
+                <!-- Filter & Search Section -->
+                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div class="relative flex-1">
+                            <span class="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">
+                                🔍
+                            </span>
+                            <input type="text" id="search-input" oninput="handleSearch()" placeholder="Search code, activity, keywords, synonyms, abbreviations or section..." class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-medium">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Status:</span>
+                            <select id="status-filter" onchange="handleSearch()" class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none font-medium cursor-pointer">
+                                <option value="ALL">All Active</option>
+                                <option value="PUBLISHED">Published Only</option>
+                                <option value="DRAFT">Draft Only</option>
+                                <option value="UNPUBLISHED">Unpublished Only</option>
+                                <option value="ARCHIVED">Archived Only</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
-                <div class="flex items-center gap-2">
-                    <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Filter:</span>
-                    <select id="status-filter" onchange="handleSearch()" class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none font-medium cursor-pointer">
-                        <option value="ALL">All Statuses</option>
-                        <option value="PUBLISHED">Published</option>
-                        <option value="DRAFT">Draft</option>
-                        <option value="UNPUBLISHED">Unpublished</option>
-                    </select>
-                </div>
-            </div>
-        </div>
 
-        <!-- SSIC List Table -->
-        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-slate-50 border-b border-slate-100">
-                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">SSIC Code</th>
-                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Business Activity Name</th>
-                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Category / Group</th>
-                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</th>
-                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Last Updated By</th>
-                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ssic-table-body" class="divide-y divide-slate-50">
-                        <!-- Loading State -->
-                        <tr>
-                            <td colspan="6" class="px-6 py-12 text-center text-xs font-semibold text-slate-400">
-                                <div class="flex justify-center items-center gap-2">
-                                    <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                                    <span>Loading SSIC master list...</span>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                <!-- SSIC List Table -->
+                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-100">
+                                    <th class="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[15%]">SSIC Code</th>
+                                    <th class="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[45%]">Activity / Details</th>
+                                    <th class="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[22%]">Section / Division</th>
+                                    <th class="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[10%]">Status</th>
+                                    <th class="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right w-[8%]">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ssic-table-body" class="divide-y divide-slate-55">
+                                <!-- Loading State -->
+                                <tr>
+                                     <td colspan="5" class="px-6 py-12 text-center text-xs font-semibold text-slate-400">
+                                        <div class="flex justify-center items-center gap-2">
+                                            <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                            <span>Loading SSIC master list...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
+
+            <!-- Right Side: Live Client Picker Preview (Col span 4) -->
+            <div class="xl:col-span-4">
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-xl p-5 sticky top-[80px]">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3.5 mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Live Onboarding Preview</h3>
+                        </div>
+                        <span class="text-[9px] font-bold bg-slate-100 text-slate-500 border border-slate-250 px-2 py-0.5 rounded-md">SIMULATOR</span>
+                    </div>
+                    
+                    <p class="text-[10px] text-slate-400 font-semibold mb-4 leading-relaxed">
+                        Test search routing against all live database configurations. Matches synonyns/abbreviations instantly. Draft items are marked with a <span class="text-amber-600 font-bold bg-amber-50 px-1 rounded border border-amber-200">DRAFT</span> badge here for sandbox validation.
+                    </p>
+
+                    <!-- SIMULATED CLIENT PICKER FORM -->
+                    <div class="bg-slate-50/50 border border-slate-200/60 rounded-xl p-4 flex flex-col gap-4">
+                        
+                        <!-- Primary Selector -->
+                        <div class="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                            <label class="block text-[9.5px] font-bold text-slate-700 uppercase mb-1 flex items-center gap-1">
+                                Primary Business Activity (SSIC Code)
+                                <span class="text-red-500 font-bold">*</span>
+                            </label>
+                            <p class="text-[9px] text-slate-400 font-medium mb-2.5">Select the main business activity that best represents your company.</p>
+                            
+                            <div class="relative">
+                                <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none">🔍</span>
+                                <input type="text" id="preview-search-primary" 
+                                    onfocus="openPreviewDropdown('primary')" 
+                                    oninput="filterPreviewSsic('primary', this.value)"
+                                    onblur="closePreviewDropdown('primary')"
+                                    placeholder="Search by SSIC code, synonyms, words..." 
+                                    class="w-full pl-7 pr-4 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-blue-500 transition-all font-semibold">
+                                <div id="preview-dropdown-primary" class="hidden absolute top-full left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-xl max-h-[180px] overflow-y-auto z-[999] mt-1 divide-y divide-slate-50"></div>
+                            </div>
+
+                            <div id="preview-selected-primary" class="mt-3.5">
+                                <div class="text-[10px] text-slate-400 font-semibold italic text-center py-2.5 border border-dashed border-slate-200 rounded-lg">
+                                    Search and select a primary business activity
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Secondary Selector -->
+                        <div class="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-[9.5px] font-bold text-slate-700 uppercase flex items-center gap-1">
+                                    Secondary Business Activity (SSIC Code)
+                                </label>
+                                <span class="text-[8px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded-md">Optional</span>
+                            </div>
+                            <p class="text-[9px] text-slate-400 font-medium mb-2.5">Select an additional business activity if your company operates in more than one area.</p>
+                            
+                            <div class="relative">
+                                <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none">🔍</span>
+                                <input type="text" id="preview-search-secondary" 
+                                    onfocus="openPreviewDropdown('secondary')" 
+                                    oninput="filterPreviewSsic('secondary', this.value)"
+                                    onblur="closePreviewDropdown('secondary')"
+                                    placeholder="Search by SSIC code, synonyms, words..." 
+                                    class="w-full pl-7 pr-4 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-green-500 transition-all font-semibold">
+                                <div id="preview-dropdown-secondary" class="hidden absolute top-full left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-xl max-h-[180px] overflow-y-auto z-[999] mt-1 divide-y divide-slate-50"></div>
+                            </div>
+
+                            <div id="preview-selected-secondary" class="mt-3.5">
+                                <div class="text-[10px] text-slate-400 font-semibold italic text-center py-2.5 border border-dashed border-slate-200 rounded-lg">
+                                    Optional — search and select a secondary activity
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
     <!-- Modal Form (Add / Edit) -->
     <div id="ssic-modal" class="fixed inset-0 z-[100000] hidden flex items-center justify-center bg-slate-900/40 backdrop-blur-sm transition-all duration-300">
-        <div class="bg-white rounded-2xl w-full max-w-xl mx-4 overflow-hidden border border-slate-100 shadow-2xl transition-all scale-95 duration-200" id="ssic-modal-box">
-            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider" id="modal-title">Add SSIC Code</h3>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
-                    <i data-lucide="x" class="w-5 h-5"></i>
+        <div class="bg-white rounded-2xl w-full max-w-2xl mx-4 overflow-hidden border border-slate-100 shadow-2xl transition-all scale-95 duration-200" id="ssic-modal-box">
+            
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-slate-150 flex items-center justify-between bg-slate-50">
+                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider" id="modal-title">Add SSIC Code</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer font-bold text-sm">
+                    ✕
                 </button>
             </div>
-            <div class="p-6 flex flex-col gap-4">
+
+            <!-- TABBED SELECTOR -->
+            <div class="flex border-b border-slate-200 bg-slate-50/50">
+                <button onclick="switchTab('general')" id="tab-btn-general" class="px-5 py-2.5 text-xs font-bold border-b-2 border-blue-600 text-blue-600 outline-none transition-all">General Info</button>
+                <button onclick="switchTab('hierarchy')" id="tab-btn-hierarchy" class="px-5 py-2.5 text-xs font-semibold text-slate-500 border-b-2 border-transparent hover:text-slate-700 outline-none transition-all">Hierarchy Details</button>
+                <button onclick="switchTab('search')" id="tab-btn-search" class="px-5 py-2.5 text-xs font-semibold text-slate-500 border-b-2 border-transparent hover:text-slate-700 outline-none transition-all">Search & Tags</button>
+                <button onclick="switchTab('history')" id="tab-btn-history" class="px-5 py-2.5 text-xs font-semibold text-slate-500 border-b-2 border-transparent hover:text-slate-700 outline-none transition-all">Version History</button>
+            </div>
+
+            <!-- Modal Content Form -->
+            <div class="p-6 flex flex-col gap-4 max-h-[500px] overflow-y-auto">
                 <input type="hidden" id="modal-id">
                 
-                <div class="grid grid-cols-3 gap-4">
-                    <div class="col-span-1">
-                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">SSIC Code*</label>
-                        <input type="text" id="modal-code" placeholder="E.g. 62011" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+                <!-- Tab Panel 1: General Info -->
+                <div id="tab-panel-general" class="tab-panel flex flex-col gap-4">
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="col-span-1">
+                            <label class="block text-[9.5px] font-bold text-slate-400 uppercase mb-1.5">SSIC Code*</label>
+                            <input type="text" id="modal-code" placeholder="E.g. 62011" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-[9.5px] font-bold text-slate-400 uppercase mb-1.5">Category / Group*</label>
+                            <input type="text" id="modal-category" placeholder="E.g. Information and Communications" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+                        </div>
                     </div>
-                    <div class="col-span-2">
-                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Category / Group*</label>
-                        <input type="text" id="modal-category" placeholder="E.g. Information and Communications" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+
+                    <div>
+                        <label class="block text-[9.5px] font-bold text-slate-400 uppercase mb-1.5">Business Activity Name*</label>
+                        <input type="text" id="modal-name" placeholder="E.g. Development of software for interactive digital media" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+                    </div>
+
+                    <div>
+                        <label class="block text-[9.5px] font-bold text-slate-400 uppercase mb-1.5">Default Business Activity Description (Sub-text)</label>
+                        <textarea id="modal-description" placeholder="E.g. Includes development of e-commerce, mobile applications, games..." class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800 h-24 resize-none"></textarea>
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Business Activity Name*</label>
-                    <input type="text" id="modal-name" placeholder="E.g. Development of software for interactive digital media" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+                <!-- Tab Panel 2: Hierarchy Details -->
+                <div id="tab-panel-hierarchy" class="tab-panel hidden flex flex-col gap-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[9.5px] font-bold text-slate-400 uppercase mb-1.5">Section Code</label>
+                            <input type="text" id="modal-section-code" placeholder="E.g. J" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+                        </div>
+                        <div>
+                            <label class="block text-[9.5px] font-bold text-slate-400 uppercase mb-1.5">Section Name</label>
+                            <input type="text" id="modal-section-name" placeholder="E.g. INFORMATION AND COMMUNICATIONS" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[9.5px] font-bold text-slate-400 uppercase mb-1.5">Division Code</label>
+                            <input type="text" id="modal-division-code" placeholder="E.g. 62" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+                        </div>
+                        <div>
+                            <label class="block text-[9.5px] font-bold text-slate-400 uppercase mb-1.5">Division Name</label>
+                            <input type="text" id="modal-division-name" placeholder="E.g. Computer programming, consultancy..." class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[9.5px] font-bold text-slate-400 uppercase mb-1.5">Group Code</label>
+                            <input type="text" id="modal-group-code" placeholder="E.g. 620" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+                        </div>
+                        <div>
+                            <label class="block text-[9.5px] font-bold text-slate-400 uppercase mb-1.5">Group Name</label>
+                            <input type="text" id="modal-group-name" placeholder="E.g. Computer programming, consultancy..." class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[9.5px] font-bold text-slate-400 uppercase mb-1.5">Class Code</label>
+                            <input type="text" id="modal-class-code" placeholder="E.g. 6201" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+                        </div>
+                        <div>
+                            <label class="block text-[9.5px] font-bold text-slate-400 uppercase mb-1.5">Class Name</label>
+                            <input type="text" id="modal-class-name" placeholder="E.g. Computer programming activities" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+                        </div>
+                    </div>
                 </div>
 
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Default Business Activity Description (Sub-text)</label>
-                    <textarea id="modal-description" placeholder="E.g. Includes development of e-commerce, mobile applications, games..." class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800 h-24 resize-none"></textarea>
+                <!-- Tab Panel 3: Search & Keywords -->
+                <div id="tab-panel-search" class="tab-panel hidden flex flex-col gap-4">
+                    <div>
+                        <label class="block text-[9.5px] font-bold text-slate-400 uppercase mb-1 flex items-center gap-1">
+                            Keywords <span class="text-[8px] text-slate-400 font-semibold">(Comma-separated)</span>
+                        </label>
+                        <input type="text" id="modal-keywords" placeholder="E.g. software, developer, code, logic, technology" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+                    </div>
+                    <div>
+                        <label class="block text-[9.5px] font-bold text-slate-400 uppercase mb-1 flex items-center gap-1">
+                            Synonyms <span class="text-[8px] text-slate-400 font-semibold">(Comma-separated)</span>
+                        </label>
+                        <input type="text" id="modal-synonyms" placeholder="E.g. app creation, mobile game development, coders" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+                    </div>
+                    <div>
+                        <label class="block text-[9.5px] font-bold text-slate-400 uppercase mb-1 flex items-center gap-1">
+                            Abbreviations <span class="text-[8px] text-slate-400 font-semibold">(Comma-separated)</span>
+                        </label>
+                        <input type="text" id="modal-abbreviations" placeholder="E.g. dev, app, idm" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-semibold text-slate-800">
+                    </div>
+                </div>
+
+                <!-- Tab Panel 4: Version History Log -->
+                <div id="tab-panel-history" class="tab-panel hidden flex flex-col gap-3">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-2 mb-2">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Change Audit Logs</div>
+                        <div class="text-[10px] font-semibold text-slate-500" id="modal-version-badge">Version 1</div>
+                    </div>
+                    <div id="modal-history-list" class="flex flex-col gap-2.5 max-h-[300px] overflow-y-auto">
+                        <!-- Dynamically filled -->
+                        <div class="text-xs text-slate-400 italic text-center py-8">No version logs available (v1 base record)</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Modal Actions -->
+            <div class="px-6 py-4 border-t border-slate-100 flex justify-between items-center bg-slate-50">
+                <div class="flex items-center gap-2" id="modal-draft-toggle-wrap">
+                    <input type="checkbox" id="modal-is-draft" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
+                    <label for="modal-is-draft" class="text-xs font-semibold text-slate-600 cursor-pointer">Keep as Draft / Review Mode</label>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 transition-all cursor-pointer">
+                        Cancel
+                    </button>
+                    <button onclick="saveActivity()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-blue-500/10 cursor-pointer">
+                        Save Changes
+                    </button>
                 </div>
             </div>
+
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div id="import-modal" class="fixed inset-0 z-[100000] hidden flex items-center justify-center bg-slate-900/40 backdrop-blur-sm transition-all duration-300">
+        <div class="bg-white rounded-2xl w-full max-w-lg mx-4 overflow-hidden border border-slate-100 shadow-2xl transition-all scale-95 duration-200" id="import-modal-box">
+            
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Import SSIC Master Data</h3>
+                <button onclick="closeImportModal()" class="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer font-bold text-sm">
+                    ✕
+                </button>
+            </div>
+
+            <div class="p-6 flex flex-col gap-4">
+                
+                <!-- Drag and drop zone -->
+                <div id="drop-zone" class="border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-2xl p-8 flex flex-col items-center justify-center gap-3 transition-colors cursor-pointer" onclick="document.getElementById('import-file-input').click()">
+                    <div class="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 text-lg">
+                        📁
+                    </div>
+                    <div class="text-center">
+                        <span class="text-xs font-bold text-slate-700">Click to upload</span>
+                        <span class="text-xs font-semibold text-slate-400">or drag and drop your file here</span>
+                    </div>
+                    <span class="text-[9px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border">CSV or JSON formats supported</span>
+                    <input type="file" id="import-file-input" class="hidden" accept=".csv,.json" onchange="handleFileSelect(event)">
+                </div>
+
+                <div id="import-status" class="hidden flex flex-col gap-2.5">
+                    <div class="flex items-center justify-between text-xs font-bold text-slate-700">
+                        <span>File selected:</span>
+                        <span id="import-file-name" class="text-blue-600">data.csv</span>
+                    </div>
+                    <div id="import-preview-box" class="bg-slate-50 border rounded-xl p-3 max-h-[140px] overflow-y-auto flex flex-col gap-1.5"></div>
+                </div>
+
+                <div class="bg-blue-50/60 border border-blue-150 rounded-xl p-3.5 flex gap-2.5">
+                    <span class="text-xs shrink-0 mt-0.5">ℹ️</span>
+                    <p class="text-[10px] text-blue-800 font-semibold leading-relaxed">
+                        <strong>Conflict Resolution Strategy:</strong> If an industrial code already exists in the catalog, the import tool increments its version and saves the updates as a <strong>DRAFT</strong> version for editorial check.
+                    </p>
+                </div>
+            </div>
+
             <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50">
-                <button onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 transition-all cursor-pointer">
+                <button onclick="closeImportModal()" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 transition-all cursor-pointer">
                     Cancel
                 </button>
-                <button onclick="saveActivity()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-blue-500/10 cursor-pointer">
-                    Save Changes
+                <button id="import-submit-btn" disabled onclick="executeImport()" class="px-4 py-2 bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-lg cursor-pointer">
+                    Process and Import
                 </button>
             </div>
+
         </div>
     </div>
 
@@ -199,6 +447,14 @@
     <script>
         let activities = [];
         let filteredActivities = [];
+        let activeModalTab = 'general';
+        let parsedImportData = null;
+
+        // Preview state variables
+        let previewSsicState = {
+            primary: { query: '', matches: [], selected: null, activeIndex: -1 },
+            secondary: { query: '', matches: [], selected: null, activeIndex: -1 }
+        };
 
         function showToast(message, type = "success") {
             const container = document.getElementById("toast-container");
@@ -206,13 +462,12 @@
             toast.className = `flex items-center gap-2.5 px-4 py-3 rounded-xl border text-xs font-semibold shadow-lg transition-all duration-300 transform translate-y-2 opacity-0`;
             if (type === "success") {
                 toast.className += " bg-emerald-50 border-emerald-200 text-emerald-800";
-                toast.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4 shrink-0"></i> <span>${message}</span>`;
+                toast.innerHTML = `<span>✅</span> <span>${message}</span>`;
             } else {
                 toast.className += " bg-rose-50 border-rose-200 text-rose-800";
-                toast.innerHTML = `<i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i> <span>${message}</span>`;
+                toast.innerHTML = `<span>❌</span> <span>${message}</span>`;
             }
             container.appendChild(toast);
-            if (window.lucide) window.lucide.createIcons();
             
             setTimeout(() => {
                 toast.classList.remove('translate-y-2', 'opacity-0');
@@ -228,7 +483,8 @@
             try {
                 const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
                 const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
-                const res = await fetch('/api/ssic-activities', { headers });
+                // Include archived codes in administrative portal
+                const res = await fetch('/api/ssic-activities?includeArchived=true', { headers });
                 
                 if (res.ok) {
                     activities = await res.json();
@@ -249,18 +505,31 @@
             const statusFilter = document.getElementById('status-filter').value;
 
             filteredActivities = activities.filter(act => {
+                // Ignore soft-archived entries unless explicitly filtered
+                if (statusFilter !== 'ARCHIVED' && act.isArchived) {
+                    return false;
+                }
+
                 const matchesSearch = 
                     (act.code || '').toLowerCase().includes(query) ||
                     (act.name || '').toLowerCase().includes(query) ||
-                    (act.category || '').toLowerCase().includes(query);
+                    (act.category || '').toLowerCase().includes(query) ||
+                    (act.keywords || '').toLowerCase().includes(query) ||
+                    (act.synonyms || '').toLowerCase().includes(query) ||
+                    (act.abbreviations || '').toLowerCase().includes(query) ||
+                    (act.sectionName || '').toLowerCase().includes(query) ||
+                    (act.divisionName || '').toLowerCase().includes(query) ||
+                    (act.groupName || '').toLowerCase().includes(query) ||
+                    (act.className || '').toLowerCase().includes(query);
                 
-                const matchesStatus = (statusFilter === 'ALL') || (act.status === statusFilter);
+                let matchesStatus = true;
+                if (statusFilter !== 'ALL') {
+                    matchesStatus = (act.status === statusFilter);
+                }
 
                 return matchesSearch && matchesStatus;
             });
 
-            // Sort by code numeric/alphabetic order
-            filteredActivities.sort((a, b) => (a.code || '').localeCompare(b.code || ''));
             renderTable();
         }
 
@@ -271,7 +540,7 @@
             if (filteredActivities.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="6" class="px-6 py-12 text-center text-xs font-semibold text-slate-400">
+                        <td colspan="5" class="px-6 py-12 text-center text-xs font-semibold text-slate-400">
                             No SSIC activities found matching your filters.
                         </td>
                     </tr>
@@ -279,13 +548,15 @@
                 return;
             }
 
-            filteredActivities.forEach(act => {
+            filteredActivities.forEach((act, tableIdx) => {
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-50/50 transition-colors';
 
-                // Status Badge styling
+                // Status Badge
                 let statusBadge = '';
-                if (act.status === 'PUBLISHED') {
+                if (act.isArchived) {
+                    statusBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200">ARCHIVED</span>';
+                } else if (act.status === 'PUBLISHED') {
                     statusBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">PUBLISHED</span>';
                 } else if (act.status === 'DRAFT') {
                     statusBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200">DRAFT</span>';
@@ -293,25 +564,49 @@
                     statusBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-100 text-slate-600 border border-slate-200">UNPUBLISHED</span>';
                 }
 
-                const dateStr = act.lastUpdatedAt ? new Date(act.lastUpdatedAt).toLocaleString() : 'N/A';
+                const dateStr = act.lastUpdatedAt ? new Date(act.lastUpdatedAt).toLocaleDateString() : 'N/A';
+                
+                // Construct Synonyms/Keywords preview
+                let metaTagsHtml = '';
+                const tags = [];
+                if (act.synonyms) tags.push(...act.synonyms.split(',').slice(0, 2).map(t => t.trim()));
+                if (act.keywords) tags.push(...act.keywords.split(',').slice(0, 2).map(t => t.trim()));
+                
+                if (tags.length > 0) {
+                    metaTagsHtml = `<div class="flex flex-wrap gap-1 mt-1">` + 
+                        tags.map(tag => `<span class="inline-block text-[8px] font-semibold bg-slate-100 border border-slate-200 text-slate-500 rounded px-1">${tag}</span>`).join('') + 
+                        `</div>`;
+                }
+
+                const isNearBottom = (tableIdx >= filteredActivities.length - 2) && (filteredActivities.length > 2);
+                const dropdownPosition = isNearBottom ? 'bottom-full mb-1 right-0' : 'top-full mt-1 right-0';
 
                 tr.innerHTML = `
-                    <td class="px-6 py-4 text-xs font-bold text-slate-900">${act.code}</td>
-                    <td class="px-6 py-4 text-xs font-semibold text-slate-700 max-w-md truncate" title="${act.name}">${act.name}</td>
-                    <td class="px-6 py-4 text-xs font-semibold text-slate-500">${act.category || 'N/A'}</td>
-                    <td class="px-6 py-4">${statusBadge}</td>
-                    <td class="px-6 py-4">
-                        <div class="text-xs font-semibold text-slate-700">${act.lastUpdatedBy || 'System'}</div>
-                        <div class="text-[9px] text-slate-400 font-medium mt-0.5">${dateStr}</div>
+                    <td class="px-5 py-4 text-xs font-bold text-slate-900 font-mono">${act.code}</td>
+                    <td class="px-5 py-4">
+                        <div class="text-xs font-semibold text-slate-700 max-w-sm truncate" title="${act.name}">${act.name}</div>
+                        <div class="text-[9.5px] text-slate-400 mt-0.5 truncate max-w-sm font-medium">${act.description || 'No description sub-text'}</div>
+                        ${metaTagsHtml}
                     </td>
-                    <td class="px-6 py-4 text-right">
-                        <div class="flex items-center justify-end gap-1">
-                            ${act.status === 'PUBLISHED' ? 
-                              `<button onclick="unpublishActivity('${act.id}')" title="Unpublish" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-amber-500 cursor-pointer"><i data-lucide="eye-off" class="w-4 h-4"></i></button>` :
-                              `<button onclick="publishActivity('${act.id}')" title="Publish" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-emerald-500 cursor-pointer"><i data-lucide="eye" class="w-4 h-4"></i></button>`
-                            }
-                            <button onclick="openModal('${act.id}')" title="Edit" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-blue-500 cursor-pointer"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
-                            <button onclick="deleteActivity('${act.id}')" title="Delete" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-red-500 cursor-pointer"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    <td class="px-5 py-4">
+                        <div class="text-xs font-bold text-slate-500">${act.sectionCode ? `Sec ${act.sectionCode}` : 'Category:'}</div>
+                        <div class="text-[9.5px] text-slate-400 font-medium truncate max-w-[150px]" title="${act.sectionName || act.category}">${act.sectionName || act.category || 'N/A'}</div>
+                    </td>
+                    <td class="px-5 py-4">${statusBadge}</td>
+                    <td class="px-5 py-4 text-right font-medium">
+                        <div class="relative inline-block text-left">
+                            <button onclick="toggleActionsDropdown(event, '${act.id}')" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-all cursor-pointer font-bold text-lg leading-none select-none" id="actions-btn-${act.id}">
+                                ⋮
+                            </button>
+                            <div id="actions-dropdown-${act.id}" class="hidden absolute ${dropdownPosition} w-36 bg-white border border-slate-200 rounded-xl shadow-xl z-[9999] py-1 text-left">
+                                ${!act.isArchived ? (
+                                    act.status === 'PUBLISHED' ? 
+                                    `<button onclick="unpublishActivity('${act.id}'); closeAllDropdowns()" class="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-amber-600 transition-colors cursor-pointer text-left">👁️ Unpublish</button>` :
+                                    `<button onclick="publishActivity('${act.id}'); closeAllDropdowns()" class="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-emerald-700 transition-colors cursor-pointer text-left">👁️ Publish</button>`
+                                ) : ''}
+                                <button onclick="openModal('${act.id}'); closeAllDropdowns()" class="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition-colors cursor-pointer text-left">✏️ Edit</button>
+                                <button onclick="archiveActivity('${act.id}'); closeAllDropdowns()" class="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-rose-50 transition-colors cursor-pointer border-t border-slate-100 text-left">🗑️ Delete</button>
+                            </div>
                         </div>
                     </td>
                 `;
@@ -321,16 +616,46 @@
             if (window.lucide) window.lucide.createIcons();
         }
 
+        // Switch panel tabs inside the edit dialog box
+        function switchTab(tabId) {
+            activeModalTab = tabId;
+            document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.add('hidden'));
+            document.getElementById(`tab-panel-${tabId}`).classList.remove('hidden');
+
+            document.querySelectorAll('[id^="tab-btn-"]').forEach(btn => {
+                btn.className = "px-5 py-2.5 text-xs font-semibold text-slate-500 border-b-2 border-transparent hover:text-slate-700 outline-none transition-all";
+            });
+            document.getElementById(`tab-btn-${tabId}`).className = "px-5 py-2.5 text-xs font-bold border-b-2 border-blue-600 text-blue-600 outline-none transition-all";
+        }
+
         // Modal Operations
         function openModal(id = null) {
             const modal = document.getElementById('ssic-modal');
             const box = document.getElementById('ssic-modal-box');
             
+            switchTab('general');
+
             document.getElementById('modal-id').value = '';
             document.getElementById('modal-code').value = '';
             document.getElementById('modal-name').value = '';
             document.getElementById('modal-category').value = '';
             document.getElementById('modal-description').value = '';
+            
+            document.getElementById('modal-section-code').value = '';
+            document.getElementById('modal-section-name').value = '';
+            document.getElementById('modal-division-code').value = '';
+            document.getElementById('modal-division-name').value = '';
+            document.getElementById('modal-group-code').value = '';
+            document.getElementById('modal-group-name').value = '';
+            document.getElementById('modal-class-code').value = '';
+            document.getElementById('modal-class-name').value = '';
+
+            document.getElementById('modal-keywords').value = '';
+            document.getElementById('modal-synonyms').value = '';
+            document.getElementById('modal-abbreviations').value = '';
+            
+            document.getElementById('modal-is-draft').checked = true;
+            document.getElementById('modal-draft-toggle-wrap').classList.remove('invisible');
 
             if (id) {
                 document.getElementById('modal-title').innerText = "Edit SSIC Code";
@@ -341,9 +666,49 @@
                     document.getElementById('modal-name').value = act.name;
                     document.getElementById('modal-category').value = act.category || '';
                     document.getElementById('modal-description').value = act.description || '';
+                    
+                    document.getElementById('modal-section-code').value = act.sectionCode || '';
+                    document.getElementById('modal-section-name').value = act.sectionName || '';
+                    document.getElementById('modal-division-code').value = act.divisionCode || '';
+                    document.getElementById('modal-division-name').value = act.divisionName || '';
+                    document.getElementById('modal-group-code').value = act.groupCode || '';
+                    document.getElementById('modal-group-name').value = act.groupName || '';
+                    document.getElementById('modal-class-code').value = act.classCode || '';
+                    document.getElementById('modal-class-name').value = act.className || '';
+
+                    document.getElementById('modal-keywords').value = act.keywords || '';
+                    document.getElementById('modal-synonyms').value = act.synonyms || '';
+                    document.getElementById('modal-abbreviations').value = act.abbreviations || '';
+                    
+                    document.getElementById('modal-is-draft').checked = (act.status !== 'PUBLISHED');
+                    document.getElementById('modal-version-badge').innerText = `Version ${act.version || 1}`;
+
+                    // Fill history logs
+                    const logsList = document.getElementById('modal-history-list');
+                    logsList.innerHTML = '';
+                    if (act.history && act.history.length > 0) {
+                        act.history.forEach(log => {
+                            const dateStr = new Date(log.updatedAt).toLocaleString();
+                            const item = document.createElement('div');
+                            item.className = 'p-3 bg-slate-50 rounded-xl border border-slate-150 text-[10.5px] text-slate-600 flex flex-col gap-1';
+                            item.innerHTML = `
+                                <div class="flex items-center justify-between font-bold text-slate-800">
+                                    <span>Version ${log.version}</span>
+                                    <span>${log.updatedBy}</span>
+                                </div>
+                                <div class="text-[9.5px] text-slate-400 font-medium">${dateStr}</div>
+                                <div class="mt-1 font-semibold text-slate-700">Code: <span class="font-mono text-slate-900">${log.state.code}</span> · ${log.state.name}</div>
+                            `;
+                            logsList.appendChild(item);
+                        });
+                    } else {
+                        logsList.innerHTML = `<div class="text-xs text-slate-400 italic text-center py-8">No version logs available (v1 base record)</div>`;
+                    }
                 }
             } else {
                 document.getElementById('modal-title').innerText = "Add SSIC Code";
+                document.getElementById('modal-version-badge').innerText = 'New Code';
+                document.getElementById('modal-history-list').innerHTML = `<div class="text-xs text-slate-400 italic text-center py-8">Auditing will begin on record creation</div>`;
             }
 
             modal.classList.remove('hidden');
@@ -367,13 +732,40 @@
             const name = document.getElementById('modal-name').value.trim();
             const category = document.getElementById('modal-category').value.trim();
             const description = document.getElementById('modal-description').value.trim();
+            
+            const sectionCode = document.getElementById('modal-section-code').value.trim();
+            const sectionName = document.getElementById('modal-section-name').value.trim();
+            const divisionCode = document.getElementById('modal-division-code').value.trim();
+            const divisionName = document.getElementById('modal-division-name').value.trim();
+            const groupCode = document.getElementById('modal-group-code').value.trim();
+            const groupName = document.getElementById('modal-group-name').value.trim();
+            const classCode = document.getElementById('modal-class-code').value.trim();
+            const className = document.getElementById('modal-class-name').value.trim();
+
+            const keywords = document.getElementById('modal-keywords').value.trim();
+            const synonyms = document.getElementById('modal-synonyms').value.trim();
+            const abbreviations = document.getElementById('modal-abbreviations').value.trim();
+            
+            const isDraft = document.getElementById('modal-is-draft').checked;
 
             if (!code || !name || !category) {
                 showToast("Code, Category, and Name are required fields!", "error");
                 return;
             }
 
-            const payload = { code, name, category, description };
+            const username = JSON.parse(localStorage.getItem('admin_auth') || '{}').username || 'Admin';
+
+            const payload = { 
+                code, name, category, description,
+                sectionCode, sectionName,
+                divisionCode, divisionName,
+                groupCode, groupName,
+                classCode, className,
+                keywords, synonyms, abbreviations,
+                status: isDraft ? 'DRAFT' : 'PUBLISHED',
+                lastUpdatedBy: username
+            };
+            
             const method = id ? 'PUT' : 'POST';
             const url = id ? `/api/ssic-activities/${id}` : '/api/ssic-activities';
 
@@ -390,7 +782,7 @@
                 });
 
                 if (res.ok) {
-                    showToast(id ? "SSIC Activity updated successfully!" : "SSIC Activity added successfully!");
+                    showToast(id ? "SSIC Record audited and saved successfully!" : "New SSIC Code added!");
                     closeModal();
                     loadActivities();
                 } else {
@@ -402,8 +794,8 @@
             }
         }
 
-        async function deleteActivity(id) {
-            if (!confirm("Are you sure you want to delete this SSIC code? This cannot be undone.")) return;
+        async function archiveActivity(id) {
+            if (!confirm("Are you sure you want to archive this SSIC code? It will be hidden from onboarding search dropdowns, but history details will remain preserved.")) return;
 
             try {
                 const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
@@ -414,13 +806,13 @@
                 });
 
                 if (res.ok) {
-                    showToast("SSIC Code deleted successfully");
+                    showToast("SSIC Code archived successfully");
                     loadActivities();
                 } else {
-                    showToast("Error deleting SSIC activity", "error");
+                    showToast("Error archiving SSIC activity", "error");
                 }
             } catch (error) {
-                showToast("Network error deleting SSIC activity", "error");
+                showToast("Network error archiving SSIC activity", "error");
             }
         }
 
@@ -434,7 +826,7 @@
                 });
 
                 if (res.ok) {
-                    showToast("SSIC Code published and live for clients!");
+                    showToast("SSIC Code published successfully! Live on pre-registration selector!");
                     loadActivities();
                 } else {
                     showToast("Error publishing SSIC Code", "error");
@@ -463,6 +855,439 @@
                 showToast("Network error unpublishing", "error");
             }
         }
+
+        // Reordering function (Up / Down index)
+        async function moveOrder(index, direction) {
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= filteredActivities.length) return;
+            
+            // Swap in local array
+            const temp = filteredActivities[index];
+            filteredActivities[index] = filteredActivities[newIndex];
+            filteredActivities[newIndex] = temp;
+            
+            // Generate list of IDs in the new order
+            const orderedIds = filteredActivities.map(a => a.id);
+            
+            try {
+                const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                };
+                const res = await fetch('/api/ssic-activities/reorder', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(orderedIds)
+                });
+                
+                if (res.ok) {
+                    showToast("SSIC list order updated!");
+                    loadActivities();
+                } else {
+                    showToast("Failed to save reorder state", "error");
+                }
+            } catch (e) {
+                showToast("Reorder network error", "error");
+            }
+        }
+
+        // Import CSV / JSON functions
+        function openImportModal() {
+            const modal = document.getElementById('import-modal');
+            const box = document.getElementById('import-modal-box');
+            
+            parsedImportData = null;
+            document.getElementById('import-status').classList.add('hidden');
+            document.getElementById('import-submit-btn').disabled = true;
+            document.getElementById('import-file-input').value = '';
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                box.classList.remove('scale-95');
+                box.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeImportModal() {
+            const modal = document.getElementById('import-modal');
+            const box = document.getElementById('import-modal-box');
+            box.classList.remove('scale-100');
+            box.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            processFile(file);
+        }
+
+        function processFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const text = evt.target.result;
+                try {
+                    if (file.name.endsWith('.json')) {
+                        const parsed = JSON.parse(text);
+                        parsedImportData = Array.isArray(parsed) ? parsed : [parsed];
+                    } else {
+                        parsedImportData = parseCSVData(text);
+                    }
+                    
+                    showImportPreview(file.name, parsedImportData);
+                } catch (err) {
+                    console.error(err);
+                    showToast("Failed to parse file structure. Check column formatting.", "error");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function parseCSVData(text) {
+            // Robust CSV parser state machine
+            const rows = [];
+            let row = [""];
+            let inQuotes = false;
+            
+            for (let i = 0; i < text.length; i++) {
+                let c = text[i];
+                let next = text[i+1];
+                if (c === '"') {
+                    if (inQuotes && next === '"') {
+                        row[row.length - 1] += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (c === ',') {
+                    if (inQuotes) {
+                        row[row.length - 1] += c;
+                    } else {
+                        row.push("");
+                    }
+                } else if (c === '\r' || c === '\n') {
+                    if (inQuotes) {
+                        row[row.length - 1] += c;
+                    } else {
+                        if (c === '\r' && next === '\n') i++;
+                        rows.push(row);
+                        row = [""];
+                    }
+                } else {
+                    row[row.length - 1] += c;
+                }
+            }
+            if (row.length > 1 || row[0] !== "") {
+                rows.push(row);
+            }
+            
+            if (rows.length < 2) return [];
+            
+            const headers = rows[0].map(h => h.toLowerCase().trim().replace(/[\s_]+/g, ''));
+            const dataObjects = [];
+            
+            for (let i = 1; i < rows.length; i++) {
+                const values = rows[i];
+                if (values.length < headers.length) continue;
+                const obj = {};
+                
+                // Map columns
+                headers.forEach((h, hIdx) => {
+                    let val = (values[hIdx] || '').trim();
+                    if (h === 'code' || h === 'ssiccode') obj.code = val;
+                    else if (h === 'name' || h === 'businessactivityname' || h === 'activityname') obj.name = val;
+                    else if (h === 'description' || h === 'activitydescription') obj.description = val;
+                    else if (h === 'category' || h === 'groupcategory') obj.category = val;
+                    else if (h === 'sectioncode') obj.sectionCode = val;
+                    else if (h === 'sectionname') obj.sectionName = val;
+                    else if (h === 'divisioncode') obj.divisionCode = val;
+                    else if (h === 'divisionname') obj.divisionName = val;
+                    else if (h === 'groupcode') obj.groupCode = val;
+                    else if (h === 'groupname') obj.groupName = val;
+                    else if (h === 'classcode') obj.classCode = val;
+                    else if (h === 'classname') obj.className = val;
+                    else if (h === 'keywords') obj.keywords = val;
+                    else if (h === 'synonyms') obj.synonyms = val;
+                    else if (h === 'abbreviations' || h === 'abbr') obj.abbreviations = val;
+                });
+                
+                if (obj.code && obj.name) {
+                    if (!obj.category) obj.category = obj.sectionName || "Information and Communications";
+                    dataObjects.push(obj);
+                }
+            }
+            
+            return dataObjects;
+        }
+
+        function showImportPreview(fileName, records) {
+            document.getElementById('import-file-name').innerText = fileName;
+            const preview = document.getElementById('import-preview-box');
+            preview.innerHTML = '';
+            
+            if (records.length === 0) {
+                preview.innerHTML = `<div class="text-[10px] text-red-500 font-bold">No valid SSIC records found in this file (must contain code & name columns)</div>`;
+                document.getElementById('import-submit-btn').disabled = true;
+            } else {
+                records.slice(0, 10).forEach(r => {
+                    const el = document.createElement('div');
+                    el.className = 'text-[9.5px] border-b pb-1 last:border-0 font-medium text-slate-600';
+                    el.innerHTML = `<strong>${r.code}</strong> · ${r.name} (${r.category || 'N/A'})`;
+                    preview.appendChild(el);
+                });
+                if (records.length > 10) {
+                    const extra = document.createElement('div');
+                    extra.className = 'text-[9.5px] text-slate-400 italic font-semibold';
+                    extra.innerText = `...and ${records.length - 10} more records.`;
+                    preview.appendChild(extra);
+                }
+                
+                document.getElementById('import-submit-btn').disabled = false;
+            }
+            
+            document.getElementById('import-status').classList.remove('hidden');
+        }
+
+        async function executeImport() {
+            if (!parsedImportData || parsedImportData.length === 0) return;
+            
+            const btn = document.getElementById('import-submit-btn');
+            btn.disabled = true;
+            btn.innerText = "Importing...";
+            
+            try {
+                const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                };
+                const res = await fetch('/api/ssic-activities/import', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ activities: parsedImportData })
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    showToast(`Import completed! Added ${data.added} new and updated ${data.updated} records as draft.`);
+                    closeImportModal();
+                    loadActivities();
+                } else {
+                    const text = await res.text();
+                    showToast(`Import error: ${text}`, "error");
+                }
+            } catch (e) {
+                showToast("Network error executing import", "error");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Process and Import";
+            }
+        }
+
+        // ── LIVE ONBOARDING CLIENT DROPDOWN PREVIEW LOGIC ──
+        function openPreviewDropdown(slot) {
+            const dd = document.getElementById(`preview-dropdown-${slot}`);
+            if (dd) {
+                dd.classList.remove('hidden');
+                const val = document.getElementById(`preview-search-${slot}`).value;
+                filterPreviewSsic(slot, val);
+            }
+        }
+
+        function closePreviewDropdown(slot) {
+            // Keep timeout to register dropdown item clicks before hiding
+            setTimeout(() => {
+                const dd = document.getElementById(`preview-dropdown-${slot}`);
+                if (dd) dd.classList.add('hidden');
+            }, 250);
+        }
+
+        function filterPreviewSsic(slot, query) {
+            const q = query.toLowerCase().trim();
+            const dd = document.getElementById(`preview-dropdown-${slot}`);
+            if (!dd) return;
+            
+            // Search all published AND draft entries in sandbox preview (excluding archived)
+            const list = activities.filter(a => !a.isArchived);
+            const matches = q ? list.filter(a =>
+                (a.code||'').toLowerCase().includes(q) ||
+                (a.name||'').toLowerCase().includes(q) ||
+                (a.category||'').toLowerCase().includes(q) ||
+                (a.keywords||'').toLowerCase().includes(q) ||
+                (a.synonyms||'').toLowerCase().includes(q) ||
+                (a.abbreviations||'').toLowerCase().includes(q) ||
+                (a.sectionName||'').toLowerCase().includes(q) ||
+                (a.divisionName||'').toLowerCase().includes(q) ||
+                (a.groupName||'').toLowerCase().includes(q) ||
+                (a.className||'').toLowerCase().includes(q)
+            ) : list.slice(0, 10);
+            
+            previewSsicState[slot].matches = matches;
+            renderPreviewOptions(slot, matches, q);
+        }
+
+        function renderPreviewOptions(slot, matches, q) {
+            const dd = document.getElementById(`preview-dropdown-${slot}`);
+            if (!dd) return;
+            dd.innerHTML = '';
+            
+            const hl = (text, q) => {
+                if (!q) return text;
+                return text.replace(new RegExp(`(${q.replace(/[-\/\\^$*+?.()|[\]{}]/g,'\\$&')})`, 'gi'), '<mark class="bg-yellow-200 text-yellow-800 rounded px-[2px]">$1</mark>');
+            };
+
+            if (matches.length === 0) {
+                dd.innerHTML = `<div class="p-3 text-center text-[10.5px] text-slate-400 font-semibold">No matching activities found</div>`;
+                return;
+            }
+
+            matches.forEach(act => {
+                const div = document.createElement('div');
+                div.className = "p-2.5 hover:bg-slate-50 cursor-pointer text-[10.5px] flex flex-col gap-0.5 border-b border-slate-100 last:border-0";
+                
+                // Show matched synonym if any
+                let metaTextHtml = '';
+                if (q) {
+                    const matchesFound = [];
+                    ['keywords', 'synonyms', 'abbreviations'].forEach(field => {
+                        if (act[field] && act[field].toLowerCase().includes(q)) {
+                            act[field].split(',').forEach(word => {
+                                if (word.trim().toLowerCase().includes(q)) {
+                                    matchesFound.push(word.trim());
+                                }
+                            });
+                        }
+                    });
+                    if (matchesFound.length > 0) {
+                        metaTextHtml = `<div class="text-[8.5px] text-indigo-650 font-bold mt-0.5">Matched keyword: ${hl(Array.from(new Set(matchesFound)).join(', '), q)}</div>`;
+                    }
+                }
+
+                const draftBadge = act.status === 'DRAFT' ? '<span class="text-[7.5px] font-bold bg-amber-50 text-amber-700 border border-amber-200 rounded px-1.5 py-0.2">DRAFT</span>' : '';
+
+                div.onmousedown = () => selectPreviewSsic(slot, act);
+                div.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-1.5">
+                            <span class="font-bold text-slate-800 font-mono">${hl(act.code, q)}</span>
+                            <span class="text-[8.5px] text-blue-500 bg-blue-50/50 px-1.5 rounded border border-blue-100">${hl(act.category||'', q)}</span>
+                        </div>
+                        ${draftBadge}
+                    </div>
+                    <span class="text-slate-650 font-semibold">${hl(act.name, q)}</span>
+                    ${metaTextHtml}
+                `;
+                dd.appendChild(div);
+            });
+        }
+
+        function selectPreviewSsic(slot, act) {
+            previewSsicState[slot].selected = act;
+            document.getElementById(`preview-search-${slot}`).value = '';
+            
+            const card = document.getElementById(`preview-selected-${slot}`);
+            
+            const badgeClass = slot === 'primary' 
+                ? 'bg-blue-50 border-blue-200 text-blue-800' 
+                : 'bg-green-50 border-green-200 text-green-800';
+            
+            const tagBadge = act.status === 'DRAFT' 
+                ? '<span class="text-[8px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-1.5 rounded">DRAFT</span>' 
+                : '';
+
+            card.innerHTML = `
+                <div class="border rounded-xl p-3 bg-white mt-1 flex flex-col gap-2 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold ${badgeClass}">
+                            <strong>${act.code}</strong> · ${act.name.slice(0, 20)}...
+                            <button onclick="removePreviewSelected('${slot}')" class="font-bold text-lg hover:opacity-75 leading-none pl-1">&times;</button>
+                        </span>
+                        ${tagBadge}
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 border-t pt-2 border-slate-100">
+                        <div>
+                            <div class="text-[7.5px] text-slate-400 font-bold uppercase mb-0.5">Code</div>
+                            <div class="text-[9px] font-mono font-bold bg-slate-50 border px-1 rounded inline-block text-slate-800">${act.code}</div>
+                        </div>
+                        <div class="col-span-2">
+                            <div class="text-[7.5px] text-slate-400 font-bold uppercase mb-0.5">Industry Name</div>
+                            <div class="text-[9px] font-bold text-slate-700 truncate" title="${act.name}">${act.name}</div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-[7.5px] text-slate-400 font-bold uppercase mb-1">Preview Sub-text Description</div>
+                        <textarea readonly class="w-full text-[9px] bg-slate-50 text-slate-500 font-semibold p-1.5 rounded border border-slate-150 h-10 resize-none outline-none">${act.description || act.name}</textarea>
+                    </div>
+                </div>
+            `;
+        }
+
+        function removePreviewSelected(slot) {
+            previewSsicState[slot].selected = null;
+            const card = document.getElementById(`preview-selected-${slot}`);
+            
+            if (slot === 'primary') {
+                card.innerHTML = `
+                    <div class="text-[10px] text-slate-400 font-semibold italic text-center py-2.5 border border-dashed border-slate-200 rounded-lg">
+                        Search and select a primary business activity
+                    </div>
+                `;
+            } else {
+                card.innerHTML = `
+                    <div class="text-[10px] text-slate-400 font-semibold italic text-center py-2.5 border border-dashed border-slate-200 rounded-lg">
+                        Optional — search and select a secondary activity
+                    </div>
+                `;
+            }
+        }
+
+        // Drag and drop setup for Import Modal
+        const dropZone = document.getElementById('drop-zone');
+        if (dropZone) {
+            ['dragenter', 'dragover'].forEach(name => {
+                dropZone.addEventListener(name, (e) => {
+                    e.preventDefault();
+                    dropZone.classList.add('border-blue-500', 'bg-blue-50/20');
+                }, false);
+            });
+            ['dragleave', 'drop'].forEach(name => {
+                dropZone.addEventListener(name, (e) => {
+                    e.preventDefault();
+                    dropZone.classList.remove('border-blue-500', 'bg-blue-50/20');
+                }, false);
+            });
+            dropZone.addEventListener('drop', (e) => {
+                const file = e.dataTransfer.files[0];
+                if (file) {
+                    processFile(file);
+                }
+            }, false);
+        }
+
+        function toggleActionsDropdown(event, id) {
+            event.stopPropagation();
+            const dropdown = document.getElementById(`actions-dropdown-${id}`);
+            const isHidden = dropdown.classList.contains('hidden');
+            
+            // Close all dropdowns first
+            closeAllDropdowns();
+            
+            if (isHidden) {
+                dropdown.classList.remove('hidden');
+            }
+        }
+
+        function closeAllDropdowns() {
+            document.querySelectorAll('[id^="actions-dropdown-"]').forEach(d => {
+                d.classList.add('hidden');
+            });
+        }
+
+        // Close dropdowns if clicking anywhere else
+        document.addEventListener('click', () => {
+            closeAllDropdowns();
+        });
 
         // Initialize and load
         document.addEventListener('DOMContentLoaded', () => {

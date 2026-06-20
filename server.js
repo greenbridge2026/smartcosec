@@ -63,6 +63,285 @@ const getDb = () => {
         ];
         fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
     }
+    if (!db.ssicActivities) {
+        db.ssicActivities = [
+            {
+                id: "ssic-62011",
+                code: "62011",
+                name: "Development of software for interactive digital media",
+                category: "Information and Communications",
+                description: "Development of mobile apps, games, e-commerce platforms and interactive digital products.",
+                sectionCode: "J",
+                sectionName: "Information and Communications",
+                divisionCode: "62",
+                divisionName: "Computer programming, consultancy and related activities",
+                groupCode: "620",
+                groupName: "Computer programming, consultancy and related activities",
+                classCode: "6201",
+                className: "Computer programming activities",
+                keywords: "software, programming, development, app",
+                synonyms: "software dev, mobile apps, games",
+                abbreviations: "dev, app",
+                version: 1,
+                history: [],
+                isArchived: false,
+                orderIndex: 0,
+                status: "PUBLISHED",
+                lastUpdatedBy: "System",
+                lastUpdatedAt: Date.now()
+            },
+            {
+                id: "ssic-62021",
+                code: "62021",
+                name: "Information technology consultancy",
+                category: "Information and Communications",
+                description: "Consultancy services for computer systems, network designs, and IT systems integration.",
+                sectionCode: "J",
+                sectionName: "Information and Communications",
+                divisionCode: "62",
+                divisionName: "Computer programming, consultancy and related activities",
+                groupCode: "620",
+                groupName: "Computer programming, consultancy and related activities",
+                classCode: "6202",
+                className: "Computer consultancy activities",
+                keywords: "it, consultancy, system integration",
+                synonyms: "tech consulting, it support, network design",
+                abbreviations: "it, consulting",
+                version: 1,
+                history: [],
+                isArchived: false,
+                orderIndex: 1,
+                status: "PUBLISHED",
+                lastUpdatedBy: "System",
+                lastUpdatedAt: Date.now()
+            },
+            {
+                id: "ssic-46900",
+                code: "46900",
+                name: "General wholesale trade (including general importers and exporters)",
+                category: "Wholesale Trade",
+                description: "Import, export, and wholesale of a wide variety of goods without a dominant product line.",
+                sectionCode: "G",
+                sectionName: "Wholesale and Retail Trade",
+                divisionCode: "46",
+                divisionName: "Wholesale trade",
+                groupCode: "469",
+                groupName: "General wholesale trade",
+                classCode: "4690",
+                className: "General wholesale trade",
+                keywords: "trading, import, export, general trade",
+                synonyms: "importer, exporter, wholesale",
+                abbreviations: "general, trade",
+                version: 1,
+                history: [],
+                isArchived: false,
+                orderIndex: 2,
+                status: "PUBLISHED",
+                lastUpdatedBy: "System",
+                lastUpdatedAt: Date.now()
+            },
+            {
+                id: "ssic-70201",
+                code: "70201",
+                name: "Management consultancy services",
+                category: "Professional, Scientific and Technical Activities",
+                description: "Providing advisory and operational assistance to businesses on management, strategy, and logistics.",
+                sectionCode: "M",
+                sectionName: "Professional, Scientific and Technical Activities",
+                divisionCode: "70",
+                divisionName: "Activities of head offices; management consultancy activities",
+                groupCode: "702",
+                groupName: "Management consultancy activities",
+                classCode: "7020",
+                className: "Management consultancy activities",
+                keywords: "consulting, business advisory, management",
+                synonyms: "business consultant, management advisor, corporate advisor",
+                abbreviations: "mc, consulting",
+                version: 1,
+                history: [],
+                isArchived: false,
+                orderIndex: 3,
+                status: "PUBLISHED",
+                lastUpdatedBy: "System",
+                lastUpdatedAt: Date.now()
+            },
+            {
+                id: "ssic-64201",
+                code: "64201",
+                name: "Holding companies",
+                category: "Financial and Insurance Activities",
+                description: "Investment holding companies that hold shares in subsidiary companies.",
+                sectionCode: "K",
+                sectionName: "Financial and Insurance Activities",
+                divisionCode: "64",
+                divisionName: "Financial service activities, except insurance and pension funding",
+                groupCode: "642",
+                groupName: "Activities of holding companies",
+                classCode: "6420",
+                className: "Activities of holding companies",
+                keywords: "holding, investment, shares, asset management",
+                synonyms: "investment holding, parent company, shares holder",
+                abbreviations: "holding, inv",
+                version: 1,
+                history: [],
+                isArchived: false,
+                orderIndex: 4,
+                status: "PUBLISHED",
+                lastUpdatedBy: "System",
+                lastUpdatedAt: Date.now()
+            }
+        ];
+        fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+    }
+    if (!db.preregSections) {
+        db.preregSections = [
+            {
+                id: "sec-names",
+                key: "names",
+                title: "SSIC & Industry Name",
+                description: "Proposed names and activities for ACRA verification",
+                type: "form",
+                sortOrder: 1,
+                status: "PUBLISHED",
+                lastUpdatedBy: "System",
+                lastUpdatedAt: Date.now(),
+                fields: [
+                    { key: "names[0]", label: "Proposed Name Option 1", type: "text", required: true, placeholder: "Primary preferred name" },
+                    { key: "names[1]", label: "Proposed Name Option 2", type: "text", required: true, placeholder: "Backup name if Option 1 is unavailable" },
+                    { key: "names[2]", label: "Proposed Name Option 3", type: "text", required: false, placeholder: "Alternative name or enter NA" },
+                    { key: "activities.primary", label: "Primary Business Activity (SSIC Code)", type: "ssic-single", required: true, placeholder: "Search by SSIC code or activity name" },
+                    { key: "activities.secondary", label: "Secondary Business Activity (SSIC Code)", type: "ssic-single", required: false, placeholder: "Search by SSIC code or activity name" },
+                    { key: "names[3]", label: "Proposed Name Option 4", type: "text", required: false, placeholder: "" }
+                ],
+                documents: [],
+                checklists: [],
+                attachments: [],
+                faqs: [],
+                publishedData: null
+            },
+            {
+                id: "sec-directors-shareholders",
+                key: "directors-shareholders",
+                title: "Directors & Shareholders",
+                description: "Details of company directors and shareholders",
+                type: "form",
+                sortOrder: 2,
+                status: "PUBLISHED",
+                lastUpdatedBy: "System",
+                lastUpdatedAt: Date.now(),
+                fields: [
+                    { key: "secretary.required", label: "Corporate secretary", type: "switch", required: false, placeholder: "$720 per year", hint: "Required within 6 months. Handles annual filings and board minutes." }
+                ],
+                documents: [],
+                checklists: [],
+                attachments: [],
+                faqs: [],
+                publishedData: null
+            },
+            {
+                id: "sec-addons",
+                key: "addons",
+                title: "Add-on Services",
+                description: "Select additional corporate and compliance services",
+                type: "form",
+                sortOrder: 3,
+                status: "PUBLISHED",
+                lastUpdatedBy: "System",
+                lastUpdatedAt: Date.now(),
+                fields: [
+                    { key: "addons.bankIntro", label: "Bank account introduction", type: "switch", required: false, placeholder: "$350 one-time", hint: "Warm intros to DBS, OCBC, HSBC, Aspire, Wio, Mashreq. We prepare KYC and stay on the call." },
+                    { key: "addons.statCompliance", label: "Statutory & compliance package", type: "switch", required: false, placeholder: "$480 per year", hint: "Annual filings, AGM resolutions, statutory registers maintained, ESOP support when needed." },
+                    { key: "addons.accounting", label: "Accounting & bookkeeping", type: "switch", required: false, placeholder: "$220 per month", hint: "Monthly bookkeeping in Xero, financial statements compiled to standards, payroll with CPF processing." },
+                    { key: "addons.taxCompliance", label: "Tax compliance package", type: "switch", required: false, placeholder: "$720 per year", hint: "Compilation of corporate tax returns (Form C-S), filing of ECI, GST advisory and filings." },
+                    { key: "addons.crossBorderTax", label: "Cross-Border Tax Structuring", type: "switch", required: false, placeholder: "$4,500 one-time", hint: "Advisory on IP holding, transfer pricing policy documentation, setup of offshore corporate wrappers." },
+                    { key: "addons.apostille", label: "Apostille + Notarisation", type: "switch", required: false, placeholder: "$280 one-time", hint: "Legalisation of incorporation files for use in foreign countries. Includes courier fees." }
+                ],
+                documents: [],
+                checklists: [],
+                attachments: [],
+                faqs: [],
+                publishedData: null
+            },
+            {
+                id: "sec-office",
+                key: "office",
+                title: "Registered Office",
+                description: "Singapore registered office details",
+                type: "form",
+                sortOrder: 4,
+                status: "PUBLISHED",
+                lastUpdatedBy: "System",
+                lastUpdatedAt: Date.now(),
+                fields: [
+                    { key: "office.useService", label: "Registered office address", type: "switch", required: false, placeholder: "$480 per year", hint: "Statutorily required. Real address in Singapore, mail scanned weekly." },
+                    { key: "office.address", label: "Office Address", type: "textarea", required: true, placeholder: "Enter your own address if not using Globalisor service", condKey: "office.useService", condOperator: "equals", condValue: "false", hint: "Please enter full address details." }
+                ],
+                documents: [],
+                checklists: [],
+                attachments: [],
+                faqs: [],
+                publishedData: null
+            },
+            {
+                id: "sec-package-next",
+                key: "contact",
+                title: "Your package is up Next",
+                description: "Provide your contact information for package processing",
+                type: "form",
+                sortOrder: 5,
+                status: "PUBLISHED",
+                lastUpdatedBy: "System",
+                lastUpdatedAt: Date.now(),
+                fields: [
+                    { key: "contact.firstName", label: "First Name", type: "text", required: true, placeholder: "First name" },
+                    { key: "contact.lastName", label: "Last Name", type: "text", required: true, placeholder: "Last name" },
+                    { key: "contact.phone", label: "Contact Number", type: "text", required: true, placeholder: "+65 1234 5678" },
+                    { key: "contact.email", label: "Email ID", type: "text", required: true, placeholder: "email@example.com" }
+                ],
+                documents: [],
+                checklists: [],
+                attachments: [],
+                faqs: [],
+                publishedData: null
+            },
+            {
+                id: "sec-checkout",
+                key: "checkout",
+                title: "Package Summary & Payment",
+                description: "Review your details, select packages, and complete payment",
+                type: "form",
+                sortOrder: 6,
+                status: "PUBLISHED",
+                lastUpdatedBy: "System",
+                lastUpdatedAt: Date.now(),
+                fields: [],
+                documents: [],
+                checklists: [],
+                attachments: [],
+                faqs: [],
+                publishedData: null
+            }
+        ];
+
+        db.preregSections.forEach(s => {
+            s.publishedData = {
+                id: s.id,
+                key: s.key,
+                title: s.title,
+                description: s.description,
+                type: s.type,
+                sortOrder: s.sortOrder,
+                fields: s.fields,
+                applicableServices: "All",
+                checklists: s.checklists,
+                faqs: s.faqs,
+                attachments: s.attachments,
+                documents: s.documents
+            };
+        });
+
+        fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+    }
     return db;
 };
 const saveDb = (data) => fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
@@ -667,6 +946,463 @@ app.delete('/api/countries/:id', (req, res) => {
     db.countries = db.countries.filter(c => c.id !== id);
     saveDb(db);
     res.status(204).send();
+});
+
+// --- SSIC ENDPOINTS ---
+app.get('/api/ssic-activities', (req, res) => {
+    const db = getDb();
+    let list = db.ssicActivities || [];
+    
+    // Filter out archived unless explicitly requested
+    if (req.query.includeArchived !== 'true') {
+        list = list.filter(a => !a.isArchived);
+    }
+    
+    // Sort by orderIndex ascending, fallback to code ascending
+    const sorted = [...list].sort((a, b) => {
+        const orderA = a.orderIndex !== undefined ? a.orderIndex : 999999;
+        const orderB = b.orderIndex !== undefined ? b.orderIndex : 999999;
+        if (orderA !== orderB) return orderA - orderB;
+        return (a.code || '').localeCompare(b.code || '');
+    });
+    res.json(sorted);
+});
+
+app.get('/api/ssic-activities/published', (req, res) => {
+    const db = getDb();
+    const published = (db.ssicActivities || [])
+        .filter(a => a.status === 'PUBLISHED' && !a.isArchived)
+        .sort((a, b) => {
+            const orderA = a.orderIndex !== undefined ? a.orderIndex : 999999;
+            const orderB = b.orderIndex !== undefined ? b.orderIndex : 999999;
+            if (orderA !== orderB) return orderA - orderB;
+            return (a.code || '').localeCompare(b.code || '');
+        });
+    res.json(published);
+});
+
+app.post('/api/ssic-activities', (req, res) => {
+    const db = getDb();
+    if (!db.ssicActivities) db.ssicActivities = [];
+    
+    const { code, name } = req.body;
+    if (!code || !name) {
+        return res.status(400).json({ error: 'Code and name are required' });
+    }
+    
+    const maxOrder = db.ssicActivities.reduce((max, a) => Math.max(max, a.orderIndex !== undefined ? a.orderIndex : 0), 0);
+    
+    const newActivity = {
+        id: "ssic-" + Date.now(),
+        status: "DRAFT",
+        version: 1,
+        history: [],
+        isArchived: false,
+        orderIndex: maxOrder + 1,
+        lastUpdatedBy: req.body.lastUpdatedBy || "Admin",
+        lastUpdatedAt: Date.now(),
+        ...req.body
+    };
+    
+    db.ssicActivities.push(newActivity);
+    saveDb(db);
+    res.status(201).json(newActivity);
+});
+
+app.put('/api/ssic-activities/:id', (req, res) => {
+    const db = getDb();
+    const id = req.params.id;
+    const index = db.ssicActivities ? db.ssicActivities.findIndex(a => a.id === id) : -1;
+    if (index !== -1) {
+        const existing = db.ssicActivities[index];
+        
+        // Exclude auditing fields when checking for modifications
+        const auditKeys = ['id', 'history', 'version', 'lastUpdatedBy', 'lastUpdatedAt', 'orderIndex', 'isArchived'];
+        let hasChanges = false;
+        for (const key of Object.keys(req.body)) {
+            if (auditKeys.includes(key)) continue;
+            if (req.body[key] !== existing[key]) {
+                hasChanges = true;
+                break;
+            }
+        }
+        
+        if (hasChanges) {
+            const prevVersion = existing.version || 1;
+            const historyEntry = {
+                version: prevVersion,
+                updatedBy: existing.lastUpdatedBy || "Admin",
+                updatedAt: existing.lastUpdatedAt || Date.now(),
+                state: {
+                    code: existing.code,
+                    name: existing.name,
+                    category: existing.category,
+                    description: existing.description,
+                    sectionCode: existing.sectionCode,
+                    sectionName: existing.sectionName,
+                    divisionCode: existing.divisionCode,
+                    divisionName: existing.divisionName,
+                    groupCode: existing.groupCode,
+                    groupName: existing.groupName,
+                    classCode: existing.classCode,
+                    className: existing.className,
+                    keywords: existing.keywords,
+                    synonyms: existing.synonyms,
+                    abbreviations: existing.abbreviations,
+                    status: existing.status
+                }
+            };
+            if (!existing.history) existing.history = [];
+            existing.history.push(historyEntry);
+            
+            db.ssicActivities[index] = {
+                ...existing,
+                ...req.body,
+                version: prevVersion + 1,
+                lastUpdatedBy: req.body.lastUpdatedBy || "Admin",
+                lastUpdatedAt: Date.now()
+            };
+        } else {
+            // Just update orderIndex or simple non-content field if sent
+            db.ssicActivities[index] = {
+                ...existing,
+                ...req.body
+            };
+        }
+        
+        saveDb(db);
+        res.json(db.ssicActivities[index]);
+    } else {
+        res.status(404).json({ error: 'SSIC Activity not found' });
+    }
+});
+
+app.delete('/api/ssic-activities/:id', (req, res) => {
+    const db = getDb();
+    const id = req.params.id;
+    const index = db.ssicActivities ? db.ssicActivities.findIndex(a => a.id === id) : -1;
+    if (index !== -1) {
+        db.ssicActivities[index].isArchived = true;
+        db.ssicActivities[index].status = 'ARCHIVED';
+        db.ssicActivities[index].lastUpdatedBy = "Admin";
+        db.ssicActivities[index].lastUpdatedAt = Date.now();
+        saveDb(db);
+        res.json(db.ssicActivities[index]);
+    } else {
+        res.status(404).json({ error: 'SSIC Activity not found' });
+    }
+});
+
+app.post('/api/ssic-activities/:id/publish', (req, res) => {
+    const db = getDb();
+    const id = req.params.id;
+    const index = db.ssicActivities ? db.ssicActivities.findIndex(a => a.id === id) : -1;
+    if (index !== -1) {
+        db.ssicActivities[index].status = 'PUBLISHED';
+        db.ssicActivities[index].lastUpdatedBy = "Admin";
+        db.ssicActivities[index].lastUpdatedAt = Date.now();
+        saveDb(db);
+        res.json(db.ssicActivities[index]);
+    } else {
+        res.status(404).json({ error: 'SSIC Activity not found' });
+    }
+});
+
+app.post('/api/ssic-activities/:id/unpublish', (req, res) => {
+    const db = getDb();
+    const id = req.params.id;
+    const index = db.ssicActivities ? db.ssicActivities.findIndex(a => a.id === id) : -1;
+    if (index !== -1) {
+        db.ssicActivities[index].status = 'UNPUBLISHED';
+        db.ssicActivities[index].lastUpdatedBy = "Admin";
+        db.ssicActivities[index].lastUpdatedAt = Date.now();
+        saveDb(db);
+        res.json(db.ssicActivities[index]);
+    } else {
+        res.status(404).json({ error: 'SSIC Activity not found' });
+    }
+});
+
+// --- SSIC EXTENSIONS (IMPORT & REORDER) ---
+app.post('/api/ssic-activities/import', (req, res) => {
+    const db = getDb();
+    const imported = req.body.activities;
+    if (!Array.isArray(imported)) {
+        return res.status(400).json({ error: 'Invalid payload: activities array required' });
+    }
+    if (!db.ssicActivities) db.ssicActivities = [];
+    
+    let addedCount = 0;
+    let updatedCount = 0;
+    
+    imported.forEach(item => {
+        if (!item.code) return;
+        const index = db.ssicActivities.findIndex(a => a.code === item.code);
+        if (index !== -1) {
+            // Update existing with draft version
+            const existing = db.ssicActivities[index];
+            const prevVersion = existing.version || 1;
+            
+            // Check for changes
+            const auditKeys = ['id', 'history', 'version', 'lastUpdatedBy', 'lastUpdatedAt', 'orderIndex', 'isArchived'];
+            let hasChanges = false;
+            for (const key of Object.keys(item)) {
+                if (auditKeys.includes(key)) continue;
+                if (item[key] !== existing[key]) {
+                    hasChanges = true;
+                    break;
+                }
+            }
+            
+            if (hasChanges) {
+                const historyEntry = {
+                    version: prevVersion,
+                    updatedBy: existing.lastUpdatedBy || "Admin",
+                    updatedAt: existing.lastUpdatedAt || Date.now(),
+                    state: {
+                        code: existing.code,
+                        name: existing.name,
+                        category: existing.category,
+                        description: existing.description,
+                        sectionCode: existing.sectionCode,
+                        sectionName: existing.sectionName,
+                        divisionCode: existing.divisionCode,
+                        divisionName: existing.divisionName,
+                        groupCode: existing.groupCode,
+                        groupName: existing.groupName,
+                        classCode: existing.classCode,
+                        className: existing.className,
+                        keywords: existing.keywords,
+                        synonyms: existing.synonyms,
+                        abbreviations: existing.abbreviations,
+                        status: existing.status
+                    }
+                };
+                if (!existing.history) existing.history = [];
+                existing.history.push(historyEntry);
+                
+                db.ssicActivities[index] = {
+                    ...existing,
+                    ...item,
+                    version: prevVersion + 1,
+                    status: 'DRAFT', // draft status for safety/review
+                    isArchived: false,
+                    lastUpdatedBy: "Import Utility",
+                    lastUpdatedAt: Date.now()
+                };
+                updatedCount++;
+            }
+        } else {
+            // Add new as Draft
+            const maxOrder = db.ssicActivities.reduce((max, a) => Math.max(max, a.orderIndex !== undefined ? a.orderIndex : 0), 0);
+            const newActivity = {
+                id: "ssic-" + Date.now() + "-" + Math.random().toString(36).substr(2, 5),
+                status: "DRAFT",
+                version: 1,
+                history: [],
+                isArchived: false,
+                orderIndex: maxOrder + 1,
+                lastUpdatedBy: "Import Utility",
+                lastUpdatedAt: Date.now(),
+                ...item
+            };
+            db.ssicActivities.push(newActivity);
+            addedCount++;
+        }
+    });
+    
+    saveDb(db);
+    res.json({ success: true, added: addedCount, updated: updatedCount });
+});
+
+app.post('/api/ssic-activities/reorder', (req, res) => {
+    const db = getDb();
+    const orderedIds = req.body;
+    if (orderedIds && Array.isArray(orderedIds)) {
+        orderedIds.forEach((id, index) => {
+            const aIdx = db.ssicActivities.findIndex(a => a.id === id);
+            if (aIdx !== -1) {
+                db.ssicActivities[aIdx].orderIndex = index;
+            }
+        });
+        saveDb(db);
+        res.status(200).send();
+    } else {
+        res.status(400).json({ error: 'Invalid payload' });
+    }
+});
+
+// --- PREREG SECTIONS ENDPOINTS ---
+app.get('/api/prereg-sections', (req, res) => {
+    const db = getDb();
+    const sorted = [...(db.preregSections || [])].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    res.json(sorted);
+});
+
+app.get('/api/prereg-sections/published', (req, res) => {
+    const db = getDb();
+    const sorted = [...(db.preregSections || [])].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const published = sorted
+        .filter(s => s.status === 'PUBLISHED' && s.publishedData)
+        .map(s => s.publishedData);
+    res.json(published);
+});
+
+app.get('/api/prereg-sections/preview', (req, res) => {
+    const db = getDb();
+    const sorted = [...(db.preregSections || [])].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const preview = sorted.filter(s => s.status !== 'UNPUBLISHED');
+    res.json(preview);
+});
+
+app.post('/api/prereg-sections', (req, res) => {
+    const db = getDb();
+    if (!db.preregSections) db.preregSections = [];
+    const maxOrder = db.preregSections.reduce((max, s) => Math.max(max, s.sortOrder || 0), 0);
+    
+    const newSection = {
+        id: "prereg-" + Date.now(),
+        status: "DRAFT",
+        sortOrder: maxOrder + 1,
+        lastUpdatedBy: "Admin",
+        lastUpdatedAt: Date.now(),
+        fields: [],
+        documents: [],
+        checklists: [],
+        attachments: [],
+        faqs: [],
+        publishedData: null,
+        ...req.body
+    };
+    db.preregSections.push(newSection);
+    saveDb(db);
+    res.status(201).json(newSection);
+});
+
+app.put('/api/prereg-sections/:id', (req, res) => {
+    const db = getDb();
+    const id = req.params.id;
+    const index = db.preregSections ? db.preregSections.findIndex(s => s.id === id) : -1;
+    if (index !== -1) {
+        const existing = db.preregSections[index];
+        const wasPublished = existing.status === 'PUBLISHED';
+        
+        const updates = { ...req.body };
+        if (id.startsWith('sec-')) {
+            delete updates.key;
+        }
+
+        db.preregSections[index] = {
+            ...existing,
+            ...updates,
+            lastUpdatedBy: "Admin",
+            lastUpdatedAt: Date.now()
+        };
+
+        if (wasPublished) {
+            db.preregSections[index].status = 'PUBLISHED';
+            db.preregSections[index].publishedData = {
+                id: db.preregSections[index].id,
+                key: db.preregSections[index].key,
+                title: db.preregSections[index].title,
+                description: db.preregSections[index].description,
+                type: db.preregSections[index].type,
+                sortOrder: db.preregSections[index].sortOrder,
+                fields: db.preregSections[index].fields,
+                applicableServices: db.preregSections[index].applicableServices || "All",
+                checklists: db.preregSections[index].checklists || [],
+                faqs: db.preregSections[index].faqs || [],
+                attachments: db.preregSections[index].attachments || [],
+                documents: db.preregSections[index].documents || []
+            };
+        } else {
+            db.preregSections[index].status = 'DRAFT';
+        }
+
+        saveDb(db);
+        res.json(db.preregSections[index]);
+    } else {
+        res.status(404).json({ error: 'Section not found' });
+    }
+});
+
+app.delete('/api/prereg-sections/:id', (req, res) => {
+    const db = getDb();
+    const id = req.params.id;
+    if (db.preregSections) {
+        db.preregSections = db.preregSections.filter(s => s.id !== id);
+        saveDb(db);
+        res.status(200).send();
+    } else {
+        res.status(404).json({ error: 'Section not found' });
+    }
+});
+
+app.post('/api/prereg-sections/:id/publish', (req, res) => {
+    const db = getDb();
+    const id = req.params.id;
+    const index = db.preregSections ? db.preregSections.findIndex(s => s.id === id) : -1;
+    if (index !== -1) {
+        const s = db.preregSections[index];
+        s.status = 'PUBLISHED';
+        s.lastUpdatedBy = "Admin";
+        s.lastUpdatedAt = Date.now();
+        s.publishedData = {
+            id: s.id,
+            key: s.key,
+            title: s.title,
+            description: s.description,
+            type: s.type,
+            sortOrder: s.sortOrder,
+            fields: s.fields || [],
+            applicableServices: s.applicableServices || "All",
+            checklists: s.checklists || [],
+            faqs: s.faqs || [],
+            attachments: s.attachments || [],
+            documents: s.documents || []
+        };
+        saveDb(db);
+        res.json(s);
+    } else {
+        res.status(404).json({ error: 'Section not found' });
+    }
+});
+
+app.post('/api/prereg-sections/:id/unpublish', (req, res) => {
+    const db = getDb();
+    const id = req.params.id;
+    const index = db.preregSections ? db.preregSections.findIndex(s => s.id === id) : -1;
+    if (index !== -1) {
+        db.preregSections[index].status = 'UNPUBLISHED';
+        db.preregSections[index].lastUpdatedBy = "Admin";
+        db.preregSections[index].lastUpdatedAt = Date.now();
+        saveDb(db);
+        res.json(db.preregSections[index]);
+    } else {
+        res.status(404).json({ error: 'Section not found' });
+    }
+});
+
+app.post('/api/prereg-sections/reorder', (req, res) => {
+    const db = getDb();
+    const orderIds = req.body;
+    if (orderIds && Array.isArray(orderIds) && db.preregSections) {
+        orderIds.forEach((id, index) => {
+            const sIdx = db.preregSections.findIndex(s => s.id === id);
+            if (sIdx !== -1) {
+                db.preregSections[sIdx].sortOrder = index + 1;
+                db.preregSections[sIdx].lastUpdatedBy = "Admin";
+                db.preregSections[sIdx].lastUpdatedAt = Date.now();
+                if (db.preregSections[sIdx].publishedData) {
+                    db.preregSections[sIdx].publishedData.sortOrder = index + 1;
+                }
+            }
+        });
+        saveDb(db);
+        res.status(200).send();
+    } else {
+        res.status(400).json({ error: 'Invalid payload' });
+    }
 });
 
 // --- STAFF ENDPOINTS ---

@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff ID Card Manager | Globalisor Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    
+    <!-- PDF/PNG Generation dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <script>
+        if (!localStorage.getItem('admin_auth')) window.location.href = '/auth.html';
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], outfit: ['Outfit', 'sans-serif'] },
+                    colors: { slate: { 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 800: '#1e293b', 900: '#0f172a' } }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Outfit', sans-serif; background: #ffffff; min-height: 100vh; overflow-x: hidden; }
+        .top-nav { height: 60px; background: #ffffff; backdrop-filter: blur(20px); border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1.5rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
+        .main-container { padding: 2rem; max-width: 1600px; margin-left: 240px !important; margin-right: auto; }
+        #module-switcher {
+            position: fixed !important;
+            top: 60px !important;
+            left: 0 !important;
+            width: 240px !important;
+            height: calc(100vh - 60px) !important;
+            background: #ffffff !important;
+            border-right: 1px solid #e2e8f0 !important;
+            z-index: 9998 !important;
+        }
+        .glass-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.02); }
+        .admin-table { width: 100%; border-collapse: collapse; }
+        .admin-table th { padding: 1rem 1.5rem; font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #f1f5f9; background: #f8fafc; }
+        .admin-table td { padding: 1rem 1.5rem; font-size: 0.85rem; color: #1e293b; border-bottom: 1px solid #f1f5f9; }
+
+        /* Premium Flip Card Styling */
+        .id-card-wrapper {
+            perspective: 1000px;
+            width: 320px;
+            height: 500px;
+            cursor: pointer;
+        }
+        .id-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform-style: preserve-3d;
+        }
+        .id-card-wrapper.flipped .id-card-inner {
+            transform: rotateY(180deg);
+        }
+        .id-card-front, .id-card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15);
+        }
+        .id-card-front {
+            background: linear-gradient(145deg, #0f172a 0%, #1e1b4b 100%);
+            color: #ffffff;
+        }
+        .id-card-back {
+            background: linear-gradient(145deg, #1e1b4b 0%, #0f172a 100%);
+            color: #ffffff;
+            transform: rotateY(180deg);
+        }
+        .glow-front {
+            position: absolute;
+            top: -20%;
+            left: -20%;
+            width: 140%;
+            height: 140%;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .glow-back {
+            position: absolute;
+            top: -20%;
+            left: -20%;
+            width: 140%;
+            height: 140%;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        /* Custom side slide drawer */
+        .drawer-overlay {
+            position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 10000;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+        }
+        .drawer-overlay.open { opacity: 1; pointer-events: auto; }
+        .drawer {
+            position: fixed; top: 0; right: -500px; width: 480px; height: 100vh; background: #ffffff;
+            box-shadow: -10px 0 40px rgba(0,0,0,0.1); z-index: 10001; transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex; flex-direction: column; overflow-y: auto;
+        }
+        .drawer.open { right: 0; }
+
+        /* Print styles */
+        @media print {
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { position: absolute; left: 0; top: 0; width: 100%; display: flex !important; flex-wrap: wrap; gap: 20px; }
+            .id-card-wrapper { page-break-inside: avoid; }
+        }
+    </style>
+    <script type="module" src="admin-sidebar.js"></script>
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="flex items-center gap-4">
+            <div class="flex flex-col leading-none cursor-pointer" onclick="window.location.href='dashboard.html'">
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Admin</span>
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Portal</span>
+            </div>
+        </div>
+        <div id="module-switcher"></div>
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-xs">A</div>
+            <div class="flex flex-col">
+                <div class="text-xs font-semibold text-slate-800">Admin Team</div>
+                <button onclick="localStorage.removeItem('admin_auth'); localStorage.removeItem('token'); window.location.href='/auth.html'" class="text-[10px] text-red-500 font-bold hover:underline text-left leading-none">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-container space-y-8">
+        <div class="flex justify-between items-center flex-wrap gap-4">
+            <div>
+                <h1 class="text-3xl font-bold font-outfit text-slate-900">Staff ID Cards</h1>
+                <p class="text-slate-500 text-sm">Preview, edit, generate, and reissue identification cards for Globalisor staff members.</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="triggerBulkDownload()" id="bulk-download-btn" class="hidden px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2">
+                    <i data-lucide="download" class="w-4 h-4"></i> Bulk Download PDF (<span id="selected-count">0</span>)
+                </button>
+                <button onclick="triggerBulkPrint()" id="bulk-print-btn" class="hidden px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2">
+                    <i data-lucide="printer" class="w-4 h-4"></i> Bulk Print (<span id="selected-count-print">0</span>)
+                </button>
+            </div>
+        </div>
+
+        <!-- Staff List Glass Card -->
+        <div class="glass-card overflow-hidden">
+            <table class="admin-table">
+                <thead>
+                    <tr class="text-left">
+                        <th class="w-12 text-center">
+                            <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)" class="rounded border-slate-300">
+                        </th>
+                        <th>Name</th>
+                        <th>Employee ID</th>
+                        <th>Designation</th>
+                        <th>Department</th>
+                        <th>Validity</th>
+                        <th>Status</th>
+                        <th class="text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="cards-table-body">
+                    <tr>
+                        <td colspan="8" class="p-16 text-center text-slate-400">Loading staff data directory...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Side Preview Drawer -->
+    <div id="drawer-overlay" class="drawer-overlay" onclick="closeDrawer()"></div>
+    <div id="preview-drawer" class="drawer">
+        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <div>
+                <h3 class="font-bold text-slate-900 text-base">Card Preview & Settings</h3>
+                <p class="text-slate-400 text-xs mt-0.5" id="drawer-staff-email"></p>
+            </div>
+            <button onclick="closeDrawer()" class="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-xl transition-all">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <div class="p-6 flex-1 flex flex-col items-center space-y-8">
+            <!-- Instructions -->
+            <p class="text-xs text-slate-400 text-center font-medium">Click on the card to flip between Front and Back design.</p>
+
+            <!-- Flippable Card Outer Container -->
+            <div id="flippable-card-container">
+                <!-- Injected dynamically -->
+            </div>
+
+            <!-- Card Actions Row -->
+            <div class="flex items-center gap-3 w-full max-w-[320px]">
+                <button onclick="downloadCardPNG()" class="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm">
+                    <i data-lucide="image" class="w-4 h-4"></i> PNG
+                </button>
+                <button onclick="downloadCardPDF()" class="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm">
+                    <i data-lucide="file-text" class="w-4 h-4"></i> PDF
+                </button>
+                <button onclick="printSingleCard()" class="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md">
+                    <i data-lucide="printer" class="w-4 h-4"></i> Print
+                </button>
+            </div>
+
+            <div class="w-full border-t border-slate-100 pt-6 space-y-6">
+                <!-- Modify Profile Fields -->
+                <form id="edit-card-form" class="space-y-4 text-xs font-semibold text-slate-600">
+                    <input type="hidden" id="edit-id">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block mb-1 text-[10px] uppercase font-bold text-slate-400">Employee ID</label>
+                            <input type="text" id="edit-emp-id" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10 transition-all">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-[10px] uppercase font-bold text-slate-400">Department</label>
+                            <input type="text" id="edit-dept" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10 transition-all">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block mb-1 text-[10px] uppercase font-bold text-slate-400">Designation</label>
+                        <input type="text" id="edit-desig" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10 transition-all">
+                    </div>
+                    <!-- Photo Selection -->
+                    <div>
+                        <label class="block mb-1 text-[10px] uppercase font-bold text-slate-400">Upload Photo</label>
+                        <div class="flex items-center gap-3">
+                            <input type="file" id="photo-file-input" class="hidden" accept="image/*" onchange="handlePhotoUpload(event)">
+                            <button type="button" onclick="document.getElementById('photo-file-input').click()" class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 shadow-sm transition-all flex items-center gap-1.5">
+                                <i data-lucide="upload" class="w-4 h-4"></i> Choose File
+                            </button>
+                            <span id="photo-filename" class="text-xs text-slate-400 font-normal italic">No file selected</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-3 pt-2">
+                        <button type="submit" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md">
+                            Save Configuration
+                        </button>
+                    </div>
+                </form>
+
+                <div class="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-700">Reissue ID Card</h4>
+                        <p class="text-[10px] text-slate-400 mt-0.5">Extend validity by 2 years from today and reactivate card.</p>
+                    </div>
+                    <button onclick="reissueCard()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md">
+                        Reissue
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Printable Area -->
+    <div id="print-area" class="hidden"></div>
+
+    <script>
+        let allStaffCards = [];
+        let selectedStaffCard = null;
+        let uploadedPhotoBase64 = null;
+
+        // Fetch staff cards data on load
+        async function fetchStaffCards() {
+            try {
+                const res = await fetch('/api/hr/staff-cards');
+                if (res.ok) {
+                    allStaffCards = await res.json();
+                    renderCardsTable();
+                }
+            } catch (err) {
+                console.error("Failed to load staff card details", err);
+            }
+        }
+
+        function renderCardsTable() {
+            const tbody = document.getElementById('cards-table-body');
+            if (!tbody) return;
+
+            if (allStaffCards.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-16 text-center text-slate-400">No staff accounts found.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = allStaffCards.map(s => {
+                const activeLabel = s.cardStatus === 'ACTIVE' 
+                    ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 uppercase border border-emerald-100">Active</span>`
+                    : `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-600 uppercase border border-red-100">Inactive</span>`;
+
+                return `
+                    <tr class="hover:bg-slate-50/50 transition-colors">
+                        <td class="text-center">
+                            <input type="checkbox" value="${s.id}" class="staff-checkbox rounded border-slate-300" onchange="updateSelectedCount()">
+                        </td>
+                        <td>
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-slate-100 border border-slate-200/50 flex items-center justify-center font-bold text-xs text-slate-600 overflow-hidden">
+                                    ${s.staffPhoto ? `<img src="${s.staffPhoto}" class="w-full h-full object-cover">` : getInitials(s.name)}
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="font-bold text-slate-900 text-xs">${s.name}</span>
+                                    <span class="text-[10px] text-slate-400 font-semibold">${s.email}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="font-bold text-xs text-slate-700 font-mono">${s.employeeId}</td>
+                        <td class="font-bold text-xs text-slate-500">${s.designation}</td>
+                        <td class="font-bold text-xs text-slate-400 uppercase tracking-wider">${s.department}</td>
+                        <td class="text-xs text-slate-500 font-medium">Until: ${s.cardValidUntil}</td>
+                        <td>${activeLabel}</td>
+                        <td class="text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <button onclick="toggleCardStatus('${s.id}', '${s.cardStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'}')" class="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-xs font-bold transition-all text-slate-600 shadow-sm" title="Toggle Active/Inactive">
+                                    <i data-lucide="${s.cardStatus === 'ACTIVE' ? 'shield-off' : 'shield-check'}" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="openCardPreview('${s.id}')" class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1.5">
+                                    <i data-lucide="eye" class="w-3.5 h-3.5"></i> Open Config
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            if (window.lucide) window.lucide.createIcons();
+            updateSelectedCount();
+        }
+
+        function getInitials(name) {
+            return name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+        }
+
+        // Selection Handlers
+        function toggleSelectAll(master) {
+            document.querySelectorAll('.staff-checkbox').forEach(cb => cb.checked = master.checked);
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            const checked = document.querySelectorAll('.staff-checkbox:checked').length;
+            const downloadBtn = document.getElementById('bulk-download-btn');
+            const printBtn = document.getElementById('bulk-print-btn');
+            
+            document.getElementById('selected-count').innerText = checked;
+            document.getElementById('selected-count-print').innerText = checked;
+
+            if (checked > 0) {
+                downloadBtn.classList.remove('hidden');
+                printBtn.classList.remove('hidden');
+            } else {
+                downloadBtn.classList.add('hidden');
+                printBtn.classList.add('hidden');
+            }
+        }
+
+        // --- Card Preview Drawer and Flip UI ---
+        function openCardPreview(id) {
+            selectedStaffCard = allStaffCards.find(s => s.id === id);
+            if (!selectedStaffCard) return;
+
+            document.getElementById('drawer-staff-email').innerText = selectedStaffCard.email;
+
+            // Form bindings
+            document.getElementById('edit-id').value = selectedStaffCard.id;
+            document.getElementById('edit-emp-id').value = selectedStaffCard.employeeId;
+            document.getElementById('edit-dept').value = selectedStaffCard.department;
+            document.getElementById('edit-desig').value = selectedStaffCard.designation;
+            document.getElementById('photo-filename').innerText = "No file selected";
+            uploadedPhotoBase64 = null;
+
+            renderFlipCardPreview();
+
+            // Open drawers
+            document.getElementById('drawer-overlay').classList.add('open');
+            document.getElementById('preview-drawer').classList.add('open');
+        }
+
+        function closeDrawer() {
+            document.getElementById('drawer-overlay').classList.remove('open');
+            document.getElementById('preview-drawer').classList.remove('open');
+        }
+
+        function renderFlipCardPreview() {
+            const container = document.getElementById('flippable-card-container');
+            container.innerHTML = `
+                <div class="id-card-wrapper" onclick="this.classList.toggle('flipped')" id="active-flippable-card">
+                    <div class="id-card-inner">
+                        <!-- Front Side -->
+                        <div class="id-card-front p-6 flex flex-col justify-between select-none">
+                            <div class="glow-front"></div>
+                            
+                            <!-- Header logo & stamp -->
+                            <div class="flex justify-between items-start shrink-0">
+                                <div class="flex items-center gap-1.5">
+                                    <div class="w-6 h-6 rounded bg-emerald-500 flex items-center justify-center font-bold text-white text-xs">G</div>
+                                    <span class="font-outfit font-extrabold text-white text-xs tracking-wider uppercase">Globalisor</span>
+                                </div>
+                                <div class="text-[7px] border border-slate-700/50 bg-slate-800/40 px-2 py-0.5 rounded font-black text-slate-400 uppercase tracking-widest">Enterprise</div>
+                            </div>
+
+                            <!-- Avatar -->
+                            <div class="flex flex-col items-center justify-center py-4 space-y-3 shrink-0">
+                                <div class="w-24 h-24 rounded-full overflow-hidden border-2 border-slate-700/40 bg-slate-800 flex items-center justify-center text-3xl font-bold font-outfit text-white shadow-xl shadow-black/10">
+                                    ${selectedStaffCard.staffPhoto ? `<img src="${selectedStaffCard.staffPhoto}" class="w-full h-full object-cover">` : getInitials(selectedStaffCard.name)}
+                                </div>
+                                <div class="text-center">
+                                    <h3 class="font-bold text-white text-sm tracking-wide leading-tight">${selectedStaffCard.name}</h3>
+                                    <p class="text-[9px] font-bold text-emerald-400 uppercase tracking-widest mt-1">${selectedStaffCard.designation}</p>
+                                    <p class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">${selectedStaffCard.department}</p>
+                                </div>
+                            </div>
+
+                            <!-- QR Code & Emp details -->
+                            <div class="flex justify-between items-end border-t border-slate-800/60 pt-4 shrink-0">
+                                <div class="flex flex-col text-left">
+                                    <span class="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Employee ID</span>
+                                    <span class="text-[10px] font-bold font-mono text-white mt-0.5">${selectedStaffCard.employeeId}</span>
+                                </div>
+                                <div class="flex flex-col items-center">
+                                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&color=ffffff&bgcolor=0f172a&data=${encodeURIComponent(window.location.origin + '/verify-staff.html?id=' + selectedStaffCard.id)}" class="w-14 h-14 rounded-lg bg-[#0f172a] p-1 border border-slate-800/80">
+                                    <span class="text-[5px] text-slate-500 font-extrabold uppercase mt-1">Scan to Verify</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Back Side -->
+                        <div class="id-card-back p-6 flex flex-col justify-between select-none">
+                            <div class="glow-back"></div>
+                            
+                            <!-- Header logo -->
+                            <div class="flex items-center gap-1.5 shrink-0 justify-center">
+                                <div class="w-6 h-6 rounded bg-emerald-500 flex items-center justify-center font-bold text-white text-xs">G</div>
+                                <span class="font-outfit font-extrabold text-white text-xs tracking-wider uppercase">Globalisor</span>
+                            </div>
+
+                            <!-- Term & Conditions and address -->
+                            <div class="text-center px-2 space-y-3">
+                                <p class="text-[7px] text-slate-400 font-bold uppercase tracking-widest">Official Identification Card</p>
+                                <p class="text-[8px] text-slate-300 leading-relaxed font-sans font-normal">This card remains property of Globalisor Pte. Ltd. If found, please return to: Globalisor HQ, Marina Bay Financial Centre, Singapore.</p>
+                            </div>
+
+                            <!-- Card dates and active status stamp -->
+                            <div class="border-t border-slate-800/80 pt-4 space-y-2 shrink-0">
+                                <div class="flex justify-between items-center text-[8px] text-slate-400">
+                                    <span>Issue Date:</span>
+                                    <span class="text-white font-bold">${selectedStaffCard.cardIssueDate || '2026-01-01'}</span>
+                                </div>
+                                <div class="flex justify-between items-center text-[8px] text-slate-400">
+                                    <span>Valid Until:</span>
+                                    <span class="text-white font-bold">${selectedStaffCard.cardValidUntil || '2028-01-01'}</span>
+                                </div>
+                                <div class="flex justify-between items-center text-[8px] text-slate-400 border-t border-slate-800/40 pt-2">
+                                    <span>Status:</span>
+                                    <span class="font-black uppercase tracking-wider text-[7px] px-2 py-0.5 rounded-full ${selectedStaffCard.cardStatus === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}">${selectedStaffCard.cardStatus || 'ACTIVE'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        // Photo Upload Handling
+        function handlePhotoUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('photo-filename').innerText = file.name;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                uploadedPhotoBase64 = evt.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Save Card Config
+        document.getElementById('edit-card-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('edit-id').value;
+            const employeeId = document.getElementById('edit-emp-id').value.trim();
+            const department = document.getElementById('edit-dept').value.trim();
+            const designation = document.getElementById('edit-desig').value.trim();
+
+            const payload = { employeeId, department, designation };
+            if (uploadedPhotoBase64) {
+                payload.staffPhoto = uploadedPhotoBase64;
+            }
+
+            try {
+                const res = await fetch(`/api/hr/staff-cards/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    await fetchStaffCards();
+                    selectedStaffCard = allStaffCards.find(s => s.id === id);
+                    renderFlipCardPreview();
+                    alert("Configuration saved successfully.");
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        });
+
+        // Toggle Status Action
+        async function toggleCardStatus(id, newStatus) {
+            try {
+                const res = await fetch(`/api/hr/staff-cards/status/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                if (res.ok) {
+                    await fetchStaffCards();
+                    if (selectedStaffCard && selectedStaffCard.id === id) {
+                        selectedStaffCard = allStaffCards.find(s => s.id === id);
+                        renderFlipCardPreview();
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // Reissue Action
+        async function reissueCard() {
+            if (!selectedStaffCard) return;
+            try {
+                const res = await fetch(`/api/hr/staff-cards/reissue/${selectedStaffCard.id}`, {
+                    method: 'POST'
+                });
+                if (res.ok) {
+                    await fetchStaffCards();
+                    selectedStaffCard = allStaffCards.find(s => s.id === selectedStaffCard.id);
+                    renderFlipCardPreview();
+                    alert("Card reissued successfully. Status reset to Active with updated validity dates.");
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // --- Single Card Printing & Download ---
+        async function renderCardDomForExport() {
+            // Helper to generate a static front & back container for clean html2canvas capture
+            const element = document.createElement('div');
+            element.style.position = 'fixed';
+            element.style.left = '-9999px';
+            element.style.top = '-9999px';
+            
+            // Build absolute container
+            element.innerHTML = `
+                <div style="display:flex;gap:40px;" id="export-card-source">
+                    <div style="width:320px;height:500px;border-radius:24px;background:linear-gradient(145deg, #0f172a 0%, #1e1b4b 100%);color:#ffffff;padding:24px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 20px 40px rgba(0,0,0,0.2);position:relative;overflow:hidden;box-sizing:border-box;">
+                        <div style="position:absolute;top:-20%;left:-20%;width:140%;height:140%;background:radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, transparent 60%);"></div>
+                        <div style="display:flex;justify-content:between;align-items:center;z-index:2;box-sizing:border-box;justify-content:space-between;">
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <div style="width:24px;height:24px;border-radius:4px;background:#10b981;display:flex;align-items:center;justify-content:center;font-weight:bold;color:white;font-size:12px;">G</div>
+                                <span style="font-family:'Outfit',sans-serif;font-weight:800;color:white;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Globalisor</span>
+                            </div>
+                            <span style="font-size:8px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.05);padding:2px 6px;border-radius:4px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;">Enterprise</span>
+                        </div>
+                        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;margin:16px 0;z-index:2;">
+                            <div style="width:96px;height:96px;border-radius:50%;overflow:hidden;border:2px solid rgba(255,255,255,0.2);background:#1e293b;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:bold;color:white;margin-bottom:12px;box-shadow:0 10px 20px rgba(0,0,0,0.3);">
+                                ${selectedStaffCard.staffPhoto ? `<img src="${selectedStaffCard.staffPhoto}" style="width:100%;height:100%;object-cover:cover;object-fit:cover;">` : getInitials(selectedStaffCard.name)}
+                            </div>
+                            <div style="text-align:center;">
+                                <h3 style="font-weight:bold;color:white;font-size:14px;margin:0;letter-spacing:0.5px;">${selectedStaffCard.name}</h3>
+                                <p style="font-size:9px;font-weight:bold;color:#34d399;text-transform:uppercase;letter-spacing:1px;margin:4px 0 0 0;">${selectedStaffCard.designation}</p>
+                                <p style="font-size:8px;color:#94a3b8;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;margin:2px 0 0 0;">${selectedStaffCard.department}</p>
+                            </div>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:end;border-top:1px solid rgba(255,255,255,0.1);padding-top:16px;z-index:2;box-sizing:border-box;">
+                            <div style="display:flex;flex-direction:column;text-align:left;">
+                                <span style="font-size:7px;font-weight:bold;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Employee ID</span>
+                                <span style="font-size:11px;font-weight:bold;font-family:monospace;color:white;margin-top:2px;">${selectedStaffCard.employeeId}</span>
+                            </div>
+                            <div style="display:flex;flex-direction:column;align-items:center;">
+                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&color=ffffff&bgcolor=0f172a&data=${encodeURIComponent(window.location.origin + '/verify-staff.html?id=' + selectedStaffCard.id)}" style="width:56px;height:56px;border-radius:6px;background:#0f172a;padding:4px;border:1px solid rgba(255,255,255,0.15);">
+                                <span style="font-size:5px;color:#64748b;font-weight:bold;text-transform:uppercase;margin-top:4px;">Scan to Verify</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="width:320px;height:500px;border-radius:24px;background:linear-gradient(145deg, #1e1b4b 0%, #0f172a 100%);color:#ffffff;padding:24px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 20px 40px rgba(0,0,0,0.2);position:relative;overflow:hidden;box-sizing:border-box;">
+                        <div style="position:absolute;top:-20%;left:-20%;width:140%;height:140%;background:radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 60%);"></div>
+                        <div style="display:flex;align-items:center;gap:6px;justify-content:center;z-index:2;">
+                            <div style="width:24px;height:24px;border-radius:4px;background:#10b981;display:flex;align-items:center;justify-content:center;font-weight:bold;color:white;font-size:12px;">G</div>
+                            <span style="font-family:'Outfit',sans-serif;font-weight:800;color:white;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Globalisor</span>
+                        </div>
+                        <div style="text-align:center;padding:0 8px;z-index:2;">
+                            <p style="font-size:7px;color:#94a3b8;font-weight:bold;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px 0;">Official Identification Card</p>
+                            <p style="font-size:8px;color:#cbd5e1;line-height:1.5;font-weight:normal;margin:0;">This card remains property of Globalisor Pte. Ltd. If found, please return to: Globalisor HQ, Marina Bay Financial Centre, Singapore.</p>
+                        </div>
+                        <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:16px;z-index:2;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;font-size:8px;color:#94a3b8;">
+                                <span>Issue Date:</span>
+                                <span style="color:white;font-weight:bold;">${selectedStaffCard.cardIssueDate || '2026-01-01'}</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;font-size:8px;color:#94a3b8;">
+                                <span>Valid Until:</span>
+                                <span style="color:white;font-weight:bold;">${selectedStaffCard.cardValidUntil || '2028-01-01'}</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;font-size:8px;color:#94a3b8;border-top:1px solid rgba(255,255,255,0.05);padding-top:8px;">
+                                <span>Status:</span>
+                                <span style="font-weight:900;text-transform:uppercase;font-size:7px;padding:2px 8px;border-radius:100px;${selectedStaffCard.cardStatus === 'ACTIVE' ? 'background:rgba(16,185,129,0.1);color:#34d399;border:1px solid rgba(16,185,129,0.2);' : 'background:rgba(239,68,68,0.1);color:#f87171;border:1px solid rgba(239,68,68,0.2);'}">${selectedStaffCard.cardStatus || 'ACTIVE'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(element);
+            return element;
+        }
+
+        async function downloadCardPNG() {
+            if (!selectedStaffCard) return;
+            const container = await renderCardDomForExport();
+            const source = document.getElementById('export-card-source');
+            
+            try {
+                const canvas = await html2canvas(source, {
+                    backgroundColor: null,
+                    useCORS: true,
+                    scale: 2
+                });
+                const link = document.createElement('a');
+                link.download = `${selectedStaffCard.name.replace(/\s+/g, '_')}_ID_Card.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            } catch (err) {
+                console.error(err);
+            } finally {
+                container.remove();
+            }
+        }
+
+        async function downloadCardPDF() {
+            if (!selectedStaffCard) return;
+            const container = await renderCardDomForExport();
+            const source = document.getElementById('export-card-source');
+
+            try {
+                const canvas = await html2canvas(source, {
+                    backgroundColor: null,
+                    useCORS: true,
+                    scale: 2
+                });
+                
+                const imgData = canvas.toDataURL('image/png');
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'px',
+                    format: [canvas.width / 2, canvas.height / 2]
+                });
+                
+                pdf.addImage(imgData, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2);
+                pdf.save(`${selectedStaffCard.name.replace(/\s+/g, '_')}_ID_Card.pdf`);
+            } catch (err) {
+                console.error(err);
+            } finally {
+                container.remove();
+            }
+        }
+
+        async function printSingleCard() {
+            if (!selectedStaffCard) return;
+            const container = await renderCardDomForExport();
+            const source = document.getElementById('export-card-source');
+            
+            const printArea = document.getElementById('print-area');
+            printArea.innerHTML = source.outerHTML;
+            container.remove();
+
+            window.print();
+        }
+
+        // --- Bulk Actions Implementation ---
+        async function triggerBulkPrint() {
+            const checkboxes = document.querySelectorAll('.staff-checkbox:checked');
+            if (checkboxes.length === 0) return;
+
+            const printArea = document.getElementById('print-area');
+            printArea.innerHTML = '';
+            printArea.className = "flex flex-wrap gap-6 p-8 justify-center bg-white";
+
+            for (const cb of checkboxes) {
+                const id = cb.value;
+                selectedStaffCard = allStaffCards.find(s => s.id === id);
+                if (selectedStaffCard) {
+                    const temp = await renderCardDomForExport();
+                    const source = document.getElementById('export-card-source');
+                    printArea.innerHTML += source.innerHTML + '<div style="page-break-after:always; width:100%;"></div>';
+                    temp.remove();
+                }
+            }
+
+            window.print();
+        }
+
+        async function triggerBulkDownload() {
+            const checkboxes = document.querySelectorAll('.staff-checkbox:checked');
+            if (checkboxes.length === 0) return;
+
+            const { jsPDF } = window.jspdf;
+            let pdf = null;
+
+            for (const cb of checkboxes) {
+                const id = cb.value;
+                selectedStaffCard = allStaffCards.find(s => s.id === id);
+                if (selectedStaffCard) {
+                    const temp = await renderCardDomForExport();
+                    const source = document.getElementById('export-card-source');
+                    
+                    try {
+                        const canvas = await html2canvas(source, {
+                            backgroundColor: null,
+                            useCORS: true,
+                            scale: 2
+                        });
+                        const imgData = canvas.toDataURL('image/png');
+                        const w = canvas.width / 2;
+                        const h = canvas.height / 2;
+
+                        if (pdf === null) {
+                            pdf = new jsPDF({
+                                orientation: 'landscape',
+                                unit: 'px',
+                                format: [w, h]
+                            });
+                        } else {
+                            pdf.addPage([w, h], 'landscape');
+                        }
+
+                        pdf.addImage(imgData, 'PNG', 0, 0, w, h);
+                    } catch (err) {
+                        console.error(err);
+                    } finally {
+                        temp.remove();
+                    }
+                }
+            }
+
+            if (pdf) {
+                pdf.save(`Bulk_Staff_ID_Cards_${new Date().toISOString().split('T')[0]}.pdf`);
+            }
+        }
+
+        // WebSocket handling for status updates
+        let socket = null;
+        function connectWebSocket() {
+            if (socket) return;
+            const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+            const adminId = authObj.id || 'admin';
+            let wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            let wsHost = window.location.host;
+            if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && window.location.hostname !== '[::1]') {
+                wsHost = 'globalisor-77d7da9fe8c7.herokuapp.com';
+                wsProtocol = 'wss:';
+            }
+            socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${adminId}&role=admin`);
+
+            socket.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'card_status_update' || data.type === 'new_user') {
+                        fetchStaffCards();
+                    }
+                } catch (e) {
+                    console.error("WS error parsing:", e);
+                }
+            };
+
+            socket.onclose = function() {
+                socket = null;
+                setTimeout(connectWebSocket, 5000);
+            };
+        }
+
+        // Initialize Page
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchStaffCards();
+            connectWebSocket();
+        });
+    </script>
+</body>
+</html>
