@@ -296,6 +296,10 @@
         .card-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 1.25rem; color: #0f172a; display: flex; align-items: center; gap: 0.5rem; }
         
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+        .ssic-picker-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+        @media (max-width: 768px) {
+            .ssic-picker-grid { grid-template-columns: 1fr; }
+        }
         .form-group { margin-bottom: 0.25rem; }
         .form-group.full { grid-column: span 2; }
         .form-label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; color: #475569; }
@@ -2451,7 +2455,15 @@
                 const dd = document.getElementById(`ssic-dropdown-${slot}`);
                 if (!dd) return;
                 dd.style.display = 'block';
-                const list = this.ssicActivities || [];
+
+                const otherSlot = (slot === 'primary' ? 'secondary' : 'primary');
+                const otherCode = (this.data.activities && this.data.activities[otherSlot]) ? this.data.activities[otherSlot].code : null;
+
+                let list = this.ssicActivities || [];
+                if (otherCode) {
+                    list = list.filter(a => a.code !== otherCode);
+                }
+
                 const matches = q ? list.filter(a =>
                     (a.code||'').toLowerCase().includes(q) ||
                     (a.name||'').toLowerCase().includes(q) ||
@@ -2541,6 +2553,12 @@
             }
 
             selectSsicSingle(slot, activity) {
+                const otherSlot = (slot === 'primary' ? 'secondary' : 'primary');
+                const otherCode = (this.data.activities && this.data.activities[otherSlot]) ? this.data.activities[otherSlot].code : null;
+                if (otherCode && activity.code === otherCode) {
+                    showToast('Primary and Secondary activities cannot be the same SSIC code.', 'error');
+                    return;
+                }
                 if (!this.data.activities) this.data.activities = {};
                 this.data.activities[slot] = {
                     code: activity.code,
@@ -2616,6 +2634,12 @@
                     `;
                 }
 
+                let resetBtnHtml = `
+                    <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+                        <button class="btn btn-outline" style="width: 100%; font-size: 0.8rem; padding: 0.6rem; border-color: var(--brand-primary); color: var(--brand-primary); cursor: pointer;" onclick="wizard.startFreshApplication()">Start Another Application</button>
+                    </div>
+                `;
+
                 document.getElementById('client-status-details').innerHTML = `
                     <div style="font-weight:700; margin-bottom:10px;">${companyName}</div>
                     <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:5px;">Service: Company Incorporation</div>
@@ -2624,7 +2648,27 @@
                         We will notify you by email if any additional documents are required. Keep this page open for live updates.
                     </div>
                     ${actionButtonHtml}
+                    ${resetBtnHtml}
                 `;
+            }
+
+            async startFreshApplication() {
+                const token = localStorage.getItem('token');
+                if (token && !token.startsWith('mock-')) {
+                    try {
+                        await fetch('/api/requirements', {
+                            method: 'DELETE',
+                            headers: {
+                                'Authorization': 'Bearer ' + token
+                            }
+                        });
+                    } catch (e) {
+                        console.warn("Failed to notify backend to reset requirement:", e);
+                    }
+                }
+                localStorage.removeItem('globalisor_master_v3');
+                localStorage.removeItem('globalisor_requirements_current_step');
+                window.location.reload();
             }
 
             open(step) {
@@ -3314,7 +3358,7 @@
 
                                 <!-- SSIC Dual Picker -->
                                 <div style="margin-top:1.75rem;border-top:1px solid #e2e8f0;padding-top:1.75rem;">
-                                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;">
+                                    <div class="ssic-picker-grid">
 
                                         <!-- PRIMARY -->
                                         <div style="border:1.5px solid ${primary ? '#c7d2fe' : '#e2e8f0'};border-radius:14px;padding:1.1rem 1.1rem 1rem;background:${primary ? '#f5f7ff' : '#fafafa'};transition:all 0.2s;">
@@ -3370,13 +3414,7 @@
                                                         <div style="font-size:0.75rem;font-weight:700;color:#334155;">${primary.name}</div>
                                                     </div>
                                                 </div>
-                                                <div>
-                                                    <div style="font-size:0.6rem;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:0.2rem;">Description</div>
-                                                    <textarea style="width:100%;box-sizing:border-box;border:1.5px solid #e2e8f0;border-radius:8px;padding:0.5rem;font-size:0.72rem;font-family:inherit;font-weight:500;color:#475569;resize:none;height:64px;outline:none;background:#fafafa;"
-                                                        placeholder="Brief description of this activity..."
-                                                        oninput="wizard.updateSsicSingleDescription('primary', this.value)">${primary.description || ''}</textarea>
-                                                </div>
-                                            </div>` : `
+                                                </div>` : `
                                             <div style="margin-top:0.75rem;padding:1rem;border:1.5px dashed #e2e8f0;border-radius:12px;text-align:center;">
                                                 <div style="font-size:0.72rem;color:#94a3b8;font-weight:500;">Search and select a primary business activity above</div>
                                             </div>`}
@@ -3436,13 +3474,7 @@
                                                         <div style="font-size:0.75rem;font-weight:700;color:#334155;">${secondary.name}</div>
                                                     </div>
                                                 </div>
-                                                <div>
-                                                    <div style="font-size:0.6rem;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:0.2rem;">Description</div>
-                                                    <textarea style="width:100%;box-sizing:border-box;border:1.5px solid #e2e8f0;border-radius:8px;padding:0.5rem;font-size:0.72rem;font-family:inherit;font-weight:500;color:#475569;resize:none;height:64px;outline:none;background:#fafafa;"
-                                                        placeholder="Brief description of this activity..."
-                                                        oninput="wizard.updateSsicSingleDescription('secondary', this.value)">${secondary.description || ''}</textarea>
-                                                </div>
-                                            </div>` : `
+                                                </div>` : `
                                             <div style="margin-top:0.75rem;padding:1rem;border:1.5px dashed #e2e8f0;border-radius:12px;text-align:center;">
                                                 <div style="font-size:0.72rem;color:#94a3b8;font-weight:500;">Optional — search and select a secondary business activity</div>
                                             </div>`}
@@ -5034,6 +5066,7 @@
                 if (!sec) return;
 
                 let isValid = true;
+                const validationReasons = [];
 
                 // 1. Dynamic field-based validation
                 if (sec.fields && sec.fields.length > 0) {
@@ -5048,27 +5081,47 @@
                                         if (field.required) {
                                             if (!Array.isArray(val) || val.length === 0) {
                                                 isValid = false;
+                                                validationReasons.push(`${fullPath} (ssic required) is empty`);
                                             }
                                         }
                                         if (Array.isArray(val)) {
                                             if (val.some(act => !act.description || act.description.trim() === '')) {
                                                 isValid = false;
+                                                validationReasons.push(`${fullPath} (ssic) has empty description`);
+                                            }
+                                        }
+                                    } else if (field.type === 'ssic-single') {
+                                        const val = getVal(this.data, fullPath);
+                                        if (field.required) {
+                                            if (!val || !val.code || String(val.code).trim() === '') {
+                                                isValid = false;
+                                                validationReasons.push(`${fullPath} (ssic-single required) is empty`);
                                             }
                                         }
                                     } else if (field.required) {
                                         const val = getVal(this.data, fullPath);
                                         if (val === undefined || val === null || String(val).trim() === '') {
                                             isValid = false;
+                                            validationReasons.push(`${fullPath} (required) is empty`);
                                         }
                                     }
                                     const val = getVal(this.data, fullPath);
-                                    if (field.type !== 'ssic' && val !== undefined && val !== null && String(val).trim() !== '') {
-                                        if (field.min !== undefined && String(val).length < field.min) isValid = false;
-                                        if (field.max !== undefined && String(val).length > field.max) isValid = false;
+                                    if (field.type !== 'ssic' && field.type !== 'ssic-single' && val !== undefined && val !== null && String(val).trim() !== '') {
+                                        if (field.min !== undefined && String(val).length < field.min) {
+                                            isValid = false;
+                                            validationReasons.push(`${fullPath} too short`);
+                                        }
+                                        if (field.max !== undefined && String(val).length > field.max) {
+                                            isValid = false;
+                                            validationReasons.push(`${fullPath} too long`);
+                                        }
                                         if (field.pattern) {
                                             try {
                                                 const regex = new RegExp(field.pattern);
-                                                if (!regex.test(String(val))) isValid = false;
+                                                if (!regex.test(String(val))) {
+                                                    isValid = false;
+                                                    validationReasons.push(`${fullPath} pattern mismatch`);
+                                                }
                                             } catch(e) {}
                                         }
                                     }
@@ -5084,27 +5137,47 @@
                                     if (field.required) {
                                         if (!Array.isArray(val) || val.length === 0) {
                                             isValid = false;
+                                            validationReasons.push(`${fullPath} (ssic required) is empty`);
                                         }
                                     }
                                     if (Array.isArray(val)) {
                                         if (val.some(act => !act.description || act.description.trim() === '')) {
                                             isValid = false;
+                                            validationReasons.push(`${fullPath} (ssic) has empty description`);
+                                        }
+                                    }
+                                } else if (field.type === 'ssic-single') {
+                                    const val = getVal(this.data, fullPath);
+                                    if (field.required) {
+                                        if (!val || !val.code || String(val.code).trim() === '') {
+                                            isValid = false;
+                                            validationReasons.push(`${fullPath} (ssic-single required) is empty`);
                                         }
                                     }
                                 } else if (field.required) {
                                     const val = getVal(this.data, fullPath);
                                     if (val === undefined || val === null || String(val).trim() === '') {
                                         isValid = false;
+                                        validationReasons.push(`${fullPath} (required) is empty`);
                                     }
                                 }
                                 const val = getVal(this.data, fullPath);
-                                if (field.type !== 'ssic' && val !== undefined && val !== null && String(val).trim() !== '') {
-                                    if (field.min !== undefined && String(val).length < field.min) isValid = false;
-                                    if (field.max !== undefined && String(val).length > field.max) isValid = false;
+                                if (field.type !== 'ssic' && field.type !== 'ssic-single' && val !== undefined && val !== null && String(val).trim() !== '') {
+                                    if (field.min !== undefined && String(val).length < field.min) {
+                                        isValid = false;
+                                        validationReasons.push(`${fullPath} too short`);
+                                    }
+                                    if (field.max !== undefined && String(val).length > field.max) {
+                                        isValid = false;
+                                        validationReasons.push(`${fullPath} too long`);
+                                    }
                                     if (field.pattern) {
                                         try {
                                             const regex = new RegExp(field.pattern);
-                                            if (!regex.test(String(val))) isValid = false;
+                                            if (!regex.test(String(val))) {
+                                                isValid = false;
+                                                validationReasons.push(`${fullPath} pattern mismatch`);
+                                            }
                                         } catch(e) {}
                                     }
                                 }
@@ -5119,9 +5192,11 @@
                     const useService = this.data.office ? this.data.office.useService : null;
                     if (!residency) {
                         isValid = false;
+                        validationReasons.push(`office.residency is empty`);
                     }
                     if (useService === null || useService === undefined) {
                         isValid = false;
+                        validationReasons.push(`office.useService is empty`);
                     } else if (useService === false) {
                         const block = this.data.office ? this.data.office.block : '';
                         const street = this.data.office ? this.data.office.streetName : '';
@@ -5137,6 +5212,7 @@
                             !postal || postal.trim() === '' ||
                             !country || country.trim() === '') {
                             isValid = false;
+                            validationReasons.push(`office address fields incomplete`);
                         }
                     }
                 }
@@ -5147,6 +5223,7 @@
                     const name2 = getVal(this.data, 'names[1]') || '';
                     if (name1.trim() === '' || name2.trim() === '') {
                         isValid = false;
+                        validationReasons.push(`fallback names[0] or names[1] is empty`);
                     }
                 }
                 // Primary SSIC always required for sec-names
@@ -5154,6 +5231,7 @@
                     const primary = this.data.activities && this.data.activities.primary;
                     if (!primary || !primary.code) {
                         isValid = false;
+                        validationReasons.push(`activities.primary is empty`);
                     }
                 }
                 if ((sec.id === 'sec-package-next' || sec.key === 'contact') && (!sec.fields || sec.fields.length === 0)) {
@@ -5163,8 +5241,11 @@
                     const email = getVal(this.data, 'contact.email') || '';
                     if (firstName.trim() === '' || lastName.trim() === '' || phone.trim() === '' || email.trim() === '') {
                         isValid = false;
+                        validationReasons.push(`fallback contact fields empty`);
                     }
                 }
+                
+                // console.log("Validation status update:", { isValid, validationReasons, data: JSON.parse(JSON.stringify(this.data)) });
                 
                 if (isValid) {
                     nextBtn.classList.add('active-state');
@@ -5751,8 +5832,15 @@
                     return;
                 }
 
+                const token = localStorage.getItem('token') || '';
+                if (token.startsWith('mock-')) {
+                    showToast("Submission successful! (Demo Mode)");
+                    lastKnownStatus = 'under review';
+                    this.showStatusPage('under review', this.data);
+                    return;
+                }
+
                 try {
-                    const token = localStorage.getItem('token');
                     const res = await fetch('/api/requirements/submit', {
                         method: 'POST',
                         headers: { 
@@ -5771,8 +5859,8 @@
                 } catch (error) {
                     console.warn("Submission failed (API offline), simulating local success:", error);
                     showToast("Submission successful! (Demo Mode)");
-                    lastKnownStatus = 'review';
-                    this.showStatusPage('review', this.data);
+                    lastKnownStatus = 'under review';
+                    this.showStatusPage('under review', this.data);
                 }
             }
         }
