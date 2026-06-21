@@ -159,22 +159,47 @@
             <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
                 <div>
                     <h2 class="text-3xl font-bold font-outfit text-slate-900 flex items-center gap-2">
-                        <i data-lucide="clipboard-list" class="w-8 h-8 text-blue-600"></i>
-                        Requirements Page Manager
+                        Requirements Builder
                     </h2>
-                    <p class="text-slate-500 text-sm mt-1">Manage, structure, and control the client onboarding requirements page sections, checklists, documents, SOPs, and FAQs.</p>
+                    <p class="text-slate-500 text-sm mt-1">Build and manage onboarding flows, forms, documents, checklists, SOPs and FAQs.</p>
                 </div>
-                <div class="flex items-center gap-3">
-                    <label class="inline-flex items-center gap-2 cursor-pointer bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 select-none hover:bg-slate-100 transition-all shadow-sm">
-                        <input type="checkbox" id="tooltip-toggle" checked onchange="toggleTooltips(this.checked)" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer">
-                        Show Definitions
-                    </label>
-                    <button onclick="previewOnboarding()" class="bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-all shadow-sm">
-                        <i data-lucide="eye" class="w-4 h-4"></i> Preview Mode
+                <div class="flex items-center gap-4">
+                    <!-- Status Container (Hidden until section selected) -->
+                    <div id="global-status-container" class="hidden flex-col items-start bg-white border border-slate-100 rounded-xl px-4 py-2 shadow-sm">
+                        <div class="flex items-center gap-2 mb-1">
+                            <div class="w-1.5 h-1.5 rounded-full bg-emerald-500" id="global-status-dot"></div>
+                            <span id="global-status-badge" class="text-xs font-bold text-emerald-600">Published</span>
+                        </div>
+                        <div class="text-[10px] text-slate-400" id="global-status-history">
+                            Last updated by Admin Globalisor<br>on 19 Jun 2026, 12:02 PM
+                        </div>
+                    </div>
+                    
+                    <button onclick="previewOnboarding()" class="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-all shadow-sm">
+                        <i data-lucide="eye" class="w-4 h-4 text-slate-400"></i> Preview
                     </button>
-                    <button onclick="openAddSectionModal()" class="bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-all shadow-sm">
-                        <i data-lucide="plus" class="w-4 h-4"></i> Add Section
-                    </button>
+                    
+                    <!-- Status Actions Dropdown -->
+                    <div class="relative group" id="publish-dropdown-container">
+                        <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-all shadow-sm">
+                            <i data-lucide="send" class="w-4 h-4"></i> Status Actions
+                            <i data-lucide="chevron-down" class="w-4 h-4 ml-1"></i>
+                        </button>
+                        
+                        <!-- Dropdown Menu -->
+                        <div class="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-slate-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 overflow-hidden transform origin-top-right scale-95 group-hover:scale-100">
+                            <button onclick="publishSection()" class="w-full text-left px-4 py-2.5 text-xs font-bold text-blue-600 hover:bg-blue-50 flex items-center gap-2 transition-colors">
+                                <i data-lucide="send" class="w-4 h-4"></i> Publish Section
+                            </button>
+                            <button onclick="unpublishSection()" id="btn-unpublish" class="w-full text-left px-4 py-2.5 text-xs font-bold text-amber-600 hover:bg-amber-50 flex items-center gap-2 transition-colors border-t border-slate-100">
+                                <i data-lucide="eye-off" class="w-4 h-4"></i> Unpublish Section
+                            </button>
+                            <label class="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-colors border-t border-slate-100 cursor-pointer">
+                                <input type="checkbox" id="tooltip-toggle" checked onchange="toggleTooltips(this.checked)" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer">
+                                Show Definitions
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -182,10 +207,12 @@
                 <!-- Left Column: Section List & Reordering -->
                 <div class="lg:col-span-4 space-y-4">
                     <div class="glass-card p-5">
-                        <h3 class="font-bold text-slate-800 text-sm uppercase tracking-wider mb-4 flex items-center justify-between">
-                            <span>Sections List</span>
-                            <span class="text-[10px] text-slate-400 normal-case">Drag or use arrows to reorder</span>
-                        </h3>
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-slate-900 text-[13px] uppercase tracking-wider">Sections</h3>
+                            <button onclick="openAddSectionModal()" class="bg-white border border-slate-200 text-blue-600 font-semibold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 hover:bg-slate-50 transition-all shadow-sm">
+                                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Section
+                            </button>
+                        </div>
                         <div id="sections-container" class="space-y-3">
                             <!-- Dynamic list of sections -->
                             <div class="flex items-center justify-center p-8 text-slate-400 text-sm">
@@ -198,187 +225,232 @@
                 <!-- Right Column: Editor Panel -->
                 <div class="lg:col-span-8">
                     <div id="editor-placeholder" class="glass-card p-12 text-center flex flex-col items-center justify-center text-slate-400 min-h-[500px]">
-                        <i data-lucide="edit-3" class="w-16 h-16 text-slate-300 mb-4 animate-bounce"></i>
+                        <i data-lucide="pen" class="w-16 h-16 text-slate-300 mb-4 animate-bounce"></i>
                         <h3 class="text-lg font-bold text-slate-700">No Section Selected</h3>
                         <p class="text-sm text-slate-400 max-w-sm mt-1">Select a section from the left sidebar to edit its fields, metadata, and controls.</p>
                     </div>
 
-                    <div id="editor-panel" class="glass-card p-6 hidden space-y-6">
-                        <!-- Header / Metadata -->
-                        <div class="flex flex-col sm:flex-row justify-between items-start gap-4 pb-6 border-b border-white/40">
-                            <div>
-                                <span id="editor-badge" class="inline-block px-3 py-1 rounded-full text-xs font-bold mb-2"></span>
-                                <h3 class="text-xl font-bold text-slate-950 font-outfit" id="editor-section-title">Section Editor</h3>
-                                <p class="text-xs text-slate-400 mt-1" id="editor-history">Last updated by System on June 5, 2026</p>
+                    <div id="editor-panel" class="glass-card p-0 hidden flex-col border border-slate-100 rounded-2xl overflow-hidden bg-white shadow-sm min-h-[650px] relative">
+                        <!-- Top Action Bar -->
+                        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                            <div class="flex items-center gap-3">
+                                <span id="editor-badge" class="inline-block px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide"></span>
                             </div>
-                            <div class="flex flex-wrap items-center gap-2">
-                                <button onclick="saveDraft()" class="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all">
-                                    <i data-lucide="save" class="w-4 h-4"></i> Save Draft
+                            <div class="flex items-center gap-2">
+                                <button onclick="saveDraft()" class="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                                    <i data-lucide="save" class="w-4 h-4 text-slate-400"></i> Save Draft
                                 </button>
-                                <button onclick="publishSection()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-                                    <i data-lucide="send" class="w-4 h-4"></i> Publish
-                                </button>
-                                <button onclick="unpublishSection()" id="btn-unpublish" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-                                    <i data-lucide="eye-off" class="w-4 h-4"></i> Unpublish
-                                </button>
-                                <button onclick="deleteSection()" id="btn-delete" class="bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all">
+                                <button onclick="deleteSection()" id="btn-delete" class="bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
                                     <i data-lucide="trash-2" class="w-4 h-4"></i> Delete
                                 </button>
                             </div>
                         </div>
 
-                        <!-- Config Form -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                                    Section Title
-                                    <span class="custom-tooltip-trigger relative inline-flex items-center ml-1 cursor-help select-none">
-                                        <span class="inline-flex items-center justify-center text-[9px] w-[13px] h-[13px] bg-slate-200 text-slate-500 hover:bg-slate-600 hover:text-white rounded-full font-bold transition-all duration-200">i</span>
-                                        <span class="custom-tooltip-box pointer-events-none absolute bottom-full tooltip-left z-50 mb-2 w-52 rounded-lg bg-slate-800 p-2.5 text-[10px] font-medium text-white shadow-xl line-clamp-none whitespace-normal normal-case text-left leading-normal">
-                                            The main display title of this onboarding step shown to the user.
-                                            <span class="absolute top-full left-4 border-4 border-solid border-transparent border-t-slate-800"></span>
-                                        </span>
-                                    </span>
-                                </label>
-                                <input type="text" id="sec-title-input" class="w-100 w-full px-4 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all" oninput="document.getElementById('editor-section-title').innerText = this.value || 'Section Editor'">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                                    Section Key (Unique API Name)
-                                    <span class="custom-tooltip-trigger relative inline-flex items-center ml-1 cursor-help select-none">
-                                        <span class="inline-flex items-center justify-center text-[9px] w-[13px] h-[13px] bg-slate-200 text-slate-500 hover:bg-slate-600 hover:text-white rounded-full font-bold transition-all duration-200">i</span>
-                                        <span class="custom-tooltip-box pointer-events-none absolute bottom-full tooltip-center z-50 mb-2 w-52 rounded-lg bg-slate-800 p-2.5 text-[10px] font-medium text-white shadow-xl line-clamp-none whitespace-normal normal-case text-left leading-normal">
-                                            Unique identifier used for binding form data in the backend database.
-                                            <span class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-solid border-transparent border-t-slate-800"></span>
-                                        </span>
-                                    </span>
-                                </label>
-                                <input type="text" id="sec-key-input" class="w-100 w-full px-4 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all" placeholder="e.g. required-documents">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                                    Section Description (Sub-title)
-                                    <span class="custom-tooltip-trigger relative inline-flex items-center ml-1 cursor-help select-none">
-                                        <span class="inline-flex items-center justify-center text-[9px] w-[13px] h-[13px] bg-slate-200 text-slate-500 hover:bg-slate-600 hover:text-white rounded-full font-bold transition-all duration-200">i</span>
-                                        <span class="custom-tooltip-box pointer-events-none absolute bottom-full tooltip-left z-50 mb-2 w-52 rounded-lg bg-slate-800 p-2.5 text-[10px] font-medium text-white shadow-xl line-clamp-none whitespace-normal normal-case text-left leading-normal">
-                                            Sub-heading explanation of this onboarding step's purpose.
-                                            <span class="absolute top-full left-4 border-4 border-solid border-transparent border-t-slate-800"></span>
-                                        </span>
-                                    </span>
-                                </label>
-                                <input type="text" id="sec-desc-input" class="w-full px-4 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                                    Applicable Services (Comma-separated or 'All')
-                                    <span class="custom-tooltip-trigger relative inline-flex items-center ml-1 cursor-help select-none">
-                                        <span class="inline-flex items-center justify-center text-[9px] w-[13px] h-[13px] bg-slate-200 text-slate-500 hover:bg-slate-600 hover:text-white rounded-full font-bold transition-all duration-200">i</span>
-                                        <span class="custom-tooltip-box pointer-events-none absolute bottom-full tooltip-center z-50 mb-2 w-52 rounded-lg bg-slate-800 p-2.5 text-[10px] font-medium text-white shadow-xl line-clamp-none whitespace-normal normal-case text-left leading-normal">
-                                            Defines which packages/services this step is shown for.
-                                            <span class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-solid border-transparent border-t-slate-800"></span>
-                                        </span>
-                                    </span>
-                                </label>
-                                <input type="text" id="sec-services-input" class="w-full px-4 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all" placeholder="e.g. Incorporation, Nominee Director, or All">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                                    Section Type
-                                    <span class="custom-tooltip-trigger relative inline-flex items-center ml-1 cursor-help select-none">
-                                        <span class="inline-flex items-center justify-center text-[9px] w-[13px] h-[13px] bg-slate-200 text-slate-500 hover:bg-slate-600 hover:text-white rounded-full font-bold transition-all duration-200">i</span>
-                                        <span class="custom-tooltip-box pointer-events-none absolute bottom-full tooltip-right z-50 mb-2 w-52 rounded-lg bg-slate-800 p-2.5 text-[10px] font-medium text-white shadow-xl line-clamp-none whitespace-normal normal-case text-left leading-normal">
-                                            Render style: Standard single-form, repeater multi-form, or customized layout.
-                                            <span class="absolute top-full right-4 border-4 border-solid border-transparent border-t-slate-800"></span>
-                                        </span>
-                                    </span>
-                                </label>
-                                <select id="sec-type-select" class="w-full px-4 py-2.5 bg-white/60 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer">
-                                    <option value="form">Standard Form</option>
-                                    <option value="repeater">Repeater Form (Multi-item)</option>
-                                    <option value="custom">Custom Component</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Form Fields Configuration -->
-                        <div class="space-y-4 pt-6 border-t border-slate-100">
-                            <div class="flex justify-between items-center pb-2 border-b border-slate-100">
-                                <h4 class="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-1.5">
-                                    <i data-lucide="sliders" class="w-4 h-4 text-blue-500"></i> Form Fields
-                                </h4>
-                                <button onclick="addFieldRow()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 transition-all shadow-sm">
-                                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Field
+                        <!-- Section Header Details -->
+                        <div class="px-8 pt-6 pb-0 bg-white">
+                            <div class="flex items-center gap-2 mb-2 group">
+                                <h3 class="text-2xl font-bold text-slate-900" id="editor-section-title">Section Title</h3>
+                                <button onclick="openEditDetailsModal()" class="text-slate-300 hover:text-blue-600 p-1 transition-colors opacity-0 group-hover:opacity-100" title="Edit Section Details">
+                                    <i data-lucide="pen" class="w-4 h-4"></i>
                                 </button>
                             </div>
-                            <div id="fields-list" class="space-y-4">
-                                <!-- Dynamic list of fields -->
+                            <div class="flex items-center gap-2 mb-4">
+                                <span class="text-[11px] font-semibold text-slate-500">Section Key (unique API name):</span>
+                                <span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-mono font-bold" id="editor-section-key">key</span>
+                            </div>
+                            <p class="text-[13px] text-slate-500 mb-6" id="editor-section-desc">Description goes here.</p>
+                            
+                            <!-- Tabs Navigation -->
+                            <div class="flex items-center gap-6 border-b border-slate-200">
+                                <button onclick="switchTab('fields')" id="tab-fields" class="pb-3 text-[13px] font-bold border-b-2 transition-colors border-blue-600 text-blue-600 flex items-center gap-2 -mb-[1px]">
+                                    <i data-lucide="layout-list" class="w-4 h-4"></i> Form Fields
+                                </button>
+                                <button onclick="switchTab('documents')" id="tab-documents" class="pb-3 text-[13px] font-bold border-b-2 transition-colors border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2 -mb-[1px]">
+                                    <i data-lucide="file-text" class="w-4 h-4"></i> Documents
+                                </button>
+                                <button onclick="switchTab('checklists')" id="tab-checklists" class="pb-3 text-[13px] font-bold border-b-2 transition-colors border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2 -mb-[1px]">
+                                    <i data-lucide="check-square" class="w-4 h-4"></i> Checklist
+                                </button>
+                                <button onclick="switchTab('sops')" id="tab-sops" class="pb-3 text-[13px] font-bold border-b-2 transition-colors border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2 -mb-[1px]">
+                                    <i data-lucide="layers" class="w-4 h-4"></i> SOPs
+                                </button>
+                                <button onclick="switchTab('faqs')" id="tab-faqs" class="pb-3 text-[13px] font-bold border-b-2 transition-colors border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2 -mb-[1px]">
+                                    <i data-lucide="help-circle" class="w-4 h-4"></i> FAQs
+                                </button>
                             </div>
                         </div>
 
-                        <!-- Documents & Checklist configuration row -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-slate-100">
-                            <!-- Required Documents -->
-                            <div class="space-y-4">
-                                <div class="flex justify-between items-center pb-2 border-b border-slate-100">
-                                    <h4 class="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-1.5">
-                                        <i data-lucide="file-text" class="w-4 h-4 text-blue-500"></i> Required Documents
-                                    </h4>
-                                    <button onclick="addDocument()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-1 rounded-lg text-[9px] flex items-center gap-1 transition-all shadow-sm">
-                                        <i data-lucide="plus" class="w-3 h-3"></i> Add
-                                    </button>
+                        <!-- Tab Content Container -->
+                        <div class="relative flex-1 bg-slate-50/30">
+                            <!-- Form Fields Split View -->
+                            <div id="tab-content-fields" class="absolute inset-0 flex">
+                                <!-- Left: Fields List -->
+                                <div class="flex-1 overflow-y-auto p-6 border-r border-slate-100 space-y-4 relative bg-white/50">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <div>
+                                            <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Form Fields (<span id="fields-count">0</span>)</h4>
+                                            <p class="text-[10px] text-slate-500 mt-0.5">Manage the fields that clients will fill in this section.</p>
+                                        </div>
+                                        <button onclick="addFieldRow()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                                            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Field
+                                        </button>
+                                    </div>
+                                    <div id="fields-list" class="space-y-2">
+                                        <!-- Fields populated here -->
+                                    </div>
+                                    
+                                    <!-- Add Field Toolbar -->
+                                    <div class="mt-8 flex justify-center flex-nowrap overflow-x-auto pb-2 gap-1.5 py-6 border-t border-slate-200 hide-scrollbar">
+                                        <button onclick="addFieldTypeQuick('text')" class="flex flex-col items-center justify-center gap-1 w-[65px] h-[65px] shrink-0 rounded-xl bg-white border border-slate-200 hover:border-blue-500 shadow-sm transition-all group">
+                                            <div class="text-slate-500 group-hover:text-blue-500 flex items-center justify-center h-5">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px]"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg>
+                                            </div>
+                                            <span class="text-[9px] font-bold text-slate-600 group-hover:text-slate-900 leading-tight text-center">Type</span>
+                                        </button>
+                                        <button onclick="addFieldTypeQuick('select')" class="flex flex-col items-center justify-center gap-1 w-[65px] h-[65px] shrink-0 rounded-xl bg-white border border-slate-200 hover:border-blue-500 shadow-sm transition-all group">
+                                            <div class="text-slate-500 group-hover:text-blue-500 flex items-center justify-center h-5">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px]"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="m8 10 4 4 4-4"/></svg>
+                                            </div>
+                                            <span class="text-[9px] font-bold text-slate-600 group-hover:text-slate-900 leading-tight text-center">Dropdown</span>
+                                        </button>
+                                        <button onclick="addFieldTypeQuick('ssic-single')" class="flex flex-col items-center justify-center gap-1 w-[65px] h-[65px] shrink-0 rounded-xl bg-white border border-slate-200 hover:border-blue-500 shadow-sm transition-all group">
+                                            <div class="text-slate-500 group-hover:text-blue-500 flex items-center justify-center h-5">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px]"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                                            </div>
+                                            <span class="text-[9px] font-bold text-slate-600 group-hover:text-slate-900 leading-tight text-center">SSIC Search</span>
+                                        </button>
+                                        <button onclick="addFieldTypeQuick('date')" class="flex flex-col items-center justify-center gap-1 w-[65px] h-[65px] shrink-0 rounded-xl bg-white border border-slate-200 hover:border-blue-500 shadow-sm transition-all group">
+                                            <div class="text-slate-500 group-hover:text-blue-500 flex items-center justify-center h-5">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px]"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                                            </div>
+                                            <span class="text-[9px] font-bold text-slate-600 group-hover:text-slate-900 leading-tight text-center">Date Picker</span>
+                                        </button>
+                                        <button onclick="addFieldTypeQuick('file')" class="flex flex-col items-center justify-center gap-1 w-[65px] h-[65px] shrink-0 rounded-xl bg-white border border-slate-200 hover:border-blue-500 shadow-sm transition-all group">
+                                            <div class="text-slate-500 group-hover:text-blue-500 flex items-center justify-center h-5">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px]"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                                            </div>
+                                            <span class="text-[9px] font-bold text-slate-600 group-hover:text-slate-900 leading-tight text-center">File Upload</span>
+                                        </button>
+                                        <button onclick="addFieldTypeQuick('switch')" class="flex flex-col items-center justify-center gap-1 w-[65px] h-[65px] shrink-0 rounded-xl bg-white border border-slate-200 hover:border-blue-500 shadow-sm transition-all group">
+                                            <div class="text-slate-500 group-hover:text-blue-500 flex items-center justify-center h-5">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px]"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/></svg>
+                                            </div>
+                                            <span class="text-[9px] font-bold text-slate-600 group-hover:text-slate-900 leading-tight text-center">Checkbox</span>
+                                        </button>
+                                        <button onclick="addFieldTypeQuick('address')" class="flex flex-col items-center justify-center gap-1 w-[65px] h-[65px] shrink-0 rounded-xl bg-white border border-slate-200 hover:border-blue-500 shadow-sm transition-all group">
+                                            <div class="text-slate-500 group-hover:text-blue-500 flex items-center justify-center h-5">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px]"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                                            </div>
+                                            <span class="text-[9px] font-bold text-slate-600 group-hover:text-slate-900 leading-tight text-center">Address</span>
+                                        </button>
+                                        <button onclick="addFieldTypeQuick('more')" class="flex flex-col items-center justify-center gap-1 w-[65px] h-[65px] shrink-0 rounded-xl bg-white border border-slate-200 hover:border-blue-500 shadow-sm transition-all group">
+                                            <div class="text-slate-500 group-hover:text-blue-500 flex items-center justify-center h-5">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px]"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                                            </div>
+                                            <span class="text-[9px] font-bold text-slate-600 group-hover:text-slate-900 leading-tight text-center">More</span>
+                                        </button>
+                                    </div>
                                 </div>
-                                <div id="documents-list" class="space-y-2">
-                                    <!-- Dynamic list of documents -->
+                                
+                                <!-- Right: Field Properties Sidebar -->
+                                <div class="w-[320px] bg-white overflow-y-auto shrink-0 flex flex-col border-l border-slate-100">
+                                    <div class="p-5 border-b border-slate-100 bg-white sticky top-0 z-10">
+                                        <h4 class="text-[11px] font-bold text-slate-900 uppercase tracking-wider">Field Properties</h4>
+                                    </div>
+                                    <div id="field-properties-placeholder" class="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 text-center text-xs">
+                                        <i data-lucide="sliders" class="w-10 h-10 mb-3 opacity-50"></i>
+                                        Select a field to view and edit its properties.
+                                    </div>
+                                    <div id="field-properties-editor" class="flex-1 hidden flex-col">
+                                        <!-- Sidebar Tabs (Settings, Validation, Conditions, Advanced) -->
+                                        <div class="flex items-center justify-between px-5 pt-4 border-b border-slate-100 text-[10px] font-bold text-slate-500">
+                                            <button onclick="switchPropTab('settings')" id="ptab-settings" class="text-blue-600 border-b-2 border-blue-600 pb-2 -mb-[1px]">Settings</button>
+                                            <button onclick="switchPropTab('validation')" id="ptab-validation" class="hover:text-slate-800 border-b-2 border-transparent pb-2 -mb-[1px]">Validation</button>
+                                            <button onclick="switchPropTab('conditions')" id="ptab-conditions" class="hover:text-slate-800 border-b-2 border-transparent pb-2 -mb-[1px]">Conditions</button>
+                                            <button onclick="switchPropTab('advanced')" id="ptab-advanced" class="hover:text-slate-800 border-b-2 border-transparent pb-2 -mb-[1px]">Advanced</button>
+                                        </div>
+                                        
+                                        <div class="p-5 flex-1 overflow-y-auto relative">
+                                            <div id="prop-tab-settings" class="space-y-4">
+                                                <!-- Settings injected here -->
+                                            </div>
+                                            <div id="prop-tab-validation" class="hidden space-y-4">
+                                                <!-- Validation injected here -->
+                                            </div>
+                                            <div id="prop-tab-conditions" class="hidden space-y-4">
+                                                <!-- Conditions injected here -->
+                                            </div>
+                                            <div id="prop-tab-advanced" class="hidden space-y-4">
+                                                <!-- Advanced injected here -->
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="p-5 border-t border-slate-100 mt-auto bg-slate-50/50">
+                                            <button onclick="deleteSelectedField()" class="w-full bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 font-bold px-4 py-2.5 rounded-lg text-xs flex items-center justify-center gap-2 transition-all shadow-sm">
+                                                <i data-lucide="trash-2" class="w-4 h-4"></i> Delete Field
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Other Tabs -->
+                            <div id="tab-content-documents" class="hidden absolute inset-0 p-8 overflow-y-auto bg-white/50">
+                                <div class="max-w-2xl">
+                                    <div class="flex justify-between items-center pb-4 border-b border-slate-200 mb-6">
+                                        <h4 class="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
+                                            <i data-lucide="file-text" class="w-4 h-4 text-blue-500"></i> Required Documents
+                                        </h4>
+                                        <button onclick="addDocument()" class="bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold px-3 py-1.5 rounded-lg text-[11px] flex items-center gap-1.5 transition-all">
+                                            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Doc
+                                        </button>
+                                    </div>
+                                    <div id="documents-list" class="space-y-3"></div>
+                                </div>
+                            </div>
+                            
+                            <div id="tab-content-checklists" class="hidden absolute inset-0 p-8 overflow-y-auto bg-white/50">
+                                <div class="max-w-2xl">
+                                    <div class="flex justify-between items-center pb-4 border-b border-slate-200 mb-6">
+                                        <h4 class="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
+                                            <i data-lucide="check-square" class="w-4 h-4 text-blue-500"></i> Pre-arrival Checklist
+                                        </h4>
+                                        <button onclick="addChecklistItem()" class="bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold px-3 py-1.5 rounded-lg text-[11px] flex items-center gap-1.5 transition-all">
+                                            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Item
+                                        </button>
+                                    </div>
+                                    <div id="checklist-list" class="space-y-3"></div>
                                 </div>
                             </div>
 
-                            <!-- Pre-arrival Checklist -->
-                            <div class="space-y-4">
-                                <div class="flex justify-between items-center pb-2 border-b border-slate-100">
-                                    <h4 class="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-1.5">
-                                        <i data-lucide="check-square" class="w-4 h-4 text-blue-500"></i> Pre-arrival Checklist
-                                    </h4>
-                                    <button onclick="addChecklistItem()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-1 rounded-lg text-[9px] flex items-center gap-1 transition-all shadow-sm">
-                                        <i data-lucide="plus" class="w-3 h-3"></i> Add
-                                    </button>
-                                </div>
-                                <div id="checklist-list" class="space-y-2">
-                                    <!-- Dynamic list of checklist items -->
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Attachments & FAQs configuration row -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-slate-100">
-                            <!-- SOPs & Attachments -->
-                            <div class="space-y-4">
-                                <div class="flex justify-between items-center pb-2 border-b border-slate-100">
-                                    <h4 class="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-1.5">
-                                        <i data-lucide="paperclip" class="w-4 h-4 text-blue-500"></i> SOPs & Attachments
-                                    </h4>
-                                    <button onclick="addAttachment()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-1 rounded-lg text-[9px] flex items-center gap-1 transition-all shadow-sm">
-                                        <i data-lucide="plus" class="w-3 h-3"></i> Add
-                                    </button>
-                                </div>
-                                <div id="attachments-list" class="space-y-3">
-                                    <!-- Dynamic list of attachments -->
+                            <div id="tab-content-sops" class="hidden absolute inset-0 p-8 overflow-y-auto bg-white/50">
+                                <div class="max-w-3xl">
+                                    <div class="flex justify-between items-center pb-4 border-b border-slate-200 mb-6">
+                                        <h4 class="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
+                                            <i data-lucide="paperclip" class="w-4 h-4 text-blue-500"></i> SOPs & Attachments
+                                        </h4>
+                                        <button onclick="addAttachment()" class="bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold px-3 py-1.5 rounded-lg text-[11px] flex items-center gap-1.5 transition-all">
+                                            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Attachment
+                                        </button>
+                                    </div>
+                                    <div id="attachments-list" class="space-y-4"></div>
                                 </div>
                             </div>
 
-                            <!-- Section FAQs -->
-                            <div class="space-y-4">
-                                <div class="flex justify-between items-center pb-2 border-b border-slate-100">
-                                    <h4 class="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-1.5">
-                                        <i data-lucide="help-circle" class="w-4 h-4 text-blue-500"></i> Section FAQs
-                                    </h4>
-                                    <button onclick="addFaq()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-2 py-1 rounded-lg text-[9px] flex items-center gap-1 transition-all shadow-sm">
-                                        <i data-lucide="plus" class="w-3 h-3"></i> Add
-                                    </button>
-                                </div>
-                                <div id="faqs-list" class="space-y-3">
-                                    <!-- Dynamic list of FAQs -->
+                            <div id="tab-content-faqs" class="hidden absolute inset-0 p-8 overflow-y-auto bg-white/50">
+                                <div class="max-w-3xl">
+                                    <div class="flex justify-between items-center pb-4 border-b border-slate-200 mb-6">
+                                        <h4 class="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
+                                            <i data-lucide="help-circle" class="w-4 h-4 text-blue-500"></i> Section FAQs
+                                        </h4>
+                                        <button onclick="addFaq()" class="bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold px-3 py-1.5 rounded-lg text-[11px] flex items-center gap-1.5 transition-all">
+                                            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add FAQ
+                                        </button>
+                                    </div>
+                                    <div id="faqs-list" class="space-y-4"></div>
                                 </div>
                             </div>
+
                         </div>
                     </div>
                 </div>
@@ -419,6 +491,42 @@
             <div class="flex justify-end gap-2 pt-2">
                 <button onclick="closeAddSectionModal()" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all">Cancel</button>
                 <button onclick="saveNewSection()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md">Create Section</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Section Details Modal -->
+    <div id="edit-section-modal" class="fixed inset-0 z-[10000] bg-slate-900/40 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white/95 backdrop-blur-md border border-slate-200/60 p-6 rounded-2xl max-w-md w-full space-y-4 shadow-2xl scale-95 transition-all duration-300">
+            <h3 class="text-lg font-bold text-slate-950 font-outfit">Edit Section Details</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Section Title</label>
+                    <input type="text" id="sec-title-input" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none" oninput="document.getElementById('editor-section-title').innerText = this.value || 'Section Editor'">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Unique Key</label>
+                    <input type="text" id="sec-key-input" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none" disabled>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Sub-title Description</label>
+                    <input type="text" id="sec-desc-input" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none" oninput="document.getElementById('editor-section-desc').innerText = this.value">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Applicable Services (Comma-separated or 'All')</label>
+                    <input type="text" id="sec-services-input" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none" value="All">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Section Type</label>
+                    <select id="sec-type-select" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none cursor-pointer">
+                        <option value="form">Standard Form</option>
+                        <option value="repeater">Repeater Form (Multi-item)</option>
+                        <option value="custom">Custom Component</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeEditDetailsModal()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md">Done</button>
             </div>
         </div>
     </div>
@@ -483,15 +591,52 @@
 
             container.innerHTML = sections.map((sec, idx) => {
                 const isSelected = sec.id === selectedSectionId;
-                const isDefault = sec.id.startsWith('sec-');
                 
                 let badgeClass = "bg-slate-100 text-slate-500 border border-slate-200";
-                if (sec.status === 'PUBLISHED') badgeClass = "bg-emerald-50 text-emerald-600 border border-emerald-100";
-                else if (sec.status === 'UNPUBLISHED') badgeClass = "bg-amber-50 text-amber-600 border border-amber-100";
-                else if (sec.status === 'DRAFT') badgeClass = "bg-blue-50 text-blue-600 border border-blue-100";
+                let statusText = sec.status || 'DRAFT';
+                if (sec.status === 'PUBLISHED') {
+                    badgeClass = "bg-green-50 text-green-600 border border-green-100";
+                    statusText = "Published";
+                } else if (sec.status === 'UNPUBLISHED') {
+                    badgeClass = "bg-amber-50 text-amber-600 border border-amber-100";
+                    statusText = "Unpublished";
+                } else if (sec.status === 'DRAFT') {
+                    badgeClass = "bg-blue-50 text-blue-600 border border-blue-100";
+                    statusText = "Draft";
+                }
+
+                let iconName = 'layout';
+                let iconBg = 'bg-slate-100 text-slate-500';
+                const titleLower = (sec.title || '').toLowerCase();
+                
+                if (titleLower.includes('company')) {
+                    iconName = 'building-2';
+                    iconBg = 'bg-blue-50 text-blue-500';
+                } else if (titleLower.includes('directors') || titleLower.includes('shareholders')) {
+                    iconName = 'users';
+                    iconBg = 'bg-purple-50 text-purple-500';
+                } else if (titleLower.includes('office')) {
+                    iconName = 'map-pin';
+                    iconBg = 'bg-emerald-50 text-emerald-500';
+                } else if (titleLower.includes('add-on') || titleLower.includes('services')) {
+                    iconName = 'git-merge';
+                    iconBg = 'bg-orange-50 text-orange-500';
+                } else if (titleLower.includes('package')) {
+                    iconName = 'package';
+                    iconBg = 'bg-purple-50 text-purple-600';
+                } else if (titleLower.includes('payment')) {
+                    iconName = 'credit-card';
+                    iconBg = 'bg-rose-50 text-rose-500';
+                }
+
+                const fCount = sec.fields ? sec.fields.length : 0;
+                const dCount = sec.documents ? sec.documents.length : 0;
+                const cCount = sec.checklists ? sec.checklists.length : 0;
+                const faqCount = sec.faqs ? sec.faqs.length : 0;
+                const statsText = `${fCount} Field${fCount !== 1 ? 's' : ''} &bull; ${dCount} Doc${dCount !== 1 ? 's' : ''} &bull; ${cCount} Checklist &bull; ${faqCount} FAQ${faqCount !== 1 ? 's' : ''}`;
 
                 return `
-                    <div class="section-item p-4 bg-white/60 hover:bg-white/90 border ${isSelected ? 'border-blue-500 ring-2 ring-blue-500/10' : 'border-white/80'} rounded-xl transition-all shadow-sm flex items-center justify-between"
+                    <div class="section-item p-4 bg-white border ${isSelected ? 'border-blue-500 ring-2 ring-blue-500/10' : 'border-slate-100'} rounded-2xl transition-all shadow-sm flex items-center justify-between"
                          draggable="true" 
                          data-id="${sec.id}"
                          onclick="selectSection('${sec.id}')"
@@ -500,27 +645,21 @@
                          ondragend="handleDragEnd(event)" 
                          ondrop="handleDrop(event)">
                         
-                        <div class="flex items-center gap-3 min-w-0">
-                            <div class="text-slate-300 hover:text-slate-500 cursor-grab shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+                        <div class="flex items-center gap-4 min-w-0">
+                            <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${iconBg}">
+                                <i data-lucide="${iconName}" class="w-6 h-6"></i>
                             </div>
                             <div class="min-w-0">
-                                <h4 class="font-bold text-slate-800 text-sm truncate">${sec.title}</h4>
-                                <p class="text-[10px] text-slate-400 font-mono truncate">${sec.key}</p>
+                                <h4 class="font-bold text-slate-900 text-[15px] truncate">${sec.title}</h4>
+                                <p class="text-xs text-slate-500 mt-0.5 truncate">${statsText}</p>
                             </div>
                         </div>
 
-                        <div class="flex items-center gap-2 shrink-0 ml-2">
-                            <span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${badgeClass}">${sec.status}</span>
-                            
-                            <div class="flex flex-col gap-0.5">
-                                <button onclick="moveSection('${sec.id}', -1, event)" class="p-0.5 text-slate-400 hover:text-slate-700 bg-slate-100/50 hover:bg-slate-200/50 rounded transition-colors ${idx === 0 ? 'opacity-30 pointer-events-none' : ''}">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
-                                </button>
-                                <button onclick="moveSection('${sec.id}', 1, event)" class="p-0.5 text-slate-400 hover:text-slate-700 bg-slate-100/50 hover:bg-slate-200/50 rounded transition-colors ${idx === sections.length - 1 ? 'opacity-30 pointer-events-none' : ''}">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                                </button>
-                            </div>
+                        <div class="flex items-center gap-4 shrink-0 ml-2">
+                            <span class="px-2.5 py-1 rounded-md text-[11px] font-bold ${badgeClass}">${statusText}</span>
+                            <button class="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition-colors" onclick="event.stopPropagation()">
+                                <i data-lucide="more-vertical" class="w-4 h-4"></i>
+                            </button>
                         </div>
                     </div>
                 `;
@@ -547,7 +686,30 @@
             if (!sec) return;
 
             document.getElementById('editor-placeholder').classList.add('hidden');
-            document.getElementById('editor-panel').classList.remove('hidden');
+            const editorPanel = document.getElementById('editor-panel');
+            editorPanel.classList.remove('hidden');
+            editorPanel.classList.add('flex'); // Need explicit flex to prevent collapse
+
+            // Update global status container
+            const gContainer = document.getElementById('global-status-container');
+            const gBadge = document.getElementById('global-status-badge');
+            const gDot = document.getElementById('global-status-dot');
+            gContainer.classList.remove('hidden');
+            gContainer.classList.add('flex');
+            
+            if (sec.status === 'PUBLISHED') {
+                gBadge.innerText = 'Published';
+                gBadge.className = 'text-xs font-bold text-emerald-600';
+                gDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
+            } else if (sec.status === 'UNPUBLISHED') {
+                gBadge.innerText = 'Unpublished';
+                gBadge.className = 'text-xs font-bold text-amber-600';
+                gDot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500';
+            } else {
+                gBadge.innerText = 'Draft';
+                gBadge.className = 'text-xs font-bold text-blue-600';
+                gDot.className = 'w-1.5 h-1.5 rounded-full bg-blue-500';
+            }
 
             // Set inputs
             document.getElementById('sec-title-input').value = sec.title || '';
@@ -562,7 +724,6 @@
 
             // Delete and Unpublish visibility
             document.getElementById('btn-delete').style.display = 'flex';
-            document.getElementById('btn-unpublish').style.display = (sec.status === 'PUBLISHED') ? 'flex' : 'none';
 
             // Set Badges and Header Info
             let badgeText = sec.status;
@@ -579,12 +740,11 @@
 
             const badge = document.getElementById('editor-badge');
             badge.innerText = badgeText;
-            badge.className = `inline-block px-3 py-1 rounded-full text-xs font-bold mb-2 ${badgeClass}`;
+            badge.className = `inline-block px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide ${badgeClass}`;
             
             document.getElementById('editor-section-title').innerText = sec.title;
-            
-            const lastUpdatedDate = sec.lastUpdatedAt ? new Date(sec.lastUpdatedAt).toLocaleString() : 'N/A';
-            document.getElementById('editor-history').innerHTML = `Last updated by <strong>${sec.lastUpdatedBy || 'System'}</strong> on <strong>${lastUpdatedDate}</strong>`;
+            document.getElementById('editor-section-desc').innerText = sec.description || 'Description goes here.';
+            document.getElementById('editor-section-key').innerText = sec.key;
 
             // Ensure array fields exist
             sec.documents = sec.documents || [];
@@ -597,8 +757,64 @@
             renderChecklistRows(sec.checklists || []);
             renderAttachmentRows(sec.attachments || []);
             renderFaqRows(sec.faqs || []);
-            validateFields();
+            
+            // Switch back to fields tab on selection
+            switchTab('fields');
         }
+        
+        function openEditDetailsModal() {
+            document.getElementById('edit-section-modal').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('edit-section-modal').querySelector('div').classList.remove('scale-95');
+                document.getElementById('edit-section-modal').querySelector('div').classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeEditDetailsModal() {
+            const modal = document.getElementById('edit-section-modal');
+            modal.querySelector('div').classList.remove('scale-100');
+            modal.querySelector('div').classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+        
+        function switchTab(tabName) {
+            const tabs = ['fields', 'documents', 'checklists', 'sops', 'faqs'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                const content = document.getElementById(`tab-content-${t}`);
+                if (btn && content) {
+                    if (t === tabName) {
+                        btn.className = "pb-3 text-[13px] font-bold border-b-2 transition-colors border-blue-600 text-blue-600 flex items-center gap-2 -mb-[1px]";
+                        content.classList.remove('hidden');
+                        if(t === 'fields') {
+                            content.classList.add('flex');
+                        }
+                    } else {
+                        btn.className = "pb-3 text-[13px] font-bold border-b-2 transition-colors border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2 -mb-[1px]";
+                        content.classList.add('hidden');
+                        content.classList.remove('flex');
+                    }
+                }
+            });
+        }
+
+        function switchPropTab(tabName) {
+            const tabs = ['settings', 'validation', 'conditions', 'advanced'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`ptab-${t}`);
+                const content = document.getElementById(`prop-tab-${t}`);
+                if (btn && content) {
+                    if (t === tabName) {
+                        btn.className = "text-blue-600 border-b-2 border-blue-600 pb-2 -mb-[1px]";
+                        content.classList.remove('hidden');
+                    } else {
+                        btn.className = "hover:text-slate-800 border-b-2 border-transparent pb-2 -mb-[1px]";
+                        content.classList.add('hidden');
+                    }
+                }
+            });
+        }
+
 
         function renderDocumentRows(docs) {
             const container = document.getElementById('documents-list');
@@ -895,268 +1111,252 @@
             `;
         }
 
+        let selectedFieldIndex = null;
+
         function renderFieldRows(fields) {
             const container = document.getElementById('fields-list');
             container.innerHTML = '';
+            
+            document.getElementById('fields-count').innerText = fields.length;
 
             if (fields.length === 0) {
-                container.innerHTML = `<div class="text-slate-400 text-xs p-4 text-center border border-dashed border-slate-200 rounded-xl">No fields added to this section yet. Click 'Add Field' above to define some inputs.</div>`;
+                container.innerHTML = `<div class="text-slate-400 text-[10px] p-6 text-center border border-dashed border-slate-200 rounded-xl bg-white/50">No fields added to this section yet. Click 'Add Field' or use shortcuts below.</div>`;
+                document.getElementById('field-properties-placeholder').classList.remove('hidden');
+                document.getElementById('field-properties-editor').classList.add('hidden');
+                document.getElementById('field-properties-editor').classList.remove('flex');
                 return;
             }
 
             fields.forEach((field, index) => {
-                const selectOptions = field.options ? field.options.join(', ') : '';
-                const isSelect = field.type === 'select';
+                let iconName = 'type';
+                let bgClass = 'bg-slate-100 text-slate-500';
+                
+                if (field.type === 'select') { iconName = 'menu'; bgClass = 'bg-blue-50 text-blue-500'; }
+                else if (field.type === 'ssic-single' || field.type === 'ssic-multi') { iconName = 'search'; bgClass = 'bg-purple-50 text-purple-500'; }
+                else if (field.type === 'date') { iconName = 'calendar'; bgClass = 'bg-emerald-50 text-emerald-500'; }
+                else if (field.type === 'file') { iconName = 'upload'; bgClass = 'bg-orange-50 text-orange-500'; }
+                else if (field.type === 'switch' || field.type === 'checkbox') { iconName = 'check'; bgClass = 'bg-indigo-50 text-indigo-500'; }
+                else if (field.type === 'address') { iconName = 'map-pin'; bgClass = 'bg-rose-50 text-rose-500'; }
+                else if (field.type === 'more') { iconName = 'more-horizontal'; bgClass = 'bg-slate-100 text-slate-600'; }
+
+                const isSelected = selectedFieldIndex === index;
 
                 const row = document.createElement('div');
-                row.className = "p-4 bg-white/40 border border-slate-200/60 rounded-xl space-y-3 relative";
+                row.className = `p-3 bg-white border ${isSelected ? 'border-blue-500 ring-1 ring-blue-500 shadow-sm' : 'border-slate-200 hover:border-slate-300'} rounded-xl cursor-pointer transition-all flex items-center gap-3`;
+                row.onclick = () => selectField(index);
+                
                 row.innerHTML = `
-                    <div class="flex flex-wrap items-center gap-3 pr-8">
-                        <div class="flex-1 min-w-[150px]">
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                                Field Label
-                                ${renderTooltip("The display name of the field shown to the user on the onboarding page (e.g. 'First Name' or 'Proposed Name Option 1').", 'left')}
-                                ${field.key && field.key.includes('primary') ? '<span class="ml-1 text-xs font-semibold text-indigo-600">(Primary)</span>' : ''}
-                                ${field.key && field.key.includes('secondary') ? '<span class="ml-1 text-xs font-semibold text-emerald-600">(Secondary)</span>' : ''}
-                            </label>
-                            <input type="text" value="${field.label || ''}" oninput="updateFieldProperty(${index}, 'label', this.value)" class="field-label-input w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none">
-                        </div>
-                        <div class="flex-1 min-w-[120px]">
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                                Binding Key (Data Path)
-                                ${renderTooltip("The exact variable path where the field value is stored in the database. Supports dot/array notation (e.g. 'contact.firstName' or 'names[0]').", 'center')}
-                            </label>
-                            <input type="text" value="${field.key || ''}" oninput="updateFieldProperty(${index}, 'key', this.value)" class="field-key-input w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono outline-none">
-                        </div>
-                        <div class="flex-1 min-w-[150px]">
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                                Placeholder
-                                ${renderTooltip("Temporary helper text shown inside the input. For 'switch' fields, this defines the price (e.g., '$480 per year' or '$350 one-time').", 'center')}
-                                ${field.key && field.key.includes('primary') ? '<span class="ml-1 text-xs font-semibold text-indigo-600">(Primary)</span>' : ''}
-                                ${field.key && field.key.includes('secondary') ? '<span class="ml-1 text-xs font-semibold text-emerald-600">(Secondary)</span>' : ''}
-                            </label>
-                            <input type="text" value="${field.placeholder || ''}" oninput="updateFieldProperty(${index}, 'placeholder', this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none" placeholder="e.g. Enter name option">
-                        </div>
-                        <div class="min-w-[100px]">
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                                Type
-                                ${renderTooltip("The input format type (Text, Number, Date, Select List, Textarea, File, or Switch Toggle).", 'right')}
-                            </label>
-                                <select onchange="updateFieldType(${index}, this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none cursor-pointer">
-                                    <option value="text" ${field.type==='text'?'selected':''}>Text</option>
-                                    <option value="number" ${field.type==='number'?'selected':''}>Number</option>
-                                    <option value="textarea" ${field.type==='textarea'?'selected':''}>Textarea</option>
-                                    <option value="date" ${field.type==='date'?'selected':''}>Date</option>
-                                    <option value="select" ${field.type==='select'?'selected':''}>Select List</option>
-                                    <option value="file" ${field.type==='file'?'selected':''}>File Upload</option>
-                                    <option value="switch" ${field.type==='switch'?'selected':''}>Switch Toggle</option>
-                                    <option value="ssic" ${field.type==='ssic'?'selected':''}>ACRA SSIC Selector (Multi)</option>
-                                    <option value="ssic-single" ${field.type==='ssic-single'?'selected':''}>ACRA SSIC Picker (Single)</option>
-                                </select>
-                        </div>
-                        <div class="flex items-center pt-5">
-                            <label class="inline-flex items-center gap-1 cursor-pointer">
-                                <input type="checkbox" ${field.required?'checked':''} onchange="updateFieldProperty(${index}, 'required', this.checked)" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4">
-                                <span class="text-xs font-semibold text-slate-600">Required</span>
-                                ${renderTooltip("If checked, this field is mandatory and the user cannot continue to the next onboarding step without filling it out.", 'right')}
-                            </label>
-                        </div>
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${bgClass}">
+                        <i data-lucide="${iconName}" class="w-4 h-4"></i>
                     </div>
-
-                    <div class="options-container ${isSelect ? '' : 'hidden'}" id="opt-container-${index}">
-                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                            Dropdown Options (Format: value:Label, separated by semicolons or commas)
-                            ${renderTooltip("Specify option choices as 'value:Label' pairs separated by semicolons (e.g. 'true:No, I Need Address; false:Yes, I have Address') or commas. Only applicable for 'Select List' type.", 'left')}
-                        </label>
-                        <input type="text" value="${selectOptions}" placeholder="e.g. true:Yes; false:No" oninput="updateFieldOptions(${index}, this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none">
+                    <div class="flex-1 min-w-0">
+                        <h4 class="text-sm font-bold text-slate-800 truncate">${field.label || 'Untitled Field'}</h4>
+                        <p class="text-[10px] text-slate-400 font-mono mt-0.5 truncate">${field.key || 'no-key'}</p>
                     </div>
-
-                    <!-- Validation Rules Sub-section -->
-                    <div class="border-t border-slate-200/60 pt-3 mt-3 grid grid-cols-1 md:grid-cols-5 gap-3">
-                        <div class="md:col-span-5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Validation Rules</div>
-                        <div>
-                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">
-                                Min (Len/Val)
-                                ${renderTooltip("Minimum character length for text/textarea inputs, or minimum numeric value for number inputs.", 'left')}
-                            </label>
-                            <input type="number" value="${field.min !== undefined ? field.min : ''}" oninput="updateFieldProperty(${index}, 'min', this.value ? parseFloat(this.value) : undefined)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs outline-none">
-                        </div>
-                        <div>
-                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">
-                                Max (Len/Val)
-                                ${renderTooltip("Maximum character length for text/textarea inputs, or maximum numeric value for number inputs.", 'center')}
-                            </label>
-                            <input type="number" value="${field.max !== undefined ? field.max : ''}" oninput="updateFieldProperty(${index}, 'max', this.value ? parseFloat(this.value) : undefined)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs outline-none">
-                        </div>
-                        <div>
-                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">
-                                Regex Pattern
-                                ${renderTooltip("Regular expression pattern constraints (e.g. '^[A-Z]{9}$' for exactly 9 uppercase letters).", 'center')}
-                            </label>
-                            <input type="text" value="${field.pattern || ''}" oninput="updateFieldProperty(${index}, 'pattern', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono outline-none" placeholder="e.g. ^[A-Z]{3}$">
-                        </div>
-                        <div>
-                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">
-                                Custom Date Check
-                                ${renderTooltip("Built-in validation presets for date inputs (e.g. 'No Future Date' or 'Passport Expiry (> 6 Months)').", 'right')}
-                            </label>
-                            <select onchange="updateFieldProperty(${index}, 'customRule', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs outline-none cursor-pointer">
-                                <option value="" ${!field.customRule?'selected':''}>None</option>
-                                <option value="no_future_date" ${field.customRule==='no_future_date'?'selected':''}>No Future Date</option>
-                                <option value="passport_expiry_6m" ${field.customRule==='passport_expiry_6m'?'selected':''}>Passport Expiry (> 6 Months)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">
-                                Custom Error Alert
-                                ${renderTooltip("The custom validation error alert message to display when input constraints fail.", 'right')}
-                            </label>
-                            <input type="text" value="${field.errorMessage || ''}" oninput="updateFieldProperty(${index}, 'errorMessage', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs outline-none" placeholder="Invalid input">
-                        </div>
+                    <div class="shrink-0 flex items-center">
+                        ${field.required ? '<span class="text-[9px] font-bold bg-rose-50 text-rose-500 px-1.5 py-0.5 rounded uppercase tracking-wider mr-2">Req</span>' : ''}
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-slate-300"></i>
                     </div>
-
-                    <!-- File / Switch / SSIC-Single Guideline Hints -->
-                    <div class="border-t border-slate-200/60 pt-3 mt-3 ${field.type === 'file' || field.type === 'switch' || field.type === 'ssic-single' ? '' : 'hidden'}" id="hint-container-${index}">
-                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                            ${field.type === 'ssic-single' ? 'Picker Subtitle / Description' : 'Description Hints / Guidelines'}
-                            ${renderTooltip(field.type === 'ssic-single' ? 'The subtitle text shown below the SSIC picker label to guide users (e.g. "Select the main business activity that best represents your company."' : "Acts as the main description text for 'Switch Toggle' types, or guideline descriptions for 'File Upload' types.", 'left')}
-                        </label>
-                        <input type="text" value="${field.hint || ''}" oninput="updateFieldProperty(${index}, 'hint', this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none" placeholder="${field.type === 'ssic-single' ? 'e.g. Select the main business activity for your company...' : 'e.g. For toggle switch, this acts as the description text.'}">
-
-                        ${field.type === 'ssic-single' ? `
-                        <div class="mt-2 p-2.5 bg-indigo-50 border border-indigo-100 rounded-lg flex items-start gap-2">
-                            <span class="text-indigo-500 text-sm shrink-0">ℹ️</span>
-                            <p class="text-[10px] text-indigo-700 font-semibold leading-relaxed">
-                                <strong>SSIC Single Picker</strong> — renders as a searchable ACRA SSIC dropdown with chip selection and a summary card.
-                                Set <strong>Binding Key</strong> to <code class="bg-white px-1 rounded">activities.primary</code> for primary or <code class="bg-white px-1 rounded">activities.secondary</code> for secondary.
-                                The <strong>Label</strong> appears as the section heading. The <strong>Subtitle</strong> above appears as the helper text below the heading.
-                                The <strong>Placeholder</strong> is the search input placeholder.
-                                If <strong>Required</strong> is checked, the user must select an activity before continuing.
-                            </p>
-                        </div>` : ''}
-                    </div>
-
-                    <!-- Conditional Display Sub-section -->
-                    <div class="border-t border-slate-200/60 pt-3 mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div class="md:col-span-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Conditional Visibility (Optional)</div>
-                        <div>
-                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">
-                                Depends on Field Key
-                                ${renderTooltip("Conditional display rule. Enter the field key this field's visibility depends on (e.g. 'office.useService').", 'left')}
-                            </label>
-                            <input type="text" value="${field.condKey || ''}" oninput="updateFieldProperty(${index}, 'condKey', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono outline-none" placeholder="e.g. office.useService">
-                        </div>
-                        <div>
-                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">
-                                Operator
-                                ${renderTooltip("Comparison operator for conditional visibility ('Equals', 'Does Not Equal', 'Is Empty', 'Is Not Empty').", 'center')}
-                            </label>
-                            <select onchange="updateFieldProperty(${index}, 'condOperator', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs outline-none cursor-pointer">
-                                <option value="equals" ${field.condOperator==='equals'?'selected':''}>Equals</option>
-                                <option value="not_equals" ${field.condOperator==='not_equals'?'selected':''}>Does Not Equal</option>
-                                <option value="empty" ${field.condOperator==='empty'?'selected':''}>Is Empty</option>
-                                <option value="not_empty" ${field.condOperator==='not_empty'?'selected':''}>Is Not Empty</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">
-                                Compare Value
-                                ${renderTooltip("The target value to compare against for conditional visibility (e.g. 'false').", 'right')}
-                            </label>
-                            <input type="text" value="${field.condValue || ''}" oninput="updateFieldProperty(${index}, 'condValue', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs outline-none" placeholder="e.g. false">
-                        </div>
-                    </div>
-
-                    <button onclick="removeFieldRow(${index})" class="absolute top-2 right-2 text-slate-300 hover:text-red-500 p-1 rounded-md transition-colors" title="Delete Field">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
-                    </button>
                 `;
-
                 container.appendChild(row);
             });
-        }
+            
+            if (window.lucide) window.lucide.createIcons();
 
-        function updateFieldProperty(index, property, val) {
-            const sec = sections.find(s => s.id === selectedSectionId);
-            if (sec && sec.fields[index]) {
-                sec.fields[index][property] = val;
-                validateFields();
+            // Refresh properties if a field is selected
+            if (selectedFieldIndex !== null && fields[selectedFieldIndex]) {
+                selectField(selectedFieldIndex, true);
+            } else {
+                selectedFieldIndex = null;
+                document.getElementById('field-properties-placeholder').classList.remove('hidden');
+                document.getElementById('field-properties-editor').classList.add('hidden');
+                document.getElementById('field-properties-editor').classList.remove('flex');
             }
         }
 
-        function updateFieldType(index, type) {
+        function selectField(index, skipScroll = false) {
+            selectedFieldIndex = index;
             const sec = sections.find(s => s.id === selectedSectionId);
-            if (sec && sec.fields[index]) {
-                sec.fields[index].type = type;
-                const optContainer = document.getElementById(`opt-container-${index}`);
-                if (type === 'select') {
-                    optContainer.classList.remove('hidden');
-                    sec.fields[index].options = sec.fields[index].options || [];
+            if (!sec || !sec.fields) return;
+            const field = sec.fields[index];
+            if (!field) return;
+            
+            // Re-render list to show selection highlight
+            const listItems = document.querySelectorAll('#fields-list > div');
+            listItems.forEach((el, idx) => {
+                if (idx === index) {
+                    el.className = `p-3 bg-white border border-blue-500 ring-1 ring-blue-500 shadow-sm rounded-xl cursor-pointer transition-all flex items-center gap-3`;
                 } else {
-                    optContainer.classList.add('hidden');
-                    delete sec.fields[index].options;
+                    el.className = `p-3 bg-white border border-slate-200 hover:border-slate-300 rounded-xl cursor-pointer transition-all flex items-center gap-3`;
                 }
+            });
+            
+            document.getElementById('field-properties-placeholder').classList.add('hidden');
+            document.getElementById('field-properties-editor').classList.remove('hidden');
+            document.getElementById('field-properties-editor').classList.add('flex');
+            
+            // Inject inputs to Settings Tab
+            const settingsTab = document.getElementById('prop-tab-settings');
+            settingsTab.innerHTML = `
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Field Label</label>
+                    <input type="text" value="${field.label || ''}" oninput="updateSelectedField('label', this.value)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Field Key</label>
+                    <input type="text" value="${field.key || ''}" oninput="updateSelectedField('key', this.value)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Placeholder / Hint</label>
+                    <input type="text" value="${field.placeholder || ''}" oninput="updateSelectedField('placeholder', this.value)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Field Type</label>
+                    <select onchange="updateSelectedField('type', this.value)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer">
+                        <option value="text" ${field.type === 'text' ? 'selected' : ''}>Text Input</option>
+                        <option value="textarea" ${field.type === 'textarea' ? 'selected' : ''}>Long Text Area</option>
+                        <option value="email" ${field.type === 'email' ? 'selected' : ''}>Email Address</option>
+                        <option value="number" ${field.type === 'number' ? 'selected' : ''}>Number Input</option>
+                        <option value="date" ${field.type === 'date' ? 'selected' : ''}>Date Picker</option>
+                        <option value="select" ${field.type === 'select' ? 'selected' : ''}>Dropdown Select</option>
+                        <option value="ssic-single" ${field.type === 'ssic-single' ? 'selected' : ''}>SSIC Single Select</option>
+                        <option value="file" ${field.type === 'file' ? 'selected' : ''}>File Upload</option>
+                        <option value="switch" ${field.type === 'switch' ? 'selected' : ''}>Checkbox / Switch</option>
+                    </select>
+                </div>
+                ${field.type === 'select' ? `
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Dropdown Options</label>
+                    <textarea oninput="updateSelectedField('options', this.value.split(',').map(s=>s.trim()))" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all" rows="2">${field.options ? field.options.join(', ') : ''}</textarea>
+                    <p class="text-[9px] text-slate-400 mt-1">Comma separated. e.g. "Option 1, Option 2"</p>
+                </div>
+                ` : ''}
+            `;
+            
+            // Inject inputs to Validation Tab
+            const validationTab = document.getElementById('prop-tab-validation');
+            validationTab.innerHTML = `
+                <label class="flex items-center gap-2 cursor-pointer p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <input type="checkbox" ${field.required ? 'checked' : ''} onchange="updateSelectedField('required', this.checked)" class="w-4 h-4 text-blue-600 rounded border-slate-300">
+                    <span class="text-xs font-bold text-slate-700">Required Field</span>
+                </label>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Min Length/Val</label>
+                        <input type="number" value="${field.min || ''}" oninput="updateSelectedField('min', this.value ? parseFloat(this.value) : undefined)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Max Length/Val</label>
+                        <input type="number" value="${field.max || ''}" oninput="updateSelectedField('max', this.value ? parseFloat(this.value) : undefined)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Regex Pattern</label>
+                    <input type="text" value="${field.pattern || ''}" oninput="updateSelectedField('pattern', this.value)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Custom Error Msg</label>
+                    <input type="text" value="${field.errorMessage || ''}" oninput="updateSelectedField('errorMessage', this.value)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+                </div>
+            `;
+
+            // Inject inputs to Conditions Tab
+            const conditionsTab = document.getElementById('prop-tab-conditions');
+            conditionsTab.innerHTML = `
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Depends on Field Key</label>
+                    <input type="text" value="${field.condKey || ''}" oninput="updateSelectedField('condKey', this.value)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Operator</label>
+                        <select onchange="updateSelectedField('condOperator', this.value)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none cursor-pointer focus:ring-2 focus:ring-blue-500/20 transition-all">
+                            <option value="equals" ${field.condOperator==='equals'?'selected':''}>Equals</option>
+                            <option value="not_equals" ${field.condOperator==='not_equals'?'selected':''}>Not Equal</option>
+                            <option value="empty" ${field.condOperator==='empty'?'selected':''}>Is Empty</option>
+                            <option value="not_empty" ${field.condOperator==='not_empty'?'selected':''}>Not Empty</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Compare Value</label>
+                        <input type="text" value="${field.condValue || ''}" oninput="updateSelectedField('condValue', this.value)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+                    </div>
+                </div>
+            `;
+
+            // Inject inputs to Advanced Tab
+            const advancedTab = document.getElementById('prop-tab-advanced');
+            advancedTab.innerHTML = `
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Width Class</label>
+                    <input type="text" value="${field.widthClass || 'w-full'}" oninput="updateSelectedField('widthClass', this.value)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+                </div>
+            `;
+
+            if (!skipScroll) {
+                switchPropTab('settings');
+            }
+        }
+
+        function updateSelectedField(prop, value) {
+            if (selectedFieldIndex === null) return;
+            const sec = sections.find(s => s.id === selectedSectionId);
+            if (sec && sec.fields) {
+                sec.fields[selectedFieldIndex][prop] = value;
                 
-                const hintContainer = document.getElementById(`hint-container-${index}`);
-                if (hintContainer) {
-                    if (type === 'file' || type === 'switch' || type === 'ssic-single') {
-                        hintContainer.classList.remove('hidden');
-                    } else {
-                        hintContainer.classList.add('hidden');
-                        delete sec.fields[index].hint;
+                // Real-time update list item UI
+                const item = document.querySelectorAll('#fields-list > div')[selectedFieldIndex];
+                if (item) {
+                    if (prop === 'label') item.querySelector('h4').innerText = value || 'Untitled Field';
+                    if (prop === 'key') item.querySelector('p').innerText = value || 'no-key';
+                    if (prop === 'required') {
+                        renderFieldRows(sec.fields); // Re-render to show/hide 'Req' badge
                     }
                 }
+                if (prop === 'type') {
+                    selectField(selectedFieldIndex, true); // Re-render props panel since type changed
+                    renderFieldRows(sec.fields); // Re-render to update icon
+                }
+                
                 validateFields();
             }
         }
 
-        function updateFieldOptions(index, optionsStr) {
+        function deleteSelectedField() {
+            if (selectedFieldIndex === null) return;
             const sec = sections.find(s => s.id === selectedSectionId);
-            if (sec && sec.fields[index]) {
-                const sep = optionsStr.includes(';') ? ';' : ',';
-                sec.fields[index].options = optionsStr.split(sep).map(s => s.trim()).filter(Boolean);
+            if (sec && sec.fields) {
+                sec.fields.splice(selectedFieldIndex, 1);
+                selectedFieldIndex = null;
+                renderFieldRows(sec.fields);
                 validateFields();
             }
         }
 
         function addFieldRow() {
-            const sec = sections.find(s => s.id === selectedSectionId);
-            if (!sec) return;
-            
-            sec.fields = sec.fields || [];
-
-            let suffix = 1;
-            let label = 'New Field';
-            let key = 'custom-key';
-            
-            while (sec.fields.some(f => (f.label || '').trim().toLowerCase() === label.toLowerCase())) {
-                suffix++;
-                label = `New Field ${suffix}`;
-            }
-            
-            suffix = 1;
-            while (sec.fields.some(f => (f.key || '').trim().toLowerCase() === key.toLowerCase())) {
-                suffix++;
-                key = `custom-key-${suffix}`;
-            }
-
-            sec.fields.push({
-                label: label,
-                key: key,
-                type: 'text',
-                placeholder: '',
-                required: false
-            });
-            renderFieldRows(sec.fields);
-            validateFields();
+            addFieldTypeQuick('text');
         }
 
-        function removeFieldRow(index) {
+        function addFieldTypeQuick(type) {
             const sec = sections.find(s => s.id === selectedSectionId);
             if (!sec) return;
-            
-            sec.fields.splice(index, 1);
+            sec.fields = sec.fields || [];
+            sec.fields.push({
+                label: 'New Field',
+                key: 'new_field_' + Date.now().toString().slice(-4),
+                type: type,
+                required: false
+            });
+            // Select the new field
+            selectedFieldIndex = sec.fields.length - 1;
             renderFieldRows(sec.fields);
+            
+            // Scroll list to bottom
+            setTimeout(() => {
+                const list = document.getElementById('fields-list').parentElement;
+                list.scrollTop = list.scrollHeight;
+            }, 10);
+            
             validateFields();
         }
 
