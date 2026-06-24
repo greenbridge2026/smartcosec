@@ -395,6 +395,27 @@
                 });
 
                 if (response.ok) {
+                    localStorage.setItem('signup_password', password);
+
+                    // Auto login on successful registration to avoid falling back to guest session
+                    try {
+                        const loginRes = await fetch('/api/auth/signin', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ email, password })
+                        });
+                        if (loginRes.ok) {
+                            const loginData = await loginRes.json();
+                            localStorage.setItem('token', loginData.token);
+                            const name = (loginData.firstName && loginData.lastName) ? (loginData.firstName + ' ' + loginData.lastName) : 'User';
+                            localStorage.setItem('client_auth', JSON.stringify({ role: 'client', email: email, name: name, id: loginData.id }));
+                        }
+                    } catch (loginErr) {
+                        console.error('Auto login after registration failed:', loginErr);
+                    }
+
                     const currentForm = document.getElementById(`step-3-form`);
                     const successState = document.getElementById('success-state');
 
@@ -431,6 +452,7 @@
                 } else {
                     mockUsers.push({ firstName, lastName, email, password, role: 'CLIENT' });
                     localStorage.setItem('mock_users', JSON.stringify(mockUsers));
+                    localStorage.setItem('signup_password', password);
                     
                     // Pre-authenticate user for seamless navigation
                     const token = 'mock-jwt-token-' + Math.random().toString(36).substring(2);

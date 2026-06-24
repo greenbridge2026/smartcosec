@@ -25,6 +25,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
+    <!-- Tesseract.js for browser-based OCR -->
+    <script src="https://unpkg.com/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
     <style>
         :root {
             --brand-primary: #298486;
@@ -343,10 +345,154 @@
             background-color: #fef2f2 !important;
         }
  
-        .upload-slot { border: 1px dashed #cbd5e1; border-radius: 12px; padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 0.85rem; position: relative; background: #f8fafc; max-width: 900px; }
-        .upload-slot input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+        .upload-slot { border: 1px dashed #cbd5e1; border-radius: 12px; padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 0.85rem; position: relative; background: #f8fafc; max-width: 900px; transition: all 0.2s; }
+        .upload-slot:hover { border-color: #2563eb; background: #eff6ff; }
+        .upload-slot input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; z-index: 2; }
         .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warning); }
         .status-dot.done { background: var(--success); }
+
+        /* === OCR ENGINE STYLES === */
+        .ocr-upload-zone {
+            border: 2px dashed #c7d2fe;
+            border-radius: 16px;
+            padding: 1.5rem 1rem;
+            background: linear-gradient(135deg, #f0f9ff 0%, #eff6ff 100%);
+            cursor: pointer;
+            position: relative;
+            transition: all 0.25s;
+            max-width: 900px;
+            text-align: center;
+        }
+        .ocr-upload-zone:hover, .ocr-upload-zone.dragover {
+            border-color: #6366f1;
+            background: linear-gradient(135deg, #ede9fe 0%, #dbeafe 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 8px 25px rgba(99,102,241,0.15);
+        }
+        .ocr-upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+        .ocr-upload-zone .ocr-upload-icon {
+            width: 48px; height: 48px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 0.75rem;
+            box-shadow: 0 6px 15px rgba(99,102,241,0.3);
+        }
+        .ocr-upload-zone .ocr-upload-title { font-size: 0.9rem; font-weight: 700; color: #1e293b; margin-bottom: 0.2rem; }
+        .ocr-upload-zone .ocr-upload-sub { font-size: 0.75rem; color: #64748b; }
+        .ocr-upload-zone .ocr-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white; font-size: 0.65rem; font-weight: 700;
+            padding: 2px 8px; border-radius: 20px; margin-top: 0.5rem;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+
+        /* OCR Processing Panel */
+        .ocr-panel {
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            overflow: hidden;
+            max-width: 900px;
+            background: #ffffff;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+            margin-top: 0.5rem;
+        }
+        .ocr-panel-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.875rem 1rem;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            color: white;
+        }
+        .ocr-panel-header .ocr-file-name { font-size: 0.8rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
+        .ocr-status-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 10px; border-radius: 20px;
+            font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+        }
+        .ocr-status-badge.uploading { background: rgba(251,191,36,0.15); color: #f59e0b; border: 1px solid rgba(251,191,36,0.3); }
+        .ocr-status-badge.processing { background: rgba(99,102,241,0.15); color: #818cf8; border: 1px solid rgba(99,102,241,0.3); }
+        .ocr-status-badge.complete { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+        .ocr-status-badge.failed { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
+        .ocr-status-badge.review { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
+
+        /* OCR Progress Bar */
+        .ocr-progress-wrap { padding: 0.875rem 1rem; border-bottom: 1px solid #f1f5f9; }
+        .ocr-progress-bar-track { width: 100%; height: 6px; background: #f1f5f9; border-radius: 100px; overflow: hidden; }
+        .ocr-progress-bar-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #8b5cf6); border-radius: 100px; transition: width 0.4s ease; }
+        .ocr-progress-label { display: flex; justify-content: space-between; margin-bottom: 0.4rem; font-size: 0.75rem; color: #64748b; }
+
+        /* OCR Extracted Fields */
+        .ocr-fields-panel { padding: 1rem; }
+        .ocr-field-item {
+            display: flex; align-items: flex-start; gap: 0.75rem;
+            padding: 0.6rem 0.75rem;
+            border-radius: 10px;
+            margin-bottom: 0.4rem;
+            border: 1px solid #f1f5f9;
+            background: #fafafa;
+            transition: all 0.2s;
+        }
+        .ocr-field-item:hover { background: #f0fdf4; border-color: #86efac; }
+        .ocr-field-label { font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 1px; }
+        .ocr-field-value { font-size: 0.85rem; font-weight: 600; color: #0f172a; }
+        .ocr-field-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.8rem; }
+        .ocr-field-icon.high { background: #d1fae5; color: #059669; }
+        .ocr-field-icon.medium { background: #fef3c7; color: #d97706; }
+        .ocr-field-icon.low { background: #fee2e2; color: #dc2626; }
+        .ocr-confidence-badge { font-size: 0.65rem; font-weight: 700; padding: 1px 6px; border-radius: 6px; margin-left: auto; flex-shrink: 0; }
+        .ocr-confidence-badge.high { background: #d1fae5; color: #059669; }
+        .ocr-confidence-badge.med { background: #fef3c7; color: #d97706; }
+        .ocr-confidence-badge.low { background: #fee2e2; color: #dc2626; }
+
+        /* OCR Confirm Button */
+        .ocr-confirm-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.875rem 1rem;
+            background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
+            border-top: 1px solid #d1fae5;
+        }
+        .ocr-confirm-bar .ocr-overall-conf { font-size: 0.75rem; color: #059669; font-weight: 600; }
+        .ocr-confirm-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white; border: none; border-radius: 10px;
+            padding: 0.55rem 1.25rem;
+            font-size: 0.8rem; font-weight: 700; cursor: pointer;
+            display: flex; align-items: center; gap: 6px;
+            transition: all 0.2s;
+        }
+        .ocr-confirm-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(16,185,129,0.4); }
+        .ocr-confirm-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .ocr-reupload-btn {
+            background: transparent; color: #64748b; border: 1px solid #e2e8f0;
+            border-radius: 10px; padding: 0.5rem 1rem;
+            font-size: 0.75rem; font-weight: 600; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .ocr-reupload-btn:hover { border-color: #94a3b8; color: #1e293b; background: #f8fafc; }
+
+        /* Auto-populated field glow */
+        .ocr-populated {
+            border-color: #10b981 !important;
+            background: linear-gradient(135deg, #ecfdf5, #f0fdf4) !important;
+            box-shadow: 0 0 0 3px rgba(16,185,129,0.1) !important;
+            animation: ocrPop 0.5s ease;
+        }
+        @keyframes ocrPop {
+            0% { transform: scale(0.99); }
+            50% { transform: scale(1.005); box-shadow: 0 0 0 6px rgba(16,185,129,0.2); }
+            100% { transform: scale(1); }
+        }
+        .ocr-populated-label::after {
+            content: ' ✦ Auto-filled';
+            font-size: 0.65rem;
+            color: #10b981;
+            font-weight: 700;
+        }
+
+        /* Spin animation for OCR loader */
+        @keyframes ocrSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .ocr-spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: ocrSpin 0.8s linear infinite; }
 
         .progress-line { width: 100%; height: 5px; background: #f1f5f9; border-radius: 100px; overflow: hidden; margin-top: 1rem; }
         .progress-fill { height: 100%; background: #2563eb; transition: width 0.5s ease; }
@@ -1817,6 +1963,12 @@
                     this.sections = this.preprocessSections(JSON.parse(JSON.stringify(DEFAULT_SECTIONS)));
                 }
 
+                // Fallback: if no published sections were returned, use defaults
+                if (!this.sections || this.sections.length === 0) {
+                    console.warn("No published sections found from backend. Using local fallback config.");
+                    this.sections = this.preprocessSections(JSON.parse(JSON.stringify(DEFAULT_SECTIONS)));
+                }
+
                 // Load SSIC activities list
                 try {
                     const res = await fetch('/api/ssic-activities/published');
@@ -1848,7 +2000,7 @@
                                 
                                 if (response.status && response.status !== 'pending' && response.status !== 'none') {
                                     if (response.status === 'approved') {
-                                        window.location.href = '/client/portal';
+                                        window.location.href = '/client/portal.html';
                                         return;
                                     }
                                     this.showStatusPage(response.status, response.data);
@@ -2640,6 +2792,30 @@
                     </div>
                 `;
 
+                let credentialsHtml = '';
+                if (status === 'review' || status === 'under review' || status === 'approved' || status === 'pending') {
+                    const authObj = JSON.parse(localStorage.getItem('client_auth') || '{}');
+                    const clientEmail = authObj.email || 'guest@globalisor.com';
+                    const clientPassword = localStorage.getItem('signup_password') || 'password123';
+                    
+                    credentialsHtml = `
+                        <div style="margin-top: 20px; background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 1px solid #cbd5e1; border-radius: 16px; padding: 18px; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+                            <div style="font-size: 0.72rem; font-weight: 800; color: var(--brand-primary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">🔑 Client Portal Access</div>
+                            <div style="font-size: 0.85rem; color: #334155; margin-bottom: 6px; display: flex; justify-content: space-between;">
+                                <span style="font-weight: 600;">Email:</span>
+                                <span style="font-family: monospace; font-weight: 700; color: #0f172a;">${clientEmail}</span>
+                            </div>
+                            <div style="font-size: 0.85rem; color: #334155; margin-bottom: 12px; display: flex; justify-content: space-between;">
+                                <span style="font-weight: 600;">Password:</span>
+                                <span style="font-family: monospace; font-weight: 700; color: #0f172a;">${clientPassword}</span>
+                            </div>
+                            <a href="/login.html" style="display: block; width: 100%; text-align: center; text-decoration: none; font-size: 0.8rem; padding: 0.65rem; box-sizing: border-box; background: linear-gradient(135deg, #298486, #206769); border: none; border-radius: 10px; color: white; font-weight: 700; box-shadow: 0 4px 12px rgba(41, 132, 134, 0.25); cursor: pointer; transition: all 0.2s;">
+                                Access Client Portal →
+                            </a>
+                        </div>
+                    `;
+                }
+
                 document.getElementById('client-status-details').innerHTML = `
                     <div style="font-weight:700; margin-bottom:10px;">${companyName}</div>
                     <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:5px;">Service: Company Incorporation</div>
@@ -2647,6 +2823,7 @@
                     <div style="font-size:0.85rem; color:var(--text-muted); padding-top:10px; border-top:1px solid #eee;">
                         We will notify you by email if any additional documents are required. Keep this page open for live updates.
                     </div>
+                    ${credentialsHtml}
                     ${actionButtonHtml}
                     ${resetBtnHtml}
                 `;
@@ -3571,12 +3748,47 @@
                                                     <div><strong>PEP Check:</strong> ${dir.kyc.pepStatus === 'clean' ? '🟢 Clean' : dir.kyc.pepStatus === 'match' ? '🔴 Match Found' : '⚪ Pending'}</div>
                                                     <div><strong>Sanctions Check:</strong> ${dir.kyc.sanctionsStatus === 'clean' ? '🟢 Clean' : dir.kyc.sanctionsStatus === 'match' ? '🔴 Match Found' : '⚪ Pending'}</div>
                                                     <div style="grid-column: span 2;"><strong>Shufti Ref:</strong> <code style="font-family: monospace; font-size: 0.7rem; background: #f1f5f9; padding: 0.1rem 0.3rem; border-radius: 4px;">${dir.kyc.shuftiRef}</code></div>
+
                                                 </div>
                                             `;
                                         }
 
+                                        const docPath = `directors[${idx}].docs.idDoc`;
+                                        const ocrState = this._ocrStates[docPath];
+                                        const idDocType = (dir.idType === 'Passport') ? 'passport' : 'nric';
+                                        let ocrUploadHtml = '';
+                                        if (ocrState && ocrState.status !== 'idle') {
+                                            ocrUploadHtml = this._renderOcrPanel(docPath, ocrState, { label: 'ID Document' }, idDocType);
+                                        } else {
+                                            const docFileName = dir.docs && dir.docs.idDoc ? dir.docs.idDoc : null;
+                                            if (docFileName) {
+                                                ocrUploadHtml = `<div class="ocr-upload-zone" style="padding:0.75rem 1rem; text-align:left; display:flex; align-items:center; gap:0.5rem; cursor:pointer; position:relative;">
+                                                    <input type="file" accept="image/*,application/pdf" onchange="wizard.handleUploadWithOcr(event, '${docPath}', '${idDocType}')">
+                                                    <span style="font-size:0.8rem; color:#10b981; font-weight:600;">✓ ${docFileName}</span>
+                                                    <span style="font-size:0.7rem; color:#64748b; margin-left:auto;">Change file</span>
+                                                </div>`;
+                                            } else {
+                                                ocrUploadHtml = `<div class="ocr-upload-zone" style="padding:0.875rem 1rem;" id="ocr-dir-${idx}">
+                                                    <input type="file" accept="image/*,application/pdf"
+                                                        onchange="wizard.handleUploadWithOcr(event, '${docPath}', '${idDocType}')"
+                                                        ondragover="this.parentElement.classList.add('dragover')"
+                                                        ondragleave="this.parentElement.classList.remove('dragover')">
+                                                    <div style="display:flex; align-items:center; gap:0.75rem; justify-content:center;">
+                                                        <div style="width:32px;height:32px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                                            <svg width="16" height="16" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                        </div>
+                                                        <div style="text-align:left;">
+                                                            <div style="font-size:0.8rem;font-weight:700;color:#1e293b;">Upload ${dir.idType === 'Passport' ? 'Passport' : 'NRIC / FIN'}</div>
+                                                            <div style="font-size:0.7rem;color:#64748b;">JPEG, PNG or PDF &bull; OCR auto-fills all details</div>
+                                                        </div>
+                                                        <div style="margin-left:auto;" class="ocr-badge"><span>⚡</span> OCR</div>
+                                                    </div>
+                                                </div>`;
+                                            }
+                                        }
+
                                         return `
-                                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+                                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 0.75rem;">
                                                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
                                                     <div style="display: flex; flex-direction: column; gap: 0.25rem; text-align: left;">
                                                         <input type="text" 
@@ -3598,6 +3810,14 @@
                                                     </div>
                                                 </div>
                                                 ${detailsHtml}
+                                                <!-- OCR Document Upload -->
+                                                <div style="border-top: 1px solid #f1f5f9; padding-top: 0.75rem;">
+                                                    <div style="font-size: 0.7rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 4px;">
+                                                        <span style="width:16px;height:16px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:4px;display:inline-flex;align-items:center;justify-content:center;color:white;font-size:0.55rem;">⚡</span>
+                                                        ID Document Upload (OCR Auto-Extract)
+                                                    </div>
+                                                    ${ocrUploadHtml}
+                                                </div>
                                             </div>
                                         `;
                                     }).join('')}
@@ -3605,6 +3825,7 @@
                             </div>
                         </div>
                     `;
+
                 }
                 if (sec.id === 'sec-addons') {
                     return `
@@ -5688,17 +5909,38 @@
                         `;
                         break;
                     case 'file':
-                        html = `
-                            <div class="form-group">
-                                <label class="form-label">${field.label}${requiredAsterisk}</label>
-                                ${field.hint ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:-0.2rem; margin-bottom:0.3rem; font-weight:500;">💡 ${field.hint}</div>` : ''}
-                                <div class="upload-slot">
-                                    <span class="truncate pr-4">${val || 'Select File...'}</span>
-                                    <input type="file" onchange="wizard.handleUpload(event, '${fullPath}')">
-                                    <div class="status-dot ${val ? 'done' : ''}"></div>
+                        const ocrDocType = field.ocrDocType || this._inferDocType(field.label, fullPath);
+                        const ocrState = this._ocrStates[fullPath];
+                        if (ocrState && ocrState.status !== 'idle') {
+                            html = `
+                                <div class="form-group" id="ocr-group-${containerId}">
+                                    <label class="form-label ocr-populated-label" style="display:flex;align-items:center;gap:6px;">
+                                        ${field.label}${requiredAsterisk}
+                                    </label>
+                                    ${field.hint ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:-0.2rem; margin-bottom:0.3rem; font-weight:500;">💡 ${field.hint}</div>` : ''}
+                                    ${this._renderOcrPanel(fullPath, ocrState, field, ocrDocType)}
                                 </div>
-                            </div>
-                        `;
+                            `;
+                        } else {
+                            html = `
+                                <div class="form-group" id="ocr-group-${containerId}">
+                                    <label class="form-label">${field.label}${requiredAsterisk}</label>
+                                    ${field.hint ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:-0.2rem; margin-bottom:0.3rem; font-weight:500;">💡 ${field.hint}</div>` : ''}
+                                    <div class="ocr-upload-zone" id="ocr-zone-${containerId}">
+                                        <input type="file" accept="image/*,application/pdf"
+                                            onchange="wizard.handleUploadWithOcr(event, '${fullPath}', '${ocrDocType}')"
+                                            ondragover="this.parentElement.classList.add('dragover')"
+                                            ondragleave="this.parentElement.classList.remove('dragover')">
+                                        <div class="ocr-upload-icon">
+                                            <svg width="24" height="24" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                        </div>
+                                        <div class="ocr-upload-title">Upload ${field.label}</div>
+                                        <div class="ocr-upload-sub">JPEG, PNG or PDF &bull; Max 10MB</div>
+                                        <div class="ocr-badge"><span>⚡</span> OCR Auto-Extract</div>
+                                    </div>
+                                </div>
+                            `;
+                        }
                         break;
                     case 'switch':
                         const isChecked = getVal(this.data, fullPath) === true;
@@ -5748,6 +5990,421 @@
                 return `<div id="${containerId}" class="${isFull ? 'full' : ''}">${html}</div>`;
             }
 
+            // ========== OCR ENGINE ==========
+            _ocrStates: {},
+            _ocrWorker: null,
+
+            _inferDocType(label, path) {
+                const l = (label + ' ' + path).toLowerCase();
+                if (l.includes('passport')) return 'passport';
+                if (l.includes('nric') || l.includes('fin') || l.includes('national id')) return 'nric';
+                if (l.includes('address proof') || l.includes('proof of address') || l.includes('utility')) return 'address_proof';
+                if (l.includes('bizfile') || l.includes('acra') || l.includes('uen')) return 'bizfile';
+                if (l.includes('constitution') || l.includes('memorandum')) return 'constitution';
+                if (l.includes('certificate of incorp') || l.includes('cert of incorp') || l.includes('incorp cert')) return 'cert_incorp';
+                if (l.includes('id doc') || l.includes('identification')) return 'nric';
+                return 'generic';
+            },
+
+            _renderOcrPanel(path, state, field, docType) {
+                const statusClass = { uploading:'uploading', processing:'processing', complete:'complete', failed:'failed', review:'review' }[state.status] || 'processing';
+                const statusLabel = { uploading:'📤 Uploading...', processing:'🔍 Extracting...', complete:'✅ Extraction Complete', failed:'❌ Extraction Failed', review:'⚠️ Review Required' }[state.status] || 'Processing';
+                const progress = state.progress || 0;
+
+                let fieldsHtml = '';
+                if (state.extractedFields && Object.keys(state.extractedFields).length > 0) {
+                    const confClass = c => c >= 0.8 ? 'high' : c >= 0.5 ? 'medium' : 'low';
+                    const confBadge = c => c >= 0.8 ? 'high' : c >= 0.5 ? 'med' : 'low';
+                    const confLabel = c => Math.round(c * 100) + '%';
+                    fieldsHtml = `<div class="ocr-fields-panel">
+                        <div style="font-size:0.7rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem;">Extracted Data</div>
+                        ${Object.entries(state.extractedFields).map(([k, v]) => {
+                            if (!v || !v.value) return '';
+                            const c = v.confidence || 0.7;
+                            return `<div class="ocr-field-item">
+                                <div class="ocr-field-icon ${confClass(c)}">${c >= 0.8 ? '✓' : c >= 0.5 ? '~' : '?'}</div>
+                                <div style="flex:1;min-width:0;">
+                                    <div class="ocr-field-label">${k}</div>
+                                    <div class="ocr-field-value">${v.value}</div>
+                                </div>
+                                <div class="ocr-confidence-badge ${confBadge(c)}">${confLabel(c)}</div>
+                            </div>`;
+                        }).join('')}
+                    </div>`;
+                } else if (state.status === 'processing' || state.status === 'uploading') {
+                    fieldsHtml = `<div style="padding:1rem;text-align:center;color:#64748b;font-size:0.8rem;"><div style="width:28px;height:28px;border:2.5px solid #e2e8f0;border-top-color:#6366f1;border-radius:50%;animation:ocrSpin 0.8s linear infinite;margin:0 auto 0.5rem;"></div>Scanning document for data fields...</div>`;
+                } else if (state.status === 'failed') {
+                    fieldsHtml = `<div style="padding:1rem;color:#ef4444;font-size:0.8rem;text-align:center;">⚠️ ${state.error || 'Could not extract data. Please verify manually.'}</div>`;
+                }
+
+                const overallConf = state.confidence ? Math.round(state.confidence * 100) : 0;
+                const isConfirmed = state.confirmed;
+                const canConfirm = state.status === 'complete' && !isConfirmed;
+                const confirmBar = (state.status === 'complete' || state.status === 'review') ? `
+                    <div class="ocr-confirm-bar">
+                        <div class="ocr-overall-conf">${isConfirmed ? '✅ Verified & Applied' : `Overall Confidence: ${overallConf}%`}</div>
+                        <div style="display:flex;gap:0.5rem;">
+                            <button class="ocr-reupload-btn" onclick="wizard.resetOcr('${path}')">↻ Re-upload</button>
+                            ${!isConfirmed ? `<button class="ocr-confirm-btn" onclick="wizard.confirmOcr('${path}')">✓ Apply to Form</button>` : ''}
+                        </div>
+                    </div>` : '';
+
+                const processingBar = (state.status === 'uploading' || state.status === 'processing') ? `
+                    <div class="ocr-progress-wrap">
+                        <div class="ocr-progress-label"><span>${state.progressLabel || 'Processing...'}</span><span>${progress}%</span></div>
+                        <div class="ocr-progress-bar-track"><div class="ocr-progress-bar-fill" style="width:${progress}%"></div></div>
+                    </div>` : '';
+
+                return `<div class="ocr-panel">
+                    <div class="ocr-panel-header">
+                        <div class="ocr-file-name">📄 ${state.fileName || 'Document'}</div>
+                        <div class="ocr-status-badge ${statusClass}">
+                            ${statusClass === 'processing' || statusClass === 'uploading' ? '<div class="ocr-spinner"></div>' : ''}
+                            ${statusLabel}
+                        </div>
+                    </div>
+                    ${processingBar}
+                    ${fieldsHtml}
+                    ${confirmBar}
+                </div>`;
+            },
+
+            async handleUploadWithOcr(e, path, docType) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                // Initialize OCR state
+                this._ocrStates[path] = { status: 'uploading', fileName: file.name, progress: 15, progressLabel: 'Reading document...' };
+                this.render();
+
+                try {
+                    // Convert file to URL for OCR
+                    const fileUrl = URL.createObjectURL(file);
+
+                    // Update to processing state
+                    this._ocrStates[path] = { status: 'processing', fileName: file.name, progress: 30, progressLabel: 'Initializing OCR engine...' };
+                    this.render();
+
+                    // Run Tesseract OCR
+                    const result = await Tesseract.recognize(fileUrl, 'eng', {
+                        logger: (m) => {
+                            if (m.status === 'recognizing text') {
+                                const pct = Math.round(30 + m.progress * 60);
+                                if (this._ocrStates[path]) {
+                                    this._ocrStates[path].progress = pct;
+                                    this._ocrStates[path].progressLabel = `Scanning text (${pct}%)...`;
+                                    // Throttle re-renders
+                                    if (pct % 20 === 0) this.render();
+                                }
+                            }
+                        }
+                    });
+
+                    URL.revokeObjectURL(fileUrl);
+
+                    // Extract structured fields from raw text
+                    const rawText = result.data.text;
+                    const ocrConfidence = result.data.confidence / 100;
+                    const extractedFields = this._extractFieldsByDocType(rawText, docType);
+
+                    // Determine status
+                    const numExtracted = Object.values(extractedFields).filter(v => v && v.value).length;
+                    const status = numExtracted > 0 ? (ocrConfidence > 0.5 ? 'complete' : 'review') : 'review';
+
+                    this._ocrStates[path] = {
+                        status,
+                        fileName: file.name,
+                        progress: 100,
+                        progressLabel: 'Complete',
+                        confidence: ocrConfidence,
+                        extractedFields,
+                        rawText,
+                        docType,
+                        confirmed: false
+                    };
+
+                    this.render();
+
+                    // Save to backend
+                    this._saveOcrToBackend(path, file.name, docType, status, ocrConfidence, extractedFields, rawText);
+
+                    // If confidence is high, auto-confirm and populate
+                    if (ocrConfidence > 0.75 && numExtracted > 0) {
+                        setTimeout(() => this.confirmOcr(path), 800);
+                    }
+
+                } catch (err) {
+                    console.error('[OCR] Error:', err);
+                    this._ocrStates[path] = {
+                        status: 'failed',
+                        fileName: file.name,
+                        progress: 0,
+                        error: 'OCR processing failed. You may enter data manually.',
+                        extractedFields: {},
+                        confirmed: false
+                    };
+                    this.render();
+                }
+            },
+
+            _extractFieldsByDocType(text, docType) {
+                const t = text;
+                const extracted = {};
+                const conf = (value, c) => ({ value: value ? value.trim() : '', confidence: c });
+
+                // Helper patterns
+                const findPattern = (patterns, fallbackConf = 0.6) => {
+                    for (const { re, conf: c } of patterns) {
+                        const m = t.match(re);
+                        if (m && m[1] && m[1].trim().length > 1) return { value: m[1].trim(), confidence: c };
+                    }
+                    return null;
+                };
+
+                if (docType === 'nric' || docType === 'fin') {
+                    // NRIC / FIN extraction
+                    const nricMatch = t.match(/([STFGM]\d{7}[A-Z])/i);
+                    if (nricMatch) extracted['NRIC / FIN Number'] = conf(nricMatch[1].toUpperCase(), 0.95);
+
+                    const nameMatch = t.match(/(?:name|full name)[:\s]+([A-Z][A-Z '\-]+(?:\s[A-Z]+){1,4})/i);
+                    if (nameMatch) extracted['Full Name'] = conf(nameMatch[1], 0.85);
+
+                    const dobMatch = t.match(/(\d{2}[\/-]\d{2}[\/-]\d{4}|\d{4}[\/-]\d{2}[\/-]\d{2})/i);
+                    if (dobMatch) extracted['Date of Birth'] = conf(dobMatch[1], 0.8);
+
+                    const sexMatch = t.match(/(?:sex|gender)[:\s]*(MALE|FEMALE|M|F)/i);
+                    if (sexMatch) extracted['Gender'] = conf(sexMatch[1].toLowerCase().startsWith('m') ? 'Male' : 'Female', 0.9);
+
+                    const nationMatch = t.match(/(?:nationality|race|citizenship)[:\s]+([A-Z][A-Za-z]+(?:\s[A-Za-z]+)?)/i);
+                    if (nationMatch) extracted['Nationality'] = conf(nationMatch[1], 0.75);
+
+                } else if (docType === 'passport') {
+                    // Passport MRZ pattern: P<COUNTRY<SURNAME<<GIVEN
+                    const mrzMatch = t.match(/P<([A-Z]{3})<([A-Z]+)<<([A-Z]+(?:<[A-Z]+)*)/);
+                    if (mrzMatch) {
+                        const surname = mrzMatch[2];
+                        const given = mrzMatch[3].replace(/<+/g, ' ').trim();
+                        extracted['Full Name'] = conf(`${given} ${surname}`, 0.95);
+                        extracted['Nationality'] = conf(mrzMatch[1], 0.9);
+                    } else {
+                        const nameMatch = t.match(/(?:surname|given name|full name)[:\s]+([A-Z][A-Za-z '\-]+)/i);
+                        if (nameMatch) extracted['Full Name'] = conf(nameMatch[1], 0.75);
+                    }
+
+                    const ppMatch = t.match(/(?:passport no|document no|no\.)[:\s]*([A-Z]{1,2}\d{6,8})/i) || t.match(/([A-Z]{1,2}\d{7})/);
+                    if (ppMatch) extracted['Passport Number'] = conf(ppMatch[1], 0.9);
+
+                    const dobMatch = t.match(/(?:date of birth|birth)[:\s]*(\d{2}\s[A-Z]{3}\s\d{4}|\d{2}[\/-]\d{2}[\/-]\d{4}|\d{4}[\/-]\d{2}[\/-]\d{2})/i);
+                    if (dobMatch) extracted['Date of Birth'] = conf(dobMatch[1], 0.85);
+
+                    const expiryMatch = t.match(/(?:date of expiry|expiry|expiration|expires?)[:\s]*(\d{2}\s[A-Z]{3}\s\d{4}|\d{2}[\/-]\d{2}[\/-]\d{4})/i);
+                    if (expiryMatch) extracted['Expiry Date'] = conf(expiryMatch[1], 0.85);
+
+                    const nationMatch = t.match(/(?:nationality)[:\s]+([A-Z][A-Za-z]+(?:\s[A-Za-z]+)?)/i);
+                    if (nationMatch && !extracted['Nationality']) extracted['Nationality'] = conf(nationMatch[1], 0.8);
+
+                } else if (docType === 'address_proof') {
+                    const postalMatch = t.match(/(?:postal|zip|postcode)[:\s]*(\d{5,6})/i) || t.match(/(\d{6})/);
+                    if (postalMatch) extracted['Postal Code'] = conf(postalMatch[1], 0.85);
+
+                    const addrMatch = t.match(/(?:address|add)[:\s]+([\d#\-\w][^\n]{10,60})/i);
+                    if (addrMatch) extracted['Residential Address'] = conf(addrMatch[1].trim(), 0.7);
+
+                    const countryMatch = t.match(/(?:country)[:\s]+([A-Z][A-Za-z]+)/i);
+                    if (countryMatch) extracted['Country'] = conf(countryMatch[1], 0.75);
+                    else if (t.toLowerCase().includes('singapore')) extracted['Country'] = conf('Singapore', 0.9);
+
+                } else if (docType === 'bizfile') {
+                    const uenMatch = t.match(/(?:uen|unique entity number)[:\s]*([0-9A-Z]{9,10})/i) || t.match(/([0-9]{8,9}[A-Z])/);
+                    if (uenMatch) extracted['UEN'] = conf(uenMatch[1].toUpperCase(), 0.9);
+
+                    const coNameMatch = t.match(/(?:entity name|company name|name of entity)[:\s]+([A-Z][^\n]{5,60})/i);
+                    if (coNameMatch) extracted['Company Name'] = conf(coNameMatch[1].trim(), 0.85);
+
+                    const incDateMatch = t.match(/(?:date of incorporation|registration date|incorporated)[:\s]*(\d{2}[\/-]\d{2}[\/-]\d{4}|\d{4}[\/-]\d{2}[\/-]\d{2})/i);
+                    if (incDateMatch) extracted['Incorporation Date'] = conf(incDateMatch[1], 0.85);
+
+                    const addrMatch = t.match(/(?:registered address|principal office)[:\s]+([^\n]{10,80})/i);
+                    if (addrMatch) extracted['Registered Address'] = conf(addrMatch[1].trim(), 0.75);
+
+                    const activityMatch = t.match(/(?:principal activity|business activity|ssic)[:\s]+([^\n]{5,80})/i);
+                    if (activityMatch) extracted['Business Activity'] = conf(activityMatch[1].trim(), 0.7);
+
+                } else if (docType === 'cert_incorp') {
+                    const coNameMatch = t.match(/(?:name of company|company name)[:\s]+([A-Z][^\n]{5,60})/i);
+                    if (coNameMatch) extracted['Company Name'] = conf(coNameMatch[1].trim(), 0.85);
+
+                    const regMatch = t.match(/(?:registration no|company number|reg no)[:\s]*([0-9A-Z\-]{5,15})/i);
+                    if (regMatch) extracted['Registration Number'] = conf(regMatch[1], 0.9);
+
+                    const countryMatch = t.match(/(?:country of incorporation|incorporated in)[:\s]+([A-Z][A-Za-z]+)/i);
+                    if (countryMatch) extracted['Country of Incorporation'] = conf(countryMatch[1], 0.8);
+                    else if (t.toLowerCase().includes('singapore')) extracted['Country of Incorporation'] = conf('Singapore', 0.85);
+
+                    const dateMatch = t.match(/(?:date of incorporation|incorporated on|incorporated)[:\s]*(\d{2}\s[A-Za-z]+\s\d{4}|\d{2}[\/-]\d{2}[\/-]\d{4})/i);
+                    if (dateMatch) extracted['Incorporation Date'] = conf(dateMatch[1], 0.85);
+
+                } else {
+                    // Generic: extract key-value pairs
+                    const lines = t.split('\n');
+                    lines.forEach(line => {
+                        const kv = line.match(/^([A-Za-z][A-Za-z ]{3,30})[:\s]{1,3}(.{3,60})$/);
+                        if (kv && kv[2].trim().length > 2) {
+                            extracted[kv[1].trim()] = conf(kv[2].trim(), 0.5);
+                        }
+                    });
+                }
+
+                return extracted;
+            },
+
+            confirmOcr(path) {
+                const state = this._ocrStates[path];
+                if (!state || !state.extractedFields) return;
+
+                // Auto-populate related form fields based on path context
+                this._autoPopulateFields(path, state.extractedFields, state.docType);
+
+                state.confirmed = true;
+                this.save();
+                this.render();
+
+                // Show a success toast
+                this._showOcrToast('✅ Data applied to form fields!');
+
+                // Persist confirmation to backend
+                const ocrId = state.backendId;
+                if (ocrId) {
+                    fetch('/api/ocr/' + ocrId + '/confirm', { method: 'POST' }).catch(() => {});
+                }
+            },
+
+            resetOcr(path) {
+                delete this._ocrStates[path];
+                this.render();
+            },
+
+            _autoPopulateFields(path, extractedFields, docType) {
+                // Determine the context prefix from the upload path
+                // e.g., "directors[0].docs.idDoc" → populate directors[0].name, directors[0].idNum etc.
+                const parts = path.split('.');
+                const prefix = parts.slice(0, -1).join('.');
+
+                const fieldMap = {
+                    // NRIC / Passport fields for directors
+                    'Full Name': ['name', prefix + '.name'],
+                    'NRIC / FIN Number': ['idNum', prefix + '.idNum'],
+                    'Passport Number': ['idNum', prefix + '.idNum'],
+                    'Date of Birth': ['dob', prefix + '.dob'],
+                    'Nationality': ['nation', prefix + '.nation'],
+                    'Gender': ['gender', prefix + '.gender'],
+                    'Expiry Date': ['passportExpiry', prefix + '.passportExpiry'],
+                    // Address proof
+                    'Residential Address': [prefix + '.addr', 'office.address'],
+                    'Postal Code': [prefix + '.postal', 'office.postalCode'],
+                    'Country': [prefix + '.country', 'office.country'],
+                    // Bizfile / Corp docs
+                    'Company Name': ['companyName', 'names[0]'],
+                    'UEN': ['uen'],
+                    'Incorporation Date': ['incDate'],
+                    'Registered Address': ['office.address', 'office.streetName'],
+                    'Registration Number': ['regNum', prefix + '.regNum'],
+                    'Country of Incorporation': ['regPlace', prefix + '.regPlace'],
+                };
+
+                let applied = 0;
+                Object.entries(extractedFields).forEach(([key, fieldVal]) => {
+                    if (!fieldVal || !fieldVal.value) return;
+                    const targets = fieldMap[key] || [];
+                    targets.forEach(targetPath => {
+                        // Only set if path exists in data structure context
+                        try {
+                            const existing = getVal(this.data, targetPath);
+                            if (existing === '' || existing === undefined || existing === null) {
+                                setVal(this.data, targetPath, fieldVal.value);
+                                applied++;
+                                // Highlight the field after render
+                                setTimeout(() => {
+                                    const inputs = document.querySelectorAll('[data-path="' + targetPath + '"]');
+                                    inputs.forEach(el => el.classList.add('ocr-populated'));
+                                }, 200);
+                            }
+                        } catch(e) {}
+                    });
+                });
+
+                // Also try to set in director/shareholder array based on path index
+                if (path.includes('directors[') || path.includes('shareholders[')) {
+                    const idxMatch = path.match(/(directors|shareholders)\[(\d+)\]/);
+                    if (idxMatch) {
+                        const arrKey = idxMatch[1];
+                        const idx = parseInt(idxMatch[2]);
+                        const item = (this.data[arrKey] || [])[idx];
+                        if (item) {
+                            const map2 = {
+                                'Full Name': 'name', 'NRIC / FIN Number': 'idNum', 'Passport Number': 'idNum',
+                                'Date of Birth': 'dob', 'Nationality': 'nation', 'Gender': 'gender',
+                                'Expiry Date': 'passportExpiry', 'Residential Address': 'addr',
+                                'Registration Number': 'regNum', 'Country of Incorporation': 'regPlace',
+                            };
+                            Object.entries(extractedFields).forEach(([k, v]) => {
+                                if (!v || !v.value) return;
+                                const f = map2[k];
+                                if (f && (item[f] === '' || item[f] === undefined || item[f] === null)) {
+                                    item[f] = v.value;
+                                    applied++;
+                                }
+                            });
+                            this.data[arrKey][idx] = item;
+                        }
+                    }
+                }
+
+                return applied;
+            },
+
+            _saveOcrToBackend(path, fileName, docType, status, confidence, extractedFields, rawText) {
+                const userId = (() => { try { return JSON.parse(localStorage.getItem('client_auth') || '{}').id; } catch(e) { return null; } })();
+                const payload = {
+                    userId,
+                    fieldPath: path,
+                    fileName,
+                    documentType: docType,
+                    status: status.toUpperCase(),
+                    confidence,
+                    extractedFields,
+                    rawText: rawText ? rawText.substring(0, 2000) : '',
+                    reviewedByClient: false
+                };
+                fetch('/api/ocr/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).then(r => r.json()).then(saved => {
+                    if (saved && saved.id && this._ocrStates[path]) {
+                        this._ocrStates[path].backendId = saved.id;
+                    }
+                }).catch(() => {});
+            },
+
+            _showOcrToast(message) {
+                const t = document.createElement('div');
+                t.style.cssText = `
+                    position: fixed; bottom: 2rem; right: 2rem;
+                    background: linear-gradient(135deg, #0f172a, #1e293b);
+                    color: white; padding: 0.875rem 1.5rem;
+                    border-radius: 14px; font-size: 0.85rem; font-weight: 600;
+                    z-index: 999999; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                    border: 1px solid rgba(255,255,255,0.1);
+                    animation: slideUp 0.3s ease;
+                `;
+                t.textContent = message;
+                document.body.appendChild(t);
+                setTimeout(() => t.style.opacity = '0', 2500);
+                setTimeout(() => t.remove(), 2800);
+            },
+
+            // Legacy handleUpload (kept for backward compatibility)
             handleUpload(e, path) {
                 const file = e.target.files[0];
                 if (file) {
@@ -5755,7 +6412,7 @@
                     this.save();
                     this.render();
                 }
-            }
+            },
 
             addRepeaterItem(key) {
                 let list = getVal(this.data, key);
