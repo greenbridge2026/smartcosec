@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCR Document Review | Globalisor Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        :root {
+            --brand-primary: #298486;
+            --brand-secondary: #36A9AD;
+            --sidebar-w: 260px;
+        }
+        body { margin: 0; font-family: 'Outfit', sans-serif; background: #f8fafc; display: flex; }
+        .main-content { margin-left: var(--sidebar-w); flex: 1; padding: 2rem; min-height: 100vh; }
+        .page-header { margin-bottom: 2rem; }
+        .page-title { font-size: 1.75rem; font-weight: 800; color: #0f172a; margin: 0 0 0.25rem; }
+        .page-subtitle { color: #64748b; font-size: 0.9rem; }
+
+        /* Stats row */
+        .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+        .stat-card {
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+            padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1rem;
+        }
+        .stat-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0; }
+        .stat-label { font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.4px; }
+        .stat-value { font-size: 1.75rem; font-weight: 800; color: #0f172a; line-height: 1; }
+
+        /* Filters */
+        .filters-bar { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+        .filter-input { padding: 0.55rem 1rem; border: 1.5px solid #e2e8f0; border-radius: 10px; font-family: inherit; font-size: 0.85rem; outline: none; transition: border-color 0.2s; background: white; }
+        .filter-input:focus { border-color: var(--brand-primary); }
+        .filter-select { padding: 0.55rem 1rem; border: 1.5px solid #e2e8f0; border-radius: 10px; font-family: inherit; font-size: 0.85rem; outline: none; background: white; cursor: pointer; }
+        .btn-refresh { padding: 0.55rem 1.25rem; background: var(--brand-primary); color: white; border: none; border-radius: 10px; font-family: inherit; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+        .btn-refresh:hover { background: var(--brand-secondary); }
+
+        /* OCR Cards Grid */
+        .ocr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(480px, 1fr)); gap: 1.5rem; }
+        .ocr-card {
+            background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px;
+            overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+            transition: all 0.2s;
+        }
+        .ocr-card:hover { box-shadow: 0 8px 25px rgba(0,0,0,0.08); transform: translateY(-1px); }
+
+        /* Card header */
+        .ocr-card-header {
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            color: white; display: flex; align-items: center; justify-content: space-between;
+        }
+        .ocr-card-user { font-size: 0.8rem; font-weight: 600; }
+        .ocr-card-file { font-size: 0.72rem; color: #94a3b8; margin-top: 1px; }
+        .ocr-status-badge {
+            padding: 3px 10px; border-radius: 20px;
+            font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+        }
+        .badge-complete { background: rgba(16,185,129,0.2); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+        .badge-review { background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
+        .badge-failed { background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
+        .badge-processing { background: rgba(99,102,241,0.2); color: #818cf8; border: 1px solid rgba(99,102,241,0.3); }
+
+        /* Extracted data */
+        .ocr-fields { padding: 1rem 1.25rem; }
+        .ocr-doc-type { font-size: 0.65rem; font-weight: 800; color: #6366f1; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 5px; }
+        .field-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid #f8fafc; }
+        .field-row:last-child { border-bottom: none; }
+        .field-key { font-size: 0.72rem; color: #64748b; font-weight: 600; }
+        .field-val { font-size: 0.8rem; color: #0f172a; font-weight: 700; text-align: right; max-width: 200px; word-break: break-word; }
+        .conf-chip { font-size: 0.6rem; font-weight: 700; padding: 1px 5px; border-radius: 5px; margin-left: 5px; flex-shrink: 0; }
+        .conf-high { background: #d1fae5; color: #059669; }
+        .conf-med { background: #fef3c7; color: #d97706; }
+        .conf-low { background: #fee2e2; color: #dc2626; }
+
+        /* Confidence bar */
+        .confidence-section { padding: 0 1.25rem 0.75rem; }
+        .conf-label { font-size: 0.7rem; color: #64748b; margin-bottom: 0.25rem; display: flex; justify-content: space-between; }
+        .conf-bar { height: 5px; background: #f1f5f9; border-radius: 9999px; overflow: hidden; }
+        .conf-fill { height: 100%; border-radius: 9999px; transition: width 0.5s ease; }
+        .conf-fill.high { background: linear-gradient(90deg, #10b981, #059669); }
+        .conf-fill.med { background: linear-gradient(90deg, #f59e0b, #d97706); }
+        .conf-fill.low { background: linear-gradient(90deg, #ef4444, #dc2626); }
+
+        /* Actions */
+        .ocr-card-actions { padding: 0.875rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+        .action-meta { font-size: 0.7rem; color: #94a3b8; }
+        .btn-approve { padding: 0.45rem 1rem; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+        .btn-approve:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(16,185,129,0.3); }
+        .btn-flag { padding: 0.45rem 1rem; background: transparent; color: #ef4444; border: 1.5px solid #fca5a5; border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+        .btn-flag:hover { background: #fef2f2; }
+        .btn-view-raw { padding: 0.45rem 1rem; background: transparent; color: #64748b; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn-view-raw:hover { border-color: #94a3b8; }
+
+        /* Empty state */
+        .empty-state { text-align: center; padding: 4rem 2rem; color: #94a3b8; }
+        .empty-state svg { width: 64px; height: 64px; margin-bottom: 1rem; opacity: 0.4; }
+        .empty-state h3 { font-size: 1.1rem; font-weight: 700; color: #64748b; margin: 0 0 0.5rem; }
+        .empty-state p { font-size: 0.85rem; }
+
+        /* Loading */
+        .loading-spinner { display: flex; align-items: center; justify-content: center; padding: 4rem; }
+        .spinner { width: 40px; height: 40px; border: 3px solid #e2e8f0; border-top-color: var(--brand-primary); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Raw text modal */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(6px);
+            display: flex; align-items: center; justify-content: center; z-index: 99999;
+        }
+        .modal-box { background: white; border-radius: 16px; max-width: 640px; width: 95%; padding: 1.5rem; box-shadow: 0 20px 50px rgba(0,0,0,0.2); max-height: 80vh; overflow-y: auto; }
+        .modal-title { font-size: 1rem; font-weight: 800; color: #0f172a; margin-bottom: 1rem; }
+        .raw-text { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem; font-family: monospace; font-size: 0.75rem; color: #334155; white-space: pre-wrap; max-height: 400px; overflow-y: auto; line-height: 1.6; }
+        .modal-close { float: right; background: none; border: none; font-size: 1.25rem; color: #94a3b8; cursor: pointer; }
+
+        /* Reviewed badge */
+        .reviewed-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 0.65rem; font-weight: 700; color: #059669; background: #d1fae5; padding: 2px 8px; border-radius: 9999px; }
+    </style>
+</head>
+<body>
+    <div id="admin-sidebar-container"></div>
+
+    <div class="main-content">
+        <div class="page-header">
+            <h1 class="page-title">📄 OCR Document Review</h1>
+            <p class="page-subtitle">Review client-submitted documents and auto-extracted data. Approve or flag extractions for manual verification.</p>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-row" id="stats-row">
+            <div class="stat-card">
+                <div class="stat-icon" style="background:#eff6ff;">📄</div>
+                <div>
+                    <div class="stat-label">Total Documents</div>
+                    <div class="stat-value" id="stat-total">—</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background:#ecfdf5;">✅</div>
+                <div>
+                    <div class="stat-label">Extraction Complete</div>
+                    <div class="stat-value" id="stat-complete">—</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background:#fffbeb;">⚠️</div>
+                <div>
+                    <div class="stat-label">Review Required</div>
+                    <div class="stat-value" id="stat-review">—</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background:#fef2f2;">❌</div>
+                <div>
+                    <div class="stat-label">Failed / Manual</div>
+                    <div class="stat-value" id="stat-failed">—</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters-bar">
+            <input type="text" class="filter-input" id="search-input" placeholder="🔍 Search by user, file or field..." style="flex:1; min-width:200px;" oninput="filterCards()">
+            <select class="filter-select" id="status-filter" onchange="filterCards()">
+                <option value="">All Statuses</option>
+                <option value="COMPLETE">Complete</option>
+                <option value="REVIEW">Review Required</option>
+                <option value="FAILED">Failed</option>
+                <option value="PROCESSING">Processing</option>
+            </select>
+            <select class="filter-select" id="doctype-filter" onchange="filterCards()">
+                <option value="">All Doc Types</option>
+                <option value="nric">NRIC / FIN</option>
+                <option value="passport">Passport</option>
+                <option value="address_proof">Address Proof</option>
+                <option value="bizfile">Bizfile</option>
+                <option value="cert_incorp">Certificate of Incorp.</option>
+                <option value="generic">Generic</option>
+            </select>
+            <select class="filter-select" id="reviewed-filter" onchange="filterCards()">
+                <option value="">All</option>
+                <option value="yes">Reviewed by Client</option>
+                <option value="no">Pending Review</option>
+            </select>
+            <button class="btn-refresh" onclick="loadOcrResults()">↻ Refresh</button>
+        </div>
+
+        <!-- Cards Grid -->
+        <div id="ocr-grid-container">
+            <div class="loading-spinner"><div class="spinner"></div></div>
+        </div>
+    </div>
+
+    <!-- Raw Text Modal -->
+    <div class="modal-overlay" id="raw-modal" style="display:none;" onclick="if(event.target===this)closeModal()">
+        <div class="modal-box">
+            <button class="modal-close" onclick="closeModal()">×</button>
+            <div class="modal-title">📝 Raw OCR Text</div>
+            <pre class="raw-text" id="raw-text-content"></pre>
+        </div>
+    </div>
+
+    <script src="/admin/admin-sidebar.js"></script>
+    <script>
+        // Init sidebar
+        if (typeof initAdminSidebar === 'function') {
+            initAdminSidebar('ocr-review');
+        }
+
+        let allResults = [];
+        const token = localStorage.getItem('token') || '';
+
+        async function loadOcrResults() {
+            document.getElementById('ocr-grid-container').innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+            try {
+                const res = await fetch('/api/ocr/all', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (!res.ok) throw new Error('API error');
+                allResults = await res.json();
+                updateStats(allResults);
+                renderCards(allResults);
+            } catch (e) {
+                document.getElementById('ocr-grid-container').innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+                        <h3>No OCR results yet</h3>
+                        <p>When clients upload documents and run OCR extraction, results will appear here.</p>
+                    </div>`;
+            }
+        }
+
+        function updateStats(results) {
+            document.getElementById('stat-total').textContent = results.length;
+            document.getElementById('stat-complete').textContent = results.filter(r => r.status === 'COMPLETE').length;
+            document.getElementById('stat-review').textContent = results.filter(r => r.status === 'REVIEW').length;
+            document.getElementById('stat-failed').textContent = results.filter(r => r.status === 'FAILED').length;
+        }
+
+        function filterCards() {
+            const search = document.getElementById('search-input').value.toLowerCase();
+            const status = document.getElementById('status-filter').value;
+            const doctype = document.getElementById('doctype-filter').value;
+            const reviewed = document.getElementById('reviewed-filter').value;
+
+            const filtered = allResults.filter(r => {
+                if (status && r.status !== status) return false;
+                if (doctype && r.documentType !== doctype) return false;
+                if (reviewed === 'yes' && !r.reviewedByClient) return false;
+                if (reviewed === 'no' && r.reviewedByClient) return false;
+                if (search) {
+                    const text = JSON.stringify(r).toLowerCase();
+                    if (!text.includes(search)) return false;
+                }
+                return true;
+            });
+            renderCards(filtered);
+        }
+
+        function renderCards(results) {
+            if (results.length === 0) {
+                document.getElementById('ocr-grid-container').innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+                        <h3>No matching results</h3>
+                        <p>Try adjusting your filters.</p>
+                    </div>`;
+                return;
+            }
+
+            const html = `<div class="ocr-grid">${results.map(r => renderCard(r)).join('')}</div>`;
+            document.getElementById('ocr-grid-container').innerHTML = html;
+        }
+
+        function renderCard(r) {
+            const statusClass = {
+                'COMPLETE': 'badge-complete',
+                'REVIEW': 'badge-review',
+                'FAILED': 'badge-failed',
+                'PROCESSING': 'badge-processing',
+            }[r.status] || 'badge-review';
+
+            const statusLabel = {
+                'COMPLETE': '✅ Complete',
+                'REVIEW': '⚠️ Review Required',
+                'FAILED': '❌ Failed',
+                'PROCESSING': '🔍 Processing',
+            }[r.status] || r.status;
+
+            const docTypeLabel = {
+                'nric': '🪪 NRIC / FIN',
+                'fin': '🪪 FIN Card',
+                'passport': '📘 Passport',
+                'address_proof': '🏠 Address Proof',
+                'bizfile': '🏢 Bizfile / ACRA',
+                'cert_incorp': '📜 Certificate of Incorporation',
+                'constitution': '📑 Constitution',
+                'generic': '📄 Document',
+            }[r.documentType] || '📄 ' + (r.documentType || 'Document');
+
+            const fields = r.extractedFields || {};
+            const fieldsHtml = Object.entries(fields).filter(([,v]) => v && v.value).map(([k, v]) => {
+                const c = v.confidence || 0.7;
+                const confClass = c >= 0.8 ? 'conf-high' : c >= 0.5 ? 'conf-med' : 'conf-low';
+                return `<div class="field-row">
+                    <span class="field-key">${k}</span>
+                    <span style="display:flex;align-items:center;gap:4px;">
+                        <span class="field-val">${v.value}</span>
+                        <span class="conf-chip ${confClass}">${Math.round(c*100)}%</span>
+                    </span>
+                </div>`;
+            }).join('');
+
+            const conf = r.confidence || 0;
+            const confClass = conf >= 0.8 ? 'high' : conf >= 0.5 ? 'med' : 'low';
+            const confPct = Math.round(conf * 100);
+
+            const createdAt = r.createdAt ? new Date(r.createdAt).toLocaleString() : '—';
+            const userId = r.userId || 'Guest';
+            const fieldPath = r.fieldPath || '—';
+
+            return `
+                <div class="ocr-card" id="card-${r.id}">
+                    <div class="ocr-card-header">
+                        <div>
+                            <div class="ocr-card-user">👤 ${userId}</div>
+                            <div class="ocr-card-file">📁 ${r.fileName || 'Unknown file'} · <code style="font-size:0.65rem;background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">${fieldPath}</code></div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+                            <span class="ocr-status-badge ${statusClass}">${statusLabel}</span>
+                            ${r.reviewedByClient ? '<span class="reviewed-badge">✓ Client Reviewed</span>' : ''}
+                        </div>
+                    </div>
+
+                    <div class="ocr-fields">
+                        <div class="ocr-doc-type">${docTypeLabel}</div>
+                        ${fieldsHtml || '<div style="color:#94a3b8;font-size:0.8rem;text-align:center;padding:0.5rem 0;">No fields extracted</div>'}
+                    </div>
+
+                    <div class="confidence-section">
+                        <div class="conf-label">
+                            <span>Overall OCR Confidence</span>
+                            <span style="font-weight:700;color:${conf>=0.8?'#059669':conf>=0.5?'#d97706':'#dc2626'}">${confPct}%</span>
+                        </div>
+                        <div class="conf-bar">
+                            <div class="conf-fill ${confClass}" style="width:${confPct}%"></div>
+                        </div>
+                    </div>
+
+                    <div class="ocr-card-actions">
+                        <div class="action-meta">🕐 ${createdAt}</div>
+                        <div style="display:flex;gap:0.5rem;">
+                            ${r.rawText ? `<button class="btn-view-raw" onclick="showRawText('${r.id}')">Raw Text</button>` : ''}
+                            <button class="btn-flag" onclick="flagResult('${r.id}')">Flag</button>
+                            <button class="btn-approve" onclick="approveResult('${r.id}')">✓ Approve</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showRawText(id) {
+            const r = allResults.find(r => r.id === id);
+            if (!r) return;
+            document.getElementById('raw-text-content').textContent = r.rawText || 'No raw text available.';
+            document.getElementById('raw-modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('raw-modal').style.display = 'none';
+        }
+
+        async function approveResult(id) {
+            try {
+                await fetch('/api/ocr/' + id + '/confirm', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const r = allResults.find(r => r.id === id);
+                if (r) r.reviewedByClient = true;
+                const card = document.getElementById('card-' + id);
+                if (card) {
+                    card.style.opacity = '0.5';
+                    card.style.border = '1.5px solid #10b981';
+                    setTimeout(() => { card.style.opacity = '1'; }, 500);
+                }
+            } catch(e) { alert('Error approving result'); }
+        }
+
+        async function flagResult(id) {
+            const card = document.getElementById('card-' + id);
+            if (card) {
+                card.style.border = '1.5px solid #ef4444';
+                card.style.background = '#fef2f2';
+            }
+        }
+
+        // Init
+        loadOcrResults();
+        // Auto-refresh every 30s
+        setInterval(loadOcrResults, 30000);
+    </script>
+</body>
+</html>

@@ -553,11 +553,20 @@ document.addEventListener('DOMContentLoaded', () => {
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
                             <span>KYC Review</span>
                         </a>
+                        <a href="onboarding.html" class="submenu-item" id="nav-onboarding" data-tooltip="Client Onboarding">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
+                            <span>Client Onboarding</span>
+                        </a>
                         <a href="compliance.html" class="submenu-item" id="nav-compliance" data-tooltip="Compliance">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="m16 16 3-8 3 8c-.87.65-2.24.83-3 .83s-2.13-.18-3-.83Z"/><path d="m2 16 3-8 3 8c-.87.65-2.24.83-3 .83s-2.13-.18-3-.83Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h18"/></svg>
                             <span>Compliance</span>
                         </a>
+                        <a href="ocr-review.html" class="submenu-item" id="nav-ocr-review" data-tooltip="OCR Document Review">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <span>OCR Review ⚡</span>
+                        </a>
                     </div>
+
                 </div>
             </div>
             
@@ -705,6 +714,10 @@ document.addEventListener('DOMContentLoaded', () => {
         activeId = 'nav-kyc';
         activeCatId = 'cat-operations';
         activeSubId = 'sub-operations';
+    } else if (path.includes('onboarding.html')) {
+        activeId = 'nav-onboarding';
+        activeCatId = 'cat-operations';
+        activeSubId = 'sub-operations';
     } else if (path.includes('compliance.html')) {
         activeId = 'nav-compliance';
         activeCatId = 'cat-operations';
@@ -781,6 +794,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'nav-clients': 'Clients',
             'nav-applications': 'Applications',
             'nav-kyc': 'KYC Review',
+            'nav-onboarding': 'Client Onboarding',
             'nav-compliance': 'Compliance',
             'nav-messages': 'Messages',
             'nav-content': 'Content',

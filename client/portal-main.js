@@ -19,36 +19,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Session Recovery
     const authString = localStorage.getItem('client_auth');
     if (!authString) {
-        window.location.href = '/auth.html';
+        window.location.href = '/login.html';
         return;
     }
     const auth = JSON.parse(authString);
-    
-    // Authorization Check: Must be approved to view portal
-    try {
-        const token = localStorage.getItem('token');
-        const reqRes = await fetch('/api/requirements', { headers: { 'Authorization': 'Bearer ' + token } });
-        if (reqRes.ok) {
-            const reqData = await reqRes.json();
-            if (reqData.status !== 'approved') {
-                window.location.href = '/requirements.html';
-                return;
-            }
-        } else {
-            window.location.href = '/requirements.html';
-            return;
-        }
-    } catch (e) {
-        window.location.href = '/requirements.html';
-        return;
-    }
 
     state.user = auth;
-    document.getElementById('user-name').innerText = auth.name;
+    const userNameEl = document.getElementById('user-name');
+    if (userNameEl) {
+        userNameEl.innerText = auth.name;
+    }
     connectWebSocket();
 
     // Sequential Data Hydration
     await fetchData();
+
+    // Check portal activation + apply freeze
+    await checkPortalActivation();
     
     // Handle deep-linking via URL parameters
     const urlParams = new URLSearchParams(window.location.search);
@@ -67,6 +54,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             const view = document.getElementById('main-view');
             renderServices(view);
         }
+    });
+
+    // Listen for portal_activated websocket event
+    window.addEventListener('ws_portal_activated', () => {
+        state.portalActivated = true;
+        applyPortalFreezeUI(true);
     });
 });
 
@@ -247,12 +240,89 @@ function updateNotificationUI() {
     }).join('');
 }
 
+// Portal freeze/lock state
+state.portalActivated = false;
+state.onboardingData = null;
+
+async function checkPortalActivation() {
+    try {
+        const res = await fetch(`/api/onboarding/client/${state.user.id}/status`);
+        if (res.ok) {
+            const data = await res.json();
+            state.portalActivated = data.portalActivated === true;
+            state.onboardingStatus = data.status || 'not_started';
+            state.onboardingProgress = data.progressPercent || 0;
+            state.onboardingId = data.onboardingId;
+        }
+    } catch(e) {
+        state.portalActivated = false;
+    }
+    applyPortalFreezeUI(state.portalActivated);
+}
+
+function applyPortalFreezeUI(activated) {
+    const LOCKED_TABS = ['services', 'documents', 'billing', 'guidance', 'updates'];
+    LOCKED_TABS.forEach(tab => {
+        const btn = document.getElementById('nav-' + tab);
+        if (!btn) return;
+        if (activated) {
+            btn.classList.remove('portal-locked-btn');
+            btn.style.opacity = '';
+            btn.style.cursor = '';
+            btn.title = '';
+        } else {
+            btn.classList.add('portal-locked-btn');
+            btn.style.opacity = '0.45';
+            btn.style.cursor = 'not-allowed';
+            btn.title = 'Available after portal activation';
+        }
+    });
+
+    // Show/hide freeze banner
+    const existing = document.getElementById('portal-freeze-banner');
+    if (!activated && !existing) {
+        const banner = document.createElement('div');
+        banner.id = 'portal-freeze-banner';
+        banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:900;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;padding:10px 24px;display:flex;align-items:center;justify-center;gap:12px;font-family:Outfit,sans-serif;font-size:12px;font-weight:600;letter-spacing:0.01em;border-top:1px solid rgba(255,255,255,0.1);';
+        banner.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span style="color:#93c5fd;margin-right:4px;">Onboarding in progress —</span>
+            The remaining portal sections will be available after Globalisor completes verification and activation.
+            <button onclick="switchTab('onboarding')" style="margin-left:auto;padding:4px 14px;background:#3b82f6;border:none;border-radius:8px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:Outfit,sans-serif;">Complete Onboarding →</button>
+        `;
+        document.body.appendChild(banner);
+    } else if (activated && existing) {
+        existing.remove();
+    }
+}
+
 function switchTab(tab) {
+    // Block locked tabs if portal not yet activated
+    const LOCKED_TABS = ['services', 'documents', 'billing', 'guidance', 'updates'];
+    if (!state.portalActivated && LOCKED_TABS.includes(tab)) {
+        const view = document.getElementById('main-view');
+        view.innerHTML = `
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px;text-align:center;">
+                <div style="width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,#eff6ff,#dbeafe);display:flex;align-items:center;justify-content:center;margin-bottom:24px;">
+                    <svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='none' stroke='#3b82f6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='18' height='11' x='3' y='11' rx='2'/><path d='M7 11V7a5 5 0 0 1 10 0v4'/></svg>
+                </div>
+                <h2 style="font-family:Outfit,sans-serif;font-size:22px;font-weight:800;color:#0f172a;margin-bottom:12px;">Section Locked</h2>
+                <p style="font-size:14px;color:#64748b;max-width:420px;line-height:1.7;margin-bottom:28px;">
+                    The remaining portal sections will be available after Globalisor completes verification and activation.
+                </p>
+                <button onclick="switchTab('onboarding')" style="padding:12px 28px;background:linear-gradient(135deg,#3b82f6,#06b6d4);color:#fff;border:none;border-radius:14px;font-family:Outfit,sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(59,130,246,0.3);">
+                    Complete Your Onboarding
+                </button>
+            </div>`;
+        if (window.lucide) window.lucide.createIcons();
+        return;
+    }
+
     state.currentTab = tab;
     
     // Sync Navigation UI
-    document.querySelectorAll('.nav-btn, .nav-mobile-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.id.includes(tab));
+    document.querySelectorAll('.nav-btn, .nav-mobile-btn, .module-nav-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.id && btn.id.includes(tab));
     });
     if (window.updateClientSidebarActive) {
         window.updateClientSidebarActive(tab);
@@ -264,6 +334,7 @@ function switchTab(tab) {
     // Section Routing
     switch(tab) {
         case 'home': title.innerText = 'Client Dashboard'; renderHome(view); break;
+        case 'onboarding': title.innerText = 'Onboarding Journey'; renderOnboarding(view); break;
         case 'services': title.innerText = 'Active Workflows'; renderServices(view); break;
         case 'updates': title.innerText = ''; renderUpdates(view); break;
         case 'documents': title.innerText = 'Compliance Vault'; renderDocuments(view); break;
@@ -294,6 +365,1261 @@ function switchTab(tab) {
 }
 
 // --- View Renderers ---
+
+function getStepRequiredDocs(stepKey, data) {
+    const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+    if (!step) return [];
+    if (stepKey === 'individual_verification') {
+        const type = data.shareholderType || 'Individual Shareholder';
+        if (type === 'Corporate Shareholder') {
+            return [
+                { type: 'bizfile', label: 'Bizfile of the Company' },
+                { type: 'constitution', label: 'Constitution / M&AA' },
+                { type: 'ubo_nric', label: 'UBO - NRIC / FIN' },
+                { type: 'ubo_address_proof', label: 'UBO - Address Proof' }
+            ];
+        } else {
+            return [
+                { type: 'nric', label: 'NRIC / FIN (Front & Back)' },
+                { type: 'address_proof', label: 'Address Proof (Utility/Mobile/Bank Bill — within 3 months)' }
+            ];
+        }
+    }
+    return step.requiredDocs || [];
+}
+
+function getStepManualFields(stepKey, data) {
+    const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+    if (!step) return [];
+    if (stepKey === 'individual_verification') {
+        const type = data.shareholderType || 'Individual Shareholder';
+        if (type === 'Corporate Shareholder') {
+            return [
+                { key: 'shareholderType', label: 'Shareholder Type', type: 'select', options: ['Individual Shareholder', 'Corporate Shareholder'] },
+                { key: 'companyName', label: 'Company Name', type: 'text' },
+                { key: 'uen', label: 'UEN / Reg Number', type: 'text' },
+                { key: 'dateOfIncorporation', label: 'Date of Incorporation', type: 'date' },
+                { key: 'registeredAddress', label: 'Registered Address', type: 'text' },
+                { key: 'email', label: 'Email Address', type: 'email' },
+                { key: 'mobile', label: 'Mobile Number', type: 'tel' },
+                { key: 'uboName', label: 'UBO - Full Name', type: 'text' },
+                { key: 'uboIdNumber', label: 'UBO - NRIC / FIN', type: 'text' },
+                { key: 'uboAddress', label: 'UBO - Address', type: 'text' }
+            ];
+        } else {
+            return [
+                { key: 'shareholderType', label: 'Shareholder Type', type: 'select', options: ['Individual Shareholder', 'Corporate Shareholder'] },
+                { key: 'fullName', label: 'Full Legal Name', type: 'text' },
+                { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
+                { key: 'nationality', label: 'Nationality', type: 'text' },
+                { key: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
+                { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
+                { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
+                { key: 'email', label: 'Email Address', type: 'email' },
+                { key: 'mobile', label: 'Mobile Number', type: 'tel' }
+            ];
+        }
+    }
+    return step.manualFields || [];
+}
+
+const ONBOARDING_STEPS = [
+    {
+        key: 'individual_verification',
+        field: 'step1IndividualVerification',
+        title: 'Verification Details',
+        icon: 'user-check',
+        description: 'Select your shareholder type to start. Upload required documents and verify details.',
+        requiredDocs: [
+            { type: 'nric', label: 'NRIC / FIN (Front & Back)' },
+            { type: 'address_proof', label: 'Address Proof (Utility/Mobile/Bank Bill — within 3 months)' }
+        ],
+        extractedFields: ['fullName','idNumber','nationality','gender','dateOfBirth','companyName','uen','dateOfIncorporation','registeredAddress','uboName','uboIdNumber','uboAddress'],
+        manualFields: [
+            { key: 'shareholderType', label: 'Shareholder Type', type: 'select', options: ['Individual Shareholder', 'Corporate Shareholder'] },
+            { key: 'fullName', label: 'Full Legal Name', type: 'text' },
+            { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
+            { key: 'nationality', label: 'Nationality', type: 'text' },
+            { key: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
+            { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
+            { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
+            { key: 'email', label: 'Email Address', type: 'email' },
+            { key: 'mobile', label: 'Mobile Number', type: 'tel' }
+        ],
+        declaration: 'I confirm that I am not disqualified from acting as a director under the laws of Singapore.'
+    },
+    {
+        key: 'director_details',
+        field: 'step2DirectorDetails',
+        title: 'Director Details',
+        icon: 'briefcase',
+        description: 'Auto-populated from your NRIC/FIN. Please verify all information is correct.',
+        requiredDocs: [],
+        manualFields: [
+            { key: 'fullName', label: 'Full Legal Name', type: 'text' },
+            { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
+            { key: 'nationality', label: 'Nationality', type: 'text' },
+            { key: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
+            { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
+            { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
+            { key: 'email', label: 'Email', type: 'email' },
+            { key: 'mobile', label: 'Mobile Number', type: 'tel' },
+            { key: 'directorConsent', label: 'I consent to act as a director of the company.', type: 'checkbox' }
+        ],
+        declaration: 'I confirm that I am not disqualified from acting as a director under the laws of Singapore.'
+    },
+    {
+        key: 'individual_shareholder',
+        field: 'step3IndividualShareholder',
+        title: 'Individual Shareholder Details',
+        icon: 'users',
+        description: 'Capture individual shareholder information. Ownership ≥ 25% will automatically trigger UBO and AML/KYC screening.',
+        requiredDocs: [
+            { type: 'nric', label: 'NRIC / FIN' },
+        ],
+        manualFields: [
+            { key: 'sameAsDirector', label: 'Is individual shareholder same as director?', type: 'checkbox' },
+            { key: 'fullName', label: 'Full Name', type: 'text' },
+            { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
+            { key: 'nationality', label: 'Nationality', type: 'text' },
+            { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
+            { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
+            { key: 'email', label: 'Email', type: 'email' },
+            { key: 'mobile', label: 'Mobile Number', type: 'tel' },
+            { key: 'totalShares', label: 'Total Number of Shares of the Company', type: 'number' },
+            { key: 'totalShareCapital', label: 'Total Share Capital Amount of the Company', type: 'number' },
+            { key: 'currency', label: 'Currency', type: 'select', options: ['SGD', 'USD'] },
+            { key: 'shareClass', label: 'Share Class', type: 'select', options: ['Ordinary', 'Preference'] },
+            { key: 'numberOfShares', label: 'Number of Shares', type: 'number' },
+            { key: 'shareCapitalAmount', label: 'Share Capital Amount', type: 'number' },
+            { key: 'ownershipPercentage', label: 'Ownership % (auto-calculated)', type: 'number', readonly: true },
+            { key: 'uboDeclaration', label: 'Is the Shareholder the Ultimate Beneficial Owner?', type: 'select', options: ['No', 'Yes'] }
+        ]
+    },
+    {
+        key: 'corporate_shareholder',
+        field: 'step4CorporateShareholder',
+        title: 'Corporate Shareholder Details',
+        icon: 'building-2',
+        description: 'Upload Bizfile and supporting documents for OCR extraction of company details.',
+        requiredDocs: [
+            { type: 'bizfile', label: 'Bizfile (ACRA)' },
+            { type: 'constitution', label: 'Constitution / M&AA' },
+            { type: 'cert_incorporation', label: 'Certificate of Incorporation (non-SG entities)' },
+            { type: 'supporting_docs', label: 'Supporting Corporate Documents' }
+        ],
+        extractedFields: ['companyName','uen','dateOfIncorporation','registeredAddress','principalActivity','countryOfIncorporation','companyType','companyStatus','formerName','dateOfChangeOfName','auditFirm'],
+        manualFields: [
+            { key: 'companyName', label: 'Company Name', type: 'text' },
+            { key: 'uen', label: 'UEN / Reg Number', type: 'text' },
+            { key: 'dateOfIncorporation', label: 'Date of Incorporation', type: 'date' },
+            { key: 'registeredAddress', label: 'Registered Address', type: 'text' },
+            { key: 'principalActivity', label: 'Principal Activity', type: 'text' },
+            { key: 'countryOfIncorporation', label: 'Country of Incorporation', type: 'text' },
+            { key: 'companyType', label: 'Company Type', type: 'select', options: ['PRIVATE COMPANY LIMITED BY SHARES', 'PUBLIC COMPANY LIMITED BY SHARES', 'SOLE PROPRIETORSHIP', 'PARTNERSHIP', 'OTHER'] },
+            { key: 'companyStatus', label: 'Status of Company', type: 'text' },
+            { key: 'formerName', label: 'Former Name if any', type: 'text' },
+            { key: 'dateOfChangeOfName', label: 'Date of Change of Name', type: 'date' },
+            { key: 'auditFirm', label: 'Audit Firm', type: 'text' },
+            { key: 'fye', label: 'Financial Year End (FYE)', type: 'text' },
+            { key: 'totalShares', label: 'Total Number of Shares of the Company', type: 'number' },
+            { key: 'totalShareCapital', label: 'Total Share Capital Amount of the Company', type: 'number' },
+            { key: 'currency', label: 'Currency', type: 'select', options: ['SGD', 'USD'] },
+            { key: 'shareClass', label: 'Share Class', type: 'select', options: ['Ordinary', 'Preference'] },
+            { key: 'numberOfShares', label: 'Number of Shares', type: 'number' },
+            { key: 'shareCapitalAmount', label: 'Share Capital Amount', type: 'number' },
+            { key: 'ownershipPercentage', label: 'Ownership % (auto-calculated)', type: 'number', readonly: true },
+            { key: 'uboDeclaration', label: 'Is the Shareholder the Ultimate Beneficial Owner?', type: 'select', options: ['No', 'Yes'] }
+        ]
+    },
+    {
+        key: 'ubo',
+        field: 'step5UBO',
+        title: 'Ultimate Beneficial Owner (UBO)',
+        icon: 'shield-check',
+        description: 'UBO verification triggers AML Screening, KYC Verification, and Sanctions Check automatically.',
+        requiredDocs: [
+            { type: 'nric', label: 'NRIC / FIN' },
+            { type: 'address_proof', label: 'Address Proof' }
+        ],
+        autoChecks: ['AML Screening', 'KYC Verification', 'Sanctions Check'],
+        manualFields: [
+            { key: 'fullName', label: 'Full Name', type: 'text' },
+            { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
+            { key: 'nationality', label: 'Nationality', type: 'text' },
+            { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
+            { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
+            { key: 'email', label: 'Email Address', type: 'email' },
+            { key: 'mobile', label: 'Mobile Number', type: 'tel' },
+            { key: 'ownershipPercentage', label: 'Ownership Percentage (%)', type: 'number' }
+        ]
+    },
+    {
+        key: 'corporate_rep',
+        field: 'step6CorporateRep',
+        title: 'Corporate Representative',
+        icon: 'user-cog',
+        description: 'Upload NRIC/FIN and address proof for OCR extraction. Confirm contact details.',
+        requiredDocs: [
+            { type: 'nric', label: 'NRIC / FIN' },
+            { type: 'address_proof', label: 'Address Proof' },
+            { type: 'auth_document', label: 'Proof of Authorization (Board Resolution / Letter of Authorization)' }
+        ],
+        extractedFields: ['fullName','idNumber','nationality','dateOfBirth'],
+        manualFields: [
+            { key: 'fullName', label: 'Full Legal Name', type: 'text' },
+            { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
+            { key: 'nationality', label: 'Nationality', type: 'text' },
+            { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
+            { key: 'designation', label: 'Designation / Job Title', type: 'text' },
+            { key: 'authorizationType', label: 'Authorization Type', type: 'select', options: ['Board Resolution', 'Power of Attorney', 'Letter of Authorization', 'Other'] },
+            { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
+            { key: 'email', label: 'Email Address', type: 'email' },
+            { key: 'mobile', label: 'Mobile Number', type: 'tel' }
+        ]
+    },
+    {
+        key: 'final_declaration',
+        field: 'step7FinalDeclaration',
+        title: 'Final Declaration & Consent',
+        icon: 'file-signature',
+        description: 'Please review all details and declare final consent before submitting your application.',
+        requiredDocs: [],
+        manualFields: [
+            { key: 'declarationAgreed', label: 'I confirm that all the details provided are true and accurate to the best of my knowledge.', type: 'checkbox' },
+            { key: 'consentAgreed', label: 'I consent to Globalisor conducting compliance, AML/KYC screening, and verification checks.', type: 'checkbox' }
+        ],
+        declaration: 'I understand that providing false or misleading information may lead to the rejection of this application.'
+    }
+];
+
+async function renderOnboarding(container) {
+    // Fetch latest onboarding data
+    let ob = null;
+    try {
+        const res = await fetch(`/api/onboarding/client/${state.user.id}`);
+        if (res.ok) ob = await res.json();
+    } catch(e) {}
+
+    // Store in global state
+    state.onboarding = ob || {};
+    state.onboardingId = ob && ob.id ? ob.id : null;
+    
+    // Compute active step key if not set
+    if (!state.activeObStepKey) {
+        const firstUncompleted = ONBOARDING_STEPS.find((s, idx) => !['completed', 'approved', 'submitted', 'under_review'].includes(getFriendlyStatus(s.key, ob)));
+        state.activeObStepKey = firstUncompleted ? firstUncompleted.key : ONBOARDING_STEPS[0].key;
+    }
+
+    const progress = ob && ob.progressPercent ? ob.progressPercent : 0;
+    const isActivated = ob && ob.portalActivated;
+
+    container.innerHTML = `
+    <style>
+        .wizard-container { display: flex; gap: 28px; margin-top: 10px; background: transparent; }
+        .wizard-sidebar { width: 330px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; }
+        .wizard-content { flex-grow: 1; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 32px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.02); min-height: 480px; }
+        
+        .wizard-step-tab { background: #ffffff; border: 1px solid #f1f5f9; border-radius: 16px; padding: 14px 18px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: all 0.2s ease; position: relative; }
+        .wizard-step-tab:hover:not(.locked) { border-color: #3b82f6; transform: translateY(-1px); box-shadow: 0 4px 15px rgba(59, 130, 246, 0.06); }
+        .wizard-step-tab.active { background: linear-gradient(135deg, #1e293b, #0f172a); border-color: #0f172a; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15); }
+        .wizard-step-tab.locked { opacity: 0.5; cursor: not-allowed; background: #f8fafc; }
+        
+        .wizard-step-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; transition: all 0.2; }
+        .wizard-step-tab.active .wizard-step-icon { background: rgba(255, 255, 255, 0.12); color: #38bdf8; }
+        .wizard-step-tab:not(.active) .wizard-step-icon { background: #eff6ff; color: #3b82f6; }
+        .wizard-step-tab.locked .wizard-step-icon { background: #e2e8f0; color: #94a3b8; }
+        .wizard-step-tab.completed:not(.active) .wizard-step-icon { background: #f0fdf4; color: #16a34a; }
+        
+        .wizard-step-info { flex-grow: 1; min-width: 0; }
+        .wizard-step-title { font-family: Outfit, sans-serif; font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .wizard-step-tab.active .wizard-step-title { color: #ffffff; }
+        .wizard-step-tab:not(.active) .wizard-step-title { color: #0f172a; }
+        
+        .wizard-step-badge { display: inline-flex; align-items: center; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px; margin-top: 4px; }
+        .badge-not-started { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
+        .badge-in-progress { background: #eff6ff; color: #3b82f6; border: 1px solid #bfdbfe; }
+        .badge-completed { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+        .badge-submitted { background: #fefbeb; color: #b45309; border: 1px solid #fde68a; }
+        .badge-under-review { background: #fefce8; color: #ca8a04; border: 1px solid #fde68a; }
+        .badge-approved { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+        .badge-rejected { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+
+        .ob-prog-bar { height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+        .ob-prog-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #06b6d4); border-radius: 999px; transition: width 0.5s ease; }
+        
+        .ob-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px; }
+        .ob-field { display: flex; flex-direction: column; gap: 6px; }
+        .ob-field label { font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.04em; }
+        .ob-field input, .ob-field select { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 14px; font-size: 13px; font-family: Outfit, sans-serif; outline: none; transition: all 0.2s; }
+        .ob-field input:focus, .ob-field select:focus { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.08); }
+        .ob-field input[readonly] { background: #f1f5f9; color: #64748b; cursor: not-allowed; }
+        
+        .ob-doc-upload { border: 2px dashed #e2e8f0; border-radius: 14px; padding: 18px; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; }
+        .ob-doc-upload:hover:not([style*="cursor:default"]) { border-color: #3b82f6; background: #eff6ff; }
+        
+        .ob-submit-btn { padding: 10px 24px; background: linear-gradient(135deg, #3b82f6, #06b6d4); color: #fff; border: none; border-radius: 12px; font-family: Outfit, sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25); }
+        .ob-submit-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35); }
+        .ob-submit-btn:disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; box-shadow: none; }
+        
+        @media (max-width: 1024px) {
+            .wizard-container { flex-direction: column; }
+            .wizard-sidebar { width: 100%; }
+        }
+    </style>
+
+    ${isActivated ? `
+    <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0;border-radius:20px;padding:28px;margin-bottom:24px;display:flex;align-items:center;gap:20px;box-shadow: 0 10px 25px rgba(22, 163, 74, 0.05);">
+        <div style="width:54px;height:54px;border-radius:16px;background:#16a34a;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow: 0 8px 20px rgba(22, 163, 74, 0.2);">
+            <svg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>
+        </div>
+        <div>
+            <div style="font-family:Outfit,sans-serif;font-size:20px;font-weight:800;color:#14532d;">🎉 Your Client Portal is Fully Activated!</div>
+            <div style="font-size:13px;color:#166534;margin-top:4px;line-height:1.6;">All onboarding steps are completed and approved. Explore all platform modules now.</div>
+        </div>
+        <button onclick="switchTab('home')" style="margin-left:auto;padding:12px 24px;background:#16a34a;color:#fff;border:none;border-radius:14px;font-family:Outfit,sans-serif;font-size:13px;font-weight:700;cursor:pointer;box-shadow: 0 4px 15px rgba(22,163,74,0.3);">Go to Dashboard →</button>
+    </div>` : `
+    <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:20px;padding:24px 28px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;gap:20px;box-shadow: 0 10px 25px rgba(59, 130, 246, 0.03);">
+        <div style="flex-grow:1;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <div>
+                    <div style="font-family:Outfit,sans-serif;font-size:16px;font-weight:800;color:#1e40af;">Onboarding Wizard Progress</div>
+                    <div style="font-size:12px;color:#3b82f6;margin-top:2px;">Complete all steps to submit your onboarding for verification and unlock full access.</div>
+                </div>
+                <span id="ob-progress-percent" style="font-size:26px;font-weight:900;color:#3b82f6;">${progress}%</span>
+            </div>
+            <div class="ob-prog-bar"><div id="ob-progress-fill" class="ob-prog-fill" style="width:${progress}%"></div></div>
+        </div>
+        <button id="ob-submit-verification-btn" onclick="obSubmitAllForVerification()" class="ob-submit-btn" disabled style="height:fit-content;padding:14px 28px;">
+            Submit for Verification
+        </button>
+    </div>`}
+
+    <div class="wizard-container">
+        <!-- Sidebar Navigation -->
+        <div class="wizard-sidebar" id="ob-wizard-sidebar">
+            ${ONBOARDING_STEPS.map((step, idx) => {
+                return `
+                <div class="wizard-step-tab" id="tab-${step.key}" onclick="selectObStep('${step.key}')">
+                    <div class="wizard-step-icon" id="icon-${step.key}">
+                        <!-- Icon set dynamically -->
+                    </div>
+                    <div class="wizard-step-info">
+                        <div class="wizard-step-title">Step ${idx+1}: ${step.title}</div>
+                        <span class="wizard-step-badge" id="badge-${step.key}">Not Started</span>
+                    </div>
+                </div>`;
+            }).join('')}
+        </div>
+        
+        <!-- Main Form Panel -->
+        <div class="wizard-content" id="ob-form-workspace">
+            <!-- Active step form rendered dynamically -->
+        </div>
+    </div>
+    `;
+
+    // Render active step form
+    const formWorkspace = document.getElementById('ob-form-workspace');
+    if (formWorkspace) {
+        renderActiveStepForm(formWorkspace);
+    }
+}
+
+let obAutoSaveTimeout = null;
+
+function validateStep(stepKey, ob) {
+    const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+    if (!step) return [];
+    
+    const stepField = step.field;
+    const stepData = ob && ob[stepField] ? ob[stepField] : {};
+    const data = stepData.data || {};
+    const docs = stepData.documents || [];
+    const errors = [];
+
+    const currentRequiredDocs = getStepRequiredDocs(stepKey, data);
+    const currentManualFields = getStepManualFields(stepKey, data);
+
+    // 1. Check required documents
+    if (currentRequiredDocs) {
+        currentRequiredDocs.forEach(reqDoc => {
+            if (stepKey === 'corporate_shareholder') {
+                const country = (data.countryOfIncorporation || '').trim().toLowerCase();
+                const isSG = country === 'singapore' || country === 'sg' || country === '';
+                if (isSG) {
+                    // Only require bizfile and constitution
+                    if (reqDoc.type !== 'bizfile' && reqDoc.type !== 'constitution') {
+                        return;
+                    }
+                } else {
+                    // Non-SG: require cert_incorporation, constitution, supporting_docs
+                    if (reqDoc.type === 'bizfile') {
+                        return;
+                    }
+                }
+            }
+            if (stepKey === 'individual_shareholder') {
+                if (data.sameAsDirector === true || data.sameAsDirector === 'true') {
+                    // Skip NRIC upload in step 3 if same as director
+                    if (reqDoc.type === 'nric') {
+                        return;
+                    }
+                }
+            }
+            const hasDoc = docs.some(d => d.type === reqDoc.type);
+            if (!hasDoc) {
+                errors.push(`Document "${reqDoc.label}" is required.`);
+            }
+        });
+    }
+
+    // 2. Check manual fields (excluding ownershipPercentage or other read-only field validations if we handle them differently)
+    if (currentManualFields) {
+        currentManualFields.forEach(field => {
+            // Do not require field if sameAsDirector is checked and it will be auto-populated
+            if (stepKey === 'individual_shareholder' && (data.sameAsDirector === true || data.sameAsDirector === 'true')) {
+                const isPersonalField = ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].includes(field.key);
+                if (isPersonalField) return;
+            }
+            const val = data[field.key];
+            if (val === undefined || val === null || String(val).trim() === '') {
+                errors.push(`Field "${field.label}" is required.`);
+            }
+        });
+    }
+
+    // 3. Check declaration
+    if (step.declaration) {
+        if (!data.declarationAgreed) {
+            errors.push("You must check and agree to the declaration.");
+        }
+    }
+
+    return errors;
+}
+
+function getFriendlyStatus(stepKey, ob) {
+    const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+    if (!step) return 'not_started';
+    const stepData = ob && ob[step.field] ? ob[step.field] : {};
+    const status = stepData.status || 'pending';
+    
+    if (status === 'approved') return 'approved';
+    if (status === 'submitted') return 'submitted';
+    if (status === 'under_review') return 'under_review';
+    if (status === 'rejected') return 'rejected';
+    if (status === 'additional_info_required') return 'rejected';
+    
+    const data = stepData.data || {};
+    const docs = stepData.documents || [];
+    
+    const hasData = Object.values(data).some(v => v !== undefined && v !== null && String(v).trim() !== '');
+    const hasDocs = docs.length > 0;
+    
+    if (!hasData && !hasDocs) {
+        return 'not_started';
+    }
+    
+    const errors = validateStep(stepKey, ob);
+    if (errors.length === 0) {
+        return 'completed';
+    }
+    
+    return 'in_progress';
+}
+
+function isStepLocked(idx, ob) {
+    if (idx === 0) return false;
+    const prevStep = ONBOARDING_STEPS[idx - 1];
+    const prevStatus = getFriendlyStatus(prevStep.key, ob);
+    return !['completed', 'approved', 'submitted', 'under_review'].includes(prevStatus);
+}
+
+async function selectObStep(stepKey) {
+    const idx = ONBOARDING_STEPS.findIndex(s => s.key === stepKey);
+    if (isStepLocked(idx, state.onboarding)) {
+        alert("Step Locked! Please complete the previous steps in order before proceeding.");
+        return;
+    }
+    
+    // Save any pending input immediately before switching
+    await forceSaveActiveStep();
+    
+    state.activeObStepKey = stepKey;
+    
+    // Auto-populate Step 2 (Director Details) from Step 1 if it is empty
+    if (stepKey === 'director_details') {
+        const step1Field = ONBOARDING_STEPS.find(s => s.key === 'individual_verification').field;
+        const step2Field = ONBOARDING_STEPS.find(s => s.key === 'director_details').field;
+        const step1Data = (state.onboarding[step1Field] || {}).data || {};
+        const step2Data = (state.onboarding[step2Field] || {}).data || {};
+        
+        let changed = false;
+        ['fullName', 'idNumber', 'nationality', 'gender', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].forEach(key => {
+            if (!step2Data[key] && step1Data[key]) {
+                step2Data[key] = step1Data[key];
+                changed = true;
+            }
+        });
+        if (changed) {
+            if (!state.onboarding[step2Field]) state.onboarding[step2Field] = { data: {}, status: 'pending', documents: [] };
+            state.onboarding[step2Field].data = step2Data;
+            
+            // Immediate save of auto-populated director details
+            await ensureOnboardingRecord();
+            if (state.onboardingId) {
+                await fetch(`/api/onboarding/${state.onboardingId}/step/director_details`, {
+                    method: 'PATCH',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ data: step2Data, status: 'pending' })
+                });
+            }
+        }
+    }
+    
+    const workspace = document.getElementById('ob-form-workspace');
+    if (workspace) {
+        renderActiveStepForm(workspace);
+    }
+    
+    updateWizardUIFeedback();
+}
+
+function renderActiveStepForm(container) {
+    const stepKey = state.activeObStepKey;
+    const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+    if (!step) return;
+
+    const stepField = step.field;
+    const stepData = state.onboarding[stepField] || { status: 'pending', data: {}, documents: [] };
+    const status = stepData.status || 'pending';
+    const data = stepData.data || {};
+    const docs = stepData.documents || [];
+    const reviewNotes = stepData.reviewNotes || '';
+    
+    const friendlyStatus = getFriendlyStatus(stepKey, state.onboarding);
+    const isReadOnly = ['submitted', 'under_review', 'approved'].includes(friendlyStatus);
+
+    const currentRequiredDocs = getStepRequiredDocs(stepKey, data);
+    const currentManualFields = getStepManualFields(stepKey, data);
+
+    let docsHtml = '';
+    if (currentRequiredDocs && currentRequiredDocs.length > 0) {
+        docsHtml = `
+            <div style="margin-bottom: 24px;">
+                <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:10px;">Required Document Uploads</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    ${currentRequiredDocs.map(doc => {
+                        const uploaded = docs.find(d => d.type === doc.type);
+                        
+                        let isReq = true;
+                        if (stepKey === 'corporate_shareholder') {
+                            const country = (data.countryOfIncorporation || '').trim().toLowerCase();
+                            const isSG = country === 'singapore' || country === 'sg' || country === '';
+                            if (isSG) {
+                                isReq = (doc.type === 'bizfile' || doc.type === 'constitution');
+                            } else {
+                                isReq = (doc.type === 'cert_incorporation' || doc.type === 'constitution' || doc.type === 'supporting_docs');
+                            }
+                        }
+                        if (stepKey === 'individual_shareholder') {
+                            if (data.sameAsDirector === true || data.sameAsDirector === 'true') {
+                                isReq = false; // Optional if same as director
+                            }
+                        }
+                        const labelText = doc.label + (isReq ? ' (Required)' : ' (Optional)');
+                        
+                        return `
+                        <div class="ob-doc-upload" id="doc-${step.key}-${doc.type}" 
+                             ${isReadOnly ? '' : `onclick="obUploadDoc('${step.key}','${doc.type}','${doc.label}')"`}
+                             style="${uploaded ? 'border-color:#16a34a;background:#f0fdf4;' : ''} ${isReadOnly ? 'cursor:default;opacity:0.85;' : ''}"
+                        >
+                            ${uploaded
+                                ? `<div style='color:#16a34a;font-size:12px;font-weight:700;'>✅ ${labelText}<br><span style='font-size:10px;font-weight:500;color:#374151;word-break:break-all;'>${uploaded.fileName || 'Uploaded'}</span></div>`
+                                : `<div style='color:#64748b;'>
+                                    <svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='#94a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='margin:0 auto 8px;display:block;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='17 8 12 3 7 8'/><line x1='12' x2='12' y1='3' y2='15'/></svg>
+                                    <div style='font-size:12px;font-weight:600;'>${labelText}</div>
+                                    ${isReadOnly ? '' : `<div style='font-size:10px;color:#94a3b8;margin-top:3px;'>Click to upload</div>`}
+                                   </div>`
+                            }
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    let fieldsHtml = '';
+    if (currentManualFields && currentManualFields.length > 0) {
+        fieldsHtml = `
+            <div style="margin-bottom:24px;">
+                <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:10px;">Information Checklist details</div>
+                <div class="ob-field-row">
+                    ${currentManualFields.map(f => {
+                        const val = data[f.key] !== undefined ? data[f.key] : '';
+                        const inputId = `ob-${step.key}-${f.key}`;
+                        const readonlyAttr = (f.readonly || isReadOnly) ? 'readonly' : '';
+                        
+                        if (f.type === 'select') {
+                            let disabledAttr = isReadOnly ? 'disabled' : '';
+                            if (f.key === 'uboDeclaration') {
+                                disabledAttr = 'disabled'; // forced based on >= 25% ownership
+                            }
+                            return `
+                            <div class="ob-field">
+                                <label for="${inputId}">${f.label}</label>
+                                <select id="${inputId}" onchange="triggerAutoSave('${step.key}')" ${disabledAttr}>
+                                    ${(f.options || []).map(o => `<option value='${o}' ${val === o ? 'selected' : ''}>${o}</option>`).join('')}
+                                </select>
+                            </div>`;
+                        } else if (f.type === 'checkbox') {
+                            const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
+                            return `
+                            <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:24px;">
+                                <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="triggerAutoSave('${step.key}')" style="width:16px; height:16px; cursor:pointer;">
+                                <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569;">${f.label}</label>
+                            </div>`;
+                        } else {
+                            // Check if field should be disabled because sameAsDirector is checked
+                            let fieldReadonlyAttr = readonlyAttr;
+                            if (stepKey === 'individual_shareholder' && (data.sameAsDirector === true || data.sameAsDirector === 'true')) {
+                                const isPersonalField = ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].includes(f.key);
+                                if (isPersonalField) fieldReadonlyAttr = 'readonly';
+                            }
+                            return `
+                            <div class="ob-field">
+                                <label for="${inputId}">${f.label}</label>
+                                <input type="${f.type || 'text'}" id="${inputId}" value="${val}" placeholder="Enter ${f.label.toLowerCase()}" ${fieldReadonlyAttr} oninput="triggerAutoSave('${step.key}')">
+                            </div>`;
+                        }
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    if (stepKey === 'final_declaration') {
+        const incompleteSteps = ONBOARDING_STEPS.filter(s => s.key !== 'final_declaration' && !['completed', 'approved', 'submitted', 'under_review'].includes(getFriendlyStatus(s.key, state.onboarding)));
+        if (incompleteSteps.length > 0) {
+            fieldsHtml = `
+                <div style="margin-bottom:24px;background:#fef2f2;border:1px solid #fecaca;border-radius:16px;padding:20px;">
+                    <div style="font-size:14px;font-weight:800;color:#dc2626;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        Please complete all previous steps first:
+                    </div>
+                    <ul style="list-style-type:disc;padding-left:20px;font-size:13px;color:#b91c1c;line-height:1.6;margin:0;">
+                        ${incompleteSteps.map(s => `<li>${s.title}</li>`).join('')}
+                    </ul>
+                </div>
+            ` + fieldsHtml;
+        } else {
+            fieldsHtml = `
+                <div style="margin-bottom:24px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:16px;padding:20px;display:flex;align-items:center;gap:12px;color:#16a34a;font-weight:600;font-size:13px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    All previous onboarding steps are completed successfully! Please review, sign the declarations, and submit.
+                </div>
+            ` + fieldsHtml;
+        }
+    }
+
+    let declHtml = '';
+    if (step.declaration) {
+        const disabledAttr = isReadOnly ? 'disabled' : '';
+        declHtml = `
+            <div style="margin-bottom:24px;background:#f8fafc;border:1px solid #f1f5f9;border-radius:10px;padding:12px 14px;">
+                <label style="display:flex;align-items:flex-start;gap:10px;font-size:13px;color:#475569;cursor:${isReadOnly ? 'default' : 'pointer'};">
+                    <input type="checkbox" id="ob-decl-${step.key}" ${data.declarationAgreed ? 'checked' : ''} ${disabledAttr} onchange="triggerAutoSave('${step.key}')" style="margin-top:2px;">
+                    ${step.declaration}
+                </label>
+            </div>
+        `;
+    }
+
+    let statusBannerHtml = '';
+    if (friendlyStatus === 'approved') {
+        statusBannerHtml = `
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:14px;padding:14px;margin-bottom:20px;display:flex;align-items:center;gap:10px;color:#16a34a;font-weight:600;font-size:13px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                This section has been approved by the Globalisor team. It is locked.
+            </div>
+        `;
+    } else if (friendlyStatus === 'submitted' || friendlyStatus === 'under_review') {
+        statusBannerHtml = `
+            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:14px;padding:14px;margin-bottom:20px;display:flex;align-items:center;gap:10px;color:#b45309;font-weight:600;font-size:13px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Submitted for verification. This section is locked from editing.
+            </div>
+        `;
+    } else if (friendlyStatus === 'rejected') {
+        statusBannerHtml = `
+            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:14px;padding:14px;margin-bottom:20px;display:flex;flex-direction:column;gap:6px;color:#dc2626;font-size:13px;">
+                <div style="display:flex;align-items:center;gap:10px;font-weight:700;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                    Action Required: This step needs your corrections.
+                </div>
+                ${reviewNotes ? `<div style="font-weight:500;color:#991b1b;margin-left:26px;"><b>Admin notes:</b> ${reviewNotes}</div>` : ''}
+            </div>
+        `;
+    }
+
+    const stepIndex = ONBOARDING_STEPS.findIndex(s => s.key === stepKey);
+    const hasPrev = stepIndex > 0;
+    const hasNext = stepIndex < ONBOARDING_STEPS.length - 1;
+
+    container.innerHTML = `
+        <h3 style="font-family:Outfit,sans-serif;font-size:18px;font-weight:800;color:#0f172a;margin-bottom:6px;">${step.title}</h3>
+        <p style="font-size:13px;color:#64748b;line-height:1.6;margin-bottom:24px;">${step.description}</p>
+        
+        ${statusBannerHtml}
+        
+        <div id="ob-validation-errors" class="mb-5 p-4 bg-red-50 border border-red-100 rounded-xl hidden"></div>
+        
+        ${docsHtml}
+        ${fieldsHtml}
+        ${declHtml}
+        
+        <div style="display:flex;justify-content:space-between;margin-top:32px;padding-top:20px;border-top:1px solid #f1f5f9;">
+            ${hasPrev 
+                ? `<button onclick="obPrevStep()" style="padding:10px 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;font-family:Outfit,sans-serif;font-size:13px;font-weight:700;color:#475569;cursor:pointer;display:flex;align-items:center;gap:6px;">← Previous Step</button>` 
+                : `<div></div>`
+            }
+            ${hasNext 
+                ? `<button id="ob-continue-btn" onclick="obNextStep()" style="padding:10px 24px;background:#e2e8f0;color:#94a3b8;border:none;border-radius:12px;font-family:Outfit,sans-serif;font-size:13px;font-weight:700;cursor:not-allowed;transition:all 0.2s;display:flex;align-items:center;gap:6px;">Continue to Next Step →</button>`
+                : `<button id="ob-final-submit-btn" onclick="obSubmitAllForVerification()" class="ob-submit-btn" disabled style="padding:10px 24px;">Submit for Verification ✓</button>`
+            }
+        </div>
+    `;
+
+    updateWizardUIFeedback();
+}
+
+function updateWizardUIFeedback() {
+    const ob = state.onboarding || {};
+    
+    // 1. Calculate progress
+    const completedCount = ONBOARDING_STEPS.filter(s => ['completed', 'approved', 'submitted', 'under_review'].includes(getFriendlyStatus(s.key, ob))).length;
+    const progressPercent = Math.round((completedCount / ONBOARDING_STEPS.length) * 100);
+    
+    const progressFill = document.getElementById('ob-progress-fill');
+    const progressPctText = document.getElementById('ob-progress-percent');
+    if (progressFill) progressFill.style.width = progressPercent + '%';
+    if (progressPctText) progressPctText.innerText = progressPercent + '%';
+
+    // 2. Stepper list update
+    ONBOARDING_STEPS.forEach((step, idx) => {
+        const tab = document.getElementById(`tab-${step.key}`);
+        const iconEl = document.getElementById(`icon-${step.key}`);
+        const badgeEl = document.getElementById(`badge-${step.key}`);
+        if (!tab || !iconEl || !badgeEl) return;
+
+        const friendly = getFriendlyStatus(step.key, ob);
+        const locked = isStepLocked(idx, ob);
+        const active = (state.activeObStepKey === step.key);
+
+        tab.className = 'wizard-step-tab';
+        if (active) tab.classList.add('active');
+        if (locked) tab.classList.add('locked');
+        if (friendly === 'completed' || friendly === 'approved') tab.classList.add('completed');
+
+        badgeEl.className = `wizard-step-badge badge-${friendly.replace(/_/g, '-')}`;
+        let statusText = friendly.replace(/_/g, ' ');
+        if (friendly === 'completed') statusText = 'Completed (Draft)';
+        badgeEl.innerText = statusText;
+
+        if (locked) {
+            iconEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+        } else if (friendly === 'completed' || friendly === 'approved') {
+            iconEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+        } else if (friendly === 'rejected') {
+            iconEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
+        } else {
+            iconEl.innerHTML = `<span style="font-weight: 800; font-size: 11px;">0${idx+1}</span>`;
+        }
+    });
+
+    // 3. Validation errors
+    const errors = validateStep(state.activeObStepKey, ob);
+    const errContainer = document.getElementById('ob-validation-errors');
+    if (errContainer) {
+        if (errors.length > 0) {
+            errContainer.classList.remove('hidden');
+            errContainer.innerHTML = `
+                <div style="font-size:12px;font-weight:700;color:#991b1b;margin-bottom:6px;">⚠️ Mandatory items missing:</div>
+                <ul style="list-style-type:disc;padding-left:16px;font-size:11px;color:#b91c1c;margin:0;">
+                    ${errors.map(err => `<li>${err}</li>`).join('')}
+                </ul>
+            `;
+        } else {
+            errContainer.classList.add('hidden');
+        }
+    }
+
+    // 4. Continue button
+    const continueBtn = document.getElementById('ob-continue-btn');
+    if (continueBtn) {
+        if (errors.length === 0) {
+            continueBtn.disabled = false;
+            continueBtn.style.opacity = '1';
+            continueBtn.style.cursor = 'pointer';
+            continueBtn.style.background = 'linear-gradient(135deg,#3b82f6,#06b6d4)';
+        } else {
+            continueBtn.disabled = true;
+            continueBtn.style.opacity = '0.5';
+            continueBtn.style.cursor = 'not-allowed';
+            continueBtn.style.background = '#e2e8f0';
+        }
+    }
+
+    // 5. Submit for Verification button
+    const submitBtn = document.getElementById('ob-submit-verification-btn');
+    const finalSubmitBtn = document.getElementById('ob-final-submit-btn');
+    const allCompleted = ONBOARDING_STEPS.every(s => ['completed', 'approved', 'submitted', 'under_review'].includes(getFriendlyStatus(s.key, ob)));
+    const needsSubmission = ONBOARDING_STEPS.some(s => {
+        const status = getFriendlyStatus(s.key, ob);
+        return status === 'completed' || status === 'rejected';
+    });
+    
+    const canSubmit = allCompleted && needsSubmission;
+    if (submitBtn) submitBtn.disabled = !canSubmit;
+    if (finalSubmitBtn) {
+        finalSubmitBtn.disabled = !canSubmit;
+        if (canSubmit) {
+            finalSubmitBtn.style.opacity = '1';
+            finalSubmitBtn.style.cursor = 'pointer';
+            finalSubmitBtn.style.background = 'linear-gradient(135deg,#16a34a,#10b981)';
+        } else {
+            finalSubmitBtn.style.opacity = '0.5';
+            finalSubmitBtn.style.cursor = 'not-allowed';
+            finalSubmitBtn.style.background = '#e2e8f0';
+        }
+    }
+}
+
+function triggerAutoSave(stepKey) {
+    if (obAutoSaveTimeout) clearTimeout(obAutoSaveTimeout);
+    
+    const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+    if (!step) return;
+    const stepField = step.field;
+    if (!state.onboarding) state.onboarding = {};
+    if (!state.onboarding[stepField]) state.onboarding[stepField] = { data: {}, status: 'pending', documents: [] };
+    const stepData = state.onboarding[stepField];
+    
+    if (stepKey === 'individual_verification') {
+        const typeEl = document.getElementById('ob-individual_verification-shareholderType');
+        if (typeEl) {
+            const oldType = stepData.data.shareholderType;
+            const newType = typeEl.value;
+            if (oldType && oldType !== newType) {
+                // Type changed! Update data immediately and re-render.
+                stepData.data.shareholderType = newType;
+                
+                // Clear out other fields
+                const keepKeys = ['shareholderType'];
+                Object.keys(stepData.data).forEach(k => {
+                    if (!keepKeys.includes(k)) {
+                        delete stepData.data[k];
+                    }
+                });
+                stepData.documents = [];
+                state.onboarding[stepField] = stepData;
+                updateWizardUIFeedback();
+                
+                (async () => {
+                    await ensureOnboardingRecord();
+                    if (state.onboardingId) {
+                        try {
+                            const res = await fetch(`/api/onboarding/${state.onboardingId}/step/individual_verification`, {
+                                method: 'PATCH',
+                                headers: {'Content-Type':'application/json'},
+                                body: JSON.stringify({
+                                    data: stepData.data,
+                                    documents: stepData.documents,
+                                    status: 'pending'
+                                })
+                            });
+                            if (res.ok) {
+                                state.onboarding = await res.json();
+                            }
+                        } catch (e) {}
+                    }
+                    const mainView = document.getElementById('main-view');
+                    if (mainView) renderOnboarding(mainView);
+                })();
+                return;
+            }
+        }
+    }
+
+    const currentManualFields = getStepManualFields(stepKey, stepData.data);
+    
+    if (currentManualFields) {
+        currentManualFields.forEach(f => {
+            const el = document.getElementById(`ob-${stepKey}-${f.key}`);
+            if (el) {
+                if (f.type === 'checkbox') {
+                    stepData.data[f.key] = el.checked;
+                } else {
+                    stepData.data[f.key] = el.value;
+                }
+            }
+        });
+    }
+    
+    const declEl = document.getElementById(`ob-decl-${stepKey}`);
+    if (declEl) {
+        stepData.data.declarationAgreed = declEl.checked;
+    }
+    
+    if (stepKey === 'individual_shareholder') {
+        const sameAsDirectorEl = document.getElementById('ob-individual_shareholder-sameAsDirector');
+        if (sameAsDirectorEl && sameAsDirectorEl.checked) {
+            const dirStepField = ONBOARDING_STEPS.find(s => s.key === 'director_details').field;
+            const dirData = (state.onboarding[dirStepField] || {}).data || {};
+            
+            // Copy fields
+            ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].forEach(key => {
+                const el = document.getElementById(`ob-individual_shareholder-${key}`);
+                if (el && dirData[key]) {
+                    el.value = dirData[key];
+                    stepData.data[key] = dirData[key];
+                }
+            });
+        }
+    }
+    
+    if (stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') {
+        const ownershipEl = document.getElementById(`ob-${stepKey}-ownershipPercentage`);
+        const numSharesEl = document.getElementById(`ob-${stepKey}-numberOfShares`);
+        const totalSharesEl = document.getElementById(`ob-${stepKey}-totalShares`);
+        const totalShareCapitalEl = document.getElementById(`ob-${stepKey}-totalShareCapital`);
+        const shareCapitalAmountEl = document.getElementById(`ob-${stepKey}-shareCapitalAmount`);
+        const uboEl = document.getElementById(`ob-${stepKey}-uboDeclaration`);
+        if (numSharesEl) {
+            const num = parseFloat(numSharesEl.value) || 0;
+            const totalShares = totalSharesEl ? (parseFloat(totalSharesEl.value) || 0) : 0;
+            const totalShareCapital = totalShareCapitalEl ? (parseFloat(totalShareCapitalEl.value) || 0) : 0;
+            
+            const pct = totalShares > 0 ? Math.min(100, Math.round((num / totalShares) * 100 * 100) / 100) : 0;
+            if (ownershipEl) {
+                ownershipEl.value = pct;
+                stepData.data.ownershipPercentage = pct;
+            }
+            if (shareCapitalAmountEl && totalShares > 0) {
+                const calculatedCapital = Math.round((num / totalShares) * totalShareCapital * 100) / 100;
+                shareCapitalAmountEl.value = calculatedCapital;
+                stepData.data.shareCapitalAmount = calculatedCapital;
+            }
+            if (uboEl) {
+                const uboVal = pct >= 25 ? 'Yes' : 'No';
+                uboEl.value = uboVal;
+                stepData.data.uboDeclaration = uboVal;
+            }
+            
+            // Auto-populate Step 5 (UBO) from Step 3 when shareholder has >= 25% ownership
+            if (stepKey === 'individual_shareholder' && pct >= 25) {
+                const uboField = ONBOARDING_STEPS.find(s => s.key === 'ubo').field;
+                if (!state.onboarding[uboField]) state.onboarding[uboField] = { data: {}, status: 'pending', documents: [] };
+                
+                // Copy fields
+                ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile', 'ownershipPercentage'].forEach(key => {
+                    const sourceVal = stepData.data[key];
+                    if (sourceVal !== undefined) {
+                        state.onboarding[uboField].data[key] = sourceVal;
+                    }
+                });
+                
+                // Also copy NRIC/FIN document if uploaded in step 3
+                const sourceDocs = stepData.documents || [];
+                const nricDoc = sourceDocs.find(d => d.type === 'nric');
+                if (nricDoc) {
+                    const targetDocs = state.onboarding[uboField].documents || [];
+                    const hasNric = targetDocs.some(d => d.type === 'nric');
+                    if (!hasNric) {
+                        targetDocs.push({ ...nricDoc });
+                        state.onboarding[uboField].documents = targetDocs;
+                    }
+                }
+                
+                // Trigger background save of UBO step data so it persists
+                (async () => {
+                    await ensureOnboardingRecord();
+                    if (state.onboardingId) {
+                        await fetch(`/api/onboarding/${state.onboardingId}/step/ubo`, {
+                            method: 'PATCH',
+                            headers: {'Content-Type':'application/json'},
+                            body: JSON.stringify({
+                                data: state.onboarding[uboField].data,
+                                documents: state.onboarding[uboField].documents,
+                                status: 'pending'
+                            })
+                        });
+                    }
+                })();
+            }
+        }
+    }
+    
+    state.onboarding[stepField] = stepData;
+    updateWizardUIFeedback();
+
+    obAutoSaveTimeout = setTimeout(async () => {
+        await ensureOnboardingRecord();
+        if (!state.onboardingId) return;
+        
+        try {
+            const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
+                method: 'PATCH',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    data: stepData.data,
+                    status: stepData.status
+                })
+            });
+            if (res.ok) {
+                const updated = await res.json();
+                state.onboarding = updated;
+                console.log(`Auto-saved step ${stepKey}`);
+            }
+        } catch (e) {
+            console.error('Error auto-saving step:', e);
+        }
+    }, 1000);
+}
+
+async function forceSaveActiveStep() {
+    if (obAutoSaveTimeout) {
+        clearTimeout(obAutoSaveTimeout);
+        obAutoSaveTimeout = null;
+        
+        const stepKey = state.activeObStepKey;
+        const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+        if (!step) return;
+        const stepField = step.field;
+        const stepData = state.onboarding[stepField];
+        if (!stepData) return;
+        
+        await ensureOnboardingRecord();
+        if (!state.onboardingId) return;
+        
+        try {
+            const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
+                method: 'PATCH',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    data: stepData.data,
+                    status: stepData.status
+                })
+            });
+            if (res.ok) {
+                const updated = await res.json();
+                state.onboarding = updated;
+            }
+        } catch (e) {
+            console.error('Error flushing auto-save:', e);
+        }
+    }
+}
+
+async function obUploadDoc(stepKey, docType, docLabel) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.jpg,.jpeg,.png,.pdf';
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const docEl = document.getElementById(`doc-${stepKey}-${docType}`);
+        if (docEl) docEl.innerHTML = `<div style='color:#3b82f6;font-size:12px;font-weight:700;'>⏳ Uploading & extracting...</div>`;
+
+        let extracted = {};
+        try {
+            const ocrRes = await fetch('/api/onboarding/ocr-extract', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ type: docType, fileName: file.name })
+            });
+            if (ocrRes.ok) extracted = await ocrRes.json();
+        } catch(e) {}
+
+        await ensureOnboardingRecord();
+        const ob = state.onboarding || {};
+        if (!state.onboardingId) {
+            const createRes = await fetch(`/api/onboarding/client/${state.user.id}`, {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ clientEmail: state.user.email, clientName: state.user.name })
+            });
+            if (createRes.ok) { const d = await createRes.json(); state.onboardingId = d.id; }
+        }
+
+        if (state.onboardingId) {
+            const patchRes = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
+                method: 'PATCH', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    documents: [{
+                        type: docType, label: docLabel, fileName: file.name,
+                        fileData: 'uploaded', mimeType: file.type,
+                        ...extracted
+                    }]
+                })
+            });
+            if (patchRes.ok) {
+                const updatedOb = await patchRes.json();
+                state.onboarding = updatedOb;
+                
+                // Pre-fill extracted fields
+                if (extracted) {
+                    const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+                    if (step) {
+                        Object.entries(extracted).forEach(([k, v]) => {
+                            if (v && k !== 'confidence' && k !== 'extractedAt') {
+                                state.onboarding[step.field].data[k] = v;
+                            }
+                        });
+                        
+                        // Copy Step 1 details to Step 2 if shareholderType is Individual
+                        if (stepKey === 'individual_verification') {
+                            const currentType = state.onboarding[step.field].data.shareholderType || 'Individual Shareholder';
+                            if (currentType === 'Individual Shareholder') {
+                                const dirStep = ONBOARDING_STEPS.find(s => s.key === 'director_details');
+                                if (dirStep) {
+                                    if (!state.onboarding[dirStep.field]) state.onboarding[dirStep.field] = { data: {}, status: 'pending', documents: [] };
+                                    Object.entries(extracted).forEach(([k, v]) => {
+                                        if (v && k !== 'confidence' && k !== 'extractedAt') {
+                                            state.onboarding[dirStep.field].data[k] = v;
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Immediate save of pre-filled extracted fields to database
+                if (state.onboardingId) {
+                    const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+                    if (step) {
+                        await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
+                            method: 'PATCH',
+                            headers: {'Content-Type':'application/json'},
+                            body: JSON.stringify({
+                                data: state.onboarding[step.field].data,
+                                status: 'pending'
+                            })
+                        });
+                    }
+                    if (stepKey === 'individual_verification') {
+                        const currentType = state.onboarding[step.field].data.shareholderType || 'Individual Shareholder';
+                        if (currentType === 'Individual Shareholder') {
+                            const dirStep = ONBOARDING_STEPS.find(s => s.key === 'director_details');
+                            if (dirStep && state.onboarding[dirStep.field]) {
+                                await fetch(`/api/onboarding/${state.onboardingId}/step/director_details`, {
+                                    method: 'PATCH',
+                                    headers: {'Content-Type':'application/json'},
+                                    body: JSON.stringify({
+                                        data: state.onboarding[dirStep.field].data,
+                                        status: 'pending'
+                                    })
+                                });
+                            }
+                        }
+                    }
+                }
+                
+                // Re-fetch complete onboarding state to sync UI
+                try {
+                    const freshRes = await fetch(`/api/onboarding/client/${state.user.id}`);
+                    if (freshRes.ok) state.onboarding = await freshRes.json();
+                } catch (e) {}
+
+                const workspace = document.getElementById('ob-form-workspace');
+                if (workspace) {
+                    renderActiveStepForm(workspace);
+                }
+            }
+        }
+    };
+    input.click();
+}
+
+async function ensureOnboardingRecord() {
+    if (state.onboardingId) return;
+    try {
+        const res = await fetch(`/api/onboarding/client/${state.user.id}`, {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ clientEmail: state.user.email, clientName: state.user.name })
+        });
+        if (res.ok) { const d = await res.json(); state.onboardingId = d.id; }
+    } catch(e) {}
+}
+
+async function obNextStep() {
+    const stepIndex = ONBOARDING_STEPS.findIndex(s => s.key === state.activeObStepKey);
+    if (stepIndex !== -1 && stepIndex < ONBOARDING_STEPS.length - 1) {
+        const nextStep = ONBOARDING_STEPS[stepIndex + 1];
+        await selectObStep(nextStep.key);
+    }
+}
+
+async function obPrevStep() {
+    const stepIndex = ONBOARDING_STEPS.findIndex(s => s.key === state.activeObStepKey);
+    if (stepIndex > 0) {
+        const prevStep = ONBOARDING_STEPS[stepIndex - 1];
+        await selectObStep(prevStep.key);
+    }
+}
+
+async function obSubmitAllForVerification() {
+    await ensureOnboardingRecord();
+    const ob = state.onboarding || {};
+    if (!state.onboardingId) return;
+
+    // Flush active step inputs
+    await forceSaveActiveStep();
+
+    // Filter steps that are not approved/submitted/under_review
+    const stepsToSubmit = ONBOARDING_STEPS.filter(step => {
+        const status = getFriendlyStatus(step.key, state.onboarding);
+        return status === 'completed' || status === 'rejected';
+    });
+
+    // Patch each of these steps
+    for (const step of stepsToSubmit) {
+        const stepField = step.field;
+        const stepData = ob[stepField] || { data: {}, status: 'pending', documents: [] };
+        try {
+            const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${step.key}`, {
+                method: 'PATCH',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    data: stepData.data,
+                    status: 'submitted'
+                })
+            });
+            if (res.ok) {
+                const updated = await res.json();
+                state.onboarding = updated;
+            }
+        } catch (e) {
+            console.error(`Error submitting step ${step.key}:`, e);
+        }
+    }
+
+    // Re-fetch final status
+    try {
+        const res = await fetch(`/api/onboarding/client/${state.user.id}`);
+        if (res.ok) state.onboarding = await res.json();
+    } catch (e) {}
+
+    alert("Onboarding submitted successfully for verification!");
+    
+    // Re-render onboarding view
+    const view = document.getElementById('main-view');
+    if (view && state.currentTab === 'onboarding') {
+        renderOnboarding(view);
+    }
+}
 
 function renderHome(container) {
     const activeService = state.services[0];
@@ -610,7 +1936,7 @@ function logout() {
     localStorage.removeItem('client_auth');
     localStorage.removeItem('token');
     localStorage.removeItem('globalisor_master_v3');
-    window.location.href = '/auth.html';
+    window.location.href = '/login.html';
 }
 
 // Placeholder renderers for missing tabs (standardized)
@@ -1599,6 +2925,15 @@ window.handleNotifClick = handleNotifClick;
 window.showToastNotification = showToastNotification;
 window.openPortalShuftiModal = openPortalShuftiModal;
 window.refreshPortalHome = refreshPortalHome;
+window.selectObStep = selectObStep;
+window.renderActiveStepForm = renderActiveStepForm;
+window.updateWizardUIFeedback = updateWizardUIFeedback;
+window.triggerAutoSave = triggerAutoSave;
+window.forceSaveActiveStep = forceSaveActiveStep;
+window.obUploadDoc = obUploadDoc;
+window.obNextStep = obNextStep;
+window.obPrevStep = obPrevStep;
+window.obSubmitAllForVerification = obSubmitAllForVerification;
 
 async function openPortalShuftiModal() {
     const modal = document.getElementById('modal-container');

@@ -50,9 +50,13 @@ window.initAppSeqMap = async function() {
 
 // Start background sync
 window.initAppSeqMap();
-
 document.addEventListener('DOMContentLoaded', () => {
-    // 0. Inject custom client styles (font size enlargement)
+    // Restore sidebar collapse preference before rendering to prevent layout shift/flicker
+    if (localStorage.getItem('sidebar_collapsed') === 'true') {
+        document.body.classList.add('sidebar-collapsed');
+    }
+
+    // 0. Inject custom client styles (font size enlargement & sidebar collapse)
     const style = document.createElement('style');
     style.id = 'client-sidebar-custom-styles';
     style.textContent = `
@@ -62,12 +66,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         .main-container {
             padding-bottom: 6.5rem !important;
+            transition: padding-left 0.3s ease-in-out;
+        }
+
+        #left-sidebar {
+            transition: transform 0.3s ease-in-out !important;
         }
 
         @media (max-width: 1023px) {
             .main-container {
                 padding-bottom: 6.5rem !important;
             }
+        }
+
+        /* Sidebar Collapse System */
+        body.sidebar-collapsed #left-sidebar {
+            transform: translateX(-100%) !important;
+        }
+        body.sidebar-collapsed .lg\\:pl-64 {
+            padding-left: 0 !important;
+        }
+        body.sidebar-collapsed #sidebar-expand-btn {
+            display: flex !important;
         }
     `;
     document.head.appendChild(style);
@@ -101,32 +121,41 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span class="font-outfit font-black text-slate-900 text-lg uppercase tracking-wider">Globalisor</span>
             </div>
             <button onclick="toggleMobileSidebar()" class="p-2 text-slate-600 hover:bg-slate-100/50 rounded-xl transition-colors">
-                <i data-lucide="menu" class="w-6 h-6"></i>
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
             </button>
         </header>
     `;
 
     const getLinkHtml = (tabId, icon, label) => {
         if (isMessagesPage) {
-            return `<a href="portal.html?tab=${tabId}" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors group font-semibold text-sm" id="nav-${tabId}">
-                <i data-lucide="${icon}" class="w-5 h-5 text-slate-400 group-hover:text-white"></i> ${label}
+            return `<a href="portal.html?tab=${tabId}" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 hover:text-slate-900 transition-colors group font-semibold text-sm text-slate-600" id="nav-${tabId}">
+                <i data-lucide="${icon}" class="w-5 h-5 text-slate-400 group-hover:text-slate-900"></i> ${label}
             </a>`;
         } else {
-            return `<button onclick="switchTab('${tabId}'); if(window.innerWidth < 1024) toggleMobileSidebar();" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors group font-semibold text-sm text-left" id="nav-${tabId}">
-                <i data-lucide="${icon}" class="w-5 h-5 text-slate-400 group-hover:text-white"></i> ${label}
+            return `<button onclick="switchTab('${tabId}'); if(window.innerWidth < 1024) toggleMobileSidebar();" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 hover:text-slate-900 transition-colors group font-semibold text-sm text-left text-slate-600" id="nav-${tabId}">
+                <i data-lucide="${icon}" class="w-5 h-5 text-slate-400 group-hover:text-slate-900"></i> ${label}
             </button>`;
         }
     };
 
     const sidebar = `
         <div id="sidebar-overlay" onclick="toggleMobileSidebar()" class="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm lg:hidden hidden"></div>
-        <aside id="left-sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-slate-300 flex flex-col transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
-            <div class="px-6 py-8 border-b border-slate-800 flex items-center gap-3">
-                <div class="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-sm shadow-md">G</div>
-                <div>
-                    <h1 class="font-outfit font-black text-white text-base leading-none uppercase tracking-wider">Globalisor</h1>
-                    <span class="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Client Portal</span>
+        <aside id="left-sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white text-slate-700 flex flex-col border-r border-slate-200 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+            <div class="px-6 py-8 border-b border-slate-100 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-md">G</div>
+                    <div>
+                        <h1 class="font-outfit font-black text-slate-900 text-base leading-none uppercase tracking-wider">Globalisor</h1>
+                        <span class="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Client Portal</span>
+                    </div>
                 </div>
+                <button onclick="toggleDesktopSidebar()" class="hidden lg:flex p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-900 transition-colors" title="Hide Menu Bar">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
             </div>
             <div class="flex-1 px-4 py-6 overflow-y-auto space-y-1">
                 ${getLinkHtml('home', 'layout-grid', 'Dashboard')}
@@ -136,24 +165,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${getLinkHtml('guidance', 'book-open', 'Guidance')}
                 ${getLinkHtml('updates', 'zap', 'Blogs')}
                 
-                <a href="messages.html" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors group font-semibold text-sm" id="nav-messages">
-                    <i data-lucide="message-square" class="w-5 h-5 text-slate-400 group-hover:text-white"></i> Messages
+                <a href="messages.html" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 hover:text-slate-900 transition-colors group font-semibold text-sm text-slate-600" id="nav-messages">
+                    <i data-lucide="message-square" class="w-5 h-5 text-slate-400 group-hover:text-slate-900"></i> Messages
                 </a>
             </div>
-            <div class="p-4 border-t border-slate-800">
+            <div class="p-4 border-t border-slate-100">
                 <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center gap-3 min-w-0">
-                        <div class="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">${initials}</div>
+                        <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">${initials}</div>
                         <div class="flex flex-col leading-none min-w-0">
-                            <span class="text-xs font-semibold text-white max-w-[100px] truncate">${auth.name || 'Client User'}</span>
-                            <span class="text-[9px] text-slate-500 font-bold uppercase mt-0.5">Client</span>
+                            <span id="user-name" class="text-xs font-semibold text-slate-900 max-w-[100px] truncate">${auth.name || 'Client User'}</span>
+                            <button onclick="logout()" class="text-[10px] text-red-500 font-bold hover:underline text-left mt-0.5 border-0 bg-transparent cursor-pointer">Logout</button>
                         </div>
                     </div>
                     <div class="flex items-center gap-1">
                         <div style="position:relative;">
-                            <button id="client-bell-btn" onclick="window._clientToggleBell(event)" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors relative" title="Notifications">
+                            <button id="client-bell-btn" onclick="window._clientToggleBell(event)" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors relative" title="Notifications">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                                <span id="client-notif-badge" style="display:none;position:absolute;top:4px;right:4px;min-width:14px;height:14px;padding:0 2px;background:#ef4444;border-radius:9999px;border:2px solid #1e293b;font-size:8px;font-weight:700;color:#fff;line-height:10px;text-align:center;box-sizing:border-box;"></span>
+                                <span id="client-notif-badge" style="display:none;position:absolute;top:4px;right:4px;min-width:14px;height:14px;padding:0 2px;background:#ef4444;border-radius:9999px;border:2px solid #fff;font-size:8px;font-weight:700;color:#fff;line-height:10px;text-align:center;box-sizing:border-box;"></span>
                             </button>
                             <div id="client-notif-dropdown" style="display:none;position:absolute;bottom:calc(100% + 8px);right:0;width:300px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.2);z-index:99999;overflow:hidden;font-family:'Outfit',sans-serif;">
                                 <div style="padding:10px 14px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;">
@@ -163,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <div id="client-notif-list" style="max-height:280px;overflow-y:auto;"></div>
                             </div>
                         </div>
-                        <button onclick="logout()" class="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors" title="Logout">
+                        <button onclick="logout()" class="p-2 text-slate-500 hover:text-red-500 hover:bg-slate-100 rounded-lg transition-colors" title="Logout">
                             <i data-lucide="log-out" class="w-4 h-4"></i>
                         </button>
                     </div>
@@ -172,23 +201,30 @@ document.addEventListener('DOMContentLoaded', () => {
         </aside>
     `;
 
-    document.body.insertAdjacentHTML('afterbegin', mobileHeader + sidebar);
+    const expandBtnHtml = `
+        <button id="sidebar-expand-btn" onclick="toggleDesktopSidebar()" class="fixed top-6 left-6 z-40 bg-white text-slate-600 border border-slate-200 p-3 rounded-2xl shadow-xl hover:scale-105 hover:bg-slate-50 transition-all hidden" title="Show Menu Bar">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+        </button>
+    `;
+    document.body.insertAdjacentHTML('afterbegin', mobileHeader + sidebar + expandBtnHtml);
 
     // Set active navigation highlight
     window.updateClientSidebarActive = function(tabId) {
         document.querySelectorAll('#left-sidebar a, #left-sidebar button').forEach(el => {
             if (el.id === 'nav-' + tabId) {
-                el.classList.add('bg-emerald-600', 'text-white');
-                el.classList.remove('hover:bg-slate-800', 'hover:text-white', 'text-slate-300');
+                el.classList.add('bg-blue-50', 'text-blue-600');
+                el.classList.remove('hover:bg-slate-100', 'hover:text-slate-900', 'text-slate-600');
                 const icon = el.querySelector('i');
                 if (icon) icon.classList.remove('text-slate-400');
-                if (icon) icon.classList.add('text-white');
+                if (icon) icon.classList.add('text-blue-600');
             } else {
-                el.classList.remove('bg-emerald-600', 'text-white');
-                el.classList.add('text-slate-300');
+                el.classList.remove('bg-blue-50', 'text-blue-600');
+                el.classList.add('text-slate-600');
                 const icon = el.querySelector('i');
                 if (icon) icon.classList.add('text-slate-400');
-                if (icon) icon.classList.remove('text-white');
+                if (icon) icon.classList.remove('text-blue-600');
             }
         });
     };
@@ -410,9 +446,15 @@ window.toggleMobileSidebar = function() {
     }
 };
 
+window.toggleDesktopSidebar = function() {
+    document.body.classList.toggle('sidebar-collapsed');
+    const isCollapsed = document.body.classList.contains('sidebar-collapsed');
+    localStorage.setItem('sidebar_collapsed', isCollapsed ? 'true' : 'false');
+};
+
 window.logout = function() {
     localStorage.removeItem('client_auth');
     localStorage.removeItem('token');
     localStorage.removeItem('globalisor_master_v3');
-    window.location.href = '/auth.html';
+    window.location.href = '/login.html';
 };
