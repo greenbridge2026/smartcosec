@@ -23,7 +23,7 @@ window.addEventListener('storage', (e) => {
 // Background sync function
 window.initAppSeqMap = async function() {
     try {
-        const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
+        const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}').token;
         const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
         const res = await fetch('/api/applications', { headers });
         if (res.ok) {
@@ -87,6 +87,7 @@ window.toggleSubmenu = function(id, btnId) {
 
 window.logout = function() {
     localStorage.removeItem('admin_auth');
+    localStorage.removeItem('staff_auth');
     localStorage.removeItem('token');
     window.location.href = '/auth.html';
 };
@@ -624,6 +625,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5V2.5A2.5 2.5 0 0 1 6.5 0H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M6 6h10M6 10h10"/></svg>
                             <span>SSIC Codes Manager</span>
                         </a>
+                        <a href="onboarding-manager.html" class="submenu-item" id="nav-onboarding-manager" data-tooltip="Onboarding Manager">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect width="6" height="4" x="9" y="3" rx="1"/><path d="m9 12 2 2 4-4"/></svg>
+                            <span>Onboarding Manager</span>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -750,6 +755,10 @@ document.addEventListener('DOMContentLoaded', () => {
         activeId = 'nav-ssic';
         activeCatId = 'cat-services';
         activeSubId = 'sub-services';
+    } else if (path.includes('onboarding-manager.html')) {
+        activeId = 'nav-onboarding-manager';
+        activeCatId = 'cat-services';
+        activeSubId = 'sub-services';
     } else if (path.includes('vault.html')) {
         activeId = 'nav-vault';
         activeCatId = 'cat-documents';
@@ -803,6 +812,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'nav-users': 'Users',
             'nav-packages': 'Requirements Page Manager',
             'nav-ssic': 'SSIC Codes Manager',
+            'nav-onboarding-manager': 'Onboarding Manager',
             'nav-vault': 'Document Vault',
             'nav-reports': 'Reports',
             'nav-staff-id-cards': 'Staff ID Cards',
@@ -905,11 +915,11 @@ document.addEventListener('DOMContentLoaded', () => {
     window._adminMarkAllRead = async function(e) {
         e.stopPropagation();
         try {
-            const auth = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+            const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
             const adminId = auth.id || auth.userId || 'staff-admin';
             await fetch(`/api/notifications/read-all?clientId=${adminId}`, { method: 'POST' });
         } catch(err) { console.warn('Mark all read failed', err); }
-        const auth = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+        const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
         const adminId = auth.id || auth.userId || 'staff-admin';
         window._adminNotifications = window._adminNotifications.map(n => {
             const readBy = n.readBy || [];
@@ -925,7 +935,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const list = document.getElementById('admin-notif-list');
         const badge = document.getElementById('admin-notif-badge');
         if (!list) return;
-        const auth = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+        const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
         const adminId = auth.id || auth.userId || 'staff-admin';
         const notifs = window._adminNotifications || [];
         const unread = notifs.filter(n => !n.readBy || !n.readBy.includes(adminId)).length;
@@ -960,7 +970,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window._adminNotifClick = async function(id, link) {
-        const auth = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+        const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
         const adminId = auth.id || auth.userId || 'staff-admin';
         if (id) {
             try {
@@ -998,7 +1008,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window._adminFetchNotifications = async function() {
         try {
-            const auth = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+            const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
             const adminId = auth.id || auth.userId || 'staff-admin';
             const res = await fetch(`/api/notifications?clientId=${adminId}`);
             if (res.ok) {
@@ -1018,7 +1028,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // WebSocket listener for real-time notifications
     if (!window._adminWsConnected) {
         try {
-            const auth = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+            const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
             const adminId = auth.id || auth.userId || 'staff-admin';
             const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
             let wsHost = location.host;
@@ -1092,7 +1102,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Quick Chat Popup Injector ---
-    const qAuthObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+    const qAuthObj = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
     const qMyId = qAuthObj.id || qAuthObj.userId || 'staff-admin';
     const qMyName = qAuthObj.name || 'Admin Team';
     
@@ -1380,7 +1390,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function initQuickChat() {
-        if (!localStorage.getItem('admin_auth')) return;
+        if (!localStorage.getItem('admin_auth') && !localStorage.getItem('staff_auth')) return;
         if (document.getElementById('quick-chat-fab')) return;
         
         const quickChatDiv = document.createElement('div');

@@ -98,6 +98,9 @@
                 <p class="text-xs font-medium text-slate-400 mt-1">Configure Standard Industrial Classification (SSIC) codes, synonyms, metadata, and preview onboarding dropdowns.</p>
             </div>
             <div class="flex items-center gap-3">
+                <button onclick="downloadExcel()" class="flex items-center gap-2 px-4 py-2 border border-emerald-200 hover:bg-emerald-50 text-emerald-700 text-xs font-bold rounded-xl transition-all cursor-pointer">
+                    📊 Download Excel
+                </button>
                 <button onclick="openImportModal()" class="flex items-center gap-2 px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer">
                     📥 Import CSV / JSON
                 </button>
@@ -107,11 +110,11 @@
             </div>
         </div>
 
-        <!-- Two Column Main Grid -->
-        <div class="grid grid-cols-1 xl:grid-cols-12 gap-8">
+        <!-- Full-width Main Grid -->
+        <div class="flex flex-col gap-6">
             
-            <!-- Left Side: Table List and Search (Col span 8) -->
-            <div class="xl:col-span-8 flex flex-col gap-6">
+            <!-- Table List and Search -->
+            <div class="flex flex-col gap-6">
                 <!-- Filter & Search Section -->
                 <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -119,7 +122,7 @@
                             <span class="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">
                                 🔍
                             </span>
-                            <input type="text" id="search-input" oninput="handleSearch()" placeholder="Search code, activity, keywords, synonyms, abbreviations or section..." class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-medium">
+                            <input type="text" id="search-input" oninput="handleSearch()" placeholder="Search code, activity, keywords... or enter comma-separated SSIC codes (e.g. 47110, 47120, 62010)" class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 transition-all font-medium">
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Status:</span>
@@ -131,6 +134,26 @@
                                 <option value="ARCHIVED">Archived Only</option>
                             </select>
                         </div>
+                        <button onclick="openPreviewModal()" class="flex items-center gap-1.5 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition-all cursor-pointer">
+                            👁️ Preview Onboarding
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Bulk Actions Toolbar (hidden by default) -->
+                <div id="bulk-actions-bar" class="hidden bg-blue-50 border border-blue-100 rounded-2xl p-4 flex flex-row items-center justify-between shadow-sm">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-xs text-blue-800 font-bold" id="bulk-selected-count">0 items selected</span>
+                        <span class="text-xs text-blue-300">|</span>
+                        <button onclick="clearSelection()" class="text-xs text-blue-600 hover:text-blue-800 hover:underline font-semibold cursor-pointer">Clear selection</button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="bulkPublish()" class="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-500/10 cursor-pointer">
+                            🚀 Bulk Publish
+                        </button>
+                        <button onclick="bulkUnpublish()" class="flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer">
+                            🚫 Bulk Unpublish
+                        </button>
                     </div>
                 </div>
 
@@ -140,17 +163,20 @@
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-slate-50 border-b border-slate-100">
-                                    <th class="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[15%]">SSIC Code</th>
-                                    <th class="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[45%]">Activity / Details</th>
-                                    <th class="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[22%]">Section / Division</th>
-                                    <th class="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[10%]">Status</th>
+                                    <th class="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[5%] text-center">
+                                        <input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll(this.checked)" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer w-4 h-4">
+                                    </th>
+                                    <th class="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[12%]">SSIC Code</th>
+                                    <th class="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[43%]">Activity / Details</th>
+                                    <th class="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[20%]">Section / Division</th>
+                                    <th class="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[12%]">Status</th>
                                     <th class="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right w-[8%]">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="ssic-table-body" class="divide-y divide-slate-55">
                                 <!-- Loading State -->
                                 <tr>
-                                     <td colspan="5" class="px-6 py-12 text-center text-xs font-semibold text-slate-400">
+                                     <td colspan="6" class="px-6 py-12 text-center text-xs font-semibold text-slate-400">
                                         <div class="flex justify-center items-center gap-2">
                                             <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                                             <span>Loading SSIC master list...</span>
@@ -163,82 +189,70 @@
                 </div>
             </div>
 
-            <!-- Right Side: Live Client Picker Preview (Col span 4) -->
-            <div class="xl:col-span-4">
-                <div class="bg-white rounded-2xl border border-slate-200 shadow-xl p-5 sticky top-[80px]">
-                    <div class="flex items-center justify-between border-b border-slate-100 pb-3.5 mb-4">
-                        <div class="flex items-center gap-2">
-                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                            <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Live Onboarding Preview</h3>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div id="preview-modal" class="fixed inset-0 z-[100001] hidden flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl w-full max-w-lg mx-4 overflow-hidden border border-slate-100 shadow-2xl">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Onboarding Preview Simulator</h3>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-[9px] font-bold bg-slate-100 text-slate-500 border border-slate-200 px-2 py-0.5 rounded-md">PUBLISHED ONLY</span>
+                    <button onclick="closePreviewModal()" class="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 text-lg leading-none cursor-pointer">&times;</button>
+                </div>
+            </div>
+            <div class="p-5">
+                <p class="text-[10px] text-slate-400 font-semibold mb-4 leading-relaxed">
+                    Simulates the live onboarding client picker. Only <span class="text-emerald-700 font-bold bg-emerald-50 px-1 rounded border border-emerald-200">PUBLISHED</span> SSIC codes appear here — unpublished and draft codes are excluded.
+                </p>
+                <div class="bg-slate-50/50 border border-slate-200/60 rounded-xl p-4 flex flex-col gap-4">
+                    <!-- Primary Selector -->
+                    <div class="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                        <label class="block text-[9.5px] font-bold text-slate-700 uppercase mb-1 flex items-center gap-1">
+                            Primary Business Activity (SSIC Code) <span class="text-red-500 font-bold">*</span>
+                        </label>
+                        <p class="text-[9px] text-slate-400 font-medium mb-2.5">Select the main business activity that best represents your company.</p>
+                        <div class="relative">
+                            <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none">🔍</span>
+                            <input type="text" id="preview-search-primary" 
+                                onfocus="openPreviewDropdown('primary')" 
+                                oninput="filterPreviewSsic('primary', this.value)"
+                                onblur="closePreviewDropdown('primary')"
+                                placeholder="Search by SSIC code, synonyms, words..." 
+                                class="w-full pl-7 pr-4 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-blue-500 transition-all font-semibold">
+                            <div id="preview-dropdown-primary" class="hidden absolute top-full left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-xl max-h-[200px] overflow-y-auto z-[999] mt-1 divide-y divide-slate-50"></div>
                         </div>
-                        <span class="text-[9px] font-bold bg-slate-100 text-slate-500 border border-slate-250 px-2 py-0.5 rounded-md">SIMULATOR</span>
+                        <div id="preview-selected-primary" class="mt-3.5">
+                            <div class="text-[10px] text-slate-400 font-semibold italic text-center py-2.5 border border-dashed border-slate-200 rounded-lg">Search and select a primary business activity</div>
+                        </div>
                     </div>
-                    
-                    <p class="text-[10px] text-slate-400 font-semibold mb-4 leading-relaxed">
-                        Test search routing against all live database configurations. Matches synonyns/abbreviations instantly. Draft items are marked with a <span class="text-amber-600 font-bold bg-amber-50 px-1 rounded border border-amber-200">DRAFT</span> badge here for sandbox validation.
-                    </p>
-
-                    <!-- SIMULATED CLIENT PICKER FORM -->
-                    <div class="bg-slate-50/50 border border-slate-200/60 rounded-xl p-4 flex flex-col gap-4">
-                        
-                        <!-- Primary Selector -->
-                        <div class="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
-                            <label class="block text-[9.5px] font-bold text-slate-700 uppercase mb-1 flex items-center gap-1">
-                                Primary Business Activity (SSIC Code)
-                                <span class="text-red-500 font-bold">*</span>
-                            </label>
-                            <p class="text-[9px] text-slate-400 font-medium mb-2.5">Select the main business activity that best represents your company.</p>
-                            
-                            <div class="relative">
-                                <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none">🔍</span>
-                                <input type="text" id="preview-search-primary" 
-                                    onfocus="openPreviewDropdown('primary')" 
-                                    oninput="filterPreviewSsic('primary', this.value)"
-                                    onblur="closePreviewDropdown('primary')"
-                                    placeholder="Search by SSIC code, synonyms, words..." 
-                                    class="w-full pl-7 pr-4 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-blue-500 transition-all font-semibold">
-                                <div id="preview-dropdown-primary" class="hidden absolute top-full left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-xl max-h-[180px] overflow-y-auto z-[999] mt-1 divide-y divide-slate-50"></div>
-                            </div>
-
-                            <div id="preview-selected-primary" class="mt-3.5">
-                                <div class="text-[10px] text-slate-400 font-semibold italic text-center py-2.5 border border-dashed border-slate-200 rounded-lg">
-                                    Search and select a primary business activity
-                                </div>
-                            </div>
+                    <!-- Secondary Selector -->
+                    <div class="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-[9.5px] font-bold text-slate-700 uppercase flex items-center gap-1">Secondary Business Activity (SSIC Code)</label>
+                            <span class="text-[8px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md">Optional</span>
                         </div>
-
-                        <!-- Secondary Selector -->
-                        <div class="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
-                            <div class="flex items-center justify-between mb-1">
-                                <label class="block text-[9.5px] font-bold text-slate-700 uppercase flex items-center gap-1">
-                                    Secondary Business Activity (SSIC Code)
-                                </label>
-                                <span class="text-[8px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded-md">Optional</span>
-                            </div>
-                            <p class="text-[9px] text-slate-400 font-medium mb-2.5">Select an additional business activity if your company operates in more than one area.</p>
-                            
-                            <div class="relative">
-                                <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none">🔍</span>
-                                <input type="text" id="preview-search-secondary" 
-                                    onfocus="openPreviewDropdown('secondary')" 
-                                    oninput="filterPreviewSsic('secondary', this.value)"
-                                    onblur="closePreviewDropdown('secondary')"
-                                    placeholder="Search by SSIC code, synonyms, words..." 
-                                    class="w-full pl-7 pr-4 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-green-500 transition-all font-semibold">
-                                <div id="preview-dropdown-secondary" class="hidden absolute top-full left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-xl max-h-[180px] overflow-y-auto z-[999] mt-1 divide-y divide-slate-50"></div>
-                            </div>
-
-                            <div id="preview-selected-secondary" class="mt-3.5">
-                                <div class="text-[10px] text-slate-400 font-semibold italic text-center py-2.5 border border-dashed border-slate-200 rounded-lg">
-                                    Optional — search and select a secondary activity
-                                </div>
-                            </div>
+                        <p class="text-[9px] text-slate-400 font-medium mb-2.5">Select an additional business activity if your company operates in more than one area.</p>
+                        <div class="relative">
+                            <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none">🔍</span>
+                            <input type="text" id="preview-search-secondary" 
+                                onfocus="openPreviewDropdown('secondary')" 
+                                oninput="filterPreviewSsic('secondary', this.value)"
+                                onblur="closePreviewDropdown('secondary')"
+                                placeholder="Search by SSIC code, synonyms, words..." 
+                                class="w-full pl-7 pr-4 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-green-500 transition-all font-semibold">
+                            <div id="preview-dropdown-secondary" class="hidden absolute top-full left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-xl max-h-[200px] overflow-y-auto z-[999] mt-1 divide-y divide-slate-50"></div>
                         </div>
-
+                        <div id="preview-selected-secondary" class="mt-3.5">
+                            <div class="text-[10px] text-slate-400 font-semibold italic text-center py-2.5 border border-dashed border-slate-200 rounded-lg">Optional — search and select a secondary activity</div>
+                        </div>
                     </div>
                 </div>
             </div>
-
         </div>
     </div>
 
@@ -447,6 +461,7 @@
     <script>
         let activities = [];
         let filteredActivities = [];
+        let selectedActivityIds = [];
         let activeModalTab = 'general';
         let parsedImportData = null;
 
@@ -488,6 +503,7 @@
                 
                 if (res.ok) {
                     activities = await res.json();
+                    selectedActivityIds = []; // clear selection on reload
                     handleSearch();
                 } else if (res.status === 401) {
                     window.logout();
@@ -501,8 +517,15 @@
         }
 
         function handleSearch() {
-            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            const rawQuery = document.getElementById('search-input').value.trim();
             const statusFilter = document.getElementById('status-filter').value;
+
+            // Detect comma-separated SSIC code lookup
+            const isCommaSeparated = rawQuery.includes(',');
+            const codeList = isCommaSeparated 
+                ? rawQuery.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+                : null;
+            const query = rawQuery.toLowerCase();
 
             filteredActivities = activities.filter(act => {
                 // Ignore soft-archived entries unless explicitly filtered
@@ -510,17 +533,23 @@
                     return false;
                 }
 
-                const matchesSearch = 
-                    (act.code || '').toLowerCase().includes(query) ||
-                    (act.name || '').toLowerCase().includes(query) ||
-                    (act.category || '').toLowerCase().includes(query) ||
-                    (act.keywords || '').toLowerCase().includes(query) ||
-                    (act.synonyms || '').toLowerCase().includes(query) ||
-                    (act.abbreviations || '').toLowerCase().includes(query) ||
-                    (act.sectionName || '').toLowerCase().includes(query) ||
-                    (act.divisionName || '').toLowerCase().includes(query) ||
-                    (act.groupName || '').toLowerCase().includes(query) ||
-                    (act.className || '').toLowerCase().includes(query);
+                let matchesSearch;
+                if (isCommaSeparated && codeList.length > 0) {
+                    // Comma-separated: match any of the supplied codes exactly
+                    matchesSearch = codeList.some(c => (act.code || '').toLowerCase() === c);
+                } else {
+                    matchesSearch = !query ||
+                        (act.code || '').toLowerCase().includes(query) ||
+                        (act.name || '').toLowerCase().includes(query) ||
+                        (act.category || '').toLowerCase().includes(query) ||
+                        (act.keywords || '').toLowerCase().includes(query) ||
+                        (act.synonyms || '').toLowerCase().includes(query) ||
+                        (act.abbreviations || '').toLowerCase().includes(query) ||
+                        (act.sectionName || '').toLowerCase().includes(query) ||
+                        (act.divisionName || '').toLowerCase().includes(query) ||
+                        (act.groupName || '').toLowerCase().includes(query) ||
+                        (act.className || '').toLowerCase().includes(query);
+                }
                 
                 let matchesStatus = true;
                 if (statusFilter !== 'ALL') {
@@ -533,6 +562,131 @@
             renderTable();
         }
 
+        // Selection State management
+        function toggleSelectAll(checked) {
+            if (checked) {
+                filteredActivities.forEach(act => {
+                    if (!selectedActivityIds.includes(act.id)) {
+                        selectedActivityIds.push(act.id);
+                    }
+                });
+            } else {
+                const filteredIds = filteredActivities.map(act => act.id);
+                selectedActivityIds = selectedActivityIds.filter(id => !filteredIds.includes(id));
+            }
+            
+            document.querySelectorAll('.row-checkbox').forEach(cb => {
+                const id = cb.getAttribute('data-id');
+                cb.checked = selectedActivityIds.includes(id);
+            });
+            
+            updateBulkActionsBar();
+        }
+
+        function toggleSelectIndividual(id, checked) {
+            if (checked) {
+                if (!selectedActivityIds.includes(id)) {
+                    selectedActivityIds.push(id);
+                }
+            } else {
+                selectedActivityIds = selectedActivityIds.filter(x => x !== id);
+            }
+            
+            updateBulkActionsBar();
+        }
+
+        function clearSelection() {
+            selectedActivityIds = [];
+            const selectAllCheckbox = document.getElementById('select-all-checkbox');
+            if (selectAllCheckbox) selectAllCheckbox.checked = false;
+            document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+            updateBulkActionsBar();
+        }
+
+        function updateBulkActionsBar() {
+            const bar = document.getElementById('bulk-actions-bar');
+            const countEl = document.getElementById('bulk-selected-count');
+            
+            if (selectedActivityIds.length > 0) {
+                bar.classList.remove('hidden');
+                countEl.innerText = `${selectedActivityIds.length} item(s) selected`;
+            } else {
+                bar.classList.add('hidden');
+            }
+            
+            const selectAllCheckbox = document.getElementById('select-all-checkbox');
+            if (selectAllCheckbox) {
+                const allSelected = filteredActivities.length > 0 && filteredActivities.every(act => selectedActivityIds.includes(act.id));
+                selectAllCheckbox.checked = allSelected;
+            }
+        }
+
+        async function bulkPublish() {
+            if (selectedActivityIds.length === 0) return;
+            if (!confirm(`Are you sure you want to publish the ${selectedActivityIds.length} selected SSIC code(s) in bulk?`)) return;
+            
+            try {
+                const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
+                const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+                
+                showToast(`Publishing ${selectedActivityIds.length} codes...`);
+                
+                const promises = selectedActivityIds.map(id => 
+                    fetch(`/api/ssic-activities/${id}/publish`, {
+                        method: 'POST',
+                        headers
+                    })
+                );
+                
+                const results = await Promise.all(promises);
+                const failures = results.filter(res => !res.ok).length;
+                
+                if (failures === 0) {
+                    showToast(`Successfully published ${selectedActivityIds.length} SSIC codes!`);
+                } else {
+                    showToast(`Bulk publish completed with ${failures} failure(s).`, "error");
+                }
+                
+                loadActivities();
+            } catch (error) {
+                console.error("Bulk publish error:", error);
+                showToast("Network error executing bulk publish", "error");
+            }
+        }
+
+        async function bulkUnpublish() {
+            if (selectedActivityIds.length === 0) return;
+            if (!confirm(`Are you sure you want to unpublish the ${selectedActivityIds.length} selected SSIC code(s) in bulk?`)) return;
+            
+            try {
+                const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
+                const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+                
+                showToast(`Unpublishing ${selectedActivityIds.length} codes...`);
+                
+                const promises = selectedActivityIds.map(id => 
+                    fetch(`/api/ssic-activities/${id}/unpublish`, {
+                        method: 'POST',
+                        headers
+                    })
+                );
+                
+                const results = await Promise.all(promises);
+                const failures = results.filter(res => !res.ok).length;
+                
+                if (failures === 0) {
+                    showToast(`Successfully unpublished ${selectedActivityIds.length} SSIC codes!`);
+                } else {
+                    showToast(`Bulk unpublish completed with ${failures} failure(s).`, "error");
+                }
+                
+                loadActivities();
+            } catch (error) {
+                console.error("Bulk unpublish error:", error);
+                showToast("Network error executing bulk unpublish", "error");
+            }
+        }
+
         function renderTable() {
             const tbody = document.getElementById('ssic-table-body');
             tbody.innerHTML = '';
@@ -540,7 +694,7 @@
             if (filteredActivities.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="5" class="px-6 py-12 text-center text-xs font-semibold text-slate-400">
+                        <td colspan="6" class="px-6 py-12 text-center text-xs font-semibold text-slate-400">
                             No SSIC activities found matching your filters.
                         </td>
                     </tr>
@@ -581,16 +735,21 @@
                 const isNearBottom = (tableIdx >= filteredActivities.length - 2) && (filteredActivities.length > 2);
                 const dropdownPosition = isNearBottom ? 'bottom-full mb-1 right-0' : 'top-full mt-1 right-0';
 
+                const isChecked = selectedActivityIds.includes(act.id);
+
                 tr.innerHTML = `
+                    <td class="px-5 py-4 text-center">
+                        <input type="checkbox" data-id="${act.id}" onchange="toggleSelectIndividual('${act.id}', this.checked)" ${isChecked ? 'checked' : ''} class="row-checkbox rounded border-slate-350 text-blue-600 focus:ring-blue-500 cursor-pointer w-4 h-4">
+                    </td>
                     <td class="px-5 py-4 text-xs font-bold text-slate-900 font-mono">${act.code}</td>
                     <td class="px-5 py-4">
-                        <div class="text-xs font-semibold text-slate-700 max-w-sm truncate" title="${act.name}">${act.name}</div>
-                        <div class="text-[9.5px] text-slate-400 mt-0.5 truncate max-w-sm font-medium">${act.description || 'No description sub-text'}</div>
+                        <div class="text-xs font-semibold text-slate-700 max-w-xl truncate" title="${act.name}">${act.name}</div>
+                        <div class="text-[9.5px] text-slate-400 mt-0.5 truncate max-w-xl font-medium">${act.description || 'No description sub-text'}</div>
                         ${metaTagsHtml}
                     </td>
                     <td class="px-5 py-4">
                         <div class="text-xs font-bold text-slate-500">${act.sectionCode ? `Sec ${act.sectionCode}` : 'Category:'}</div>
-                        <div class="text-[9.5px] text-slate-400 font-medium truncate max-w-[150px]" title="${act.sectionName || act.category}">${act.sectionName || act.category || 'N/A'}</div>
+                        <div class="text-[9.5px] text-slate-400 font-medium truncate max-w-[180px]" title="${act.sectionName || act.category}">${act.sectionName || act.category || 'N/A'}</div>
                     </td>
                     <td class="px-5 py-4">${statusBadge}</td>
                     <td class="px-5 py-4 text-right font-medium">
@@ -612,6 +771,8 @@
                 `;
                 tbody.appendChild(tr);
             });
+
+            updateBulkActionsBar();
 
             if (window.lucide) window.lucide.createIcons();
         }
@@ -1085,7 +1246,27 @@
             }
         }
 
-        // ── LIVE ONBOARDING CLIENT DROPDOWN PREVIEW LOGIC ──
+        // ── ONBOARDING CLIENT DROPDOWN PREVIEW LOGIC ──
+        function openPreviewModal() {
+            // Reset search inputs
+            const pm = document.getElementById('preview-search-primary');
+            const sm = document.getElementById('preview-search-secondary');
+            if (pm) pm.value = '';
+            if (sm) sm.value = '';
+            removePreviewSelected('primary');
+            removePreviewSelected('secondary');
+            document.getElementById('preview-modal').classList.remove('hidden');
+        }
+
+        function closePreviewModal() {
+            document.getElementById('preview-modal').classList.add('hidden');
+        }
+
+        // Close preview modal on backdrop click
+        document.getElementById('preview-modal').addEventListener('click', function(e) {
+            if (e.target === this) closePreviewModal();
+        });
+
         function openPreviewDropdown(slot) {
             const dd = document.getElementById(`preview-dropdown-${slot}`);
             if (dd) {
@@ -1108,8 +1289,8 @@
             const dd = document.getElementById(`preview-dropdown-${slot}`);
             if (!dd) return;
             
-            // Search all published AND draft entries in sandbox preview (excluding archived)
-            const list = activities.filter(a => !a.isArchived);
+            // Only show PUBLISHED entries in the preview — mirrors live onboarding behaviour
+            const list = activities.filter(a => !a.isArchived && a.status === 'PUBLISHED');
             const matches = q ? list.filter(a =>
                 (a.code||'').toLowerCase().includes(q) ||
                 (a.name||'').toLowerCase().includes(q) ||
@@ -1164,8 +1345,6 @@
                     }
                 }
 
-                const draftBadge = act.status === 'DRAFT' ? '<span class="text-[7.5px] font-bold bg-amber-50 text-amber-700 border border-amber-200 rounded px-1.5 py-0.2">DRAFT</span>' : '';
-
                 div.onmousedown = () => selectPreviewSsic(slot, act);
                 div.innerHTML = `
                     <div class="flex items-center justify-between">
@@ -1173,7 +1352,6 @@
                             <span class="font-bold text-slate-800 font-mono">${hl(act.code, q)}</span>
                             <span class="text-[8.5px] text-blue-500 bg-blue-50/50 px-1.5 rounded border border-blue-100">${hl(act.category||'', q)}</span>
                         </div>
-                        ${draftBadge}
                     </div>
                     <span class="text-slate-650 font-semibold">${hl(act.name, q)}</span>
                     ${metaTextHtml}
@@ -1288,6 +1466,47 @@
         document.addEventListener('click', () => {
             closeAllDropdowns();
         });
+
+        // ── DOWNLOAD ALL SSIC CODES AS EXCEL (CSV) ──
+        function downloadExcel() {
+            if (!activities || activities.length === 0) {
+                showToast('No SSIC data loaded to export.', 'error');
+                return;
+            }
+
+            const headers = [
+                'Code', 'Name', 'Category', 'Description',
+                'Section Code', 'Section Name', 'Division Code', 'Division Name',
+                'Group Code', 'Group Name', 'Class Code', 'Class Name',
+                'Keywords', 'Synonyms', 'Abbreviations', 'Status', 'Version', 'Last Updated'
+            ];
+
+            const escape = (val) => {
+                const str = String(val || '').replace(/"/g, '""');
+                return str.includes(',') || str.includes('"') || str.includes('\n') ? `"${str}"` : str;
+            };
+
+            const rows = activities.map(a => [
+                escape(a.code), escape(a.name), escape(a.category), escape(a.description),
+                escape(a.sectionCode), escape(a.sectionName), escape(a.divisionCode), escape(a.divisionName),
+                escape(a.groupCode), escape(a.groupName), escape(a.classCode), escape(a.className),
+                escape(a.keywords), escape(a.synonyms), escape(a.abbreviations),
+                escape(a.status || 'DRAFT'), escape(a.version || 1),
+                escape(a.lastUpdatedAt ? new Date(a.lastUpdatedAt).toLocaleDateString() : 'N/A')
+            ].join(','));
+
+            const csvContent = [headers.join(','), ...rows].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `SSIC_Codes_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showToast(`✅ Exported ${activities.length} SSIC codes to Excel/CSV`);
+        }
 
         // Initialize and load
         document.addEventListener('DOMContentLoaded', () => {

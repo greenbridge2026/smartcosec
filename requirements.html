@@ -473,21 +473,11 @@
 
         /* Auto-populated field glow */
         .ocr-populated {
-            border-color: #10b981 !important;
-            background: linear-gradient(135deg, #ecfdf5, #f0fdf4) !important;
-            box-shadow: 0 0 0 3px rgba(16,185,129,0.1) !important;
-            animation: ocrPop 0.5s ease;
         }
         @keyframes ocrPop {
-            0% { transform: scale(0.99); }
-            50% { transform: scale(1.005); box-shadow: 0 0 0 6px rgba(16,185,129,0.2); }
-            100% { transform: scale(1); }
         }
         .ocr-populated-label::after {
-            content: ' ✦ Auto-filled';
-            font-size: 0.65rem;
-            color: #10b981;
-            font-weight: 700;
+            content: none !important;
         }
 
         /* Spin animation for OCR loader */
@@ -1709,7 +1699,7 @@
                     <div class="wizard-footer-new">
                         <div class="footer-divider"></div>
                         <div class="footer-actions" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <div style="display: none; align-items: center; gap: 0.75rem;">
                                 <button type="button" class="btn btn-outline" style="border-color: #cbd5e1; color: #475569; padding: 0.5rem 1rem; font-size: 0.8rem; height: 38px; display: flex; align-items: center; gap: 0.35rem;" onclick="wizard.autofill()">
                                     ⚡ Autofill
                                 </button>
@@ -1780,7 +1770,7 @@
                 fields: [
                     { key: "contact.firstName", label: "First Name", type: "text", required: true, placeholder: "First name" },
                     { key: "contact.lastName", label: "Last Name", type: "text", required: true, placeholder: "Last name" },
-                    { key: "contact.phone", label: "Contact Number", type: "text", required: true, placeholder: "+65 1234 5678" },
+                    { key: "contact.phone", label: "Contact Number", type: "text", required: true, placeholder: "1234 5678" },
                     { key: "contact.email", label: "Email ID", type: "text", required: true, placeholder: "email@example.com" }
                 ]
             },
@@ -1857,7 +1847,7 @@
                     names: ['', '', '', ''],
                     activities: { primary: null, secondary: null },
                     directors: [{ name: '', idType: 'local', idNum: '', dob: '', phone: '', passportExpiry: '', docs: {} }],
-                    shareholders: [{ type: 'individual', name: '', shares: '', percent: '', regNum: '', regPlace: '', regDate: '', phone: '', email: '', addr: '', docs: {}, bo: [] }],
+                    shareholders: [],
                     capital: { issued: 1000, numShares: 1000, paidUp: 1000, currency: 'SGD', type: 'Ordinary' },
                     office: { useService: true, address: '', hasOwnAddress: false, residency: 'local' },
                     contact: { firstName: '', lastName: '', phone: '', email: '' },
@@ -1998,6 +1988,9 @@
                                 }
                                 this.sectionStatuses = response.sectionStatuses || {};
                                 
+                                if (response.applicationId) {
+                                    localStorage.setItem('application_id', response.applicationId);
+                                }
                                 if (response.status && response.status !== 'pending' && response.status !== 'none') {
                                     if (response.status === 'approved') {
                                         window.location.href = '/client/portal.html';
@@ -2776,6 +2769,7 @@
                 badge.classList.add('badge-animate');
                 
                 const companyName = data.names?.[0] || 'New Incorporation';
+                const appId = localStorage.getItem('application_id') || 'Pending';
                 
                 let actionButtonHtml = '';
                 if (status === 'rejected') {
@@ -2818,6 +2812,7 @@
 
                 document.getElementById('client-status-details').innerHTML = `
                     <div style="font-weight:700; margin-bottom:10px;">${companyName}</div>
+                    <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:5px;">Application ID: <span style="font-weight:700; color:var(--brand-primary);">${appId}</span></div>
                     <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:5px;">Service: Company Incorporation</div>
                     <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:5px;">Status: ${displayStatusText}</div>
                     <div style="font-size:0.85rem; color:var(--text-muted); padding-top:10px; border-top:1px solid #eee;">
@@ -2910,8 +2905,18 @@
                         });
                     }
                 } else if (sec.id === 'sec-directors-shareholders') {
-                    // Directors and Shareholders details forms have been removed, only counts are verified
-                    isValid = true;
+                    const shs = this.data.shareholders || [];
+                    const indCount = shs.filter(s => s.type === 'individual').length;
+                    const corpCount = shs.filter(s => s.type === 'corporate').length;
+                    if (indCount + corpCount === 0) {
+                        isValid = false;
+                        errorMessages.push("At least one shareholder (Individual or Corporate) is required.");
+                    }
+                    const dirs = this.data.directors || [];
+                    if (dirs.length === 0) {
+                        isValid = false;
+                        errorMessages.push("At least one director is required.");
+                    }
                 } else if (sec.id === 'sec-addons') {
                     // Add-on Services step is optional and always valid
                     isValid = true;
@@ -3434,6 +3439,9 @@
                 this.evaluateConditionalFields();
                 this.updateHelperCard();
                 this.updateContinueButtonState();
+                if (sec.key === 'contact') {
+                    this.handlePhoneChange();
+                }
                 
                 const isSubmitted = (lastKnownStatus && lastKnownStatus !== 'pending' && lastKnownStatus !== 'none');
                 const nextBtn = document.getElementById('next-btn');
@@ -3682,7 +3690,7 @@
                             ${rejectionBanner}
                             
                             <!-- Counter cards grid -->
-                            <div class="counters-container">
+                            <div class="counters-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
                                 <div class="counter-card">
                                     <h3>👥 Directors</h3>
                                     <p>People who legally direct the company.</p>
@@ -3693,16 +3701,21 @@
                                     </div>
                                 </div>
                                 <div class="counter-card">
-                                    <h3>👥 Shareholders</h3>
-                                    <p>Beneficial owners who hold shares in the company.</p>
-                                    <select id="shareholder-type-select" onchange="wizard.changeShareholderType(this.value)" style="width: 100%; padding: 0.5rem 0.75rem; border: 1.5px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem; outline: none; background: white; cursor: pointer; height: 38px; box-sizing: border-box; margin-bottom: 0.25rem;">
-                                        <option value="individual" ${shareholders[0] && shareholders[0].type === 'individual' ? 'selected' : ''}>Individual Shareholder</option>
-                                        <option value="corporate" ${shareholders[0] && shareholders[0].type === 'corporate' ? 'selected' : ''}>Corporate Shareholder</option>
-                                    </select>
+                                    <h3>👤 Individual Shareholders</h3>
+                                    <p>Natural persons who hold shares in the company.</p>
                                     <div class="counter-controls">
-                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('shareholders', -1)">-</button>
-                                        <div class="counter-val" id="shareholders-count-val">${shareholders.length}</div>
-                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('shareholders', 1)">+</button>
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('individual', -1)">-</button>
+                                        <div class="counter-val" id="ind-shareholders-count-val">${shareholders.filter(s => s.type === 'individual').length}</div>
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('individual', 1)">+</button>
+                                    </div>
+                                </div>
+                                <div class="counter-card">
+                                    <h3>🏢 Corporate Shareholders</h3>
+                                    <p>Corporate entities that hold shares in the company.</p>
+                                    <div class="counter-controls">
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('corporate', -1)">-</button>
+                                        <div class="counter-val" id="corp-shareholders-count-val">${shareholders.filter(s => s.type === 'corporate').length}</div>
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('corporate', 1)">+</button>
                                     </div>
                                 </div>
                             </div>
@@ -4059,17 +4072,13 @@
                     let defaultObj = {};
                     if (key === 'directors') {
                         defaultObj = { name: '', idType: 'local', idNum: '', dob: '', phone: '', passportExpiry: '', docs: {} };
-                    } else if (key === 'shareholders') {
-                        const typeSelect = document.getElementById('shareholder-type-select');
-                        const shType = typeSelect ? typeSelect.value : (list[0] ? list[0].type : 'individual');
-                        defaultObj = { type: shType, name: '', shares: '', percent: '', regNum: '', regPlace: '', regDate: '', phone: '', email: '', addr: '', docs: {}, bo: [] };
                     }
                     list.push(defaultObj);
                 } else if (change < 0) {
                     if (list.length > 1) {
                         list.pop();
                     } else {
-                        showToast(`At least one ${key === 'directors' ? 'director' : 'shareholder'} is required.`, "error");
+                        showToast(`At least one director is required.`, "error");
                         return;
                     }
                 }
@@ -4079,18 +4088,6 @@
                 this.render();
             }
 
-            changeShareholderType(type) {
-                if (!this.data.shareholders) this.data.shareholders = [];
-                if (this.data.shareholders.length === 0) {
-                    this.data.shareholders.push({ type: type, name: '', shares: '', percent: '', regNum: '', regPlace: '', regDate: '', phone: '', email: '', addr: '', docs: {}, bo: [] });
-                } else {
-                    this.data.shareholders.forEach(sh => {
-                        sh.type = type;
-                    });
-                }
-                this.save();
-                this.render();
-            }
 
             updateDirectorName(idx, name) {
                 if (!this.data.directors) this.data.directors = [];
@@ -4687,12 +4684,10 @@
                 } else if (change < 0) {
                     const lastIdx = list.map(s => s.type).lastIndexOf(type);
                     if (lastIdx !== -1) {
-                        if (list.length > 1) {
-                            list.splice(lastIdx, 1);
-                        } else {
-                            showToast("At least one shareholder is required.", "error");
-                            return;
-                        }
+                        list.splice(lastIdx, 1);
+                    } else {
+                        showToast(`No ${type} shareholders to remove.`, "error");
+                        return;
                     }
                 }
                 
@@ -4773,6 +4768,66 @@
                 this.data.office.residency = val;
                 this.save();
                 this.render();
+                this.updateContinueButtonState();
+            }
+
+            handlePhoneChange() {
+                const countries = [
+                    { code: 'SG', flag: '🇸🇬', prefix: '+65', name: 'Singapore', lengths: [8] },
+                    { code: 'IN', flag: '🇮🇳', prefix: '+91', name: 'India', lengths: [10] },
+                    { code: 'MY', flag: '🇲🇾', prefix: '+60', name: 'Malaysia', lengths: [9, 10] },
+                    { code: 'ID', flag: '🇮🇩', prefix: '+62', name: 'Indonesia', lengths: [9, 10, 11, 12] },
+                    { code: 'US', flag: '🇺🇸', prefix: '+1', name: 'USA', lengths: [10] },
+                    { code: 'GB', flag: '🇬🇧', prefix: '+44', name: 'UK', lengths: [10] },
+                    { code: 'AU', flag: '🇦🇺', prefix: '+61', name: 'Australia', lengths: [9] }
+                ];
+                
+                const selectEl = document.getElementById('phone-country');
+                const inputEl = document.getElementById('phone-main-input');
+                const errorEl = document.getElementById('phone-error-msg');
+                const flagImgEl = document.getElementById('phone-flag-img');
+                if (!selectEl || !inputEl) return;
+                
+                const countryCode = selectEl.value;
+                const c = countries.find(x => x.code === countryCode) || countries[0];
+                
+                if (flagImgEl) {
+                    flagImgEl.src = `https://flagcdn.com/20x15/${c.code.toLowerCase()}.png`;
+                }
+
+                const placeholders = {
+                    SG: '1234 5678',
+                    IN: '98765 43210',
+                    MY: '12-345 6789',
+                    ID: '812-3456-7890',
+                    US: '202-555-0143',
+                    GB: '7911 123456',
+                    AU: '412 345 678'
+                };
+                inputEl.placeholder = placeholders[c.code] || '1234 5678';
+                
+                const digits = inputEl.value.replace(/\D/g, '');
+                inputEl.value = digits;
+                
+                let isValid = false;
+                if (c.lengths.includes(digits.length)) {
+                    isValid = true;
+                }
+                
+                if (errorEl) {
+                    if (!isValid && digits.length > 0) {
+                        const lengthText = c.lengths.join(' or ');
+                        errorEl.innerText = `Phone number must be ${lengthText} digits for ${c.name}`;
+                        errorEl.style.display = 'block';
+                    } else {
+                        errorEl.style.display = 'none';
+                    }
+                }
+                
+                const fullNumber = digits.length > 0 ? `${c.prefix} ${digits}` : '';
+                setVal(this.data, 'contact.phone', fullNumber);
+                this.save();
+                this.evaluateConditionalFields();
                 this.updateContinueButtonState();
             }
 
@@ -5039,7 +5094,8 @@
                 const compType = getVal(this.data, 'companyType') || 'Pte Ltd';
                 
                 const dirsCount = this.data.directors ? this.data.directors.length : 1;
-                const shsCount = this.data.shareholders ? this.data.shareholders.length : 1;
+                const indShsCount = this.data.shareholders ? this.data.shareholders.filter(s => s.type === 'individual').length : 0;
+                const corpShsCount = this.data.shareholders ? this.data.shareholders.filter(s => s.type === 'corporate').length : 0;
                 
                 const firstName = getVal(this.data, 'contact.firstName') || '';
                 const lastName = getVal(this.data, 'contact.lastName') || '';
@@ -5134,8 +5190,12 @@
                                         <span class="summary-value">${dirsCount} member(s)</span>
                                     </div>
                                     <div class="summary-row">
-                                        <span class="summary-label">Shareholders:</span>
-                                        <span class="summary-value">${shsCount} member(s)</span>
+                                        <span class="summary-label">Individual Shareholders:</span>
+                                        <span class="summary-value">${indShsCount} member(s)</span>
+                                    </div>
+                                    <div class="summary-row">
+                                        <span class="summary-label">Corporate Shareholders:</span>
+                                        <span class="summary-value">${corpShsCount} member(s)</span>
                                     </div>
                                 </div>
                                 
@@ -5407,6 +5467,34 @@
                     }
                 }
 
+                // Contact phone country number check
+                const phoneVal = getVal(this.data, 'contact.phone') || '';
+                if (phoneVal) {
+                    const countries = [
+                        { code: 'SG', flag: '🇸🇬', prefix: '+65', name: 'Singapore', lengths: [8] },
+                        { code: 'IN', flag: '🇮🇳', prefix: '+91', name: 'India', lengths: [10] },
+                        { code: 'MY', flag: '🇲🇾', prefix: '+60', name: 'Malaysia', lengths: [9, 10] },
+                        { code: 'ID', flag: '🇮🇩', prefix: '+62', name: 'Indonesia', lengths: [9, 10, 11, 12] },
+                        { code: 'US', flag: '🇺🇸', prefix: '+1', name: 'USA', lengths: [10] },
+                        { code: 'GB', flag: '🇬🇧', prefix: '+44', name: 'UK', lengths: [10] },
+                        { code: 'AU', flag: '🇦🇺', prefix: '+61', name: 'Australia', lengths: [9] }
+                    ];
+                    let found = false;
+                    for (const c of countries) {
+                        if (phoneVal.startsWith(c.prefix)) {
+                            const digits = phoneVal.slice(c.prefix.length).replace(/\D/g, '');
+                            if (c.lengths.includes(digits.length)) {
+                                found = true;
+                            }
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        isValid = false;
+                        validationReasons.push(`contact.phone length invalid`);
+                    }
+                }
+
                 // 2. Custom validation override rules
                 if (sec.id === 'sec-office' || sec.key === 'office') {
                     const residency = this.data.office ? this.data.office.residency : '';
@@ -5615,9 +5703,10 @@
                     ` + this.getHelperExtraHTML(sec);
                 } else if (sec.id === 'sec-directors-shareholders' || sec.key === 'directors-shareholders') {
                     const dirsCount = this.data.directors ? this.data.directors.length : 1;
-                    const shsCount = this.data.shareholders ? this.data.shareholders.length : 1;
-                    const dirsText = `${dirsCount} director${dirsCount > 1 ? 's' : ''}`;
-                    const shsText = `${shsCount} shareholder${shsCount > 1 ? 's' : ''}`;
+                    const indShsCount = this.data.shareholders ? this.data.shareholders.filter(s => s.type === 'individual').length : 0;
+                    const corpShsCount = this.data.shareholders ? this.data.shareholders.filter(s => s.type === 'corporate').length : 0;
+                    const dirsText = `${dirsCount} director${dirsCount !== 1 ? 's' : ''}`;
+                    const shsText = `${indShsCount} individual, ${corpShsCount} corporate shareholder${(indShsCount + corpShsCount) !== 1 ? 's' : ''}`;
                     
                     const officeChecked = (this.data.office && this.data.office.useService !== false);
                     const secretaryChecked = (this.data.secretary && this.data.secretary.required !== false);
@@ -5737,6 +5826,52 @@
                 const val = getVal(this.data, fullPath) || '';
                 const requiredAsterisk = field.required ? '*' : '';
                 const containerId = `field-container-${fullPath.replace(/[.\[\]]/g, '-')}`;
+
+                if (fullPath === 'contact.phone') {
+                    const countries = [
+                        { code: 'SG', flag: '🇸🇬', prefix: '+65', name: 'Singapore', lengths: [8] },
+                        { code: 'IN', flag: '🇮🇳', prefix: '+91', name: 'India', lengths: [10] },
+                        { code: 'MY', flag: '🇲🇾', prefix: '+60', name: 'Malaysia', lengths: [9, 10] },
+                        { code: 'ID', flag: '🇮🇩', prefix: '+62', name: 'Indonesia', lengths: [9, 10, 11, 12] },
+                        { code: 'US', flag: '🇺🇸', prefix: '+1', name: 'USA', lengths: [10] },
+                        { code: 'GB', flag: '🇬🇧', prefix: '+44', name: 'UK', lengths: [10] },
+                        { code: 'AU', flag: '🇦🇺', prefix: '+61', name: 'Australia', lengths: [9] }
+                    ];
+
+                    let selectedCountry = countries[0];
+                    let numberPart = val;
+                    if (val) {
+                        const cleanedVal = val.trim();
+                        for (const c of countries) {
+                            if (cleanedVal.startsWith(c.prefix)) {
+                                selectedCountry = c;
+                                numberPart = cleanedVal.slice(c.prefix.length).trim();
+                                break;
+                            }
+                        }
+                    }
+
+                    const flagUrl = `https://flagcdn.com/20x15/${selectedCountry.code.toLowerCase()}.png`;
+
+                    return `
+                        <div class="form-group" style="flex: 1 1 100%;">
+                            <label class="form-label">${field.label}${requiredAsterisk}</label>
+                            <div style="display: flex; gap: 8px;">
+                                <div style="display: flex; align-items: center; border: 1px solid #cbd5e1; border-radius: 8px; height: 38px; padding: 0 10px; background: #fff;">
+                                    <img id="phone-flag-img" src="${flagUrl}" style="width: 20px; height: 15px; margin-right: 6px; border: 1px solid #f1f5f9; object-fit: contain;">
+                                    <select id="phone-country" style="border: none; font-size: 0.9rem; background: transparent; height: 100%; outline: none; padding-right: 4px; cursor: pointer; color: #1e293b; font-weight: 500;" onchange="wizard.handlePhoneChange()">
+                                        ${countries.map(c => {
+                                            const isSelected = selectedCountry.code === c.code ? 'selected' : '';
+                                            return `<option value="${c.code}" ${isSelected}>${c.code} (${c.prefix})</option>`;
+                                        }).join('')}
+                                    </select>
+                                </div>
+                                <input type="text" id="phone-main-input" class="input-box" style="flex: 1;" placeholder="${(field.placeholder || '').replace(/^\+\d+\s*/, '') || '1234 5678'}" value="${numberPart}" oninput="wizard.handlePhoneChange()">
+                            </div>
+                            <div id="phone-error-msg" style="color: #ef4444; font-size: 0.75rem; margin-top: 4px; font-weight: 500; display: none;"></div>
+                        </div>
+                    `;
+                }
 
                 let html = '';
                 switch (field.type) {
@@ -6492,7 +6627,9 @@
                 }
 
                 const token = localStorage.getItem('token') || '';
-                if (token.startsWith('mock-')) {
+                const isGuest = !token || token.startsWith('mock-guest-');
+
+                if (token.startsWith('mock-') && !isGuest) {
                     showToast("Submission successful! (Demo Mode)");
                     lastKnownStatus = 'under review';
                     this.showStatusPage('under review', this.data);
@@ -6500,18 +6637,45 @@
                 }
 
                 try {
-                    const res = await fetch('/api/requirements/submit', {
+                    let endpoint = '/api/requirements/submit';
+                    let headers = {};
+                    let body = undefined;
+
+                    if (isGuest) {
+                        endpoint = '/api/requirements/public/submit';
+                        headers['Content-Type'] = 'application/json';
+                        body = JSON.stringify(this.data);
+                    } else {
+                        headers['Authorization'] = 'Bearer ' + token;
+                    }
+
+                    const res = await fetch(endpoint, {
                         method: 'POST',
-                        headers: { 
-                            'Authorization': 'Bearer ' + token
-                        }
+                        headers: headers,
+                        body: body
                     });
                     
                     if (res.ok) {
                         const response = await res.json();
                         showToast("Submission successful!");
                         lastKnownStatus = response.status;
-                        this.showStatusPage(response.status, response.data);
+                        
+                        if (response.applicationId) {
+                            localStorage.setItem('application_id', response.applicationId);
+                        }
+                        if (response.email && response.password) {
+                            localStorage.setItem('signup_password', response.password);
+                            localStorage.setItem('client_auth', JSON.stringify({
+                                role: 'client',
+                                email: response.email,
+                                name: (response.firstName || '') + ' ' + (response.lastName || ''),
+                                id: response.clientId || ''
+                            }));
+                            // Clear the mock guest token — client must sign in with real credentials
+                            localStorage.removeItem('token');
+                        }
+                        
+                        this.showStatusPage(response.status, response.data || this.data);
                     } else {
                         showToast("Error submitting request.", "error");
                     }
@@ -6709,6 +6873,9 @@
                     if (lastKnownStatus && lastKnownStatus !== currentStatus) {
                         showToast(`Status updated to: ${currentStatus.toUpperCase()}`, 'info');
                         if (currentStatus && currentStatus !== 'pending' && currentStatus !== 'none') {
+                            if (response.applicationId) {
+                                localStorage.setItem('application_id', response.applicationId);
+                            }
                             wizard.showStatusPage(currentStatus, response.data);
                         } else {
                             wizard.init();

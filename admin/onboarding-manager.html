@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Onboarding Manager | Globalisor Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <script>
+        if (!localStorage.getItem('admin_auth') && !localStorage.getItem('staff_auth')) window.location.href = '/auth.html';
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter','sans-serif'], outfit: ['Outfit','sans-serif'] },
+                    boxShadow: { 'premium': '0 8px 30px rgb(0,0,0,0.04)', 'hover': '0 12px 40px rgb(0,0,0,0.08)' }
+                }
+            }
+        };
+    </script>
+    <style>
+        body { font-family: 'Outfit', sans-serif; background: #f8fafc; min-height: 100vh; }
+        .top-nav { height: 60px; background: #fff; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1.5rem; z-index: 9999; justify-content: space-between; }
+        .main-container { padding: 2rem; max-width: 1600px; margin-left: 240px !important; margin-right: auto; }
+        #module-switcher { position: fixed !important; top: 60px !important; left: 0 !important; width: 240px !important; height: calc(100vh - 60px) !important; background: #fff !important; border-right: 1px solid #e2e8f0 !important; display: flex !important; flex-direction: column !important; padding: 1.25rem 0.75rem !important; gap: 0.25rem !important; z-index: 9998 !important; overflow-y: auto; }
+        
+        /* Form Field Styles */
+        .input-premium { background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 8px 12px; font-size: 13px; font-family: 'Outfit', sans-serif; outline: none; transition: all 0.2s; }
+        .input-premium:focus { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.08); }
+        .tab-btn { padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 8px; transition: all 0.2s; }
+        .tab-btn.active { background: #eff6ff; color: #2563eb; }
+        .tab-btn:not(.active) { color: #64748b; }
+        .tab-btn:not(.active):hover { background: #f1f5f9; color: #334155; }
+        
+        /* Drag & Drop Simulation */
+        .step-item { cursor: grab; }
+        .step-item:active { cursor: grabbing; opacity: 0.6; }
+    </style>
+    <script type="module" src="admin-sidebar.js"></script>
+</head>
+<body>
+<nav class="top-nav">
+    <div class="flex items-center gap-4">
+        <div class="flex flex-col leading-none cursor-pointer" onclick="window.location.href = localStorage.getItem('staff_auth') ? '/staff/dashboard.html' : 'dashboard.html'">
+            <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Admin</span>
+            <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Portal</span>
+        </div>
+    </div>
+    <div id="module-switcher"></div>
+    <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
+        <div class="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-xs">A</div>
+        <div class="flex flex-col">
+            <div class="text-xs font-semibold text-slate-800">Admin Team</div>
+            <button onclick="localStorage.removeItem('admin_auth');localStorage.removeItem('staff_auth');localStorage.removeItem('token');window.location.href='/auth.html'" class="text-[10px] text-red-500 font-bold hover:underline text-left leading-none">Sign Out</button>
+        </div>
+    </div>
+</nav>
+
+<main class="main-container">
+    <div class="space-y-6">
+        <!-- Header -->
+        <div class="flex justify-between items-center bg-white p-6 rounded-2xl border border-slate-100 shadow-premium">
+            <div>
+                <h2 class="text-2xl font-black font-outfit text-slate-900 tracking-tight flex items-center gap-2">
+                    <i data-lucide="settings-2" class="text-blue-600 w-7 h-7"></i> Dynamic Onboarding Journey Manager
+                </h2>
+                <p class="text-slate-500 text-xs mt-1">Add, reorder, edit fields, configure OCR extractions, set conditionals, and publish steps dynamically.</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="seedDefaults()" class="px-4 py-2.5 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all">
+                    <i data-lucide="database-backup" class="w-4 h-4"></i> Seed Default Steps
+                </button>
+                <button onclick="addNewStep()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-lg shadow-blue-500/20">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Create Custom Step
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-12 gap-6">
+            <!-- Top Section: Stepper List (Publishing & Ordering) -->
+            <div class="col-span-12 bg-white border border-slate-100 rounded-2xl shadow-premium p-5 flex flex-col">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-4 shrink-0">
+                    <h3 class="font-black text-slate-950 font-outfit text-sm uppercase tracking-wider flex items-center gap-2">
+                        <i data-lucide="layers" class="w-4 h-4 text-blue-600"></i> Steps Sequence (<span id="steps-count">0</span>)
+                    </h3>
+                    <div class="flex items-center gap-4">
+                        <label class="flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer">
+                            <input type="checkbox" id="show-archived-toggle" onchange="loadSteps()" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
+                            Show Archived Steps
+                        </label>
+                        <span class="text-[10px] text-slate-400 font-bold">USE BUTTONS TO REORDER STEPS HORIZONTALLY</span>
+                    </div>
+                </div>
+                
+                <div class="flex flex-row overflow-x-auto gap-4 pb-2 scrollbar-thin" id="steps-list-container">
+                    <!-- Steps will load dynamically -->
+                    <div class="text-center py-10 text-slate-400 text-xs w-full">Loading steps configuration...</div>
+                </div>
+            </div>
+
+            <!-- Bottom Section: Step Editor Workspace -->
+            <div class="col-span-12 bg-white border border-slate-100 rounded-2xl shadow-premium p-6 flex flex-col min-h-[60vh]">
+                <div id="no-step-selected" class="flex-1 flex flex-col items-center justify-center text-center">
+                    <div class="w-16 h-16 rounded-3xl bg-blue-50 text-blue-500 flex items-center justify-center mb-4"><i data-lucide="settings-2" class="w-8 h-8"></i></div>
+                    <h3 class="font-bold text-slate-900 text-sm">No Step Selected</h3>
+                    <p class="text-slate-400 text-xs max-w-xs mt-1">Select an onboarding step from the list or click "Create Custom Step" to begin editing fields, documents, and rules.</p>
+                </div>
+
+                <div id="step-editor-workspace" class="hidden flex-grow flex flex-col overflow-hidden h-full">
+                    <!-- Step Title Header -->
+                    <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4 shrink-0">
+                        <div class="flex items-center gap-3">
+                            <div id="editor-step-icon-badge" class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold"></div>
+                            <div>
+                                <h3 id="editor-step-title" class="font-black text-slate-900 text-base">Step Name</h3>
+                                <p id="editor-step-key" class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">key_name</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="deleteStep(activeStep.id, event)" class="px-4 py-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-md">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Delete Step
+                            </button>
+                            <button onclick="saveActiveStep()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-emerald-500/10">
+                                <i data-lucide="check" class="w-4 h-4"></i> Save Configuration
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Editor Sections Navigation Tabs -->
+                    <div class="flex border-b border-slate-100 pb-2 mb-4 gap-1 shrink-0">
+                        <button onclick="switchEditorTab('basic')" class="tab-btn active" id="btn-tab-basic">Basic Config</button>
+                        <button onclick="switchEditorTab('fields')" class="tab-btn" id="btn-tab-fields">Form Builder</button>
+                        <button onclick="switchEditorTab('docs')" class="tab-btn" id="btn-tab-docs">Documents & OCR</button>
+                        <button onclick="switchEditorTab('preview')" class="tab-btn" id="btn-tab-preview">Live Preview ⚡</button>
+                        <button onclick="switchEditorTab('history')" class="tab-btn" id="btn-tab-history">Audit Log & Version</button>
+                    </div>
+
+                    <!-- Scrollable Editors Body -->
+                    <div class="flex-grow overflow-y-auto pr-2 space-y-6" id="editor-tab-body">
+                        
+                        <!-- TAB: Basic Info -->
+                        <div id="editor-section-basic" class="space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Step Title</label>
+                                    <input type="text" id="edit-title" class="input-premium" oninput="syncEditorHeader()">
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Step Unique Key</label>
+                                    <input type="text" id="edit-key" class="input-premium" placeholder="e.g. director_details">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Step Field Name (Java Model)</label>
+                                    <input type="text" id="edit-field" class="input-premium" placeholder="e.g. step2DirectorDetails">
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Step Icon (Lucide)</label>
+                                    <select id="edit-icon" class="input-premium">
+                                        <option value="user-check">user-check (Verification)</option>
+                                        <option value="briefcase">briefcase (Director)</option>
+                                        <option value="users">users (Shareholders)</option>
+                                        <option value="building-2">building-2 (Corporate)</option>
+                                        <option value="shield-check">shield-check (UBO)</option>
+                                        <option value="user-cog">user-cog (Rep)</option>
+                                        <option value="file-signature">file-signature (Declaration)</option>
+                                        <option value="clipboard-list">clipboard-list</option>
+                                        <option value="settings">settings</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Description / Instructions</label>
+                                <textarea id="edit-description" rows="3" class="input-premium" placeholder="Step instructions shown to clients..."></textarea>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Step Banner Notice (Optional)</label>
+                                <input type="text" id="edit-bannerText" class="input-premium" placeholder="e.g. KYC screening is triggered automatically.">
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Declaration Consent Text (Optional)</label>
+                                <textarea id="edit-declaration" rows="2" class="input-premium" placeholder="Checklist statement client must agree to at the bottom..."></textarea>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tooltip / Help Info Box (Optional)</label>
+                                <input type="text" id="edit-helpText" class="input-premium" placeholder="Extra tooltip info.">
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <div class="flex items-center gap-2">
+                                    <input type="checkbox" id="edit-mandatory" class="w-4 h-4 cursor-pointer">
+                                    <label for="edit-mandatory" class="text-xs font-bold text-slate-700 cursor-pointer">Step is Mandatory</label>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input type="checkbox" id="edit-dynamicSection" class="w-4 h-4 cursor-pointer" onchange="toggleCountKeyField()">
+                                    <label for="edit-dynamicSection" class="text-xs font-bold text-slate-700 cursor-pointer">Dynamic Section (Multi-Item List)</label>
+                                </div>
+                            </div>
+                            <div id="dynamic-count-container" class="hidden flex flex-col gap-1 bg-slate-50 p-4 rounded-xl border border-slate-100 mt-2">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dynamic Count Key</label>
+                                <select id="edit-dynamicCountKey" class="input-premium">
+                                    <option value="">Select count source</option>
+                                    <option value="directorCount">directorCount (Directors)</option>
+                                    <option value="individualShareholderCount">individualShareholderCount (Individual Shareholders)</option>
+                                    <option value="corporateShareholderCount">corporateShareholderCount (Corporate Shareholders)</option>
+                                </select>
+                                <p class="text-[10px] text-slate-500 mt-1">If enabled, the client portal will generate multiple sub-forms automatically matching the client's count.</p>
+                            </div>
+                        </div>
+
+                        <!-- TAB: Form Fields Builder -->
+                        <div id="editor-section-fields" class="hidden space-y-4">
+                            <div class="flex justify-between items-center">
+                                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Step Fields List</h4>
+                                <button onclick="addFieldRow()" class="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center gap-1">
+                                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Field
+                                </button>
+                            </div>
+                            <div id="fields-rows-container" class="space-y-4">
+                                <!-- Fields rows will render here -->
+                            </div>
+                        </div>
+
+                        <!-- TAB: Documents & OCR -->
+                        <div id="editor-section-docs" class="hidden space-y-4">
+                            <div class="flex justify-between items-center">
+                                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Required Document Uploads</h4>
+                                <button onclick="addDocRow()" class="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center gap-1">
+                                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Document Rule
+                                </button>
+                            </div>
+                            <div id="docs-rows-container" class="space-y-4">
+                                <!-- Document rows will render here -->
+                            </div>
+                        </div>
+
+                        <!-- TAB: Live Preview -->
+                        <div id="editor-section-preview" class="hidden">
+                            <div class="border border-slate-200 rounded-2xl overflow-hidden shadow-sm bg-slate-50 p-6 flex flex-col gap-4">
+                                <div class="flex items-center gap-2 border-b border-slate-200 pb-3 mb-2">
+                                    <span class="w-3.5 h-3.5 rounded-full bg-red-400"></span>
+                                    <span class="w-3.5 h-3.5 rounded-full bg-yellow-400"></span>
+                                    <span class="w-3.5 h-3.5 rounded-full bg-green-400"></span>
+                                    <span class="text-[10px] text-slate-400 font-bold ml-2">CLIENT PORTAL ONBOARDING journey PREVIEW (INTERACTIVE MOCK)</span>
+                                </div>
+                                <div id="preview-frame-workspace" class="bg-white rounded-xl border border-slate-200 p-6 space-y-4 min-h-[300px]">
+                                    <!-- Dynamic live preview renders here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB: History & Audits -->
+                        <div id="editor-section-history" class="hidden space-y-4">
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Step Revision Logs</h4>
+                            <div class="border border-slate-100 rounded-xl overflow-hidden bg-white">
+                                <table class="w-full text-left text-xs">
+                                    <thead class="bg-slate-50 font-bold text-slate-500 border-b border-slate-100">
+                                        <tr>
+                                            <th class="px-4 py-3">Version</th>
+                                            <th class="px-4 py-3">Date</th>
+                                            <th class="px-4 py-3">Modified By</th>
+                                            <th class="px-4 py-3">Note</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="history-log-rows" class="divide-y divide-slate-100 text-slate-600">
+                                        <!-- History items will render here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    let stepsList = [];
+    let activeStep = null;
+    let activeTab = 'basic';
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        loadSteps();
+    });
+
+    function getHeaders() {
+        const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}').token;
+        return {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+        };
+    }
+
+    function getAuthHeadersOnly() {
+        const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}').token;
+        return token ? { 'Authorization': 'Bearer ' + token } : {};
+    }
+
+    async function loadSteps() {
+        const container = document.getElementById('steps-list-container');
+        const showArchived = document.getElementById('show-archived-toggle')?.checked || false;
+        try {
+            const res = await fetch(`/api/onboarding-config?includeArchived=${showArchived}`, {
+                headers: getAuthHeadersOnly()
+            });
+            if (res.ok) {
+                stepsList = await res.json();
+                renderStepsList();
+                if (activeStep) {
+                    const fresh = stepsList.find(s => s.id === activeStep.id);
+                    if (fresh) selectStep(fresh.id);
+                }
+            } else {
+                container.innerHTML = `
+                    <div class="text-center py-12 bg-red-50 border border-dashed border-red-200 rounded-xl">
+                        <p class="text-red-500 text-xs font-bold">Failed to load configuration (HTTP ${res.status}).</p>
+                        <button onclick="loadSteps()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all shadow-lg">Retry Connection</button>
+                    </div>
+                `;
+            }
+        } catch(e) {
+            console.error("Failed to load steps configuration", e);
+            container.innerHTML = `
+                <div class="text-center py-12 bg-red-50 border border-dashed border-red-200 rounded-xl">
+                    <p class="text-red-500 text-xs font-bold">Connection error: ${e.message}</p>
+                    <button onclick="loadSteps()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all shadow-lg">Retry Connection</button>
+                </div>
+            `;
+        }
+    }
+
+    function renderStepsList() {
+        const container = document.getElementById('steps-list-container');
+        const countEl = document.getElementById('steps-count');
+        if (countEl) countEl.innerText = stepsList.length;
+        if (stepsList.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-12 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
+                    <p class="text-slate-400 text-xs font-medium">No onboarding steps configured.</p>
+                    <button onclick="seedDefaults()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all shadow-lg">Seed 7 Defaults</button>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = stepsList.map((step, idx) => {
+            const isSelected = activeStep && activeStep.id === step.id;
+            const isPub = step.status === 'PUBLISHED';
+            const isArchived = step.status === 'ARCHIVED';
+            const badgeClass = isPub 
+                ? 'bg-emerald-50 text-emerald-600 border-emerald-200' 
+                : isArchived 
+                    ? 'bg-red-50 text-red-600 border-red-200' 
+                    : 'bg-slate-100 text-slate-500 border-slate-200';
+            
+            let actionButtons = '';
+            if (isArchived) {
+                actionButtons = `
+                    <button onclick="restoreStep('${step.id}', event)" class="px-2.5 py-1 text-[9px] font-bold uppercase border border-emerald-200 hover:bg-emerald-50 rounded-lg text-emerald-600 transition-all font-outfit">
+                        Restore
+                    </button>
+                    <button onclick="deleteStep('${step.id}', event)" class="p-1 hover:bg-red-50 border border-red-200 hover:border-red-300 rounded-lg text-red-500 hover:text-red-700 transition-all flex items-center justify-center" title="Delete Permanent">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                    </button>
+                `;
+            } else {
+                actionButtons = `
+                    <button onclick="togglePublish('${step.id}', '${step.status}', event)" class="px-2 py-1 text-[9px] font-bold uppercase border border-slate-200 hover:bg-slate-50 rounded-lg text-slate-600 transition-all font-outfit">
+                        ${isPub ? 'Unpublish' : 'Publish'}
+                    </button>
+                    <button onclick="duplicateStep('${step.id}', event)" class="p-1 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg text-slate-500 hover:text-blue-600 transition-all flex items-center justify-center" title="Duplicate">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                    </button>
+                    <button onclick="archiveStep('${step.id}', event)" class="p-1 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 rounded-lg text-slate-500 hover:text-amber-600 transition-all flex items-center justify-center" title="Archive">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><polyline points="21 8 21 21 3 21 3 8"/><rect width="22" height="5" x="1" y="3" rx="1"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+                    </button>
+                    <button onclick="deleteStep('${step.id}', event)" class="p-1 hover:bg-red-50 border border-red-200 hover:border-red-300 rounded-lg text-red-500 hover:text-red-700 transition-all flex items-center justify-center" title="Delete Permanent">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                    </button>
+                `;
+            }
+            
+            return `
+                <div class="step-item border ${isSelected ? 'border-blue-600 bg-slate-50/50 shadow-md scale-[1.02]' : 'border-slate-100 hover:border-blue-300 hover:bg-slate-50/20'} rounded-xl p-4 transition-all flex flex-col gap-3 min-w-[285px] max-w-[320px] shrink-0" 
+                     id="item-${step.id}" onclick="selectStep('${step.id}')">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs font-black text-slate-400 bg-slate-100 border border-slate-200 w-6 h-6 rounded-md flex items-center justify-center">0${idx+1}</span>
+                            <div class="flex flex-col">
+                                <h4 class="font-extrabold text-slate-900 text-xs leading-none">${step.title}</h4>
+                                <span class="text-[9px] font-mono text-slate-400 mt-1">${step.key}</span>
+                            </div>
+                        </div>
+                        <span class="text-[8px] font-bold uppercase tracking-wider border px-2 py-0.5 rounded-full ${badgeClass}">${step.status}</span>
+                    </div>
+
+                    <div class="flex items-center justify-between border-t border-slate-100 pt-2.5 mt-1">
+                        <div class="flex gap-1">
+                            <button onclick="moveStep(${idx}, -1, event)" class="p-1 hover:bg-slate-100 border border-slate-200 rounded-md text-slate-500 hover:text-slate-900 transition-all ${idx === 0 ? 'opacity-30 cursor-not-allowed' : ''}" title="Move Left">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                            </button>
+                            <button onclick="moveStep(${idx}, 1, event)" class="p-1 hover:bg-slate-100 border border-slate-200 rounded-md text-slate-500 hover:text-slate-900 transition-all ${idx === stepsList.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}" title="Move Right">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            ${actionButtons}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function selectStep(id) {
+        const step = stepsList.find(s => s.id === id);
+        if (!step) return;
+
+        activeStep = JSON.parse(JSON.stringify(step)); // Deep copy to prevent binding draft updates
+        
+        document.getElementById('no-step-selected').classList.add('hidden');
+        document.getElementById('step-editor-workspace').classList.remove('hidden');
+
+        // Render basic values
+        document.getElementById('editor-step-title').innerText = activeStep.title;
+        document.getElementById('editor-step-key').innerText = activeStep.key;
+        
+        const badge = document.getElementById('editor-step-icon-badge');
+        badge.innerHTML = `<i data-lucide="${activeStep.icon || 'settings'}" class="w-5 h-5"></i>`;
+
+        document.getElementById('edit-title').value = activeStep.title || '';
+        document.getElementById('edit-key').value = activeStep.key || '';
+        document.getElementById('edit-field').value = activeStep.field || '';
+        document.getElementById('edit-icon').value = activeStep.icon || 'settings';
+        document.getElementById('edit-description').value = activeStep.description || '';
+        document.getElementById('edit-bannerText').value = activeStep.bannerText || '';
+        document.getElementById('edit-declaration').value = activeStep.declaration || '';
+        document.getElementById('edit-helpText').value = activeStep.helpText || '';
+        
+        document.getElementById('edit-mandatory').checked = activeStep.mandatory !== false;
+        document.getElementById('edit-dynamicSection').checked = activeStep.dynamicSection === true;
+        document.getElementById('edit-dynamicCountKey').value = activeStep.dynamicCountKey || '';
+
+        toggleCountKeyField();
+        renderFieldsRows();
+        renderDocsRows();
+        renderHistoryRows();
+        renderInteractivePreview();
+        switchEditorTab(activeTab);
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function syncEditorHeader() {
+        const titleVal = document.getElementById('edit-title').value;
+        document.getElementById('editor-step-title').innerText = titleVal || 'Step Name';
+    }
+
+    function toggleCountKeyField() {
+        const isDynamic = document.getElementById('edit-dynamicSection').checked;
+        const box = document.getElementById('dynamic-count-container');
+        if (isDynamic) {
+            box.classList.remove('hidden');
+        } else {
+            box.classList.add('hidden');
+            document.getElementById('edit-dynamicCountKey').value = '';
+        }
+    }
+
+    function switchEditorTab(tab) {
+        activeTab = tab;
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.id === `btn-tab-${tab}`);
+        });
+
+        // Toggle sections
+        ['basic', 'fields', 'docs', 'preview', 'history'].forEach(sec => {
+            const el = document.getElementById(`editor-section-${sec}`);
+            if (el) {
+                if (sec === tab) {
+                    el.classList.remove('hidden');
+                } else {
+                    el.classList.add('hidden');
+                }
+            }
+        });
+
+        if (tab === 'preview') {
+            renderInteractivePreview();
+        }
+    }
+
+    /* Fields Configuration Builder */
+    function renderFieldsRows() {
+        const container = document.getElementById('fields-rows-container');
+        const fields = activeStep.manualFields || [];
+        
+        if (fields.length === 0) {
+            container.innerHTML = `<div class="p-8 text-center text-slate-400 border border-dashed border-slate-200 rounded-xl text-xs font-semibold">No form fields defined. Click "Add Field" to define text boxes, drop-downs etc.</div>`;
+            return;
+        }
+
+        container.innerHTML = fields.map((f, i) => {
+            const optionsCsv = (f.options || []).join(',');
+            return `
+                <div class="border border-slate-100 rounded-xl p-4 bg-slate-50/50 flex flex-col gap-3 relative shadow-sm hover:shadow-premium transition-all">
+                    <button onclick="removeFieldRow(${i})" class="absolute top-4 right-4 p-1 bg-red-50 hover:bg-red-100 border border-red-200 rounded-md text-red-500 hover:text-red-700 transition-all"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                    
+                    <div class="grid grid-cols-3 gap-3 mr-8">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[9px] font-bold text-slate-400 uppercase">Field Key / Model Prop</label>
+                            <input type="text" class="input-premium" value="${f.key || ''}" onchange="updateFieldProp(${i}, 'key', this.value)" placeholder="e.g. fullName">
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[9px] font-bold text-slate-400 uppercase">Field Label</label>
+                            <input type="text" class="input-premium" value="${f.label || ''}" onchange="updateFieldProp(${i}, 'label', this.value)" placeholder="e.g. Full Legal Name">
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[9px] font-bold text-slate-400 uppercase">Field Type</label>
+                            <select class="input-premium" onchange="updateFieldProp(${i}, 'type', this.value)">
+                                <option value="text" ${f.type === 'text' ? 'selected' : ''}>Text Input</option>
+                                <option value="select" ${f.type === 'select' ? 'selected' : ''}>Dropdown Select</option>
+                                <option value="checkbox" ${f.type === 'checkbox' ? 'selected' : ''}>Checkbox Check</option>
+                                <option value="phone" ${f.type === 'phone' ? 'selected' : ''}>Phone Picker</option>
+                                <option value="nationality" ${f.type === 'nationality' ? 'selected' : ''}>Nationality Search</option>
+                                <option value="date" ${f.type === 'date' ? 'selected' : ''}>Date Calendar</option>
+                                <option value="number" ${f.type === 'number' ? 'selected' : ''}>Numeric Input</option>
+                                <option value="email" ${f.type === 'email' ? 'selected' : ''}>Email Address</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[9px] font-bold text-slate-400 uppercase">Dropdown Options (Comma-Separated)</label>
+                            <input type="text" class="input-premium" value="${optionsCsv}" onchange="updateFieldOptions(${i}, this.value)" placeholder="e.g. Select,Male,Female,Other" ${f.type !== 'select' ? 'disabled bg-slate-100' : ''}>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[9px] font-bold text-slate-400 uppercase">Help Info / Tooltip Text (Optional)</label>
+                            <input type="text" class="input-premium" value="${f.helpText || ''}" onchange="updateFieldProp(${i}, 'helpText', this.value)" placeholder="Shown next to label...">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-3 border-t border-slate-100 pt-3 mt-1 items-center bg-slate-100/50 p-2.5 rounded-lg border">
+                        <div class="flex items-center gap-1.5">
+                            <input type="checkbox" id="field-man-${i}" ${f.mandatory ? 'checked' : ''} onchange="updateFieldProp(${i}, 'mandatory', this.checked)" class="w-3.5 h-3.5 cursor-pointer">
+                            <label for="field-man-${i}" class="text-[10px] font-bold text-slate-700 cursor-pointer">Mandatory</label>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <input type="checkbox" id="field-read-${i}" ${f.readonly ? 'checked' : ''} onchange="updateFieldProp(${i}, 'readonly', this.checked)" class="w-3.5 h-3.5 cursor-pointer">
+                            <label for="field-read-${i}" class="text-[10px] font-bold text-slate-700 cursor-pointer">Read-Only</label>
+                        </div>
+                        <div></div>
+                    </div>
+
+                    <!-- Conditionals visibility rules -->
+                    <div class="bg-blue-50/30 p-3 rounded-lg border border-blue-100/50 space-y-2 mt-1">
+                        <div style="font-size:10px; font-weight:700; color:#3b82f6;">CONDITIONAL VISIBILITY (OPTIONAL)</div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[8px] font-bold text-slate-400 uppercase">Show Only If Field Key</label>
+                                <input type="text" class="input-premium" value="${f.conditionalOn || ''}" onchange="updateFieldProp(${i}, 'conditionalOn', this.value)" placeholder="e.g. shareholderType">
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[8px] font-bold text-slate-400 uppercase">Equals Value</label>
+                                <input type="text" class="input-premium" value="${f.conditionalValue || ''}" onchange="updateFieldProp(${i}, 'conditionalValue', this.value)" placeholder="e.g. Individual Shareholder">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function addFieldRow() {
+        if (!activeStep.manualFields) activeStep.manualFields = [];
+        activeStep.manualFields.push({
+            key: 'new_field_' + Date.now().toString().slice(-4),
+            label: 'New Field',
+            type: 'text',
+            mandatory: false,
+            readonly: false,
+            options: [],
+            sortOrder: activeStep.manualFields.length
+        });
+        renderFieldsRows();
+    }
+
+    function removeFieldRow(idx) {
+        activeStep.manualFields.splice(idx, 1);
+        renderFieldsRows();
+    }
+
+    function updateFieldProp(idx, prop, val) {
+        if (activeStep.manualFields && activeStep.manualFields[idx]) {
+            activeStep.manualFields[idx][prop] = val;
+        }
+    }
+
+    function updateFieldOptions(idx, csv) {
+        if (activeStep.manualFields && activeStep.manualFields[idx]) {
+            activeStep.manualFields[idx].options = csv.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        }
+    }
+
+    /* Documents Configuration Builder */
+    function renderDocsRows() {
+        const container = document.getElementById('docs-rows-container');
+        const docs = activeStep.requiredDocs || [];
+
+        if (docs.length === 0) {
+            container.innerHTML = `<div class="p-8 text-center text-slate-400 border border-dashed border-slate-200 rounded-xl text-xs font-semibold">No document requirements defined. Click "Add Document Rule" to defineBizfiles, NRIC upload guidelines, etc.</div>`;
+            return;
+        }
+
+        container.innerHTML = docs.map((d, i) => {
+            const mappedCsv = (d.ocrMappedFields || []).join(',');
+            return `
+                <div class="border border-slate-100 rounded-xl p-4 bg-slate-50/50 flex flex-col gap-3 relative shadow-sm hover:shadow-premium transition-all">
+                    <button onclick="removeDocRow(${i})" class="absolute top-4 right-4 p-1 bg-red-50 hover:bg-red-100 border border-red-200 rounded-md text-red-500 hover:text-red-700 transition-all"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+
+                    <div class="grid grid-cols-2 gap-3 mr-8">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[9px] font-bold text-slate-400 uppercase">Document Code Type</label>
+                            <input type="text" class="input-premium" value="${d.type || ''}" onchange="updateDocProp(${i}, 'type', this.value)" placeholder="e.g. nric, address_proof, bizfile">
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[9px] font-bold text-slate-400 uppercase">Document Label</label>
+                            <input type="text" class="input-premium" value="${d.label || ''}" onchange="updateDocProp(${i}, 'label', this.value)" placeholder="e.g. NRIC / FIN (Front & Back)">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 mt-1 items-center bg-slate-100/50 p-2.5 rounded-lg border">
+                        <div class="flex items-center gap-1.5">
+                            <input type="checkbox" id="doc-req-${i}" ${d.required ? 'checked' : ''} onchange="updateDocProp(${i}, 'required', this.checked)" class="w-3.5 h-3.5 cursor-pointer">
+                            <label for="doc-req-${i}" class="text-[10px] font-bold text-slate-700 cursor-pointer">Required Document</label>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <input type="checkbox" id="doc-ocr-${i}" ${d.ocrEnabled ? 'checked' : ''} onchange="updateDocProp(${i}, 'ocrEnabled', this.checked); renderDocsRows();" class="w-3.5 h-3.5 cursor-pointer">
+                            <label for="doc-ocr-${i}" class="text-[10px] font-bold text-slate-700 cursor-pointer">Enable OCR Automated Extraction</label>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-1 ${d.ocrEnabled ? '' : 'hidden opacity-50'}">
+                        <label class="text-[9px] font-bold text-slate-400 uppercase">OCR Field Extraction Mappings (Comma-Separated Keys)</label>
+                        <input type="text" class="input-premium" value="${mappedCsv}" onchange="updateDocMappedFields(${i}, this.value)" placeholder="e.g. fullName,idNumber,nationality,dateOfBirth" ${d.ocrEnabled ? '' : 'disabled'}>
+                        <p class="text-[9px] text-slate-500 mt-0.5">Define keys this document will populate upon upload. Simulated OCR values will map into matching fields instantly.</p>
+                    </div>
+
+                    <!-- Conditionals visibility rules -->
+                    <div class="bg-blue-50/30 p-3 rounded-lg border border-blue-100/50 space-y-2 mt-1">
+                        <div style="font-size:10px; font-weight:700; color:#3b82f6;">CONDITIONAL VISIBILITY (OPTIONAL)</div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[8px] font-bold text-slate-400 uppercase">Show Only If Field Key</label>
+                                <input type="text" class="input-premium" value="${d.conditionalOn || ''}" onchange="updateDocProp(${i}, 'conditionalOn', this.value)" placeholder="e.g. shareholderType">
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[8px] font-bold text-slate-400 uppercase">Equals Value</label>
+                                <input type="text" class="input-premium" value="${d.conditionalValue || ''}" onchange="updateDocProp(${i}, 'conditionalValue', this.value)" placeholder="e.g. Individual Shareholder">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function addDocRow() {
+        if (!activeStep.requiredDocs) activeStep.requiredDocs = [];
+        activeStep.requiredDocs.push({
+            type: 'doc_' + Date.now().toString().slice(-4),
+            label: 'New Document Upload',
+            required: true,
+            ocrEnabled: false,
+            ocrMappedFields: []
+        });
+        renderDocsRows();
+    }
+
+    function removeDocRow(idx) {
+        activeStep.requiredDocs.splice(idx, 1);
+        renderDocsRows();
+    }
+
+    function updateDocProp(idx, prop, val) {
+        if (activeStep.requiredDocs && activeStep.requiredDocs[idx]) {
+            activeStep.requiredDocs[idx][prop] = val;
+        }
+    }
+
+    function updateDocMappedFields(idx, csv) {
+        if (activeStep.requiredDocs && activeStep.requiredDocs[idx]) {
+            activeStep.requiredDocs[idx].ocrMappedFields = csv.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        }
+    }
+
+    /* Revision Logs rendering */
+    function renderHistoryRows() {
+        const tbody = document.getElementById('history-log-rows');
+        const history = activeStep.history || [];
+
+        if (history.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-slate-400 italic">No revision history logs recorded. Initial version.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = history.map(log => {
+            const dateStr = log.updatedAt ? new Date(log.updatedAt).toLocaleString() : 'N/A';
+            return `
+                <tr class="hover:bg-slate-50/50 transition-colors">
+                    <td class="px-4 py-3 font-bold text-blue-600">v${log.version}</td>
+                    <td class="px-4 py-3 text-slate-400">${dateStr}</td>
+                    <td class="px-4 py-3 font-semibold text-slate-700">${log.updatedBy || 'Admin'}</td>
+                    <td class="px-4 py-3 text-slate-500">${log.changeNote || 'Details updated'}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    /* CLIENT PORTAL INTERACTIVE LIVE PREVIEW FRAME MOCK */
+    function renderInteractivePreview() {
+        const previewContainer = document.getElementById('preview-frame-workspace');
+        
+        // Mock active values state
+        const mockData = {};
+        
+        const renderPreviewContent = () => {
+            const titleVal = document.getElementById('edit-title').value || 'Step Title';
+            const descVal = document.getElementById('edit-description').value || '';
+            const decVal = document.getElementById('edit-declaration').value || '';
+            const bannerVal = document.getElementById('edit-bannerText').value || '';
+            
+            const isDynamic = document.getElementById('edit-dynamicSection').checked;
+            const countKey = document.getElementById('edit-dynamicCountKey').value;
+            
+            // Build dynamic fields list
+            const fields = activeStep.manualFields || [];
+            const docs = activeStep.requiredDocs || [];
+
+            // Filter by conditional rules
+            const filteredFields = fields.filter(f => {
+                if (f.conditionalOn) {
+                    const condVal = mockData[f.conditionalOn];
+                    return condVal && String(condVal) === String(f.conditionalValue);
+                }
+                return true;
+            });
+
+            const filteredDocs = docs.filter(d => {
+                if (d.conditionalOn) {
+                    const condVal = mockData[d.conditionalOn];
+                    return condVal && String(condVal) === String(d.conditionalValue);
+                }
+                return true;
+            });
+
+            let fieldsHtml = '';
+            if (filteredFields.length > 0) {
+                fieldsHtml = `
+                    <div class="grid grid-cols-2 gap-4">
+                        ${filteredFields.map(f => {
+                            const manStar = f.mandatory ? '<span class="text-red-500 ml-0.5">*</span>' : '';
+                            const readAttr = f.readonly ? 'readonly' : '';
+                            const initialVal = mockData[f.key] !== undefined ? mockData[f.key] : '';
+                            
+                            if (f.type === 'select') {
+                                return `
+                                    <div class="flex flex-col gap-1.5">
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase">${f.label}${manStar}</label>
+                                        <select class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-blue-500" 
+                                                onchange="window.previewFieldChange('${f.key}', this.value)" ${readAttr}>
+                                            ${(f.options || []).map(o => `<option value="${o}" ${initialVal === o ? 'selected' : ''}>${o}</option>`).join('')}
+                                        </select>
+                                    </div>
+                                `;
+                            } else if (f.type === 'checkbox') {
+                                return `
+                                    <div class="flex items-center gap-2 pt-5">
+                                        <input type="checkbox" id="prev-check-${f.key}" ${initialVal ? 'checked' : ''} onchange="window.previewFieldChange('${f.key}', this.checked)" class="w-4 h-4 cursor-pointer">
+                                        <label for="prev-check-${f.key}" class="text-xs font-semibold text-slate-600 cursor-pointer">${f.label}</label>
+                                    </div>
+                                `;
+                            } else if (f.type === 'phone') {
+                                return `
+                                    <div class="flex flex-col gap-1.5">
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase">${f.label}${manStar}</label>
+                                        <div class="flex items-stretch border border-slate-200 rounded-xl bg-slate-50 overflow-hidden">
+                                            <div class="flex items-center px-3 border-r border-slate-200 bg-slate-100 text-xs font-bold gap-1">🇸🇬 +65</div>
+                                            <input type="tel" class="flex-1 p-2 bg-transparent text-xs font-semibold outline-none" placeholder="81234567" ${readAttr}>
+                                        </div>
+                                    </div>
+                                `;
+                            } else if (f.type === 'nationality') {
+                                return `
+                                    <div class="flex flex-col gap-1.5">
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase">${f.label}${manStar}</label>
+                                        <input type="text" class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none" placeholder="Search nationality (e.g. Singaporean)..." ${readAttr}>
+                                    </div>
+                                `;
+                            } else {
+                                return `
+                                    <div class="flex flex-col gap-1.5">
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase">${f.label}${manStar}</label>
+                                        <input type="${f.type || 'text'}" class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none" 
+                                               value="${initialVal}" placeholder="Enter ${f.label.toLowerCase()}" oninput="window.previewFieldChange('${f.key}', this.value)" ${readAttr}>
+                                    </div>
+                                `;
+                            }
+                        }).join('')}
+                    </div>
+                `;
+            }
+
+            let docsHtml = '';
+            if (filteredDocs.length > 0) {
+                docsHtml = `
+                    <div class="space-y-2 mt-4">
+                        <div class="text-[10px] font-bold text-slate-500 uppercase">Documents Required</div>
+                        <div class="grid grid-cols-2 gap-3">
+                            ${filteredDocs.map(d => {
+                                const star = d.required ? '<span class="text-red-500 ml-0.5">*</span>' : '';
+                                return `
+                                    <div class="border-2 border-dashed border-slate-200 rounded-xl p-4 bg-slate-50 text-center flex flex-col items-center justify-center cursor-pointer hover:bg-blue-50/50 hover:border-blue-300 transition-all">
+                                        <i data-lucide="upload-cloud" class="w-5 h-5 text-slate-400 mb-2"></i>
+                                        <div class="text-xs font-bold text-slate-700">${d.label}${star}</div>
+                                        <div class="text-[9px] text-slate-400 mt-1">Accepts PDF, JPG, PNG</div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            let declHtml = '';
+            if (decVal) {
+                declHtml = `
+                    <div class="bg-slate-50 border border-slate-100 rounded-xl p-4 mt-6">
+                        <label class="flex items-start gap-2.5 text-xs text-slate-600 font-semibold cursor-pointer">
+                            <input type="checkbox" class="w-4 h-4 cursor-pointer mt-0.5">
+                            ${decVal}
+                        </label>
+                    </div>
+                `;
+            }
+
+            let bannerHtml = '';
+            if (bannerVal) {
+                bannerHtml = `
+                    <div class="bg-blue-50 border border-blue-100 text-blue-700 rounded-xl p-4 text-xs font-bold flex items-center gap-2 mb-4">
+                        <i data-lucide="info" class="w-4 h-4 text-blue-500 shrink-0"></i>
+                        <span>${bannerVal}</span>
+                    </div>
+                `;
+            }
+
+            let repeatWrapperStart = '';
+            let repeatWrapperEnd = '';
+            if (isDynamic) {
+                repeatWrapperStart = `
+                    <div class="border border-blue-100 bg-blue-50/10 rounded-2xl p-5 mb-4 relative">
+                        <div class="absolute -top-3 left-4 px-3 py-1 bg-blue-600 text-white text-[9px] font-black uppercase tracking-wider rounded-md">Repeated List Item #1 (${countKey || 'list'})</div>
+                `;
+                repeatWrapperEnd = `
+                        <div class="flex mt-4 justify-between border-t border-slate-100 pt-3">
+                            <button type="button" class="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all">➕ Add Entry</button>
+                            <button type="button" class="px-3 py-1.5 bg-red-50 text-red-500 hover:bg-red-100 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all">❌ Remove</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            previewContainer.innerHTML = `
+                <div class="flex flex-col gap-2">
+                    <h3 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                        <i data-lucide="${activeStep.icon || 'settings'}" class="w-5 h-5 text-blue-600"></i> ${titleVal}
+                    </h3>
+                    <p class="text-xs text-slate-500 leading-relaxed">${descVal}</p>
+                </div>
+                <div class="h-px bg-slate-100 my-4"></div>
+                
+                ${bannerHtml}
+                
+                ${repeatWrapperStart}
+                ${fieldsHtml}
+                ${docsHtml}
+                ${repeatWrapperEnd}
+                
+                ${declHtml}
+            `;
+
+            if (window.lucide) lucide.createIcons();
+        };
+
+        // Expose a global field changer callback to handle previews re-rendering
+        window.previewFieldChange = (key, val) => {
+            mockData[key] = val;
+            renderPreviewContent();
+        };
+
+        renderPreviewContent();
+    }
+
+    async function saveActiveStep() {
+        if (!activeStep) return;
+
+        // Apply input values to local step copy
+        activeStep.title = document.getElementById('edit-title').value;
+        activeStep.key = document.getElementById('edit-key').value;
+        activeStep.field = document.getElementById('edit-field').value;
+        activeStep.icon = document.getElementById('edit-icon').value;
+        activeStep.description = document.getElementById('edit-description').value;
+        activeStep.bannerText = document.getElementById('edit-bannerText').value;
+        activeStep.declaration = document.getElementById('edit-declaration').value;
+        activeStep.helpText = document.getElementById('edit-helpText').value;
+        
+        activeStep.mandatory = document.getElementById('edit-mandatory').checked;
+        activeStep.dynamicSection = document.getElementById('edit-dynamicSection').checked;
+        activeStep.dynamicCountKey = document.getElementById('edit-dynamicCountKey').value;
+
+        try {
+            const res = await fetch(`/api/onboarding-config/${activeStep.id}`, {
+                method: 'PUT',
+                headers: getHeaders(),
+                body: JSON.stringify(activeStep)
+            });
+            if (res.ok) {
+                alert("Step configuration saved successfully!");
+                await loadSteps();
+            } else {
+                alert("Failed to save step configuration. Check backend logs.");
+            }
+        } catch(e) {
+            alert("Connection error: " + e.message);
+        }
+    }
+
+    async function togglePublish(id, currentStatus, event) {
+        if (event) event.stopPropagation();
+        const nextAction = currentStatus === 'PUBLISHED' ? 'unpublish' : 'publish';
+        try {
+            const res = await fetch(`/api/onboarding-config/${id}/${nextAction}`, {
+                method: 'POST',
+                headers: getAuthHeadersOnly()
+            });
+            if (res.ok) {
+                await loadSteps();
+            }
+        } catch(e) {
+            alert("Error updating status: " + e.message);
+        }
+    }
+
+    async function duplicateStep(id, event) {
+        if (event) event.stopPropagation();
+        try {
+            const res = await fetch(`/api/onboarding-config/${id}/duplicate`, {
+                method: 'POST',
+                headers: getAuthHeadersOnly()
+            });
+            if (res.ok) {
+                const copy = await res.json();
+                await loadSteps();
+                selectStep(copy.id);
+            }
+        } catch(e) {
+            alert("Error duplicating step: " + e.message);
+        }
+    }
+
+    async function archiveStep(id, event) {
+        if (event) event.stopPropagation();
+        if (!confirm("Are you sure you want to archive this step? It will not be shown in active sequences.")) return;
+        try {
+            const res = await fetch(`/api/onboarding-config/${id}/archive`, {
+                method: 'POST',
+                headers: getAuthHeadersOnly()
+            });
+            if (res.ok) {
+                await loadSteps();
+                if (activeStep && activeStep.id === id) {
+                    activeStep = null;
+                    document.getElementById('no-step-selected').classList.remove('hidden');
+                    document.getElementById('step-editor-workspace').classList.add('hidden');
+                }
+            }
+        } catch(e) {
+            alert("Error archiving step: " + e.message);
+        }
+    }
+
+    async function deleteStep(id, event) {
+        if (event) event.stopPropagation();
+        if (!confirm("Are you sure you want to permanently delete this onboarding step? This action cannot be undone.")) return;
+        try {
+            const res = await fetch(`/api/onboarding-config/${id}`, {
+                method: 'DELETE',
+                headers: getAuthHeadersOnly()
+            });
+            if (res.ok) {
+                alert("Step deleted successfully.");
+                await loadSteps();
+                if (activeStep && activeStep.id === id) {
+                    activeStep = null;
+                    document.getElementById('no-step-selected').classList.remove('hidden');
+                    document.getElementById('step-editor-workspace').classList.add('hidden');
+                }
+            } else {
+                alert("Failed to delete step.");
+            }
+        } catch(e) {
+            alert("Error deleting step: " + e.message);
+        }
+    }
+
+    async function restoreStep(id, event) {
+        if (event) event.stopPropagation();
+        try {
+            const res = await fetch(`/api/onboarding-config/${id}/restore`, {
+                method: 'POST',
+                headers: getAuthHeadersOnly()
+            });
+            if (res.ok) {
+                await loadSteps();
+            } else {
+                alert("Failed to restore step.");
+            }
+        } catch(e) {
+            alert("Error restoring step: " + e.message);
+        }
+    }
+
+    async function seedDefaults() {
+        if (!confirm("Seed default canonical 7 steps? If steps with matching keys already exist, they will be skipped.")) return;
+        try {
+            const res = await fetch('/api/onboarding-config/import-defaults', {
+                method: 'POST',
+                headers: getAuthHeadersOnly()
+            });
+            if (res.ok) {
+                const info = await res.json();
+                alert(`Defaults seeded! Added: ${info.added}, Skipped: ${info.skipped}`);
+                await loadSteps();
+            }
+        } catch(e) {
+            alert("Error seeding defaults: " + e.message);
+        }
+    }
+
+    async function addNewStep() {
+        const title = prompt("Enter a Title for the new onboarding step:", "New Step Details");
+        if (!title) return;
+        
+        const key = title.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const fieldName = 'stepCustom_' + Date.now().toString().slice(-4);
+
+        const newConf = {
+            title: title,
+            key: key,
+            field: fieldName,
+            icon: 'clipboard-list',
+            description: 'Provide instructions for client onboarding here.',
+            status: 'DRAFT',
+            manualFields: [],
+            requiredDocs: [],
+            extractedFields: [],
+            autoChecks: []
+        };
+
+        try {
+            const res = await fetch('/api/onboarding-config', {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify(newConf)
+            });
+            if (res.ok) {
+                const saved = await res.json();
+                await loadSteps();
+                selectStep(saved.id);
+            }
+        } catch(e) {
+            alert("Error creating step: " + e.message);
+        }
+    }
+
+    async function moveStep(fromIdx, dir, event) {
+        if (event) event.stopPropagation();
+        const toIdx = fromIdx + dir;
+        if (toIdx < 0 || toIdx >= stepsList.length) return;
+
+        // Swap local items
+        const temp = stepsList[fromIdx];
+        stepsList[fromIdx] = stepsList[toIdx];
+        stepsList[toIdx] = temp;
+
+        renderStepsList();
+
+        // Push new sequence order of IDs to server
+        const orderedIds = stepsList.map(s => s.id);
+        try {
+            const res = await fetch('/api/onboarding-config/reorder', {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify(orderedIds)
+            });
+            if (!res.ok) {
+                console.error("Reorder save failed on backend.");
+            }
+        } catch(e) {
+            console.error("Reorder connection error:", e);
+        }
+    }
+</script>
+</body>
+</html>

@@ -186,6 +186,19 @@ async function fetchData() {
         // Fetch Static Content
         const scRes = await fetch('/api/static-content?portal=client');
         if (scRes.ok) state.staticContent = await scRes.json();
+
+        // Fetch Published Onboarding Steps Configuration
+        try {
+            const osRes = await fetch('/api/onboarding-config/published');
+            if (osRes.ok) {
+                const osData = await osRes.json();
+                if (osData && osData.length > 0) {
+                    ONBOARDING_STEPS = osData;
+                }
+            }
+        } catch (osErr) {
+            console.error('Error fetching onboarding steps configuration:', osErr);
+        }
     } catch (e) {
         console.error('Core Data Hydration Failed:', e);
     }
@@ -261,7 +274,7 @@ async function checkPortalActivation() {
 }
 
 function applyPortalFreezeUI(activated) {
-    const LOCKED_TABS = ['services', 'documents', 'billing', 'guidance', 'updates'];
+    const LOCKED_TABS = ['services', 'billing', 'guidance', 'updates'];
     LOCKED_TABS.forEach(tab => {
         const btn = document.getElementById('nav-' + tab);
         if (!btn) return;
@@ -298,7 +311,7 @@ function applyPortalFreezeUI(activated) {
 
 function switchTab(tab) {
     // Block locked tabs if portal not yet activated
-    const LOCKED_TABS = ['services', 'documents', 'billing', 'guidance', 'updates'];
+    const LOCKED_TABS = ['services', 'billing', 'guidance', 'updates'];
     if (!state.portalActivated && LOCKED_TABS.includes(tab)) {
         const view = document.getElementById('main-view');
         view.innerHTML = `
@@ -369,61 +382,32 @@ function switchTab(tab) {
 function getStepRequiredDocs(stepKey, data) {
     const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
     if (!step) return [];
-    if (stepKey === 'individual_verification') {
-        const type = data.shareholderType || 'Individual Shareholder';
-        if (type === 'Corporate Shareholder') {
-            return [
-                { type: 'bizfile', label: 'Bizfile of the Company' },
-                { type: 'constitution', label: 'Constitution / M&AA' },
-                { type: 'ubo_nric', label: 'UBO - NRIC / FIN' },
-                { type: 'ubo_address_proof', label: 'UBO - Address Proof' }
-            ];
-        } else {
-            return [
-                { type: 'nric', label: 'NRIC / FIN (Front & Back)' },
-                { type: 'address_proof', label: 'Address Proof (Utility/Mobile/Bank Bill — within 3 months)' }
-            ];
+    
+    const docs = step.requiredDocs || [];
+    return docs.filter(doc => {
+        if (doc.conditionalOn) {
+            const condVal = data[doc.conditionalOn];
+            return condVal && String(condVal).trim() === String(doc.conditionalValue).trim();
         }
-    }
-    return step.requiredDocs || [];
+        return true;
+    });
 }
 
 function getStepManualFields(stepKey, data) {
     const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
     if (!step) return [];
-    if (stepKey === 'individual_verification') {
-        const type = data.shareholderType || 'Individual Shareholder';
-        if (type === 'Corporate Shareholder') {
-            return [
-                { key: 'shareholderType', label: 'Shareholder Type', type: 'select', options: ['Individual Shareholder', 'Corporate Shareholder'] },
-                { key: 'companyName', label: 'Company Name', type: 'text' },
-                { key: 'uen', label: 'UEN / Reg Number', type: 'text' },
-                { key: 'dateOfIncorporation', label: 'Date of Incorporation', type: 'date' },
-                { key: 'registeredAddress', label: 'Registered Address', type: 'text' },
-                { key: 'email', label: 'Email Address', type: 'email' },
-                { key: 'mobile', label: 'Mobile Number', type: 'tel' },
-                { key: 'uboName', label: 'UBO - Full Name', type: 'text' },
-                { key: 'uboIdNumber', label: 'UBO - NRIC / FIN', type: 'text' },
-                { key: 'uboAddress', label: 'UBO - Address', type: 'text' }
-            ];
-        } else {
-            return [
-                { key: 'shareholderType', label: 'Shareholder Type', type: 'select', options: ['Individual Shareholder', 'Corporate Shareholder'] },
-                { key: 'fullName', label: 'Full Legal Name', type: 'text' },
-                { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
-                { key: 'nationality', label: 'Nationality', type: 'text' },
-                { key: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
-                { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
-                { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
-                { key: 'email', label: 'Email Address', type: 'email' },
-                { key: 'mobile', label: 'Mobile Number', type: 'tel' }
-            ];
+    
+    const fields = step.manualFields || [];
+    return fields.filter(field => {
+        if (field.conditionalOn) {
+            const condVal = data[field.conditionalOn];
+            return condVal && String(condVal).trim() === String(field.conditionalValue).trim();
         }
-    }
-    return step.manualFields || [];
+        return true;
+    });
 }
 
-const ONBOARDING_STEPS = [
+const DEFAULT_ONBOARDING_STEPS = [
     {
         key: 'individual_verification',
         field: 'step1IndividualVerification',
@@ -436,15 +420,15 @@ const ONBOARDING_STEPS = [
         ],
         extractedFields: ['fullName','idNumber','nationality','gender','dateOfBirth','companyName','uen','dateOfIncorporation','registeredAddress','uboName','uboIdNumber','uboAddress'],
         manualFields: [
-            { key: 'shareholderType', label: 'Shareholder Type', type: 'select', options: ['Individual Shareholder', 'Corporate Shareholder'] },
+            { key: 'shareholderType', label: 'Shareholder Type', type: 'select', options: ['Select', 'Individual Shareholder', 'Corporate Shareholder'] },
             { key: 'fullName', label: 'Full Legal Name', type: 'text' },
             { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
-            { key: 'nationality', label: 'Nationality', type: 'text' },
-            { key: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
+            { key: 'nationality', label: 'Nationality', type: 'nationality' },
+            { key: 'gender', label: 'Gender', type: 'select', options: ['Select', 'Male', 'Female', 'Other'] },
             { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
             { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
             { key: 'email', label: 'Email Address', type: 'email' },
-            { key: 'mobile', label: 'Mobile Number', type: 'tel' }
+            { key: 'mobile', label: 'Mobile Number', type: 'phone' }
         ],
         declaration: 'I confirm that I am not disqualified from acting as a director under the laws of Singapore.'
     },
@@ -458,15 +442,17 @@ const ONBOARDING_STEPS = [
         manualFields: [
             { key: 'fullName', label: 'Full Legal Name', type: 'text' },
             { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
-            { key: 'nationality', label: 'Nationality', type: 'text' },
-            { key: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
+            { key: 'nationality', label: 'Nationality', type: 'nationality' },
+            { key: 'gender', label: 'Gender', type: 'select', options: ['Select', 'Male', 'Female', 'Other'] },
             { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
             { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
             { key: 'email', label: 'Email', type: 'email' },
-            { key: 'mobile', label: 'Mobile Number', type: 'tel' },
+            { key: 'mobile', label: 'Mobile Number', type: 'phone' },
             { key: 'directorConsent', label: 'I consent to act as a director of the company.', type: 'checkbox' }
         ],
-        declaration: 'I confirm that I am not disqualified from acting as a director under the laws of Singapore.'
+        declaration: 'I confirm that I am not disqualified from acting as a director under the laws of Singapore.',
+        dynamicSection: true,
+        dynamicCountKey: 'directorCount'
     },
     {
         key: 'individual_shareholder',
@@ -481,20 +467,22 @@ const ONBOARDING_STEPS = [
             { key: 'sameAsDirector', label: 'Is individual shareholder same as director?', type: 'checkbox' },
             { key: 'fullName', label: 'Full Name', type: 'text' },
             { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
-            { key: 'nationality', label: 'Nationality', type: 'text' },
+            { key: 'nationality', label: 'Nationality', type: 'nationality' },
             { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
             { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
             { key: 'email', label: 'Email', type: 'email' },
-            { key: 'mobile', label: 'Mobile Number', type: 'tel' },
+            { key: 'mobile', label: 'Mobile Number', type: 'phone' },
             { key: 'totalShares', label: 'Total Number of Shares of the Company', type: 'number' },
             { key: 'totalShareCapital', label: 'Total Share Capital Amount of the Company', type: 'number' },
-            { key: 'currency', label: 'Currency', type: 'select', options: ['SGD', 'USD'] },
-            { key: 'shareClass', label: 'Share Class', type: 'select', options: ['Ordinary', 'Preference'] },
+            { key: 'currency', label: 'Currency', type: 'select', options: ['Select', 'SGD', 'USD'] },
+            { key: 'shareClass', label: 'Share Class', type: 'select', options: ['Select', 'Ordinary', 'Preference'] },
             { key: 'numberOfShares', label: 'Number of Shares', type: 'number' },
             { key: 'shareCapitalAmount', label: 'Share Capital Amount', type: 'number' },
             { key: 'ownershipPercentage', label: 'Ownership % (auto-calculated)', type: 'number', readonly: true },
-            { key: 'uboDeclaration', label: 'Is the Shareholder the Ultimate Beneficial Owner?', type: 'select', options: ['No', 'Yes'] }
-        ]
+            { key: 'uboDeclaration', label: 'Is the Shareholder the Ultimate Beneficial Owner?', type: 'select', options: ['Select', 'No', 'Yes'] }
+        ],
+        dynamicSection: true,
+        dynamicCountKey: 'individualShareholderCount'
     },
     {
         key: 'corporate_shareholder',
@@ -516,7 +504,7 @@ const ONBOARDING_STEPS = [
             { key: 'registeredAddress', label: 'Registered Address', type: 'text' },
             { key: 'principalActivity', label: 'Principal Activity', type: 'text' },
             { key: 'countryOfIncorporation', label: 'Country of Incorporation', type: 'text' },
-            { key: 'companyType', label: 'Company Type', type: 'select', options: ['PRIVATE COMPANY LIMITED BY SHARES', 'PUBLIC COMPANY LIMITED BY SHARES', 'SOLE PROPRIETORSHIP', 'PARTNERSHIP', 'OTHER'] },
+            { key: 'companyType', label: 'Company Type', type: 'select', options: ['Select', 'PRIVATE COMPANY LIMITED BY SHARES', 'PUBLIC COMPANY LIMITED BY SHARES', 'SOLE PROPRIETORSHIP', 'PARTNERSHIP', 'OTHER'] },
             { key: 'companyStatus', label: 'Status of Company', type: 'text' },
             { key: 'formerName', label: 'Former Name if any', type: 'text' },
             { key: 'dateOfChangeOfName', label: 'Date of Change of Name', type: 'date' },
@@ -525,12 +513,14 @@ const ONBOARDING_STEPS = [
             { key: 'totalShares', label: 'Total Number of Shares of the Company', type: 'number' },
             { key: 'totalShareCapital', label: 'Total Share Capital Amount of the Company', type: 'number' },
             { key: 'currency', label: 'Currency', type: 'select', options: ['SGD', 'USD'] },
-            { key: 'shareClass', label: 'Share Class', type: 'select', options: ['Ordinary', 'Preference'] },
+            { key: 'shareClass', label: 'Share Class', type: 'select', options: ['Select', 'Ordinary', 'Preference'] },
             { key: 'numberOfShares', label: 'Number of Shares', type: 'number' },
             { key: 'shareCapitalAmount', label: 'Share Capital Amount', type: 'number' },
             { key: 'ownershipPercentage', label: 'Ownership % (auto-calculated)', type: 'number', readonly: true },
             { key: 'uboDeclaration', label: 'Is the Shareholder the Ultimate Beneficial Owner?', type: 'select', options: ['No', 'Yes'] }
-        ]
+        ],
+        dynamicSection: true,
+        dynamicCountKey: 'corporateShareholderCount'
     },
     {
         key: 'ubo',
@@ -546,11 +536,11 @@ const ONBOARDING_STEPS = [
         manualFields: [
             { key: 'fullName', label: 'Full Name', type: 'text' },
             { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
-            { key: 'nationality', label: 'Nationality', type: 'text' },
+            { key: 'nationality', label: 'Nationality', type: 'nationality' },
             { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
             { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
             { key: 'email', label: 'Email Address', type: 'email' },
-            { key: 'mobile', label: 'Mobile Number', type: 'tel' },
+            { key: 'mobile', label: 'Mobile Number', type: 'phone' },
             { key: 'ownershipPercentage', label: 'Ownership Percentage (%)', type: 'number' }
         ]
     },
@@ -569,13 +559,13 @@ const ONBOARDING_STEPS = [
         manualFields: [
             { key: 'fullName', label: 'Full Legal Name', type: 'text' },
             { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
-            { key: 'nationality', label: 'Nationality', type: 'text' },
+            { key: 'nationality', label: 'Nationality', type: 'nationality' },
             { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
             { key: 'designation', label: 'Designation / Job Title', type: 'text' },
             { key: 'authorizationType', label: 'Authorization Type', type: 'select', options: ['Board Resolution', 'Power of Attorney', 'Letter of Authorization', 'Other'] },
             { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
             { key: 'email', label: 'Email Address', type: 'email' },
-            { key: 'mobile', label: 'Mobile Number', type: 'tel' }
+            { key: 'mobile', label: 'Mobile Number', type: 'phone' }
         ]
     },
     {
@@ -593,6 +583,8 @@ const ONBOARDING_STEPS = [
     }
 ];
 
+let ONBOARDING_STEPS = [...DEFAULT_ONBOARDING_STEPS];
+
 async function renderOnboarding(container) {
     // Fetch latest onboarding data
     let ob = null;
@@ -605,6 +597,124 @@ async function renderOnboarding(container) {
     state.onboarding = ob || {};
     state.onboardingId = ob && ob.id ? ob.id : null;
     
+    // Fetch pre-registration requirements to initialize counts/lists
+    if (state.onboardingId) {
+        let reqData = null;
+        try {
+            const reqRes = await fetch('/api/requirements');
+            if (reqRes.ok) {
+                const reqJson = await reqRes.json();
+                reqData = reqJson.data;
+            }
+        } catch (e) {
+            console.error("Failed to fetch requirements:", e);
+        }
+        
+        if (reqData) {
+            let changed = false;
+            
+            // 1. Directors
+            const dirStep = ONBOARDING_STEPS.find(s => s.key === 'director_details');
+            const dirStepField = dirStep ? dirStep.field : null;
+            if (dirStepField) {
+                if (!state.onboarding[dirStepField]) {
+                    state.onboarding[dirStepField] = { data: { list: [] }, status: 'pending', documents: [] };
+                }
+                if (!state.onboarding[dirStepField].data.list || state.onboarding[dirStepField].data.list.length === 0) {
+                    const reqDirs = reqData.directors || [];
+                    const list = reqDirs.map(d => ({
+                        fullName: d.name || '',
+                        idNumber: d.idNum || '',
+                        nationality: d.nation || '',
+                        dateOfBirth: d.dob || '',
+                        residentialAddress: d.addr || '',
+                        email: d.email || '',
+                        mobile: d.phone || '',
+                        directorConsent: false
+                    }));
+                    if (list.length === 0) list.push({});
+                    state.onboarding[dirStepField].data.list = list;
+                    changed = true;
+                }
+            }
+            
+            // 2. Individual Shareholders
+            const indStep = ONBOARDING_STEPS.find(s => s.key === 'individual_shareholder');
+            const indStepField = indStep ? indStep.field : null;
+            if (indStepField) {
+                if (!state.onboarding[indStepField]) {
+                    state.onboarding[indStepField] = { data: { list: [] }, status: 'pending', documents: [] };
+                }
+                if (!state.onboarding[indStepField].data.list || state.onboarding[indStepField].data.list.length === 0) {
+                    const reqShs = reqData.shareholders || [];
+                    const reqInds = reqShs.filter(s => s.type === 'individual');
+                    const list = reqInds.map(s => ({
+                        fullName: s.name || '',
+                        idNumber: s.idNum || '',
+                        nationality: s.nation || '',
+                        dateOfBirth: s.dob || '',
+                        residentialAddress: s.addr || '',
+                        email: s.email || '',
+                        mobile: s.phone || '',
+                        numberOfShares: s.shares || '',
+                        shareCapitalAmount: s.percent || '',
+                        uboDeclaration: 'No'
+                    }));
+                    if (list.length === 0) list.push({});
+                    state.onboarding[indStepField].data.list = list;
+                    changed = true;
+                }
+            }
+            
+            // 3. Corporate Shareholders
+            const corpStep = ONBOARDING_STEPS.find(s => s.key === 'corporate_shareholder');
+            const corpStepField = corpStep ? corpStep.field : null;
+            if (corpStepField) {
+                if (!state.onboarding[corpStepField]) {
+                    state.onboarding[corpStepField] = { data: { list: [] }, status: 'pending', documents: [] };
+                }
+                if (!state.onboarding[corpStepField].data.list || state.onboarding[corpStepField].data.list.length === 0) {
+                    const reqShs = reqData.shareholders || [];
+                    const reqCorps = reqShs.filter(s => s.type === 'corporate');
+                    const list = reqCorps.map(s => ({
+                        companyName: s.name || '',
+                        uen: s.regNum || '',
+                        registeredAddress: s.addr || '',
+                        countryOfIncorporation: s.regPlace || '',
+                        dateOfIncorporation: s.regDate || '',
+                        numberOfShares: s.shares || '',
+                        shareCapitalAmount: s.percent || '',
+                        uboDeclaration: 'No'
+                    }));
+                    if (list.length === 0) list.push({});
+                    state.onboarding[corpStepField].data.list = list;
+                    changed = true;
+                }
+            }
+            
+            if (changed) {
+                try {
+                    const steps = ['director_details', 'individual_shareholder', 'corporate_shareholder'];
+                    for (const stepKey of steps) {
+                        const targetStep = ONBOARDING_STEPS.find(s => s.key === stepKey);
+                        if (targetStep && targetStep.field && state.onboarding[targetStep.field]) {
+                            await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
+                                method: 'PATCH',
+                                headers: {'Content-Type':'application/json'},
+                                body: JSON.stringify({
+                                    data: state.onboarding[targetStep.field].data,
+                                    status: 'pending'
+                                })
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to auto-save synced onboarding steps:", e);
+                }
+            }
+        }
+    }
+    
     // Compute active step key if not set
     if (!state.activeObStepKey) {
         const firstUncompleted = ONBOARDING_STEPS.find((s, idx) => !['completed', 'approved', 'submitted', 'under_review'].includes(getFriendlyStatus(s.key, ob)));
@@ -616,27 +726,66 @@ async function renderOnboarding(container) {
 
     container.innerHTML = `
     <style>
-        .wizard-container { display: flex; gap: 28px; margin-top: 10px; background: transparent; }
-        .wizard-sidebar { width: 330px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; }
-        .wizard-content { flex-grow: 1; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 32px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.02); min-height: 480px; }
+        .wizard-container { display: flex; flex-direction: column; gap: 24px; margin-top: 10px; background: transparent; width: 100%; }
+        .wizard-sidebar { 
+            display: flex; 
+            flex-direction: row; 
+            overflow-x: auto; 
+            gap: 16px; 
+            width: 100%; 
+            padding: 4px 4px 14px 4px; 
+            -webkit-overflow-scrolling: touch; 
+            scrollbar-width: thin;
+        }
+        .wizard-sidebar::-webkit-scrollbar {
+            height: 6px;
+        }
+        .wizard-sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .wizard-sidebar::-webkit-scrollbar-thumb {
+            background: rgba(15, 23, 42, 0.08);
+            border-radius: 10px;
+        }
+        .wizard-sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(15, 23, 42, 0.15);
+        }
+        .wizard-content { width: 100%; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 32px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.02); min-height: 480px; box-sizing: border-box; }
         
-        .wizard-step-tab { background: #ffffff; border: 1px solid #f1f5f9; border-radius: 16px; padding: 14px 18px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: all 0.2s ease; position: relative; }
-        .wizard-step-tab:hover:not(.locked) { border-color: #3b82f6; transform: translateY(-1px); box-shadow: 0 4px 15px rgba(59, 130, 246, 0.06); }
-        .wizard-step-tab.active { background: linear-gradient(135deg, #1e293b, #0f172a); border-color: #0f172a; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15); }
+        .wizard-step-tab { 
+            background: #ffffff; 
+            border: 1px solid #e2e8f0; 
+            border-radius: 16px; 
+            padding: 16px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: flex-start; 
+            gap: 12px; 
+            cursor: pointer; 
+            transition: all 0.2s ease; 
+            position: relative; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+            box-sizing: border-box;
+            min-width: 200px;
+            flex-shrink: 0;
+            flex-grow: 1;
+        }
+        .wizard-step-tab:hover:not(.locked) { border-color: #3b82f6; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(59, 130, 246, 0.08); }
+        .wizard-step-tab.active { background: linear-gradient(135deg, #1e293b, #0f172a); border-color: #0f172a; box-shadow: 0 12px 25px rgba(15, 23, 42, 0.15); }
         .wizard-step-tab.locked { opacity: 0.5; cursor: not-allowed; background: #f8fafc; }
         
-        .wizard-step-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; transition: all 0.2; }
+        .wizard-step-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; transition: all 0.2s; }
         .wizard-step-tab.active .wizard-step-icon { background: rgba(255, 255, 255, 0.12); color: #38bdf8; }
         .wizard-step-tab:not(.active) .wizard-step-icon { background: #eff6ff; color: #3b82f6; }
         .wizard-step-tab.locked .wizard-step-icon { background: #e2e8f0; color: #94a3b8; }
         .wizard-step-tab.completed:not(.active) .wizard-step-icon { background: #f0fdf4; color: #16a34a; }
         
-        .wizard-step-info { flex-grow: 1; min-width: 0; }
-        .wizard-step-title { font-family: Outfit, sans-serif; font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .wizard-step-info { width: 100%; }
+        .wizard-step-title { font-family: Outfit, sans-serif; font-size: 12px; font-weight: 700; white-space: normal; line-height: 1.4; }
         .wizard-step-tab.active .wizard-step-title { color: #ffffff; }
         .wizard-step-tab:not(.active) .wizard-step-title { color: #0f172a; }
         
-        .wizard-step-badge { display: inline-flex; align-items: center; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px; margin-top: 4px; }
+        .wizard-step-badge { display: inline-flex; align-items: center; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px; }
         .badge-not-started { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
         .badge-in-progress { background: #eff6ff; color: #3b82f6; border: 1px solid #bfdbfe; }
         .badge-completed { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
@@ -661,11 +810,6 @@ async function renderOnboarding(container) {
         .ob-submit-btn { padding: 10px 24px; background: linear-gradient(135deg, #3b82f6, #06b6d4); color: #fff; border: none; border-radius: 12px; font-family: Outfit, sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25); }
         .ob-submit-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35); }
         .ob-submit-btn:disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; box-shadow: none; }
-        
-        @media (max-width: 1024px) {
-            .wizard-container { flex-direction: column; }
-            .wizard-sidebar { width: 100%; }
-        }
     </style>
 
     ${isActivated ? `
@@ -696,17 +840,19 @@ async function renderOnboarding(container) {
     </div>`}
 
     <div class="wizard-container">
-        <!-- Sidebar Navigation -->
+        <!-- Horizontal Navigation Stepper -->
         <div class="wizard-sidebar" id="ob-wizard-sidebar">
             ${ONBOARDING_STEPS.map((step, idx) => {
                 return `
                 <div class="wizard-step-tab" id="tab-${step.key}" onclick="selectObStep('${step.key}')">
-                    <div class="wizard-step-icon" id="icon-${step.key}">
-                        <!-- Icon set dynamically -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px;">
+                        <div class="wizard-step-icon" id="icon-${step.key}">
+                            <!-- Icon set dynamically -->
+                        </div>
+                        <span class="wizard-step-badge" id="badge-${step.key}">Not Started</span>
                     </div>
                     <div class="wizard-step-info">
                         <div class="wizard-step-title">Step ${idx+1}: ${step.title}</div>
-                        <span class="wizard-step-badge" id="badge-${step.key}">Not Started</span>
                     </div>
                 </div>`;
             }).join('')}
@@ -738,55 +884,94 @@ function validateStep(stepKey, ob) {
     const docs = stepData.documents || [];
     const errors = [];
 
-    const currentRequiredDocs = getStepRequiredDocs(stepKey, data);
-    const currentManualFields = getStepManualFields(stepKey, data);
+    const isMultiItem = step && step.dynamicSection === true;
 
-    // 1. Check required documents
-    if (currentRequiredDocs) {
-        currentRequiredDocs.forEach(reqDoc => {
-            if (stepKey === 'corporate_shareholder') {
-                const country = (data.countryOfIncorporation || '').trim().toLowerCase();
-                const isSG = country === 'singapore' || country === 'sg' || country === '';
-                if (isSG) {
-                    // Only require bizfile and constitution
-                    if (reqDoc.type !== 'bizfile' && reqDoc.type !== 'constitution') {
-                        return;
+    if (isMultiItem) {
+        const list = data.list || [];
+        if (list.length === 0) {
+            errors.push("At least one entry is required.");
+        }
+        list.forEach((item, idx) => {
+            const currentRequiredDocs = getStepRequiredDocs(stepKey, item);
+            const currentManualFields = getStepManualFields(stepKey, item);
+            
+            // Check required documents for this item
+            if (currentRequiredDocs) {
+                currentRequiredDocs.forEach(reqDoc => {
+                    const docTypeWithIdx = `${reqDoc.type}_${idx}`;
+                    if (stepKey === 'corporate_shareholder') {
+                        const country = (item.countryOfIncorporation || '').trim().toLowerCase();
+                        const isSG = country === 'singapore' || country === 'sg' || country === '';
+                        if (isSG) {
+                            if (reqDoc.type !== 'bizfile' && reqDoc.type !== 'constitution') return;
+                        } else {
+                            if (reqDoc.type === 'bizfile') return;
+                        }
                     }
+                    if (stepKey === 'individual_shareholder') {
+                        if (item.sameAsDirector === true || item.sameAsDirector === 'true') {
+                            if (reqDoc.type === 'nric') return;
+                        }
+                    }
+                    const hasDoc = docs.some(d => d.type === docTypeWithIdx);
+                    if (!hasDoc) {
+                        errors.push(`Entry #${idx + 1}: Document "${reqDoc.label}" is required.`);
+                    }
+                });
+            }
+            
+            // Check manual fields for this item
+            if (currentManualFields) {
+                currentManualFields.forEach(field => {
+                    if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
+                        const isPersonalField = ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].includes(field.key);
+                        if (isPersonalField) return;
+                    }
+                    const val = item[field.key];
+                    let isEmpty;
+                    if (field.type === 'phone') {
+                        // phone is stored as code:dial:number — check the number part
+                        const numPart = val && val.includes(':') ? val.split(':')[2] : String(val || '');
+                        isEmpty = !numPart || numPart.trim() === '';
+                    } else {
+                        isEmpty = val === undefined || val === null || String(val).trim() === '' || String(val).trim() === 'Select';
+                    }
+                    if (isEmpty) {
+                        errors.push(`Entry #${idx + 1}: Field "${field.label}" is required.`);
+                    }
+                });
+            }
+        });
+    } else {
+        const currentRequiredDocs = getStepRequiredDocs(stepKey, data);
+        const currentManualFields = getStepManualFields(stepKey, data);
+
+        // 1. Check required documents
+        if (currentRequiredDocs) {
+            currentRequiredDocs.forEach(reqDoc => {
+                const hasDoc = docs.some(d => d.type === reqDoc.type);
+                if (!hasDoc) {
+                    errors.push(`Document "${reqDoc.label}" is required.`);
+                }
+            });
+        }
+
+        // 2. Check manual fields
+        if (currentManualFields) {
+            currentManualFields.forEach(field => {
+                const val = data[field.key];
+                let isEmpty;
+                if (field.type === 'phone') {
+                    const numPart = val && val.includes(':') ? val.split(':')[2] : String(val || '');
+                    isEmpty = !numPart || numPart.trim() === '';
                 } else {
-                    // Non-SG: require cert_incorporation, constitution, supporting_docs
-                    if (reqDoc.type === 'bizfile') {
-                        return;
-                    }
+                    isEmpty = val === undefined || val === null || String(val).trim() === '' || String(val).trim() === 'Select';
                 }
-            }
-            if (stepKey === 'individual_shareholder') {
-                if (data.sameAsDirector === true || data.sameAsDirector === 'true') {
-                    // Skip NRIC upload in step 3 if same as director
-                    if (reqDoc.type === 'nric') {
-                        return;
-                    }
+                if (isEmpty) {
+                    errors.push(`Field "${field.label}" is required.`);
                 }
-            }
-            const hasDoc = docs.some(d => d.type === reqDoc.type);
-            if (!hasDoc) {
-                errors.push(`Document "${reqDoc.label}" is required.`);
-            }
-        });
-    }
-
-    // 2. Check manual fields (excluding ownershipPercentage or other read-only field validations if we handle them differently)
-    if (currentManualFields) {
-        currentManualFields.forEach(field => {
-            // Do not require field if sameAsDirector is checked and it will be auto-populated
-            if (stepKey === 'individual_shareholder' && (data.sameAsDirector === true || data.sameAsDirector === 'true')) {
-                const isPersonalField = ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].includes(field.key);
-                if (isPersonalField) return;
-            }
-            const val = data[field.key];
-            if (val === undefined || val === null || String(val).trim() === '') {
-                errors.push(`Field "${field.label}" is required.`);
-            }
-        });
+            });
+        }
     }
 
     // 3. Check declaration
@@ -797,6 +982,183 @@ function validateStep(stepKey, ob) {
     }
 
     return errors;
+}
+
+/**
+ * Highlight (or clear) invalid fields in the active step form with red styling.
+ * @param {string} stepKey - The active step key
+ * @param {object} ob - The onboarding object
+ * @param {boolean} show - Whether to show or clear highlights
+ */
+function highlightInvalidFields(stepKey, ob, show) {
+    const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+    if (!step) return;
+
+    const stepField = step.field;
+    const stepData = ob && ob[stepField] ? ob[stepField] : {};
+    const data = stepData.data || {};
+    const docs = stepData.documents || [];
+
+    const isMultiItem = step && step.dynamicSection === true;
+
+    const applyFieldStyle = (el, isError) => {
+        if (!el) return;
+        if (isError) {
+            el.style.border = '2px solid #ef4444';
+            el.style.background = '#fff5f5';
+            el.style.borderRadius = '10px';
+            el.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.12)';
+        } else {
+            el.style.border = '';
+            el.style.background = '';
+            el.style.boxShadow = '';
+        }
+    };
+
+    const applyLabelStyle = (label, isError) => {
+        if (!label) return;
+        if (isError) {
+            label.style.color = '#dc2626';
+            label.style.fontWeight = '700';
+        } else {
+            label.style.color = '';
+            label.style.fontWeight = '';
+        }
+    };
+
+    const applyDocStyle = (el, isError) => {
+        if (!el) return;
+        if (isError) {
+            el.style.borderColor = '#ef4444';
+            el.style.background = '#fff5f5';
+            el.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.12)';
+        } else {
+            el.style.borderColor = '';
+            el.style.background = '';
+            el.style.boxShadow = '';
+        }
+    };
+
+    if (isMultiItem) {
+        const list = data.list || [];
+        list.forEach((item, idx) => {
+            const currentManualFields = getStepManualFields(stepKey, item);
+            const currentRequiredDocs = getStepRequiredDocs(stepKey, item);
+
+            if (currentManualFields) {
+                currentManualFields.forEach(f => {
+                    const inputId = `ob-${stepKey}-${idx}-${f.key}`;
+                    const el = document.getElementById(inputId);
+                    const container = el ? el.closest('.ob-field') : null;
+                    const label = container ? container.querySelector('label') : null;
+
+                    if (!show) {
+                        applyFieldStyle(el, false);
+                        applyLabelStyle(label, false);
+                        return;
+                    }
+
+                    // Skip personal fields if sameAsDirector
+                    if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
+                        const isPersonalField = ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].includes(f.key);
+                        if (isPersonalField) { applyFieldStyle(el, false); applyLabelStyle(label, false); return; }
+                    }
+
+                    const val = item[f.key];
+                    let isEmpty;
+                    if (f.type === 'phone') {
+                        const numPart = val && val.includes(':') ? val.split(':')[2] : String(val || '');
+                        isEmpty = !numPart || numPart.trim() === '';
+                        // For phone, highlight the wrapper instead of input
+                        const wrap = document.getElementById(inputId + '-wrap');
+                        if (wrap) {
+                            wrap.style.border = isEmpty ? '2px solid #ef4444' : '';
+                            wrap.style.background = isEmpty ? '#fff5f5' : '';
+                            wrap.style.boxShadow = isEmpty ? '0 0 0 3px rgba(239,68,68,0.12)' : '';
+                        }
+                        applyLabelStyle(label, isEmpty);
+                        return;
+                    } else {
+                        isEmpty = val === undefined || val === null || String(val).trim() === '' || String(val).trim() === 'Select';
+                    }
+                    applyFieldStyle(el, isEmpty);
+                    applyLabelStyle(label, isEmpty);
+                });
+            }
+
+            if (currentRequiredDocs) {
+                currentRequiredDocs.forEach(doc => {
+                    const docTypeWithIdx = `${doc.type}_${idx}`;
+                    let isReq = true;
+                    if (stepKey === 'corporate_shareholder') {
+                        const country = (item.countryOfIncorporation || '').trim().toLowerCase();
+                        const isSG = country === 'singapore' || country === 'sg' || country === '';
+                        isReq = isSG ? (doc.type === 'bizfile' || doc.type === 'constitution') : (doc.type !== 'bizfile');
+                    }
+                    if (stepKey === 'individual_shareholder') {
+                        if (item.sameAsDirector === true || item.sameAsDirector === 'true') isReq = false;
+                    }
+                    const docEl = document.getElementById(`doc-${stepKey}-${docTypeWithIdx}`);
+                    const hasDoc = docs.some(d => d.type === docTypeWithIdx);
+                    applyDocStyle(docEl, show && isReq && !hasDoc);
+                });
+            }
+        });
+    } else {
+        const currentManualFields = getStepManualFields(stepKey, data);
+        const currentRequiredDocs = getStepRequiredDocs(stepKey, data);
+
+        if (currentManualFields) {
+            currentManualFields.forEach(f => {
+                const inputId = `ob-${stepKey}-${f.key}`;
+                const el = document.getElementById(inputId);
+                const container = el ? el.closest('.ob-field') : null;
+                const label = container ? container.querySelector('label') : null;
+
+                if (!show) {
+                    applyFieldStyle(el, false);
+                    applyLabelStyle(label, false);
+                    return;
+                }
+
+                const val = data[f.key];
+                let isEmpty;
+                if (f.type === 'phone') {
+                    const numPart = val && val.includes(':') ? val.split(':')[2] : String(val || '');
+                    isEmpty = !numPart || numPart.trim() === '';
+                    const wrap = document.getElementById(inputId + '-wrap');
+                    if (wrap) {
+                        wrap.style.border = isEmpty ? '2px solid #ef4444' : '';
+                        wrap.style.background = isEmpty ? '#fff5f5' : '';
+                        wrap.style.boxShadow = isEmpty ? '0 0 0 3px rgba(239,68,68,0.12)' : '';
+                    }
+                    applyLabelStyle(label, isEmpty);
+                    return;
+                } else {
+                    isEmpty = val === undefined || val === null || String(val).trim() === '' || String(val).trim() === 'Select';
+                }
+                applyFieldStyle(el, isEmpty);
+                applyLabelStyle(label, isEmpty);
+            });
+        }
+
+        if (currentRequiredDocs) {
+            currentRequiredDocs.forEach(doc => {
+                const docEl = document.getElementById(`doc-${stepKey}-${doc.type}`);
+                const hasDoc = docs.some(d => d.type === doc.type);
+                applyDocStyle(docEl, show && !hasDoc);
+            });
+        }
+
+        // Declaration check
+        if (step.declaration) {
+            const declEl = document.getElementById(`ob-${stepKey}-declarationAgreed`);
+            const container = declEl ? declEl.closest('.ob-field') : null;
+            if (declEl) {
+                applyFieldStyle(container || declEl, show && !data.declarationAgreed);
+            }
+        }
+    }
 }
 
 function getFriendlyStatus(stepKey, ob) {
@@ -830,13 +1192,25 @@ function getFriendlyStatus(stepKey, ob) {
 }
 
 function isStepLocked(idx, ob) {
-    if (idx === 0) return false;
-    const prevStep = ONBOARDING_STEPS[idx - 1];
-    const prevStatus = getFriendlyStatus(prevStep.key, ob);
-    return !['completed', 'approved', 'submitted', 'under_review'].includes(prevStatus);
+    return false;
 }
 
 async function selectObStep(stepKey) {
+    const currentIdx = ONBOARDING_STEPS.findIndex(s => s.key === state.activeObStepKey);
+    const targetIdx = ONBOARDING_STEPS.findIndex(s => s.key === stepKey);
+    if (currentIdx !== -1 && targetIdx > currentIdx) {
+        const ob = state.onboarding || {};
+        const errors = validateStep(state.activeObStepKey, ob);
+        if (errors.length > 0) {
+            if (!state.showObErrors) state.showObErrors = {};
+            state.showObErrors[state.activeObStepKey] = true;
+            updateWizardUIFeedback();
+            return;
+        }
+    }
+    if (!state.showObErrors) state.showObErrors = {};
+    state.showObErrors[stepKey] = false;
+
     const idx = ONBOARDING_STEPS.findIndex(s => s.key === stepKey);
     if (isStepLocked(idx, state.onboarding)) {
         alert("Step Locked! Please complete the previous steps in order before proceeding.");
@@ -850,31 +1224,55 @@ async function selectObStep(stepKey) {
     
     // Auto-populate Step 2 (Director Details) from Step 1 if it is empty
     if (stepKey === 'director_details') {
-        const step1Field = ONBOARDING_STEPS.find(s => s.key === 'individual_verification').field;
-        const step2Field = ONBOARDING_STEPS.find(s => s.key === 'director_details').field;
-        const step1Data = (state.onboarding[step1Field] || {}).data || {};
-        const step2Data = (state.onboarding[step2Field] || {}).data || {};
+        const step1 = ONBOARDING_STEPS.find(s => s.key === 'individual_verification');
+        const step2 = ONBOARDING_STEPS.find(s => s.key === 'director_details');
+        const step1Field = step1 ? step1.field : null;
+        const step2Field = step2 ? step2.field : null;
+        if (step1Field && step2Field) {
+            const step1Data = (state.onboarding[step1Field] || {}).data || {};
         
+        if (!state.onboarding[step2Field]) {
+            state.onboarding[step2Field] = { data: { list: [] }, status: 'pending', documents: [] };
+        }
+        if (!state.onboarding[step2Field].data) {
+            state.onboarding[step2Field].data = { list: [] };
+        }
+        const step2Data = state.onboarding[step2Field].data;
+        if (!step2Data.list || !Array.isArray(step2Data.list)) {
+            step2Data.list = [{}];
+        }
+        if (step2Data.list.length === 0) {
+            step2Data.list.push({});
+        }
+        
+        const firstDir = step2Data.list[0];
         let changed = false;
         ['fullName', 'idNumber', 'nationality', 'gender', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].forEach(key => {
-            if (!step2Data[key] && step1Data[key]) {
-                step2Data[key] = step1Data[key];
+            if (!firstDir[key] && step1Data[key]) {
+                firstDir[key] = step1Data[key];
+                changed = true;
+            }
+            if (step2Data[key] !== undefined) {
+                delete step2Data[key];
                 changed = true;
             }
         });
+        
         if (changed) {
-            if (!state.onboarding[step2Field]) state.onboarding[step2Field] = { data: {}, status: 'pending', documents: [] };
             state.onboarding[step2Field].data = step2Data;
             
             // Immediate save of auto-populated director details
             await ensureOnboardingRecord();
             if (state.onboardingId) {
-                await fetch(`/api/onboarding/${state.onboardingId}/step/director_details`, {
-                    method: 'PATCH',
-                    headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ data: step2Data, status: 'pending' })
-                });
+                try {
+                    await fetch(`/api/onboarding/${state.onboardingId}/step/director_details`, {
+                        method: 'PATCH',
+                        headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify({ data: step2Data, status: 'pending' })
+                    });
+                } catch(e) {}
             }
+        }
         }
     }
     
@@ -885,6 +1283,296 @@ async function selectObStep(stepKey) {
     
     updateWizardUIFeedback();
 }
+
+
+// ============================================================
+// COUNTRY DATA — used for Phone Picker & Nationality Dropdown
+// ============================================================
+const OB_COUNTRIES = [
+    { name: 'Afghanistan', code: 'AF', nationality: 'Afghan', dial: '+93', maxLen: 9 },
+    { name: 'Albania', code: 'AL', nationality: 'Albanian', dial: '+355', maxLen: 9 },
+    { name: 'Algeria', code: 'DZ', nationality: 'Algerian', dial: '+213', maxLen: 9 },
+    { name: 'Argentina', code: 'AR', nationality: 'Argentine', dial: '+54', maxLen: 10 },
+    { name: 'Australia', code: 'AU', nationality: 'Australian', dial: '+61', maxLen: 9 },
+    { name: 'Austria', code: 'AT', nationality: 'Austrian', dial: '+43', maxLen: 10 },
+    { name: 'Bahrain', code: 'BH', nationality: 'Bahraini', dial: '+973', maxLen: 8 },
+    { name: 'Bangladesh', code: 'BD', nationality: 'Bangladeshi', dial: '+880', maxLen: 10 },
+    { name: 'Belgium', code: 'BE', nationality: 'Belgian', dial: '+32', maxLen: 9 },
+    { name: 'Brazil', code: 'BR', nationality: 'Brazilian', dial: '+55', maxLen: 11 },
+    { name: 'Brunei', code: 'BN', nationality: 'Bruneian', dial: '+673', maxLen: 7 },
+    { name: 'Cambodia', code: 'KH', nationality: 'Cambodian', dial: '+855', maxLen: 9 },
+    { name: 'Canada', code: 'CA', nationality: 'Canadian', dial: '+1', maxLen: 10 },
+    { name: 'Chile', code: 'CL', nationality: 'Chilean', dial: '+56', maxLen: 9 },
+    { name: 'China', code: 'CN', nationality: 'Chinese', dial: '+86', maxLen: 11 },
+    { name: 'Colombia', code: 'CO', nationality: 'Colombian', dial: '+57', maxLen: 10 },
+    { name: 'Croatia', code: 'HR', nationality: 'Croatian', dial: '+385', maxLen: 9 },
+    { name: 'Czech Republic', code: 'CZ', nationality: 'Czech', dial: '+420', maxLen: 9 },
+    { name: 'Denmark', code: 'DK', nationality: 'Danish', dial: '+45', maxLen: 8 },
+    { name: 'Egypt', code: 'EG', nationality: 'Egyptian', dial: '+20', maxLen: 10 },
+    { name: 'Ethiopia', code: 'ET', nationality: 'Ethiopian', dial: '+251', maxLen: 9 },
+    { name: 'Finland', code: 'FI', nationality: 'Finnish', dial: '+358', maxLen: 10 },
+    { name: 'France', code: 'FR', nationality: 'French', dial: '+33', maxLen: 9 },
+    { name: 'Germany', code: 'DE', nationality: 'German', dial: '+49', maxLen: 11 },
+    { name: 'Ghana', code: 'GH', nationality: 'Ghanaian', dial: '+233', maxLen: 9 },
+    { name: 'Greece', code: 'GR', nationality: 'Greek', dial: '+30', maxLen: 10 },
+    { name: 'Hong Kong', code: 'HK', nationality: 'Chinese (Hong Kong)', dial: '+852', maxLen: 8 },
+    { name: 'Hungary', code: 'HU', nationality: 'Hungarian', dial: '+36', maxLen: 9 },
+    { name: 'India', code: 'IN', nationality: 'Indian', dial: '+91', maxLen: 10 },
+    { name: 'Indonesia', code: 'ID', nationality: 'Indonesian', dial: '+62', maxLen: 12 },
+    { name: 'Iran', code: 'IR', nationality: 'Iranian', dial: '+98', maxLen: 10 },
+    { name: 'Iraq', code: 'IQ', nationality: 'Iraqi', dial: '+964', maxLen: 10 },
+    { name: 'Ireland', code: 'IE', nationality: 'Irish', dial: '+353', maxLen: 9 },
+    { name: 'Israel', code: 'IL', nationality: 'Israeli', dial: '+972', maxLen: 9 },
+    { name: 'Italy', code: 'IT', nationality: 'Italian', dial: '+39', maxLen: 10 },
+    { name: 'Japan', code: 'JP', nationality: 'Japanese', dial: '+81', maxLen: 11 },
+    { name: 'Jordan', code: 'JO', nationality: 'Jordanian', dial: '+962', maxLen: 9 },
+    { name: 'Kenya', code: 'KE', nationality: 'Kenyan', dial: '+254', maxLen: 9 },
+    { name: 'Kuwait', code: 'KW', nationality: 'Kuwaiti', dial: '+965', maxLen: 8 },
+    { name: 'Lebanon', code: 'LB', nationality: 'Lebanese', dial: '+961', maxLen: 8 },
+    { name: 'Libya', code: 'LY', nationality: 'Libyan', dial: '+218', maxLen: 9 },
+    { name: 'Luxembourg', code: 'LU', nationality: 'Luxembourgish', dial: '+352', maxLen: 9 },
+    { name: 'Malaysia', code: 'MY', nationality: 'Malaysian', dial: '+60', maxLen: 11 },
+    { name: 'Maldives', code: 'MV', nationality: 'Maldivian', dial: '+960', maxLen: 7 },
+    { name: 'Malta', code: 'MT', nationality: 'Maltese', dial: '+356', maxLen: 8 },
+    { name: 'Mexico', code: 'MX', nationality: 'Mexican', dial: '+52', maxLen: 10 },
+    { name: 'Morocco', code: 'MA', nationality: 'Moroccan', dial: '+212', maxLen: 9 },
+    { name: 'Myanmar', code: 'MM', nationality: 'Burmese', dial: '+95', maxLen: 10 },
+    { name: 'Nepal', code: 'NP', nationality: 'Nepalese', dial: '+977', maxLen: 10 },
+    { name: 'Netherlands', code: 'NL', nationality: 'Dutch', dial: '+31', maxLen: 9 },
+    { name: 'New Zealand', code: 'NZ', nationality: 'New Zealander', dial: '+64', maxLen: 9 },
+    { name: 'Nigeria', code: 'NG', nationality: 'Nigerian', dial: '+234', maxLen: 10 },
+    { name: 'Norway', code: 'NO', nationality: 'Norwegian', dial: '+47', maxLen: 8 },
+    { name: 'Oman', code: 'OM', nationality: 'Omani', dial: '+968', maxLen: 8 },
+    { name: 'Pakistan', code: 'PK', nationality: 'Pakistani', dial: '+92', maxLen: 10 },
+    { name: 'Palestine', code: 'PS', nationality: 'Palestinian', dial: '+970', maxLen: 9 },
+    { name: 'Peru', code: 'PE', nationality: 'Peruvian', dial: '+51', maxLen: 9 },
+    { name: 'Philippines', code: 'PH', nationality: 'Filipino', dial: '+63', maxLen: 10 },
+    { name: 'Poland', code: 'PL', nationality: 'Polish', dial: '+48', maxLen: 9 },
+    { name: 'Portugal', code: 'PT', nationality: 'Portuguese', dial: '+351', maxLen: 9 },
+    { name: 'Qatar', code: 'QA', nationality: 'Qatari', dial: '+974', maxLen: 8 },
+    { name: 'Romania', code: 'RO', nationality: 'Romanian', dial: '+40', maxLen: 9 },
+    { name: 'Russia', code: 'RU', nationality: 'Russian', dial: '+7', maxLen: 10 },
+    { name: 'Saudi Arabia', code: 'SA', nationality: 'Saudi', dial: '+966', maxLen: 9 },
+    { name: 'Singapore', code: 'SG', nationality: 'Singaporean', dial: '+65', maxLen: 8 },
+    { name: 'South Africa', code: 'ZA', nationality: 'South African', dial: '+27', maxLen: 9 },
+    { name: 'South Korea', code: 'KR', nationality: 'South Korean', dial: '+82', maxLen: 10 },
+    { name: 'Spain', code: 'ES', nationality: 'Spanish', dial: '+34', maxLen: 9 },
+    { name: 'Sri Lanka', code: 'LK', nationality: 'Sri Lankan', dial: '+94', maxLen: 9 },
+    { name: 'Sweden', code: 'SE', nationality: 'Swedish', dial: '+46', maxLen: 9 },
+    { name: 'Switzerland', code: 'CH', nationality: 'Swiss', dial: '+41', maxLen: 9 },
+    { name: 'Syria', code: 'SY', nationality: 'Syrian', dial: '+963', maxLen: 9 },
+    { name: 'Taiwan', code: 'TW', nationality: 'Taiwanese', dial: '+886', maxLen: 9 },
+    { name: 'Tanzania', code: 'TZ', nationality: 'Tanzanian', dial: '+255', maxLen: 9 },
+    { name: 'Thailand', code: 'TH', nationality: 'Thai', dial: '+66', maxLen: 9 },
+    { name: 'Tunisia', code: 'TN', nationality: 'Tunisian', dial: '+216', maxLen: 8 },
+    { name: 'Turkey', code: 'TR', nationality: 'Turkish', dial: '+90', maxLen: 10 },
+    { name: 'Uganda', code: 'UG', nationality: 'Ugandan', dial: '+256', maxLen: 9 },
+    { name: 'Ukraine', code: 'UA', nationality: 'Ukrainian', dial: '+380', maxLen: 9 },
+    { name: 'United Arab Emirates', code: 'AE', nationality: 'Emirati', dial: '+971', maxLen: 9 },
+    { name: 'United Kingdom', code: 'GB', nationality: 'British', dial: '+44', maxLen: 10 },
+    { name: 'United States', code: 'US', nationality: 'American', dial: '+1', maxLen: 10 },
+    { name: 'Vietnam', code: 'VN', nationality: 'Vietnamese', dial: '+84', maxLen: 10 },
+    { name: 'Yemen', code: 'YE', nationality: 'Yemeni', dial: '+967', maxLen: 9 },
+    { name: 'Zimbabwe', code: 'ZW', nationality: 'Zimbabwean', dial: '+263', maxLen: 9 }
+];
+
+// Convert a 2-letter ISO country code to a Unicode flag emoji (works in all modern browsers)
+function obFlagEmoji(code) {
+    if (!code || code.length !== 2) return '';
+    const codePoints = [...code.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65);
+    return String.fromCodePoint(...codePoints);
+}
+
+// Get flag display HTML for a country code: image from flagcdn with proper sizing
+function obFlagImg(code, size = 18) {
+    if (!code) return '';
+    const emoji = obFlagEmoji(code);
+    return `<span style="display:inline-flex;align-items:center;" title="${code}">
+        <img src="https://flagcdn.com/w20/${code.toLowerCase()}.png" 
+             style="width:${size}px;height:${Math.round(size*0.75)}px;object-fit:cover;border-radius:2px;border:1px solid #e2e8f0;" 
+             alt="${emoji}" onerror="this.style.display='none'">
+    </span>`;
+}
+
+// Render a phone picker field (flag + dial code + numeric input)
+function obRenderPhoneField({ inputId, val, readonlyAttr, onInputCallback }) {
+    // Parse stored value: format "SG:+65:91234567" or plain number
+    let selectedCode = 'SG', selectedDial = '+65', phoneNum = '', maxLen = 8;
+    if (val && val.includes(':')) {
+        const parts = val.split(':');
+        selectedCode = parts[0] || 'SG';
+        selectedDial = parts[1] || '+65';
+        phoneNum = parts[2] || '';
+        const found = OB_COUNTRIES.find(c => c.code === selectedCode);
+        if (found) maxLen = found.maxLen;
+    } else if (val) {
+        phoneNum = val.replace(/\D/g, '');
+    }
+
+    const isReadOnly = !!readonlyAttr;
+    const countryOptions = OB_COUNTRIES.map(c =>
+        `<option value="${c.code}|${c.dial}|${c.maxLen}" ${c.code === selectedCode ? 'selected' : ''}>${obFlagEmoji(c.code)} ${c.name} (${c.dial})</option>`
+    ).join('');
+
+    return `<div class="ob-field">
+        <label>Mobile Number</label>
+        <div style="display:flex;gap:0;align-items:stretch;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#fff;transition:border-color 0.2s;" id="${inputId}-wrap"
+            onfocusin="this.style.borderColor='#3b82f6'" onfocusout="this.style.borderColor='#e2e8f0'">
+            <div style="display:flex;align-items:center;gap:5px;padding:0 10px;background:#f8fafc;border-right:1.5px solid #e2e8f0;min-width:90px;cursor:${isReadOnly ? 'default' : 'pointer'};position:relative;">
+                <span id="${inputId}-flag" style="display:flex;align-items:center;">${obFlagImg(selectedCode, 20)}</span>
+                <span id="${inputId}-dialcode" style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap;">${selectedDial}</span>
+                ${isReadOnly ? '' : `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                <select id="${inputId}-country" onchange="obPhoneCountryChange('${inputId}')" style="position:absolute;inset:0;opacity:0;width:100%;cursor:pointer;" ${readonlyAttr}>
+                    ${countryOptions}
+                </select>`}
+            </div>
+            <input type="tel" id="${inputId}" inputmode="numeric" pattern="[0-9]*" value="${phoneNum}" maxlength="${maxLen}" placeholder="${'0'.repeat(maxLen)}"
+                style="flex:1;border:none;outline:none;padding:10px 12px;font-size:13px;font-weight:500;color:#1e293b;background:transparent;min-width:0;letter-spacing:0.04em;"
+                ${readonlyAttr}
+                oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,this.maxLength); obPhoneSyncValue('${inputId}'); ${onInputCallback}"
+            >
+        </div>
+    </div>`;
+}
+
+// Render nationality searchable dropdown
+function obRenderNationalityField({ inputId, val, readonlyAttr, onChangeCallback }) {
+    const isReadOnly = !!readonlyAttr;
+    const currentVal = val || '';
+
+    return `<div class="ob-field" style="position:relative;">
+        <label>${'Nationality'}</label>
+        <div style="position:relative;" id="${inputId}-natiwrap">
+            <input type="text" id="${inputId}" value="${currentVal}" placeholder="Search nationality..."
+                autocomplete="off"
+                style="width:100%;padding:10px 36px 10px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;font-weight:500;color:#1e293b;background:#fff;box-sizing:border-box;cursor:${isReadOnly ? 'default' : 'pointer'};"
+                ${readonlyAttr}
+                oninput="obNatSearch('${inputId}')"
+                onkeydown="obNatKeyNav(event,'${inputId}','${onChangeCallback}')"
+                onfocus="if(!this.readOnly)obNatSearch('${inputId}')"
+                onblur="setTimeout(()=>obNatClose('${inputId}'),200)"
+            >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;"><polyline points="6 9 12 15 18 9"/></svg>
+            <div id="${inputId}-natlist" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.10);z-index:1000;max-height:220px;overflow-y:auto;font-family:Outfit,sans-serif;"></div>
+        </div>
+    </div>`;
+}
+
+// Called when phone country dropdown changes
+window.obPhoneCountryChange = function(inputId) {
+    const sel = document.getElementById(inputId + '-country');
+    if (!sel) return;
+    const [code, dial, maxLen] = sel.value.split('|');
+    const flagEl = document.getElementById(inputId + '-flag');
+    const dialEl = document.getElementById(inputId + '-dialcode');
+    const numInput = document.getElementById(inputId);
+    // Update flag image
+    if (flagEl) flagEl.innerHTML = obFlagImg(code, 20);
+    if (dialEl) dialEl.textContent = dial;
+    if (numInput) {
+        const len = parseInt(maxLen) || 12;
+        numInput.maxLength = len;
+        numInput.placeholder = '0'.repeat(len);
+        // Trim existing value if it exceeds new country max
+        numInput.value = numInput.value.replace(/[^0-9]/g, '').slice(0, len);
+        // Trigger save after country change
+        numInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+};
+
+// Sync phone value to hidden composite format code:dial:number
+window.obPhoneSyncValue = function(inputId) {
+    const numInput = document.getElementById(inputId);
+    const selEl = document.getElementById(inputId + '-country');
+    if (!numInput) return;
+    if (selEl) {
+        const [code, dial] = selEl.value.split('|');
+        // Store as code:dial:number in a data attribute for autosave to read
+        numInput.dataset.fullVal = `${code}:${dial}:${numInput.value}`;
+    }
+};
+
+// Nationality dropdown: filter list by name or nationality adjective
+window.obNatSearch = function(inputId) {
+    const inp = document.getElementById(inputId);
+    const listEl = document.getElementById(inputId + '-natlist');
+    if (!inp || !listEl) return;
+    const q = inp.value.trim().toLowerCase();
+    const filtered = q 
+        ? OB_COUNTRIES.filter(c => c.name.toLowerCase().includes(q) || c.nationality.toLowerCase().includes(q)) 
+        : OB_COUNTRIES;
+    
+    listEl.innerHTML = filtered.length === 0
+        ? `<div style="padding:10px 14px;font-size:12px;color:#94a3b8;">No results</div>`
+        : filtered.map((c, i) => {
+            const natVal = c.nationality || c.name;
+            return `
+            <div class="ob-nat-item" data-nat="${natVal}" data-idx="${i}"
+                style="display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:500;color:#1e293b;transition:background 0.1s;"
+                onmousedown="obNatSelect('${inputId}','${natVal}','${inputId.replace(/'/g,"\\'")}NatCb')"
+                onmouseenter="obNatHover(this)"
+                onmouseleave="obNatUnhover(this)"
+            >${obFlagImg(c.code, 18)} ${natVal}</div>`;
+        }).join('');
+    listEl.style.display = 'block';
+    // Reset cursor index
+    listEl.dataset.cursorIdx = '-1';
+};
+
+window.obNatHover = function(el) { el.style.background = '#eff6ff'; el.style.color = '#2563eb'; };
+window.obNatUnhover = function(el) { el.style.background = ''; el.style.color = '#1e293b'; };
+
+window.obNatSelect = function(inputId, name, cbName) {
+    const inp = document.getElementById(inputId);
+    if (inp) { inp.value = name; }
+    obNatClose(inputId);
+    // Trigger the save callback
+    if (cbName && window[cbName]) window[cbName]();
+};
+
+window.obNatClose = function(inputId) {
+    const listEl = document.getElementById(inputId + '-natlist');
+    if (listEl) listEl.style.display = 'none';
+};
+
+window.obNatKeyNav = function(event, inputId, cbName) {
+    const listEl = document.getElementById(inputId + '-natlist');
+    if (!listEl || listEl.style.display === 'none') {
+        if (event.key === 'ArrowDown' || event.key === 'Enter') obNatSearch(inputId);
+        return;
+    }
+    const items = listEl.querySelectorAll('.ob-nat-item');
+    let cur = parseInt(listEl.dataset.cursorIdx || '-1');
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        cur = Math.min(cur + 1, items.length - 1);
+        items.forEach((el, i) => {
+            el.style.background = i === cur ? '#dbeafe' : '';
+            el.style.color = i === cur ? '#1d4ed8' : '#1e293b';
+            el.style.fontWeight = i === cur ? '700' : '500';
+        });
+        listEl.dataset.cursorIdx = cur;
+        if (items[cur]) items[cur].scrollIntoView({ block: 'nearest' });
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        cur = Math.max(cur - 1, 0);
+        items.forEach((el, i) => {
+            el.style.background = i === cur ? '#dbeafe' : '';
+            el.style.color = i === cur ? '#1d4ed8' : '#1e293b';
+            el.style.fontWeight = i === cur ? '700' : '500';
+        });
+        listEl.dataset.cursorIdx = cur;
+        if (items[cur]) items[cur].scrollIntoView({ block: 'nearest' });
+    } else if (event.key === 'Enter') {
+        event.preventDefault();
+        if (cur >= 0 && items[cur]) {
+            const name = items[cur].dataset.nat;
+            obNatSelect(inputId, name, cbName);
+        }
+    } else if (event.key === 'Escape') {
+        obNatClose(inputId);
+    }
+};
 
 function renderActiveStepForm(container) {
     const stepKey = state.activeObStepKey;
@@ -901,108 +1589,305 @@ function renderActiveStepForm(container) {
     const friendlyStatus = getFriendlyStatus(stepKey, state.onboarding);
     const isReadOnly = ['submitted', 'under_review', 'approved'].includes(friendlyStatus);
 
-    const currentRequiredDocs = getStepRequiredDocs(stepKey, data);
-    const currentManualFields = getStepManualFields(stepKey, data);
+    const isMultiItem = step && step.dynamicSection === true;
+    let contentHtml = '';
 
-    let docsHtml = '';
-    if (currentRequiredDocs && currentRequiredDocs.length > 0) {
-        docsHtml = `
-            <div style="margin-bottom: 24px;">
-                <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:10px;">Required Document Uploads</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                    ${currentRequiredDocs.map(doc => {
-                        const uploaded = docs.find(d => d.type === doc.type);
-                        
-                        let isReq = true;
-                        if (stepKey === 'corporate_shareholder') {
-                            const country = (data.countryOfIncorporation || '').trim().toLowerCase();
-                            const isSG = country === 'singapore' || country === 'sg' || country === '';
-                            if (isSG) {
-                                isReq = (doc.type === 'bizfile' || doc.type === 'constitution');
+    if (isMultiItem) {
+        if (!data.list || !Array.isArray(data.list)) {
+            data.list = [];
+        }
+        if (data.list.length === 0) {
+            data.list.push({});
+        }
+
+        contentHtml = data.list.map((item, idx) => {
+            const currentRequiredDocs = getStepRequiredDocs(stepKey, item);
+            const currentManualFields = getStepManualFields(stepKey, item);
+            
+            let itemDocsHtml = '';
+            if (currentRequiredDocs && currentRequiredDocs.length > 0) {
+                itemDocsHtml = `
+                    <div style="margin-bottom: 16px;">
+                        <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Documents for this entry</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                            ${currentRequiredDocs.map(doc => {
+                                const docTypeWithIdx = `${doc.type}_${idx}`;
+                                const uploaded = docs.find(d => d.type === docTypeWithIdx);
+                                
+                                let isReq = true;
+                                if (stepKey === 'corporate_shareholder') {
+                                    const country = (item.countryOfIncorporation || '').trim().toLowerCase();
+                                    const isSG = country === 'singapore' || country === 'sg' || country === '';
+                                    if (isSG) {
+                                        isReq = (doc.type === 'bizfile' || doc.type === 'constitution');
+                                    } else {
+                                        isReq = (doc.type === 'cert_incorporation' || doc.type === 'constitution' || doc.type === 'supporting_docs');
+                                    }
+                                }
+                                if (stepKey === 'individual_shareholder') {
+                                    if (item.sameAsDirector === true || item.sameAsDirector === 'true') {
+                                        isReq = false;
+                                    }
+                                }
+                                const labelText = doc.label + (isReq ? ' (Required)' : ' (Optional)');
+                                
+                                return `
+                                <div class="ob-doc-upload" id="doc-${stepKey}-${docTypeWithIdx}" 
+                                     ${isReadOnly ? '' : `onclick="obUploadMultiItemDoc('${stepKey}','${docTypeWithIdx}','${doc.label}', ${idx})"`}
+                                     style="${uploaded ? 'border-color:#16a34a;background:#f0fdf4;' : ''} ${isReadOnly ? 'cursor:default;opacity:0.85;' : ''} padding: 12px;"
+                                >
+                                    ${uploaded
+                                        ? `<div style='color:#16a34a;font-size:11px;font-weight:700;'>✅ ${labelText}<br><span style='font-size:9px;font-weight:500;color:#374151;word-break:break-all;'>${uploaded.fileName || 'Uploaded'}</span></div>`
+                                        : `<div style='color:#64748b;'>
+                                            <svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='#94a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='margin:0 auto 4px;display:block;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='17 8 12 3 7 8'/><line x1='12' x2='12' y1='3' y2='15'/></svg>
+                                            <div style='font-size:11px;font-weight:600;'>${labelText}</div>
+                                            ${isReadOnly ? '' : `<div style='font-size:9px;color:#94a3b8;margin-top:2px;'>Click to upload</div>`}
+                                           </div>`
+                                    }
+                                </div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            let itemFieldsHtml = '';
+            if (currentManualFields && currentManualFields.length > 0) {
+                itemFieldsHtml = `
+                    <div class="ob-field-row">
+                        ${currentManualFields.map(f => {
+                            const val = item[f.key] !== undefined ? item[f.key] : '';
+                            const inputId = `ob-${stepKey}-${idx}-${f.key}`;
+                            const readonlyAttr = (f.readonly || isReadOnly) ? 'readonly' : '';
+                            
+                            if (f.type === 'select') {
+                                let disabledAttr = isReadOnly ? 'disabled' : '';
+                                if (f.key === 'uboDeclaration') {
+                                    disabledAttr = 'disabled';
+                                }
+                                return `
+                                <div class="ob-field">
+                                    <label for="${inputId}">${f.label}</label>
+                                    <select id="${inputId}" onchange="triggerMultiItemAutoSave('${stepKey}', ${idx})" ${disabledAttr}>
+                                        ${(f.options || []).map(o => `<option value='${o}' ${val === o ? 'selected' : ''}>${o}</option>`).join('')}
+                                    </select>
+                                </div>`;
+                            } else if (f.type === 'checkbox') {
+                                const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
+                                return `
+                                <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:24px;">
+                                    <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="triggerMultiItemAutoSave('${stepKey}', ${idx})" style="width:16px; height:16px; cursor:pointer;">
+                                    <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569;">${f.label}</label>
+                                </div>`;
+                            } else if (f.type === 'phone') {
+                                let fieldReadonlyAttr = readonlyAttr;
+                                if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
+                                    fieldReadonlyAttr = 'readonly';
+                                }
+                                const cbKey = `${inputId.replace(/-/g,'_')}NatCb`;
+                                return obRenderPhoneField({
+                                    inputId,
+                                    val: String(val),
+                                    readonlyAttr: fieldReadonlyAttr,
+                                    onInputCallback: `triggerMultiItemAutoSave('${stepKey}', ${idx})`
+                                });
+                            } else if (f.type === 'nationality') {
+                                let fieldReadonlyAttr = readonlyAttr;
+                                if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
+                                    fieldReadonlyAttr = 'readonly';
+                                }
+                                const cbKey = inputId.replace(/-/g,'_') + 'NatCb';
+                                // Register a global callback so obNatSelect can trigger autosave
+                                window[cbKey] = () => {
+                                    const el = document.getElementById(inputId);
+                                    if (el) {
+                                        const stepData = state.onboarding[ONBOARDING_STEPS.find(s=>s.key===stepKey).field];
+                                        if (stepData && stepData.data && stepData.data.list && stepData.data.list[idx]) {
+                                            stepData.data.list[idx][f.key] = el.value;
+                                        }
+                                        triggerMultiItemAutoSave(stepKey, idx);
+                                    }
+                                };
+                                return obRenderNationalityField({
+                                    inputId,
+                                    val: String(val),
+                                    readonlyAttr: fieldReadonlyAttr,
+                                    onChangeCallback: cbKey
+                                });
                             } else {
-                                isReq = (doc.type === 'cert_incorporation' || doc.type === 'constitution' || doc.type === 'supporting_docs');
+                                let fieldReadonlyAttr = readonlyAttr;
+                                if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
+                                    const isPersonalField = ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].includes(f.key);
+                                    if (isPersonalField) fieldReadonlyAttr = 'readonly';
+                                }
+                                return `
+                                <div class="ob-field">
+                                    <label for="${inputId}">${f.label}</label>
+                                    <input type="${f.type || 'text'}" id="${inputId}" value="${val}" placeholder="Enter ${f.label.toLowerCase()}" ${fieldReadonlyAttr} oninput="triggerMultiItemAutoSave('${stepKey}', ${idx})">
+                                </div>`;
                             }
-                        }
-                        if (stepKey === 'individual_shareholder') {
-                            if (data.sameAsDirector === true || data.sameAsDirector === 'true') {
-                                isReq = false; // Optional if same as director
-                            }
-                        }
-                        const labelText = doc.label + (isReq ? ' (Required)' : ' (Optional)');
-                        
-                        return `
-                        <div class="ob-doc-upload" id="doc-${step.key}-${doc.type}" 
-                             ${isReadOnly ? '' : `onclick="obUploadDoc('${step.key}','${doc.type}','${doc.label}')"`}
-                             style="${uploaded ? 'border-color:#16a34a;background:#f0fdf4;' : ''} ${isReadOnly ? 'cursor:default;opacity:0.85;' : ''}"
-                        >
-                            ${uploaded
-                                ? `<div style='color:#16a34a;font-size:12px;font-weight:700;'>✅ ${labelText}<br><span style='font-size:10px;font-weight:500;color:#374151;word-break:break-all;'>${uploaded.fileName || 'Uploaded'}</span></div>`
-                                : `<div style='color:#64748b;'>
-                                    <svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='#94a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='margin:0 auto 8px;display:block;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='17 8 12 3 7 8'/><line x1='12' x2='12' y1='3' y2='15'/></svg>
-                                    <div style='font-size:12px;font-weight:600;'>${labelText}</div>
-                                    ${isReadOnly ? '' : `<div style='font-size:10px;color:#94a3b8;margin-top:3px;'>Click to upload</div>`}
-                                   </div>`
-                            }
-                        </div>`;
-                    }).join('')}
+                        }).join('')}
+                    </div>
+                `;
+            }
+            
+            let itemLabel = 'Entry';
+            if (step.title) {
+                if (step.title.toLowerCase().endsWith(' details')) {
+                    itemLabel = step.title.substring(0, step.title.toLowerCase().lastIndexOf(' details'));
+                } else {
+                    itemLabel = step.title;
+                }
+            } else if (stepKey === 'director_details') {
+                itemLabel = 'Director';
+            } else if (stepKey === 'individual_shareholder') {
+                itemLabel = 'Individual Shareholder';
+            } else if (stepKey === 'corporate_shareholder') {
+                itemLabel = 'Corporate Shareholder';
+            }
+            
+            return `
+                <div style="border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; margin-bottom: 20px; background: #ffffff; position: relative;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h4 style="font-family: Outfit, sans-serif; font-size: 14px; font-weight: 800; color: #1e293b; margin: 0;">${itemLabel} #${idx + 1}</h4>
+                        ${isReadOnly || data.list.length <= 1 ? '' : `
+                            <button type="button" onclick="removeMultiItem('${stepKey}', ${idx})" style="padding: 6px 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #dc2626; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s;">
+                                ❌ Remove
+                            </button>
+                        `}
+                    </div>
+                    ${itemDocsHtml}
+                    ${itemFieldsHtml}
                 </div>
-            </div>
-        `;
-    }
+            `;
+        }).join('');
+        
+        if (!isReadOnly) {
+            let itemLabel = 'Entry';
+            if (step.title) {
+                if (step.title.toLowerCase().endsWith(' details')) {
+                    itemLabel = step.title.substring(0, step.title.toLowerCase().lastIndexOf(' details'));
+                } else {
+                    itemLabel = step.title;
+                }
+            } else if (stepKey === 'director_details') {
+                itemLabel = 'Director';
+            } else if (stepKey === 'individual_shareholder') {
+                itemLabel = 'Individual Shareholder';
+            } else if (stepKey === 'corporate_shareholder') {
+                itemLabel = 'Corporate Shareholder';
+            }
+            contentHtml += `
+                <div style="margin-top: 10px; margin-bottom: 24px;">
+                    <button type="button" onclick="addMultiItem('${stepKey}')" style="padding: 10px 20px; background: #eff6ff; border: 1px dashed #bfdbfe; border-radius: 12px; color: #2563eb; font-family: Outfit, sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+                        ➕ Add ${itemLabel}
+                    </button>
+                </div>
+            `;
+        }
+    } else {
+        const currentRequiredDocs = getStepRequiredDocs(stepKey, data);
+        const currentManualFields = getStepManualFields(stepKey, data);
+        
+        let docsHtml = '';
+        if (currentRequiredDocs && currentRequiredDocs.length > 0) {
+            docsHtml = `
+                <div style="margin-bottom: 24px;">
+                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:10px;">Required Document Uploads</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        ${currentRequiredDocs.map(doc => {
+                            const uploaded = docs.find(d => d.type === doc.type);
+                            const labelText = doc.label + ' (Required)';
+                            
+                            return `
+                            <div class="ob-doc-upload" id="doc-${step.key}-${doc.type}" 
+                                 ${isReadOnly ? '' : `onclick="obUploadDoc('${step.key}','${doc.type}','${doc.label}')"`}
+                                 style="${uploaded ? 'border-color:#16a34a;background:#f0fdf4;' : ''} ${isReadOnly ? 'cursor:default;opacity:0.85;' : ''}"
+                            >
+                                ${uploaded
+                                    ? `<div style='color:#16a34a;font-size:12px;font-weight:700;'>✅ ${labelText}<br><span style='font-size:10px;font-weight:500;color:#374151;word-break:break-all;'>${uploaded.fileName || 'Uploaded'}</span></div>`
+                                    : `<div style='color:#64748b;'>
+                                        <svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='#94a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='margin:0 auto 8px;display:block;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='17 8 12 3 7 8'/><line x1='12' x2='12' y1='3' y2='15'/></svg>
+                                        <div style='font-size:12px;font-weight:600;'>${labelText}</div>
+                                        ${isReadOnly ? '' : `<div style='font-size:10px;color:#94a3b8;margin-top:3px;'>Click to upload</div>`}
+                                       </div>`
+                                }
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
 
-    let fieldsHtml = '';
-    if (currentManualFields && currentManualFields.length > 0) {
-        fieldsHtml = `
-            <div style="margin-bottom:24px;">
-                <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:10px;">Information Checklist details</div>
-                <div class="ob-field-row">
-                    ${currentManualFields.map(f => {
-                        const val = data[f.key] !== undefined ? data[f.key] : '';
-                        const inputId = `ob-${step.key}-${f.key}`;
-                        const readonlyAttr = (f.readonly || isReadOnly) ? 'readonly' : '';
-                        
-                        if (f.type === 'select') {
-                            let disabledAttr = isReadOnly ? 'disabled' : '';
-                            if (f.key === 'uboDeclaration') {
-                                disabledAttr = 'disabled'; // forced based on >= 25% ownership
+        let fieldsHtml = '';
+        if (currentManualFields && currentManualFields.length > 0) {
+            fieldsHtml = `
+                <div style="margin-bottom:24px;">
+                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:10px;">Information Checklist details</div>
+                    <div class="ob-field-row">
+                        ${currentManualFields.map(f => {
+                            const val = data[f.key] !== undefined ? data[f.key] : '';
+                            const inputId = `ob-${step.key}-${f.key}`;
+                            const readonlyAttr = (f.readonly || isReadOnly) ? 'readonly' : '';
+                            
+                            if (f.type === 'select') {
+                                return `
+                                <div class="ob-field">
+                                    <label for="${inputId}">${f.label}</label>
+                                    <select id="${inputId}" onchange="triggerAutoSave('${step.key}')" ${isReadOnly ? 'disabled' : ''}>
+                                        ${(f.options || []).map(o => `<option value='${o}' ${val === o ? 'selected' : ''}>${o}</option>`).join('')}
+                                    </select>
+                                </div>`;
+                            } else if (f.type === 'checkbox') {
+                                return `
+                                <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:24px;">
+                                    <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${isReadOnly ? 'disabled' : ''} onchange="triggerAutoSave('${step.key}')" style="width:16px; height:16px; cursor:pointer;">
+                                    <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569;">${f.label}</label>
+                                </div>`;
+                            } else if (f.type === 'phone') {
+                                return obRenderPhoneField({
+                                    inputId,
+                                    val: String(val),
+                                    readonlyAttr,
+                                    onInputCallback: `triggerAutoSave('${step.key}')`
+                                });
+                            } else if (f.type === 'nationality') {
+                                const cbKey = inputId.replace(/-/g,'_') + 'NatCb';
+                                window[cbKey] = () => {
+                                    const el = document.getElementById(inputId);
+                                    if (el) {
+                                        const sf = ONBOARDING_STEPS.find(s=>s.key===step.key).field;
+                                        if (!state.onboarding[sf]) state.onboarding[sf] = { data:{}, status:'pending', documents:[] };
+                                        state.onboarding[sf].data[f.key] = el.value;
+                                        triggerAutoSave(step.key);
+                                    }
+                                };
+                                return obRenderNationalityField({
+                                    inputId,
+                                    val: String(val),
+                                    readonlyAttr,
+                                    onChangeCallback: cbKey
+                                });
+                            } else {
+                                return `
+                                <div class="ob-field">
+                                    <label for="${inputId}">${f.label}</label>
+                                    <input type="${f.type || 'text'}" id="${inputId}" value="${val}" placeholder="Enter ${f.label.toLowerCase()}" ${readonlyAttr} oninput="triggerAutoSave('${step.key}')">
+                                </div>`;
                             }
-                            return `
-                            <div class="ob-field">
-                                <label for="${inputId}">${f.label}</label>
-                                <select id="${inputId}" onchange="triggerAutoSave('${step.key}')" ${disabledAttr}>
-                                    ${(f.options || []).map(o => `<option value='${o}' ${val === o ? 'selected' : ''}>${o}</option>`).join('')}
-                                </select>
-                            </div>`;
-                        } else if (f.type === 'checkbox') {
-                            const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
-                            return `
-                            <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:24px;">
-                                <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="triggerAutoSave('${step.key}')" style="width:16px; height:16px; cursor:pointer;">
-                                <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569;">${f.label}</label>
-                            </div>`;
-                        } else {
-                            // Check if field should be disabled because sameAsDirector is checked
-                            let fieldReadonlyAttr = readonlyAttr;
-                            if (stepKey === 'individual_shareholder' && (data.sameAsDirector === true || data.sameAsDirector === 'true')) {
-                                const isPersonalField = ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].includes(f.key);
-                                if (isPersonalField) fieldReadonlyAttr = 'readonly';
-                            }
-                            return `
-                            <div class="ob-field">
-                                <label for="${inputId}">${f.label}</label>
-                                <input type="${f.type || 'text'}" id="${inputId}" value="${val}" placeholder="Enter ${f.label.toLowerCase()}" ${fieldReadonlyAttr} oninput="triggerAutoSave('${step.key}')">
-                            </div>`;
-                        }
-                    }).join('')}
+                        }).join('')}
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
+        }
+        
+        contentHtml = docsHtml + fieldsHtml;
     }
 
     if (stepKey === 'final_declaration') {
         const incompleteSteps = ONBOARDING_STEPS.filter(s => s.key !== 'final_declaration' && !['completed', 'approved', 'submitted', 'under_review'].includes(getFriendlyStatus(s.key, state.onboarding)));
         if (incompleteSteps.length > 0) {
-            fieldsHtml = `
+            contentHtml = `
                 <div style="margin-bottom:24px;background:#fef2f2;border:1px solid #fecaca;border-radius:16px;padding:20px;">
                     <div style="font-size:14px;font-weight:800;color:#dc2626;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -1012,14 +1897,14 @@ function renderActiveStepForm(container) {
                         ${incompleteSteps.map(s => `<li>${s.title}</li>`).join('')}
                     </ul>
                 </div>
-            ` + fieldsHtml;
+            ` + contentHtml;
         } else {
-            fieldsHtml = `
+            contentHtml = `
                 <div style="margin-bottom:24px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:16px;padding:20px;display:flex;align-items:center;gap:12px;color:#16a34a;font-weight:600;font-size:13px;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                     All previous onboarding steps are completed successfully! Please review, sign the declarations, and submit.
                 </div>
-            ` + fieldsHtml;
+            ` + contentHtml;
         }
     }
 
@@ -1075,8 +1960,7 @@ function renderActiveStepForm(container) {
         
         <div id="ob-validation-errors" class="mb-5 p-4 bg-red-50 border border-red-100 rounded-xl hidden"></div>
         
-        ${docsHtml}
-        ${fieldsHtml}
+        ${contentHtml}
         ${declHtml}
         
         <div style="display:flex;justify-content:space-between;margin-top:32px;padding-top:20px;border-top:1px solid #f1f5f9;">
@@ -1138,37 +2022,35 @@ function updateWizardUIFeedback() {
         }
     });
 
-    // 3. Validation errors
+    // 3. Validation errors — highlight fields in red instead of showing a list
     const errors = validateStep(state.activeObStepKey, ob);
     const errContainer = document.getElementById('ob-validation-errors');
+    const showErrors = !!(errors.length > 0 && state.showObErrors && state.showObErrors[state.activeObStepKey]);
+
     if (errContainer) {
-        if (errors.length > 0) {
+        if (showErrors) {
             errContainer.classList.remove('hidden');
             errContainer.innerHTML = `
-                <div style="font-size:12px;font-weight:700;color:#991b1b;margin-bottom:6px;">⚠️ Mandatory items missing:</div>
-                <ul style="list-style-type:disc;padding-left:16px;font-size:11px;color:#b91c1c;margin:0;">
-                    ${errors.map(err => `<li>${err}</li>`).join('')}
-                </ul>
+                <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:#991b1b;">
+                    <span style="font-size:16px;">⚠️</span>
+                    <span>Please fill in the highlighted required fields to continue.</span>
+                </div>
             `;
         } else {
             errContainer.classList.add('hidden');
         }
     }
 
+    // Apply or clear red highlights on individual fields
+    highlightInvalidFields(state.activeObStepKey, ob, showErrors);
+
     // 4. Continue button
     const continueBtn = document.getElementById('ob-continue-btn');
     if (continueBtn) {
-        if (errors.length === 0) {
-            continueBtn.disabled = false;
-            continueBtn.style.opacity = '1';
-            continueBtn.style.cursor = 'pointer';
-            continueBtn.style.background = 'linear-gradient(135deg,#3b82f6,#06b6d4)';
-        } else {
-            continueBtn.disabled = true;
-            continueBtn.style.opacity = '0.5';
-            continueBtn.style.cursor = 'not-allowed';
-            continueBtn.style.background = '#e2e8f0';
-        }
+        continueBtn.disabled = false;
+        continueBtn.style.opacity = '1';
+        continueBtn.style.cursor = 'pointer';
+        continueBtn.style.background = 'linear-gradient(135deg,#3b82f6,#06b6d4)';
     }
 
     // 5. Submit for Verification button
@@ -1260,6 +2142,17 @@ function triggerAutoSave(stepKey) {
             if (el) {
                 if (f.type === 'checkbox') {
                     stepData.data[f.key] = el.checked;
+                } else if (f.type === 'phone') {
+                    stepData.data[f.key] = el.dataset.fullVal || ((() => {
+                        const sel = document.getElementById(`ob-${stepKey}-${f.key}-country`);
+                        if (sel) {
+                            const [code, dial] = sel.value.split('|');
+                            return `${code}:${dial}:${el.value}`;
+                        }
+                        return el.value;
+                    })());
+                } else if (f.type === 'nationality') {
+                    stepData.data[f.key] = el.value;
                 } else {
                     stepData.data[f.key] = el.value;
                 }
@@ -1275,17 +2168,19 @@ function triggerAutoSave(stepKey) {
     if (stepKey === 'individual_shareholder') {
         const sameAsDirectorEl = document.getElementById('ob-individual_shareholder-sameAsDirector');
         if (sameAsDirectorEl && sameAsDirectorEl.checked) {
-            const dirStepField = ONBOARDING_STEPS.find(s => s.key === 'director_details').field;
-            const dirData = (state.onboarding[dirStepField] || {}).data || {};
-            
-            // Copy fields
-            ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].forEach(key => {
-                const el = document.getElementById(`ob-individual_shareholder-${key}`);
-                if (el && dirData[key]) {
-                    el.value = dirData[key];
-                    stepData.data[key] = dirData[key];
-                }
-            });
+            const dirStep = ONBOARDING_STEPS.find(s => s.key === 'director_details');
+            const dirStepField = dirStep ? dirStep.field : null;
+            if (dirStepField) {
+                const dirData = (state.onboarding[dirStepField] || {}).data || {};
+                // Copy fields
+                ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].forEach(key => {
+                    const el = document.getElementById(`ob-individual_shareholder-${key}`);
+                    if (el && dirData[key]) {
+                        el.value = dirData[key];
+                        stepData.data[key] = dirData[key];
+                    }
+                });
+            }
         }
     }
     
@@ -1319,44 +2214,47 @@ function triggerAutoSave(stepKey) {
             
             // Auto-populate Step 5 (UBO) from Step 3 when shareholder has >= 25% ownership
             if (stepKey === 'individual_shareholder' && pct >= 25) {
-                const uboField = ONBOARDING_STEPS.find(s => s.key === 'ubo').field;
-                if (!state.onboarding[uboField]) state.onboarding[uboField] = { data: {}, status: 'pending', documents: [] };
-                
-                // Copy fields
-                ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile', 'ownershipPercentage'].forEach(key => {
-                    const sourceVal = stepData.data[key];
-                    if (sourceVal !== undefined) {
-                        state.onboarding[uboField].data[key] = sourceVal;
+                const uboStep = ONBOARDING_STEPS.find(s => s.key === 'ubo');
+                const uboField = uboStep ? uboStep.field : null;
+                if (uboField) {
+                    if (!state.onboarding[uboField]) state.onboarding[uboField] = { data: {}, status: 'pending', documents: [] };
+                    
+                    // Copy fields
+                    ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile', 'ownershipPercentage'].forEach(key => {
+                        const sourceVal = stepData.data[key];
+                        if (sourceVal !== undefined) {
+                            state.onboarding[uboField].data[key] = sourceVal;
+                        }
+                    });
+                    
+                    // Also copy NRIC/FIN document if uploaded in step 3
+                    const sourceDocs = stepData.documents || [];
+                    const nricDoc = sourceDocs.find(d => d.type === 'nric');
+                    if (nricDoc) {
+                        const targetDocs = state.onboarding[uboField].documents || [];
+                        const hasNric = targetDocs.some(d => d.type === 'nric');
+                        if (!hasNric) {
+                            targetDocs.push({ ...nricDoc });
+                            state.onboarding[uboField].documents = targetDocs;
+                        }
                     }
-                });
-                
-                // Also copy NRIC/FIN document if uploaded in step 3
-                const sourceDocs = stepData.documents || [];
-                const nricDoc = sourceDocs.find(d => d.type === 'nric');
-                if (nricDoc) {
-                    const targetDocs = state.onboarding[uboField].documents || [];
-                    const hasNric = targetDocs.some(d => d.type === 'nric');
-                    if (!hasNric) {
-                        targetDocs.push({ ...nricDoc });
-                        state.onboarding[uboField].documents = targetDocs;
-                    }
+                    
+                    // Trigger background save of UBO step data so it persists
+                    (async () => {
+                        await ensureOnboardingRecord();
+                        if (state.onboardingId) {
+                            await fetch(`/api/onboarding/${state.onboardingId}/step/ubo`, {
+                                method: 'PATCH',
+                                headers: {'Content-Type':'application/json'},
+                                body: JSON.stringify({
+                                    data: state.onboarding[uboField].data,
+                                    documents: state.onboarding[uboField].documents,
+                                    status: 'pending'
+                                })
+                            });
+                        }
+                    })();
                 }
-                
-                // Trigger background save of UBO step data so it persists
-                (async () => {
-                    await ensureOnboardingRecord();
-                    if (state.onboardingId) {
-                        await fetch(`/api/onboarding/${state.onboardingId}/step/ubo`, {
-                            method: 'PATCH',
-                            headers: {'Content-Type':'application/json'},
-                            body: JSON.stringify({
-                                data: state.onboarding[uboField].data,
-                                documents: state.onboarding[uboField].documents,
-                                status: 'pending'
-                            })
-                        });
-                    }
-                })();
             }
         }
     }
@@ -1555,6 +2453,14 @@ async function ensureOnboardingRecord() {
 }
 
 async function obNextStep() {
+    const ob = state.onboarding || {};
+    const errors = validateStep(state.activeObStepKey, ob);
+    if (errors.length > 0) {
+        if (!state.showObErrors) state.showObErrors = {};
+        state.showObErrors[state.activeObStepKey] = true;
+        updateWizardUIFeedback();
+        return;
+    }
     const stepIndex = ONBOARDING_STEPS.findIndex(s => s.key === state.activeObStepKey);
     if (stepIndex !== -1 && stepIndex < ONBOARDING_STEPS.length - 1) {
         const nextStep = ONBOARDING_STEPS[stepIndex + 1];
@@ -2934,6 +3840,10 @@ window.obUploadDoc = obUploadDoc;
 window.obNextStep = obNextStep;
 window.obPrevStep = obPrevStep;
 window.obSubmitAllForVerification = obSubmitAllForVerification;
+window.addMultiItem = addMultiItem;
+window.removeMultiItem = removeMultiItem;
+window.triggerMultiItemAutoSave = triggerMultiItemAutoSave;
+window.obUploadMultiItemDoc = obUploadMultiItemDoc;
 
 async function openPortalShuftiModal() {
     const modal = document.getElementById('modal-container');
@@ -3538,5 +4448,344 @@ function refreshPortalHome() {
         const view = document.getElementById('main-view');
         renderHome(view);
     }
+}
+
+function triggerMultiItemAutoSave(stepKey, idx) {
+    if (obAutoSaveTimeout) clearTimeout(obAutoSaveTimeout);
+    
+    const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+    if (!step) return;
+    const stepField = step.field;
+    if (!state.onboarding) state.onboarding = {};
+    if (!state.onboarding[stepField]) state.onboarding[stepField] = { data: { list: [] }, status: 'pending', documents: [] };
+    const stepData = state.onboarding[stepField];
+    if (!stepData.data.list) stepData.data.list = [];
+    if (!stepData.data.list[idx]) stepData.data.list[idx] = {};
+    const item = stepData.data.list[idx];
+    
+    const currentManualFields = getStepManualFields(stepKey, item);
+    if (currentManualFields) {
+        currentManualFields.forEach(f => {
+            const el = document.getElementById(`ob-${stepKey}-${idx}-${f.key}`);
+            if (el) {
+                if (f.type === 'checkbox') {
+                    item[f.key] = el.checked;
+                } else if (f.type === 'phone') {
+                    // Read composite value: code:dial:number from data attribute, fallback to plain number
+                    item[f.key] = el.dataset.fullVal || ((() => {
+                        const sel = document.getElementById(`ob-${stepKey}-${idx}-${f.key}-country`);
+                        if (sel) {
+                            const [code, dial] = sel.value.split('|');
+                            return `${code}:${dial}:${el.value}`;
+                        }
+                        return el.value;
+                    })());
+                } else if (f.type === 'nationality') {
+                    item[f.key] = el.value;
+                } else {
+                    item[f.key] = el.value;
+                }
+            }
+        });
+    }
+
+    if (stepKey === 'individual_shareholder') {
+        const sameAsDirectorEl = document.getElementById(`ob-individual_shareholder-${idx}-sameAsDirector`);
+        if (sameAsDirectorEl && sameAsDirectorEl.checked) {
+            const dirStep = ONBOARDING_STEPS.find(s => s.key === 'director_details');
+            const dirStepField = dirStep ? dirStep.field : null;
+            if (dirStepField) {
+                const dirList = (state.onboarding[dirStepField] || {}).data?.list || [];
+                const dirData = dirList[idx] || dirList[0] || {};
+                
+                ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].forEach(key => {
+                    const el = document.getElementById(`ob-individual_shareholder-${idx}-${key}`);
+                    if (el && dirData[key]) {
+                        el.value = dirData[key];
+                        item[key] = dirData[key];
+                    }
+                });
+            }
+        }
+    }
+
+    if (stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') {
+        const numSharesEl = document.getElementById(`ob-${stepKey}-${idx}-numberOfShares`);
+        const totalSharesEl = document.getElementById(`ob-${stepKey}-${idx}-totalShares`);
+        const totalShareCapitalEl = document.getElementById(`ob-${stepKey}-${idx}-totalShareCapital`);
+        const shareCapitalAmountEl = document.getElementById(`ob-${stepKey}-${idx}-shareCapitalAmount`);
+        const ownershipEl = document.getElementById(`ob-${stepKey}-${idx}-ownershipPercentage`);
+        const uboEl = document.getElementById(`ob-${stepKey}-${idx}-uboDeclaration`);
+        
+        if (numSharesEl) {
+            const num = parseFloat(numSharesEl.value) || 0;
+            const totalShares = totalSharesEl ? (parseFloat(totalSharesEl.value) || 0) : 0;
+            const totalShareCapital = totalShareCapitalEl ? (parseFloat(totalShareCapitalEl.value) || 0) : 0;
+            
+            const pct = totalShares > 0 ? Math.min(100, Math.round((num / totalShares) * 100 * 100) / 100) : 0;
+            if (ownershipEl) {
+                ownershipEl.value = pct;
+                item.ownershipPercentage = pct;
+            }
+            if (shareCapitalAmountEl && totalShares > 0) {
+                const calculatedCapital = Math.round((num / totalShares) * totalShareCapital * 100) / 100;
+                shareCapitalAmountEl.value = calculatedCapital;
+                item.shareCapitalAmount = calculatedCapital;
+            }
+            if (uboEl) {
+                const uboVal = pct >= 25 ? 'Yes' : 'No';
+                uboEl.value = uboVal;
+                item.uboDeclaration = uboVal;
+            }
+            
+            if (stepKey === 'individual_shareholder' && pct >= 25) {
+                syncUBOFromIndividualShareholder(idx, item);
+            }
+        }
+    }
+    
+    state.onboarding[stepField] = stepData;
+    updateWizardUIFeedback();
+    
+    obAutoSaveTimeout = setTimeout(async () => {
+        await ensureOnboardingRecord();
+        if (!state.onboardingId) return;
+        
+        try {
+            const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
+                method: 'PATCH',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    data: stepData.data,
+                    status: stepData.status
+                })
+            });
+            if (res.ok) {
+                const updated = await res.json();
+                state.onboarding = updated;
+                console.log(`Auto-saved step ${stepKey}`);
+            }
+        } catch (e) {
+            console.error('Error auto-saving step:', e);
+        }
+    }, 1000);
+}
+
+function syncUBOFromIndividualShareholder(idx, item) {
+    const uboStep = ONBOARDING_STEPS.find(s => s.key === 'ubo');
+    const uboField = uboStep ? uboStep.field : null;
+    if (!uboField) return;
+
+    if (!state.onboarding[uboField]) state.onboarding[uboField] = { data: {}, status: 'pending', documents: [] };
+    
+    ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile', 'ownershipPercentage'].forEach(key => {
+        const sourceVal = item[key];
+        if (sourceVal !== undefined) {
+            state.onboarding[uboField].data[key] = sourceVal;
+        }
+    });
+    
+    const indStep = ONBOARDING_STEPS.find(s => s.key === 'individual_shareholder');
+    const indStepField = indStep ? indStep.field : null;
+    if (indStepField) {
+        const sourceDocs = state.onboarding[indStepField].documents || [];
+        const nricDoc = sourceDocs.find(d => d.type === `nric_${idx}`);
+        if (nricDoc) {
+            const targetDocs = state.onboarding[uboField].documents || [];
+            const hasNric = targetDocs.some(d => d.type === 'nric');
+            if (!hasNric) {
+                targetDocs.push({ ...nricDoc, type: 'nric' });
+                state.onboarding[uboField].documents = targetDocs;
+            }
+        }
+    }
+    
+    (async () => {
+        await ensureOnboardingRecord();
+        if (state.onboardingId) {
+            await fetch(`/api/onboarding/${state.onboardingId}/step/ubo`, {
+                method: 'PATCH',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    data: state.onboarding[uboField].data,
+                    documents: state.onboarding[uboField].documents,
+                    status: 'pending'
+                })
+            });
+        }
+    })();
+}
+
+async function addMultiItem(stepKey) {
+    const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+    if (!step) return;
+    const stepField = step.field;
+    if (!state.onboarding[stepField]) state.onboarding[stepField] = { data: { list: [] }, status: 'pending', documents: [] };
+    const stepData = state.onboarding[stepField];
+    if (!stepData.data.list) stepData.data.list = [];
+    
+    stepData.data.list.push({});
+    state.onboarding[stepField] = stepData;
+    
+    await ensureOnboardingRecord();
+    if (state.onboardingId) {
+        try {
+            const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
+                method: 'PATCH',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    data: stepData.data,
+                    status: 'pending'
+                })
+            });
+            if (res.ok) {
+                state.onboarding = await res.json();
+            }
+        } catch(e) {}
+    }
+    
+    const workspace = document.getElementById('ob-form-workspace');
+    if (workspace) renderActiveStepForm(workspace);
+    updateWizardUIFeedback();
+}
+
+async function removeMultiItem(stepKey, idx) {
+    const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+    if (!step) return;
+    const stepField = step.field;
+    const stepData = state.onboarding[stepField];
+    if (!stepData || !stepData.data.list) return;
+    
+    stepData.data.list.splice(idx, 1);
+    
+    if (stepData.documents) {
+        const newDocs = [];
+        stepData.documents.forEach(d => {
+            const docMatch = d.type.match(/^(.+)_(\d+)$/);
+            if (docMatch) {
+                const docTypePrefix = docMatch[1];
+                const docIdx = parseInt(docMatch[2]);
+                if (docIdx === idx) {
+                    // Deleted
+                } else if (docIdx > idx) {
+                    d.type = `${docTypePrefix}_${docIdx - 1}`;
+                    newDocs.push(d);
+                } else {
+                    newDocs.push(d);
+                }
+            } else {
+                newDocs.push(d);
+            }
+        });
+        stepData.documents = newDocs;
+    }
+    
+    state.onboarding[stepField] = stepData;
+    
+    await ensureOnboardingRecord();
+    if (state.onboardingId) {
+        try {
+            const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
+                method: 'PATCH',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    data: stepData.data,
+                    documents: stepData.documents,
+                    status: 'pending'
+                })
+            });
+            if (res.ok) {
+                state.onboarding = await res.json();
+            }
+        } catch(e) {}
+    }
+    
+    const workspace = document.getElementById('ob-form-workspace');
+    if (workspace) renderActiveStepForm(workspace);
+    updateWizardUIFeedback();
+}
+
+async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.jpg,.jpeg,.png,.pdf';
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const docEl = document.getElementById(`doc-${stepKey}-${docTypeWithIdx}`);
+        if (docEl) docEl.innerHTML = `<div style='color:#3b82f6;font-size:11px;font-weight:700;'>⏳ Uploading & extracting...</div>`;
+        
+        let extracted = {};
+        const docType = docTypeWithIdx.split('_')[0];
+        try {
+            const ocrRes = await fetch('/api/onboarding/ocr-extract', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ type: docType, fileName: file.name })
+            });
+            if (ocrRes.ok) extracted = await ocrRes.json();
+        } catch(e) {}
+        
+        await ensureOnboardingRecord();
+        if (state.onboardingId) {
+            const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
+            const currentDocs = state.onboarding[stepField].documents || [];
+            
+            const filteredDocs = currentDocs.filter(d => d.type !== docTypeWithIdx);
+            
+            const newDoc = {
+                id: "DOC-" + Date.now() + "-" + Math.floor(Math.random() * 1000),
+                type: docTypeWithIdx,
+                label: docLabel,
+                fileName: file.name,
+                fileData: 'uploaded',
+                mimeType: file.type,
+                status: 'pending',
+                extractedData: extracted,
+                uploadedAt: Date.now()
+            };
+            filteredDocs.push(newDoc);
+            
+            const patchRes = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
+                method: 'PATCH',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    documents: filteredDocs
+                })
+            });
+            if (patchRes.ok) {
+                const updatedOb = await patchRes.json();
+                state.onboarding = updatedOb;
+                
+                if (extracted) {
+                    const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+                    if (step) {
+                        const item = state.onboarding[step.field].data.list[idx];
+                        if (item) {
+                            Object.entries(extracted).forEach(([k, v]) => {
+                                if (v && k !== 'confidence' && k !== 'extractedAt') {
+                                    item[k] = v;
+                                }
+                            });
+                        }
+                    }
+                }
+                
+                await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
+                    method: 'PATCH',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                        data: state.onboarding[stepField].data
+                    })
+                });
+            }
+        }
+        
+        const workspace = document.getElementById('ob-form-workspace');
+        if (workspace) renderActiveStepForm(workspace);
+        updateWizardUIFeedback();
+    }
+    input.click();
 }
 

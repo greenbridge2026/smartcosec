@@ -295,7 +295,7 @@ const getDb = () => {
                 fields: [
                     { key: "contact.firstName", label: "First Name", type: "text", required: true, placeholder: "First name" },
                     { key: "contact.lastName", label: "Last Name", type: "text", required: true, placeholder: "Last name" },
-                    { key: "contact.phone", label: "Contact Number", type: "text", required: true, placeholder: "+65 1234 5678" },
+                    { key: "contact.phone", label: "Contact Number", type: "text", required: true, placeholder: "1234 5678" },
                     { key: "contact.email", label: "Email ID", type: "text", required: true, placeholder: "email@example.com" }
                 ],
                 documents: [],
