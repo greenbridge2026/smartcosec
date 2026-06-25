@@ -203,9 +203,9 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                <!-- Left Column: Section List & Reordering -->
-                <div class="lg:col-span-4 space-y-4">
+            <div class="grid grid-cols-12 gap-6">
+                <!-- Top Section: Sections Horizontal List -->
+                <div class="col-span-12">
                     <div class="glass-card p-5">
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="font-bold text-slate-900 text-[13px] uppercase tracking-wider">Sections</h3>
@@ -213,17 +213,17 @@
                                 <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Section
                             </button>
                         </div>
-                        <div id="sections-container" class="space-y-3">
+                        <div id="sections-container" class="flex flex-row overflow-x-auto gap-4 pb-3 scrollbar-thin">
                             <!-- Dynamic list of sections -->
-                            <div class="flex items-center justify-center p-8 text-slate-400 text-sm">
+                            <div class="flex items-center justify-center p-8 text-slate-400 text-sm w-full">
                                 <i data-lucide="loader" class="w-5 h-5 animate-spin mr-2"></i> Loading sections...
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Right Column: Editor Panel -->
-                <div class="lg:col-span-8">
+                <!-- Bottom Section: Editor Panel -->
+                <div class="col-span-12">
                     <div id="editor-placeholder" class="glass-card p-12 text-center flex flex-col items-center justify-center text-slate-400 min-h-[500px]">
                         <i data-lucide="pen" class="w-16 h-16 text-slate-300 mb-4 animate-bounce"></i>
                         <h3 class="text-lg font-bold text-slate-700">No Section Selected</h3>
@@ -247,19 +247,44 @@
                         </div>
 
                         <!-- Section Header Details -->
-                        <div class="px-8 pt-6 pb-0 bg-white">
-                            <div class="flex items-center gap-2 mb-2 group">
-                                <h3 class="text-2xl font-bold text-slate-900" id="editor-section-title">Section Title</h3>
-                                <button onclick="openEditDetailsModal()" class="text-slate-300 hover:text-blue-600 p-1 transition-colors opacity-0 group-hover:opacity-100" title="Edit Section Details">
-                                    <i data-lucide="pen" class="w-4 h-4"></i>
-                                </button>
+                        <div class="px-8 pt-6 pb-0 bg-white border-b border-slate-100">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div class="flex flex-col gap-1.5">
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Section Title</label>
+                                    <input type="text" id="sec-title-input" class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all" placeholder="Enter Section Title" oninput="updateSectionTitleLive(this.value)">
+                                </div>
+                                <div class="flex flex-col gap-1.5">
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sub-title Description</label>
+                                    <input type="text" id="sec-desc-input" class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 outline-none focus:border-blue-500 focus:bg-white transition-all" placeholder="Enter Section Description" oninput="updateSectionDescLive(this.value)">
+                                </div>
                             </div>
-                            <div class="flex items-center gap-2 mb-4">
-                                <span class="text-[11px] font-semibold text-slate-500">Section Key (unique API name):</span>
-                                <span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-mono font-bold" id="editor-section-key">key</span>
-                            </div>
-                            <p class="text-[13px] text-slate-500 mb-6" id="editor-section-desc">Description goes here.</p>
                             
+                            <div class="flex flex-wrap items-center gap-x-6 gap-y-3 mt-4 pt-4 border-t border-slate-100 text-xs pb-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Section Key:</span>
+                                    <input type="text" id="sec-key-input" class="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-[11px] font-mono font-bold text-slate-600 outline-none focus:border-blue-500 w-32" placeholder="section_key" disabled>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Section Type:</span>
+                                    <select id="sec-type-select" class="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-[11px] font-bold text-slate-700 outline-none cursor-pointer focus:border-blue-500">
+                                        <option value="form">Standard Form</option>
+                                        <option value="repeater">Repeater Form</option>
+                                        <option value="custom">Custom Component</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Applicable Services:</span>
+                                    <input type="text" id="sec-services-input" class="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 w-36 text-[11px] font-bold text-slate-700 outline-none focus:border-blue-500" placeholder="e.g. All">
+                                </div>
+                            </div>
+                            
+                            <!-- Hidden elements for backward compatibility -->
+                            <div style="display: none;">
+                                <h3 id="editor-section-title">Section Title</h3>
+                                <p id="editor-section-desc">Description</p>
+                                <span id="editor-section-key">key</span>
+                            </div>
+
                             <!-- Tabs Navigation -->
                             <div class="flex items-center gap-6 border-b border-slate-200">
                                 <button onclick="switchTab('fields')" id="tab-fields" class="pb-3 text-[13px] font-bold border-b-2 transition-colors border-blue-600 text-blue-600 flex items-center gap-2 -mb-[1px]">
@@ -536,6 +561,24 @@
         let selectedSectionId = null;
         let draggedElementId = null;
 
+        function updateSectionTitleLive(val) {
+            const sec = sections.find(s => s.id === selectedSectionId);
+            if (sec) {
+                sec.title = val;
+                const sidebarTitle = document.querySelector(`.section-item[data-id="${selectedSectionId}"] h4`);
+                if (sidebarTitle) {
+                    sidebarTitle.innerText = val || 'Untitled Section';
+                }
+            }
+        }
+
+        function updateSectionDescLive(val) {
+            const sec = sections.find(s => s.id === selectedSectionId);
+            if (sec) {
+                sec.description = val;
+            }
+        }
+
         function showToast(msg, type = 'success') {
             const container = document.getElementById('toast-container') || (() => {
                 const div = document.createElement('div');
@@ -632,11 +675,10 @@
                 const fCount = sec.fields ? sec.fields.length : 0;
                 const dCount = sec.documents ? sec.documents.length : 0;
                 const cCount = sec.checklists ? sec.checklists.length : 0;
-                const faqCount = sec.faqs ? sec.faqs.length : 0;
-                const statsText = `${fCount} Field${fCount !== 1 ? 's' : ''} &bull; ${dCount} Doc${dCount !== 1 ? 's' : ''} &bull; ${cCount} Checklist &bull; ${faqCount} FAQ${faqCount !== 1 ? 's' : ''}`;
+                const statsText = `${fCount} Fld${fCount !== 1 ? 's' : ''} &bull; ${dCount} Doc${dCount !== 1 ? 's' : ''} &bull; ${cCount} Chk`;
 
                 return `
-                    <div class="section-item p-4 bg-white border ${isSelected ? 'border-blue-500 ring-2 ring-blue-500/10' : 'border-slate-100'} rounded-2xl transition-all shadow-sm flex items-center justify-between"
+                    <div class="section-item p-4 bg-white border ${isSelected ? 'border-blue-500 ring-2 ring-blue-500/10' : 'border-slate-100 hover:border-blue-300 hover:bg-slate-50/20'} rounded-2xl transition-all shadow-sm flex flex-col gap-3 min-w-[280px] max-w-[320px] shrink-0 cursor-pointer"
                          draggable="true" 
                          data-id="${sec.id}"
                          onclick="selectSection('${sec.id}')"
@@ -645,21 +687,29 @@
                          ondragend="handleDragEnd(event)" 
                          ondrop="handleDrop(event)">
                         
-                        <div class="flex items-center gap-4 min-w-0">
-                            <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${iconBg}">
-                                <i data-lucide="${iconName}" class="w-6 h-6"></i>
+                        <div class="flex items-start justify-between min-w-0">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${iconBg}">
+                                    <i data-lucide="${iconName}" class="w-5 h-5"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <h4 class="font-bold text-slate-900 text-xs truncate leading-tight">${sec.title}</h4>
+                                    <span class="text-[9px] font-mono text-slate-400 mt-0.5 block truncate uppercase tracking-wider">${sec.key}</span>
+                                </div>
                             </div>
-                            <div class="min-w-0">
-                                <h4 class="font-bold text-slate-900 text-[15px] truncate">${sec.title}</h4>
-                                <p class="text-xs text-slate-500 mt-0.5 truncate">${statsText}</p>
-                            </div>
+                            <span class="px-2 py-0.5 rounded-md text-[9px] font-bold shrink-0 ${badgeClass}">${statusText}</span>
                         </div>
 
-                        <div class="flex items-center gap-4 shrink-0 ml-2">
-                            <span class="px-2.5 py-1 rounded-md text-[11px] font-bold ${badgeClass}">${statusText}</span>
-                            <button class="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition-colors" onclick="event.stopPropagation()">
-                                <i data-lucide="more-vertical" class="w-4 h-4"></i>
-                            </button>
+                        <div class="flex items-center justify-between border-t border-slate-100 pt-2.5 mt-1">
+                            <div class="flex gap-1 shrink-0">
+                                <button onclick="moveSection('${sec.id}', -1, event)" class="p-1 hover:bg-slate-100 border border-slate-200 rounded-md text-slate-500 hover:text-slate-900 transition-all ${idx === 0 ? 'opacity-30 cursor-not-allowed' : ''}" title="Move Left">
+                                    <i data-lucide="arrow-left" class="w-3 h-3"></i>
+                                </button>
+                                <button onclick="moveSection('${sec.id}', 1, event)" class="p-1 hover:bg-slate-100 border border-slate-200 rounded-md text-slate-500 hover:text-slate-900 transition-all ${idx === sections.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}" title="Move Right">
+                                    <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                                </button>
+                            </div>
+                            <span class="text-[9px] text-slate-400 font-bold shrink-0">${statsText}</span>
                         </div>
                     </div>
                 `;
@@ -674,11 +724,11 @@
             // Highlight list item
             document.querySelectorAll('.section-item').forEach(el => {
                 if (el.getAttribute('data-id') === id) {
-                    el.classList.remove('border-white/80');
+                    el.classList.remove('border-slate-100', 'hover:border-blue-300', 'hover:bg-slate-50/20');
                     el.classList.add('border-blue-500', 'ring-2', 'ring-blue-500/10');
                 } else {
                     el.classList.remove('border-blue-500', 'ring-2', 'ring-blue-500/10');
-                    el.classList.add('border-white/80');
+                    el.classList.add('border-slate-100', 'hover:border-blue-300', 'hover:bg-slate-50/20');
                 }
             });
 

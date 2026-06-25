@@ -191,21 +191,21 @@
                                 localStorage.setItem('admin_auth', JSON.stringify({ role: 'admin', email: email, name: name, id: data.id, token: data.token }));
                                 window.location.href = '/admin/dashboard.html';
                             } else {
-                                localStorage.setItem('client_auth', JSON.stringify({ role: 'client', email: email, name: name, id: data.id }));
+                                localStorage.setItem('client_auth', JSON.stringify({ role: 'client', email: email, name: name, id: data.id, token: data.token }));
                                 try {
-                                    const reqRes = await fetch('/api/requirements', { headers: { 'Authorization': 'Bearer ' + data.token } });
-                                    if (reqRes.ok) {
-                                        const reqData = await reqRes.json();
-                                        if (reqData.status === 'approved') {
-                                            window.location.href = '/client/portal.html';
+                                    const statusRes = await fetch('/api/onboarding/client/' + data.id + '/status');
+                                    if (statusRes.ok) {
+                                        const statusData = await statusRes.json();
+                                        if (statusData.portalActivated) {
+                                            window.location.href = '/client/portal.html?tab=home';
                                         } else {
-                                            window.location.href = '/requirements.html';
+                                            window.location.href = '/client/portal.html?tab=onboarding';
                                         }
                                     } else {
-                                        window.location.href = '/requirements.html';
+                                        window.location.href = '/client/portal.html?tab=onboarding';
                                     }
                                 } catch (e) {
-                                    window.location.href = '/requirements.html';
+                                    window.location.href = '/client/portal.html?tab=onboarding';
                                 }
                             }
                         }
@@ -254,8 +254,20 @@
                                 localStorage.setItem('admin_auth', JSON.stringify({ role: 'admin', email: email, name: name, id: 'mock-admin-id', token: token }));
                                 window.location.href = '/admin/dashboard.html';
                             } else {
-                                localStorage.setItem('client_auth', JSON.stringify({ role: 'client', email: email, name: name, id: 'mock-client-id' }));
-                                window.location.href = '/requirements.html';
+                                const clientId = matchedUser.id || 'mock-client-id';
+                                localStorage.setItem('client_auth', JSON.stringify({ role: 'client', email: email, name: name, id: clientId }));
+                                fetch('/api/onboarding/client/' + clientId + '/status')
+                                    .then(r => r.json())
+                                    .then(statusData => {
+                                        if (statusData.portalActivated) {
+                                            window.location.href = '/client/portal.html?tab=home';
+                                        } else {
+                                            window.location.href = '/client/portal.html?tab=onboarding';
+                                        }
+                                    })
+                                    .catch(() => {
+                                        window.location.href = '/client/portal.html?tab=onboarding';
+                                    });
                             }
                         }
                     });
