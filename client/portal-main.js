@@ -407,38 +407,43 @@ function getStepManualFields(stepKey, data) {
     });
 }
 
+function normalizeOnboardingData(ob) {
+    if (!ob) return ob;
+    if (ob.dynamicSteps) {
+        Object.entries(ob.dynamicSteps).forEach(([key, step]) => {
+            if (key === 'document_checklist') {
+                ob.stepDocumentChecklist = step;
+            } else if (key === 'share_capital') {
+                ob.stepShareCapital = step;
+            } else {
+                const targetKey = 'step' + key.charAt(0).toUpperCase() + key.slice(1).replace(/_([a-z])/g, (m, c) => c.toUpperCase());
+                ob[targetKey] = step;
+            }
+        });
+    }
+    return ob;
+}
+
 const DEFAULT_ONBOARDING_STEPS = [
     {
-        key: 'individual_verification',
-        field: 'step1IndividualVerification',
-        title: 'Verification Details',
-        icon: 'user-check',
-        description: 'Select your shareholder type to start. Upload required documents and verify details.',
-        requiredDocs: [
-            { type: 'nric', label: 'NRIC / FIN (Front & Back)' },
-            { type: 'address_proof', label: 'Address Proof (Utility/Mobile/Bank Bill — within 3 months)' }
-        ],
-        extractedFields: ['fullName','idNumber','nationality','gender','dateOfBirth','companyName','uen','dateOfIncorporation','registeredAddress','uboName','uboIdNumber','uboAddress'],
-        manualFields: [
-            { key: 'shareholderType', label: 'Shareholder Type', type: 'select', options: ['Select', 'Individual Shareholder', 'Corporate Shareholder'] },
-            { key: 'fullName', label: 'Full Legal Name', type: 'text' },
-            { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
-            { key: 'nationality', label: 'Nationality', type: 'nationality' },
-            { key: 'gender', label: 'Gender', type: 'select', options: ['Select', 'Male', 'Female', 'Other'] },
-            { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
-            { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
-            { key: 'email', label: 'Email Address', type: 'email' },
-            { key: 'mobile', label: 'Mobile Number', type: 'phone' }
-        ],
-        declaration: 'I confirm that I am not disqualified from acting as a director under the laws of Singapore.'
+        key: 'document_checklist',
+        field: 'stepDocumentChecklist',
+        title: 'Document Checklist',
+        icon: 'clipboard-list',
+        description: 'Please review the required documents based on your pre-registration selections.',
+        requiredDocs: [],
+        manualFields: []
     },
     {
         key: 'director_details',
         field: 'step2DirectorDetails',
         title: 'Director Details',
         icon: 'briefcase',
-        description: 'Auto-populated from your NRIC/FIN. Please verify all information is correct.',
-        requiredDocs: [],
+        description: 'Please upload NRIC/FIN and Address Proof, verify and confirm details.',
+        requiredDocs: [
+            { type: 'nric', label: 'NRIC / FIN' },
+            { type: 'address_proof', label: 'Utility Bill / Bank Statement / Mobile Bill' }
+        ],
         manualFields: [
             { key: 'fullName', label: 'Full Legal Name', type: 'text' },
             { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
@@ -448,11 +453,19 @@ const DEFAULT_ONBOARDING_STEPS = [
             { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
             { key: 'email', label: 'Email', type: 'email' },
             { key: 'mobile', label: 'Mobile Number', type: 'phone' },
-            { key: 'directorConsent', label: 'I consent to act as a director of the company.', type: 'checkbox' }
+            { key: 'disqualificationAcknowledge', label: 'I confirm that I am not disqualified from acting as a director under the laws of Singapore.', type: 'checkbox', mandatory: true }
         ],
-        declaration: 'I confirm that I am not disqualified from acting as a director under the laws of Singapore.',
         dynamicSection: true,
         dynamicCountKey: 'directorCount'
+    },
+    {
+        key: 'share_capital',
+        field: 'stepShareCapital',
+        title: 'Share Capital Details',
+        icon: 'coins',
+        description: 'Configure corporate share capital structure and allocate shares to shareholders.',
+        requiredDocs: [],
+        manualFields: []
     },
     {
         key: 'individual_shareholder',
@@ -462,6 +475,7 @@ const DEFAULT_ONBOARDING_STEPS = [
         description: 'Capture individual shareholder information. Ownership ≥ 25% will automatically trigger UBO and AML/KYC screening.',
         requiredDocs: [
             { type: 'nric', label: 'NRIC / FIN' },
+            { type: 'address_proof', label: 'Address Proof (Utility Bill / Bank Statement / Mobile Bill)' }
         ],
         manualFields: [
             { key: 'sameAsDirector', label: 'Is individual shareholder same as director?', type: 'checkbox' },
@@ -493,23 +507,15 @@ const DEFAULT_ONBOARDING_STEPS = [
         requiredDocs: [
             { type: 'bizfile', label: 'Bizfile (ACRA)' },
             { type: 'constitution', label: 'Constitution / M&AA' },
-            { type: 'cert_incorporation', label: 'Certificate of Incorporation (non-SG entities)' },
-            { type: 'supporting_docs', label: 'Supporting Corporate Documents' }
+            { type: 'cert_incorporation', label: 'Certificate of Incorporation (non-SG entities)', required: false },
+            { type: 'supporting_docs', label: 'Supporting Corporate Documents', required: false }
         ],
-        extractedFields: ['companyName','uen','dateOfIncorporation','registeredAddress','principalActivity','countryOfIncorporation','companyType','companyStatus','formerName','dateOfChangeOfName','auditFirm'],
+        extractedFields: ['companyName','uen','dateOfIncorporation','registeredAddress'],
         manualFields: [
             { key: 'companyName', label: 'Company Name', type: 'text' },
             { key: 'uen', label: 'UEN / Reg Number', type: 'text' },
             { key: 'dateOfIncorporation', label: 'Date of Incorporation', type: 'date' },
             { key: 'registeredAddress', label: 'Registered Address', type: 'text' },
-            { key: 'principalActivity', label: 'Principal Activity', type: 'text' },
-            { key: 'countryOfIncorporation', label: 'Country of Incorporation', type: 'text' },
-            { key: 'companyType', label: 'Company Type', type: 'select', options: ['Select', 'PRIVATE COMPANY LIMITED BY SHARES', 'PUBLIC COMPANY LIMITED BY SHARES', 'SOLE PROPRIETORSHIP', 'PARTNERSHIP', 'OTHER'] },
-            { key: 'companyStatus', label: 'Status of Company', type: 'text' },
-            { key: 'formerName', label: 'Former Name if any', type: 'text' },
-            { key: 'dateOfChangeOfName', label: 'Date of Change of Name', type: 'date' },
-            { key: 'auditFirm', label: 'Audit Firm', type: 'text' },
-            { key: 'fye', label: 'Financial Year End (FYE)', type: 'text' },
             { key: 'totalShares', label: 'Total Number of Shares of the Company', type: 'number' },
             { key: 'totalShareCapital', label: 'Total Share Capital Amount of the Company', type: 'number' },
             { key: 'currency', label: 'Currency', type: 'select', options: ['SGD', 'USD'] },
@@ -523,28 +529,6 @@ const DEFAULT_ONBOARDING_STEPS = [
         dynamicCountKey: 'corporateShareholderCount'
     },
     {
-        key: 'ubo',
-        field: 'step5UBO',
-        title: 'Ultimate Beneficial Owner (UBO)',
-        icon: 'shield-check',
-        description: 'UBO verification triggers AML Screening, KYC Verification, and Sanctions Check automatically.',
-        requiredDocs: [
-            { type: 'nric', label: 'NRIC / FIN' },
-            { type: 'address_proof', label: 'Address Proof' }
-        ],
-        autoChecks: ['AML Screening', 'KYC Verification', 'Sanctions Check'],
-        manualFields: [
-            { key: 'fullName', label: 'Full Name', type: 'text' },
-            { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
-            { key: 'nationality', label: 'Nationality', type: 'nationality' },
-            { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
-            { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
-            { key: 'email', label: 'Email Address', type: 'email' },
-            { key: 'mobile', label: 'Mobile Number', type: 'phone' },
-            { key: 'ownershipPercentage', label: 'Ownership Percentage (%)', type: 'number' }
-        ]
-    },
-    {
         key: 'corporate_rep',
         field: 'step6CorporateRep',
         title: 'Corporate Representative',
@@ -552,8 +536,7 @@ const DEFAULT_ONBOARDING_STEPS = [
         description: 'Upload NRIC/FIN and address proof for OCR extraction. Confirm contact details.',
         requiredDocs: [
             { type: 'nric', label: 'NRIC / FIN' },
-            { type: 'address_proof', label: 'Address Proof' },
-            { type: 'auth_document', label: 'Proof of Authorization (Board Resolution / Letter of Authorization)' }
+            { type: 'address_proof', label: 'Address Proof' }
         ],
         extractedFields: ['fullName','idNumber','nationality','dateOfBirth'],
         manualFields: [
@@ -561,8 +544,6 @@ const DEFAULT_ONBOARDING_STEPS = [
             { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
             { key: 'nationality', label: 'Nationality', type: 'nationality' },
             { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
-            { key: 'designation', label: 'Designation / Job Title', type: 'text' },
-            { key: 'authorizationType', label: 'Authorization Type', type: 'select', options: ['Board Resolution', 'Power of Attorney', 'Letter of Authorization', 'Other'] },
             { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
             { key: 'email', label: 'Email Address', type: 'email' },
             { key: 'mobile', label: 'Mobile Number', type: 'phone' }
@@ -577,9 +558,10 @@ const DEFAULT_ONBOARDING_STEPS = [
         requiredDocs: [],
         manualFields: [
             { key: 'declarationAgreed', label: 'I confirm that all the details provided are true and accurate to the best of my knowledge.', type: 'checkbox' },
-            { key: 'consentAgreed', label: 'I consent to Globalisor conducting compliance, AML/KYC screening, and verification checks.', type: 'checkbox' }
+            { key: 'consentAgreed', label: 'I consent to Globalisor conducting compliance, AML/KYC screening, and verification checks.', type: 'checkbox' },
+            { key: 'fye', label: 'Financial Year End (FYE)', type: 'date' }
         ],
-        declaration: 'I understand that providing false or misleading information may lead to the rejection of this application.'
+        declaration: ''
     }
 ];
 
@@ -594,135 +576,203 @@ async function renderOnboarding(container) {
     } catch(e) {}
 
     // Store in global state
-    state.onboarding = ob || {};
+    state.onboarding = normalizeOnboardingData(ob || {});
     state.onboardingId = ob && ob.id ? ob.id : null;
     
     // Fetch pre-registration requirements to initialize counts/lists
-    if (state.onboardingId) {
-        let reqData = null;
-        try {
-            const reqRes = await fetch('/api/requirements');
-            if (reqRes.ok) {
-                const reqJson = await reqRes.json();
-                reqData = reqJson.data;
+    let reqData = null;
+    try {
+        const token = localStorage.getItem('token');
+        const reqRes = await fetch('/api/requirements', {
+            headers: {
+                'Authorization': 'Bearer ' + token
             }
-        } catch (e) {
-            console.error("Failed to fetch requirements:", e);
+        });
+        if (reqRes.ok) {
+            const reqJson = await reqRes.json();
+            reqData = reqJson.data;
+            state.requirements = reqData;
+        }
+    } catch (e) {
+        console.error("Failed to fetch requirements:", e);
+    }
+    
+    if (reqData) {
+        // Dynamically adjust ONBOARDING_STEPS
+        const reqDirs = reqData.directors || [];
+        const reqShs = reqData.shareholders || [];
+        const reqInds = reqShs.filter(s => s.type === 'individual');
+        const reqCorps = reqShs.filter(s => s.type === 'corporate');
+
+        const indCount = reqInds.length;
+        const corpCount = reqCorps.length;
+        const dirCount = reqDirs.length;
+
+        let filtered = [...DEFAULT_ONBOARDING_STEPS];
+        if (corpCount > 0 && indCount === 0 && dirCount === 0) {
+            filtered = filtered.filter(s => ['document_checklist', 'share_capital', 'corporate_shareholder', 'corporate_rep', 'final_declaration'].includes(s.key));
+        } else if (indCount > 0 && corpCount === 0) {
+            filtered = filtered.filter(s => !['corporate_shareholder', 'corporate_rep'].includes(s.key));
+        } else {
+            filtered = filtered.filter(s => {
+                if (s.key === 'director_details' && dirCount === 0) return false;
+                if (s.key === 'individual_shareholder' && indCount === 0) return false;
+                if (s.key === 'corporate_shareholder' && corpCount === 0) return false;
+                if (s.key === 'corporate_rep' && corpCount === 0) return false;
+                return true;
+            });
+        }
+        ONBOARDING_STEPS = filtered;
+
+        let changed = false;
+        
+        // Initialize document_checklist
+        if (!state.onboarding.stepDocumentChecklist) {
+            state.onboarding.stepDocumentChecklist = { data: {}, status: 'pending', documents: [] };
+        }
+        // Initialize share_capital
+        if (!state.onboarding.stepShareCapital) {
+            state.onboarding.stepShareCapital = { data: { allocations: [] }, status: 'pending', documents: [] };
+        } else if (!state.onboarding.stepShareCapital.data) {
+            state.onboarding.stepShareCapital.data = { allocations: [] };
+        } else if (!state.onboarding.stepShareCapital.data.allocations) {
+            state.onboarding.stepShareCapital.data.allocations = [];
+        }
+
+        // 1. Directors
+        const dirStep = ONBOARDING_STEPS.find(s => s.key === 'director_details');
+        const dirStepField = dirStep ? dirStep.field : null;
+        if (dirStepField) {
+            if (!state.onboarding[dirStepField]) {
+                state.onboarding[dirStepField] = { data: { list: [] }, status: 'pending', documents: [] };
+            }
+            const currentList = state.onboarding[dirStepField].data.list || [];
+            if (currentList.length !== reqDirs.length) {
+                const list = [];
+                for (let i = 0; i < reqDirs.length; i++) {
+                    const d = reqDirs[i] || {};
+                    const existing = currentList[i] || {};
+                    list.push({
+                        fullName: existing.fullName || d.name || '',
+                        idNumber: existing.idNumber || d.idNum || '',
+                        nationality: existing.nationality || d.nation || '',
+                        dateOfBirth: existing.dateOfBirth || d.dob || '',
+                        residentialAddress: existing.residentialAddress || d.addr || '',
+                        email: existing.email || d.email || '',
+                        mobile: existing.mobile || d.phone || '',
+                        disqualificationAcknowledge: existing.disqualificationAcknowledge || false
+                    });
+                }
+                if (list.length === 0) list.push({});
+                state.onboarding[dirStepField].data.list = list;
+                changed = true;
+            }
         }
         
-        if (reqData) {
-            let changed = false;
-            
-            // 1. Directors
-            const dirStep = ONBOARDING_STEPS.find(s => s.key === 'director_details');
-            const dirStepField = dirStep ? dirStep.field : null;
-            if (dirStepField) {
-                if (!state.onboarding[dirStepField]) {
-                    state.onboarding[dirStepField] = { data: { list: [] }, status: 'pending', documents: [] };
-                }
-                if (!state.onboarding[dirStepField].data.list || state.onboarding[dirStepField].data.list.length === 0) {
-                    const reqDirs = reqData.directors || [];
-                    const list = reqDirs.map(d => ({
-                        fullName: d.name || '',
-                        idNumber: d.idNum || '',
-                        nationality: d.nation || '',
-                        dateOfBirth: d.dob || '',
-                        residentialAddress: d.addr || '',
-                        email: d.email || '',
-                        mobile: d.phone || '',
-                        directorConsent: false
-                    }));
-                    if (list.length === 0) list.push({});
-                    state.onboarding[dirStepField].data.list = list;
-                    changed = true;
-                }
+        // 2. Individual Shareholders
+        const indStep = ONBOARDING_STEPS.find(s => s.key === 'individual_shareholder');
+        const indStepField = indStep ? indStep.field : null;
+        if (indStepField) {
+            if (!state.onboarding[indStepField]) {
+                state.onboarding[indStepField] = { data: { list: [] }, status: 'pending', documents: [] };
             }
-            
-            // 2. Individual Shareholders
-            const indStep = ONBOARDING_STEPS.find(s => s.key === 'individual_shareholder');
-            const indStepField = indStep ? indStep.field : null;
-            if (indStepField) {
-                if (!state.onboarding[indStepField]) {
-                    state.onboarding[indStepField] = { data: { list: [] }, status: 'pending', documents: [] };
+            const currentList = state.onboarding[indStepField].data.list || [];
+            if (currentList.length !== reqInds.length) {
+                const list = [];
+                for (let i = 0; i < reqInds.length; i++) {
+                    const s = reqInds[i] || {};
+                    const existing = currentList[i] || {};
+                    list.push({
+                        sameAsDirector: existing.sameAsDirector || false,
+                        fullName: existing.fullName || s.name || '',
+                        idNumber: existing.idNumber || s.idNum || '',
+                        nationality: existing.nationality || s.nation || '',
+                        dateOfBirth: existing.dateOfBirth || s.dob || '',
+                        residentialAddress: existing.residentialAddress || s.addr || '',
+                        email: existing.email || s.email || '',
+                        mobile: existing.mobile || s.phone || '',
+                        totalShares: existing.totalShares || s.totalShares || '',
+                        totalShareCapital: existing.totalShareCapital || s.totalShareCapital || '',
+                        currency: existing.currency || s.currency || 'Select',
+                        shareClass: existing.shareClass || s.shareClass || 'Select',
+                        numberOfShares: existing.numberOfShares || s.shares || '',
+                        shareCapitalAmount: existing.shareCapitalAmount || s.percent || '',
+                        ownershipPercentage: existing.ownershipPercentage || '',
+                        uboDeclaration: existing.uboDeclaration || 'Select'
+                    });
                 }
-                if (!state.onboarding[indStepField].data.list || state.onboarding[indStepField].data.list.length === 0) {
-                    const reqShs = reqData.shareholders || [];
-                    const reqInds = reqShs.filter(s => s.type === 'individual');
-                    const list = reqInds.map(s => ({
-                        fullName: s.name || '',
-                        idNumber: s.idNum || '',
-                        nationality: s.nation || '',
-                        dateOfBirth: s.dob || '',
-                        residentialAddress: s.addr || '',
-                        email: s.email || '',
-                        mobile: s.phone || '',
-                        numberOfShares: s.shares || '',
-                        shareCapitalAmount: s.percent || '',
-                        uboDeclaration: 'No'
-                    }));
-                    if (list.length === 0) list.push({});
-                    state.onboarding[indStepField].data.list = list;
-                    changed = true;
-                }
+                if (list.length === 0) list.push({});
+                state.onboarding[indStepField].data.list = list;
+                changed = true;
             }
-            
-            // 3. Corporate Shareholders
-            const corpStep = ONBOARDING_STEPS.find(s => s.key === 'corporate_shareholder');
-            const corpStepField = corpStep ? corpStep.field : null;
-            if (corpStepField) {
-                if (!state.onboarding[corpStepField]) {
-                    state.onboarding[corpStepField] = { data: { list: [] }, status: 'pending', documents: [] };
-                }
-                if (!state.onboarding[corpStepField].data.list || state.onboarding[corpStepField].data.list.length === 0) {
-                    const reqShs = reqData.shareholders || [];
-                    const reqCorps = reqShs.filter(s => s.type === 'corporate');
-                    const list = reqCorps.map(s => ({
-                        companyName: s.name || '',
-                        uen: s.regNum || '',
-                        registeredAddress: s.addr || '',
-                        countryOfIncorporation: s.regPlace || '',
-                        dateOfIncorporation: s.regDate || '',
-                        numberOfShares: s.shares || '',
-                        shareCapitalAmount: s.percent || '',
-                        uboDeclaration: 'No'
-                    }));
-                    if (list.length === 0) list.push({});
-                    state.onboarding[corpStepField].data.list = list;
-                    changed = true;
-                }
+        }
+        
+        // 3. Corporate Shareholders
+        const corpStep = ONBOARDING_STEPS.find(s => s.key === 'corporate_shareholder');
+        const corpStepField = corpStep ? corpStep.field : null;
+        if (corpStepField) {
+            if (!state.onboarding[corpStepField]) {
+                state.onboarding[corpStepField] = { data: { list: [] }, status: 'pending', documents: [] };
             }
-            
-            if (changed) {
-                try {
-                    const steps = ['director_details', 'individual_shareholder', 'corporate_shareholder'];
-                    for (const stepKey of steps) {
-                        const targetStep = ONBOARDING_STEPS.find(s => s.key === stepKey);
-                        if (targetStep && targetStep.field && state.onboarding[targetStep.field]) {
-                            await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
-                                method: 'PATCH',
-                                headers: {'Content-Type':'application/json'},
-                                body: JSON.stringify({
-                                    data: state.onboarding[targetStep.field].data,
-                                    status: 'pending'
-                                })
-                            });
-                        }
+            const currentList = state.onboarding[corpStepField].data.list || [];
+            if (currentList.length !== reqCorps.length) {
+                const list = [];
+                for (let i = 0; i < reqCorps.length; i++) {
+                    const s = reqCorps[i] || {};
+                    const existing = currentList[i] || {};
+                    list.push({
+                        companyName: existing.companyName || s.name || '',
+                        uen: existing.uen || s.regNum || '',
+                        registeredAddress: existing.registeredAddress || s.addr || '',
+                        countryOfIncorporation: existing.countryOfIncorporation || s.regPlace || '',
+                        dateOfIncorporation: existing.dateOfIncorporation || s.regDate || '',
+                        totalShares: existing.totalShares || s.totalShares || '',
+                        totalShareCapital: existing.totalShareCapital || s.totalShareCapital || '',
+                        currency: existing.currency || s.currency || 'Select',
+                        shareClass: existing.shareClass || s.shareClass || 'Select',
+                        numberOfShares: existing.numberOfShares || s.shares || '',
+                        shareCapitalAmount: existing.shareCapitalAmount || s.percent || '',
+                        ownershipPercentage: existing.ownershipPercentage || '',
+                        uboDeclaration: existing.uboDeclaration || 'No'
+                    });
+                }
+                if (list.length === 0) list.push({});
+                state.onboarding[corpStepField].data.list = list;
+                changed = true;
+            }
+        }
+        
+        if (changed && state.onboardingId) {
+            try {
+                const stepsToSync = ['director_details', 'individual_shareholder', 'corporate_shareholder'];
+                for (const stepKey of stepsToSync) {
+                    const targetStep = ONBOARDING_STEPS.find(s => s.key === stepKey);
+                    if (targetStep && targetStep.field && state.onboarding[targetStep.field]) {
+                        await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
+                            method: 'PATCH',
+                            headers: {'Content-Type':'application/json'},
+                            body: JSON.stringify({
+                                data: state.onboarding[targetStep.field].data,
+                                status: 'pending'
+                            })
+                        });
                     }
-                } catch (e) {
-                    console.error("Failed to auto-save synced onboarding steps:", e);
                 }
+            } catch (e) {
+                console.error("Failed to auto-save synced onboarding steps:", e);
             }
         }
     }
     
     // Compute active step key if not set
-    if (!state.activeObStepKey) {
-        const firstUncompleted = ONBOARDING_STEPS.find((s, idx) => !['completed', 'approved', 'submitted', 'under_review'].includes(getFriendlyStatus(s.key, ob)));
-        state.activeObStepKey = firstUncompleted ? firstUncompleted.key : ONBOARDING_STEPS[0].key;
+    if (!state.activeObStepKey || state.activeObStepKey === 'document_checklist') {
+        const firstUncompleted = ONBOARDING_STEPS.find((s, idx) => s.key !== 'document_checklist' && !['completed', 'approved', 'submitted', 'under_review'].includes(getFriendlyStatus(s.key, ob)));
+        state.activeObStepKey = firstUncompleted ? firstUncompleted.key : (ONBOARDING_STEPS.find(s => s.key !== 'document_checklist') || ONBOARDING_STEPS[0]).key;
     }
 
     const progress = ob && ob.progressPercent ? ob.progressPercent : 0;
     const isActivated = ob && ob.portalActivated;
+    const allSubmitted = ONBOARDING_STEPS.every(s => ['submitted', 'approved', 'under_review'].includes(getFriendlyStatus(s.key, ob)));
 
     container.innerHTML = `
     <style>
@@ -822,6 +872,15 @@ async function renderOnboarding(container) {
             <div style="font-size:13px;color:#166534;margin-top:4px;line-height:1.6;">All onboarding steps are completed and approved. Explore all platform modules now.</div>
         </div>
         <button onclick="switchTab('home')" style="margin-left:auto;padding:12px 24px;background:#16a34a;color:#fff;border:none;border-radius:14px;font-family:Outfit,sans-serif;font-size:13px;font-weight:700;cursor:pointer;box-shadow: 0 4px 15px rgba(22,163,74,0.3);">Go to Dashboard →</button>
+    </div>` : (allSubmitted ? `
+    <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fcd34d;border-radius:20px;padding:28px;margin-bottom:24px;display:flex;align-items:center;gap:20px;box-shadow: 0 10px 25px rgba(217, 119, 6, 0.05);">
+        <div style="width:54px;height:54px;border-radius:16px;background:#d97706;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow: 0 8px 20px rgba(217, 119, 6, 0.2);">
+            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div>
+            <div style="font-family:Outfit,sans-serif;font-size:18px;font-weight:800;color:#92400e;">⏳ Onboarding Submitted & Under Review</div>
+            <div style="font-size:13px;color:#b45309;margin-top:4px;line-height:1.6;">Your application is currently being verified and reviewed by the Globalisor team. You will receive full access to the portal once the review is completed and approved.</div>
+        </div>
     </div>` : `
     <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:20px;padding:24px 28px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;gap:20px;box-shadow: 0 10px 25px rgba(59, 130, 246, 0.03);">
         <div style="flex-grow:1;">
@@ -837,7 +896,7 @@ async function renderOnboarding(container) {
         <button id="ob-submit-verification-btn" onclick="obSubmitAllForVerification()" class="ob-submit-btn" disabled style="height:fit-content;padding:14px 28px;">
             Submit for Verification
         </button>
-    </div>`}
+    </div>`)}
 
     <div class="wizard-container">
         <!-- Horizontal Navigation Stepper -->
@@ -886,6 +945,38 @@ function validateStep(stepKey, ob) {
 
     const isMultiItem = step && step.dynamicSection === true;
 
+    if (stepKey === 'share_capital') {
+        const currencies = data.currencies || [];
+        if (currencies.length === 0) {
+            errors.push("At least one currency section is required.");
+        }
+        
+        const seenCombinations = new Set();
+        currencies.forEach((c, idx) => {
+            const currencyCode = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
+            if (!currencyCode) {
+                errors.push(`Section #${idx + 1}: Currency is required.`);
+            }
+            const keyCombo = `${currencyCode}_${c.shareClass}`;
+            if (seenCombinations.has(keyCombo)) {
+                errors.push(`Section #${idx + 1}: Duplicate Currency + Share Class combination: ${currencyCode} - ${c.shareClass}.`);
+            } else {
+                seenCombinations.add(keyCombo);
+            }
+
+            const numShares = parseFloat(c.numberOfShares) || 0;
+            const amount = parseFloat(c.shareCapitalAmount) || 0;
+
+            if (numShares <= 0 || !Number.isInteger(numShares)) {
+                errors.push(`Section #${idx + 1} (${currencyCode} - ${c.shareClass}): Number of shares must be a positive whole number.`);
+            }
+            if (amount < numShares) {
+                errors.push(`Section #${idx + 1} (${currencyCode} - ${c.shareClass}): Issued Share Capital Amount cannot be less than the Number of Shares.`);
+            }
+        });
+        return errors;
+    }
+
     if (isMultiItem) {
         const list = data.list || [];
         if (list.length === 0) {
@@ -933,6 +1024,8 @@ function validateStep(stepKey, ob) {
                         // phone is stored as code:dial:number — check the number part
                         const numPart = val && val.includes(':') ? val.split(':')[2] : String(val || '');
                         isEmpty = !numPart || numPart.trim() === '';
+                    } else if (field.type === 'checkbox') {
+                        isEmpty = field.key === 'disqualificationAcknowledge' && val !== true && val !== 'true';
                     } else {
                         isEmpty = val === undefined || val === null || String(val).trim() === '' || String(val).trim() === 'Select';
                     }
@@ -942,6 +1035,63 @@ function validateStep(stepKey, ob) {
                 });
             }
         });
+
+        // Sum allocations across all shareholders and validate against master limits in Step 2
+        if (stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') {
+            const currencies = (ob.stepShareCapital && ob.stepShareCapital.data && ob.stepShareCapital.data.currencies) || [];
+            
+            // Sum allocations across individual shareholders (current state)
+            const indStep = ob.step3IndividualShareholder || { data: { list: [] } };
+            const indList = (stepKey === 'individual_shareholder') ? (data.list || []) : (indStep.data.list || []);
+            
+            // Sum allocations across corporate shareholders (current state)
+            const corpStep = ob.step4CorporateShareholder || { data: { list: [] } };
+            const corpList = (stepKey === 'corporate_shareholder') ? (data.list || []) : (corpStep.data.list || []);
+
+            const allocatedSums = {}; // key: "CURRENCY_CLASS" -> { shares: X, capital: Y }
+            
+            const addAllocation = (sh, shIdx, shType) => {
+                const shCurr = (sh.currency || '').trim().toUpperCase();
+                const shClass = (sh.shareClass || '').trim();
+                const shShares = parseFloat(sh.numberOfShares) || 0;
+                const shCapital = parseFloat(sh.shareCapitalAmount) || 0;
+                const shName = shType === 'individual' ? (sh.fullName || 'unnamed') : (sh.companyName || 'unnamed');
+                
+                if (!shCurr || shCurr === 'SELECT') return;
+                const keyCombo = `${shCurr}_${shClass}`;
+                if (!allocatedSums[keyCombo]) {
+                    allocatedSums[keyCombo] = { shares: 0, capital: 0, names: [] };
+                }
+                allocatedSums[keyCombo].shares += shShares;
+                allocatedSums[keyCombo].capital += shCapital;
+                allocatedSums[keyCombo].names.push(`${shType === 'individual' ? 'Ind' : 'Corp'} #${shIdx + 1} (${shName})`);
+            };
+
+            indList.forEach((sh, i) => addAllocation(sh, i, 'individual'));
+            corpList.forEach((sh, i) => addAllocation(sh, i, 'corporate'));
+
+            Object.keys(allocatedSums).forEach(key => {
+                const [shCurr, shClass] = key.split('_');
+                const masterItem = currencies.find(c => {
+                    const masterCurr = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
+                    return masterCurr.toUpperCase() === shCurr && c.shareClass === shClass;
+                });
+
+                if (!masterItem) {
+                    errors.push(`Allocation error: Currency/Share Class ${shCurr} - ${shClass} is not configured in Share Capital Details (allocated by: ${allocatedSums[key].names.join(', ')}).`);
+                } else {
+                    const totalSharesAllocated = allocatedSums[key].shares;
+                    const totalCapitalAllocated = allocatedSums[key].capital;
+                    
+                    if (totalSharesAllocated > masterItem.numberOfShares) {
+                        errors.push(`Allocation error (${shCurr} - ${shClass}): Total allocated shares (${totalSharesAllocated}) exceeds the master limit (${masterItem.numberOfShares}) configured in Share Capital Details.`);
+                    }
+                    if (totalCapitalAllocated > masterItem.shareCapitalAmount) {
+                        errors.push(`Allocation error (${shCurr} - ${shClass}): Total allocated share capital (${totalCapitalAllocated}) exceeds the master limit (${masterItem.shareCapitalAmount}) configured in Share Capital Details.`);
+                    }
+                }
+            });
+        }
     } else {
         const currentRequiredDocs = getStepRequiredDocs(stepKey, data);
         const currentManualFields = getStepManualFields(stepKey, data);
@@ -964,6 +1114,8 @@ function validateStep(stepKey, ob) {
                 if (field.type === 'phone') {
                     const numPart = val && val.includes(':') ? val.split(':')[2] : String(val || '');
                     isEmpty = !numPart || numPart.trim() === '';
+                } else if (field.type === 'checkbox') {
+                    isEmpty = (field.key === 'declarationAgreed' || field.key === 'consentAgreed') && val !== true && val !== 'true';
                 } else {
                     isEmpty = val === undefined || val === null || String(val).trim() === '' || String(val).trim() === 'Select';
                 }
@@ -1222,60 +1374,6 @@ async function selectObStep(stepKey) {
     
     state.activeObStepKey = stepKey;
     
-    // Auto-populate Step 2 (Director Details) from Step 1 if it is empty
-    if (stepKey === 'director_details') {
-        const step1 = ONBOARDING_STEPS.find(s => s.key === 'individual_verification');
-        const step2 = ONBOARDING_STEPS.find(s => s.key === 'director_details');
-        const step1Field = step1 ? step1.field : null;
-        const step2Field = step2 ? step2.field : null;
-        if (step1Field && step2Field) {
-            const step1Data = (state.onboarding[step1Field] || {}).data || {};
-        
-        if (!state.onboarding[step2Field]) {
-            state.onboarding[step2Field] = { data: { list: [] }, status: 'pending', documents: [] };
-        }
-        if (!state.onboarding[step2Field].data) {
-            state.onboarding[step2Field].data = { list: [] };
-        }
-        const step2Data = state.onboarding[step2Field].data;
-        if (!step2Data.list || !Array.isArray(step2Data.list)) {
-            step2Data.list = [{}];
-        }
-        if (step2Data.list.length === 0) {
-            step2Data.list.push({});
-        }
-        
-        const firstDir = step2Data.list[0];
-        let changed = false;
-        ['fullName', 'idNumber', 'nationality', 'gender', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].forEach(key => {
-            if (!firstDir[key] && step1Data[key]) {
-                firstDir[key] = step1Data[key];
-                changed = true;
-            }
-            if (step2Data[key] !== undefined) {
-                delete step2Data[key];
-                changed = true;
-            }
-        });
-        
-        if (changed) {
-            state.onboarding[step2Field].data = step2Data;
-            
-            // Immediate save of auto-populated director details
-            await ensureOnboardingRecord();
-            if (state.onboardingId) {
-                try {
-                    await fetch(`/api/onboarding/${state.onboardingId}/step/director_details`, {
-                        method: 'PATCH',
-                        headers: {'Content-Type':'application/json'},
-                        body: JSON.stringify({ data: step2Data, status: 'pending' })
-                    });
-                } catch(e) {}
-            }
-        }
-        }
-    }
-    
     const workspace = document.getElementById('ob-form-workspace');
     if (workspace) {
         renderActiveStepForm(workspace);
@@ -1394,7 +1492,7 @@ function obFlagImg(code, size = 18) {
     </span>`;
 }
 
-// Render a phone picker field (flag + dial code + numeric input)
+// Render a phone picker field (flag + dial code + numeric input with searchable country list)
 function obRenderPhoneField({ inputId, val, readonlyAttr, onInputCallback }) {
     // Parse stored value: format "SG:+65:91234567" or plain number
     let selectedCode = 'SG', selectedDial = '+65', phoneNum = '', maxLen = 8;
@@ -1410,27 +1508,34 @@ function obRenderPhoneField({ inputId, val, readonlyAttr, onInputCallback }) {
     }
 
     const isReadOnly = !!readonlyAttr;
-    const countryOptions = OB_COUNTRIES.map(c =>
-        `<option value="${c.code}|${c.dial}|${c.maxLen}" ${c.code === selectedCode ? 'selected' : ''}>${obFlagEmoji(c.code)} ${c.name} (${c.dial})</option>`
-    ).join('');
 
     return `<div class="ob-field">
         <label>Mobile Number</label>
-        <div style="display:flex;gap:0;align-items:stretch;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#fff;transition:border-color 0.2s;" id="${inputId}-wrap"
+        <div style="display:flex;gap:0;align-items:stretch;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#fff;transition:border-color 0.2s;position:relative;" id="${inputId}-wrap"
             onfocusin="this.style.borderColor='#3b82f6'" onfocusout="this.style.borderColor='#e2e8f0'">
-            <div style="display:flex;align-items:center;gap:5px;padding:0 10px;background:#f8fafc;border-right:1.5px solid #e2e8f0;min-width:90px;cursor:${isReadOnly ? 'default' : 'pointer'};position:relative;">
+            
+            <div id="${inputId}-picker-btn" onclick="${isReadOnly ? '' : `obPhoneSearchToggle('${inputId}')`}"
+                 style="display:flex;align-items:center;gap:5px;padding:0 10px;background:#f8fafc;border-right:1.5px solid #e2e8f0;min-width:90px;cursor:${isReadOnly ? 'default' : 'pointer'};position:relative;user-select:none;">
                 <span id="${inputId}-flag" style="display:flex;align-items:center;">${obFlagImg(selectedCode, 20)}</span>
                 <span id="${inputId}-dialcode" style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap;">${selectedDial}</span>
-                ${isReadOnly ? '' : `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                <select id="${inputId}-country" onchange="obPhoneCountryChange('${inputId}')" style="position:absolute;inset:0;opacity:0;width:100%;cursor:pointer;" ${readonlyAttr}>
-                    ${countryOptions}
-                </select>`}
+                ${isReadOnly ? '' : `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`}
             </div>
+
+            <input type="hidden" id="${inputId}-country-val" value="${selectedCode}|${selectedDial}|${maxLen}">
+
             <input type="tel" id="${inputId}" inputmode="numeric" pattern="[0-9]*" value="${phoneNum}" maxlength="${maxLen}" placeholder="${'0'.repeat(maxLen)}"
                 style="flex:1;border:none;outline:none;padding:10px 12px;font-size:13px;font-weight:500;color:#1e293b;background:transparent;min-width:0;letter-spacing:0.04em;"
                 ${readonlyAttr}
                 oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,this.maxLength); obPhoneSyncValue('${inputId}'); ${onInputCallback}"
             >
+
+            <!-- Searchable Dropdown Overlay -->
+            <div id="${inputId}-search-container" style="display:none;position:absolute;top:calc(100% + 4px);left:0;width:300px;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:2000;padding:8px;box-sizing:border-box;font-family:Outfit,sans-serif;">
+                <input type="text" id="${inputId}-search-inp" placeholder="Search country..." oninput="obPhoneSearchCountry('${inputId}')"
+                    style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;outline:none;margin-bottom:8px;box-sizing:border-box;">
+                <div id="${inputId}-country-items" style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;">
+                </div>
+            </div>
         </div>
     </div>`;
 }
@@ -1458,38 +1563,87 @@ function obRenderNationalityField({ inputId, val, readonlyAttr, onChangeCallback
     </div>`;
 }
 
-// Called when phone country dropdown changes
-window.obPhoneCountryChange = function(inputId) {
-    const sel = document.getElementById(inputId + '-country');
-    if (!sel) return;
-    const [code, dial, maxLen] = sel.value.split('|');
+window.obPhoneSearchToggle = function(inputId) {
+    const container = document.getElementById(inputId + '-search-container');
+    if (!container) return;
+    const isHidden = container.style.display === 'none';
+    
+    // Close other dropdowns first
+    document.querySelectorAll('[id$="-search-container"]').forEach(dd => dd.style.display = 'none');
+    
+    if (isHidden) {
+        container.style.display = 'block';
+        const searchInp = document.getElementById(inputId + '-search-inp');
+        if (searchInp) {
+            searchInp.value = '';
+            searchInp.focus();
+        }
+        obPhoneSearchCountry(inputId);
+        
+        const clickOutside = (evt) => {
+            if (!container.contains(evt.target) && !document.getElementById(inputId + '-picker-btn').contains(evt.target)) {
+                container.style.display = 'none';
+                document.removeEventListener('click', clickOutside);
+            }
+        };
+        setTimeout(() => document.addEventListener('click', clickOutside), 50);
+    } else {
+        container.style.display = 'none';
+    }
+};
+
+window.obPhoneSearchCountry = function(inputId) {
+    const searchInp = document.getElementById(inputId + '-search-inp');
+    const itemsContainer = document.getElementById(inputId + '-country-items');
+    if (!searchInp || !itemsContainer) return;
+    
+    const q = searchInp.value.trim().toLowerCase();
+    const filtered = q
+        ? OB_COUNTRIES.filter(c => c.name.toLowerCase().includes(q) || c.dial.includes(q) || c.code.toLowerCase().includes(q))
+        : OB_COUNTRIES;
+        
+    itemsContainer.innerHTML = filtered.length === 0
+        ? `<div style="padding:10px;font-size:12px;color:#94a3b8;text-align:center;">No results</div>`
+        : filtered.map(c => `
+            <div onclick="obPhoneSelectCountry('${inputId}','${c.code}','${c.dial}',${c.maxLen})"
+                 style="display:flex;align-items:center;gap:8px;padding:8px;cursor:pointer;font-size:12px;font-weight:500;color:#1e293b;border-radius:6px;transition:background 0.1s;"
+                 onmouseenter="this.style.background='#eff6ff'; this.style.color='#2563eb';"
+                 onmouseleave="this.style.background=''; this.style.color='';"
+            >
+                ${obFlagImg(c.code, 18)}
+                <span style="flex-grow:1;">${c.name}</span>
+                <span style="font-weight:700;color:#64748b;">${c.dial}</span>
+            </div>
+        `).join('');
+};
+
+window.obPhoneSelectCountry = function(inputId, code, dial, maxLen) {
+    const hiddenVal = document.getElementById(inputId + '-country-val');
     const flagEl = document.getElementById(inputId + '-flag');
     const dialEl = document.getElementById(inputId + '-dialcode');
     const numInput = document.getElementById(inputId);
-    // Update flag image
+    const container = document.getElementById(inputId + '-search-container');
+    
+    if (hiddenVal) hiddenVal.value = `${code}|${dial}|${maxLen}`;
     if (flagEl) flagEl.innerHTML = obFlagImg(code, 20);
     if (dialEl) dialEl.textContent = dial;
+    if (container) container.style.display = 'none';
+    
     if (numInput) {
-        const len = parseInt(maxLen) || 12;
-        numInput.maxLength = len;
-        numInput.placeholder = '0'.repeat(len);
-        // Trim existing value if it exceeds new country max
-        numInput.value = numInput.value.replace(/[^0-9]/g, '').slice(0, len);
-        // Trigger save after country change
+        numInput.maxLength = maxLen;
+        numInput.placeholder = '0'.repeat(maxLen);
+        numInput.value = numInput.value.replace(/[^0-9]/g, '').slice(0, maxLen);
         numInput.dispatchEvent(new Event('input', { bubbles: true }));
     }
 };
 
-// Sync phone value to hidden composite format code:dial:number
 window.obPhoneSyncValue = function(inputId) {
     const numInput = document.getElementById(inputId);
-    const selEl = document.getElementById(inputId + '-country');
+    const hiddenVal = document.getElementById(inputId + '-country-val');
     if (!numInput) return;
-    if (selEl) {
-        const [code, dial] = selEl.value.split('|');
-        // Store as code:dial:number in a data attribute for autosave to read
-        numInput.dataset.fullVal = `${code}:${dial}:${numInput.value}`;
-    }
+    const val = hiddenVal ? hiddenVal.value : 'SG|+65|8';
+    const [code, dial] = val.split('|');
+    numInput.dataset.fullVal = `${code}:${dial}:${numInput.value}`;
 };
 
 // Nationality dropdown: filter list by name or nationality adjective
@@ -1592,7 +1746,11 @@ function renderActiveStepForm(container) {
     const isMultiItem = step && step.dynamicSection === true;
     let contentHtml = '';
 
-    if (isMultiItem) {
+    if (stepKey === 'document_checklist') {
+        contentHtml = obRenderDocumentChecklistHtml(isReadOnly);
+    } else if (stepKey === 'share_capital') {
+        contentHtml = obRenderShareCapitalHtml(isReadOnly);
+    } else if (isMultiItem) {
         if (!data.list || !Array.isArray(data.list)) {
             data.list = [];
         }
@@ -1633,12 +1791,21 @@ function renderActiveStepForm(container) {
                                 
                                 return `
                                 <div class="ob-doc-upload" id="doc-${stepKey}-${docTypeWithIdx}" 
-                                     ${isReadOnly ? '' : `onclick="obUploadMultiItemDoc('${stepKey}','${docTypeWithIdx}','${doc.label}', ${idx})"`}
-                                     style="${uploaded ? 'border-color:#16a34a;background:#f0fdf4;' : ''} ${isReadOnly ? 'cursor:default;opacity:0.85;' : ''} padding: 12px;"
+                                     style="${uploaded ? 'border-color:#16a34a;background:#f0fdf4;' : ''} ${isReadOnly ? 'cursor:default;opacity:0.85;' : ''} padding: 12px; cursor:default;"
                                 >
                                     ${uploaded
-                                        ? `<div style='color:#16a34a;font-size:11px;font-weight:700;'>✅ ${labelText}<br><span style='font-size:9px;font-weight:500;color:#374151;word-break:break-all;'>${uploaded.fileName || 'Uploaded'}</span></div>`
-                                        : `<div style='color:#64748b;'>
+                                        ? `<div style='color:#16a34a;font-size:11px;font-weight:700;'>
+                                            ✅ ${labelText}<br>
+                                            <span style='font-size:9px;font-weight:500;color:#374151;word-break:break-all;'>${uploaded.fileName || 'Uploaded'}</span>
+                                            ${isReadOnly ? '' : `
+                                                <div style="margin-top:6px;text-align:right;">
+                                                    <button type="button" onclick="event.stopPropagation(); obClearMultiItemDoc('${stepKey}','${docTypeWithIdx}', ${idx})" style="padding:2px 8px;background:#fee2e2;border:1px solid #fecaca;border-radius:6px;color:#dc2626;font-size:9px;font-weight:700;cursor:pointer;">
+                                                        Remove Doc
+                                                    </button>
+                                                </div>
+                                            `}
+                                           </div>`
+                                        : `<div style='color:#64748b;cursor:pointer;' ${isReadOnly ? '' : `onclick="obUploadMultiItemDoc('${stepKey}','${docTypeWithIdx}','${doc.label}', ${idx})"`}>
                                             <svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='#94a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='margin:0 auto 4px;display:block;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='17 8 12 3 7 8'/><line x1='12' x2='12' y1='3' y2='15'/></svg>
                                             <div style='font-size:11px;font-weight:600;'>${labelText}</div>
                                             ${isReadOnly ? '' : `<div style='font-size:9px;color:#94a3b8;margin-top:2px;'>Click to upload</div>`}
@@ -1652,81 +1819,185 @@ function renderActiveStepForm(container) {
             }
             
             let itemFieldsHtml = '';
-            if (currentManualFields && currentManualFields.length > 0) {
-                itemFieldsHtml = `
-                    <div class="ob-field-row">
-                        ${currentManualFields.map(f => {
-                            const val = item[f.key] !== undefined ? item[f.key] : '';
-                            const inputId = `ob-${stepKey}-${idx}-${f.key}`;
-                            const readonlyAttr = (f.readonly || isReadOnly) ? 'readonly' : '';
-                            
-                            if (f.type === 'select') {
-                                let disabledAttr = isReadOnly ? 'disabled' : '';
-                                if (f.key === 'uboDeclaration') {
-                                    disabledAttr = 'disabled';
-                                }
-                                return `
-                                <div class="ob-field">
-                                    <label for="${inputId}">${f.label}</label>
-                                    <select id="${inputId}" onchange="triggerMultiItemAutoSave('${stepKey}', ${idx})" ${disabledAttr}>
-                                        ${(f.options || []).map(o => `<option value='${o}' ${val === o ? 'selected' : ''}>${o}</option>`).join('')}
-                                    </select>
-                                </div>`;
-                            } else if (f.type === 'checkbox') {
-                                const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
-                                return `
-                                <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:24px;">
-                                    <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="triggerMultiItemAutoSave('${stepKey}', ${idx})" style="width:16px; height:16px; cursor:pointer;">
-                                    <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569;">${f.label}</label>
-                                </div>`;
-                            } else if (f.type === 'phone') {
-                                let fieldReadonlyAttr = readonlyAttr;
-                                if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
-                                    fieldReadonlyAttr = 'readonly';
-                                }
-                                const cbKey = `${inputId.replace(/-/g,'_')}NatCb`;
-                                return obRenderPhoneField({
-                                    inputId,
-                                    val: String(val),
-                                    readonlyAttr: fieldReadonlyAttr,
-                                    onInputCallback: `triggerMultiItemAutoSave('${stepKey}', ${idx})`
-                                });
-                            } else if (f.type === 'nationality') {
-                                let fieldReadonlyAttr = readonlyAttr;
-                                if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
-                                    fieldReadonlyAttr = 'readonly';
-                                }
-                                const cbKey = inputId.replace(/-/g,'_') + 'NatCb';
-                                // Register a global callback so obNatSelect can trigger autosave
-                                window[cbKey] = () => {
-                                    const el = document.getElementById(inputId);
-                                    if (el) {
-                                        const stepData = state.onboarding[ONBOARDING_STEPS.find(s=>s.key===stepKey).field];
-                                        if (stepData && stepData.data && stepData.data.list && stepData.data.list[idx]) {
-                                            stepData.data.list[idx][f.key] = el.value;
-                                        }
-                                        triggerMultiItemAutoSave(stepKey, idx);
+            const hasNric = docs.some(d => d.type === `nric_${idx}`);
+            const hasAddress = docs.some(d => d.type === `address_proof_${idx}`);
+            const showFields = (stepKey !== 'director_details') || (hasNric && hasAddress);
+
+            if (showFields) {
+                if (currentManualFields && currentManualFields.length > 0) {
+                    itemFieldsHtml = `
+                        <div class="ob-field-row">
+                            ${currentManualFields.map(f => {
+                                const val = item[f.key] !== undefined ? item[f.key] : '';
+                                const inputId = `ob-${stepKey}-${idx}-${f.key}`;
+                                const readonlyAttr = (f.readonly || isReadOnly) ? 'readonly' : '';
+                                
+                                if (f.key === 'sameAsDirector') {
+                                    const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
+                                    const dirStep = ONBOARDING_STEPS.find(s => s.key === 'director_details');
+                                    const dirList = dirStep && state.onboarding[dirStep.field] ? (state.onboarding[dirStep.field].data.list || []) : [];
+                                    
+                                    let selectHtml = '';
+                                    if (val) {
+                                        selectHtml = `
+                                        <div class="ob-field" style="margin-top:10px;">
+                                            <label for="${inputId}-director-select">Select Director Source</label>
+                                            <select id="${inputId}-director-select" ${disabledAttr} onchange="obIndividualShareholderSameAsDirectorChange(${idx}, this.value)">
+                                                <option value="">Select Director</option>
+                                                ${dirList.map((d, dIdx) => `<option value="${dIdx}" ${item.selectedDirectorIdx === String(dIdx) ? 'selected' : ''}>Director #${dIdx + 1}: ${d.fullName || '(No Name)'}</option>`).join('')}
+                                            </select>
+                                        </div>
+                                        `;
                                     }
-                                };
-                                return obRenderNationalityField({
-                                    inputId,
-                                    val: String(val),
-                                    readonlyAttr: fieldReadonlyAttr,
-                                    onChangeCallback: cbKey
-                                });
-                            } else {
-                                let fieldReadonlyAttr = readonlyAttr;
-                                if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
-                                    const isPersonalField = ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].includes(f.key);
-                                    if (isPersonalField) fieldReadonlyAttr = 'readonly';
+                                    
+                                    return `
+                                    <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:24px;">
+                                        <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="obIndividualShareholderSameAsDirectorCheckboxChange(${idx}, this.checked)" style="width:16px; height:16px; cursor:pointer;">
+                                        <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569;">${f.label}</label>
+                                    </div>
+                                    ${selectHtml}
+                                    `;
                                 }
-                                return `
-                                <div class="ob-field">
-                                    <label for="${inputId}">${f.label}</label>
-                                    <input type="${f.type || 'text'}" id="${inputId}" value="${val}" placeholder="Enter ${f.label.toLowerCase()}" ${fieldReadonlyAttr} oninput="triggerMultiItemAutoSave('${stepKey}', ${idx})">
-                                </div>`;
-                            }
-                        }).join('')}
+                                
+                                if (f.type === 'select') {
+                                    let disabledAttr = isReadOnly ? 'disabled' : '';
+                                    if (f.key === 'uboDeclaration') {
+                                        disabledAttr = 'disabled';
+                                    }
+                                    return `
+                                    <div class="ob-field">
+                                        <label for="${inputId}">${f.label}</label>
+                                        <select id="${inputId}" onchange="triggerMultiItemAutoSave('${stepKey}', ${idx})" ${disabledAttr}>
+                                            ${(f.options || []).map(o => `<option value='${o}' ${val === o ? 'selected' : ''}>${o}</option>`).join('')}
+                                        </select>
+                                    </div>`;
+                                } else if (f.type === 'checkbox') {
+                                    const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
+                                    return `
+                                    <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:24px;">
+                                        <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="triggerMultiItemAutoSave('${stepKey}', ${idx})" style="width:16px; height:16px; cursor:pointer;">
+                                        <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569;">${f.label}</label>
+                                    </div>`;
+                                } else if (f.type === 'phone') {
+                                    let fieldReadonlyAttr = readonlyAttr;
+                                    if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
+                                        fieldReadonlyAttr = 'readonly';
+                                    }
+                                    const cbKey = `${inputId.replace(/-/g,'_')}NatCb`;
+                                    return obRenderPhoneField({
+                                        inputId,
+                                        val: String(val),
+                                        readonlyAttr: fieldReadonlyAttr,
+                                        onInputCallback: `triggerMultiItemAutoSave('${stepKey}', ${idx})`
+                                    });
+                                } else if (f.type === 'nationality') {
+                                    let fieldReadonlyAttr = readonlyAttr;
+                                    if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
+                                        fieldReadonlyAttr = 'readonly';
+                                    }
+                                    const cbKey = inputId.replace(/-/g,'_') + 'NatCb';
+                                    window[cbKey] = () => {
+                                        const el = document.getElementById(inputId);
+                                        if (el) {
+                                            const stepData = state.onboarding[ONBOARDING_STEPS.find(s=>s.key===stepKey).field];
+                                            if (stepData && stepData.data && stepData.data.list && stepData.data.list[idx]) {
+                                                stepData.data.list[idx][f.key] = el.value;
+                                            }
+                                            triggerMultiItemAutoSave(stepKey, idx);
+                                        }
+                                    };
+                                    return obRenderNationalityField({
+                                        inputId,
+                                        val: String(val),
+                                        readonlyAttr: fieldReadonlyAttr,
+                                        onChangeCallback: cbKey
+                                    });
+                                } else {
+                                    let fieldReadonlyAttr = readonlyAttr;
+                                    if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
+                                        const isPersonalField = ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].includes(f.key);
+                                        if (isPersonalField) fieldReadonlyAttr = 'readonly';
+                                    }
+                                    
+                                    let validationWarningHtml = '';
+                                    if ((stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') && (f.key === 'numberOfShares' || f.key === 'shareCapitalAmount')) {
+                                        const shCurr = (item.currency || '').trim().toUpperCase();
+                                        const shClass = (item.shareClass || '').trim();
+                                        
+                                        if (shCurr && shCurr !== 'SELECT' && shClass && shClass !== 'SELECT') {
+                                            const ob = state.onboarding || {};
+                                            const currencies = (ob.stepShareCapital && ob.stepShareCapital.data && ob.stepShareCapital.data.currencies) || [];
+                                            const masterItem = currencies.find(c => {
+                                                const masterCurr = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
+                                                return masterCurr.toUpperCase() === shCurr && c.shareClass === shClass;
+                                            });
+
+                                            if (!masterItem) {
+                                                validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Currency/Class combo (${shCurr} - ${shClass}) not configured in Share Capital Details step.</div>`;
+                                            } else {
+                                                // Calculate others sum
+                                                const indStep = ob.step3IndividualShareholder || { data: { list: [] } };
+                                                const indList = indStep.data.list || [];
+                                                const corpStep = ob.step4CorporateShareholder || { data: { list: [] } };
+                                                const corpList = corpStep.data.list || [];
+
+                                                let otherSharesSum = 0;
+                                                let otherCapitalSum = 0;
+
+                                                const processOthers = (otherItem, otherIdx, otherStepKey) => {
+                                                    if (otherStepKey === stepKey && otherIdx === idx) return; // skip self
+                                                    const oCurr = (otherItem.currency || '').trim().toUpperCase();
+                                                    const oClass = (otherItem.shareClass || '').trim();
+                                                    if (oCurr === shCurr && oClass === shClass) {
+                                                        otherSharesSum += parseFloat(otherItem.numberOfShares) || 0;
+                                                        otherCapitalSum += parseFloat(otherItem.shareCapitalAmount) || 0;
+                                                    }
+                                                };
+
+                                                indList.forEach((it, i) => processOthers(it, i, 'individual_shareholder'));
+                                                corpList.forEach((it, i) => processOthers(it, i, 'corporate_shareholder'));
+
+                                                const availableShares = masterItem.numberOfShares - otherSharesSum;
+                                                const availableCapital = masterItem.shareCapitalAmount - otherCapitalSum;
+
+                                                if (f.key === 'numberOfShares') {
+                                                    const enteredShares = parseFloat(val) || 0;
+                                                    if (enteredShares > availableShares) {
+                                                        validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Allocation (${enteredShares}) exceeds available limit of ${availableShares} shares.</div>`;
+                                                    } else {
+                                                        validationWarningHtml = `<div style="color:#16a34a;font-size:10px;font-weight:600;margin-top:4px;">Available limit: ${availableShares} shares (total master: ${masterItem.numberOfShares})</div>`;
+                                                    }
+                                                } else if (f.key === 'shareCapitalAmount') {
+                                                    const enteredCapital = parseFloat(val) || 0;
+                                                    if (enteredCapital > availableCapital) {
+                                                        validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Allocation (${enteredCapital}) exceeds available limit of ${availableCapital} ${shCurr}.</div>`;
+                                                    } else {
+                                                        validationWarningHtml = `<div style="color:#16a34a;font-size:10px;font-weight:600;margin-top:4px;">Available limit: ${availableCapital} ${shCurr} (total master: ${masterItem.shareCapitalAmount})</div>`;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    const isIdField = f.key === 'idNumber' || f.key === 'uen';
+                                    return `
+                                    <div class="ob-field">
+                                        <label for="${inputId}">${f.label}</label>
+                                        <input type="${f.type || 'text'}" id="${inputId}" value="${val}" placeholder="Enter ${f.label.toLowerCase()}" ${fieldReadonlyAttr} 
+                                            oninput="${isIdField ? 'obIdNumberInputHandler(this); ' : ''}triggerMultiItemAutoSave('${stepKey}', ${idx})">
+                                        ${validationWarningHtml}
+                                    </div>`;
+                                }
+                            }).join('')}
+                        </div>
+                    `;
+                }
+            } else {
+                itemFieldsHtml = `
+                    <div style="margin-top: 16px; padding: 20px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; text-align: center;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto 8px; display: block;"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        <div style="font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 4px;">Form Fields Locked</div>
+                        <div style="font-size: 11px; color: #64748b; line-height: 1.4;">Please upload both the NRIC / FIN and Utility Bill / Bank Statement / Mobile Bill above. Once uploaded, OCR will extract your details and all fields will be unlocked for manual confirmation.</div>
                     </div>
                 `;
             }
@@ -1805,7 +2076,17 @@ function renderActiveStepForm(container) {
                                  style="${uploaded ? 'border-color:#16a34a;background:#f0fdf4;' : ''} ${isReadOnly ? 'cursor:default;opacity:0.85;' : ''}"
                             >
                                 ${uploaded
-                                    ? `<div style='color:#16a34a;font-size:12px;font-weight:700;'>✅ ${labelText}<br><span style='font-size:10px;font-weight:500;color:#374151;word-break:break-all;'>${uploaded.fileName || 'Uploaded'}</span></div>`
+                                    ? `<div style='color:#16a34a;font-size:12px;font-weight:700;'>
+                                        ✅ ${labelText}<br>
+                                        <span style='font-size:10px;font-weight:500;color:#374151;word-break:break-all;'>${uploaded.fileName || 'Uploaded'}</span>
+                                        ${isReadOnly ? '' : `
+                                            <div style="margin-top:6px;text-align:right;">
+                                                <button type="button" onclick="event.stopPropagation(); obClearDoc('${step.key}','${doc.type}')" style="padding:2px 8px;background:#fee2e2;border:1px solid #fecaca;border-radius:6px;color:#dc2626;font-size:9px;font-weight:700;cursor:pointer;">
+                                                    Remove Doc
+                                                </button>
+                                            </div>
+                                        `}
+                                       </div>`
                                     : `<div style='color:#64748b;'>
                                         <svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='#94a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='margin:0 auto 8px;display:block;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='17 8 12 3 7 8'/><line x1='12' x2='12' y1='3' y2='15'/></svg>
                                         <div style='font-size:12px;font-weight:600;'>${labelText}</div>
@@ -2031,9 +2312,13 @@ function updateWizardUIFeedback() {
         if (showErrors) {
             errContainer.classList.remove('hidden');
             errContainer.innerHTML = `
-                <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:#991b1b;">
-                    <span style="font-size:16px;">⚠️</span>
-                    <span>Please fill in the highlighted required fields to continue.</span>
+                <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:700;color:#991b1b;">
+                    ${errors.map(err => `
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:15px;">⚠️</span>
+                            <span>${err}</span>
+                        </div>
+                    `).join('')}
                 </div>
             `;
         } else {
@@ -2122,7 +2407,7 @@ function triggerAutoSave(stepKey) {
                                 })
                             });
                             if (res.ok) {
-                                state.onboarding = await res.json();
+                                state.onboarding = normalizeOnboardingData(await res.json());
                             }
                         } catch (e) {}
                     }
@@ -2203,8 +2488,11 @@ function triggerAutoSave(stepKey) {
             }
             if (shareCapitalAmountEl && totalShares > 0) {
                 const calculatedCapital = Math.round((num / totalShares) * totalShareCapital * 100) / 100;
-                shareCapitalAmountEl.value = calculatedCapital;
-                stepData.data.shareCapitalAmount = calculatedCapital;
+                const currentVal = parseFloat(shareCapitalAmountEl.value) || 0;
+                if (document.activeElement !== shareCapitalAmountEl && (currentVal === 0 || currentVal === calculatedCapital)) {
+                    shareCapitalAmountEl.value = calculatedCapital;
+                    stepData.data.shareCapitalAmount = calculatedCapital;
+                }
             }
             if (uboEl) {
                 const uboVal = pct >= 25 ? 'Yes' : 'No';
@@ -2277,7 +2565,7 @@ function triggerAutoSave(stepKey) {
             });
             if (res.ok) {
                 const updated = await res.json();
-                state.onboarding = updated;
+                state.onboarding = normalizeOnboardingData(updated);
                 console.log(`Auto-saved step ${stepKey}`);
             }
         } catch (e) {
@@ -2312,7 +2600,7 @@ async function forceSaveActiveStep() {
             });
             if (res.ok) {
                 const updated = await res.json();
-                state.onboarding = updated;
+                state.onboarding = normalizeOnboardingData(updated);
             }
         } catch (e) {
             console.error('Error flushing auto-save:', e);
@@ -2364,7 +2652,7 @@ async function obUploadDoc(stepKey, docType, docLabel) {
             });
             if (patchRes.ok) {
                 const updatedOb = await patchRes.json();
-                state.onboarding = updatedOb;
+                state.onboarding = normalizeOnboardingData(updatedOb);
                 
                 // Pre-fill extracted fields
                 if (extracted) {
@@ -2428,7 +2716,7 @@ async function obUploadDoc(stepKey, docType, docLabel) {
                 // Re-fetch complete onboarding state to sync UI
                 try {
                     const freshRes = await fetch(`/api/onboarding/client/${state.user.id}`);
-                    if (freshRes.ok) state.onboarding = await freshRes.json();
+                    if (freshRes.ok) state.onboarding = normalizeOnboardingData(await freshRes.json());
                 } catch (e) {}
 
                 const workspace = document.getElementById('ob-form-workspace');
@@ -2505,7 +2793,7 @@ async function obSubmitAllForVerification() {
             });
             if (res.ok) {
                 const updated = await res.json();
-                state.onboarding = updated;
+                state.onboarding = normalizeOnboardingData(updated);
             }
         } catch (e) {
             console.error(`Error submitting step ${step.key}:`, e);
@@ -2515,7 +2803,7 @@ async function obSubmitAllForVerification() {
     // Re-fetch final status
     try {
         const res = await fetch(`/api/onboarding/client/${state.user.id}`);
-        if (res.ok) state.onboarding = await res.json();
+        if (res.ok) state.onboarding = normalizeOnboardingData(await res.json());
     } catch (e) {}
 
     alert("Onboarding submitted successfully for verification!");
@@ -3844,6 +4132,14 @@ window.addMultiItem = addMultiItem;
 window.removeMultiItem = removeMultiItem;
 window.triggerMultiItemAutoSave = triggerMultiItemAutoSave;
 window.obUploadMultiItemDoc = obUploadMultiItemDoc;
+window.obRenderDocumentChecklistHtml = obRenderDocumentChecklistHtml;
+window.obRenderShareCapitalHtml = obRenderShareCapitalHtml;
+window.obIndividualShareholderSameAsDirectorCheckboxChange = obIndividualShareholderSameAsDirectorCheckboxChange;
+window.obIndividualShareholderSameAsDirectorChange = obIndividualShareholderSameAsDirectorChange;
+window.obIdNumberInputHandler = obIdNumberInputHandler;
+window.obClearDoc = obClearDoc;
+window.obClearMultiItemDoc = obClearMultiItemDoc;
+window.getShareholderAllocation = getShareholderAllocation;
 
 async function openPortalShuftiModal() {
     const modal = document.getElementById('modal-container');
@@ -4529,8 +4825,11 @@ function triggerMultiItemAutoSave(stepKey, idx) {
             }
             if (shareCapitalAmountEl && totalShares > 0) {
                 const calculatedCapital = Math.round((num / totalShares) * totalShareCapital * 100) / 100;
-                shareCapitalAmountEl.value = calculatedCapital;
-                item.shareCapitalAmount = calculatedCapital;
+                const currentVal = parseFloat(shareCapitalAmountEl.value) || 0;
+                if (document.activeElement !== shareCapitalAmountEl && (currentVal === 0 || currentVal === calculatedCapital)) {
+                    shareCapitalAmountEl.value = calculatedCapital;
+                    item.shareCapitalAmount = calculatedCapital;
+                }
             }
             if (uboEl) {
                 const uboVal = pct >= 25 ? 'Yes' : 'No';
@@ -4639,7 +4938,7 @@ async function addMultiItem(stepKey) {
                 })
             });
             if (res.ok) {
-                state.onboarding = await res.json();
+                state.onboarding = normalizeOnboardingData(await res.json());
             }
         } catch(e) {}
     }
@@ -4695,7 +4994,7 @@ async function removeMultiItem(stepKey, idx) {
                 })
             });
             if (res.ok) {
-                state.onboarding = await res.json();
+                state.onboarding = normalizeOnboardingData(await res.json());
             }
         } catch(e) {}
     }
@@ -4756,7 +5055,7 @@ async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
             });
             if (patchRes.ok) {
                 const updatedOb = await patchRes.json();
-                state.onboarding = updatedOb;
+                state.onboarding = normalizeOnboardingData(updatedOb);
                 
                 if (extracted) {
                     const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
@@ -4787,5 +5086,731 @@ async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
         updateWizardUIFeedback();
     }
     input.click();
+}
+
+// ─── Extra Onboarding Helpers ───────────────────────────────────────────────
+
+function obRenderDocumentChecklistHtml(isReadOnly) {
+    const req = state.requirements || {};
+    const dirs = req.directors || [];
+    const shs = req.shareholders || [];
+    const inds = shs.filter(s => s.type === 'individual' || s.type === '👤' || (typeof s.type === 'string' && (s.type.toLowerCase().includes('individual') || s.type.includes('👤'))));
+    const corps = shs.filter(s => !(s.type === 'individual' || s.type === '👤' || (typeof s.type === 'string' && (s.type.toLowerCase().includes('individual') || s.type.includes('👤')))));
+
+    let html = `
+    <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 24px; font-family: Outfit, sans-serif;">
+        <h4 style="font-size: 15px; font-weight: 800; color: #0f172a; margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+            📋 Document Preparation Checklist
+        </h4>
+        <p style="font-size: 13px; color: #64748b; margin-bottom: 20px; line-height: 1.6;">
+            Based on your pre-registration selections (<b>${dirs.length} Director(s)</b>, <b>${inds.length} Individual Shareholder(s)</b>, <b>${corps.length} Corporate Shareholder(s)</b>), please prepare the following documents before proceeding:
+        </p>
+        
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+    `;
+
+    if (dirs.length > 0) {
+        html += `
+            <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px;">
+                <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                    👤 Director Documents (${dirs.length} Director${dirs.length > 1 ? 's' : ''})
+                </div>
+                <ul style="list-style-type: none; padding-left: 0; margin: 0 0 12px 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: #475569;">
+                    <li style="display: flex; align-items: center; gap: 8px;">🔲 NRIC / FIN (front & back) for all directors</li>
+                    <li style="display: flex; align-items: center; gap: 8px;">🔲 Proof of Address (Utility Bill / Bank Statement / Mobile Bill dated &lt; 3 months)</li>
+                </ul>
+                <div style="border-top: 1px solid #f1f5f9; padding-top: 10px; margin-top: 10px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em;">Director Registry Details:</div>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        ${dirs.map((d, dIdx) => `
+                            <div style="font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center;">
+                                <span style="font-weight: 600; color: #1e293b;">${dIdx + 1}. ${d.name || 'N/A'}</span>
+                                <span style="color: #64748b;">📧 ${d.email || 'N/A'} | 📞 ${d.phone || 'N/A'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    if (inds.length > 0) {
+        html += `
+            <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px;">
+                <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                    👥 Individual Shareholder Documents (${inds.length} Shareholder${inds.length > 1 ? 's' : ''})
+                </div>
+                <ul style="list-style-type: none; padding-left: 0; margin: 0 0 12px 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: #475569;">
+                    <li style="display: flex; align-items: center; gap: 8px;">🔲 NRIC / FIN (front & back) for all individual shareholders</li>
+                    <li style="display: flex; align-items: center; gap: 8px;">🔲 Proof of Address for all individual shareholders</li>
+                </ul>
+                <div style="border-top: 1px solid #f1f5f9; padding-top: 10px; margin-top: 10px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em;">Individual Shareholder Registry Details:</div>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        ${inds.map((s, sIdx) => `
+                            <div style="font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center;">
+                                <span style="font-weight: 600; color: #1e293b;">${sIdx + 1}. ${s.name || 'N/A'}</span>
+                                <span style="color: #64748b;">📧 ${s.email || 'N/A'} | 📞 ${s.phone || 'N/A'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    if (corps.length > 0) {
+        const repData = (state.onboarding && state.onboarding.step6CorporateRep && state.onboarding.step6CorporateRep.data) || {};
+        html += `
+            <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px;">
+                <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                    🏢 Corporate Shareholder Documents (${corps.length} Corporate Shareholder${corps.length > 1 ? 's' : ''})
+                </div>
+                <ul style="list-style-type: none; padding-left: 0; margin: 0 0 12px 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: #475569;">
+                    <li style="display: flex; align-items: center; gap: 8px;">🔲 ACRA Bizfile (or foreign registry equivalent)</li>
+                    <li style="display: flex; align-items: center; gap: 8px;">🔲 Company Constitution (M&AA)</li>
+                    <li style="display: flex; align-items: center; gap: 8px;">🔲 Certificate of Incorporation (for non-Singapore companies)</li>
+                </ul>
+                <div style="border-top: 1px solid #f1f5f9; padding-top: 10px; margin-top: 10px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em;">Corporate Shareholder Registry Details:</div>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        ${corps.map((s, cIdx) => `
+                            <div style="font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center;">
+                                <span style="font-weight: 600; color: #1e293b;">${cIdx + 1}. ${s.name || 'N/A'}</span>
+                                <span style="color: #64748b;">Reg Num: ${s.regNum || 'N/A'} | Place: ${s.regPlace || 'N/A'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+            
+            <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px;">
+                <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                    👔 Corporate Representative Documents
+                </div>
+                <ul style="list-style-type: none; padding-left: 0; margin: 0 0 12px 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: #475569;">
+                    <li style="display: flex; align-items: center; gap: 8px;">🔲 NRIC / FIN for the authorized corporate representative</li>
+                    <li style="display: flex; align-items: center; gap: 8px;">🔲 Proof of Address for the representative</li>
+                    <li style="display: flex; align-items: center; gap: 8px;">🔲 Board Resolution or Letter of Authorization appointing the representative</li>
+                </ul>
+                <div style="border-top: 1px solid #f1f5f9; padding-top: 10px; margin-top: 10px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em;">Representative Contact Details:</div>
+                    <div style="font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center;">
+                        <span style="font-weight: 600; color: #1e293b;">${repData.fullName || 'Not Filled Yet'}</span>
+                        <span style="color: #64748b;">📧 ${repData.email || 'N/A'} | 📞 ${repData.mobile || 'N/A'}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    html += `
+        </div>
+    </div>
+    `;
+
+    return html;
+}
+
+function obRenderShareCapitalHtml(isReadOnly) {
+    const ob = state.onboarding || {};
+    if (!ob.stepShareCapital) ob.stepShareCapital = { data: { currencies: [] }, status: 'pending', documents: [] };
+    if (!ob.stepShareCapital.data) ob.stepShareCapital.data = { currencies: [] };
+    if (!ob.stepShareCapital.data.currencies) {
+        ob.stepShareCapital.data.currencies = [];
+    }
+
+    const currencies = ob.stepShareCapital.data.currencies;
+
+    // Build the sections HTML
+    let sectionsHtml = '';
+    
+    // Check duplicates to show warning
+    const seenCombos = {};
+    currencies.forEach(c => {
+        const currCode = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
+        const key = `${currCode}_${c.shareClass}`;
+        seenCombos[key] = (seenCombos[key] || 0) + 1;
+    });
+
+    if (currencies.length === 0) {
+        sectionsHtml = `
+            <div style="text-align:center;padding:30px;color:#64748b;font-size:13px;background:#f8fafc;border:2.5px dashed #cbd5e1;border-radius:12px;margin-bottom:20px;">
+                No share capital sections added. Click "Add Currency Section" below to start.
+            </div>
+        `;
+    } else {
+        sectionsHtml = currencies.map((c, idx) => {
+            const isCollapsed = !!c.isCollapsed;
+            
+            // Validation check for this specific block
+            const currCode = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
+            const key = `${currCode}_${c.shareClass}`;
+            const numShares = parseFloat(c.numberOfShares) || 0;
+            const amount = parseFloat(c.shareCapitalAmount) || 0;
+            
+            let errorText = '';
+            if (!currCode) {
+                errorText = '⚠️ Currency code is required.';
+            } else if (seenCombos[key] > 1) {
+                errorText = `⚠️ Duplicate Currency + Share Class combo: ${currCode} - ${c.shareClass}.`;
+            } else if (numShares <= 0 || !Number.isInteger(numShares)) {
+                errorText = '⚠️ Number of Shares must be a positive whole number.';
+            } else if (amount < numShares) {
+                errorText = '⚠️ Issued Share Capital Amount cannot be less than the Number of Shares.';
+            }
+
+            const headerSummary = `${currCode || '???'} – ${numShares.toLocaleString()} ${c.shareClass === 'Ordinary' ? 'ORD' : 'PREF'} – ${currCode || '???'} ${amount.toLocaleString()} Issued`;
+
+            if (isCollapsed) {
+                return `
+                <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 20px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.05);display:flex;justify-content:space-between;align-items:center;transition: all 0.2s ease;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <span style="font-size:13px;font-weight:700;color:#1e293b;">${headerSummary}</span>
+                        ${errorText ? `<span style="font-size:11px;color:#ef4444;font-weight:600;margin-left:8px;">(Invalid)</span>` : ''}
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button type="button" onclick="obToggleCurrencyCollapse(${idx})" style="padding:6px 12px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">
+                            Expand
+                        </button>
+                        ${isReadOnly ? '' : `
+                            <button type="button" onclick="obDeleteCurrencySection(${idx})" style="padding:6px 12px;background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">
+                                Delete
+                            </button>
+                        `}
+                    </div>
+                </div>
+                `;
+            }
+
+            // Expanded view
+            return `
+            <div style="background:#ffffff;border:1.5px solid ${errorText ? '#fecaca' : '#e2e8f0'};border-radius:12px;padding:20px;margin-bottom:16px;box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid #f1f5f9;padding-bottom:10px;">
+                    <span style="font-size:13px;font-weight:700;color:#0f172a;">Currency Section #${idx + 1}</span>
+                    <div style="display:flex;gap:8px;">
+                        <button type="button" onclick="obToggleCurrencyCollapse(${idx})" style="padding:4px 10px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:8px;font-size:10px;font-weight:600;cursor:pointer;">
+                            Collapse
+                        </button>
+                        ${isReadOnly ? '' : `
+                            <button type="button" onclick="obDeleteCurrencySection(${idx})" style="padding:4px 10px;background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;font-size:10px;font-weight:600;cursor:pointer;">
+                                Delete
+                            </button>
+                        `}
+                    </div>
+                </div>
+                
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px;">
+                    <div class="ob-field">
+                        <label>Currency</label>
+                        <select onchange="obUpdateCurrencyField(${idx}, 'currency', this.value)" ${isReadOnly ? 'disabled' : ''}>
+                            <option value="SGD" ${c.currency === 'SGD' ? 'selected' : ''}>SGD</option>
+                            <option value="USD" ${c.currency === 'USD' ? 'selected' : ''}>USD</option>
+                            <option value="Others" ${c.currency === 'Others' ? 'selected' : ''}>Others</option>
+                        </select>
+                    </div>
+                    <div class="ob-field">
+                        <label>Class of Shares</label>
+                        <select onchange="obUpdateCurrencyField(${idx}, 'shareClass', this.value)" ${isReadOnly ? 'disabled' : ''}>
+                            <option value="Ordinary" ${c.shareClass === 'Ordinary' ? 'selected' : ''}>Ordinary</option>
+                            <option value="Preference" ${c.shareClass === 'Preference' ? 'selected' : ''}>Preference</option>
+                        </select>
+                    </div>
+                </div>
+
+                ${c.currency === 'Others' ? `
+                    <div class="ob-field" style="margin-bottom:12px;">
+                        <label>Specify Custom Currency Code</label>
+                        <input type="text" value="${c.customCurrency || ''}" placeholder="e.g. EUR, GBP" oninput="obUpdateCurrencyField(${idx}, 'customCurrency', this.value)" ${isReadOnly ? 'disabled' : ''}>
+                    </div>
+                ` : ''}
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px;">
+                    <div class="ob-field">
+                        <label>Number of Shares</label>
+                        <input type="number" step="1" value="${c.numberOfShares || ''}" placeholder="e.g. 100" oninput="obUpdateCurrencyField(${idx}, 'numberOfShares', this.value)" ${isReadOnly ? 'disabled' : ''}>
+                    </div>
+                    <div class="ob-field">
+                        <label>Issued Share Capital Amount</label>
+                        <input type="number" value="${c.shareCapitalAmount || ''}" placeholder="e.g. 100" oninput="obUpdateCurrencyField(${idx}, 'shareCapitalAmount', this.value)" ${isReadOnly ? 'disabled' : ''}>
+                    </div>
+                </div>
+
+                ${errorText ? `
+                    <div style="color:#ef4444;font-size:11px;font-weight:600;margin-top:8px;background:#fef2f2;border:1px solid #fecaca;padding:8px 12px;border-radius:8px;">
+                        ${errorText}
+                    </div>
+                ` : ''}
+            </div>
+            `;
+        }).join('');
+    }
+
+    // Build consolidated summary HTML
+    let summaryHtml = '';
+    if (currencies.length > 0) {
+        const uniqueCurrencies = new Set();
+        let totalShares = 0;
+        const capitalByCurrency = {};
+
+        currencies.forEach(c => {
+            const currCode = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
+            if (currCode) uniqueCurrencies.add(currCode);
+            totalShares += parseFloat(c.numberOfShares) || 0;
+
+            if (currCode) {
+                capitalByCurrency[currCode] = (capitalByCurrency[currCode] || 0) + (parseFloat(c.shareCapitalAmount) || 0);
+            }
+        });
+
+        const capitalSummaryStrings = Object.keys(capitalByCurrency).map(curr => {
+            return `<strong style="color:#0f172a;">${curr} ${capitalByCurrency[curr].toLocaleString()}</strong>`;
+        }).join(', ');
+
+        summaryHtml = `
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-top:20px;">
+                <h5 style="margin:0 0 12px 0;font-size:13px;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:6px;">
+                    📊 Consolidated Share Capital Summary
+                </h5>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1.5fr;gap:16px;font-size:12.5px;color:#475569;">
+                    <div style="background:#ffffff;border:1px solid #f1f5f9;border-radius:8px;padding:12px;">
+                        <span style="display:block;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;">Currencies</span>
+                        <span style="font-size:16px;font-weight:800;color:#0f172a;">${uniqueCurrencies.size}</span>
+                    </div>
+                    <div style="background:#ffffff;border:1px solid #f1f5f9;border-radius:8px;padding:12px;">
+                        <span style="display:block;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;">Total Shares</span>
+                        <span style="font-size:16px;font-weight:800;color:#0f172a;">${totalShares.toLocaleString()}</span>
+                    </div>
+                    <div style="background:#ffffff;border:1px solid #f1f5f9;border-radius:8px;padding:12px;">
+                        <span style="display:block;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;">Total Issued Share Capital</span>
+                        <span style="font-size:13px;font-weight:500;">${capitalSummaryStrings || 'None'}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    let addBtnHtml = '';
+    if (!isReadOnly) {
+        addBtnHtml = `
+            <div style="margin-bottom:20px;display:flex;gap:10px;">
+                <button type="button" onclick="obAddCurrencySection()" style="padding:10px 20px;background:#3b82f6;color:#fff;border:none;border-radius:10px;font-family:Outfit,sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                    ➕ Add Currency Section
+                </button>
+            </div>
+        `;
+    }
+
+    return sectionsHtml + addBtnHtml + summaryHtml;
+}
+
+async function obUpdateCurrencyField(idx, key, val) {
+    const ob = state.onboarding || {};
+    if (!ob.stepShareCapital) ob.stepShareCapital = { data: { currencies: [] }, status: 'pending', documents: [] };
+    if (!ob.stepShareCapital.data) ob.stepShareCapital.data = { currencies: [] };
+    if (!ob.stepShareCapital.data.currencies) ob.stepShareCapital.data.currencies = [];
+
+    const c = ob.stepShareCapital.data.currencies[idx];
+    if (c) {
+        if (key === 'numberOfShares' || key === 'shareCapitalAmount') {
+            c[key] = val !== '' ? parseFloat(val) : '';
+        } else {
+            c[key] = val;
+        }
+    }
+
+    // Auto-save the step data
+    await ensureOnboardingRecord();
+    if (state.onboardingId) {
+        try {
+            const res = await fetch(`/api/onboarding/${state.onboardingId}/step/share_capital`, {
+                method: 'PATCH',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    data: ob.stepShareCapital.data,
+                    status: 'pending'
+                })
+            });
+            if (res.ok) {
+                state.onboarding = normalizeOnboardingData(await res.json());
+            }
+        } catch (e) {
+            console.error("Failed to save share capital step:", e);
+        }
+    }
+
+    // Refresh UI only, do not auto-navigate during typing/inputs
+    const workspace = document.getElementById('ob-form-workspace');
+    if (workspace) renderActiveStepForm(workspace);
+    updateWizardUIFeedback();
+}
+
+async function obToggleCurrencyCollapse(idx) {
+    const ob = state.onboarding || {};
+    if (ob.stepShareCapital && ob.stepShareCapital.data && ob.stepShareCapital.data.currencies) {
+        const c = ob.stepShareCapital.data.currencies[idx];
+        if (c) {
+            c.isCollapsed = !c.isCollapsed;
+            
+            await ensureOnboardingRecord();
+            if (state.onboardingId) {
+                try {
+                    const res = await fetch(`/api/onboarding/${state.onboardingId}/step/share_capital`, {
+                        method: 'PATCH',
+                        headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify({
+                            data: ob.stepShareCapital.data,
+                            status: 'pending'
+                        })
+                    });
+                    if (res.ok) {
+                        state.onboarding = normalizeOnboardingData(await res.json());
+                    }
+                } catch (e) {}
+            }
+        }
+    }
+    const workspace = document.getElementById('ob-form-workspace');
+    if (workspace) renderActiveStepForm(workspace);
+}
+
+async function obAddCurrencySection() {
+    const ob = state.onboarding || {};
+    if (!ob.stepShareCapital) ob.stepShareCapital = { data: { currencies: [] }, status: 'pending', documents: [] };
+    if (!ob.stepShareCapital.data) ob.stepShareCapital.data = { currencies: [] };
+    if (!ob.stepShareCapital.data.currencies) ob.stepShareCapital.data.currencies = [];
+
+    ob.stepShareCapital.data.currencies.push({
+        currency: 'SGD',
+        customCurrency: '',
+        shareClass: 'Ordinary',
+        numberOfShares: 100,
+        shareCapitalAmount: 100,
+        isCollapsed: false
+    });
+
+    await ensureOnboardingRecord();
+    if (state.onboardingId) {
+        try {
+            const res = await fetch(`/api/onboarding/${state.onboardingId}/step/share_capital`, {
+                method: 'PATCH',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    data: ob.stepShareCapital.data,
+                    status: 'pending'
+                })
+            });
+            if (res.ok) {
+                state.onboarding = normalizeOnboardingData(await res.json());
+            }
+        } catch (e) {}
+    }
+    const workspace = document.getElementById('ob-form-workspace');
+    if (workspace) renderActiveStepForm(workspace);
+    updateWizardUIFeedback();
+}
+
+async function obDeleteCurrencySection(idx) {
+    const ob = state.onboarding || {};
+    if (ob.stepShareCapital && ob.stepShareCapital.data && ob.stepShareCapital.data.currencies) {
+        ob.stepShareCapital.data.currencies.splice(idx, 1);
+        
+        await ensureOnboardingRecord();
+        if (state.onboardingId) {
+            try {
+                const res = await fetch(`/api/onboarding/${state.onboardingId}/step/share_capital`, {
+                    method: 'PATCH',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                        data: ob.stepShareCapital.data,
+                        status: 'pending'
+                    })
+                });
+                if (res.ok) {
+                    state.onboarding = normalizeOnboardingData(await res.json());
+                }
+            } catch (e) {}
+        }
+    }
+    const workspace = document.getElementById('ob-form-workspace');
+    if (workspace) renderActiveStepForm(workspace);
+    updateWizardUIFeedback();
+}
+
+window.obRenderShareCapitalHtml = obRenderShareCapitalHtml;
+window.obUpdateCurrencyField = obUpdateCurrencyField;
+window.obToggleCurrencyCollapse = obToggleCurrencyCollapse;
+window.obAddCurrencySection = obAddCurrencySection;
+window.obDeleteCurrencySection = obDeleteCurrencySection;
+
+function getShareholderAllocation(type, name, idx) {
+    const ob = state.onboarding || {};
+    const stepData = ob.stepShareCapital || {};
+    const allocations = (stepData.data || {}).allocations || [];
+    
+    // Convert type
+    const normalizedType = (type.toLowerCase().includes('individual') || type.includes('👤')) ? 'individual' : 'corporate';
+    
+    let searchName = (name || '').trim();
+    if (!searchName) {
+        const req = state.requirements || {};
+        const reqShs = req.shareholders || [];
+        const filtered = reqShs.filter(s => {
+            const isInd = s.type === 'individual' || s.type === '👤' || (typeof s.type === 'string' && (s.type.toLowerCase().includes('individual') || s.type.includes('👤')));
+            return normalizedType === 'individual' ? isInd : !isInd;
+        });
+        if (filtered[idx]) {
+            searchName = filtered[idx].name;
+        }
+    }
+    
+    if (!searchName) return null;
+    
+    const found = allocations.find(a => {
+        const aType = (a.type || '').toLowerCase();
+        const searchType = normalizedType.toLowerCase();
+        const isTypeMatch = aType === searchType || 
+                            (aType.includes('individual') && searchType.includes('individual')) ||
+                            (aType.includes('corporate') && searchType.includes('corporate'));
+        
+        const aName = (a.name || '').trim().toLowerCase();
+        const sName = searchName.trim().toLowerCase();
+        return isTypeMatch && aName === sName;
+    });
+    if (found) {
+        return {
+            shares: found.numberOfShares,
+            amount: found.shareCapitalAmount,
+            currency: found.currency,
+            shareClass: found.shareClass
+        };
+    }
+    return null;
+}
+
+async function obIndividualShareholderSameAsDirectorCheckboxChange(idx, checked) {
+    const stepKey = 'individual_shareholder';
+    const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+    if (!step) return;
+    const stepField = step.field;
+    const stepData = state.onboarding[stepField];
+    if (!stepData || !stepData.data || !stepData.data.list || !stepData.data.list[idx]) return;
+
+    const item = stepData.data.list[idx];
+    item.sameAsDirector = checked;
+    
+    if (!checked) {
+        item.selectedDirectorIdx = '';
+        ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].forEach(key => {
+            item[key] = '';
+        });
+        const docsField = stepData.documents || [];
+        stepData.documents = docsField.filter(d => d.type !== `nric_${idx}` && d.type !== `address_proof_${idx}`);
+    }
+
+    await ensureOnboardingRecord();
+    if (state.onboardingId) {
+        try {
+            await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
+                method: 'PATCH',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    data: stepData.data,
+                    documents: stepData.documents,
+                    status: 'pending'
+                })
+            });
+        } catch (e) {}
+    }
+
+    const workspace = document.getElementById('ob-form-workspace');
+    if (workspace) renderActiveStepForm(workspace);
+    updateWizardUIFeedback();
+}
+
+async function obIndividualShareholderSameAsDirectorChange(idx, dirIdx) {
+    const stepKey = 'individual_shareholder';
+    const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+    if (!step) return;
+    const stepField = step.field;
+    const stepData = state.onboarding[stepField];
+    if (!stepData || !stepData.data || !stepData.data.list || !stepData.data.list[idx]) return;
+
+    const item = stepData.data.list[idx];
+    item.selectedDirectorIdx = String(dirIdx);
+
+    if (dirIdx !== '') {
+        const dirStep = ONBOARDING_STEPS.find(s => s.key === 'director_details');
+        const dirList = dirStep && state.onboarding[dirStep.field] ? (state.onboarding[dirStep.field].data.list || []) : [];
+        const dirItem = dirList[dirIdx];
+        if (dirItem) {
+            ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].forEach(key => {
+                item[key] = dirItem[key] || '';
+            });
+
+            const dirDocs = (state.onboarding[dirStep.field] || {}).documents || [];
+            const dirNric = dirDocs.find(d => d.type === `nric_${dirIdx}`);
+            const dirAddr = dirDocs.find(d => d.type === `address_proof_${dirIdx}`);
+            
+            const currentDocs = stepData.documents || [];
+            const filteredDocs = currentDocs.filter(d => d.type !== `nric_${idx}` && d.type !== `address_proof_${idx}`);
+
+            if (dirNric) {
+                filteredDocs.push({
+                    ...dirNric,
+                    id: "DOC-" + Date.now() + "-" + Math.floor(Math.random() * 1000),
+                    type: `nric_${idx}`
+                });
+            }
+            if (dirAddr) {
+                filteredDocs.push({
+                    ...dirAddr,
+                    id: "DOC-" + Date.now() + "-" + Math.floor(Math.random() * 1000),
+                    type: `address_proof_${idx}`
+                });
+            }
+            stepData.documents = filteredDocs;
+        }
+    } else {
+        item.selectedDirectorIdx = '';
+        ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].forEach(key => {
+            item[key] = '';
+        });
+        const currentDocs = stepData.documents || [];
+        stepData.documents = currentDocs.filter(d => d.type !== `nric_${idx}` && d.type !== `address_proof_${idx}`);
+    }
+
+    await ensureOnboardingRecord();
+    if (state.onboardingId) {
+        try {
+            await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
+                method: 'PATCH',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    data: stepData.data,
+                    documents: stepData.documents,
+                    status: 'pending'
+                })
+            });
+        } catch (e) {}
+    }
+
+    const workspace = document.getElementById('ob-form-workspace');
+    if (workspace) renderActiveStepForm(workspace);
+    updateWizardUIFeedback();
+}
+
+function obIdNumberInputHandler(input) {
+    const originalValue = input.value;
+    const sanitized = originalValue.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (originalValue !== sanitized) {
+        input.value = sanitized;
+    }
+}
+
+function clearOcrFieldsForDoc(stepKey, docType, data) {
+    if (!data) return;
+    if (stepKey === 'director_details') {
+        if (docType === 'nric') {
+            ['fullName', 'idNumber', 'nationality', 'gender', 'dateOfBirth'].forEach(k => data[k] = '');
+        } else if (docType === 'address_proof') {
+            data.residentialAddress = '';
+        }
+    } else if (stepKey === 'individual_shareholder') {
+        if (docType === 'nric') {
+            ['fullName', 'idNumber'].forEach(k => data[k] = '');
+        } else if (docType === 'address_proof') {
+            data.residentialAddress = '';
+        }
+    } else if (stepKey === 'corporate_shareholder') {
+        if (docType === 'bizfile') {
+            ['companyName', 'uen', 'dateOfIncorporation', 'registeredAddress'].forEach(k => data[k] = '');
+        }
+    } else if (stepKey === 'corporate_rep') {
+        if (docType === 'nric') {
+            ['fullName', 'idNumber', 'nationality', 'dateOfBirth'].forEach(k => data[k] = '');
+        } else if (docType === 'address_proof') {
+            data.residentialAddress = '';
+        }
+    }
+}
+
+async function obClearMultiItemDoc(stepKey, docTypeWithIdx, idx) {
+    const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+    if (!step) return;
+    const stepField = step.field;
+    const stepData = state.onboarding[stepField];
+    if (!stepData) return;
+
+    const currentDocs = stepData.documents || [];
+    stepData.documents = currentDocs.filter(d => d.type !== docTypeWithIdx);
+
+    const docType = docTypeWithIdx.split('_')[0];
+    const list = stepData.data.list || [];
+    const item = list[idx];
+    if (item) {
+        clearOcrFieldsForDoc(stepKey, docType, item);
+    }
+
+    await ensureOnboardingRecord();
+    if (state.onboardingId) {
+        try {
+            const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
+                method: 'PATCH',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    data: stepData.data,
+                    documents: stepData.documents,
+                    status: 'pending'
+                })
+            });
+            if (res.ok) {
+                state.onboarding = normalizeOnboardingData(await res.json());
+            }
+        } catch (e) {
+            console.error("Failed to save step after clearing doc:", e);
+        }
+    }
+
+    const workspace = document.getElementById('ob-form-workspace');
+    if (workspace) renderActiveStepForm(workspace);
+    updateWizardUIFeedback();
+}
+
+async function obClearDoc(stepKey, docType) {
+    const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+    if (!step) return;
+    const stepField = step.field;
+    const stepData = state.onboarding[stepField];
+    if (!stepData) return;
+
+    const currentDocs = stepData.documents || [];
+    stepData.documents = currentDocs.filter(d => d.type !== docType);
+
+    clearOcrFieldsForDoc(stepKey, docType, stepData.data);
+
+    await ensureOnboardingRecord();
+    if (state.onboardingId) {
+        try {
+            const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
+                method: 'PATCH',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    data: stepData.data,
+                    documents: stepData.documents,
+                    status: 'pending'
+                })
+            });
+            if (res.ok) {
+                state.onboarding = normalizeOnboardingData(await res.json());
+            }
+        } catch (e) {
+            console.error("Failed to save step after clearing doc:", e);
+        }
+    }
+
+    const workspace = document.getElementById('ob-form-workspace');
+    if (workspace) renderActiveStepForm(workspace);
+    updateWizardUIFeedback();
 }
 

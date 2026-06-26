@@ -31,6 +31,8 @@ const getDb = () => {
     if (!db.documents) db.documents = [];
     if (!db.messages) db.messages = [];
     if (!db.groups) db.groups = [];
+    if (!db.requirements) db.requirements = [];
+    if (!db.onboarding) db.onboarding = [];
     if (!db.users) {
         db.users = [
             {
@@ -775,6 +777,891 @@ app.post('/api/requirements/pay', (req, res) => {
     console.log(`==================================================\n`);
     
     res.json({ success: true, message: 'Payment registered, email sent.' });
+});
+
+// GET /api/requirements → retrieve requirement draft
+app.get('/api/requirements', (req, res) => {
+    const db = getDb();
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+    const token = authHeader.split(' ')[1];
+    const parts = token.split('-');
+    let userId = parts[parts.length - 1];
+    if (parts.length >= 2 && parts[parts.length - 2] === 'usr') {
+        userId = 'usr-' + userId;
+    }
+
+    let requirement = (db.requirements || []).find(r => r.userId === userId);
+    if (!requirement) {
+        requirement = {
+            id: 'SRV-' + (5000 + (db.services || []).length + 1),
+            userId: userId,
+            status: 'pending',
+            data: {},
+            sectionStatuses: {},
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
+        if (!db.requirements) db.requirements = [];
+        db.requirements.push(requirement);
+        saveDb(db);
+    }
+
+    res.json({
+        status: requirement.status,
+        data: requirement.data,
+        sectionStatuses: requirement.sectionStatuses,
+        applicationId: requirement.id
+    });
+});
+
+// POST /api/requirements → save requirement draft
+app.post('/api/requirements', (req, res) => {
+    const db = getDb();
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+    const token = authHeader.split(' ')[1];
+    const parts = token.split('-');
+    let userId = parts[parts.length - 1];
+    if (parts.length >= 2 && parts[parts.length - 2] === 'usr') {
+        userId = 'usr-' + userId;
+    }
+
+    let requirement = (db.requirements || []).find(r => r.userId === userId);
+    if (!requirement) {
+        requirement = {
+            id: 'SRV-' + (5000 + (db.services || []).length + 1),
+            userId: userId,
+            status: 'pending',
+            data: req.body || {},
+            sectionStatuses: {},
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
+        if (!db.requirements) db.requirements = [];
+        db.requirements.push(requirement);
+    } else {
+        requirement.data = req.body || {};
+        requirement.updatedAt = Date.now();
+    }
+    saveDb(db);
+
+    res.json({
+        status: requirement.status,
+        data: requirement.data,
+        sectionStatuses: requirement.sectionStatuses,
+        applicationId: requirement.id
+    });
+});
+
+// POST /api/requirements/submit → submit requirement
+app.post('/api/requirements/submit', (req, res) => {
+    const db = getDb();
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+    const token = authHeader.split(' ')[1];
+    const parts = token.split('-');
+    let userId = parts[parts.length - 1];
+    if (parts.length >= 2 && parts[parts.length - 2] === 'usr') {
+        userId = 'usr-' + userId;
+    }
+
+    let requirement = (db.requirements || []).find(r => r.userId === userId);
+    if (!requirement) {
+        return res.status(400).json({ message: 'No requirement found to submit' });
+    }
+
+    requirement.status = 'under review';
+    requirement.updatedAt = Date.now();
+
+    // Create client/service in db if they don't exist
+    const user = db.users.find(u => u.id === userId);
+    if (user) {
+        let client = db.clients.find(c => c.email === user.email);
+        if (!client) {
+            client = {
+                clientId: 'C-' + (1000 + db.clients.length + 1),
+                name: (user.firstName + ' ' + user.lastName).trim(),
+                email: user.email,
+                phone: requirement.data?.contact?.phone || '',
+                createdAt: Date.now()
+            };
+            db.clients.push(client);
+        }
+
+        const existingService = db.services.find(s => s.clientId === client.clientId && s.serviceId === requirement.id);
+        if (!existingService) {
+            const newService = {
+                serviceId: requirement.id,
+                clientId: client.clientId,
+                serviceType: requirement.data?.companyType || 'Incorporation',
+                status: 'In Progress',
+                companyName: requirement.data?.names?.[0] || 'Unknown',
+                assignedStaff: 'Sarah Lim',
+                priority: 'Normal',
+                kycStatus: 'Pending',
+                docsStatus: { pending: 1, ok: 0 },
+                date: new Date().toISOString().split('T')[0],
+                timestamp: Date.now()
+            };
+            db.services.unshift(newService);
+        } else {
+            existingService.status = 'In Progress';
+            existingService.companyName = requirement.data?.names?.[0] || existingService.companyName;
+        }
+    }
+
+    saveDb(db);
+
+    res.json({
+        status: requirement.status,
+        data: requirement.data,
+        sectionStatuses: requirement.sectionStatuses,
+        applicationId: requirement.id
+    });
+});
+
+// POST /api/requirements/public/submit → submit requirement as guest (and auto-create user/client)
+app.post('/api/requirements/public/submit', (req, res) => {
+    const db = getDb();
+    const data = req.body || {};
+    const contact = data.contact || {};
+    const email = contact.email;
+    let firstName = contact.firstName || '';
+    let lastName = contact.lastName || '';
+
+    if (!email || !email.trim()) {
+        return res.status(400).json({ message: 'Contact email is required' });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    let user = db.users.find(u => u.email.toLowerCase() === normalizedEmail);
+    let rawPassword = '';
+
+    if (user) {
+        rawPassword = user.password || 'password123';
+    } else {
+        const randomNum = Math.floor(Math.random() * 9000) + 1000;
+        rawPassword = 'Glob-' + randomNum;
+        user = {
+            id: 'usr-' + Date.now(),
+            firstName: firstName,
+            lastName: lastName,
+            email: normalizedEmail,
+            password: rawPassword,
+            role: 'CLIENT'
+        };
+        db.users.push(user);
+
+        // Auto-initialize KYC
+        if (!db.kyc) db.kyc = [];
+        db.kyc.push({
+            id: 'KYC-' + Date.now(),
+            clientId: user.id,
+            name: (firstName + ' ' + lastName).trim(),
+            idType: 'N/A',
+            idNum: 'N/A',
+            nation: 'N/A',
+            status: 'pending',
+            risk: 'Low',
+            lastUpdated: Date.now(),
+            auditLogs: ['KYC profile initialized on user registration.']
+        });
+
+        // Auto-initialize Compliance
+        if (!db.compliance) db.compliance = [];
+        db.compliance.push({
+            id: 'COMP-' + Date.now(),
+            clientId: user.id,
+            name: (firstName + ' ' + lastName).trim(),
+            type: 'AML Screening',
+            status: 'pending',
+            risk: 'Low',
+            lastUpdated: Date.now(),
+            auditLogs: ['AML compliance monitoring initialized on registration.']
+        });
+    }
+
+    // Ensure client record exists
+    if (!db.clients) db.clients = [];
+    let client = db.clients.find(c => c.email === normalizedEmail);
+    if (!client) {
+        client = {
+            clientId: 'C-' + (1000 + db.clients.length + 1),
+            name: (firstName + ' ' + lastName).trim(),
+            email: normalizedEmail,
+            phone: contact.phone || '',
+            createdAt: Date.now()
+        };
+        db.clients.push(client);
+    }
+
+    // Ensure requirement record exists
+    if (!db.requirements) db.requirements = [];
+    let requirement = db.requirements.find(r => r.userId === user.id);
+    if (requirement) {
+        requirement.data = data;
+        requirement.status = 'under review';
+        requirement.updatedAt = Date.now();
+    } else {
+        requirement = {
+            id: 'SRV-' + (5000 + (db.services || []).length + 1),
+            userId: user.id,
+            status: 'under review',
+            data: data,
+            sectionStatuses: {},
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
+        db.requirements.push(requirement);
+    }
+
+    // Ensure service record exists
+    if (!db.services) db.services = [];
+    let service = db.services.find(s => s.clientId === client.clientId && s.serviceId === requirement.id);
+    if (!service) {
+        service = {
+            serviceId: requirement.id,
+            clientId: client.clientId,
+            serviceType: data.companyType || 'Incorporation',
+            status: 'In Progress',
+            companyName: data.names?.[0] || 'Unknown',
+            assignedStaff: 'Sarah Lim',
+            priority: 'Normal',
+            kycStatus: 'Pending',
+            docsStatus: { pending: 1, ok: 0 },
+            date: new Date().toISOString().split('T')[0],
+            timestamp: Date.now()
+        };
+        db.services.unshift(service);
+    }
+
+    saveDb(db);
+
+    res.json({
+        status: requirement.status,
+        data: requirement.data,
+        applicationId: requirement.id,
+        email: email,
+        password: rawPassword,
+        firstName: firstName,
+        lastName: lastName,
+        clientId: user.id
+    });
+});
+
+// GET /api/onboarding-config/published → get published onboarding steps configuration
+app.get('/api/onboarding-config/published', (req, res) => {
+    res.json([
+        {
+            key: 'document_checklist',
+            field: 'stepDocumentChecklist',
+            title: 'Document Checklist',
+            icon: 'clipboard-list',
+            description: 'Please review the document checklist based on pre-registration selections before starting onboarding.',
+            sortOrder: 0,
+            status: 'PUBLISHED',
+            manualFields: [],
+            requiredDocs: []
+        },
+        {
+            key: 'director_details',
+            field: 'step2DirectorDetails',
+            title: 'Director Details',
+            icon: 'briefcase',
+            description: 'Please upload NRIC/FIN and Address Proof, verify and confirm details.',
+            sortOrder: 1,
+            status: 'PUBLISHED',
+            dynamicSection: true,
+            dynamicCountKey: 'directorCount',
+            manualFields: [
+                { key: 'fullName', label: 'Full Legal Name', type: 'text' },
+                { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
+                { key: 'nationality', label: 'Nationality', type: 'nationality' },
+                { key: 'gender', label: 'Gender', type: 'select', options: ['Select', 'Male', 'Female', 'Other'] },
+                { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
+                { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
+                { key: 'email', label: 'Email', type: 'email' },
+                { key: 'mobile', label: 'Mobile Number', type: 'phone' },
+                { key: 'disqualificationAcknowledge', label: 'I confirm that I am not disqualified from acting as a director under the laws of Singapore.', type: 'checkbox', mandatory: true }
+            ],
+            requiredDocs: [
+                { type: 'nric', label: 'NRIC / FIN' },
+                { type: 'address_proof', label: 'Utility Bill / Bank Statement / Mobile Bill' }
+            ]
+        },
+        {
+            key: 'share_capital',
+            field: 'stepShareCapital',
+            title: 'Share Capital Details',
+            icon: 'coins',
+            description: 'Configure corporate share capital structure and allocate shares to shareholders.',
+            sortOrder: 2,
+            status: 'PUBLISHED',
+            manualFields: [],
+            requiredDocs: []
+        },
+        {
+            key: 'individual_shareholder',
+            field: 'step3IndividualShareholder',
+            title: 'Individual Shareholder Details',
+            icon: 'users',
+            description: 'Capture individual shareholder information. Ownership ≥ 25% will automatically trigger UBO and AML/KYC screening.',
+            sortOrder: 3,
+            status: 'PUBLISHED',
+            dynamicSection: true,
+            dynamicCountKey: 'individualShareholderCount',
+            manualFields: [
+                { key: 'sameAsDirector', label: 'Is individual shareholder same as director?', type: 'checkbox' },
+                { key: 'fullName', label: 'Full Name', type: 'text' },
+                { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
+                { key: 'nationality', label: 'Nationality', type: 'nationality' },
+                { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
+                { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
+                { key: 'email', label: 'Email', type: 'email' },
+                { key: 'mobile', label: 'Mobile Number', type: 'phone' },
+                { key: 'totalShares', label: 'Total Number of Shares of the Company', type: 'number' },
+                { key: 'totalShareCapital', label: 'Total Share Capital Amount of the Company', type: 'number' },
+                { key: 'currency', label: 'Currency', type: 'select', options: ['Select', 'SGD', 'USD'] },
+                { key: 'shareClass', label: 'Share Class', type: 'select', options: ['Select', 'Ordinary', 'Preference'] },
+                { key: 'numberOfShares', label: 'Number of Shares', type: 'number' },
+                { key: 'shareCapitalAmount', label: 'Share Capital Amount', type: 'number' },
+                { key: 'ownershipPercentage', label: 'Ownership % (auto-calculated)', type: 'number', readonly: true },
+                { key: 'uboDeclaration', label: 'UBO Declaration', type: 'select', options: ['Select', 'Yes', 'No'] }
+            ],
+            requiredDocs: [
+                { type: 'nric', label: 'NRIC / FIN' },
+                { type: 'address_proof', label: 'Utility Bill / Bank Statement / Mobile Bill' }
+            ]
+        },
+        {
+            key: 'corporate_shareholder',
+            field: 'step4CorporateShareholder',
+            title: 'Corporate Shareholder Details',
+            icon: 'building',
+            description: 'Capture corporate shareholder details, including UEN, corporate structure, and UBO declarations.',
+            sortOrder: 4,
+            status: 'PUBLISHED',
+            dynamicSection: true,
+            dynamicCountKey: 'corporateShareholderCount',
+            manualFields: [
+                { key: 'companyName', label: 'Company Name', type: 'text' },
+                { key: 'uen', label: 'UEN / Registration Number', type: 'text' },
+                { key: 'registeredAddress', label: 'Registered Address', type: 'text' },
+                { key: 'countryOfIncorporation', label: 'Country of Incorporation', type: 'text' },
+                { key: 'dateOfIncorporation', label: 'Date of Incorporation', type: 'date' },
+                { key: 'totalShares', label: 'Total Number of Shares of the Company', type: 'number' },
+                { key: 'totalShareCapital', label: 'Total Share Capital Amount of the Company', type: 'number' },
+                { key: 'currency', label: 'Currency', type: 'select', options: ['Select', 'SGD', 'USD'] },
+                { key: 'shareClass', label: 'Share Class', type: 'select', options: ['Select', 'Ordinary', 'Preference'] },
+                { key: 'numberOfShares', label: 'Number of Shares', type: 'number' },
+                { key: 'shareCapitalAmount', label: 'Share Capital Amount', type: 'number' },
+                { key: 'ownershipPercentage', label: 'Ownership % (auto-calculated)', type: 'number', readonly: true },
+                { key: 'uboDeclaration', label: 'UBO Declaration', type: 'select', options: ['Select', 'Yes', 'No'] }
+            ],
+            requiredDocs: [
+                { type: 'bizfile', label: 'BizFile / Corporate Profile' },
+                { type: 'constitution', label: 'Company Constitution' },
+                { type: 'cert_incorporation', label: 'Certificate of Incorporation' },
+                { type: 'supporting_docs', label: 'Supporting Documents' }
+            ]
+        },
+        {
+            key: 'ubo',
+            field: 'step5UBO',
+            title: 'Ultimate Beneficial Owner (UBO)',
+            icon: 'key',
+            description: 'Provide details and documents for Ultimate Beneficial Owners (individuals holding >= 25% ownership).',
+            sortOrder: 5,
+            status: 'PUBLISHED',
+            manualFields: [
+                { key: 'fullName', label: 'Full Legal Name', type: 'text' },
+                { key: 'idNumber', label: 'NRIC / Passport Number', type: 'text' },
+                { key: 'nationality', label: 'Nationality', type: 'nationality' },
+                { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
+                { key: 'residentialAddress', label: 'Residential Address', type: 'text' }
+            ],
+            requiredDocs: [
+                { type: 'ubo_nric', label: 'NRIC / Passport Copy' },
+                { type: 'ubo_address_proof', label: 'Address Proof' }
+            ]
+        },
+        {
+            key: 'corporate_rep',
+            field: 'step6CorporateRep',
+            title: 'Corporate Representative',
+            icon: 'user-tie',
+            description: 'Capture details and authorization documents for the appointed corporate representative.',
+            sortOrder: 6,
+            status: 'PUBLISHED',
+            manualFields: [
+                { key: 'fullName', label: 'Full Name', type: 'text' },
+                { key: 'idNumber', label: 'NRIC / Passport Number', type: 'text' },
+                { key: 'nationality', label: 'Nationality', type: 'nationality' },
+                { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
+                { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
+                { key: 'email', label: 'Email Address', type: 'email' },
+                { key: 'mobile', label: 'Mobile Number', type: 'phone' }
+            ],
+            requiredDocs: [
+                { type: 'nric', label: 'NRIC / Passport Copy' },
+                { type: 'address_proof', label: 'Address Proof' },
+                { type: 'auth_letter', label: 'Authorization Letter' }
+            ]
+        },
+        {
+            key: 'final_declaration',
+            field: 'step7FinalDeclaration',
+            title: 'Final Declaration & Consent',
+            icon: 'file-signature',
+            description: 'Please review all details and declare final consent before submitting your application.',
+            sortOrder: 7,
+            status: 'PUBLISHED',
+            manualFields: [
+                { key: 'declarationAgreed', label: 'I confirm that all the details provided are true and accurate to the best of my knowledge.', type: 'checkbox' },
+                { key: 'consentAgreed', label: 'I consent to Globalisor conducting compliance, AML/KYC screening, and verification checks.', type: 'checkbox' },
+                { key: 'fye', label: 'Financial Year End (FYE)', type: 'date' }
+            ]
+        }
+    ]);
+});
+
+const getMergedValue = (existing, existingKey, source, sourceKey) => {
+    if (existing && existing[existingKey] !== undefined && existing[existingKey] !== null && String(existing[existingKey]).trim() !== '') {
+        return existing[existingKey];
+    }
+    if (source && source[sourceKey] !== undefined && source[sourceKey] !== null) {
+        return source[sourceKey];
+    }
+    return '';
+};
+
+const getMergedObject = (existing, existingKey, source, sourceKey, defaultVal) => {
+    if (existing && existing[existingKey] !== undefined && existing[existingKey] !== null) {
+        if (typeof existing[existingKey] === 'string' && String(existing[existingKey]).trim() === '') {
+            // skip empty string fallback
+        } else {
+            return existing[existingKey];
+        }
+    }
+    if (source && source[sourceKey] !== undefined && source[sourceKey] !== null) {
+        return source[sourceKey];
+    }
+    return defaultVal;
+};
+
+// GET /api/onboarding/client/:clientId → get client onboarding progress and synchronize from pre-registration
+app.get('/api/onboarding/client/:clientId', (req, res) => {
+    const db = getDb();
+    const { clientId } = req.params;
+
+    let ob = db.onboarding.find(o => o.clientId === clientId);
+    let isNew = false;
+    if (!ob) {
+        ob = {
+            id: 'ob-' + Date.now(),
+            clientId: clientId,
+            clientEmail: '',
+            clientName: '',
+            portalActivated: false,
+            status: 'in_progress',
+            progressPercent: 0,
+            stepDocumentChecklist: { key: 'document_checklist', title: 'Document Checklist', status: 'pending', data: {}, documents: [] },
+            step2DirectorDetails: { key: 'director_details', title: 'Director Details', status: 'pending', data: { list: [] }, documents: [] },
+            stepShareCapital: { key: 'share_capital', title: 'Share Capital Details', status: 'pending', data: { allocations: [], currencies: [] }, documents: [] },
+            step3IndividualShareholder: { key: 'individual_shareholder', title: 'Individual Shareholder Details', status: 'pending', data: { list: [] }, documents: [] },
+            step4CorporateShareholder: { key: 'corporate_shareholder', title: 'Corporate Shareholder Details', status: 'pending', data: { list: [] }, documents: [] },
+            step5UBO: { key: 'ubo', title: 'Ultimate Beneficial Owner', status: 'pending', data: {}, documents: [] },
+            step6CorporateRep: { key: 'corporate_rep', title: 'Corporate Representative', status: 'pending', data: {}, documents: [] },
+            step7FinalDeclaration: { key: 'final_declaration', title: 'Final Declaration & Consent', status: 'pending', data: {}, documents: [] },
+            auditLogs: ['Onboarding initiated automatically at ' + new Date()],
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
+        const user = db.users.find(u => u.id === clientId);
+        if (user) {
+            ob.clientEmail = user.email;
+            ob.clientName = (user.firstName + ' ' + user.lastName).trim();
+        }
+        db.onboarding.push(ob);
+        isNew = true;
+    }
+
+    // Sync from requirements
+    const requirement = (db.requirements || []).find(r => r.userId === clientId);
+    if (requirement && requirement.data) {
+        const reqData = requirement.data;
+        let changed = false;
+
+        // --- Sync Directors ---
+        const reqDirs = reqData.directors || [];
+        const dirStep = ob.step2DirectorDetails;
+        if (!dirStep.data) dirStep.data = { list: [] };
+        if (!dirStep.data.list) dirStep.data.list = [];
+
+        const newDirs = [];
+        for (let i = 0; i < reqDirs.length; i++) {
+            const existing = dirStep.data.list[i] || {};
+            const rDir = reqDirs[i] || {};
+
+            newDirs.push({
+                fullName: getMergedValue(existing, 'fullName', rDir, 'name'),
+                idNumber: getMergedValue(existing, 'idNumber', rDir, 'idNum'),
+                nationality: getMergedValue(existing, 'nationality', rDir, 'nation'),
+                dateOfBirth: getMergedValue(existing, 'dateOfBirth', rDir, 'dob'),
+                residentialAddress: getMergedValue(existing, 'residentialAddress', rDir, 'addr'),
+                email: getMergedValue(existing, 'email', rDir, 'email'),
+                mobile: getMergedValue(existing, 'mobile', rDir, 'phone'),
+                disqualificationAcknowledge: getMergedObject(existing, 'disqualificationAcknowledge', rDir, 'disqualificationAcknowledge', false)
+            });
+        }
+        if (newDirs.length === 0) newDirs.push({});
+        if (JSON.stringify(dirStep.data.list) !== JSON.stringify(newDirs)) {
+            dirStep.data.list = newDirs;
+            changed = true;
+        }
+
+        // --- Sync Shareholders ---
+        const reqShs = reqData.shareholders || [];
+        const reqInds = reqShs.filter(s => s.type === 'individual');
+        const reqCorps = reqShs.filter(s => s.type === 'corporate');
+
+        // Sync Individual Shareholders
+        const indStep = ob.step3IndividualShareholder;
+        if (!indStep.data) indStep.data = { list: [] };
+        if (!indStep.data.list) indStep.data.list = [];
+
+        const newInds = [];
+        for (let i = 0; i < reqInds.length; i++) {
+            const existing = indStep.data.list[i] || {};
+            const rInd = reqInds[i] || {};
+
+            newInds.push({
+                sameAsDirector: getMergedObject(existing, 'sameAsDirector', rInd, 'sameAsDirector', false),
+                fullName: getMergedValue(existing, 'fullName', rInd, 'name'),
+                idNumber: getMergedValue(existing, 'idNumber', rInd, 'idNum'),
+                nationality: getMergedValue(existing, 'nationality', rInd, 'nation'),
+                dateOfBirth: getMergedValue(existing, 'dateOfBirth', rInd, 'dob'),
+                residentialAddress: getMergedValue(existing, 'residentialAddress', rInd, 'addr'),
+                email: getMergedValue(existing, 'email', rInd, 'email'),
+                mobile: getMergedValue(existing, 'mobile', rInd, 'phone'),
+                totalShares: getMergedValue(existing, 'totalShares', rInd, 'totalShares'),
+                totalShareCapital: getMergedValue(existing, 'totalShareCapital', rInd, 'totalShareCapital'),
+                currency: getMergedValue(existing, 'currency', rInd, 'currency') || 'Select',
+                shareClass: getMergedValue(existing, 'shareClass', rInd, 'shareClass') || 'Select',
+                numberOfShares: getMergedValue(existing, 'numberOfShares', rInd, 'shares'),
+                shareCapitalAmount: getMergedValue(existing, 'shareCapitalAmount', rInd, 'percent'),
+                ownershipPercentage: getMergedValue(existing, 'ownershipPercentage', rInd, 'ownershipPercentage'),
+                uboDeclaration: getMergedValue(existing, 'uboDeclaration', rInd, 'uboDeclaration') || 'Select'
+            });
+        }
+        if (newInds.length === 0) newInds.push({});
+        if (JSON.stringify(indStep.data.list) !== JSON.stringify(newInds)) {
+            indStep.data.list = newInds;
+            changed = true;
+        }
+
+        // Sync Corporate Shareholders
+        const corpStep = ob.step4CorporateShareholder;
+        if (!corpStep.data) corpStep.data = { list: [] };
+        if (!corpStep.data.list) corpStep.data.list = [];
+
+        const newCorps = [];
+        for (let i = 0; i < reqCorps.length; i++) {
+            const existing = corpStep.data.list[i] || {};
+            const rCorp = reqCorps[i] || {};
+
+            newCorps.push({
+                companyName: getMergedValue(existing, 'companyName', rCorp, 'name'),
+                uen: getMergedValue(existing, 'uen', rCorp, 'regNum'),
+                registeredAddress: getMergedValue(existing, 'registeredAddress', rCorp, 'addr'),
+                countryOfIncorporation: getMergedValue(existing, 'countryOfIncorporation', rCorp, 'regPlace'),
+                dateOfIncorporation: getMergedValue(existing, 'dateOfIncorporation', rCorp, 'regDate'),
+                totalShares: getMergedValue(existing, 'totalShares', rCorp, 'totalShares'),
+                totalShareCapital: getMergedValue(existing, 'totalShareCapital', rCorp, 'totalShareCapital'),
+                currency: getMergedValue(existing, 'currency', rCorp, 'currency') || 'Select',
+                shareClass: getMergedValue(existing, 'shareClass', rCorp, 'shareClass') || 'Select',
+                numberOfShares: getMergedValue(existing, 'numberOfShares', rCorp, 'shares'),
+                shareCapitalAmount: getMergedValue(existing, 'shareCapitalAmount', rCorp, 'percent'),
+                ownershipPercentage: getMergedValue(existing, 'ownershipPercentage', rCorp, 'ownershipPercentage'),
+                uboDeclaration: getMergedValue(existing, 'uboDeclaration', rCorp, 'uboDeclaration') || 'No'
+            });
+        }
+        if (newCorps.length === 0) newCorps.push({});
+        if (JSON.stringify(corpStep.data.list) !== JSON.stringify(newCorps)) {
+            corpStep.data.list = newCorps;
+            changed = true;
+        }
+
+        if (changed || isNew) {
+            ob.updatedAt = Date.now();
+            saveDb(db);
+        }
+    } else if (isNew) {
+        saveDb(db);
+    }
+
+    res.json(ob);
+});
+
+// GET /api/onboarding/client/:clientId/status → get brief portal activation status
+app.get('/api/onboarding/client/:clientId/status', (req, res) => {
+    const db = getDb();
+    const { clientId } = req.params;
+    const ob = db.onboarding.find(o => o.clientId === clientId);
+    if (ob) {
+        res.json({
+            portalActivated: ob.portalActivated,
+            status: ob.status,
+            progressPercent: ob.progressPercent,
+            onboardingId: ob.id
+        });
+    } else {
+        res.json({
+            portalActivated: false,
+            status: 'not_started',
+            progressPercent: 0
+        });
+    }
+});
+
+// POST /api/onboarding/client/:clientId → create/update onboarding
+app.post('/api/onboarding/client/:clientId', (req, res) => {
+    const db = getDb();
+    const { clientId } = req.params;
+    const payload = req.body || {};
+
+    let ob = db.onboarding.find(o => o.clientId === clientId);
+    if (!ob) {
+        ob = {
+            id: 'ob-' + Date.now(),
+            clientId: clientId,
+            clientEmail: payload.clientEmail || '',
+            clientName: payload.clientName || '',
+            portalActivated: false,
+            status: 'in_progress',
+            progressPercent: 0,
+            stepDocumentChecklist: { key: 'document_checklist', title: 'Document Checklist', status: 'pending', data: {}, documents: [] },
+            step2DirectorDetails: { key: 'director_details', title: 'Director Details', status: 'pending', data: { list: [] }, documents: [] },
+            stepShareCapital: { key: 'share_capital', title: 'Share Capital Details', status: 'pending', data: { allocations: [], currencies: [] }, documents: [] },
+            step3IndividualShareholder: { key: 'individual_shareholder', title: 'Individual Shareholder Details', status: 'pending', data: { list: [] }, documents: [] },
+            step4CorporateShareholder: { key: 'corporate_shareholder', title: 'Corporate Shareholder Details', status: 'pending', data: { list: [] }, documents: [] },
+            step5UBO: { key: 'ubo', title: 'Ultimate Beneficial Owner', status: 'pending', data: {}, documents: [] },
+            step6CorporateRep: { key: 'corporate_rep', title: 'Corporate Representative', status: 'pending', data: {}, documents: [] },
+            step7FinalDeclaration: { key: 'final_declaration', title: 'Final Declaration & Consent', status: 'pending', data: {}, documents: [] },
+            auditLogs: ['Onboarding record created.'],
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
+        db.onboarding.push(ob);
+    } else {
+        if (payload.clientEmail) ob.clientEmail = payload.clientEmail;
+        if (payload.clientName) ob.clientName = payload.clientName;
+        ob.updatedAt = Date.now();
+    }
+    saveDb(db);
+    res.json(ob);
+});
+
+// Helper for step retrieval in mock server
+const getMockStep = (ob, stepKey) => {
+    switch (stepKey) {
+        case 'document_checklist': return ob.stepDocumentChecklist;
+        case 'director_details': return ob.step2DirectorDetails;
+        case 'share_capital': return ob.stepShareCapital;
+        case 'individual_shareholder': return ob.step3IndividualShareholder;
+        case 'corporate_shareholder': return ob.step4CorporateShareholder;
+        case 'ubo': return ob.step5UBO;
+        case 'corporate_rep': return ob.step6CorporateRep;
+        case 'final_declaration': return ob.step7FinalDeclaration;
+        default: return null;
+    }
+};
+
+// Helper for progress calculation in mock server
+const calculateMockProgress = (ob) => {
+    const statuses = [
+        ob.stepDocumentChecklist.status,
+        ob.step2DirectorDetails.status,
+        ob.stepShareCapital.status,
+        ob.step3IndividualShareholder.status,
+        ob.step4CorporateShareholder.status,
+        ob.step5UBO.status,
+        ob.step6CorporateRep.status,
+        ob.step7FinalDeclaration.status
+    ];
+    const approved = statuses.filter(s => s === 'approved').length;
+    const submitted = statuses.filter(s => s === 'submitted' || s === 'under_review').length;
+    return Math.floor(((approved * 100) + (submitted * 50)) / statuses.length);
+};
+
+// GET /api/onboarding → get all onboarding records for admin/staff review
+app.get('/api/onboarding', (req, res) => {
+    const db = getDb();
+    res.json(db.onboarding || []);
+});
+
+// PATCH /api/onboarding/:id/step/:stepKey → update onboarding step details/status
+app.patch('/api/onboarding/:id/step/:stepKey', (req, res) => {
+    const db = getDb();
+    const { id, stepKey } = req.params;
+    const payload = req.body || {};
+
+    const ob = db.onboarding.find(o => o.id === id);
+    if (!ob) return res.status(404).json({ message: 'Onboarding record not found' });
+
+    const step = getMockStep(ob, stepKey);
+    if (!step) return res.status(400).json({ message: 'Unknown step key: ' + stepKey });
+
+    if (payload.data) {
+        step.data = { ...step.data, ...payload.data };
+    }
+    if (payload.status) {
+        step.status = payload.status;
+    }
+    if (payload.documents) {
+        step.documents = payload.documents;
+    }
+
+    ob.progressPercent = calculateMockProgress(ob);
+    ob.updatedAt = Date.now();
+
+    saveDb(db);
+    res.json(ob);
+});
+
+// PATCH /api/onboarding/:id/step/:stepKey/review → admin/staff review of onboarding steps
+app.patch('/api/onboarding/:id/step/:stepKey/review', (req, res) => {
+    const db = getDb();
+    const { id, stepKey } = req.params;
+    const payload = req.body || {};
+
+    const ob = db.onboarding.find(o => o.id === id);
+    if (!ob) return res.status(404).json({ message: 'Onboarding record not found' });
+
+    const step = getMockStep(ob, stepKey);
+    if (!step) return res.status(400).json({ message: 'Unknown step key: ' + stepKey });
+
+    if (payload.status) {
+        step.status = payload.status;
+    }
+    step.reviewNotes = payload.notes || '';
+    step.reviewedBy = payload.reviewedBy || 'Admin';
+    step.reviewedAt = Date.now();
+
+    ob.progressPercent = calculateMockProgress(ob);
+    ob.updatedAt = Date.now();
+
+    saveDb(db);
+    res.json(ob);
+});
+
+// POST /api/onboarding/:id/activate → admin/staff portal activation
+app.post('/api/onboarding/:id/activate', (req, res) => {
+    const db = getDb();
+    const { id } = req.params;
+    const payload = req.body || {};
+
+    const ob = db.onboarding.find(o => o.id === id);
+    if (!ob) return res.status(404).json({ message: 'Onboarding record not found' });
+
+    ob.portalActivated = true;
+    ob.status = 'approved';
+    ob.progressPercent = 100;
+    ob.activatedBy = payload.activatedBy || 'Admin';
+    ob.activatedAt = Date.now();
+    ob.updatedAt = Date.now();
+
+    if (!ob.auditLogs) ob.auditLogs = [];
+    ob.auditLogs.push(`Client portal activated by ${ob.activatedBy} at ${new Date()}`);
+
+    saveDb(db);
+    res.json(ob);
+});
+
+// POST /api/onboarding/ocr-extract → simulate OCR extraction
+app.post('/api/onboarding/ocr-extract', (req, res) => {
+    const { type } = req.body || {};
+    const extracted = {};
+    if (type === 'nric' || type === 'fin') {
+        Object.assign(extracted, {
+            fullName: "ASHWIN KALYAN PRAKASH PURI",
+            idNumber: "S7888130E",
+            nationality: "INDIAN",
+            gender: "Male",
+            dateOfBirth: "1990-06-15",
+            residentialAddress: "245 ORCHARD BOULEVARD, #21-01, ORCHARD BEL AIR, SINGAPORE 248648",
+            email: "ashwin.puri@graas.ai",
+            mobile: "+65 9123 4567"
+        });
+    } else if (type === 'bizfile') {
+        Object.assign(extracted, {
+            companyName: "GRAAS PTE. LTD.",
+            uen: "201538449N",
+            dateOfIncorporation: "2015-10-22",
+            registeredAddress: "8 CRAIG ROAD, #02-01, SINGAPORE 089668",
+            principalActivity: "DEVELOPMENT OF SOFTWARE AND APPLICATIONS (EXCEPT GAMES AND CYBERSECURITY) (62011)",
+            countryOfIncorporation: "Singapore",
+            companyType: "PRIVATE COMPANY LIMITED BY SHARES",
+            companyStatus: "LIVE COMPANY",
+            formerName: "SELLINALL PTE. LTD.",
+            dateOfChangeOfName: "2023-03-07",
+            secondaryActivity: "WHOLESALE OF COMPUTER SOFTWARE (EXCEPT GAMES AND CYBERSECURITY SOFTWARE) (46512)",
+            auditFirm: "GRANT THORNTON AUDIT LLP",
+            numberOfShares: 1998815,
+            shareCapitalAmount: 8297985.82,
+            totalShares: 1998815,
+            totalShareCapital: 8297985.82,
+            fye: "31 DEC",
+            currency: "SGD"
+        });
+    } else if (type === 'ubo_nric') {
+        Object.assign(extracted, {
+            uboName: "MOHD ASIF",
+            uboIdNumber: "S8811223F"
+        });
+    } else if (type === 'ubo_address_proof') {
+        Object.assign(extracted, {
+            uboAddress: "12 MARINA BOULEVARD, #30-02, MBFC TOWER 3, SINGAPORE 018982",
+            email: "client.representative@graas.ai",
+            mobile: "+65 8765 4321"
+        });
+    }
+    extracted.confidence = 0.94;
+    extracted.extractedAt = Date.now();
+    res.json(extracted);
+});
+
+app.delete('/api/requirements', (req, res) => {
+    const db = getDb();
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+    const token = authHeader.split(' ')[1];
+    const parts = token.split('-');
+    let userId = parts[parts.length - 1];
+    if (parts.length >= 2 && parts[parts.length - 2] === 'usr') {
+        userId = 'usr-' + userId;
+    }
+
+    const initialLength = (db.requirements || []).length;
+    if (db.requirements) {
+        db.requirements = db.requirements.filter(r => r.userId !== userId);
+    }
+
+    if ((db.requirements || []).length !== initialLength) {
+        saveDb(db);
+        res.json({ message: 'Requirement deleted successfully' });
+    } else {
+        res.status(404).json({ message: 'Requirement not found' });
+    }
 });
 
 app.listen(port, () => {
