@@ -159,6 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div class="flex-1 px-4 py-6 overflow-y-auto space-y-1">
                 ${getLinkHtml('home', 'layout-grid', 'Dashboard')}
+                ${getLinkHtml('onboarding', 'clipboard-list', 'Onboarding')}
                 ${getLinkHtml('services', 'activity', 'Workflows')}
                 ${getLinkHtml('documents', 'shield-check', 'Vault')}
                 ${getLinkHtml('billing', 'credit-card', 'Billing')}
