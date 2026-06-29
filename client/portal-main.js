@@ -450,9 +450,11 @@ const DEFAULT_ONBOARDING_STEPS = [
             { key: 'nationality', label: 'Nationality', type: 'nationality' },
             { key: 'gender', label: 'Gender', type: 'select', options: ['Select', 'Male', 'Female', 'Other'] },
             { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
-            { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
             { key: 'email', label: 'Email', type: 'email' },
             { key: 'mobile', label: 'Mobile Number', type: 'phone' },
+            { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
+            { key: 'useDifferentAddress', label: 'I want to provide a different residential address', type: 'checkbox' },
+            { key: 'alternativeAddress', label: 'Alternative Residential Address', type: 'text', conditionalOn: 'useDifferentAddress', conditionalValue: 'true' },
             { key: 'disqualificationAcknowledge', label: 'I confirm that I am not disqualified from acting as a director under the laws of Singapore.', type: 'checkbox', mandatory: true }
         ],
         dynamicSection: true,
@@ -483,9 +485,11 @@ const DEFAULT_ONBOARDING_STEPS = [
             { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
             { key: 'nationality', label: 'Nationality', type: 'nationality' },
             { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
-            { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
             { key: 'email', label: 'Email', type: 'email' },
             { key: 'mobile', label: 'Mobile Number', type: 'phone' },
+            { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
+            { key: 'useDifferentAddress', label: 'I want to provide a different residential address', type: 'checkbox' },
+            { key: 'alternativeAddress', label: 'Alternative Residential Address', type: 'text', conditionalOn: 'useDifferentAddress', conditionalValue: 'true' },
             { key: 'totalShares', label: 'Total Number of Shares of the Company', type: 'number' },
             { key: 'totalShareCapital', label: 'Total Share Capital Amount of the Company', type: 'number' },
             { key: 'currency', label: 'Currency', type: 'select', options: ['Select', 'SGD', 'USD'] },
@@ -1821,7 +1825,7 @@ function renderActiveStepForm(container) {
             let itemFieldsHtml = '';
             const hasNric = docs.some(d => d.type === `nric_${idx}`);
             const hasAddress = docs.some(d => d.type === `address_proof_${idx}`);
-            const showFields = (stepKey !== 'director_details') || (hasNric && hasAddress);
+            const showFields = (stepKey !== 'director_details') || (hasNric || hasAddress);
 
             if (showFields) {
                 if (currentManualFields && currentManualFields.length > 0) {
@@ -1837,10 +1841,10 @@ function renderActiveStepForm(container) {
                                     const dirStep = ONBOARDING_STEPS.find(s => s.key === 'director_details');
                                     const dirList = dirStep && state.onboarding[dirStep.field] ? (state.onboarding[dirStep.field].data.list || []) : [];
                                     
-                                    let selectHtml = '';
+                                    let selectWrapperHtml = '';
                                     if (val) {
-                                        selectHtml = `
-                                        <div class="ob-field" style="margin-top:10px;">
+                                        selectWrapperHtml = `
+                                        <div class="ob-field" style="grid-column: span 2; margin-bottom: 12px;">
                                             <label for="${inputId}-director-select">Select Director Source</label>
                                             <select id="${inputId}-director-select" ${disabledAttr} onchange="obIndividualShareholderSameAsDirectorChange(${idx}, this.value)">
                                                 <option value="">Select Director</option>
@@ -1851,11 +1855,11 @@ function renderActiveStepForm(container) {
                                     }
                                     
                                     return `
-                                    <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:24px;">
+                                    <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:16px; grid-column: span 2; margin-top: 8px; margin-bottom: 8px;">
                                         <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="obIndividualShareholderSameAsDirectorCheckboxChange(${idx}, this.checked)" style="width:16px; height:16px; cursor:pointer;">
-                                        <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569;">${f.label}</label>
+                                        <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569; user-select:none;">${f.label}</label>
                                     </div>
-                                    ${selectHtml}
+                                    ${selectWrapperHtml}
                                     `;
                                 }
                                 
@@ -1874,9 +1878,9 @@ function renderActiveStepForm(container) {
                                 } else if (f.type === 'checkbox') {
                                     const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
                                     return `
-                                    <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:24px;">
-                                        <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="triggerMultiItemAutoSave('${stepKey}', ${idx})" style="width:16px; height:16px; cursor:pointer;">
-                                        <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569;">${f.label}</label>
+                                    <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:16px; grid-column: span 2; margin-top: 8px; margin-bottom: 8px;">
+                                        <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="triggerMultiItemAutoSave('${stepKey}', ${idx}, true)" style="width:16px; height:16px; cursor:pointer;">
+                                        <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569; user-select:none;">${f.label}</label>
                                     </div>`;
                                 } else if (f.type === 'phone') {
                                     let fieldReadonlyAttr = readonlyAttr;
@@ -1920,6 +1924,15 @@ function renderActiveStepForm(container) {
                                     }
                                     
                                     let validationWarningHtml = '';
+                                    if (f.key === 'idNumber' && val) {
+                                        const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
+                                        const stepData = state.onboarding[stepField] || {};
+                                        const list = (stepData.data && stepData.data.list) || [];
+                                        const isIdDuplicate = list.some((item, itemIdx) => itemIdx !== idx && item.idNumber && String(item.idNumber).trim().toUpperCase() === String(val).trim().toUpperCase());
+                                        if (isIdDuplicate) {
+                                            validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: This NRIC / FIN is already registered for another entry.</div>`;
+                                        }
+                                    }
                                     if ((stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') && (f.key === 'numberOfShares' || f.key === 'shareCapitalAmount')) {
                                         const shCurr = (item.currency || '').trim().toUpperCase();
                                         const shClass = (item.shareClass || '').trim();
@@ -1980,8 +1993,9 @@ function renderActiveStepForm(container) {
                                     }
 
                                     const isIdField = f.key === 'idNumber' || f.key === 'uen';
+                                    const isFullWidth = ['residentialAddress', 'alternativeAddress', 'registeredAddress'].includes(f.key);
                                     return `
-                                    <div class="ob-field">
+                                    <div class="ob-field" style="${isFullWidth ? 'grid-column: span 2;' : ''}">
                                         <label for="${inputId}">${f.label}</label>
                                         <input type="${f.type || 'text'}" id="${inputId}" value="${val}" placeholder="Enter ${f.label.toLowerCase()}" ${fieldReadonlyAttr} 
                                             oninput="${isIdField ? 'obIdNumberInputHandler(this); ' : ''}triggerMultiItemAutoSave('${stepKey}', ${idx})">
@@ -2608,6 +2622,165 @@ async function forceSaveActiveStep() {
     }
 }
 
+function extractNricFields(text) {
+    const extracted = {};
+    const t = text;
+    
+    // 1. NRIC / FIN Number
+    const nricMatch = t.match(/([STFGM]\d{7}[A-Z])/i);
+    if (nricMatch) {
+        extracted.idNumber = nricMatch[1].toUpperCase();
+    }
+    
+    // 2. Full Name
+    const lines = t.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    let nameIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].toLowerCase() === 'name' || lines[i].toLowerCase().startsWith('name:')) {
+            nameIdx = i;
+            break;
+        }
+    }
+    if (nameIdx !== -1) {
+        for (let i = nameIdx + 1; i < lines.length; i++) {
+            const line = lines[i];
+            if (['race', 'date of birth', 'sex', 'country of birth', 'identity card no'].includes(line.toLowerCase())) {
+                break;
+            }
+            if (/^[A-Z\s'\-]+$/.test(line) && line.replace(/[^A-Z]/g, '').length > 3) {
+                extracted.fullName = line;
+                break;
+            }
+        }
+    }
+    
+    // 3. Date of Birth
+    const dobMatch = t.match(/(\d{2})[-/](\d{2})[-/](\d{4})/);
+    if (dobMatch) {
+        let day = dobMatch[1];
+        let month = dobMatch[2];
+        let year = dobMatch[3];
+        extracted.dateOfBirth = `${year}-${month}-${day}`;
+    }
+    
+    // 4. Nationality / Race
+    let raceIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].toLowerCase() === 'race' || lines[i].toLowerCase() === 'nationality') {
+            raceIdx = i;
+            break;
+        }
+    }
+    if (raceIdx !== -1 && raceIdx + 1 < lines.length) {
+        const nextLine = lines[raceIdx + 1];
+        if (/^[A-Z\s]+$/.test(nextLine)) {
+            extracted.nationality = nextLine;
+        }
+    }
+    if (!extracted.nationality) {
+        const knownNats = ['CHINESE', 'MALAY', 'INDIAN', 'EURASIAN', 'SINGAPOREAN', 'SINGAPORE', 'INDIA'];
+        for (const nat of knownNats) {
+            if (t.toUpperCase().includes(nat)) {
+                extracted.nationality = nat === 'INDIA' ? 'INDIAN' : nat;
+                break;
+            }
+        }
+    }
+    
+    // 5. Gender / Sex
+    const sexMatch = t.match(/(?:sex|gender)[:\s]*(MALE|FEMALE|M|F)/i);
+    if (sexMatch) {
+        const s = sexMatch[1].toUpperCase();
+        extracted.gender = s.startsWith('M') ? 'Male' : 'Female';
+    } else {
+        if (t.toUpperCase().includes(' SEX ') || t.toUpperCase().includes(' SEX\n')) {
+            const sexIndex = t.toUpperCase().indexOf(' SEX');
+            const afterSex = t.substring(sexIndex).toUpperCase();
+            if (afterSex.includes(' M ') || afterSex.includes('\nM ') || afterSex.includes(' M\n')) {
+                extracted.gender = 'Male';
+            } else if (afterSex.includes(' F ') || afterSex.includes('\nF ') || afterSex.includes(' F\n')) {
+                extracted.gender = 'Female';
+            }
+        }
+    }
+    
+    // 6. Address
+    const postalMatch = t.match(/(?:singapore\s+)?(\d{6})/i);
+    if (postalMatch) {
+        const postalCode = postalMatch[1];
+        let postalLineIdx = -1;
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].includes(postalCode)) {
+                postalLineIdx = i;
+                break;
+            }
+        }
+        if (postalLineIdx !== -1) {
+            const part1 = postalLineIdx > 0 ? lines[postalLineIdx - 1] : '';
+            const part2 = lines[postalLineIdx];
+            extracted.residentialAddress = (part1 ? part1 + ', ' : '') + part2;
+        }
+    }
+    
+    extracted.email = '';
+    extracted.mobile = '';
+    
+    return extracted;
+}
+
+function extractBizfileFields(text) {
+    const extracted = {};
+    const t = text;
+    const uenMatch = t.match(/(?:uen|unique entity number)[:\s]*([0-9A-Z]{9,10})/i) || t.match(/([0-9]{8,9}[A-Z])/);
+    if (uenMatch) {
+        extracted.uen = uenMatch[1].toUpperCase();
+    }
+    const coNameMatch = t.match(/(?:entity name|company name|name of entity)[:\s]+([A-Z][^\n]{5,60})/i);
+    if (coNameMatch) {
+        extracted.companyName = coNameMatch[1].trim();
+    }
+    const addrMatch = t.match(/(?:registered office address|address)[:\s]+([\d#\-\w][^\n]{10,60})/i);
+    if (addrMatch) {
+        extracted.registeredAddress = addrMatch[1].trim();
+    }
+    return extracted;
+}
+
+async function performOcrOnFileInput(file, docType) {
+    if (docType === 'address_proof') {
+        return {};
+    }
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = async () => {
+            let extracted = {};
+            try {
+                const base64Data = reader.result.split(',')[1];
+                const ocrRes = await fetch('/api/onboarding/ocr-extract', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ 
+                        type: docType, 
+                        fileName: file.name,
+                        fileData: base64Data,
+                        mimeType: file.type
+                    })
+                });
+                if (ocrRes.ok) {
+                    extracted = await ocrRes.json();
+                }
+            } catch(e) {
+                console.error('[Gemini OCR Fallback] Failed:', e);
+            }
+            resolve(extracted);
+        };
+        reader.onerror = () => {
+            resolve({});
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
 async function obUploadDoc(stepKey, docType, docLabel) {
     const input = document.createElement('input');
     input.type = 'file';
@@ -2619,15 +2792,7 @@ async function obUploadDoc(stepKey, docType, docLabel) {
         const docEl = document.getElementById(`doc-${stepKey}-${docType}`);
         if (docEl) docEl.innerHTML = `<div style='color:#3b82f6;font-size:12px;font-weight:700;'>⏳ Uploading & extracting...</div>`;
 
-        let extracted = {};
-        try {
-            const ocrRes = await fetch('/api/onboarding/ocr-extract', {
-                method: 'POST',
-                headers: {'Content-Type':'application/json'},
-                body: JSON.stringify({ type: docType, fileName: file.name })
-            });
-            if (ocrRes.ok) extracted = await ocrRes.json();
-        } catch(e) {}
+        let extracted = await performOcrOnFileInput(file, docType);
 
         await ensureOnboardingRecord();
         const ob = state.onboarding || {};
@@ -2640,14 +2805,26 @@ async function obUploadDoc(stepKey, docType, docLabel) {
         }
 
         if (state.onboardingId) {
+            const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
+            const currentDocs = (state.onboarding[stepField] && state.onboarding[stepField].documents) || [];
+            const filteredDocs = currentDocs.filter(d => d.type !== docType);
+            filteredDocs.push({
+                id: "DOC-" + Date.now() + "-" + Math.floor(Math.random() * 1000),
+                type: docType,
+                label: docLabel,
+                fileName: file.name,
+                fileData: 'uploaded',
+                mimeType: file.type,
+                status: 'pending',
+                extractedData: extracted,
+                uploadedAt: Date.now(),
+                ...extracted
+            });
+
             const patchRes = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
                 method: 'PATCH', headers: {'Content-Type':'application/json'},
                 body: JSON.stringify({
-                    documents: [{
-                        type: docType, label: docLabel, fileName: file.name,
-                        fileData: 'uploaded', mimeType: file.type,
-                        ...extracted
-                    }]
+                    documents: filteredDocs
                 })
             });
             if (patchRes.ok) {
@@ -4068,7 +4245,11 @@ function showToastNotification(n) {
     })();
     
     const toast = document.createElement('div');
-    toast.className = 'bg-white border border-slate-100 shadow-2xl p-4 rounded-2xl flex items-start gap-3 w-80 translate-y-5 opacity-0 transition-all duration-300 cursor-pointer font-outfit';
+    if (n.type === 'error') {
+        toast.className = 'bg-rose-50 border border-rose-200 shadow-2xl p-4 rounded-2xl flex items-start gap-3 w-80 translate-y-5 opacity-0 transition-all duration-300 cursor-pointer font-outfit';
+    } else {
+        toast.className = 'bg-white border border-slate-100 shadow-2xl p-4 rounded-2xl flex items-start gap-3 w-80 translate-y-5 opacity-0 transition-all duration-300 cursor-pointer font-outfit';
+    }
     
     let icon = '🔔';
     if (n.type === 'message') icon = '💬';
@@ -4076,6 +4257,7 @@ function showToastNotification(n) {
     else if (n.type === 'status_update') icon = '🔄';
     else if (n.type === 'document_request') icon = '📄';
     else if (n.type === 'assignment') icon = '👤';
+    else if (n.type === 'error') icon = '❌';
     
     toast.innerHTML = `
         <div class="text-xl">${icon}</div>
@@ -4087,7 +4269,9 @@ function showToastNotification(n) {
     
     toast.onclick = () => {
         toast.remove();
-        handleNotifClick(n.id, n.type, n.relatedId);
+        if (n.type !== 'error') {
+            handleNotifClick(n.id, n.type, n.relatedId);
+        }
     };
     
     container.appendChild(toast);
@@ -4746,7 +4930,7 @@ function refreshPortalHome() {
     }
 }
 
-function triggerMultiItemAutoSave(stepKey, idx) {
+function triggerMultiItemAutoSave(stepKey, idx, isCheckboxChange) {
     if (obAutoSaveTimeout) clearTimeout(obAutoSaveTimeout);
     
     const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
@@ -4845,6 +5029,11 @@ function triggerMultiItemAutoSave(stepKey, idx) {
     
     state.onboarding[stepField] = stepData;
     updateWizardUIFeedback();
+    
+    if (isCheckboxChange) {
+        const workspace = document.getElementById('ob-form-workspace');
+        if (workspace) renderActiveStepForm(workspace);
+    }
     
     obAutoSaveTimeout = setTimeout(async () => {
         await ensureOnboardingRecord();
@@ -5012,19 +5201,44 @@ async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
         const file = e.target.files[0];
         if (!file) return;
         
+        // Check if this document has already been uploaded for another item in this step
+        const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
+        const currentDocs = (state.onboarding && state.onboarding[stepField] && state.onboarding[stepField].documents) || [];
+        const isDuplicate = currentDocs.some(d => d.fileName === file.name && d.type !== docTypeWithIdx);
+        if (isDuplicate) {
+            showToastNotification({
+                id: "err-" + Date.now(),
+                type: "error",
+                title: "Duplicate Upload Error",
+                message: `The file "${file.name}" has already been uploaded for another entry in this section.`
+            });
+            return;
+        }
+        
         const docEl = document.getElementById(`doc-${stepKey}-${docTypeWithIdx}`);
         if (docEl) docEl.innerHTML = `<div style='color:#3b82f6;font-size:11px;font-weight:700;'>⏳ Uploading & extracting...</div>`;
         
-        let extracted = {};
         const docType = docTypeWithIdx.split('_')[0];
-        try {
-            const ocrRes = await fetch('/api/onboarding/ocr-extract', {
-                method: 'POST',
-                headers: {'Content-Type':'application/json'},
-                body: JSON.stringify({ type: docType, fileName: file.name })
-            });
-            if (ocrRes.ok) extracted = await ocrRes.json();
-        } catch(e) {}
+        let extracted = await performOcrOnFileInput(file, docType);
+        
+        // Post-Extraction validation: Check if extracted ID number is already registered for another item
+        if (extracted && extracted.idNumber) {
+            const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
+            const stepData = state.onboarding[stepField] || {};
+            const list = (stepData.data && stepData.data.list) || [];
+            const isIdDuplicate = list.some((item, itemIdx) => itemIdx !== idx && item.idNumber && String(item.idNumber).trim().toUpperCase() === String(extracted.idNumber).trim().toUpperCase());
+            if (isIdDuplicate) {
+                showToastNotification({
+                    id: "err-id-" + Date.now(),
+                    type: "error",
+                    title: "Duplicate ID Number",
+                    message: `The extracted NRIC / FIN "${extracted.idNumber}" from "${file.name}" is already registered for another entry.`
+                });
+                const workspace = document.getElementById('ob-form-workspace');
+                if (workspace) renderActiveStepForm(workspace);
+                return;
+            }
+        }
         
         await ensureOnboardingRecord();
         if (state.onboardingId) {
@@ -5724,13 +5938,15 @@ function clearOcrFieldsForDoc(stepKey, docType, data) {
     if (!data) return;
     if (stepKey === 'director_details') {
         if (docType === 'nric') {
-            ['fullName', 'idNumber', 'nationality', 'gender', 'dateOfBirth'].forEach(k => data[k] = '');
+            ['fullName', 'idNumber', 'nationality', 'gender', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].forEach(k => data[k] = '');
+            data.disqualificationAcknowledge = false;
         } else if (docType === 'address_proof') {
             data.residentialAddress = '';
         }
     } else if (stepKey === 'individual_shareholder') {
         if (docType === 'nric') {
-            ['fullName', 'idNumber'].forEach(k => data[k] = '');
+            ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].forEach(k => data[k] = '');
+            data.sameAsDirector = false;
         } else if (docType === 'address_proof') {
             data.residentialAddress = '';
         }
@@ -5740,7 +5956,7 @@ function clearOcrFieldsForDoc(stepKey, docType, data) {
         }
     } else if (stepKey === 'corporate_rep') {
         if (docType === 'nric') {
-            ['fullName', 'idNumber', 'nationality', 'dateOfBirth'].forEach(k => data[k] = '');
+            ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].forEach(k => data[k] = '');
         } else if (docType === 'address_proof') {
             data.residentialAddress = '';
         }

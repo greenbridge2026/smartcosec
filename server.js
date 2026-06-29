@@ -1591,14 +1591,14 @@ app.post('/api/onboarding/ocr-extract', (req, res) => {
     const extracted = {};
     if (type === 'nric' || type === 'fin') {
         Object.assign(extracted, {
-            fullName: "ASHWIN KALYAN PRAKASH PURI",
-            idNumber: "S7888130E",
+            fullName: "PIYUSH KUMAR CHAPLOT",
+            idNumber: "S7980739G",
             nationality: "INDIAN",
             gender: "Male",
-            dateOfBirth: "1990-06-15",
-            residentialAddress: "245 ORCHARD BOULEVARD, #21-01, ORCHARD BEL AIR, SINGAPORE 248648",
-            email: "ashwin.puri@graas.ai",
-            mobile: "+65 9123 4567"
+            dateOfBirth: "1979-12-13",
+            residentialAddress: "BLK 3 RHU CROSS #13-12 SINGAPORE 437433",
+            email: "",
+            mobile: ""
         });
     } else if (type === 'bizfile') {
         Object.assign(extracted, {
