@@ -2708,11 +2708,8 @@ function extractNricFields(text) {
         }
     }
     
-    if (extracted.fullName) {
-        const first = extracted.fullName.split(' ')[0].toLowerCase();
-        extracted.email = `${first}@example.com`;
-    }
-    extracted.mobile = '+65 8138 8495';
+    extracted.email = '';
+    extracted.mobile = '';
     
     return extracted;
 }
