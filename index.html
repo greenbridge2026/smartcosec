@@ -439,12 +439,51 @@
             if (!container) return;
             
             const token = localStorage.getItem('token');
-            const clientAuth = localStorage.getItem('client_auth');
+            const clientAuthStr = localStorage.getItem('client_auth');
+            const staffAuthStr = localStorage.getItem('staff_auth');
+            const adminAuthStr = localStorage.getItem('admin_auth');
             
-            if (token && clientAuth) {
+            let userRole = null;
+            let userEmail = null;
+            
+            if (token) {
+                if (adminAuthStr) {
+                    try {
+                        const adminAuth = JSON.parse(adminAuthStr);
+                        userRole = 'ADMIN';
+                        userEmail = adminAuth.email;
+                    } catch(e) {}
+                } else if (staffAuthStr) {
+                    try {
+                        const staffAuth = JSON.parse(staffAuthStr);
+                        userRole = 'STAFF';
+                        userEmail = staffAuth.email;
+                    } catch(e) {}
+                } else if (clientAuthStr) {
+                    try {
+                        const clientAuth = JSON.parse(clientAuthStr);
+                        userRole = 'CLIENT';
+                        userEmail = clientAuth.email;
+                    } catch(e) {}
+                }
+            }
+            
+            const isGuest = !userEmail || userEmail === 'guest@globalisor.com' || (token && token.startsWith('mock-guest-token-'));
+            
+            if (token && userRole && !isGuest) {
+                let dashboardUrl = '/client/portal.html?tab=home';
+                let dashboardText = 'Portal';
+                if (userRole === 'ADMIN') {
+                    dashboardUrl = '/admin/dashboard.html';
+                    dashboardText = 'Dashboard';
+                } else if (userRole === 'STAFF') {
+                    dashboardUrl = '/staff/dashboard.html';
+                    dashboardText = 'Dashboard';
+                }
+                
                 container.innerHTML = `
-                    <a href="/client/portal.html?tab=home" class="nav-link">Portal</a>
-                    <a href="#" onclick="localStorage.removeItem('client_auth'); localStorage.removeItem('token'); window.location.reload(); return false;" class="nav-link">Logout</a>
+                    <a href="${dashboardUrl}" class="nav-link">${dashboardText}</a>
+                    <a href="#" onclick="localStorage.removeItem('client_auth'); localStorage.removeItem('staff_auth'); localStorage.removeItem('admin_auth'); localStorage.removeItem('token'); window.location.reload(); return false;" class="nav-link">Logout</a>
                 `;
             } else {
                 container.innerHTML = `

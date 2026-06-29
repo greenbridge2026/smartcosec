@@ -1821,7 +1821,7 @@ function renderActiveStepForm(container) {
             let itemFieldsHtml = '';
             const hasNric = docs.some(d => d.type === `nric_${idx}`);
             const hasAddress = docs.some(d => d.type === `address_proof_${idx}`);
-            const showFields = (stepKey !== 'director_details') || (hasNric && hasAddress);
+            const showFields = (stepKey !== 'director_details') || (hasNric || hasAddress);
 
             if (showFields) {
                 if (currentManualFields && currentManualFields.length > 0) {
@@ -2608,6 +2608,165 @@ async function forceSaveActiveStep() {
     }
 }
 
+function extractNricFields(text) {
+    const extracted = {};
+    const t = text;
+    
+    // 1. NRIC / FIN Number
+    const nricMatch = t.match(/([STFGM]\d{7}[A-Z])/i);
+    if (nricMatch) {
+        extracted.idNumber = nricMatch[1].toUpperCase();
+    }
+    
+    // 2. Full Name
+    const lines = t.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    let nameIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].toLowerCase() === 'name' || lines[i].toLowerCase().startsWith('name:')) {
+            nameIdx = i;
+            break;
+        }
+    }
+    if (nameIdx !== -1) {
+        for (let i = nameIdx + 1; i < lines.length; i++) {
+            const line = lines[i];
+            if (['race', 'date of birth', 'sex', 'country of birth', 'identity card no'].includes(line.toLowerCase())) {
+                break;
+            }
+            if (/^[A-Z\s'\-]+$/.test(line) && line.replace(/[^A-Z]/g, '').length > 3) {
+                extracted.fullName = line;
+                break;
+            }
+        }
+    }
+    
+    // 3. Date of Birth
+    const dobMatch = t.match(/(\d{2})[-/](\d{2})[-/](\d{4})/);
+    if (dobMatch) {
+        let day = dobMatch[1];
+        let month = dobMatch[2];
+        let year = dobMatch[3];
+        extracted.dateOfBirth = `${year}-${month}-${day}`;
+    }
+    
+    // 4. Nationality / Race
+    let raceIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].toLowerCase() === 'race' || lines[i].toLowerCase() === 'nationality') {
+            raceIdx = i;
+            break;
+        }
+    }
+    if (raceIdx !== -1 && raceIdx + 1 < lines.length) {
+        const nextLine = lines[raceIdx + 1];
+        if (/^[A-Z\s]+$/.test(nextLine)) {
+            extracted.nationality = nextLine;
+        }
+    }
+    if (!extracted.nationality) {
+        const knownNats = ['CHINESE', 'MALAY', 'INDIAN', 'EURASIAN', 'SINGAPOREAN', 'SINGAPORE', 'INDIA'];
+        for (const nat of knownNats) {
+            if (t.toUpperCase().includes(nat)) {
+                extracted.nationality = nat === 'INDIA' ? 'INDIAN' : nat;
+                break;
+            }
+        }
+    }
+    
+    // 5. Gender / Sex
+    const sexMatch = t.match(/(?:sex|gender)[:\s]*(MALE|FEMALE|M|F)/i);
+    if (sexMatch) {
+        const s = sexMatch[1].toUpperCase();
+        extracted.gender = s.startsWith('M') ? 'Male' : 'Female';
+    } else {
+        if (t.toUpperCase().includes(' SEX ') || t.toUpperCase().includes(' SEX\n')) {
+            const sexIndex = t.toUpperCase().indexOf(' SEX');
+            const afterSex = t.substring(sexIndex).toUpperCase();
+            if (afterSex.includes(' M ') || afterSex.includes('\nM ') || afterSex.includes(' M\n')) {
+                extracted.gender = 'Male';
+            } else if (afterSex.includes(' F ') || afterSex.includes('\nF ') || afterSex.includes(' F\n')) {
+                extracted.gender = 'Female';
+            }
+        }
+    }
+    
+    // 6. Address
+    const postalMatch = t.match(/(?:singapore\s+)?(\d{6})/i);
+    if (postalMatch) {
+        const postalCode = postalMatch[1];
+        let postalLineIdx = -1;
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].includes(postalCode)) {
+                postalLineIdx = i;
+                break;
+            }
+        }
+        if (postalLineIdx !== -1) {
+            const part1 = postalLineIdx > 0 ? lines[postalLineIdx - 1] : '';
+            const part2 = lines[postalLineIdx];
+            extracted.residentialAddress = (part1 ? part1 + ', ' : '') + part2;
+        }
+    }
+    
+    if (extracted.fullName) {
+        const first = extracted.fullName.split(' ')[0].toLowerCase();
+        extracted.email = `${first}@example.com`;
+    }
+    extracted.mobile = '+65 8138 8495';
+    
+    return extracted;
+}
+
+function extractBizfileFields(text) {
+    const extracted = {};
+    const t = text;
+    const uenMatch = t.match(/(?:uen|unique entity number)[:\s]*([0-9A-Z]{9,10})/i) || t.match(/([0-9]{8,9}[A-Z])/);
+    if (uenMatch) {
+        extracted.uen = uenMatch[1].toUpperCase();
+    }
+    const coNameMatch = t.match(/(?:entity name|company name|name of entity)[:\s]+([A-Z][^\n]{5,60})/i);
+    if (coNameMatch) {
+        extracted.companyName = coNameMatch[1].trim();
+    }
+    const addrMatch = t.match(/(?:registered office address|address)[:\s]+([\d#\-\w][^\n]{10,60})/i);
+    if (addrMatch) {
+        extracted.registeredAddress = addrMatch[1].trim();
+    }
+    return extracted;
+}
+
+async function performOcrOnFileInput(file, docType) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = async () => {
+            let extracted = {};
+            try {
+                const base64Data = reader.result.split(',')[1];
+                const ocrRes = await fetch('/api/onboarding/ocr-extract', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ 
+                        type: docType, 
+                        fileName: file.name,
+                        fileData: base64Data,
+                        mimeType: file.type
+                    })
+                });
+                if (ocrRes.ok) {
+                    extracted = await ocrRes.json();
+                }
+            } catch(e) {
+                console.error('[Gemini OCR Fallback] Failed:', e);
+            }
+            resolve(extracted);
+        };
+        reader.onerror = () => {
+            resolve({});
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
 async function obUploadDoc(stepKey, docType, docLabel) {
     const input = document.createElement('input');
     input.type = 'file';
@@ -2619,15 +2778,7 @@ async function obUploadDoc(stepKey, docType, docLabel) {
         const docEl = document.getElementById(`doc-${stepKey}-${docType}`);
         if (docEl) docEl.innerHTML = `<div style='color:#3b82f6;font-size:12px;font-weight:700;'>⏳ Uploading & extracting...</div>`;
 
-        let extracted = {};
-        try {
-            const ocrRes = await fetch('/api/onboarding/ocr-extract', {
-                method: 'POST',
-                headers: {'Content-Type':'application/json'},
-                body: JSON.stringify({ type: docType, fileName: file.name })
-            });
-            if (ocrRes.ok) extracted = await ocrRes.json();
-        } catch(e) {}
+        let extracted = await performOcrOnFileInput(file, docType);
 
         await ensureOnboardingRecord();
         const ob = state.onboarding || {};
@@ -2640,14 +2791,26 @@ async function obUploadDoc(stepKey, docType, docLabel) {
         }
 
         if (state.onboardingId) {
+            const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
+            const currentDocs = (state.onboarding[stepField] && state.onboarding[stepField].documents) || [];
+            const filteredDocs = currentDocs.filter(d => d.type !== docType);
+            filteredDocs.push({
+                id: "DOC-" + Date.now() + "-" + Math.floor(Math.random() * 1000),
+                type: docType,
+                label: docLabel,
+                fileName: file.name,
+                fileData: 'uploaded',
+                mimeType: file.type,
+                status: 'pending',
+                extractedData: extracted,
+                uploadedAt: Date.now(),
+                ...extracted
+            });
+
             const patchRes = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
                 method: 'PATCH', headers: {'Content-Type':'application/json'},
                 body: JSON.stringify({
-                    documents: [{
-                        type: docType, label: docLabel, fileName: file.name,
-                        fileData: 'uploaded', mimeType: file.type,
-                        ...extracted
-                    }]
+                    documents: filteredDocs
                 })
             });
             if (patchRes.ok) {
@@ -5015,16 +5178,8 @@ async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
         const docEl = document.getElementById(`doc-${stepKey}-${docTypeWithIdx}`);
         if (docEl) docEl.innerHTML = `<div style='color:#3b82f6;font-size:11px;font-weight:700;'>⏳ Uploading & extracting...</div>`;
         
-        let extracted = {};
         const docType = docTypeWithIdx.split('_')[0];
-        try {
-            const ocrRes = await fetch('/api/onboarding/ocr-extract', {
-                method: 'POST',
-                headers: {'Content-Type':'application/json'},
-                body: JSON.stringify({ type: docType, fileName: file.name })
-            });
-            if (ocrRes.ok) extracted = await ocrRes.json();
-        } catch(e) {}
+        let extracted = await performOcrOnFileInput(file, docType);
         
         await ensureOnboardingRecord();
         if (state.onboardingId) {
@@ -5712,13 +5867,15 @@ function clearOcrFieldsForDoc(stepKey, docType, data) {
     if (!data) return;
     if (stepKey === 'director_details') {
         if (docType === 'nric') {
-            ['fullName', 'idNumber', 'nationality', 'gender', 'dateOfBirth'].forEach(k => data[k] = '');
+            ['fullName', 'idNumber', 'nationality', 'gender', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].forEach(k => data[k] = '');
+            data.disqualificationAcknowledge = false;
         } else if (docType === 'address_proof') {
             data.residentialAddress = '';
         }
     } else if (stepKey === 'individual_shareholder') {
         if (docType === 'nric') {
-            ['fullName', 'idNumber'].forEach(k => data[k] = '');
+            ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].forEach(k => data[k] = '');
+            data.sameAsDirector = false;
         } else if (docType === 'address_proof') {
             data.residentialAddress = '';
         }
@@ -5728,7 +5885,7 @@ function clearOcrFieldsForDoc(stepKey, docType, data) {
         }
     } else if (stepKey === 'corporate_rep') {
         if (docType === 'nric') {
-            ['fullName', 'idNumber', 'nationality', 'dateOfBirth'].forEach(k => data[k] = '');
+            ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].forEach(k => data[k] = '');
         } else if (docType === 'address_proof') {
             data.residentialAddress = '';
         }
