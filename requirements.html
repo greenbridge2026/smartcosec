@@ -1973,7 +1973,7 @@
                 if (!this.isPreview) {
                     try {
                         const token = localStorage.getItem('token');
-                        if (token) {
+                        if (token && !token.startsWith('mock-')) {
                             const res = await fetch('/api/requirements', {
                                 headers: { 'Authorization': 'Bearer ' + token }
                             });
@@ -2058,7 +2058,7 @@
                 this.autoSaveTimeout = setTimeout(async () => {
                     try {
                         const token = localStorage.getItem('token');
-                        if (token) {
+                        if (token && !token.startsWith('mock-')) {
                             await fetch('/api/requirements', {
                                 method: 'POST',
                                 headers: { 
@@ -2089,7 +2089,7 @@
 
                 try {
                     const token = localStorage.getItem('token');
-                    if (token) {
+                    if (token && !token.startsWith('mock-')) {
                         const res = await fetch('/api/requirements', {
                             method: 'POST',
                             headers: { 
@@ -3093,20 +3093,22 @@
                 try {
                     const token = localStorage.getItem('token');
                     
-                    const res = await fetch('/api/requirements', {
-                        method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + token
-                        },
-                        body: JSON.stringify(this.data)
-                    });
-                    
-                    if (res.ok) {
-                        const response = await res.json();
-                        if (response.status && response.status !== 'pending' && response.status !== 'none') {
-                            this.showStatusPage(response.status, response.data);
-                            return;
+                    if (token && !token.startsWith('mock-')) {
+                        const res = await fetch('/api/requirements', {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Authorization': 'Bearer ' + token
+                            },
+                            body: JSON.stringify(this.data)
+                        });
+                        
+                        if (res.ok) {
+                            const response = await res.json();
+                            if (response.status && response.status !== 'pending' && response.status !== 'none') {
+                                this.showStatusPage(response.status, response.data);
+                                return;
+                            }
                         }
                     }
                 } catch (e) {
@@ -6862,7 +6864,7 @@
 
             try {
                 const token = localStorage.getItem('token');
-                if (!token) return;
+                if (!token || token.startsWith('mock-')) return;
                 const res = await fetch('/api/requirements', {
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
