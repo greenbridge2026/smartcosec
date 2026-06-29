@@ -5097,6 +5097,15 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
     const inds = shs.filter(s => s.type === 'individual' || s.type === '👤' || (typeof s.type === 'string' && (s.type.toLowerCase().includes('individual') || s.type.includes('👤'))));
     const corps = shs.filter(s => !(s.type === 'individual' || s.type === '👤' || (typeof s.type === 'string' && (s.type.toLowerCase().includes('individual') || s.type.includes('👤')))));
 
+    const cleanContactVal = (val, fallback) => {
+        if (!val) return fallback;
+        const clean = val.toString().trim().toUpperCase();
+        if (clean === '' || clean === 'N/A' || clean === 'N / A' || clean === 'NULL' || clean === 'UNDEFINED') {
+            return fallback;
+        }
+        return val;
+    };
+
     let html = `
     <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 24px; font-family: Outfit, sans-serif;">
         <h4 style="font-size: 15px; font-weight: 800; color: #0f172a; margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
@@ -5123,9 +5132,10 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
                     <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em;">Director Registry Details:</div>
                     <div style="display: flex; flex-direction: column; gap: 6px;">
                         ${dirs.map((d, dIdx) => `
-                            <div style="font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center;">
-                                <span style="font-weight: 600; color: #1e293b;">${dIdx + 1}. ${d.name || 'N/A'}</span>
-                                <span style="color: #64748b;">📧 ${d.email || 'N/A'} | 📞 ${d.phone || 'N/A'}</span>
+                            <div style="font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px;">
+                                <div style="font-weight: 600; color: #1e293b;">Director ${dIdx + 1}${d.name && d.name !== 'N/A' ? `: ${d.name}` : ''}</div>
+                                <div style="color: #64748b; padding-left: 8px;">1. ${cleanContactVal(d.email, 'Email ID')}</div>
+                                <div style="color: #64748b; padding-left: 8px;">2. ${cleanContactVal(d.phone, 'Phone Number')}</div>
                             </div>
                         `).join('')}
                     </div>
@@ -5148,9 +5158,10 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
                     <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em;">Individual Shareholder Registry Details:</div>
                     <div style="display: flex; flex-direction: column; gap: 6px;">
                         ${inds.map((s, sIdx) => `
-                            <div style="font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center;">
-                                <span style="font-weight: 600; color: #1e293b;">${sIdx + 1}. ${s.name || 'N/A'}</span>
-                                <span style="color: #64748b;">📧 ${s.email || 'N/A'} | 📞 ${s.phone || 'N/A'}</span>
+                            <div style="font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px;">
+                                <div style="font-weight: 600; color: #1e293b;">Shareholder ${sIdx + 1}${s.name && s.name !== 'N/A' ? `: ${s.name}` : ''}</div>
+                                <div style="color: #64748b; padding-left: 8px;">1. ${cleanContactVal(s.email, 'Email ID')}</div>
+                                <div style="color: #64748b; padding-left: 8px;">2. ${cleanContactVal(s.phone, 'Phone Number')}</div>
                             </div>
                         `).join('')}
                     </div>
@@ -5195,9 +5206,10 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
                 </ul>
                 <div style="border-top: 1px solid #f1f5f9; padding-top: 10px; margin-top: 10px;">
                     <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em;">Representative Contact Details:</div>
-                    <div style="font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center;">
-                        <span style="font-weight: 600; color: #1e293b;">${repData.fullName || 'Not Filled Yet'}</span>
-                        <span style="color: #64748b;">📧 ${repData.email || 'N/A'} | 📞 ${repData.mobile || 'N/A'}</span>
+                    <div style="font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px;">
+                        <div style="font-weight: 600; color: #1e293b;">Representative${repData.fullName && repData.fullName !== 'Not Filled Yet' && repData.fullName !== 'N/A' ? `: ${repData.fullName}` : ''}</div>
+                        <div style="color: #64748b; padding-left: 8px;">1. ${cleanContactVal(repData.email, 'Email ID')}</div>
+                        <div style="color: #64748b; padding-left: 8px;">2. ${cleanContactVal(repData.mobile, 'Phone Number')}</div>
                     </div>
                 </div>
             </div>
