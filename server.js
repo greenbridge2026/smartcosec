@@ -1597,8 +1597,8 @@ app.post('/api/onboarding/ocr-extract', (req, res) => {
             gender: "Male",
             dateOfBirth: "1979-12-13",
             residentialAddress: "BLK 3 RHU CROSS #13-12 SINGAPORE 437433",
-            email: "piyush@example.com",
-            mobile: "+65 8138 8495"
+            email: "",
+            mobile: ""
         });
     } else if (type === 'bizfile') {
         Object.assign(extracted, {
