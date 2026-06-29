@@ -39,6 +39,7 @@ export default defineConfig({
         staff: resolve(__dirname, 'staff/dashboard.html'),
         adminLogin: resolve(__dirname, 'admin/index.html'),
         adminDashboard: resolve(__dirname, 'admin/dashboard.html'),
+        adminSidebar: resolve(__dirname, 'admin/admin-sidebar.js'),
         adminApplications: resolve(__dirname, 'admin/applications.html'),
         adminBlogs: resolve(__dirname, 'admin/blogs.html'),
         adminCompliance: resolve(__dirname, 'admin/compliance.html'),
