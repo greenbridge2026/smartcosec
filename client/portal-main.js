@@ -450,9 +450,11 @@ const DEFAULT_ONBOARDING_STEPS = [
             { key: 'nationality', label: 'Nationality', type: 'nationality' },
             { key: 'gender', label: 'Gender', type: 'select', options: ['Select', 'Male', 'Female', 'Other'] },
             { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
-            { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
             { key: 'email', label: 'Email', type: 'email' },
             { key: 'mobile', label: 'Mobile Number', type: 'phone' },
+            { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
+            { key: 'useDifferentAddress', label: 'I want to provide a different residential address', type: 'checkbox' },
+            { key: 'alternativeAddress', label: 'Alternative Residential Address', type: 'text', conditionalOn: 'useDifferentAddress', conditionalValue: 'true' },
             { key: 'disqualificationAcknowledge', label: 'I confirm that I am not disqualified from acting as a director under the laws of Singapore.', type: 'checkbox', mandatory: true }
         ],
         dynamicSection: true,
@@ -483,9 +485,11 @@ const DEFAULT_ONBOARDING_STEPS = [
             { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
             { key: 'nationality', label: 'Nationality', type: 'nationality' },
             { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
-            { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
             { key: 'email', label: 'Email', type: 'email' },
             { key: 'mobile', label: 'Mobile Number', type: 'phone' },
+            { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
+            { key: 'useDifferentAddress', label: 'I want to provide a different residential address', type: 'checkbox' },
+            { key: 'alternativeAddress', label: 'Alternative Residential Address', type: 'text', conditionalOn: 'useDifferentAddress', conditionalValue: 'true' },
             { key: 'totalShares', label: 'Total Number of Shares of the Company', type: 'number' },
             { key: 'totalShareCapital', label: 'Total Share Capital Amount of the Company', type: 'number' },
             { key: 'currency', label: 'Currency', type: 'select', options: ['Select', 'SGD', 'USD'] },
@@ -1837,10 +1841,10 @@ function renderActiveStepForm(container) {
                                     const dirStep = ONBOARDING_STEPS.find(s => s.key === 'director_details');
                                     const dirList = dirStep && state.onboarding[dirStep.field] ? (state.onboarding[dirStep.field].data.list || []) : [];
                                     
-                                    let selectHtml = '';
+                                    let selectWrapperHtml = '';
                                     if (val) {
-                                        selectHtml = `
-                                        <div class="ob-field" style="margin-top:10px;">
+                                        selectWrapperHtml = `
+                                        <div class="ob-field" style="grid-column: span 2; margin-bottom: 12px;">
                                             <label for="${inputId}-director-select">Select Director Source</label>
                                             <select id="${inputId}-director-select" ${disabledAttr} onchange="obIndividualShareholderSameAsDirectorChange(${idx}, this.value)">
                                                 <option value="">Select Director</option>
@@ -1851,11 +1855,11 @@ function renderActiveStepForm(container) {
                                     }
                                     
                                     return `
-                                    <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:24px;">
+                                    <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:16px; grid-column: span 2; margin-top: 8px; margin-bottom: 8px;">
                                         <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="obIndividualShareholderSameAsDirectorCheckboxChange(${idx}, this.checked)" style="width:16px; height:16px; cursor:pointer;">
-                                        <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569;">${f.label}</label>
+                                        <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569; user-select:none;">${f.label}</label>
                                     </div>
-                                    ${selectHtml}
+                                    ${selectWrapperHtml}
                                     `;
                                 }
                                 
@@ -1874,9 +1878,9 @@ function renderActiveStepForm(container) {
                                 } else if (f.type === 'checkbox') {
                                     const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
                                     return `
-                                    <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:24px;">
-                                        <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="triggerMultiItemAutoSave('${stepKey}', ${idx})" style="width:16px; height:16px; cursor:pointer;">
-                                        <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569;">${f.label}</label>
+                                    <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:16px; grid-column: span 2; margin-top: 8px; margin-bottom: 8px;">
+                                        <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="triggerMultiItemAutoSave('${stepKey}', ${idx}, true)" style="width:16px; height:16px; cursor:pointer;">
+                                        <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569; user-select:none;">${f.label}</label>
                                     </div>`;
                                 } else if (f.type === 'phone') {
                                     let fieldReadonlyAttr = readonlyAttr;
@@ -1920,6 +1924,15 @@ function renderActiveStepForm(container) {
                                     }
                                     
                                     let validationWarningHtml = '';
+                                    if (f.key === 'idNumber' && val) {
+                                        const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
+                                        const stepData = state.onboarding[stepField] || {};
+                                        const list = (stepData.data && stepData.data.list) || [];
+                                        const isIdDuplicate = list.some((item, itemIdx) => itemIdx !== idx && item.idNumber && String(item.idNumber).trim().toUpperCase() === String(val).trim().toUpperCase());
+                                        if (isIdDuplicate) {
+                                            validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: This NRIC / FIN is already registered for another entry.</div>`;
+                                        }
+                                    }
                                     if ((stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') && (f.key === 'numberOfShares' || f.key === 'shareCapitalAmount')) {
                                         const shCurr = (item.currency || '').trim().toUpperCase();
                                         const shClass = (item.shareClass || '').trim();
@@ -1980,8 +1993,9 @@ function renderActiveStepForm(container) {
                                     }
 
                                     const isIdField = f.key === 'idNumber' || f.key === 'uen';
+                                    const isFullWidth = ['residentialAddress', 'alternativeAddress', 'registeredAddress'].includes(f.key);
                                     return `
-                                    <div class="ob-field">
+                                    <div class="ob-field" style="${isFullWidth ? 'grid-column: span 2;' : ''}">
                                         <label for="${inputId}">${f.label}</label>
                                         <input type="${f.type || 'text'}" id="${inputId}" value="${val}" placeholder="Enter ${f.label.toLowerCase()}" ${fieldReadonlyAttr} 
                                             oninput="${isIdField ? 'obIdNumberInputHandler(this); ' : ''}triggerMultiItemAutoSave('${stepKey}', ${idx})">
@@ -2733,6 +2747,9 @@ function extractBizfileFields(text) {
 }
 
 async function performOcrOnFileInput(file, docType) {
+    if (docType === 'address_proof') {
+        return {};
+    }
     return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = async () => {
@@ -4228,7 +4245,11 @@ function showToastNotification(n) {
     })();
     
     const toast = document.createElement('div');
-    toast.className = 'bg-white border border-slate-100 shadow-2xl p-4 rounded-2xl flex items-start gap-3 w-80 translate-y-5 opacity-0 transition-all duration-300 cursor-pointer font-outfit';
+    if (n.type === 'error') {
+        toast.className = 'bg-rose-50 border border-rose-200 shadow-2xl p-4 rounded-2xl flex items-start gap-3 w-80 translate-y-5 opacity-0 transition-all duration-300 cursor-pointer font-outfit';
+    } else {
+        toast.className = 'bg-white border border-slate-100 shadow-2xl p-4 rounded-2xl flex items-start gap-3 w-80 translate-y-5 opacity-0 transition-all duration-300 cursor-pointer font-outfit';
+    }
     
     let icon = '🔔';
     if (n.type === 'message') icon = '💬';
@@ -4236,6 +4257,7 @@ function showToastNotification(n) {
     else if (n.type === 'status_update') icon = '🔄';
     else if (n.type === 'document_request') icon = '📄';
     else if (n.type === 'assignment') icon = '👤';
+    else if (n.type === 'error') icon = '❌';
     
     toast.innerHTML = `
         <div class="text-xl">${icon}</div>
@@ -4247,7 +4269,9 @@ function showToastNotification(n) {
     
     toast.onclick = () => {
         toast.remove();
-        handleNotifClick(n.id, n.type, n.relatedId);
+        if (n.type !== 'error') {
+            handleNotifClick(n.id, n.type, n.relatedId);
+        }
     };
     
     container.appendChild(toast);
@@ -4906,7 +4930,7 @@ function refreshPortalHome() {
     }
 }
 
-function triggerMultiItemAutoSave(stepKey, idx) {
+function triggerMultiItemAutoSave(stepKey, idx, isCheckboxChange) {
     if (obAutoSaveTimeout) clearTimeout(obAutoSaveTimeout);
     
     const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
@@ -5005,6 +5029,11 @@ function triggerMultiItemAutoSave(stepKey, idx) {
     
     state.onboarding[stepField] = stepData;
     updateWizardUIFeedback();
+    
+    if (isCheckboxChange) {
+        const workspace = document.getElementById('ob-form-workspace');
+        if (workspace) renderActiveStepForm(workspace);
+    }
     
     obAutoSaveTimeout = setTimeout(async () => {
         await ensureOnboardingRecord();
@@ -5172,11 +5201,44 @@ async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
         const file = e.target.files[0];
         if (!file) return;
         
+        // Check if this document has already been uploaded for another item in this step
+        const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
+        const currentDocs = (state.onboarding && state.onboarding[stepField] && state.onboarding[stepField].documents) || [];
+        const isDuplicate = currentDocs.some(d => d.fileName === file.name && d.type !== docTypeWithIdx);
+        if (isDuplicate) {
+            showToastNotification({
+                id: "err-" + Date.now(),
+                type: "error",
+                title: "Duplicate Upload Error",
+                message: `The file "${file.name}" has already been uploaded for another entry in this section.`
+            });
+            return;
+        }
+        
         const docEl = document.getElementById(`doc-${stepKey}-${docTypeWithIdx}`);
         if (docEl) docEl.innerHTML = `<div style='color:#3b82f6;font-size:11px;font-weight:700;'>⏳ Uploading & extracting...</div>`;
         
         const docType = docTypeWithIdx.split('_')[0];
         let extracted = await performOcrOnFileInput(file, docType);
+        
+        // Post-Extraction validation: Check if extracted ID number is already registered for another item
+        if (extracted && extracted.idNumber) {
+            const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
+            const stepData = state.onboarding[stepField] || {};
+            const list = (stepData.data && stepData.data.list) || [];
+            const isIdDuplicate = list.some((item, itemIdx) => itemIdx !== idx && item.idNumber && String(item.idNumber).trim().toUpperCase() === String(extracted.idNumber).trim().toUpperCase());
+            if (isIdDuplicate) {
+                showToastNotification({
+                    id: "err-id-" + Date.now(),
+                    type: "error",
+                    title: "Duplicate ID Number",
+                    message: `The extracted NRIC / FIN "${extracted.idNumber}" from "${file.name}" is already registered for another entry.`
+                });
+                const workspace = document.getElementById('ob-form-workspace');
+                if (workspace) renderActiveStepForm(workspace);
+                return;
+            }
+        }
         
         await ensureOnboardingRecord();
         if (state.onboardingId) {
