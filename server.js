@@ -1595,13 +1595,14 @@ app.post('/api/onboarding/ocr-extract', (req, res) => {
     const { type } = req.body || {};
     const extracted = {};
     if (type === 'nric' || type === 'fin') {
+        const randomId = 1000000 + Math.floor(Math.random() * 9000000);
         Object.assign(extracted, {
-            fullName: "PIYUSH KUMAR CHAPLOT",
-            idNumber: "S7980739G",
-            nationality: "INDIAN",
+            fullName: `MOCK NAME ${randomId}`,
+            idNumber: `S${randomId}G`,
+            nationality: "SINGAPOREAN",
             gender: "Male",
-            dateOfBirth: "1979-12-13",
-            residentialAddress: "BLK 3 RHU CROSS #13-12 SINGAPORE 437433",
+            dateOfBirth: "1980-01-01",
+            residentialAddress: "BLK 123 Ang Mo Kio Ave 4 #05-67, Singapore 560123",
             email: "",
             mobile: ""
         });
@@ -1627,9 +1628,10 @@ app.post('/api/onboarding/ocr-extract', (req, res) => {
             currency: "SGD"
         });
     } else if (type === 'ubo_nric') {
+        const randomId = 1000000 + Math.floor(Math.random() * 9000000);
         Object.assign(extracted, {
-            uboName: "MOHD ASIF",
-            uboIdNumber: "S8811223F"
+            uboName: `MOCK UBO ${randomId}`,
+            uboIdNumber: `S${randomId}F`
         });
     } else if (type === 'ubo_address_proof') {
         Object.assign(extracted, {
