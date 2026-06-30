@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         #left-sidebar {
-            transition: transform 0.3s ease-in-out !important;
+            transition: transform 0.3s ease-in-out, width 0.3s ease-in-out !important;
         }
 
         @media (max-width: 1023px) {
@@ -80,14 +80,42 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         /* Sidebar Collapse System */
-        body.sidebar-collapsed #left-sidebar {
-            transform: translateX(-100%) !important;
+        @media (min-width: 1024px) {
+            body.sidebar-collapsed #left-sidebar {
+                width: 80px !important;
+                transform: translateX(0) !important;
+            }
+            body.sidebar-collapsed .lg\\:pl-64 {
+                padding-left: 80px !important;
+            }
+            body.sidebar-collapsed #left-sidebar .sidebar-text {
+                display: none !important;
+            }
+            body.sidebar-collapsed #left-sidebar a,
+            body.sidebar-collapsed #left-sidebar button {
+                justify-content: center !important;
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+                gap: 0 !important;
+            }
+            body.sidebar-collapsed #left-sidebar .px-6 {
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+                justify-content: center !important;
+                flex-direction: column !important;
+                gap: 12px !important;
+                padding-top: 24px !important;
+                padding-bottom: 24px !important;
+            }
         }
-        body.sidebar-collapsed .lg\\:pl-64 {
-            padding-left: 0 !important;
-        }
-        body.sidebar-collapsed #sidebar-expand-btn {
-            display: flex !important;
+
+        @media (max-width: 1023px) {
+            body.sidebar-collapsed #left-sidebar {
+                transform: translateX(-100%) !important;
+            }
+            body.sidebar-collapsed .lg\\:pl-64 {
+                padding-left: 0 !important;
+            }
         }
     `;
     document.head.appendChild(style);
@@ -128,14 +156,26 @@ document.addEventListener('DOMContentLoaded', () => {
         </header>
     `;
 
+    const SIDEBAR_SVGS = {
+        'home': `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-400 group-hover:text-slate-900 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`,
+        'onboarding': `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-400 group-hover:text-slate-900 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 14h6"/><path d="M9 18h6"/><path d="M12 10h.01"/></svg>`,
+        'services': `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-400 group-hover:text-slate-900 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
+        'documents': `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-400 group-hover:text-slate-900 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+        'billing': `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-400 group-hover:text-slate-900 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>`,
+        'guidance': `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-400 group-hover:text-slate-900 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`,
+        'updates': `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-400 group-hover:text-slate-900 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+        'messages': `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-400 group-hover:text-slate-900 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`
+    };
+
     const getLinkHtml = (tabId, icon, label) => {
+        const svgIcon = SIDEBAR_SVGS[tabId] || '';
         if (isMessagesPage) {
-            return `<a href="portal.html?tab=${tabId}" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 hover:text-slate-900 transition-colors group font-semibold text-sm text-slate-600" id="nav-${tabId}">
-                <i data-lucide="${icon}" class="w-5 h-5 text-slate-400 group-hover:text-slate-900"></i> ${label}
+            return `<a href="portal.html?tab=${tabId}" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 hover:text-slate-900 transition-colors group font-semibold text-sm text-slate-600" id="nav-${tabId}" title="${label}">
+                ${svgIcon} <span class="sidebar-text">${label}</span>
             </a>`;
         } else {
-            return `<button onclick="switchTab('${tabId}'); if(window.innerWidth < 1024) toggleMobileSidebar();" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 hover:text-slate-900 transition-colors group font-semibold text-sm text-left text-slate-600" id="nav-${tabId}">
-                <i data-lucide="${icon}" class="w-5 h-5 text-slate-400 group-hover:text-slate-900"></i> ${label}
+            return `<button onclick="switchTab('${tabId}'); if(window.innerWidth < 1024) toggleMobileSidebar();" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 hover:text-slate-900 transition-colors group font-semibold text-sm text-left text-slate-600" id="nav-${tabId}" title="${label}">
+                ${svgIcon} <span class="sidebar-text">${label}</span>
             </button>`;
         }
     };
@@ -146,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="px-6 py-8 border-b border-slate-100 flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-md">G</div>
-                    <div>
+                    <div class="sidebar-text">
                         <h1 class="font-outfit font-black text-slate-900 text-base leading-none uppercase tracking-wider">Globalisor</h1>
                         <span class="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Client Portal</span>
                     </div>
@@ -166,38 +206,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${getLinkHtml('guidance', 'book-open', 'Guidance')}
                 ${getLinkHtml('updates', 'zap', 'Blogs')}
                 
-                <a href="messages.html" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 hover:text-slate-900 transition-colors group font-semibold text-sm text-slate-600" id="nav-messages">
-                    <i data-lucide="message-square" class="w-5 h-5 text-slate-400 group-hover:text-slate-900"></i> Messages
+                <a href="messages.html" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 hover:text-slate-900 transition-colors group font-semibold text-sm text-slate-600" id="nav-messages" title="Messages">
+                    ${SIDEBAR_SVGS['messages']} <span class="sidebar-text">Messages</span>
                 </a>
             </div>
-            <div class="p-4 border-t border-slate-100">
-                <div class="flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">${initials}</div>
-                        <div class="flex flex-col leading-none min-w-0">
-                            <span id="user-name" class="text-xs font-semibold text-slate-900 max-w-[100px] truncate">${auth.name || 'Client User'}</span>
-                            <button onclick="logout()" class="text-[10px] text-red-500 font-bold hover:underline text-left mt-0.5 border-0 bg-transparent cursor-pointer">Logout</button>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-1">
-                        <div style="position:relative;">
-                            <button id="client-bell-btn" onclick="window._clientToggleBell(event)" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors relative" title="Notifications">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                                <span id="client-notif-badge" style="display:none;position:absolute;top:4px;right:4px;min-width:14px;height:14px;padding:0 2px;background:#ef4444;border-radius:9999px;border:2px solid #fff;font-size:8px;font-weight:700;color:#fff;line-height:10px;text-align:center;box-sizing:border-box;"></span>
-                            </button>
-                            <div id="client-notif-dropdown" style="display:none;position:absolute;bottom:calc(100% + 8px);right:0;width:300px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.2);z-index:99999;overflow:hidden;font-family:'Outfit',sans-serif;">
-                                <div style="padding:10px 14px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;">
-                                    <span style="font-size:12px;font-weight:700;color:#0f172a;">🔔 Notifications</span>
-                                    <button onclick="window._clientMarkAllRead(event)" style="font-size:10px;color:#3b82f6;font-weight:700;background:none;border:none;cursor:pointer;">Mark all read</button>
-                                </div>
-                                <div id="client-notif-list" style="max-height:280px;overflow-y:auto;"></div>
-                            </div>
-                        </div>
-                        <button onclick="logout()" class="p-2 text-slate-500 hover:text-red-500 hover:bg-slate-100 rounded-lg transition-colors" title="Logout">
-                            <i data-lucide="log-out" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                </div>
+            <div class="p-4 border-t border-slate-100 flex items-center justify-center">
+                <span class="text-[10px] text-slate-400 font-medium sidebar-text">© 2026 Globalisor</span>
             </div>
         </aside>
     `;
@@ -211,21 +225,66 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     document.body.insertAdjacentHTML('afterbegin', mobileHeader + sidebar + expandBtnHtml);
 
+    // Inject profile section into the top-right corner of global-header
+    const globalHeader = document.getElementById('global-header');
+    if (globalHeader) {
+        globalHeader.style.position = 'relative';
+        globalHeader.style.zIndex = '100';
+        const profileDiv = document.createElement('div');
+        profileDiv.className = 'flex items-center gap-4 relative';
+        profileDiv.style.zIndex = '10000';
+        profileDiv.innerHTML = `
+            <!-- Chat AI Trigger -->
+            <button id="client-ai-btn" onclick="window._clientToggleAI(event)" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors relative" title="Globalisor AI Assistant">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </button>
+
+            <!-- Notifications -->
+            <div style="position:relative;">
+                <button id="client-bell-btn" onclick="window._clientToggleBell(event)" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors relative" title="Notifications">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                    <span id="client-notif-badge" style="display:none;position:absolute;top:4px;right:4px;min-width:14px;height:14px;padding:0 2px;background:#ef4444;border-radius:9999px;border:2px solid #fff;font-size:8px;font-weight:700;color:#fff;line-height:10px;text-align:center;box-sizing:border-box;"></span>
+                </button>
+                <div id="client-notif-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;width:300px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.2);z-index:99999;overflow:hidden;font-family:'Outfit',sans-serif;">
+                    <div style="padding:10px 14px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;">
+                        <span style="font-size:12px;font-weight:700;color:#0f172a;">🔔 Notifications</span>
+                        <button onclick="window._clientMarkAllRead(event)" style="font-size:10px;color:#3b82f6;font-weight:700;background:none;border:none;cursor:pointer;">Mark all read</button>
+                    </div>
+                    <div id="client-notif-list" style="max-height:280px;overflow-y:auto;"></div>
+                </div>
+            </div>
+
+            <!-- Profile Info -->
+            <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
+                <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">${initials}</div>
+                <div class="flex flex-col leading-none">
+                    <span id="user-name" class="text-xs font-semibold text-slate-900 max-w-[150px] truncate">${auth.name || 'Client User'}</span>
+                    <button onclick="logout()" class="text-[10px] text-red-500 font-bold hover:underline text-left mt-0.5 border-0 bg-transparent cursor-pointer">Logout</button>
+                </div>
+            </div>
+        `;
+        globalHeader.appendChild(profileDiv);
+    }
+
     // Set active navigation highlight
     window.updateClientSidebarActive = function(tabId) {
         document.querySelectorAll('#left-sidebar a, #left-sidebar button').forEach(el => {
             if (el.id === 'nav-' + tabId) {
                 el.classList.add('bg-blue-50', 'text-blue-600');
                 el.classList.remove('hover:bg-slate-100', 'hover:text-slate-900', 'text-slate-600');
-                const icon = el.querySelector('i');
-                if (icon) icon.classList.remove('text-slate-400');
-                if (icon) icon.classList.add('text-blue-600');
+                const icon = el.querySelector('svg');
+                if (icon) {
+                    icon.classList.remove('text-slate-400');
+                    icon.classList.add('text-blue-600');
+                }
             } else {
                 el.classList.remove('bg-blue-50', 'text-blue-600');
                 el.classList.add('text-slate-600');
-                const icon = el.querySelector('i');
-                if (icon) icon.classList.add('text-slate-400');
-                if (icon) icon.classList.remove('text-blue-600');
+                const icon = el.querySelector('svg');
+                if (icon) {
+                    icon.classList.add('text-slate-400');
+                    icon.classList.remove('text-blue-600');
+                }
             }
         });
     };
@@ -451,6 +510,15 @@ window.toggleDesktopSidebar = function() {
     document.body.classList.toggle('sidebar-collapsed');
     const isCollapsed = document.body.classList.contains('sidebar-collapsed');
     localStorage.setItem('sidebar_collapsed', isCollapsed ? 'true' : 'false');
+};
+
+window._clientToggleAI = function(e) {
+    if (e) e.stopPropagation();
+    if (typeof window.toggleAIAssistant === 'function') {
+        window.toggleAIAssistant();
+    } else {
+        window.location.href = 'portal.html?open_ai=true';
+    }
 };
 
 window.logout = function() {
