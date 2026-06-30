@@ -558,10 +558,7 @@ async function init() {
     const btnLocalYes = document.getElementById('btn-local-yes');
     const btnLocalNo = document.getElementById('btn-local-no');
     const btnLocalBack = document.getElementById('btn-local-back');
-    const officeQuestionStep = document.getElementById('office-question-step');
-    const btnOfficeYes = document.getElementById('btn-office-yes');
-    const btnOfficeNo = document.getElementById('btn-office-no');
-    const btnOfficeBack = document.getElementById('btn-office-back');
+
 
     const allServices = [
         { id: 'inc-local', name: 'Incorporation for Locals', category: 'Incorporation', icon: 'building', desc: 'Fast-track registration for Singapore citizens and PRs.' },
@@ -803,58 +800,7 @@ async function init() {
         });
     }
 
-    function setOfficePreconfigAndRedirect(useService) {
-        localStorage.setItem('token', 'mock-guest-token-' + Math.random().toString(36).substring(2));
-        localStorage.setItem('client_auth', JSON.stringify({ email: 'guest@globalisor.com', role: 'CLIENT' }));
-        
-        let masterData = {};
-        try {
-            masterData = JSON.parse(localStorage.getItem('globalisor_master_v3')) || {};
-        } catch (e) {
-            masterData = {};
-        }
-        if (!masterData.office) masterData.office = {};
-        masterData.office.useService = useService;
-        masterData.office.hasOwnAddress = !useService;
-        localStorage.setItem('globalisor_master_v3', JSON.stringify(masterData));
-        
-        window.location.href = '/requirements';
-    }
 
-    if (btnOfficeYes) {
-        btnOfficeYes.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setOfficePreconfigAndRedirect(false); // Yes, I have one (useService = false)
-        });
-    }
-
-    if (btnOfficeNo) {
-        btnOfficeNo.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setOfficePreconfigAndRedirect(true); // No, I need one (useService = true)
-        });
-    }
-
-    if (btnOfficeBack) {
-        btnOfficeBack.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            history.pushState(null, '', '?step=local-question');
-            if (officeQuestionStep && officeQuestionStep.classList.contains('opacity-0')) return; // Guard against transitioning twice
-            if (localQuestionStep && officeQuestionStep) {
-                officeQuestionStep.classList.add('opacity-0', 'translate-y-10');
-                setTimeout(() => {
-                    officeQuestionStep.classList.add('hidden');
-                    localQuestionStep.classList.remove('hidden');
-                    setTimeout(() => {
-                        localQuestionStep.classList.remove('opacity-0', 'translate-y-10');
-                    }, 50);
-                }, 500);
-            }
-        });
-    }
 
     const urlParams = new URLSearchParams(window.location.search);
 
@@ -910,15 +856,7 @@ async function init() {
                     localQuestionStep.classList.remove('opacity-0', 'translate-y-10');
                 }, 50);
             }
-        } else if (step === 'office-question') {
-            if (wrapper) wrapper.classList.add('question-mode');
-            if (header) header.classList.add('hidden');
-            if (officeQuestionStep) {
-                officeQuestionStep.classList.remove('hidden');
-                setTimeout(() => {
-                    officeQuestionStep.classList.remove('opacity-0', 'translate-y-10');
-                }, 50);
-            }
+
         } else {
             // Default status page
             if (wrapper) wrapper.classList.remove('question-mode');
@@ -945,18 +883,7 @@ async function init() {
         }
     }
 
-    // Check if we need to show the office question step on page load
-    if (urlParams.get('step') === 'office-question') {
-        if (statusStep && officeQuestionStep) {
-            const wrapper = document.getElementById('service-selection');
-            if (wrapper) wrapper.classList.add('question-mode');
-            statusStep.classList.add('hidden', 'opacity-0', 'translate-y-10');
-            const header = document.getElementById('choose-service-header');
-            if (header) header.classList.add('hidden');
-            officeQuestionStep.classList.remove('hidden');
-            officeQuestionStep.classList.remove('opacity-0', 'translate-y-10');
-        }
-    }
+
 
     // 9. Dynamic Blog System
     const DEFAULT_BLOGS = [

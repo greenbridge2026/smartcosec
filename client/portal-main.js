@@ -636,11 +636,27 @@ async function renderOnboarding(container) {
         }
         // Initialize share_capital
         if (!state.onboarding.stepShareCapital) {
-            state.onboarding.stepShareCapital = { data: { allocations: [] }, status: 'pending', documents: [] };
+            state.onboarding.stepShareCapital = { data: { currencies: [] }, status: 'pending', documents: [] };
         } else if (!state.onboarding.stepShareCapital.data) {
-            state.onboarding.stepShareCapital.data = { allocations: [] };
-        } else if (!state.onboarding.stepShareCapital.data.allocations) {
-            state.onboarding.stepShareCapital.data.allocations = [];
+            state.onboarding.stepShareCapital.data = { currencies: [] };
+        } else if (!state.onboarding.stepShareCapital.data.currencies) {
+            state.onboarding.stepShareCapital.data.currencies = [];
+        }
+
+        // Sync Share Capital
+        const reqCapital = reqData.capital || {};
+        const capCurrencies = state.onboarding.stepShareCapital.data.currencies || [];
+        if (reqCapital.currency && capCurrencies.length === 0) {
+            capCurrencies.push({
+                currency: reqCapital.currency || 'SGD',
+                customCurrency: '',
+                shareClass: reqCapital.type || 'Ordinary',
+                numberOfShares: reqCapital.numShares ? String(reqCapital.numShares) : '10000',
+                shareCapitalAmount: reqCapital.issued ? String(reqCapital.issued) : '10000',
+                paidUpShareCapital: reqCapital.paidUp ? String(reqCapital.paidUp) : '10000'
+            });
+            state.onboarding.stepShareCapital.data.currencies = capCurrencies;
+            changed = true;
         }
 
         // 1. Directors
@@ -748,7 +764,7 @@ async function renderOnboarding(container) {
         
         if (changed && state.onboardingId) {
             try {
-                const stepsToSync = ['director_details', 'individual_shareholder', 'corporate_shareholder'];
+                const stepsToSync = ['share_capital', 'director_details', 'individual_shareholder', 'corporate_shareholder'];
                 for (const stepKey of stepsToSync) {
                     const targetStep = ONBOARDING_STEPS.find(s => s.key === stepKey);
                     if (targetStep && targetStep.field && state.onboarding[targetStep.field]) {
@@ -769,9 +785,8 @@ async function renderOnboarding(container) {
     }
     
     // Compute active step key if not set
-    if (!state.activeObStepKey || state.activeObStepKey === 'document_checklist') {
-        const firstUncompleted = ONBOARDING_STEPS.find((s, idx) => s.key !== 'document_checklist' && !['completed', 'approved', 'submitted', 'under_review'].includes(getFriendlyStatus(s.key, ob)));
-        state.activeObStepKey = firstUncompleted ? firstUncompleted.key : (ONBOARDING_STEPS.find(s => s.key !== 'document_checklist') || ONBOARDING_STEPS[0]).key;
+    if (!state.activeObStepKey) {
+        state.activeObStepKey = ONBOARDING_STEPS[0].key;
     }
 
     const progress = ob && ob.progressPercent ? ob.progressPercent : 0;
@@ -1318,6 +1333,7 @@ function highlightInvalidFields(stepKey, ob, show) {
 }
 
 function getFriendlyStatus(stepKey, ob) {
+    if (stepKey === 'document_checklist') return 'completed';
     const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
     if (!step) return 'not_started';
     const stepData = ob && ob[step.field] ? ob[step.field] : {};
@@ -1924,14 +1940,12 @@ function renderActiveStepForm(container) {
                                     }
                                     
                                     let validationWarningHtml = '';
+                                    let isIdDuplicate = false;
                                     if (f.key === 'idNumber' && val) {
                                         const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
                                         const stepData = state.onboarding[stepField] || {};
                                         const list = (stepData.data && stepData.data.list) || [];
-                                        const isIdDuplicate = list.some((item, itemIdx) => itemIdx !== idx && item.idNumber && String(item.idNumber).trim().toUpperCase() === String(val).trim().toUpperCase());
-                                        if (isIdDuplicate) {
-                                            validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: This NRIC / FIN is already registered for another entry.</div>`;
-                                        }
+                                        isIdDuplicate = list.some((item, itemIdx) => itemIdx !== idx && item.idNumber && String(item.idNumber).trim().toUpperCase() === String(val).trim().toUpperCase());
                                     }
                                     if ((stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') && (f.key === 'numberOfShares' || f.key === 'shareCapitalAmount')) {
                                         const shCurr = (item.currency || '').trim().toUpperCase();
@@ -1948,30 +1962,36 @@ function renderActiveStepForm(container) {
                                             if (!masterItem) {
                                                 validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Currency/Class combo (${shCurr} - ${shClass}) not configured in Share Capital Details step.</div>`;
                                             } else {
-                                                // Calculate others sum
                                                 const indStep = ob.step3IndividualShareholder || { data: { list: [] } };
                                                 const indList = indStep.data.list || [];
                                                 const corpStep = ob.step4CorporateShareholder || { data: { list: [] } };
                                                 const corpList = corpStep.data.list || [];
 
-                                                let otherSharesSum = 0;
-                                                let otherCapitalSum = 0;
+                                                let usedShares = 0;
+                                                let usedCapital = 0;
 
-                                                const processOthers = (otherItem, otherIdx, otherStepKey) => {
-                                                    if (otherStepKey === stepKey && otherIdx === idx) return; // skip self
-                                                    const oCurr = (otherItem.currency || '').trim().toUpperCase();
-                                                    const oClass = (otherItem.shareClass || '').trim();
-                                                    if (oCurr === shCurr && oClass === shClass) {
-                                                        otherSharesSum += parseFloat(otherItem.numberOfShares) || 0;
-                                                        otherCapitalSum += parseFloat(otherItem.shareCapitalAmount) || 0;
+                                                indList.forEach((sh, shIdx) => {
+                                                    if (shIdx === idx && stepKey === 'individual_shareholder') return;
+                                                    const c = (sh.currency || '').trim().toUpperCase();
+                                                    const cl = (sh.shareClass || '').trim();
+                                                    if (c === shCurr && cl === shClass) {
+                                                        usedShares += parseFloat(sh.numberOfShares) || 0;
+                                                        usedCapital += parseFloat(sh.shareCapitalAmount) || 0;
                                                     }
-                                                };
+                                                });
 
-                                                indList.forEach((it, i) => processOthers(it, i, 'individual_shareholder'));
-                                                corpList.forEach((it, i) => processOthers(it, i, 'corporate_shareholder'));
+                                                corpList.forEach((sh, shIdx) => {
+                                                    if (shIdx === idx && stepKey === 'corporate_shareholder') return;
+                                                    const c = (sh.currency || '').trim().toUpperCase();
+                                                    const cl = (sh.shareClass || '').trim();
+                                                    if (c === shCurr && cl === shClass) {
+                                                        usedShares += parseFloat(sh.numberOfShares) || 0;
+                                                        usedCapital += parseFloat(sh.shareCapitalAmount) || 0;
+                                                    }
+                                                });
 
-                                                const availableShares = masterItem.numberOfShares - otherSharesSum;
-                                                const availableCapital = masterItem.shareCapitalAmount - otherCapitalSum;
+                                                const availableShares = masterItem.numberOfShares - usedShares;
+                                                const availableCapital = masterItem.shareCapitalAmount - usedCapital;
 
                                                 if (f.key === 'numberOfShares') {
                                                     const enteredShares = parseFloat(val) || 0;
@@ -1999,6 +2019,7 @@ function renderActiveStepForm(container) {
                                         <label for="${inputId}">${f.label}</label>
                                         <input type="${f.type || 'text'}" id="${inputId}" value="${val}" placeholder="Enter ${f.label.toLowerCase()}" ${fieldReadonlyAttr} 
                                             oninput="${isIdField ? 'obIdNumberInputHandler(this); ' : ''}triggerMultiItemAutoSave('${stepKey}', ${idx})">
+                                        <div id="${inputId}-warn" style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;display:${(f.key === 'idNumber' && isIdDuplicate) ? 'block' : 'none'};">⚠️ Warning: This NRIC / FIN is already registered for another entry.</div>
                                         ${validationWarningHtml}
                                     </div>`;
                                 }
@@ -4964,6 +4985,18 @@ function triggerMultiItemAutoSave(stepKey, idx, isCheckboxChange) {
                     item[f.key] = el.value;
                 } else {
                     item[f.key] = el.value;
+                }
+            }
+        });
+
+        // Dynamic validation warning update for NRIC duplicates in the list
+        stepData.data.list.forEach((it, itIdx) => {
+            const el = document.getElementById(`ob-${stepKey}-${itIdx}-idNumber`);
+            if (el) {
+                const isIdDuplicate = stepData.data.list.some((other, otherIdx) => otherIdx !== itIdx && other.idNumber && String(other.idNumber).trim().toUpperCase() === String(el.value).trim().toUpperCase());
+                const warnEl = document.getElementById(`${el.id}-warn`);
+                if (warnEl) {
+                    warnEl.style.display = (isIdDuplicate && el.value.trim()) ? 'block' : 'none';
                 }
             }
         });
