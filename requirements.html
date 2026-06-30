@@ -227,6 +227,7 @@
 
         /* Helper Card */
         .wizard-card-helper {
+            display: none !important;
             width: 320px;
             background: #ffffff;
             border: 1px solid rgba(226, 232, 240, 0.8);
@@ -1588,6 +1589,24 @@
                 margin: 0 0.25rem;
             }
         }
+
+        /* Occupy full width overrides since details sidebar is hidden */
+        .wizard-footer-new,
+        .card,
+        .input-box,
+        .toggle-row,
+        .upload-slot,
+        .ocr-upload-zone,
+        .ocr-panel,
+        .company-type-grid,
+        .office-container-card,
+        .service-toggle-container,
+        .name-check-field-wrapper,
+        .accordion-toggle,
+        .accordion-content,
+        .counters-container {
+            max-width: none !important;
+        }
     </style>
 </head>
 <body class="requirements-page">
@@ -2862,6 +2881,7 @@
                 if (activePath) activePath.classList.add('active');
                 
                 this.render();
+                window.scrollTo(0, 0);
             }
 
             validateCurrentStep() {
@@ -3730,114 +3750,6 @@
                                 ${(sec.fields || []).filter(f => f.type !== 'switch').map(f => this.renderField(f, f.key)).join('')}
                             </div>
 
-                            <!-- KYC Verification Section -->
-                            <div class="kyc-verification-section" style="margin-top: 2rem; border-top: 1px solid #e2e8f0; padding-top: 1.5rem; width: 100%;">
-                                <h3 style="font-weight: 700; color: #0f172a; font-size: 1.1rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                                    <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="width: 1.25rem; height: 1.25rem; color: #2563eb;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                                    KYC & AML Compliance Checks
-                                </h3>
-                                <p style="color: #64748b; font-size: 0.85rem; line-height: 1.5; margin: 0 0 1.25rem 0;">
-                                    Verify the identities and screen backgrounds of all directors against PEP & Sanctions watchlists using Shufti Pro.
-                                </p>
-                                <div style="display: flex; flex-direction: column; gap: 1rem;">
-                                    ${directors.map((dir, idx) => {
-                                        const kycStatus = dir.kyc ? dir.kyc.status : 'unverified';
-                                        let statusBadge = '';
-                                        let detailsHtml = '';
-                                        
-                                        if (kycStatus === 'approved') {
-                                            statusBadge = `<span style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.6rem; border-radius: 9999px; background: #ecfdf5; color: #059669; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">🟢 KYC Verified</span>`;
-                                        } else if (kycStatus === 'flagged') {
-                                            statusBadge = `<span style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.6rem; border-radius: 9999px; background: #fef2f2; color: #dc2626; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">🔴 AML ALERT</span>`;
-                                        } else if (kycStatus === 'under review') {
-                                            statusBadge = `<span style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.6rem; border-radius: 9999px; background: #fffbeb; color: #d97706; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">🟡 Under Review</span>`;
-                                        } else {
-                                            statusBadge = `<span style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.6rem; border-radius: 9999px; background: #f1f5f9; color: #475569; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">⚪ Unverified</span>`;
-                                        }
-
-                                        if (dir.kyc) {
-                                            detailsHtml = `
-                                                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px dashed #e2e8f0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 1rem; font-size: 0.75rem; color: #475569; text-align: left;">
-                                                    <div><strong>Doc Verification:</strong> ${dir.kyc.identityStatus === 'verified' ? '🟢 Verified' : dir.kyc.identityStatus === 'failed' ? '🔴 Failed' : '⚪ Pending'}</div>
-                                                    <div><strong>AML Screening:</strong> ${dir.kyc.amlStatus === 'clean' ? '🟢 Clean' : dir.kyc.amlStatus === 'flagged' ? '🔴 Flagged' : '⚪ Pending'}</div>
-                                                    <div><strong>PEP Check:</strong> ${dir.kyc.pepStatus === 'clean' ? '🟢 Clean' : dir.kyc.pepStatus === 'match' ? '🔴 Match Found' : '⚪ Pending'}</div>
-                                                    <div><strong>Sanctions Check:</strong> ${dir.kyc.sanctionsStatus === 'clean' ? '🟢 Clean' : dir.kyc.sanctionsStatus === 'match' ? '🔴 Match Found' : '⚪ Pending'}</div>
-                                                    <div style="grid-column: span 2;"><strong>Shufti Ref:</strong> <code style="font-family: monospace; font-size: 0.7rem; background: #f1f5f9; padding: 0.1rem 0.3rem; border-radius: 4px;">${dir.kyc.shuftiRef}</code></div>
-
-                                                </div>
-                                            `;
-                                        }
-
-                                        const docPath = `directors[${idx}].docs.idDoc`;
-                                        const ocrState = this._ocrStates[docPath];
-                                        const idDocType = (dir.idType === 'Passport') ? 'passport' : 'nric';
-                                        let ocrUploadHtml = '';
-                                        if (ocrState && ocrState.status !== 'idle') {
-                                            ocrUploadHtml = this._renderOcrPanel(docPath, ocrState, { label: 'ID Document' }, idDocType);
-                                        } else {
-                                            const docFileName = dir.docs && dir.docs.idDoc ? dir.docs.idDoc : null;
-                                            if (docFileName) {
-                                                ocrUploadHtml = `<div class="ocr-upload-zone" style="padding:0.75rem 1rem; text-align:left; display:flex; align-items:center; gap:0.5rem; cursor:pointer; position:relative;">
-                                                    <input type="file" accept="image/*,application/pdf" onchange="wizard.handleUploadWithOcr(event, '${docPath}', '${idDocType}')">
-                                                    <span style="font-size:0.8rem; color:#10b981; font-weight:600;">✓ ${docFileName}</span>
-                                                    <span style="font-size:0.7rem; color:#64748b; margin-left:auto;">Change file</span>
-                                                </div>`;
-                                            } else {
-                                                ocrUploadHtml = `<div class="ocr-upload-zone" style="padding:0.875rem 1rem;" id="ocr-dir-${idx}">
-                                                    <input type="file" accept="image/*,application/pdf"
-                                                        onchange="wizard.handleUploadWithOcr(event, '${docPath}', '${idDocType}')"
-                                                        ondragover="this.parentElement.classList.add('dragover')"
-                                                        ondragleave="this.parentElement.classList.remove('dragover')">
-                                                    <div style="display:flex; align-items:center; gap:0.75rem; justify-content:center;">
-                                                        <div style="width:32px;height:32px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                                            <svg width="16" height="16" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                                        </div>
-                                                        <div style="text-align:left;">
-                                                            <div style="font-size:0.8rem;font-weight:700;color:#1e293b;">Upload ${dir.idType === 'Passport' ? 'Passport' : 'NRIC / FIN'}</div>
-                                                            <div style="font-size:0.7rem;color:#64748b;">JPEG, PNG or PDF &bull; OCR auto-fills all details</div>
-                                                        </div>
-                                                        <div style="margin-left:auto;" class="ocr-badge"><span>⚡</span> OCR</div>
-                                                    </div>
-                                                </div>`;
-                                            }
-                                        }
-
-                                        return `
-                                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 0.75rem;">
-                                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
-                                                    <div style="display: flex; flex-direction: column; gap: 0.25rem; text-align: left;">
-                                                        <input type="text" 
-                                                            placeholder="Enter Director ${idx + 1} Full Name" 
-                                                            value="${dir.name || ''}" 
-                                                            onchange="wizard.updateDirectorName(${idx}, this.value)"
-                                                            style="font-size: 0.9rem; font-weight: 700; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.4rem 0.75rem; width: 220px; outline: none;"
-                                                        >
-                                                        <span style="font-size: 0.75rem; color: #64748b;">Director ${idx + 1} (${dir.idType === 'local' ? 'Singapore Resident' : 'Foreigner'})</span>
-                                                    </div>
-                                                    <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                                        ${statusBadge}
-                                                        <button type="button" 
-                                                            onclick="wizard.openShuftiModal(${idx})"
-                                                            style="padding: 0.5rem 0.9rem; font-size: 0.75rem; font-weight: 700; color: #2563eb; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
-                                                        >
-                                                            ${dir.kyc ? 'Recheck' : 'Verify Identity'}
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                ${detailsHtml}
-                                                <!-- OCR Document Upload -->
-                                                <div style="border-top: 1px solid #f1f5f9; padding-top: 0.75rem;">
-                                                    <div style="font-size: 0.7rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 4px;">
-                                                        <span style="width:16px;height:16px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:4px;display:inline-flex;align-items:center;justify-content:center;color:white;font-size:0.55rem;">⚡</span>
-                                                        ID Document Upload (OCR Auto-Extract)
-                                                    </div>
-                                                    ${ocrUploadHtml}
-                                                </div>
-                                            </div>
-                                        `;
-                                    }).join('')}
-                                </div>
-                            </div>
                         </div>
                     `;
 
@@ -3869,7 +3781,7 @@
 
                     const useServiceField = (sec.fields || []).find(f => f.key === 'office.useService') || {
                         label: 'Registered Address Option *',
-                        options: ['false:Yes, I have Office Address', 'true:No, I Need Globalisor Registered Address']
+                        options: ['false:Yes, I have Office Address', 'true:Globalisor Address']
                     };
                     const optionLabel = useServiceField.label || 'Registered Address Option *';
                     const parsedOptions = (useServiceField.options || []).map(opt => {
@@ -3880,7 +3792,7 @@
                         };
                     });
                     const opt1 = parsedOptions[0] || { value: 'false', label: 'Yes, I have Office Address' };
-                    const opt2 = parsedOptions[1] || { value: 'true', label: 'No, I Need Globalisor Registered Address' };
+                    const opt2 = parsedOptions[1] || { value: 'true', label: 'Globalisor Address' };
 
                     const serviceTitle = useServiceField.label || 'Registered office address';
                     const serviceDesc = useServiceField.hint || 'Statutorily required. Real address in Singapore, mail scanned weekly.';
@@ -6620,6 +6532,7 @@
                         <button class="btn btn-primary" style="padding: 1rem 3rem;" onclick="wizard.submitVerification()">Submit for Verification</button>
                     </div>`;
                 document.getElementById('next-btn').style.display = 'none';
+                window.scrollTo(0, 0);
             }
 
             async submitVerification() {

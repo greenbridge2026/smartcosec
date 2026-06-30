@@ -41,6 +41,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const targetTab = urlParams.get('tab') || 'home';
     switchTab(targetTab);
+    if (urlParams.get('open_ai') === 'true') {
+        toggleAIAssistant();
+    }
     
     // Lucide Init
     if (window.lucide) window.lucide.createIcons();
@@ -301,7 +304,7 @@ function applyPortalFreezeUI(activated) {
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             <span style="color:#93c5fd;margin-right:4px;">Onboarding in progress —</span>
             The remaining portal sections will be available after Globalisor completes verification and activation.
-            <button onclick="switchTab('onboarding')" style="margin-left:auto;padding:4px 14px;background:#3b82f6;border:none;border-radius:8px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:Outfit,sans-serif;">Complete Onboarding →</button>
+            <button onclick="state.activeObStepKey = 'document_checklist'; switchTab('onboarding')" style="margin-left:auto;padding:4px 14px;background:#3b82f6;border:none;border-radius:8px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:Outfit,sans-serif;">Complete Onboarding →</button>
         `;
         document.body.appendChild(banner);
     } else if (activated && existing) {
@@ -323,7 +326,7 @@ function switchTab(tab) {
                 <p style="font-size:14px;color:#64748b;max-width:420px;line-height:1.7;margin-bottom:28px;">
                     The remaining portal sections will be available after Globalisor completes verification and activation.
                 </p>
-                <button onclick="switchTab('onboarding')" style="padding:12px 28px;background:linear-gradient(135deg,#3b82f6,#06b6d4);color:#fff;border:none;border-radius:14px;font-family:Outfit,sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(59,130,246,0.3);">
+                <button onclick="state.activeObStepKey = 'document_checklist'; switchTab('onboarding')" style="padding:12px 28px;background:linear-gradient(135deg,#3b82f6,#06b6d4);color:#fff;border:none;border-radius:14px;font-family:Outfit,sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(59,130,246,0.3);">
                     Complete Your Onboarding
                 </button>
             </div>`;
@@ -490,12 +493,12 @@ const DEFAULT_ONBOARDING_STEPS = [
             { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
             { key: 'useDifferentAddress', label: 'I want to provide a different residential address', type: 'checkbox' },
             { key: 'alternativeAddress', label: 'Alternative Residential Address', type: 'text', conditionalOn: 'useDifferentAddress', conditionalValue: 'true' },
-            { key: 'totalShares', label: 'Total Number of Shares of the Company', type: 'number' },
-            { key: 'totalShareCapital', label: 'Total Share Capital Amount of the Company', type: 'number' },
             { key: 'currency', label: 'Currency', type: 'select', options: ['Select', 'SGD', 'USD'] },
             { key: 'shareClass', label: 'Share Class', type: 'select', options: ['Select', 'Ordinary', 'Preference'] },
-            { key: 'numberOfShares', label: 'Number of Shares', type: 'number' },
-            { key: 'shareCapitalAmount', label: 'Share Capital Amount', type: 'number' },
+            { key: 'numberOfSharesPct', label: 'Number of Shares (%)', type: 'number' },
+            { key: 'shareCapitalAmountPct', label: 'Share Capital Amount (%)', type: 'number' },
+            { key: 'numberOfShares', label: 'Number of Shares', type: 'number', readonly: true },
+            { key: 'shareCapitalAmount', label: 'Share Capital Amount', type: 'number', readonly: true },
             { key: 'ownershipPercentage', label: 'Ownership % (auto-calculated)', type: 'number', readonly: true },
             { key: 'uboDeclaration', label: 'Is the Shareholder the Ultimate Beneficial Owner?', type: 'select', options: ['Select', 'No', 'Yes'] }
         ],
@@ -520,12 +523,12 @@ const DEFAULT_ONBOARDING_STEPS = [
             { key: 'uen', label: 'UEN / Reg Number', type: 'text' },
             { key: 'dateOfIncorporation', label: 'Date of Incorporation', type: 'date' },
             { key: 'registeredAddress', label: 'Registered Address', type: 'text' },
-            { key: 'totalShares', label: 'Total Number of Shares of the Company', type: 'number' },
-            { key: 'totalShareCapital', label: 'Total Share Capital Amount of the Company', type: 'number' },
             { key: 'currency', label: 'Currency', type: 'select', options: ['SGD', 'USD'] },
             { key: 'shareClass', label: 'Share Class', type: 'select', options: ['Select', 'Ordinary', 'Preference'] },
-            { key: 'numberOfShares', label: 'Number of Shares', type: 'number' },
-            { key: 'shareCapitalAmount', label: 'Share Capital Amount', type: 'number' },
+            { key: 'numberOfSharesPct', label: 'Number of Shares (%)', type: 'number' },
+            { key: 'shareCapitalAmountPct', label: 'Share Capital Amount (%)', type: 'number' },
+            { key: 'numberOfShares', label: 'Number of Shares', type: 'number', readonly: true },
+            { key: 'shareCapitalAmount', label: 'Share Capital Amount', type: 'number', readonly: true },
             { key: 'ownershipPercentage', label: 'Ownership % (auto-calculated)', type: 'number', readonly: true },
             { key: 'uboDeclaration', label: 'Is the Shareholder the Ultimate Beneficial Owner?', type: 'select', options: ['No', 'Yes'] }
         ],
@@ -769,9 +772,8 @@ async function renderOnboarding(container) {
     }
     
     // Compute active step key if not set
-    if (!state.activeObStepKey || state.activeObStepKey === 'document_checklist') {
-        const firstUncompleted = ONBOARDING_STEPS.find((s, idx) => s.key !== 'document_checklist' && !['completed', 'approved', 'submitted', 'under_review'].includes(getFriendlyStatus(s.key, ob)));
-        state.activeObStepKey = firstUncompleted ? firstUncompleted.key : (ONBOARDING_STEPS.find(s => s.key !== 'document_checklist') || ONBOARDING_STEPS[0]).key;
+    if (!state.activeObStepKey) {
+        state.activeObStepKey = (ONBOARDING_STEPS[0] && ONBOARDING_STEPS[0].key) || 'document_checklist';
     }
 
     const progress = ob && ob.progressPercent ? ob.progressPercent : 0;
@@ -825,7 +827,7 @@ async function renderOnboarding(container) {
             flex-grow: 1;
         }
         .wizard-step-tab:hover:not(.locked) { border-color: #3b82f6; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(59, 130, 246, 0.08); }
-        .wizard-step-tab.active { background: linear-gradient(135deg, #1e293b, #0f172a); border-color: #0f172a; box-shadow: 0 12px 25px rgba(15, 23, 42, 0.15); }
+        .wizard-step-tab.active { background: linear-gradient(135deg, #3b82f6, #1d4ed8); border-color: #1d4ed8; box-shadow: 0 12px 25px rgba(37, 99, 235, 0.25); }
         .wizard-step-tab.locked { opacity: 0.5; cursor: not-allowed; background: #f8fafc; }
         
         .wizard-step-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; transition: all 0.2s; }
@@ -864,6 +866,34 @@ async function renderOnboarding(container) {
         .ob-submit-btn { padding: 10px 24px; background: linear-gradient(135deg, #3b82f6, #06b6d4); color: #fff; border: none; border-radius: 12px; font-family: Outfit, sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25); }
         .ob-submit-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35); }
         .ob-submit-btn:disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; box-shadow: none; }
+
+        @media (min-width: 1024px) {
+            .wizard-sidebar {
+                overflow-x: hidden !important;
+                flex-wrap: nowrap;
+                gap: 8px;
+            }
+            .wizard-step-tab {
+                min-width: 0 !important;
+                flex: 1 1 0px !important;
+                flex-shrink: 1 !important;
+                padding: 10px 8px !important;
+                gap: 8px !important;
+                border-radius: 12px !important;
+            }
+            .wizard-step-title {
+                font-size: 11px !important;
+            }
+            .wizard-step-icon {
+                width: 28px !important;
+                height: 28px !important;
+                font-size: 12px !important;
+            }
+            .wizard-step-badge {
+                padding: 1px 6px !important;
+                font-size: 7px !important;
+            }
+        }
     </style>
 
     ${isActivated ? `
@@ -954,18 +984,10 @@ function validateStep(stepKey, ob) {
         if (currencies.length === 0) {
             errors.push("At least one currency section is required.");
         }
-        
-        const seenCombinations = new Set();
         currencies.forEach((c, idx) => {
             const currencyCode = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
             if (!currencyCode) {
                 errors.push(`Section #${idx + 1}: Currency is required.`);
-            }
-            const keyCombo = `${currencyCode}_${c.shareClass}`;
-            if (seenCombinations.has(keyCombo)) {
-                errors.push(`Section #${idx + 1}: Duplicate Currency + Share Class combination: ${currencyCode} - ${c.shareClass}.`);
-            } else {
-                seenCombinations.add(keyCombo);
             }
 
             const numShares = parseFloat(c.numberOfShares) || 0;
@@ -1527,7 +1549,7 @@ function obRenderPhoneField({ inputId, val, readonlyAttr, onInputCallback }) {
 
             <input type="hidden" id="${inputId}-country-val" value="${selectedCode}|${selectedDial}|${maxLen}">
 
-            <input type="tel" id="${inputId}" inputmode="numeric" pattern="[0-9]*" value="${phoneNum}" maxlength="${maxLen}" placeholder="${'0'.repeat(maxLen)}"
+            <input type="tel" id="${inputId}" data-full-val="${selectedCode}:${selectedDial}:${phoneNum}" inputmode="numeric" pattern="[0-9]*" value="${phoneNum}" maxlength="${maxLen}" placeholder="${'0'.repeat(maxLen)}"
                 style="flex:1;border:none;outline:none;padding:10px 12px;font-size:13px;font-weight:500;color:#1e293b;background:transparent;min-width:0;letter-spacing:0.04em;"
                 ${readonlyAttr}
                 oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,this.maxLength); obPhoneSyncValue('${inputId}'); ${onInputCallback}"
@@ -1843,12 +1865,28 @@ function renderActiveStepForm(container) {
                                     
                                     let selectWrapperHtml = '';
                                     if (val) {
+                                        const selectedDirectorIndices = new Set();
+                                        const currentStepConfig = ONBOARDING_STEPS.find(s => s.key === stepKey);
+                                        const stepField = currentStepConfig ? currentStepConfig.field : 'step3IndividualShareholder';
+                                        const shareholdersList = state.onboarding[stepField] && state.onboarding[stepField].data && state.onboarding[stepField].data.list ? state.onboarding[stepField].data.list : [];
+                                        shareholdersList.forEach((s, sIdx) => {
+                                            if (sIdx !== idx && s.selectedDirectorIdx !== undefined && s.selectedDirectorIdx !== null && s.selectedDirectorIdx !== '') {
+                                                selectedDirectorIndices.add(String(s.selectedDirectorIdx));
+                                            }
+                                        });
+
                                         selectWrapperHtml = `
                                         <div class="ob-field" style="grid-column: span 2; margin-bottom: 12px;">
                                             <label for="${inputId}-director-select">Select Director Source</label>
                                             <select id="${inputId}-director-select" ${disabledAttr} onchange="obIndividualShareholderSameAsDirectorChange(${idx}, this.value)">
                                                 <option value="">Select Director</option>
-                                                ${dirList.map((d, dIdx) => `<option value="${dIdx}" ${item.selectedDirectorIdx === String(dIdx) ? 'selected' : ''}>Director #${dIdx + 1}: ${d.fullName || '(No Name)'}</option>`).join('')}
+                                                ${dirList.map((d, dIdx) => {
+                                                    const isSelected = item.selectedDirectorIdx === String(dIdx);
+                                                    if (!isSelected && selectedDirectorIndices.has(String(dIdx))) {
+                                                        return '';
+                                                    }
+                                                    return `<option value="${dIdx}" ${isSelected ? 'selected' : ''}>Director #${dIdx + 1}: ${d.fullName || '(No Name)'}</option>`;
+                                                }).join('')}
                                             </select>
                                         </div>
                                         `;
@@ -1868,11 +1906,43 @@ function renderActiveStepForm(container) {
                                     if (f.key === 'uboDeclaration') {
                                         disabledAttr = 'disabled';
                                     }
+                                    
+                                    let options = f.options || [];
+                                    if (stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') {
+                                        const scStep = state.onboarding.stepShareCapital || {};
+                                        const scData = scStep.data || {};
+                                        const scCurrencies = scData.currencies || [];
+                                        
+                                        if (f.key === 'currency') {
+                                            const configuredCurrs = new Set();
+                                            scCurrencies.forEach(c => {
+                                                const currCode = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
+                                                if (currCode) {
+                                                    configuredCurrs.add(currCode);
+                                                }
+                                            });
+                                            if (configuredCurrs.size > 0) {
+                                                options = ['Select', ...Array.from(configuredCurrs)];
+                                            }
+                                        } else if (f.key === 'shareClass') {
+                                            const configuredClasses = new Set();
+                                            scCurrencies.forEach(c => {
+                                                const sc = c.shareClass || '';
+                                                if (sc) {
+                                                    configuredClasses.add(sc);
+                                                }
+                                            });
+                                            if (configuredClasses.size > 0) {
+                                                options = ['Select', ...Array.from(configuredClasses)];
+                                            }
+                                        }
+                                    }
+                                    
                                     return `
                                     <div class="ob-field">
                                         <label for="${inputId}">${f.label}</label>
                                         <select id="${inputId}" onchange="triggerMultiItemAutoSave('${stepKey}', ${idx})" ${disabledAttr}>
-                                            ${(f.options || []).map(o => `<option value='${o}' ${val === o ? 'selected' : ''}>${o}</option>`).join('')}
+                                            ${options.map(o => `<option value='${o}' ${val === o ? 'selected' : ''}>${o}</option>`).join('')}
                                         </select>
                                     </div>`;
                                 } else if (f.type === 'checkbox') {
@@ -1918,6 +1988,9 @@ function renderActiveStepForm(container) {
                                     });
                                 } else {
                                     let fieldReadonlyAttr = readonlyAttr;
+                                    if (f.readonly === true) {
+                                        fieldReadonlyAttr = 'readonly';
+                                    }
                                     if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
                                         const isPersonalField = ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].includes(f.key);
                                         if (isPersonalField) fieldReadonlyAttr = 'readonly';
@@ -1933,7 +2006,7 @@ function renderActiveStepForm(container) {
                                             validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: This NRIC / FIN is already registered for another entry.</div>`;
                                         }
                                     }
-                                    if ((stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') && (f.key === 'numberOfShares' || f.key === 'shareCapitalAmount')) {
+                                    if ((stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') && (f.key === 'numberOfShares' || f.key === 'shareCapitalAmount' || f.key === 'numberOfSharesPct' || f.key === 'shareCapitalAmountPct')) {
                                         const shCurr = (item.currency || '').trim().toUpperCase();
                                         const shClass = (item.shareClass || '').trim();
                                         
@@ -1973,15 +2046,15 @@ function renderActiveStepForm(container) {
                                                 const availableShares = masterItem.numberOfShares - otherSharesSum;
                                                 const availableCapital = masterItem.shareCapitalAmount - otherCapitalSum;
 
-                                                if (f.key === 'numberOfShares') {
-                                                    const enteredShares = parseFloat(val) || 0;
+                                                if (f.key === 'numberOfShares' || f.key === 'numberOfSharesPct') {
+                                                    const enteredShares = parseFloat(item.numberOfShares) || 0;
                                                     if (enteredShares > availableShares) {
                                                         validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Allocation (${enteredShares}) exceeds available limit of ${availableShares} shares.</div>`;
                                                     } else {
                                                         validationWarningHtml = `<div style="color:#16a34a;font-size:10px;font-weight:600;margin-top:4px;">Available limit: ${availableShares} shares (total master: ${masterItem.numberOfShares})</div>`;
                                                     }
-                                                } else if (f.key === 'shareCapitalAmount') {
-                                                    const enteredCapital = parseFloat(val) || 0;
+                                                } else if (f.key === 'shareCapitalAmount' || f.key === 'shareCapitalAmountPct') {
+                                                    const enteredCapital = parseFloat(item.shareCapitalAmount) || 0;
                                                     if (enteredCapital > availableCapital) {
                                                         validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Allocation (${enteredCapital}) exceeds available limit of ${availableCapital} ${shCurr}.</div>`;
                                                     } else {
@@ -2443,7 +2516,7 @@ function triggerAutoSave(stepKey) {
                     stepData.data[f.key] = el.checked;
                 } else if (f.type === 'phone') {
                     stepData.data[f.key] = el.dataset.fullVal || ((() => {
-                        const sel = document.getElementById(`ob-${stepKey}-${f.key}-country`);
+                        const sel = document.getElementById(`ob-${stepKey}-${f.key}-country-val`);
                         if (sel) {
                             const [code, dial] = sel.value.split('|');
                             return `${code}:${dial}:${el.value}`;
@@ -2484,40 +2557,67 @@ function triggerAutoSave(stepKey) {
     }
     
     if (stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') {
-        const ownershipEl = document.getElementById(`ob-${stepKey}-ownershipPercentage`);
         const numSharesEl = document.getElementById(`ob-${stepKey}-numberOfShares`);
-        const totalSharesEl = document.getElementById(`ob-${stepKey}-totalShares`);
-        const totalShareCapitalEl = document.getElementById(`ob-${stepKey}-totalShareCapital`);
+        const numSharesPctEl = document.getElementById(`ob-${stepKey}-numberOfSharesPct`);
         const shareCapitalAmountEl = document.getElementById(`ob-${stepKey}-shareCapitalAmount`);
+        const shareCapitalAmountPctEl = document.getElementById(`ob-${stepKey}-shareCapitalAmountPct`);
+        const ownershipEl = document.getElementById(`ob-${stepKey}-ownershipPercentage`);
         const uboEl = document.getElementById(`ob-${stepKey}-uboDeclaration`);
-        if (numSharesEl) {
-            const num = parseFloat(numSharesEl.value) || 0;
-            const totalShares = totalSharesEl ? (parseFloat(totalSharesEl.value) || 0) : 0;
-            const totalShareCapital = totalShareCapitalEl ? (parseFloat(totalShareCapitalEl.value) || 0) : 0;
-            
-            const pct = totalShares > 0 ? Math.min(100, Math.round((num / totalShares) * 100 * 100) / 100) : 0;
-            if (ownershipEl) {
-                ownershipEl.value = pct;
-                stepData.data.ownershipPercentage = pct;
+        
+        const shCurr = (stepData.data.currency || '').trim().toUpperCase();
+        const shClass = (stepData.data.shareClass || '').trim();
+        
+        let totalSharesForCombo = 0;
+        let totalAmountForCombo = 0;
+        if (shCurr && shCurr !== 'SELECT' && shClass && shClass !== 'SELECT') {
+            const scStep = state.onboarding.stepShareCapital || {};
+            const scData = scStep.data || {};
+            const scCurrencies = scData.currencies || [];
+            const match = scCurrencies.find(c => {
+                const scCurr = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
+                return scCurr.toUpperCase() === shCurr && c.shareClass === shClass;
+            });
+            if (match) {
+                totalSharesForCombo = parseFloat(match.numberOfShares) || 0;
+                totalAmountForCombo = parseFloat(match.shareCapitalAmount) || 0;
             }
-            if (shareCapitalAmountEl && totalShares > 0) {
-                const calculatedCapital = Math.round((num / totalShares) * totalShareCapital * 100) / 100;
-                const currentVal = parseFloat(shareCapitalAmountEl.value) || 0;
-                if (document.activeElement !== shareCapitalAmountEl && (currentVal === 0 || currentVal === calculatedCapital)) {
-                    shareCapitalAmountEl.value = calculatedCapital;
-                    stepData.data.shareCapitalAmount = calculatedCapital;
-                }
+        }
+        
+        let pctVal = 0;
+        if (numSharesPctEl) {
+            const pct = parseFloat(numSharesPctEl.value) || 0;
+            stepData.data.numberOfSharesPct = numSharesPctEl.value === '' ? '' : pct;
+            const calculatedShares = Math.round((pct / 100) * totalSharesForCombo);
+            stepData.data.numberOfShares = calculatedShares;
+            if (numSharesEl) {
+                numSharesEl.value = calculatedShares;
             }
-            if (uboEl) {
-                const uboVal = pct >= 25 ? 'Yes' : 'No';
-                uboEl.value = uboVal;
-                stepData.data.uboDeclaration = uboVal;
+            pctVal = pct;
+        }
+        
+        if (shareCapitalAmountPctEl) {
+            const pct = parseFloat(shareCapitalAmountPctEl.value) || 0;
+            stepData.data.shareCapitalAmountPct = shareCapitalAmountPctEl.value === '' ? '' : pct;
+            const calculatedCapital = Math.round((pct / 100) * totalAmountForCombo * 100) / 100;
+            stepData.data.shareCapitalAmount = calculatedCapital;
+            if (shareCapitalAmountEl) {
+                shareCapitalAmountEl.value = calculatedCapital;
             }
-            
-            // Auto-populate Step 5 (UBO) from Step 3 when shareholder has >= 25% ownership
-            if (stepKey === 'individual_shareholder' && pct >= 25) {
-                const uboStep = ONBOARDING_STEPS.find(s => s.key === 'ubo');
-                const uboField = uboStep ? uboStep.field : null;
+        }
+
+        if (ownershipEl) {
+            ownershipEl.value = pctVal;
+            stepData.data.ownershipPercentage = pctVal;
+        }
+        if (uboEl) {
+            const uboVal = pctVal >= 25 ? 'Yes' : 'No';
+            uboEl.value = uboVal;
+            stepData.data.uboDeclaration = uboVal;
+        }
+        
+        if (stepKey === 'individual_shareholder' && pctVal >= 25) {
+            const uboStep = ONBOARDING_STEPS.find(s => s.key === 'ubo');
+            const uboField = uboStep ? uboStep.field : null;
                 if (uboField) {
                     if (!state.onboarding[uboField]) state.onboarding[uboField] = { data: {}, status: 'pending', documents: [] };
                     
@@ -2559,7 +2659,6 @@ function triggerAutoSave(stepKey) {
                 }
             }
         }
-    }
     
     state.onboarding[stepField] = stepData;
     updateWizardUIFeedback();
@@ -3265,7 +3364,7 @@ async function handleAISend() {
     const chatBody = document.getElementById('ai-chat-body');
     const typing = document.createElement('div');
     typing.className = 'flex gap-3 animate-pulse';
-    typing.innerHTML = '<div class="w-8 h-8 rounded-lg bg-blue-100"></div><div class="bg-white/60 p-4 rounded-2xl rounded-tl-none text-xs text-slate-400">AI is thinking...</div>';
+    typing.innerHTML = '<div class="bg-white/60 p-4 rounded-2xl rounded-tl-none text-xs text-slate-400">AI is thinking...</div>';
     chatBody.appendChild(typing);
     chatBody.scrollTop = chatBody.scrollHeight;
 
@@ -3281,23 +3380,75 @@ function appendAIMessage(sender, text) {
     const div = document.createElement('div');
     div.className = `flex gap-3 ${sender === 'user' ? 'flex-row-reverse' : ''}`;
     div.innerHTML = `
-        <div class="w-8 h-8 rounded-lg ${sender === 'user' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-600'} flex items-center justify-center shrink-0">
-            <i data-lucide="${sender === 'user' ? 'user' : 'sparkles'}" class="w-4 h-4"></i>
-        </div>
-        <div class="${sender === 'user' ? 'bg-blue-600 text-white shadow-blue-200' : 'bg-white/60 text-slate-700 border border-white/60'} p-4 rounded-2xl ${sender === 'user' ? 'rounded-tr-none' : 'rounded-tl-none'} text-sm shadow-sm">
+        <div class="${sender === 'user' ? 'bg-blue-600 text-white shadow-blue-200' : 'bg-white/60 text-slate-700 border border-white/60'} p-4 rounded-2xl ${sender === 'user' ? 'rounded-tr-none' : 'rounded-tl-none'} text-sm shadow-sm" style="white-space: pre-line;">
             ${text}
         </div>
     `;
     chatBody.appendChild(div);
     chatBody.scrollTop = chatBody.scrollHeight;
-    if (window.lucide) window.lucide.createIcons();
 }
 
 function generateAIResponse(msg) {
     const m = msg.toLowerCase();
-    if (m.includes('document') || m.includes('upload')) return "You can manage all your documents in the **Compliance Vault** tab. Currently, we're waiting for your **Proof of Address**. Would you like me to open that section for you?";
-    if (m.includes('invoice') || m.includes('bill')) return "Your recent invoice **INV-2026-042** for SGD 3,000.00 is pending. You can pay it directly in the **Payments** module.";
-    if (m.includes('hi') || m.includes('hello')) return "Hello! I'm your Globalisor operational assistant. I can help you track workflows, manage compliance, or answer questions about your Singapore entity. What's on your mind?";
+    
+    if (m.includes('incorporat') || m.includes('setup') || m.includes('register') || m.includes('start company')) {
+        return `To incorporate your company in Singapore, the primary requirements are:
+        
+1. **Approved Company Name**
+2. **Globalisor Address** (Registered Address)
+3. **At least 1 Resident Director** (Singapore citizen/PR)
+4. **At least 1 Shareholder**
+5. **Qualified Company Secretary**
+
+You can complete all of this inside the **Onboarding Journey** tab! Would you like me to guide you to Step 1?`;
+    }
+    
+    if (m.includes('chat') || m.includes('agent') || m.includes('human') || m.includes('support') || m.includes('talk') || m.includes('yes')) {
+        return `I have notified a support specialist. You can also chat directly with our incorporation experts in the Messages page, or submit a ticket in the Support Desk. 
+
+A team member will join you shortly!`;
+    }
+    
+    if (m.includes('compliance') || m.includes('annual return') || m.includes('acra')) {
+        return `Singapore companies have three main annual compliance milestones:
+        
+- **Annual General Meeting (AGM)**: Must be held within 6 months of your financial year-end.
+- **Annual Returns Filing**: Must be filed with ACRA within 7 months of your financial year-end.
+- **Corporate Tax Filing**: Form C-S/C must be submitted to IRAS by November 30.
+
+Globalisor handles all of these filings automatically in your active Workflows!`;
+    }
+
+    if (m.includes('director') || m.includes('nominee')) {
+        return `Under ACRA regulations, every Singapore company must have at least one director who is ordinarily resident in Singapore. 
+
+If you do not have a local resident director, Globalisor provides a Nominee Resident Director service. You can specify director requirements in Step 2 of the Onboarding Journey.`;
+    }
+
+    if (m.includes('share') || m.includes('capital') || m.includes('percent')) {
+        return `Singapore companies can be incorporated with a minimum paid-up capital of SGD 1.00. 
+
+You can allocate share percentages for individual or corporate shareholders in Step 3 and Step 4 of Onboarding. The "Number of Shares" and "Share Capital Amount" fields are read-only and will auto-calculate instantly based on the percentages you enter.`;
+    }
+    
+    if (m.includes('address') || m.includes('registered address')) {
+        return `Your company must have a physical registered address in Singapore. We provide a premium registered address at **Globalisor Address** which is selected by default in your incorporation package. 
+
+You can review or change this in the Onboarding Journey.`;
+    }
+
+    if (m.includes('document') || m.includes('upload')) {
+        return "You can manage all your documents in the **Compliance Vault** tab. Currently, we're waiting for your **Proof of Address**. Would you like me to open that section for you?";
+    }
+    
+    if (m.includes('invoice') || m.includes('bill')) {
+        return "Your recent invoice **INV-2026-042** for SGD 3,000.00 is pending. You can pay it directly in the **Payments** module.";
+    }
+    
+    if (m.includes('hi') || m.includes('hello')) {
+        return "Hello! I'm your Globalisor operational assistant. I can help you track workflows, manage compliance, or answer questions about your Singapore entity. What's on your mind?";
+    }
+    
     return "That's a great question about Singapore business operations. I'll need a moment to verify the latest ACRA guidelines, or I can connect you with a human expert in the Support Desk.";
 }
 
@@ -4953,7 +5104,7 @@ function triggerMultiItemAutoSave(stepKey, idx, isCheckboxChange) {
                 } else if (f.type === 'phone') {
                     // Read composite value: code:dial:number from data attribute, fallback to plain number
                     item[f.key] = el.dataset.fullVal || ((() => {
-                        const sel = document.getElementById(`ob-${stepKey}-${idx}-${f.key}-country`);
+                        const sel = document.getElementById(`ob-${stepKey}-${idx}-${f.key}-country-val`);
                         if (sel) {
                             const [code, dial] = sel.value.split('|');
                             return `${code}:${dial}:${el.value}`;
@@ -4981,7 +5132,34 @@ function triggerMultiItemAutoSave(stepKey, idx, isCheckboxChange) {
                 ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].forEach(key => {
                     const el = document.getElementById(`ob-individual_shareholder-${idx}-${key}`);
                     if (el && dirData[key]) {
-                        el.value = dirData[key];
+                        if (key === 'mobile') {
+                            let phoneNum = dirData['mobile'];
+                            let selectedCode = 'SG';
+                            let selectedDial = '+65';
+                            if (phoneNum && phoneNum.includes(':')) {
+                                const parts = phoneNum.split(':');
+                                selectedCode = parts[0] || 'SG';
+                                selectedDial = parts[1] || '+65';
+                                phoneNum = parts[2] || '';
+                            }
+                            el.value = phoneNum;
+                            el.dataset.fullVal = dirData['mobile'];
+                            
+                            const flagEl = document.getElementById(`ob-individual_shareholder-${idx}-flag`);
+                            if (flagEl) {
+                                flagEl.innerHTML = obFlagImg(selectedCode, 20);
+                            }
+                            const dialcodeEl = document.getElementById(`ob-individual_shareholder-${idx}-dialcode`);
+                            if (dialcodeEl) {
+                                dialcodeEl.textContent = selectedDial;
+                            }
+                            const countryValEl = document.getElementById(`ob-individual_shareholder-${idx}-country-val`);
+                            if (countryValEl) {
+                                countryValEl.value = `${selectedCode}|${selectedDial}|8`;
+                            }
+                        } else {
+                            el.value = dirData[key];
+                        }
                         item[key] = dirData[key];
                     }
                 });
@@ -4991,39 +5169,95 @@ function triggerMultiItemAutoSave(stepKey, idx, isCheckboxChange) {
 
     if (stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') {
         const numSharesEl = document.getElementById(`ob-${stepKey}-${idx}-numberOfShares`);
-        const totalSharesEl = document.getElementById(`ob-${stepKey}-${idx}-totalShares`);
-        const totalShareCapitalEl = document.getElementById(`ob-${stepKey}-${idx}-totalShareCapital`);
+        const numSharesPctEl = document.getElementById(`ob-${stepKey}-${idx}-numberOfSharesPct`);
         const shareCapitalAmountEl = document.getElementById(`ob-${stepKey}-${idx}-shareCapitalAmount`);
+        const shareCapitalAmountPctEl = document.getElementById(`ob-${stepKey}-${idx}-shareCapitalAmountPct`);
         const ownershipEl = document.getElementById(`ob-${stepKey}-${idx}-ownershipPercentage`);
         const uboEl = document.getElementById(`ob-${stepKey}-${idx}-uboDeclaration`);
         
-        if (numSharesEl) {
-            const num = parseFloat(numSharesEl.value) || 0;
-            const totalShares = totalSharesEl ? (parseFloat(totalSharesEl.value) || 0) : 0;
-            const totalShareCapital = totalShareCapitalEl ? (parseFloat(totalShareCapitalEl.value) || 0) : 0;
-            
-            const pct = totalShares > 0 ? Math.min(100, Math.round((num / totalShares) * 100 * 100) / 100) : 0;
-            if (ownershipEl) {
-                ownershipEl.value = pct;
-                item.ownershipPercentage = pct;
+        const shCurr = (item.currency || '').trim().toUpperCase();
+        const shClass = (item.shareClass || '').trim().toUpperCase();
+        
+        let totalSharesForCombo = 0;
+        let totalAmountForCombo = 0;
+        
+        const scStep = state.onboarding.stepShareCapital || {};
+        const scData = scStep.data || {};
+        const scCurrencies = scData.currencies || [];
+        
+        if (shCurr && shCurr !== 'SELECT' && shClass && shClass !== 'SELECT') {
+            const match = scCurrencies.find(c => {
+                const scCurr = (c.currency === 'Others' ? (c.customCurrency || '') : c.currency).trim().toUpperCase();
+                const scClass = (c.shareClass || '').trim().toUpperCase();
+                return scCurr === shCurr && scClass === shClass;
+            });
+            if (match) {
+                totalSharesForCombo = parseFloat(match.numberOfShares) || 0;
+                totalAmountForCombo = parseFloat(match.shareCapitalAmount) || 0;
             }
-            if (shareCapitalAmountEl && totalShares > 0) {
-                const calculatedCapital = Math.round((num / totalShares) * totalShareCapital * 100) / 100;
-                const currentVal = parseFloat(shareCapitalAmountEl.value) || 0;
-                if (document.activeElement !== shareCapitalAmountEl && (currentVal === 0 || currentVal === calculatedCapital)) {
-                    shareCapitalAmountEl.value = calculatedCapital;
-                    item.shareCapitalAmount = calculatedCapital;
+        } else if (shCurr && shCurr !== 'SELECT') {
+            const matches = scCurrencies.filter(c => {
+                const scCurr = (c.currency === 'Others' ? (c.customCurrency || '') : c.currency).trim().toUpperCase();
+                return scCurr === shCurr;
+            });
+            if (matches.length === 1) {
+                const match = matches[0];
+                totalSharesForCombo = parseFloat(match.numberOfShares) || 0;
+                totalAmountForCombo = parseFloat(match.shareCapitalAmount) || 0;
+                item.shareClass = match.shareClass || '';
+                const classSelect = document.getElementById(`ob-${stepKey}-${idx}-shareClass`);
+                if (classSelect) {
+                    classSelect.value = match.shareClass || '';
                 }
             }
-            if (uboEl) {
-                const uboVal = pct >= 25 ? 'Yes' : 'No';
-                uboEl.value = uboVal;
-                item.uboDeclaration = uboVal;
+        } else if (scCurrencies.length === 1) {
+            const match = scCurrencies[0];
+            totalSharesForCombo = parseFloat(match.numberOfShares) || 0;
+            totalAmountForCombo = parseFloat(match.shareCapitalAmount) || 0;
+        }
+        
+        console.log("Onboarding auto-calc query debug:", {
+            shCurr,
+            shClass,
+            totalSharesForCombo,
+            totalAmountForCombo,
+            scCurrencies
+        });
+        
+        let pctVal = 0;
+        if (numSharesPctEl) {
+            const pct = parseFloat(numSharesPctEl.value) || 0;
+            item.numberOfSharesPct = numSharesPctEl.value === '' ? '' : pct;
+            const calculatedShares = Math.round((pct / 100) * totalSharesForCombo);
+            item.numberOfShares = calculatedShares;
+            if (numSharesEl) {
+                numSharesEl.value = calculatedShares;
             }
-            
-            if (stepKey === 'individual_shareholder' && pct >= 25) {
-                syncUBOFromIndividualShareholder(idx, item);
+            pctVal = pct;
+        }
+        
+        if (shareCapitalAmountPctEl) {
+            const pct = parseFloat(shareCapitalAmountPctEl.value) || 0;
+            item.shareCapitalAmountPct = shareCapitalAmountPctEl.value === '' ? '' : pct;
+            const calculatedCapital = Math.round((pct / 100) * totalAmountForCombo * 100) / 100;
+            item.shareCapitalAmount = calculatedCapital;
+            if (shareCapitalAmountEl) {
+                shareCapitalAmountEl.value = calculatedCapital;
             }
+        }
+
+        if (ownershipEl) {
+            ownershipEl.value = pctVal;
+            item.ownershipPercentage = pctVal;
+        }
+        if (uboEl) {
+            const uboVal = pctVal >= 25 ? 'Yes' : 'No';
+            uboEl.value = uboVal;
+            item.uboDeclaration = uboVal;
+        }
+        
+        if (stepKey === 'individual_shareholder' && pctVal >= 25) {
+            syncUBOFromIndividualShareholder(idx, item);
         }
     }
     
@@ -5400,9 +5634,10 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
                     <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em;">Corporate Shareholder Registry Details:</div>
                     <div style="display: flex; flex-direction: column; gap: 6px;">
                         ${corps.map((s, cIdx) => `
-                            <div style="font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center;">
-                                <span style="font-weight: 600; color: #1e293b;">${cIdx + 1}. ${s.name || 'N/A'}</span>
-                                <span style="color: #64748b;">Reg Num: ${s.regNum || 'N/A'} | Place: ${s.regPlace || 'N/A'}</span>
+                            <div style="font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px;">
+                                <div style="font-weight: 600; color: #1e293b;">Corporate Shareholder ${cIdx + 1}${s.name && s.name !== 'N/A' ? `: ${s.name}` : ''}</div>
+                                <div style="color: #64748b; padding-left: 8px;">1. ${cleanContactVal(s.email, 'Email ID')}</div>
+                                <div style="color: #64748b; padding-left: 8px;">2. ${cleanContactVal(s.phone, 'Phone Number')}</div>
                             </div>
                         `).join('')}
                     </div>
@@ -5450,14 +5685,6 @@ function obRenderShareCapitalHtml(isReadOnly) {
 
     // Build the sections HTML
     let sectionsHtml = '';
-    
-    // Check duplicates to show warning
-    const seenCombos = {};
-    currencies.forEach(c => {
-        const currCode = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
-        const key = `${currCode}_${c.shareClass}`;
-        seenCombos[key] = (seenCombos[key] || 0) + 1;
-    });
 
     if (currencies.length === 0) {
         sectionsHtml = `
@@ -5471,15 +5698,12 @@ function obRenderShareCapitalHtml(isReadOnly) {
             
             // Validation check for this specific block
             const currCode = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
-            const key = `${currCode}_${c.shareClass}`;
             const numShares = parseFloat(c.numberOfShares) || 0;
             const amount = parseFloat(c.shareCapitalAmount) || 0;
             
             let errorText = '';
             if (!currCode) {
                 errorText = '⚠️ Currency code is required.';
-            } else if (seenCombos[key] > 1) {
-                errorText = `⚠️ Duplicate Currency + Share Class combo: ${currCode} - ${c.shareClass}.`;
             } else if (numShares <= 0 || !Number.isInteger(numShares)) {
                 errorText = '⚠️ Number of Shares must be a positive whole number.';
             } else if (amount < numShares) {
@@ -5547,18 +5771,18 @@ function obRenderShareCapitalHtml(isReadOnly) {
                 ${c.currency === 'Others' ? `
                     <div class="ob-field" style="margin-bottom:12px;">
                         <label>Specify Custom Currency Code</label>
-                        <input type="text" value="${c.customCurrency || ''}" placeholder="e.g. EUR, GBP" oninput="obUpdateCurrencyField(${idx}, 'customCurrency', this.value)" ${isReadOnly ? 'disabled' : ''}>
+                        <input type="text" value="${c.customCurrency || ''}" placeholder="e.g. EUR, GBP" oninput="obUpdateCurrencyFieldLocal(${idx}, 'customCurrency', this.value)" onchange="obUpdateCurrencyField(${idx}, 'customCurrency', this.value)" ${isReadOnly ? 'disabled' : ''}>
                     </div>
                 ` : ''}
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px;">
                     <div class="ob-field">
-                        <label>Number of Shares</label>
-                        <input type="number" step="1" value="${c.numberOfShares || ''}" placeholder="e.g. 100" oninput="obUpdateCurrencyField(${idx}, 'numberOfShares', this.value)" ${isReadOnly ? 'disabled' : ''}>
+                        <label>Total Number of Shares</label>
+                        <input type="number" step="1" value="${c.numberOfShares !== undefined && c.numberOfShares !== null ? c.numberOfShares : ''}" placeholder="e.g. 100" oninput="obUpdateCurrencyFieldLocal(${idx}, 'numberOfShares', this.value)" onchange="obUpdateCurrencyField(${idx}, 'numberOfShares', this.value)" ${isReadOnly ? 'disabled' : ''}>
                     </div>
                     <div class="ob-field">
-                        <label>Issued Share Capital Amount</label>
-                        <input type="number" value="${c.shareCapitalAmount || ''}" placeholder="e.g. 100" oninput="obUpdateCurrencyField(${idx}, 'shareCapitalAmount', this.value)" ${isReadOnly ? 'disabled' : ''}>
+                        <label>Total Issued Share Capital Amount</label>
+                        <input type="number" value="${c.shareCapitalAmount !== undefined && c.shareCapitalAmount !== null ? c.shareCapitalAmount : ''}" placeholder="e.g. 100" oninput="obUpdateCurrencyFieldLocal(${idx}, 'shareCapitalAmount', this.value)" onchange="obUpdateCurrencyField(${idx}, 'shareCapitalAmount', this.value)" ${isReadOnly ? 'disabled' : ''}>
                     </div>
                 </div>
 
@@ -5628,6 +5852,22 @@ function obRenderShareCapitalHtml(isReadOnly) {
     }
 
     return sectionsHtml + addBtnHtml + summaryHtml;
+}
+
+function obUpdateCurrencyFieldLocal(idx, key, val) {
+    const ob = state.onboarding || {};
+    if (!ob.stepShareCapital) ob.stepShareCapital = { data: { currencies: [] }, status: 'pending', documents: [] };
+    if (!ob.stepShareCapital.data) ob.stepShareCapital.data = { currencies: [] };
+    if (!ob.stepShareCapital.data.currencies) ob.stepShareCapital.data.currencies = [];
+
+    const c = ob.stepShareCapital.data.currencies[idx];
+    if (c) {
+        if (key === 'numberOfShares' || key === 'shareCapitalAmount') {
+            c[key] = val !== '' ? parseFloat(val) : '';
+        } else {
+            c[key] = val;
+        }
+    }
 }
 
 async function obUpdateCurrencyField(idx, key, val) {
@@ -5710,8 +5950,8 @@ async function obAddCurrencySection() {
         currency: 'SGD',
         customCurrency: '',
         shareClass: 'Ordinary',
-        numberOfShares: 100,
-        shareCapitalAmount: 100,
+        numberOfShares: 0,
+        shareCapitalAmount: 0,
         isCollapsed: false
     });
 
