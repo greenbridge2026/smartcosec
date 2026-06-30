@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const port = 8080;
+const port = process.env.PORT || 8081;
 
 app.use(cors());
 app.use(express.json());
@@ -1344,6 +1344,7 @@ app.get('/api/onboarding/client/:clientId', (req, res) => {
 
             newInds.push({
                 sameAsDirector: getMergedObject(existing, 'sameAsDirector', rInd, 'sameAsDirector', false),
+                selectedDirectorIdx: getMergedValue(existing, 'selectedDirectorIdx', rInd, 'selectedDirectorIdx'),
                 fullName: getMergedValue(existing, 'fullName', rInd, 'name'),
                 idNumber: getMergedValue(existing, 'idNumber', rInd, 'idNum'),
                 nationality: getMergedValue(existing, 'nationality', rInd, 'nation'),
@@ -1357,6 +1358,8 @@ app.get('/api/onboarding/client/:clientId', (req, res) => {
                 shareClass: getMergedValue(existing, 'shareClass', rInd, 'shareClass') || 'Select',
                 numberOfShares: getMergedValue(existing, 'numberOfShares', rInd, 'shares'),
                 shareCapitalAmount: getMergedValue(existing, 'shareCapitalAmount', rInd, 'percent'),
+                numberOfSharesPct: getMergedValue(existing, 'numberOfSharesPct', rInd, 'numberOfSharesPct'),
+                shareCapitalAmountPct: getMergedValue(existing, 'shareCapitalAmountPct', rInd, 'shareCapitalAmountPct'),
                 ownershipPercentage: getMergedValue(existing, 'ownershipPercentage', rInd, 'ownershipPercentage'),
                 uboDeclaration: getMergedValue(existing, 'uboDeclaration', rInd, 'uboDeclaration') || 'Select'
             });
@@ -1389,6 +1392,8 @@ app.get('/api/onboarding/client/:clientId', (req, res) => {
                 shareClass: getMergedValue(existing, 'shareClass', rCorp, 'shareClass') || 'Select',
                 numberOfShares: getMergedValue(existing, 'numberOfShares', rCorp, 'shares'),
                 shareCapitalAmount: getMergedValue(existing, 'shareCapitalAmount', rCorp, 'percent'),
+                numberOfSharesPct: getMergedValue(existing, 'numberOfSharesPct', rCorp, 'numberOfSharesPct'),
+                shareCapitalAmountPct: getMergedValue(existing, 'shareCapitalAmountPct', rCorp, 'shareCapitalAmountPct'),
                 ownershipPercentage: getMergedValue(existing, 'ownershipPercentage', rCorp, 'ownershipPercentage'),
                 uboDeclaration: getMergedValue(existing, 'uboDeclaration', rCorp, 'uboDeclaration') || 'No'
             });
