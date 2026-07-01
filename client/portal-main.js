@@ -654,9 +654,9 @@ async function renderOnboarding(container) {
                 currency: reqCapital.currency || 'SGD',
                 customCurrency: '',
                 shareClass: reqCapital.type || 'Ordinary',
-                numberOfShares: reqCapital.numShares ? String(reqCapital.numShares) : '10000',
-                shareCapitalAmount: reqCapital.issued ? String(reqCapital.issued) : '10000',
-                paidUpShareCapital: reqCapital.paidUp ? String(reqCapital.paidUp) : '10000'
+                numberOfShares: '0',
+                shareCapitalAmount: '0',
+                paidUpShareCapital: '0'
             });
             state.onboarding.stepShareCapital.data.currencies = capCurrencies;
             changed = true;
@@ -2868,35 +2868,34 @@ function extractBizfileFields(text) {
 }
 
 async function performOcrOnFileInput(file, docType) {
-    if (docType === 'address_proof') {
-        return {};
-    }
     return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = async () => {
             let extracted = {};
-            try {
-                const base64Data = reader.result.split(',')[1];
-                const ocrRes = await fetch('/api/onboarding/ocr-extract', {
-                    method: 'POST',
-                    headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ 
-                        type: docType, 
-                        fileName: file.name,
-                        fileData: base64Data,
-                        mimeType: file.type
-                    })
-                });
-                if (ocrRes.ok) {
-                    extracted = await ocrRes.json();
+            if (docType !== 'address_proof') {
+                try {
+                    const base64Data = reader.result.split(',')[1];
+                    const ocrRes = await fetch('/api/onboarding/ocr-extract', {
+                        method: 'POST',
+                        headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify({ 
+                            type: docType, 
+                            fileName: file.name,
+                            fileData: base64Data,
+                            mimeType: file.type
+                        })
+                    });
+                    if (ocrRes.ok) {
+                        extracted = await ocrRes.json();
+                    }
+                } catch(e) {
+                    console.error('[Gemini OCR Fallback] Failed:', e);
                 }
-            } catch(e) {
-                console.error('[Gemini OCR Fallback] Failed:', e);
             }
-            resolve(extracted);
+            resolve({ extracted: extracted, fileData: reader.result });
         };
         reader.onerror = () => {
-            resolve({});
+            resolve({ extracted: {}, fileData: '' });
         };
         reader.readAsDataURL(file);
     });
@@ -2913,7 +2912,9 @@ async function obUploadDoc(stepKey, docType, docLabel) {
         const docEl = document.getElementById(`doc-${stepKey}-${docType}`);
         if (docEl) docEl.innerHTML = `<div style='color:#3b82f6;font-size:12px;font-weight:700;'>⏳ Uploading & extracting...</div>`;
 
-        let extracted = await performOcrOnFileInput(file, docType);
+        const ocrResult = await performOcrOnFileInput(file, docType);
+        const extracted = ocrResult.extracted;
+        const base64DataUri = ocrResult.fileData;
 
         await ensureOnboardingRecord();
         const ob = state.onboarding || {};
@@ -2934,7 +2935,7 @@ async function obUploadDoc(stepKey, docType, docLabel) {
                 type: docType,
                 label: docLabel,
                 fileName: file.name,
-                fileData: 'uploaded',
+                fileData: base64DataUri,
                 mimeType: file.type,
                 status: 'pending',
                 extractedData: extracted,
@@ -5487,7 +5488,9 @@ async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
         if (docEl) docEl.innerHTML = `<div style='color:#3b82f6;font-size:11px;font-weight:700;'>⏳ Uploading & extracting...</div>`;
         
         const docType = docTypeWithIdx.split('_')[0];
-        let extracted = await performOcrOnFileInput(file, docType);
+        const ocrResult = await performOcrOnFileInput(file, docType);
+        const extracted = ocrResult.extracted;
+        const base64DataUri = ocrResult.fileData;
         
         // Post-Extraction validation: Check if extracted ID number is already registered for another item
         if (extracted && extracted.idNumber) {
@@ -5520,7 +5523,7 @@ async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
                 type: docTypeWithIdx,
                 label: docLabel,
                 fileName: file.name,
-                fileData: 'uploaded',
+                fileData: base64DataUri,
                 mimeType: file.type,
                 status: 'pending',
                 extractedData: extracted,
@@ -5896,11 +5899,7 @@ function obUpdateCurrencyFieldLocal(idx, key, val) {
 
     const c = ob.stepShareCapital.data.currencies[idx];
     if (c) {
-        if (key === 'numberOfShares' || key === 'shareCapitalAmount') {
-            c[key] = val !== '' ? parseFloat(val) : '';
-        } else {
-            c[key] = val;
-        }
+        c[key] = val;
     }
 }
 
@@ -5912,11 +5911,7 @@ async function obUpdateCurrencyField(idx, key, val) {
 
     const c = ob.stepShareCapital.data.currencies[idx];
     if (c) {
-        if (key === 'numberOfShares' || key === 'shareCapitalAmount') {
-            c[key] = val !== '' ? parseFloat(val) : '';
-        } else {
-            c[key] = val;
-        }
+        c[key] = val;
     }
 
     // Auto-save the step data
