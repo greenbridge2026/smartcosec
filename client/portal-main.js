@@ -386,7 +386,71 @@ function getStepRequiredDocs(stepKey, data) {
     const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
     if (!step) return [];
     
-    const docs = step.requiredDocs || [];
+    const isForeigner = state.onboarding && state.onboarding.journeyType === 'FOREIGNER';
+    let docs = step.requiredDocs || [];
+
+    if (stepKey === 'director_details' && isForeigner) {
+        if (data && data.source === 'globalisor') {
+            return []; // Nominee has no uploads
+        }
+        if (data && data.idType === 'foreign') {
+            return [
+                { type: 'nric', label: 'Passport Copy' }
+            ];
+        } else {
+            return [
+                { type: 'nric', label: 'NRIC' },
+                { type: 'address_proof', label: 'Utility Bill / Bank Statement' }
+            ];
+        }
+    }
+
+    if (stepKey === 'individual_shareholder' && isForeigner) {
+        if (data && (data.sameAsDirector === true || data.sameAsDirector === 'true')) {
+            return [];
+        }
+        const isLocal = data && data.shareholderType === 'Local';
+        const isForeignerSh = data && data.shareholderType === 'Foreigner';
+        if (isLocal) {
+            return [
+                { type: 'nric', label: 'NRIC' },
+                { type: 'address_proof', label: 'Utility Bill / Bank Statement / Mobile Bill' }
+            ];
+        } else if (isForeignerSh) {
+            return [
+                { type: 'nric', label: 'Passport Copy' },
+                { type: 'address_proof', label: 'Utility Bill / Bank Statement / Mobile Bill' }
+            ];
+        } else {
+            return [];
+        }
+    }
+
+    if (stepKey === 'corporate_shareholder' && isForeigner) {
+        const isSG = data && ((data.countryOfIncorporation || '').trim().toLowerCase() === 'singapore' || (data.countryOfIncorporation || '').trim().toLowerCase() === 'sg');
+        if (isSG) {
+            return [
+                { type: 'bizfile', label: 'BizFile' },
+                { type: 'constitution', label: 'Constitution' },
+                { type: 'supporting_docs', label: 'Additional Supporting Document', required: false }
+            ];
+        } else {
+            return [
+                { type: 'cert_incorporation', label: 'Certificate of Incorporation (Non-Singapore Entity)' },
+                { type: 'constitution', label: 'Shareholding Structure' },
+                { type: 'supporting_docs', label: 'Additional Supporting Document 1', required: false },
+                { type: 'supporting_docs_2', label: 'Additional Supporting Document 2', required: false }
+            ];
+        }
+    }
+
+    if (stepKey === 'corporate_rep' && isForeigner) {
+        return [
+            { type: 'nric', label: 'Passport Copy' },
+            { type: 'address_proof', label: 'Address Proof' }
+        ];
+    }
+    
     return docs.filter(doc => {
         if (doc.conditionalOn) {
             const condVal = data[doc.conditionalOn];
@@ -400,7 +464,69 @@ function getStepManualFields(stepKey, data) {
     const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
     if (!step) return [];
     
-    const fields = step.manualFields || [];
+    const isForeigner = state.onboarding && state.onboarding.journeyType === 'FOREIGNER';
+    let fields = step.manualFields || [];
+
+    if (stepKey === 'director_details' && isForeigner) {
+        if (data && data.source === 'globalisor') {
+            return []; // Nominee has no fields
+        }
+        // Always remove these checkboxes for all directors in foreigner journey
+        fields = fields.filter(f => !['useDifferentAddress', 'alternativeAddress', 'disqualificationAcknowledge'].includes(f.key));
+        
+        const isLocal = data && data.idType === 'local';
+        if (!isLocal) {
+            // Foreign Director
+            fields = fields.map(f => {
+                if (f.key === 'idNumber') {
+                    return { ...f, label: 'ID Number' };
+                }
+                return f;
+            });
+            if (!fields.some(f => f.key === 'passportExpiry')) {
+                fields.push({ key: 'passportExpiry', label: 'Passport Expiry Date', type: 'date' });
+            }
+        } else {
+            // Local Director
+            fields = fields.map(f => {
+                if (f.key === 'idNumber') {
+                    return { ...f, label: 'NRIC' };
+                }
+                return f;
+            });
+        }
+    }
+
+    if (stepKey === 'individual_shareholder' && isForeigner) {
+        if (!fields.some(f => f.key === 'shareholderType')) {
+            fields = [{ key: 'shareholderType', label: 'Shareholder Type', type: 'select', options: ['Select', 'Local', 'Foreigner'], mandatory: true }, ...fields];
+        }
+        fields = fields.map(f => {
+            if (f.key === 'idNumber') {
+                const isLocal = data && data.shareholderType === 'Local';
+                const isForeignerSh = data && data.shareholderType === 'Foreigner';
+                let labelVal = 'NRIC / FIN';
+                if (isLocal) labelVal = 'NRIC';
+                if (isForeignerSh) labelVal = 'ID Number';
+                return { ...f, label: labelVal };
+            }
+            return f;
+        });
+    }
+
+    if (stepKey === 'corporate_rep' && isForeigner) {
+        // do not ask for NRIC/FIN, only Passport. Rename label.
+        fields = fields.map(f => {
+            if (f.key === 'idNumber') {
+                return { ...f, label: 'Passport Number' };
+            }
+            return f;
+        });
+        if (!fields.some(f => f.key === 'passportExpiry')) {
+            fields.push({ key: 'passportExpiry', label: 'Passport Expiry Date', type: 'date' });
+        }
+    }
+    
     return fields.filter(field => {
         if (field.conditionalOn) {
             const condVal = data[field.conditionalOn];
@@ -530,7 +656,8 @@ const DEFAULT_ONBOARDING_STEPS = [
             { key: 'numberOfShares', label: 'Number of Shares', type: 'number', readonly: true },
             { key: 'shareCapitalAmount', label: 'Share Capital Amount', type: 'number', readonly: true },
             { key: 'ownershipPercentage', label: 'Ownership % (auto-calculated)', type: 'number', readonly: true },
-            { key: 'uboDeclaration', label: 'Is the Shareholder the Ultimate Beneficial Owner?', type: 'select', options: ['No', 'Yes'] }
+            { key: 'uboDeclaration', label: 'Is the Shareholder the Ultimate Beneficial Owner?', type: 'select', options: ['No', 'Yes'] },
+            { key: 'anyAdditionalController', label: 'Any Additional Controller?', type: 'checkbox' }
         ],
         dynamicSection: true,
         dynamicCountKey: 'corporateShareholderCount'
@@ -540,21 +667,23 @@ const DEFAULT_ONBOARDING_STEPS = [
         field: 'step6CorporateRep',
         title: 'Corporate Representative',
         icon: 'user-cog',
-        description: 'Upload NRIC/FIN and address proof for OCR extraction. Confirm contact details.',
+        description: 'Upload Passport and Address Proof for all corporate representatives.',
         requiredDocs: [
-            { type: 'nric', label: 'NRIC / FIN' },
+            { type: 'nric', label: 'Passport Copy' },
             { type: 'address_proof', label: 'Address Proof' }
         ],
-        extractedFields: ['fullName','idNumber','nationality','dateOfBirth'],
+        extractedFields: ['fullName','nationality','dateOfBirth','passportExpiry'],
         manualFields: [
             { key: 'fullName', label: 'Full Legal Name', type: 'text' },
-            { key: 'idNumber', label: 'NRIC / FIN', type: 'text' },
             { key: 'nationality', label: 'Nationality', type: 'nationality' },
             { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
             { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
             { key: 'email', label: 'Email Address', type: 'email' },
-            { key: 'mobile', label: 'Mobile Number', type: 'phone' }
-        ]
+            { key: 'mobile', label: 'Mobile Number', type: 'phone' },
+            { key: 'passportExpiry', label: 'Passport Expiry Date', type: 'date' }
+        ],
+        dynamicSection: true,
+        dynamicCountKey: 'corporateRepCount'
     },
     {
         key: 'final_declaration',
@@ -585,6 +714,20 @@ async function renderOnboarding(container) {
     // Store in global state
     state.onboarding = normalizeOnboardingData(ob || {});
     state.onboardingId = ob && ob.id ? ob.id : null;
+
+    // Fetch steps matching client's journeyType
+    const journey = state.onboarding.journeyType || 'LOCAL';
+    try {
+        const osRes = await fetch(`/api/onboarding-config/published?journeyType=${journey}`);
+        if (osRes.ok) {
+            const osData = await osRes.json();
+            if (osData && osData.length > 0) {
+                ONBOARDING_STEPS = osData;
+            }
+        }
+    } catch (osErr) {
+        console.error('Error fetching onboarding steps configuration:', osErr);
+    }
     
     // Fetch pre-registration requirements to initialize counts/lists
     let reqData = null;
@@ -683,7 +826,9 @@ async function renderOnboarding(container) {
                         residentialAddress: existing.residentialAddress || d.addr || '',
                         email: existing.email || d.email || '',
                         mobile: existing.mobile || d.phone || '',
-                        disqualificationAcknowledge: existing.disqualificationAcknowledge || false
+                        disqualificationAcknowledge: existing.disqualificationAcknowledge || false,
+                        idType: existing.idType || d.idType || 'local',
+                        source: existing.source || d.source || 'self'
                     });
                 }
                 if (list.length === 0) list.push({});
@@ -764,10 +909,23 @@ async function renderOnboarding(container) {
                 changed = true;
             }
         }
+
+        const repStep = ONBOARDING_STEPS.find(s => s.key === 'corporate_rep');
+        const repStepField = repStep ? repStep.field : null;
+        if (repStepField) {
+            if (!state.onboarding[repStepField]) {
+                state.onboarding[repStepField] = { data: { list: [] }, status: 'pending', documents: [] };
+            }
+            const currentList = state.onboarding[repStepField].data.list || [];
+            if (currentList.length === 0) {
+                state.onboarding[repStepField].data.list = [{}];
+                changed = true;
+            }
+        }
         
         if (changed && state.onboardingId) {
             try {
-                const stepsToSync = ['share_capital', 'director_details', 'individual_shareholder', 'corporate_shareholder'];
+                const stepsToSync = ['share_capital', 'director_details', 'individual_shareholder', 'corporate_shareholder', 'corporate_rep'];
                 for (const stepKey of stepsToSync) {
                     const targetStep = ONBOARDING_STEPS.find(s => s.key === stepKey);
                     if (targetStep && targetStep.field && state.onboarding[targetStep.field]) {
@@ -1031,10 +1189,11 @@ function validateStep(stepKey, ob) {
             // Check required documents for this item
             if (currentRequiredDocs) {
                 currentRequiredDocs.forEach(reqDoc => {
+                    if (reqDoc.required === false) return;
                     const docTypeWithIdx = `${reqDoc.type}_${idx}`;
                     if (stepKey === 'corporate_shareholder') {
                         const country = (item.countryOfIncorporation || '').trim().toLowerCase();
-                        const isSG = country === 'singapore' || country === 'sg' || country === '';
+                        const isSG = country === 'singapore' || country === 'sg';
                         if (isSG) {
                             if (reqDoc.type !== 'bizfile' && reqDoc.type !== 'constitution') return;
                         } else {
@@ -1073,6 +1232,16 @@ function validateStep(stepKey, ob) {
                     }
                     if (isEmpty) {
                         errors.push(`Entry #${idx + 1}: Field "${field.label}" is required.`);
+                    }
+                    if (stepKey === 'corporate_rep' && field.key === 'passportExpiry' && val) {
+                        const expiryDate = new Date(val);
+                        if (!isNaN(expiryDate.getTime())) {
+                            const threeMonthsLater = new Date();
+                            threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
+                            if (expiryDate < threeMonthsLater) {
+                                errors.push(`Entry #${idx + 1}: Passport is expiring within 3 months. Please upload a valid passport.`);
+                            }
+                        }
                     }
                 });
             }
@@ -1286,8 +1455,8 @@ function highlightInvalidFields(stepKey, ob, show) {
                     let isReq = true;
                     if (stepKey === 'corporate_shareholder') {
                         const country = (item.countryOfIncorporation || '').trim().toLowerCase();
-                        const isSG = country === 'singapore' || country === 'sg' || country === '';
-                        isReq = isSG ? (doc.type === 'bizfile' || doc.type === 'constitution') : (doc.type !== 'bizfile');
+                        const isSG = country === 'singapore' || country === 'sg';
+                        isReq = isSG ? (doc.type === 'bizfile' || doc.type === 'constitution') : (doc.type === 'cert_incorporation' || doc.type === 'constitution');
                     }
                     if (stepKey === 'individual_shareholder') {
                         if (item.sameAsDirector === true || item.sameAsDirector === 'true') isReq = false;
@@ -1433,31 +1602,78 @@ const OB_COUNTRIES = [
     { name: 'Afghanistan', code: 'AF', nationality: 'Afghan', dial: '+93', maxLen: 9 },
     { name: 'Albania', code: 'AL', nationality: 'Albanian', dial: '+355', maxLen: 9 },
     { name: 'Algeria', code: 'DZ', nationality: 'Algerian', dial: '+213', maxLen: 9 },
+    { name: 'Andorra', code: 'AD', nationality: 'Andorran', dial: '+376', maxLen: 6 },
+    { name: 'Angola', code: 'AO', nationality: 'Angolan', dial: '+244', maxLen: 9 },
+    { name: 'Antigua and Barbuda', code: 'AG', nationality: 'Antiguan/Barbudan', dial: '+1-268', maxLen: 7 },
     { name: 'Argentina', code: 'AR', nationality: 'Argentine', dial: '+54', maxLen: 10 },
+    { name: 'Armenia', code: 'AM', nationality: 'Armenian', dial: '+374', maxLen: 8 },
     { name: 'Australia', code: 'AU', nationality: 'Australian', dial: '+61', maxLen: 9 },
     { name: 'Austria', code: 'AT', nationality: 'Austrian', dial: '+43', maxLen: 10 },
+    { name: 'Azerbaijan', code: 'AZ', nationality: 'Azerbaijani', dial: '+994', maxLen: 9 },
+    { name: 'Bahamas', code: 'BS', nationality: 'Bahamian', dial: '+1-242', maxLen: 7 },
     { name: 'Bahrain', code: 'BH', nationality: 'Bahraini', dial: '+973', maxLen: 8 },
     { name: 'Bangladesh', code: 'BD', nationality: 'Bangladeshi', dial: '+880', maxLen: 10 },
+    { name: 'Barbados', code: 'BB', nationality: 'Barbadian', dial: '+1-246', maxLen: 7 },
+    { name: 'Belarus', code: 'BY', nationality: 'Belarusian', dial: '+375', maxLen: 9 },
     { name: 'Belgium', code: 'BE', nationality: 'Belgian', dial: '+32', maxLen: 9 },
+    { name: 'Belize', code: 'BZ', nationality: 'Belizean', dial: '+501', maxLen: 7 },
+    { name: 'Benin', code: 'BJ', nationality: 'Beninese', dial: '+229', maxLen: 8 },
+    { name: 'Bhutan', code: 'BT', nationality: 'Bhutanese', dial: '+975', maxLen: 8 },
+    { name: 'Bolivia', code: 'BO', nationality: 'Bolivian', dial: '+591', maxLen: 8 },
+    { name: 'Bosnia and Herzegovina', code: 'BA', nationality: 'Bosnian/Herzegovinian', dial: '+387', maxLen: 8 },
+    { name: 'Botswana', code: 'BW', nationality: 'Motswana', dial: '+267', maxLen: 8 },
     { name: 'Brazil', code: 'BR', nationality: 'Brazilian', dial: '+55', maxLen: 11 },
     { name: 'Brunei', code: 'BN', nationality: 'Bruneian', dial: '+673', maxLen: 7 },
+    { name: 'Bulgaria', code: 'BG', nationality: 'Bulgarian', dial: '+359', maxLen: 9 },
+    { name: 'Burkina Faso', code: 'BF', nationality: 'Burkinabe', dial: '+226', maxLen: 8 },
+    { name: 'Burundi', code: 'BI', nationality: 'Burundian', dial: '+257', maxLen: 8 },
+    { name: 'Cabo Verde', code: 'CV', nationality: 'Cabo Verdean', dial: '+238', maxLen: 7 },
     { name: 'Cambodia', code: 'KH', nationality: 'Cambodian', dial: '+855', maxLen: 9 },
+    { name: 'Cameroon', code: 'CM', nationality: 'Cameroonian', dial: '+237', maxLen: 9 },
     { name: 'Canada', code: 'CA', nationality: 'Canadian', dial: '+1', maxLen: 10 },
+    { name: 'Central African Republic', code: 'CF', nationality: 'Central African', dial: '+236', maxLen: 8 },
+    { name: 'Chad', code: 'TD', nationality: 'Chadian', dial: '+235', maxLen: 8 },
     { name: 'Chile', code: 'CL', nationality: 'Chilean', dial: '+56', maxLen: 9 },
     { name: 'China', code: 'CN', nationality: 'Chinese', dial: '+86', maxLen: 11 },
     { name: 'Colombia', code: 'CO', nationality: 'Colombian', dial: '+57', maxLen: 10 },
+    { name: 'Comoros', code: 'KM', nationality: 'Comorian', dial: '+269', maxLen: 7 },
+    { name: 'Congo', code: 'CG', nationality: 'Congolese', dial: '+242', maxLen: 9 },
+    { name: 'Costa Rica', code: 'CR', nationality: 'Costa Rican', dial: '+506', maxLen: 8 },
+    { name: 'Cote d\'Ivoire', code: 'CI', nationality: 'Ivorian', dial: '+225', maxLen: 10 },
     { name: 'Croatia', code: 'HR', nationality: 'Croatian', dial: '+385', maxLen: 9 },
+    { name: 'Cuba', code: 'CU', nationality: 'Cuban', dial: '+53', maxLen: 8 },
+    { name: 'Cyprus', code: 'CY', nationality: 'Cypriot', dial: '+357', maxLen: 8 },
     { name: 'Czech Republic', code: 'CZ', nationality: 'Czech', dial: '+420', maxLen: 9 },
     { name: 'Denmark', code: 'DK', nationality: 'Danish', dial: '+45', maxLen: 8 },
+    { name: 'Djibouti', code: 'DJ', nationality: 'Djiboutian', dial: '+253', maxLen: 8 },
+    { name: 'Dominica', code: 'DM', nationality: 'Dominican', dial: '+1-767', maxLen: 7 },
+    { name: 'Dominican Republic', code: 'DO', nationality: 'Dominican', dial: '+1-809', maxLen: 7 },
+    { name: 'Ecuador', code: 'EC', nationality: 'Ecuadorian', dial: '+593', maxLen: 9 },
     { name: 'Egypt', code: 'EG', nationality: 'Egyptian', dial: '+20', maxLen: 10 },
+    { name: 'El Salvador', code: 'SV', nationality: 'Salvadoran', dial: '+503', maxLen: 8 },
+    { name: 'Equatorial Guinea', code: 'GQ', nationality: 'Equatoguinean', dial: '+240', maxLen: 9 },
+    { name: 'Eritrea', code: 'ER', nationality: 'Eritrean', dial: '+291', maxLen: 7 },
+    { name: 'Estonia', code: 'EE', nationality: 'Estonian', dial: '+372', maxLen: 8 },
     { name: 'Ethiopia', code: 'ET', nationality: 'Ethiopian', dial: '+251', maxLen: 9 },
+    { name: 'Eswatini', code: 'SZ', nationality: 'Swazi', dial: '+268', maxLen: 8 },
+    { name: 'Fiji', code: 'FJ', nationality: 'Fijian', dial: '+679', maxLen: 7 },
     { name: 'Finland', code: 'FI', nationality: 'Finnish', dial: '+358', maxLen: 10 },
     { name: 'France', code: 'FR', nationality: 'French', dial: '+33', maxLen: 9 },
+    { name: 'Gabon', code: 'GA', nationality: 'Gabonese', dial: '+241', maxLen: 7 },
+    { name: 'Gambia', code: 'GM', nationality: 'Gambian', dial: '+220', maxLen: 7 },
+    { name: 'Georgia', code: 'GE', nationality: 'Georgian', dial: '+995', maxLen: 9 },
     { name: 'Germany', code: 'DE', nationality: 'German', dial: '+49', maxLen: 11 },
     { name: 'Ghana', code: 'GH', nationality: 'Ghanaian', dial: '+233', maxLen: 9 },
     { name: 'Greece', code: 'GR', nationality: 'Greek', dial: '+30', maxLen: 10 },
+    { name: 'Grenada', code: 'GD', nationality: 'Grenadian', dial: '+1-473', maxLen: 7 },
+    { name: 'Guatemala', code: 'GT', nationality: 'Guatemalan', dial: '+502', maxLen: 8 },
+    { name: 'Guinea', code: 'GN', nationality: 'Guinean', dial: '+224', maxLen: 9 },
+    { name: 'Guyana', code: 'GY', nationality: 'Guyanese', dial: '+592', maxLen: 7 },
+    { name: 'Haiti', code: 'HT', nationality: 'Haitian', dial: '+509', maxLen: 8 },
+    { name: 'Honduras', code: 'HN', nationality: 'Honduran', dial: '+504', maxLen: 8 },
     { name: 'Hong Kong', code: 'HK', nationality: 'Chinese (Hong Kong)', dial: '+852', maxLen: 8 },
     { name: 'Hungary', code: 'HU', nationality: 'Hungarian', dial: '+36', maxLen: 9 },
+    { name: 'Iceland', code: 'IS', nationality: 'Icelander', dial: '+354', maxLen: 7 },
     { name: 'India', code: 'IN', nationality: 'Indian', dial: '+91', maxLen: 10 },
     { name: 'Indonesia', code: 'ID', nationality: 'Indonesian', dial: '+62', maxLen: 12 },
     { name: 'Iran', code: 'IR', nationality: 'Iranian', dial: '+98', maxLen: 10 },
@@ -1465,27 +1681,53 @@ const OB_COUNTRIES = [
     { name: 'Ireland', code: 'IE', nationality: 'Irish', dial: '+353', maxLen: 9 },
     { name: 'Israel', code: 'IL', nationality: 'Israeli', dial: '+972', maxLen: 9 },
     { name: 'Italy', code: 'IT', nationality: 'Italian', dial: '+39', maxLen: 10 },
+    { name: 'Jamaica', code: 'JM', nationality: 'Jamaican', dial: '+1-876', maxLen: 7 },
     { name: 'Japan', code: 'JP', nationality: 'Japanese', dial: '+81', maxLen: 11 },
     { name: 'Jordan', code: 'JO', nationality: 'Jordanian', dial: '+962', maxLen: 9 },
+    { name: 'Kazakhstan', code: 'KZ', nationality: 'Kazakhstani', dial: '+7', maxLen: 10 },
     { name: 'Kenya', code: 'KE', nationality: 'Kenyan', dial: '+254', maxLen: 9 },
     { name: 'Kuwait', code: 'KW', nationality: 'Kuwaiti', dial: '+965', maxLen: 8 },
+    { name: 'Kyrgyzstan', code: 'KG', nationality: 'Kyrgyz', dial: '+996', maxLen: 9 },
+    { name: 'Laos', code: 'LA', nationality: 'Lao', dial: '+856', maxLen: 8 },
+    { name: 'Latvia', code: 'LV', nationality: 'Latvian', dial: '+371', maxLen: 8 },
     { name: 'Lebanon', code: 'LB', nationality: 'Lebanese', dial: '+961', maxLen: 8 },
+    { name: 'Lesotho', code: 'LS', nationality: 'Basotho', dial: '+266', maxLen: 8 },
+    { name: 'Liberia', code: 'LR', nationality: 'Liberian', dial: '+231', maxLen: 7 },
     { name: 'Libya', code: 'LY', nationality: 'Libyan', dial: '+218', maxLen: 9 },
+    { name: 'Liechtenstein', code: 'LI', nationality: 'Liechtensteiner', dial: '+423', maxLen: 7 },
+    { name: 'Lithuania', code: 'LT', nationality: 'Lithuanian', dial: '+370', maxLen: 8 },
     { name: 'Luxembourg', code: 'LU', nationality: 'Luxembourgish', dial: '+352', maxLen: 9 },
+    { name: 'Madagascar', code: 'MG', nationality: 'Malagasy', dial: '+261', maxLen: 9 },
+    { name: 'Malawi', code: 'MW', nationality: 'Malawian', dial: '+265', maxLen: 9 },
     { name: 'Malaysia', code: 'MY', nationality: 'Malaysian', dial: '+60', maxLen: 11 },
     { name: 'Maldives', code: 'MV', nationality: 'Maldivian', dial: '+960', maxLen: 7 },
+    { name: 'Mali', code: 'ML', nationality: 'Malian', dial: '+223', maxLen: 8 },
     { name: 'Malta', code: 'MT', nationality: 'Maltese', dial: '+356', maxLen: 8 },
+    { name: 'Mauritania', code: 'MR', nationality: 'Mauritanian', dial: '+222', maxLen: 8 },
+    { name: 'Mauritius', code: 'MU', nationality: 'Mauritian', dial: '+230', maxLen: 7 },
     { name: 'Mexico', code: 'MX', nationality: 'Mexican', dial: '+52', maxLen: 10 },
+    { name: 'Moldova', code: 'MD', nationality: 'Moldovan', dial: '+373', maxLen: 8 },
+    { name: 'Monaco', code: 'MC', nationality: 'Monégasque', dial: '+377', maxLen: 8 },
+    { name: 'Mongolia', code: 'MN', nationality: 'Mongolian', dial: '+976', maxLen: 8 },
+    { name: 'Montenegro', code: 'ME', nationality: 'Montenegrin', dial: '+382', maxLen: 8 },
     { name: 'Morocco', code: 'MA', nationality: 'Moroccan', dial: '+212', maxLen: 9 },
+    { name: 'Mozambique', code: 'MZ', nationality: 'Mozambican', dial: '+258', maxLen: 9 },
     { name: 'Myanmar', code: 'MM', nationality: 'Burmese', dial: '+95', maxLen: 10 },
+    { name: 'Namibia', code: 'NA', nationality: 'Namibian', dial: '+264', maxLen: 9 },
     { name: 'Nepal', code: 'NP', nationality: 'Nepalese', dial: '+977', maxLen: 10 },
     { name: 'Netherlands', code: 'NL', nationality: 'Dutch', dial: '+31', maxLen: 9 },
     { name: 'New Zealand', code: 'NZ', nationality: 'New Zealander', dial: '+64', maxLen: 9 },
+    { name: 'Nicaragua', code: 'NI', nationality: 'Nicaraguan', dial: '+505', maxLen: 8 },
+    { name: 'Niger', code: 'NE', nationality: 'Nigerien', dial: '+227', maxLen: 8 },
     { name: 'Nigeria', code: 'NG', nationality: 'Nigerian', dial: '+234', maxLen: 10 },
+    { name: 'North Macedonia', code: 'MK', nationality: 'Macedonian', dial: '+389', maxLen: 8 },
     { name: 'Norway', code: 'NO', nationality: 'Norwegian', dial: '+47', maxLen: 8 },
     { name: 'Oman', code: 'OM', nationality: 'Omani', dial: '+968', maxLen: 8 },
     { name: 'Pakistan', code: 'PK', nationality: 'Pakistani', dial: '+92', maxLen: 10 },
     { name: 'Palestine', code: 'PS', nationality: 'Palestinian', dial: '+970', maxLen: 9 },
+    { name: 'Panama', code: 'PA', nationality: 'Panamanian', dial: '+507', maxLen: 8 },
+    { name: 'Papua New Guinea', code: 'PG', nationality: 'Papua New Guinean', dial: '+675', maxLen: 8 },
+    { name: 'Paraguay', code: 'PY', nationality: 'Paraguayan', dial: '+595', maxLen: 9 },
     { name: 'Peru', code: 'PE', nationality: 'Peruvian', dial: '+51', maxLen: 9 },
     { name: 'Philippines', code: 'PH', nationality: 'Filipino', dial: '+63', maxLen: 10 },
     { name: 'Poland', code: 'PL', nationality: 'Polish', dial: '+48', maxLen: 9 },
@@ -1493,27 +1735,54 @@ const OB_COUNTRIES = [
     { name: 'Qatar', code: 'QA', nationality: 'Qatari', dial: '+974', maxLen: 8 },
     { name: 'Romania', code: 'RO', nationality: 'Romanian', dial: '+40', maxLen: 9 },
     { name: 'Russia', code: 'RU', nationality: 'Russian', dial: '+7', maxLen: 10 },
+    { name: 'Rwanda', code: 'RW', nationality: 'Rwandan', dial: '+250', maxLen: 9 },
+    { name: 'Saint Kitts and Nevis', code: 'KN', nationality: 'Kittitian/Nevisian', dial: '+1-869', maxLen: 7 },
+    { name: 'Saint Lucia', code: 'LC', nationality: 'Saint Lucian', dial: '+1-758', maxLen: 7 },
+    { name: 'Samoa', code: 'WS', nationality: 'Samoan', dial: '+685', maxLen: 7 },
+    { name: 'San Marino', code: 'SM', nationality: 'Sammarinese', dial: '+378', maxLen: 10 },
     { name: 'Saudi Arabia', code: 'SA', nationality: 'Saudi', dial: '+966', maxLen: 9 },
+    { name: 'Senegal', code: 'SN', nationality: 'Senegalese', dial: '+221', maxLen: 9 },
+    { name: 'Serbia', code: 'RS', nationality: 'Serbian', dial: '+381', maxLen: 9 },
+    { name: 'Seychelles', code: 'SC', nationality: 'Seychellois', dial: '+248', maxLen: 7 },
+    { name: 'Sierra Leone', code: 'SL', nationality: 'Sierra Leonean', dial: '+232', maxLen: 8 },
     { name: 'Singapore', code: 'SG', nationality: 'Singaporean', dial: '+65', maxLen: 8 },
+    { name: 'Slovakia', code: 'SK', nationality: 'Slovak', dial: '+421', maxLen: 9 },
+    { name: 'Slovenia', code: 'SI', nationality: 'Slovenian', dial: '+386', maxLen: 8 },
+    { name: 'Solomon Islands', code: 'SB', nationality: 'Solomon Islander', dial: '+677', maxLen: 7 },
+    { name: 'Somalia', code: 'SO', nationality: 'Somali', dial: '+252', maxLen: 8 },
     { name: 'South Africa', code: 'ZA', nationality: 'South African', dial: '+27', maxLen: 9 },
     { name: 'South Korea', code: 'KR', nationality: 'South Korean', dial: '+82', maxLen: 10 },
     { name: 'Spain', code: 'ES', nationality: 'Spanish', dial: '+34', maxLen: 9 },
     { name: 'Sri Lanka', code: 'LK', nationality: 'Sri Lankan', dial: '+94', maxLen: 9 },
+    { name: 'Sudan', code: 'SD', nationality: 'Sudanese', dial: '+249', maxLen: 9 },
+    { name: 'Suriname', code: 'SR', nationality: 'Surinamer', dial: '+597', maxLen: 7 },
     { name: 'Sweden', code: 'SE', nationality: 'Swedish', dial: '+46', maxLen: 9 },
     { name: 'Switzerland', code: 'CH', nationality: 'Swiss', dial: '+41', maxLen: 9 },
     { name: 'Syria', code: 'SY', nationality: 'Syrian', dial: '+963', maxLen: 9 },
     { name: 'Taiwan', code: 'TW', nationality: 'Taiwanese', dial: '+886', maxLen: 9 },
+    { name: 'Tajikistan', code: 'TJ', nationality: 'Tajik', dial: '+992', maxLen: 9 },
     { name: 'Tanzania', code: 'TZ', nationality: 'Tanzanian', dial: '+255', maxLen: 9 },
     { name: 'Thailand', code: 'TH', nationality: 'Thai', dial: '+66', maxLen: 9 },
+    { name: 'Togo', code: 'TG', nationality: 'Togolese', dial: '+228', maxLen: 8 },
+    { name: 'Tonga', code: 'TO', nationality: 'Tongan', dial: '+676', maxLen: 7 },
+    { name: 'Trinidad and Tobago', code: 'TT', nationality: 'Trinidadian/Tobagonian', dial: '+1-868', maxLen: 7 },
     { name: 'Tunisia', code: 'TN', nationality: 'Tunisian', dial: '+216', maxLen: 8 },
     { name: 'Turkey', code: 'TR', nationality: 'Turkish', dial: '+90', maxLen: 10 },
+    { name: 'Turkmenistan', code: 'TM', nationality: 'Turkmen', dial: '+993', maxLen: 8 },
+    { name: 'Tuvalu', code: 'TV', nationality: 'Tuvaluan', dial: '+688', maxLen: 5 },
     { name: 'Uganda', code: 'UG', nationality: 'Ugandan', dial: '+256', maxLen: 9 },
     { name: 'Ukraine', code: 'UA', nationality: 'Ukrainian', dial: '+380', maxLen: 9 },
     { name: 'United Arab Emirates', code: 'AE', nationality: 'Emirati', dial: '+971', maxLen: 9 },
     { name: 'United Kingdom', code: 'GB', nationality: 'British', dial: '+44', maxLen: 10 },
     { name: 'United States', code: 'US', nationality: 'American', dial: '+1', maxLen: 10 },
+    { name: 'Uruguay', code: 'UY', nationality: 'Uruguayan', dial: '+598', maxLen: 8 },
+    { name: 'Uzbekistan', code: 'UZ', nationality: 'Uzbekistani', dial: '+998', maxLen: 9 },
+    { name: 'Vanuatu', code: 'VU', nationality: 'Ni-Vanuatu', dial: '+678', maxLen: 7 },
+    { name: 'Vatican City', code: 'VA', nationality: 'Vatican', dial: '+39', maxLen: 10 },
+    { name: 'Venezuela', code: 'VE', nationality: 'Venezuelan', dial: '+58', maxLen: 10 },
     { name: 'Vietnam', code: 'VN', nationality: 'Vietnamese', dial: '+84', maxLen: 10 },
     { name: 'Yemen', code: 'YE', nationality: 'Yemeni', dial: '+967', maxLen: 9 },
+    { name: 'Zambia', code: 'ZM', nationality: 'Zambian', dial: '+260', maxLen: 9 },
     { name: 'Zimbabwe', code: 'ZW', nationality: 'Zimbabwean', dial: '+263', maxLen: 9 }
 ];
 
@@ -1654,7 +1923,7 @@ window.obPhoneSearchCountry = function(inputId) {
                  onmouseleave="this.style.background=''; this.style.color='';"
             >
                 ${obFlagImg(c.code, 18)}
-                <span style="flex-grow:1;">${c.name}</span>
+                <span style="flex-grow:1;">${c.name} (${c.code})</span>
                 <span style="font-weight:700;color:#64748b;">${c.dial}</span>
             </div>
         `).join('');
@@ -1772,6 +2041,18 @@ window.obNatKeyNav = function(event, inputId, cbName) {
 };
 
 function renderActiveStepForm(container) {
+    // Save focus and cursor position
+    const activeEl = document.activeElement;
+    const activeId = activeEl ? activeEl.id : null;
+    let selectionStart = null;
+    let selectionEnd = null;
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')) {
+        try {
+            selectionStart = activeEl.selectionStart;
+            selectionEnd = activeEl.selectionEnd;
+        } catch (e) {}
+    }
+
     const stepKey = state.activeObStepKey;
     const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
     if (!step) return;
@@ -1818,11 +2099,11 @@ function renderActiveStepForm(container) {
                                 let isReq = true;
                                 if (stepKey === 'corporate_shareholder') {
                                     const country = (item.countryOfIncorporation || '').trim().toLowerCase();
-                                    const isSG = country === 'singapore' || country === 'sg' || country === '';
+                                    const isSG = country === 'singapore' || country === 'sg';
                                     if (isSG) {
                                         isReq = (doc.type === 'bizfile' || doc.type === 'constitution');
                                     } else {
-                                        isReq = (doc.type === 'cert_incorporation' || doc.type === 'constitution' || doc.type === 'supporting_docs');
+                                        isReq = (doc.type === 'cert_incorporation' || doc.type === 'constitution');
                                     }
                                 }
                                 if (stepKey === 'individual_shareholder') {
@@ -1864,9 +2145,17 @@ function renderActiveStepForm(container) {
             let itemFieldsHtml = '';
             const hasNric = docs.some(d => d.type === `nric_${idx}`);
             const hasAddress = docs.some(d => d.type === `address_proof_${idx}`);
-            const showFields = (stepKey !== 'director_details') || (hasNric || hasAddress);
+            const showFields = (stepKey !== 'director_details') || (hasNric || hasAddress) || (item.source === 'globalisor');
 
-            if (showFields) {
+            if (item.source === 'globalisor') {
+                itemFieldsHtml = `
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-top: 12px; width: 100%;">
+                        <div style="font-size: 13px; font-weight: 600; color: #475569; display: flex; align-items: center; gap: 8px;">
+                            <span>👤</span> Nominee Director service will be provided by Globalisor. No action is required.
+                        </div>
+                    </div>
+                `;
+            } else if (showFields) {
                 if (currentManualFields && currentManualFields.length > 0) {
                     itemFieldsHtml = `
                         <div class="ob-field-row">
@@ -1917,7 +2206,174 @@ function renderActiveStepForm(container) {
                                     ${selectWrapperHtml}
                                     `;
                                 }
-                                
+
+                                if (f.key === 'anyAdditionalController') {
+                                    const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
+                                    const maxOwnership = (() => {
+                                        let max = 0;
+                                        const ob = state.onboarding || {};
+                                        const indList = (ob.step3IndividualShareholder && ob.step3IndividualShareholder.data && ob.step3IndividualShareholder.data.list) || [];
+                                        const corpList = (ob.step4CorporateShareholder && ob.step4CorporateShareholder.data && ob.step4CorporateShareholder.data.list) || [];
+                                        indList.forEach(it => {
+                                            const pct = parseFloat(it.numberOfSharesPct) || parseFloat(it.shareCapitalAmountPct) || 0;
+                                            if (pct > max) max = pct;
+                                        });
+                                        corpList.forEach(it => {
+                                            const pct = parseFloat(it.numberOfSharesPct) || parseFloat(it.shareCapitalAmountPct) || 0;
+                                            if (pct > max) max = pct;
+                                        });
+                                        return max;
+                                    })();
+
+                                    if (maxOwnership >= 25) {
+                                        return '';
+                                    }
+
+                                    let selectWrapperHtml = '';
+                                    if (val) {
+                                         const dirStep = state.onboarding.step2DirectorDetails || {};
+                                         const dirList = (dirStep.data && dirStep.data.list) || [];
+                                         const selectedDirectors = item.additionalControllerDirectors || [];
+
+                                         const externalControllers = item.externalControllers || [];
+                                         let externalFormHtml = `
+                                         <div style="margin-top:12px; padding:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; display:flex; flex-direction:column; gap:16px; width:100%; box-sizing:border-box;">
+                                             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #e2e8f0; padding-bottom:8px;">
+                                                 <h5 style="font-size:12px; font-weight:700; color:#1e293b; margin:0;">External Additional Controllers</h5>
+                                                 ${isReadOnly ? '' : `
+                                                     <button type="button" onclick="obAddExternalController(${idx})" style="padding: 6px 12px; background: #eff6ff; border: 1px dashed #bfdbfe; border-radius: 8px; color: #2563eb; font-size:11px; font-weight:700; cursor:pointer;">
+                                                         ➕ Add External Controller
+                                                     </button>
+                                                 `}
+                                             </div>
+                                         `;
+
+                                         if (externalControllers.length === 0) {
+                                             externalFormHtml += `
+                                             <div style="text-align:center; padding:12px; font-size:12px; color:#64748b;">
+                                                 No external controllers added yet. Click the button to add.
+                                             </div>
+                                             `;
+                                         } else {
+                                             externalControllers.forEach((ext, extIdx) => {
+                                                 const docKey = `external_passport_${idx}_${extIdx}`;
+                                                 const docsList = state.onboarding.step4CorporateShareholder.documents || [];
+                                                 const uploadedDoc = docsList.find(d => d.type === docKey);
+                                                 let uploadHtml = '';
+                                                 if (uploadedDoc) {
+                                                     uploadHtml = `
+                                                     <div style="display:flex; align-items:center; justify-content:space-between; padding:10px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; margin-top:8px;">
+                                                         <span style="font-size:11px; font-weight:600; color:#16a34a;">✅ Passport Uploaded: ${uploadedDoc.fileName}</span>
+                                                         <button type="button" onclick="obClearMultiItemDoc('corporate_shareholder', '${docKey}', ${idx})" style="background:transparent; border:none; color:#ef4444; font-size:11px; font-weight:700; cursor:pointer;">Delete</button>
+                                                     </div>`;
+                                                 } else {
+                                                     uploadHtml = `
+                                                     <div id="doc-corporate_shareholder-${docKey}" style="margin-top:8px;">
+                                                         <button type="button" onclick="obUploadMultiItemDoc('corporate_shareholder', '${docKey}', 'External Controller Passport', ${idx})" class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 border-dashed text-slate-700 font-bold px-4 py-2 rounded-lg text-xs flex items-center justify-center gap-2 transition-all">
+                                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" x2="12" y1="3" y2="15"></line></svg> Upload Passport Copy (Required)
+                                                         </button>
+                                                     </div>`;
+                                                 }
+
+                                                 const extFields = [
+                                                     { key: 'fullName', label: 'Full Legal Name', type: 'text' },
+                                                     { key: 'idNumber', label: 'Passport / ID Number', type: 'text' },
+                                                     { key: 'nationality', label: 'Nationality', type: 'nationality' },
+                                                     { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
+                                                     { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
+                                                     { key: 'email', label: 'Email Address', type: 'email' },
+                                                     { key: 'mobile', label: 'Mobile Number', type: 'phone' },
+                                                     { key: 'passportExpiry', label: 'Passport Expiry Date', type: 'date' }
+                                                 ];
+
+                                                 const extFieldsHtml = extFields.map(ef => {
+                                                     const extVal = ext[ef.key] || '';
+                                                     const extInputId = `ob-corporate_shareholder-${idx}-ext-${extIdx}-${ef.key}`;
+                                                     
+                                                     if (ef.type === 'nationality') {
+                                                         const cbKey = `ob_corp_sh_${idx}_ext_${extIdx}_nat_cb`;
+                                                         window[cbKey] = () => {
+                                                             const el = document.getElementById(extInputId);
+                                                             if (el) {
+                                                                  obUpdateExternalControllerField(idx, extIdx, ef.key, el.value);
+                                                              }
+                                                         };
+                                                         return obRenderNationalityField({
+                                                             inputId: extInputId,
+                                                             val: String(extVal),
+                                                             readonlyAttr: isReadOnly ? 'readonly' : '',
+                                                             onChangeCallback: cbKey
+                                                         });
+                                                     } else if (ef.type === 'phone') {
+                                                         return obRenderPhoneField({
+                                                             inputId: extInputId,
+                                                             val: String(extVal),
+                                                             readonlyAttr: isReadOnly ? 'readonly' : '',
+                                                             onInputCallback: `obUpdateExternalControllerFieldPhone(${idx}, ${extIdx}, '${extInputId}')`
+                                                         });
+                                                     } else {
+                                                         return `
+                                                         <div class="ob-field" style="margin-top:8px;">
+                                                             <label>${ef.label}</label>
+                                                             <input type="${ef.type}" id="${extInputId}" value="${extVal}" placeholder="Enter ${ef.label.toLowerCase()}" ${isReadOnly ? 'readonly' : ''} oninput="obUpdateExternalControllerField(${idx}, ${extIdx}, '${ef.key}', this.value)">
+                                                         </div>`;
+                                                     }
+                                                 }).join('');
+
+                                                 externalFormHtml += `
+                                                 <div style="border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; background: white; margin-bottom: 12px; position:relative; box-sizing:border-box;">
+                                                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px dashed #e2e8f0; padding-bottom:8px;">
+                                                         <span style="font-size:12px; font-weight:700; color:#334155;">External Controller #${extIdx + 1}</span>
+                                                         ${isReadOnly ? '' : `
+                                                             <button type="button" onclick="obRemoveExternalController(${idx}, ${extIdx})" style="padding: 4px 10px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #dc2626; font-size:10px; font-weight:700; cursor:pointer;">
+                                                                 Remove
+                                                             </button>
+                                                         `}
+                                                     </div>
+                                                     ${uploadHtml}
+                                                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;">
+                                                         ${extFieldsHtml}
+                                                     </div>
+                                                 </div>
+                                                 `;
+                                             });
+                                         }
+
+                                         externalFormHtml += `</div>`;
+
+                                         selectWrapperHtml = `
+                                         <div style="grid-column: span 2; margin-top:12px; padding:16px; background:#f1f5f9; border-radius:12px; display:flex; flex-direction:column; gap:12px; box-sizing:border-box; width:100%;">
+                                             <div class="ob-field" style="width:100%; box-sizing:border-box;">
+                                                 <div style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 6px;">Select Director(s) as Controller</div>
+                                                 <div style="display:flex; flex-direction:column; gap:8px; border:1px solid #cbd5e1; border-radius:8px; padding:12px; background:white; max-height:150px; overflow-y:auto; box-sizing:border-box; width:100%;">
+                                                     ${dirList.length === 0 ? `
+                                                         <div style="font-size:12px; color:#64748b; text-align:center; padding:8px;">No directors found to select.</div>
+                                                     ` : dirList.map((d, dIdx) => {
+                                                         const isSelected = selectedDirectors.includes(String(dIdx));
+                                                         const cbId = `${inputId}-director-cb-${dIdx}`;
+                                                         return `
+                                                         <label for="${cbId}" style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:500; color:#334155; cursor:pointer; margin-bottom:0; text-transform:none; letter-spacing:normal; width:100%;">
+                                                             <input type="checkbox" id="${cbId}" ${isSelected ? 'checked' : ''} ${disabledAttr} onchange="obCorporateShareholderAdditionalControllersCheckboxChange(${idx}, ${dIdx}, this.checked)" style="width:16px; height:16px; cursor:pointer; margin:0;">
+                                                             Director #${dIdx + 1}: ${d.fullName || d.name || '(No Name)'}
+                                                         </label>
+                                                         `;
+                                                     }).join('')}
+                                                 </div>
+                                             </div>
+                                             ${externalFormHtml}
+                                         </div>
+                                         `;
+                                     }
+
+                                     return `
+                                     <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:16px; grid-column: span 2; margin-top: 8px; margin-bottom: 8px;">
+                                         <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="obCorporateShareholderAnyAdditionalControllerCheckboxChange(${idx}, this.checked)" style="width:16px; height:16px; cursor:pointer;">
+                                         <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569; user-select:none;">${f.label}</label>
+                                     </div>
+                                     ${selectWrapperHtml}
+                                     `;
+                                }
+
                                 if (f.type === 'select') {
                                     let disabledAttr = isReadOnly ? 'disabled' : '';
                                     if (f.key === 'uboDeclaration') {
@@ -1959,7 +2415,7 @@ function renderActiveStepForm(container) {
                                     <div class="ob-field">
                                         <label for="${inputId}">${f.label}</label>
                                         <select id="${inputId}" onchange="triggerMultiItemAutoSave('${stepKey}', ${idx})" ${disabledAttr}>
-                                            ${options.map(o => `<option value='${o}' ${val === o ? 'selected' : ''}>${o}</option>`).join('')}
+                                            ${options.map(o => `<option value='${o}' ${String(val).trim().toLowerCase() === String(o).trim().toLowerCase() ? 'selected' : ''}>${o}</option>`).join('')}
                                         </select>
                                     </div>`;
                                 } else if (f.type === 'checkbox') {
@@ -2015,6 +2471,14 @@ function renderActiveStepForm(container) {
                                     
                                     let validationWarningHtml = '';
                                     let isIdDuplicate = false;
+                                    if (f.key === 'passportExpiry' && val) {
+                                        const expiryDate = new Date(val);
+                                        const threeMonthsLater = new Date();
+                                        threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
+                                        if (expiryDate < threeMonthsLater) {
+                                            validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">Passport validity is less than 3 months. Please upload your latest passport.</div>`;
+                                        }
+                                    }
                                     if (f.key === 'idNumber' && val) {
                                         const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
                                         const stepData = state.onboarding[stepField] || {};
@@ -2125,11 +2589,27 @@ function renderActiveStepForm(container) {
             } else if (stepKey === 'corporate_shareholder') {
                 itemLabel = 'Corporate Shareholder';
             }
+
+            let headingText = `${itemLabel} #${idx + 1}`;
+            if (stepKey === 'director_details') {
+                const isForeignerJourney = state.onboarding && state.onboarding.journeyType === 'FOREIGNER';
+                if (isForeignerJourney) {
+                    if (item.source === 'globalisor') {
+                        headingText = 'Nominee Director (Globalisor)';
+                    } else if (item.idType === 'local') {
+                        const localIdx = data.list.filter((d, dIdx) => dIdx <= idx && d.idType === 'local' && d.source !== 'globalisor').length;
+                        headingText = `Local Director #${localIdx}`;
+                    } else {
+                        const foreignIdx = data.list.filter((d, dIdx) => dIdx <= idx && d.idType === 'foreign').length;
+                        headingText = `Foreign Director #${foreignIdx}`;
+                    }
+                }
+            }
             
             return `
                 <div style="border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; margin-bottom: 20px; background: #ffffff; position: relative;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <h4 style="font-family: Outfit, sans-serif; font-size: 14px; font-weight: 800; color: #1e293b; margin: 0;">${itemLabel} #${idx + 1}</h4>
+                        <h4 style="font-family: Outfit, sans-serif; font-size: 14px; font-weight: 800; color: #1e293b; margin: 0;">${headingText}</h4>
                         ${isReadOnly || data.list.length <= 1 ? '' : `
                             <button type="button" onclick="removeMultiItem('${stepKey}', ${idx})" style="padding: 6px 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #dc2626; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s;">
                                 ❌ Remove
@@ -2141,6 +2621,8 @@ function renderActiveStepForm(container) {
                 </div>
             `;
         }).join('');
+
+
         
         if (!isReadOnly) {
             let itemLabel = 'Entry';
@@ -2225,7 +2707,7 @@ function renderActiveStepForm(container) {
                                 <div class="ob-field">
                                     <label for="${inputId}">${f.label}</label>
                                     <select id="${inputId}" onchange="triggerAutoSave('${step.key}')" ${isReadOnly ? 'disabled' : ''}>
-                                        ${(f.options || []).map(o => `<option value='${o}' ${val === o ? 'selected' : ''}>${o}</option>`).join('')}
+                                        ${(f.options || []).map(o => `<option value='${o}' ${String(val).trim().toLowerCase() === String(o).trim().toLowerCase() ? 'selected' : ''}>${o}</option>`).join('')}
                                     </select>
                                 </div>`;
                             } else if (f.type === 'checkbox') {
@@ -2366,6 +2848,19 @@ function renderActiveStepForm(container) {
     `;
 
     updateWizardUIFeedback();
+
+    // Restore focus and cursor position
+    if (activeId) {
+        const restoredEl = document.getElementById(activeId);
+        if (restoredEl) {
+            restoredEl.focus();
+            if (selectionStart !== null && selectionEnd !== null) {
+                try {
+                    restoredEl.setSelectionRange(selectionStart, selectionEnd);
+                } catch (e) {}
+            }
+        }
+    }
 }
 
 function updateWizardUIFeedback() {
@@ -5138,6 +5633,23 @@ function triggerMultiItemAutoSave(stepKey, idx, isCheckboxChange) {
                     item[f.key] = el.value;
                 } else {
                     item[f.key] = el.value;
+                    if (f.key === 'passportExpiry' && el.value) {
+                        const expiryDate = new Date(el.value);
+                        if (!isNaN(expiryDate.getTime())) {
+                            const threeMonthsLater = new Date();
+                            threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
+                            if (expiryDate < threeMonthsLater) {
+                                if (el.dataset.lastAlertVal !== el.value) {
+                                    el.dataset.lastAlertVal = el.value;
+                                    if (stepKey === 'corporate_rep') {
+                                        alert("Passport validity is less than 3 months. Please upload your latest passport.");
+                                    } else {
+                                        alert("Passport validity is less than 3 months");
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         });
@@ -5487,7 +5999,17 @@ async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
         const docEl = document.getElementById(`doc-${stepKey}-${docTypeWithIdx}`);
         if (docEl) docEl.innerHTML = `<div style='color:#3b82f6;font-size:11px;font-weight:700;'>⏳ Uploading & extracting...</div>`;
         
-        const docType = docTypeWithIdx.split('_')[0];
+        let docType = docTypeWithIdx.split('_')[0];
+        if (docType === 'nric') {
+            const item = state.onboarding[stepField].data.list[idx];
+            if (stepKey === 'director_details') {
+                if (item.idType === 'foreign') docType = 'passport';
+            } else if (stepKey === 'individual_shareholder') {
+                if (item.shareholderType !== 'Local') docType = 'passport';
+            } else if (stepKey === 'corporate_rep') {
+                docType = 'passport';
+            }
+        }
         const ocrResult = await performOcrOnFileInput(file, docType);
         const extracted = ocrResult.extracted;
         const base64DataUri = ocrResult.fileData;
@@ -5790,7 +6312,7 @@ function obRenderShareCapitalHtml(isReadOnly) {
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px;">
                     <div class="ob-field">
                         <label>Currency</label>
-                        <select onchange="obUpdateCurrencyField(${idx}, 'currency', this.value)" ${isReadOnly ? 'disabled' : ''}>
+                        <select id="ob-share-capital-${idx}-currency" onchange="obUpdateCurrencyField(${idx}, 'currency', this.value)" ${isReadOnly ? 'disabled' : ''}>
                             <option value="SGD" ${c.currency === 'SGD' ? 'selected' : ''}>SGD</option>
                             <option value="USD" ${c.currency === 'USD' ? 'selected' : ''}>USD</option>
                             <option value="Others" ${c.currency === 'Others' ? 'selected' : ''}>Others</option>
@@ -5798,7 +6320,7 @@ function obRenderShareCapitalHtml(isReadOnly) {
                     </div>
                     <div class="ob-field">
                         <label>Class of Shares</label>
-                        <select onchange="obUpdateCurrencyField(${idx}, 'shareClass', this.value)" ${isReadOnly ? 'disabled' : ''}>
+                        <select id="ob-share-capital-${idx}-shareClass" onchange="obUpdateCurrencyField(${idx}, 'shareClass', this.value)" ${isReadOnly ? 'disabled' : ''}>
                             <option value="Ordinary" ${c.shareClass === 'Ordinary' ? 'selected' : ''}>Ordinary</option>
                             <option value="Preference" ${c.shareClass === 'Preference' ? 'selected' : ''}>Preference</option>
                         </select>
@@ -5808,18 +6330,18 @@ function obRenderShareCapitalHtml(isReadOnly) {
                 ${c.currency === 'Others' ? `
                     <div class="ob-field" style="margin-bottom:12px;">
                         <label>Specify Custom Currency Code</label>
-                        <input type="text" value="${c.customCurrency || ''}" placeholder="e.g. EUR, GBP" oninput="obUpdateCurrencyFieldLocal(${idx}, 'customCurrency', this.value)" onchange="obUpdateCurrencyField(${idx}, 'customCurrency', this.value)" ${isReadOnly ? 'disabled' : ''}>
+                        <input type="text" id="ob-share-capital-${idx}-customCurrency" value="${c.customCurrency || ''}" placeholder="e.g. EUR, GBP" oninput="obUpdateCurrencyFieldLocal(${idx}, 'customCurrency', this.value)" onchange="obUpdateCurrencyField(${idx}, 'customCurrency', this.value)" ${isReadOnly ? 'disabled' : ''}>
                     </div>
                 ` : ''}
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px;">
                     <div class="ob-field">
                         <label>Total Number of Shares</label>
-                        <input type="number" step="1" value="${c.numberOfShares !== undefined && c.numberOfShares !== null ? c.numberOfShares : ''}" placeholder="e.g. 100" oninput="obUpdateCurrencyFieldLocal(${idx}, 'numberOfShares', this.value)" onchange="obUpdateCurrencyField(${idx}, 'numberOfShares', this.value)" ${isReadOnly ? 'disabled' : ''}>
+                        <input type="number" id="ob-share-capital-${idx}-numberOfShares" step="1" value="${c.numberOfShares !== undefined && c.numberOfShares !== null ? c.numberOfShares : ''}" placeholder="e.g. 100" oninput="obUpdateCurrencyFieldLocal(${idx}, 'numberOfShares', this.value)" onchange="obUpdateCurrencyField(${idx}, 'numberOfShares', this.value)" ${isReadOnly ? 'disabled' : ''}>
                     </div>
                     <div class="ob-field">
                         <label>Total Issued Share Capital Amount</label>
-                        <input type="number" value="${c.shareCapitalAmount !== undefined && c.shareCapitalAmount !== null ? c.shareCapitalAmount : ''}" placeholder="e.g. 100" oninput="obUpdateCurrencyFieldLocal(${idx}, 'shareCapitalAmount', this.value)" onchange="obUpdateCurrencyField(${idx}, 'shareCapitalAmount', this.value)" ${isReadOnly ? 'disabled' : ''}>
+                        <input type="number" id="ob-share-capital-${idx}-shareCapitalAmount" value="${c.shareCapitalAmount !== undefined && c.shareCapitalAmount !== null ? c.shareCapitalAmount : ''}" placeholder="e.g. 100" oninput="obUpdateCurrencyFieldLocal(${idx}, 'shareCapitalAmount', this.value)" onchange="obUpdateCurrencyField(${idx}, 'shareCapitalAmount', this.value)" ${isReadOnly ? 'disabled' : ''}>
                     </div>
                 </div>
 
@@ -6222,6 +6744,8 @@ function clearOcrFieldsForDoc(stepKey, docType, data) {
     } else if (stepKey === 'corporate_shareholder') {
         if (docType === 'bizfile') {
             ['companyName', 'uen', 'dateOfIncorporation', 'registeredAddress'].forEach(k => data[k] = '');
+        } else if (docType === 'external') {
+            ['externalName', 'externalIdNumber', 'externalNationality', 'externalDateOfBirth', 'externalResidentialAddress', 'externalPassportExpiry'].forEach(k => data[k] = '');
         }
     } else if (stepKey === 'corporate_rep') {
         if (docType === 'nric') {
@@ -6310,4 +6834,118 @@ async function obClearDoc(stepKey, docType) {
     if (workspace) renderActiveStepForm(workspace);
     updateWizardUIFeedback();
 }
+
+async function obSaveStepData(stepKey, data) {
+    await ensureOnboardingRecord();
+    if (!state.onboardingId) return;
+    
+    try {
+        const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
+            method: 'PATCH',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                data: data,
+                status: 'pending'
+            })
+        });
+        if (res.ok) {
+            const updated = await res.json();
+            state.onboarding = normalizeOnboardingData(updated);
+        }
+    } catch (e) {
+        console.error('Error saving step:', e);
+    }
+}
+
+window.obCorporateShareholderAnyAdditionalControllerCheckboxChange = (idx, checked) => {
+    const stepField = ONBOARDING_STEPS.find(s => s.key === 'corporate_shareholder').field;
+    const item = state.onboarding[stepField].data.list[idx];
+    if (item) {
+        item.anyAdditionalController = checked;
+        if (!checked) {
+            item.additionalControllerDirectors = [];
+            item.externalControllers = [];
+            if (state.onboarding[stepField].documents) {
+                const prefix = `external_passport_${idx}_`;
+                state.onboarding[stepField].documents = state.onboarding[stepField].documents.filter(d => !d.type.startsWith(prefix));
+            }
+        }
+        triggerMultiItemAutoSave('corporate_shareholder', idx, true);
+    }
+};
+
+window.obCorporateShareholderAdditionalControllersCheckboxChange = (idx, dIdx, checked) => {
+    const stepField = ONBOARDING_STEPS.find(s => s.key === 'corporate_shareholder').field;
+    const item = state.onboarding[stepField].data.list[idx];
+    if (item) {
+        if (!item.additionalControllerDirectors) item.additionalControllerDirectors = [];
+        const selected = new Set(item.additionalControllerDirectors);
+        if (checked) {
+            selected.add(String(dIdx));
+        } else {
+            selected.delete(String(dIdx));
+        }
+        item.additionalControllerDirectors = Array.from(selected);
+        triggerMultiItemAutoSave('corporate_shareholder', idx);
+    }
+};
+
+window.obUpdateExternalControllerField = (idx, extIdx, key, value) => {
+    const stepField = ONBOARDING_STEPS.find(s => s.key === 'corporate_shareholder').field;
+    const item = state.onboarding[stepField].data.list[idx];
+    if (item && item.externalControllers && item.externalControllers[extIdx]) {
+        item.externalControllers[extIdx][key] = value;
+        triggerMultiItemAutoSave('corporate_shareholder', idx);
+    }
+};
+
+window.obUpdateExternalControllerFieldPhone = (idx, extIdx, inputId) => {
+    const el = document.getElementById(inputId);
+    if (el) {
+        const val = el.getAttribute('data-full-val');
+        const stepField = ONBOARDING_STEPS.find(s => s.key === 'corporate_shareholder').field;
+        const item = state.onboarding[stepField].data.list[idx];
+        if (item && item.externalControllers && item.externalControllers[extIdx]) {
+            item.externalControllers[extIdx].mobile = val;
+            triggerMultiItemAutoSave('corporate_shareholder', idx);
+        }
+    }
+};
+
+window.obAddExternalController = (idx) => {
+    const stepField = ONBOARDING_STEPS.find(s => s.key === 'corporate_shareholder').field;
+    const item = state.onboarding[stepField].data.list[idx];
+    if (item) {
+        if (!item.externalControllers) item.externalControllers = [];
+        item.externalControllers.push({
+            fullName: '',
+            idNumber: '',
+            nationality: '',
+            dateOfBirth: '',
+            residentialAddress: '',
+            email: '',
+            mobile: '',
+            passportExpiry: '',
+            passportDoc: ''
+        });
+        const workspace = document.getElementById('ob-form-workspace');
+        if (workspace) renderActiveStepForm(workspace);
+        triggerMultiItemAutoSave('corporate_shareholder', idx, true);
+    }
+};
+
+window.obRemoveExternalController = (idx, extIdx) => {
+    const stepField = ONBOARDING_STEPS.find(s => s.key === 'corporate_shareholder').field;
+    const item = state.onboarding[stepField].data.list[idx];
+    if (item && item.externalControllers) {
+        const docKey = `external_passport_${idx}_${extIdx}`;
+        if (state.onboarding[stepField].documents) {
+            state.onboarding[stepField].documents = state.onboarding[stepField].documents.filter(d => d.type !== docKey);
+        }
+        item.externalControllers.splice(extIdx, 1);
+        const workspace = document.getElementById('ob-form-workspace');
+        if (workspace) renderActiveStepForm(workspace);
+        triggerMultiItemAutoSave('corporate_shareholder', idx, true);
+    }
+};
 

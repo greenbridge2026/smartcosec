@@ -1058,6 +1058,190 @@ app.post('/api/requirements/public/submit', (req, res) => {
 
 // GET /api/onboarding-config/published → get published onboarding steps configuration
 app.get('/api/onboarding-config/published', (req, res) => {
+    const journeyType = req.query.journeyType || 'LOCAL';
+    if (journeyType === 'FOREIGNER') {
+        res.json([
+            {
+                key: 'document_checklist',
+                field: 'stepDocumentChecklist',
+                title: 'Document Checklist',
+                icon: 'clipboard-list',
+                description: 'Please review the document checklist based on foreign incorporation selections before starting onboarding.',
+                sortOrder: 0,
+                status: 'PUBLISHED',
+                manualFields: [],
+                requiredDocs: []
+            },
+            {
+                key: 'director_details',
+                field: 'step2DirectorDetails',
+                title: 'Director Details',
+                icon: 'briefcase',
+                description: 'Please verify director details and upload passport/NRIC copies.',
+                sortOrder: 1,
+                status: 'PUBLISHED',
+                dynamicSection: true,
+                dynamicCountKey: 'directorCount',
+                manualFields: [
+                    { key: 'fullName', label: 'Full Legal Name', type: 'text' },
+                    { key: 'idNumber', label: 'NRIC / Passport / ID Number', type: 'text' },
+                    { key: 'nationality', label: 'Nationality', type: 'nationality' },
+                    { key: 'gender', label: 'Gender', type: 'select', options: ['Select', 'Male', 'Female', 'Other'] },
+                    { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
+                    { key: 'email', label: 'Email', type: 'email' },
+                    { key: 'mobile', label: 'Mobile Number', type: 'phone' },
+                    { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
+                    { key: 'useDifferentAddress', label: 'I want to provide a different residential address', type: 'checkbox' },
+                    { key: 'alternativeAddress', label: 'Alternative Residential Address', type: 'text', conditionalOn: 'useDifferentAddress', conditionalValue: 'true' },
+                    { key: 'disqualificationAcknowledge', label: 'I confirm that I am not disqualified from acting as a director under the laws of Singapore.', type: 'checkbox', mandatory: true }
+                ],
+                requiredDocs: [
+                    { type: 'nric', label: 'NRIC / Passport Copy' },
+                    { type: 'address_proof', label: 'Utility Bill / Bank Statement' }
+                ]
+            },
+            {
+                key: 'share_capital',
+                field: 'stepShareCapital',
+                title: 'Share Capital Details',
+                icon: 'coins',
+                description: 'Configure corporate share capital structure and allocate shares to shareholders.',
+                sortOrder: 2,
+                status: 'PUBLISHED',
+                manualFields: [],
+                requiredDocs: []
+            },
+            {
+                key: 'individual_shareholder',
+                field: 'step3IndividualShareholder',
+                title: 'Individual Shareholder Details',
+                icon: 'users',
+                description: 'Capture individual shareholder information. Ownership ≥ 25% will automatically trigger UBO and AML/KYC screening.',
+                sortOrder: 3,
+                status: 'PUBLISHED',
+                dynamicSection: true,
+                dynamicCountKey: 'individualShareholderCount',
+                manualFields: [
+                    { key: 'shareholderType', label: 'Shareholder Type', type: 'select', options: ['Select', 'Local', 'Foreigner'] },
+                    { key: 'sameAsDirector', label: 'Is individual shareholder same as director?', type: 'checkbox' },
+                    { key: 'fullName', label: 'Full Name', type: 'text' },
+                    { key: 'idNumber', label: 'NRIC / ID Number', type: 'text' },
+                    { key: 'nationality', label: 'Nationality', type: 'nationality' },
+                    { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
+                    { key: 'email', label: 'Email', type: 'email' },
+                    { key: 'mobile', label: 'Mobile Number', type: 'phone' },
+                    { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
+                    { key: 'useDifferentAddress', label: 'I want to provide a different residential address', type: 'checkbox' },
+                    { key: 'alternativeAddress', label: 'Alternative Residential Address', type: 'text', conditionalOn: 'useDifferentAddress', conditionalValue: 'true' },
+                    { key: 'currency', label: 'Currency', type: 'select', options: ['Select', 'SGD', 'USD'] },
+                    { key: 'shareClass', label: 'Share Class', type: 'select', options: ['Select', 'Ordinary', 'Preference'] },
+                    { key: 'numberOfSharesPct', label: 'Number of Shares (%)', type: 'number' },
+                    { key: 'shareCapitalAmountPct', label: 'Share Capital Amount (%)', type: 'number' },
+                    { key: 'numberOfShares', label: 'Number of Shares', type: 'number', readonly: true },
+                    { key: 'shareCapitalAmount', label: 'Share Capital Amount', type: 'number', readonly: true },
+                    { key: 'ownershipPercentage', label: 'Ownership % (auto-calculated)', type: 'number', readonly: true },
+                    { key: 'uboDeclaration', label: 'Is the Shareholder the Ultimate Beneficial Owner?', type: 'select', options: ['Select', 'No', 'Yes'] }
+                ],
+                requiredDocs: [
+                    { type: 'nric', label: 'NRIC / Passport Copy' },
+                    { type: 'address_proof', label: 'Address Proof' }
+                ]
+            },
+            {
+                key: 'corporate_shareholder',
+                field: 'step4CorporateShareholder',
+                title: 'Corporate Shareholder Details',
+                icon: 'building-2',
+                description: 'Upload Bizfile and supporting documents for corporate shareholders.',
+                sortOrder: 4,
+                status: 'PUBLISHED',
+                dynamicSection: true,
+                dynamicCountKey: 'corporateShareholderCount',
+                manualFields: [
+                    { key: 'companyName', label: 'Company Name', type: 'text' },
+                    { key: 'uen', label: 'UEN / Reg Number', type: 'text' },
+                    { key: 'dateOfIncorporation', label: 'Date of Incorporation', type: 'date' },
+                    { key: 'registeredAddress', label: 'Registered Address', type: 'text' },
+                    { key: 'countryOfIncorporation', label: 'Country of Incorporation', type: 'text' },
+                    { key: 'currency', label: 'Currency', type: 'select', options: ['SGD', 'USD'] },
+                    { key: 'shareClass', label: 'Share Class', type: 'select', options: ['Select', 'Ordinary', 'Preference'] },
+                    { key: 'numberOfSharesPct', label: 'Number of Shares (%)', type: 'number' },
+                    { key: 'shareCapitalAmountPct', label: 'Share Capital Amount (%)', type: 'number' },
+                    { key: 'numberOfShares', label: 'Number of Shares', type: 'number', readonly: true },
+                    { key: 'shareCapitalAmount', label: 'Share Capital Amount', type: 'number', readonly: true },
+                    { key: 'ownershipPercentage', label: 'Ownership % (auto-calculated)', type: 'number', readonly: true },
+                    { key: 'uboDeclaration', label: 'Is the Shareholder the Ultimate Beneficial Owner?', type: 'select', options: ['No', 'Yes'] }
+                ],
+                requiredDocs: [
+                    { type: 'bizfile', label: 'Bizfile (ACRA)' },
+                    { type: 'constitution', label: 'Constitution / Shareholding Structure' },
+                    { type: 'cert_incorporation', label: 'Certificate of Incorporation', required: false },
+                    { type: 'supporting_docs', label: 'Supporting Corporate Documents', required: false }
+                ]
+            },
+            {
+                key: 'ubo',
+                field: 'step5UBO',
+                title: 'Ultimate Beneficial Owner (UBO)',
+                icon: 'key',
+                description: 'Provide details and documents for Ultimate Beneficial Owners.',
+                sortOrder: 5,
+                status: 'PUBLISHED',
+                manualFields: [
+                    { key: 'fullName', label: 'Full Legal Name', type: 'text' },
+                    { key: 'idNumber', label: 'NRIC / Passport Number', type: 'text' },
+                    { key: 'nationality', label: 'Nationality', type: 'nationality' },
+                    { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
+                    { key: 'residentialAddress', label: 'Residential Address', type: 'text' }
+                ],
+                requiredDocs: [
+                    { type: 'ubo_nric', label: 'NRIC / Passport Copy' },
+                    { type: 'ubo_address_proof', label: 'Address Proof' }
+                ]
+            },
+            {
+                key: 'corporate_rep',
+                field: 'step6CorporateRep',
+                title: 'Corporate Representative',
+                icon: 'user-cog',
+                description: 'Capture details and authorization documents for corporate representatives.',
+                sortOrder: 6,
+                status: 'PUBLISHED',
+                dynamicSection: true,
+                dynamicCountKey: 'corporateRepCount',
+                manualFields: [
+                    { key: 'fullName', label: 'Full Name', type: 'text' },
+                    { key: 'idNumber', label: 'Passport / ID Number', type: 'text' },
+                    { key: 'nationality', label: 'Nationality', type: 'nationality' },
+                    { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
+                    { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
+                    { key: 'email', label: 'Email Address', type: 'email' },
+                    { key: 'mobile', label: 'Mobile Number', type: 'phone' }
+                ],
+                requiredDocs: [
+                    { type: 'nric', label: 'Passport Copy' },
+                    { type: 'address_proof', label: 'Address Proof' }
+                ]
+            },
+            {
+                key: 'final_declaration',
+                field: 'step7FinalDeclaration',
+                title: 'Final Declaration & Consent',
+                icon: 'file-signature',
+                description: 'Please review all details and declare final consent before submitting your application.',
+                sortOrder: 7,
+                status: 'PUBLISHED',
+                manualFields: [
+                    { key: 'declarationAgreed', label: 'I confirm that all the details provided are true and accurate to the best of my knowledge.', type: 'checkbox' },
+                    { key: 'consentAgreed', label: 'I consent to Globalisor conducting compliance, AML/KYC screening, and verification checks.', type: 'checkbox' },
+                    { key: 'fye', label: 'Financial Year End (FYE)', type: 'date' }
+                ],
+                requiredDocs: []
+            }
+        ]);
+        return;
+    }
+
     res.json([
         {
             key: 'document_checklist',
@@ -2129,13 +2313,17 @@ app.post('/api/ssic-activities/reorder', (req, res) => {
 // --- PREREG SECTIONS ENDPOINTS ---
 app.get('/api/prereg-sections', (req, res) => {
     const db = getDb();
-    const sorted = [...(db.preregSections || [])].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const journey = req.query.journeyType || 'LOCAL';
+    const filtered = (db.preregSections || []).filter(s => (s.journeyType || 'LOCAL') === journey);
+    const sorted = [...filtered].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     res.json(sorted);
 });
 
 app.get('/api/prereg-sections/published', (req, res) => {
     const db = getDb();
-    const sorted = [...(db.preregSections || [])].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const journey = req.query.journeyType || 'LOCAL';
+    const filtered = (db.preregSections || []).filter(s => (s.journeyType || 'LOCAL') === journey);
+    const sorted = [...filtered].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     const published = sorted
         .filter(s => s.status === 'PUBLISHED' && s.publishedData)
         .map(s => s.publishedData);
@@ -2144,7 +2332,9 @@ app.get('/api/prereg-sections/published', (req, res) => {
 
 app.get('/api/prereg-sections/preview', (req, res) => {
     const db = getDb();
-    const sorted = [...(db.preregSections || [])].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const journey = req.query.journeyType || 'LOCAL';
+    const filtered = (db.preregSections || []).filter(s => (s.journeyType || 'LOCAL') === journey);
+    const sorted = [...filtered].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     const preview = sorted.filter(s => s.status !== 'UNPUBLISHED');
     res.json(preview);
 });

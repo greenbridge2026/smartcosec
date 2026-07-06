@@ -40,6 +40,7 @@ export default defineConfig(({ mode }) => {
           auth: resolve(__dirname, 'auth.html'),
           login: resolve(__dirname, 'login.html'),
           requirements: resolve(__dirname, 'requirements.html'),
+          requirementsForeigner: resolve(__dirname, 'requirements-foreigner.html'),
           staff: resolve(__dirname, 'staff/dashboard.html'),
           adminLogin: resolve(__dirname, 'admin/index.html'),
           adminDashboard: resolve(__dirname, 'admin/dashboard.html'),
