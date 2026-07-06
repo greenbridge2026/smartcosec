@@ -31,12 +31,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     connectWebSocket();
 
+    // Show global loading state during initial hydration
+    const view = document.getElementById('main-view');
+    if (view) {
+        view.innerHTML = `
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:120px 20px; width:100%; height:100%;">
+                <div style="width:48px; height:48px; border:4px solid #e2e8f0; border-top-color:#3b82f6; border-radius:50%; animation:global-spin 1s linear infinite;"></div>
+                <div style="margin-top:20px; font-family:'Outfit', sans-serif; font-size:16px; font-weight:600; color:#475569;">Initializing Workspace...</div>
+                <style>@keyframes global-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+            </div>
+        `;
+    }
+
     // Sequential Data Hydration
     await fetchData();
 
     // Check portal activation + apply freeze
     await checkPortalActivation();
-    
+
     // Handle deep-linking via URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const targetTab = urlParams.get('tab') || 'home';
@@ -44,10 +56,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (urlParams.get('open_ai') === 'true') {
         toggleAIAssistant();
     }
-    
+
     // Lucide Init
     if (window.lucide) window.lucide.createIcons();
-    
+
     // Entrance Animation
     gsap.from("aside", { x: -100, opacity: 0, duration: 1, ease: "power4.out" });
     gsap.from("header", { y: -20, opacity: 0, duration: 1, delay: 0.3, ease: "power4.out" });
@@ -117,7 +129,7 @@ async function fetchData() {
                         return 0;
                     };
                     state.blogs = filtered.sort((a, b) => getBlogTime(b) - getBlogTime(a));
-                } catch(e) {
+                } catch (e) {
                     state.blogs = [];
                 }
             } else {
@@ -218,7 +230,7 @@ async function fetchNotifications() {
 function updateNotificationUI() {
     const badge = document.getElementById('notif-badge');
     const unread = state.notifications.filter(n => !n.readBy.includes(state.user.id));
-    
+
     if (badge) {
         if (unread.length > 0) {
             badge.innerText = unread.length;
@@ -230,7 +242,7 @@ function updateNotificationUI() {
 
     const list = document.getElementById('notif-list');
     if (!list) return;
-    
+
     if (state.notifications.length === 0) {
         list.innerHTML = '<div class="p-10 text-center text-slate-400 text-sm">No new blog updates</div>';
         return;
@@ -246,7 +258,7 @@ function updateNotificationUI() {
                         <div class="text-sm font-bold text-slate-900">${n.title}</div>
                         <div class="text-xs text-slate-500 mt-1 leading-relaxed">${n.message}</div>
                         <div class="flex items-center gap-2 mt-3">
-                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">${new Date(n.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">${new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             ${!isRead ? '<span class="w-1 h-1 rounded-full bg-slate-300"></span><span class="text-[9px] font-bold text-blue-600 uppercase tracking-widest">New</span>' : ''}
                         </div>
                     </div>
@@ -270,7 +282,7 @@ async function checkPortalActivation() {
             state.onboardingProgress = data.progressPercent || 0;
             state.onboardingId = data.onboardingId;
         }
-    } catch(e) {
+    } catch (e) {
         state.portalActivated = false;
     }
     applyPortalFreezeUI(state.portalActivated);
@@ -294,20 +306,8 @@ function applyPortalFreezeUI(activated) {
         }
     });
 
-    // Show/hide freeze banner
     const existing = document.getElementById('portal-freeze-banner');
-    if (!activated && !existing) {
-        const banner = document.createElement('div');
-        banner.id = 'portal-freeze-banner';
-        banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:900;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;padding:10px 24px;display:flex;align-items:center;justify-center;gap:12px;font-family:Outfit,sans-serif;font-size:12px;font-weight:600;letter-spacing:0.01em;border-top:1px solid rgba(255,255,255,0.1);';
-        banner.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            <span style="color:#93c5fd;margin-right:4px;">Onboarding in progress —</span>
-            The remaining portal sections will be available after Globalisor completes verification and activation.
-            <button onclick="state.activeObStepKey = 'document_checklist'; switchTab('onboarding')" style="margin-left:auto;padding:4px 14px;background:#3b82f6;border:none;border-radius:8px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:Outfit,sans-serif;">Complete Onboarding →</button>
-        `;
-        document.body.appendChild(banner);
-    } else if (activated && existing) {
+    if (existing) {
         existing.remove();
     }
 }
@@ -335,7 +335,7 @@ function switchTab(tab) {
     }
 
     state.currentTab = tab;
-    
+
     // Sync Navigation UI
     document.querySelectorAll('.nav-btn, .nav-mobile-btn, .module-nav-btn').forEach(btn => {
         btn.classList.toggle('active', btn.id && btn.id.includes(tab));
@@ -348,7 +348,7 @@ function switchTab(tab) {
     const title = document.getElementById('page-title');
 
     // Section Routing
-    switch(tab) {
+    switch (tab) {
         case 'home': title.innerText = 'Client Dashboard'; renderHome(view); break;
         case 'onboarding': title.innerText = 'Onboarding Journey'; renderOnboarding(view); break;
         case 'services': title.innerText = 'Active Workflows'; renderServices(view); break;
@@ -360,7 +360,7 @@ function switchTab(tab) {
         case 'messages': title.innerText = 'Support Desk'; renderMessages(view); break;
         case 'profile': title.innerText = 'Executive Profile'; renderProfile(view); break;
     }
-    
+
     // Hide title element if empty to save space
     const header = document.getElementById('global-header');
     if (!title.innerText) {
@@ -370,13 +370,13 @@ function switchTab(tab) {
         title.classList.remove('hidden');
         if (header) header.classList.replace('mb-2', 'mb-10');
     }
-    
+
     // Scroll Logic
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    
+
     // Animate view entry
     gsap.from(view, { y: 20, opacity: 0, duration: 0.6, ease: "power2.out" });
-    
+
     if (window.lucide) window.lucide.createIcons();
 }
 
@@ -643,7 +643,7 @@ const DEFAULT_ONBOARDING_STEPS = [
             { type: 'cert_incorporation', label: 'Certificate of Incorporation (non-SG entities)', required: false },
             { type: 'supporting_docs', label: 'Supporting Corporate Documents', required: false }
         ],
-        extractedFields: ['companyName','uen','dateOfIncorporation','registeredAddress'],
+        extractedFields: ['companyName', 'uen', 'dateOfIncorporation', 'registeredAddress'],
         manualFields: [
             { key: 'companyName', label: 'Company Name', type: 'text' },
             { key: 'uen', label: 'UEN / Reg Number', type: 'text' },
@@ -704,12 +704,20 @@ const DEFAULT_ONBOARDING_STEPS = [
 let ONBOARDING_STEPS = [...DEFAULT_ONBOARDING_STEPS];
 
 async function renderOnboarding(container) {
+    container.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:100px 20px; width:100%;">
+            <div style="width:40px; height:40px; border:3px solid #e2e8f0; border-top-color:#3b82f6; border-radius:50%; animation:ob-spin 1s linear infinite;"></div>
+            <div style="margin-top:16px; font-family:'Outfit', sans-serif; font-size:15px; font-weight:600; color:#64748b;">Loading Onboarding Details...</div>
+            <style>@keyframes ob-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+        </div>
+    `;
+
     // Fetch latest onboarding data
     let ob = null;
     try {
         const res = await fetch(`/api/onboarding/client/${state.user.id}`);
         if (res.ok) ob = await res.json();
-    } catch(e) {}
+    } catch (e) { }
 
     // Store in global state
     state.onboarding = normalizeOnboardingData(ob || {});
@@ -746,7 +754,7 @@ async function renderOnboarding(container) {
     } catch (e) {
         console.error("Failed to fetch requirements:", e);
     }
-    
+
     if (reqData) {
         // Dynamically adjust ONBOARDING_STEPS
         const reqDirs = reqData.directors || [];
@@ -775,7 +783,7 @@ async function renderOnboarding(container) {
         ONBOARDING_STEPS = filtered;
 
         let changed = false;
-        
+
         // Initialize document_checklist
         if (!state.onboarding.stepDocumentChecklist) {
             state.onboarding.stepDocumentChecklist = { data: {}, status: 'pending', documents: [] };
@@ -797,9 +805,9 @@ async function renderOnboarding(container) {
                 currency: reqCapital.currency || 'SGD',
                 customCurrency: '',
                 shareClass: reqCapital.type || 'Ordinary',
-                numberOfShares: '0',
-                shareCapitalAmount: '0',
-                paidUpShareCapital: '0'
+                numberOfShares: reqCapital.numShares ? String(reqCapital.numShares) : '',
+                shareCapitalAmount: reqCapital.issued ? String(reqCapital.issued) : '',
+                paidUpShareCapital: reqCapital.paidUp ? String(reqCapital.paidUp) : ''
             });
             state.onboarding.stepShareCapital.data.currencies = capCurrencies;
             changed = true;
@@ -836,7 +844,7 @@ async function renderOnboarding(container) {
                 changed = true;
             }
         }
-        
+
         // 2. Individual Shareholders
         const indStep = ONBOARDING_STEPS.find(s => s.key === 'individual_shareholder');
         const indStepField = indStep ? indStep.field : null;
@@ -874,7 +882,7 @@ async function renderOnboarding(container) {
                 changed = true;
             }
         }
-        
+
         // 3. Corporate Shareholders
         const corpStep = ONBOARDING_STEPS.find(s => s.key === 'corporate_shareholder');
         const corpStepField = corpStep ? corpStep.field : null;
@@ -931,7 +939,7 @@ async function renderOnboarding(container) {
                     if (targetStep && targetStep.field && state.onboarding[targetStep.field]) {
                         await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
                             method: 'PATCH',
-                            headers: {'Content-Type':'application/json'},
+                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 data: state.onboarding[targetStep.field].data,
                                 status: 'pending'
@@ -944,7 +952,7 @@ async function renderOnboarding(container) {
             }
         }
     }
-    
+
     // Compute active step key if not set
     if (!state.activeObStepKey) {
         state.activeObStepKey = (ONBOARDING_STEPS[0] && ONBOARDING_STEPS[0].key) || 'document_checklist';
@@ -1070,64 +1078,91 @@ async function renderOnboarding(container) {
         }
     </style>
 
-    ${isActivated ? `
-    <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0;border-radius:20px;padding:28px;margin-bottom:24px;display:flex;align-items:center;gap:20px;box-shadow: 0 10px 25px rgba(22, 163, 74, 0.05);">
-        <div style="width:54px;height:54px;border-radius:16px;background:#16a34a;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow: 0 8px 20px rgba(22, 163, 74, 0.2);">
-            <svg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>
-        </div>
-        <div>
-            <div style="font-family:Outfit,sans-serif;font-size:20px;font-weight:800;color:#14532d;">🎉 Your Client Portal is Fully Activated!</div>
-            <div style="font-size:13px;color:#166534;margin-top:4px;line-height:1.6;">All onboarding steps are completed and approved. Explore all platform modules now.</div>
-        </div>
-        <button onclick="switchTab('home')" style="margin-left:auto;padding:12px 24px;background:#16a34a;color:#fff;border:none;border-radius:14px;font-family:Outfit,sans-serif;font-size:13px;font-weight:700;cursor:pointer;box-shadow: 0 4px 15px rgba(22,163,74,0.3);">Go to Dashboard →</button>
-    </div>` : (allSubmitted ? `
-    <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fcd34d;border-radius:20px;padding:28px;margin-bottom:24px;display:flex;align-items:center;gap:20px;box-shadow: 0 10px 25px rgba(217, 119, 6, 0.05);">
-        <div style="width:54px;height:54px;border-radius:16px;background:#d97706;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow: 0 8px 20px rgba(217, 119, 6, 0.2);">
-            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        </div>
-        <div>
-            <div style="font-family:Outfit,sans-serif;font-size:18px;font-weight:800;color:#92400e;">⏳ Onboarding Submitted & Under Review</div>
-            <div style="font-size:13px;color:#b45309;margin-top:4px;line-height:1.6;">Your application is currently being verified and reviewed by the Globalisor team. You will receive full access to the portal once the review is completed and approved.</div>
-        </div>
-    </div>` : `
-    <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:20px;padding:24px 28px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;gap:20px;box-shadow: 0 10px 25px rgba(59, 130, 246, 0.03);">
-        <div style="flex-grow:1;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                <div>
-                    <div style="font-family:Outfit,sans-serif;font-size:16px;font-weight:800;color:#1e40af;">Onboarding Wizard Progress</div>
-                    <div style="font-size:12px;color:#3b82f6;margin-top:2px;">Complete all steps to submit your onboarding for verification and unlock full access.</div>
+    <style>
+        body { overflow-y: scroll; }
+        .wizard-layout-row { display: flex; flex-direction: column; gap: 24px; margin-top: 10px; width: 100%; }
+        .wizard-sidebar-left { display: flex; flex-direction: column; gap: 24px; width: 100%; }
+        .wizard-main-col { display: flex; flex-direction: column; gap: 24px; width: 950px; max-width: 100%; flex-shrink: 1; min-width: 0; }
+        @media (min-width: 768px) {
+            .wizard-layout-row { flex-direction: row; align-items: flex-start; }
+            .wizard-sidebar-left { width: 250px; flex-shrink: 0; }
+        }
+    </style>
+    <div class="wizard-layout-row">
+        <!-- Vertical Navigation Stepper (Moved to left) -->
+        <div class="wizard-sidebar-left">
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                <div style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">Your Progress</div>
+                <div style="font-size: 13.5px; color: #475569; font-weight: 500; margin-bottom: 24px;"><span id="sidebar-progress" style="color: #0d6efd; font-weight: 700;">${progress}%</span> Completed</div>
+                
+                <div style="display: flex; flex-direction: column; position: relative;" id="ob-wizard-sidebar">
+                    <!-- Line connecting dots -->
+                    <div style="position: absolute; left: 9px; top: 16px; bottom: 32px; width: 1px; border-left: 1.5px dotted #cbd5e1; z-index: 0;"></div>
+                    
+                    ${ONBOARDING_STEPS.map((step, idx) => {
+        const isLast = idx === ONBOARDING_STEPS.length - 1;
+        return `
+                        <div class="wizard-step-vertical" id="tab-${step.key}" onclick="selectObStep('${step.key}')" style="display: flex; gap: 16px; position: relative; z-index: 1; margin-bottom: ${isLast ? '0' : '24px'}; cursor: pointer;">
+                            <div class="wizard-step-dot" id="icon-${step.key}" style="width: 20px; height: 20px; border-radius: 50%; background: #ffffff; border: 2px solid #cbd5e1; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; transition: all 0.2s;">
+                                <div id="inner-dot-${step.key}" style="width: 6px; height: 6px; border-radius: 50%; background: #94a3b8; transition: all 0.2s;"></div>
+                            </div>
+                            <div>
+                                <div id="title-${step.key}" style="font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 600; color: #334155; line-height: 1.2; margin-bottom: 6px; transition: all 0.2s;">${step.title}</div>
+                                <div id="badge-${step.key}" style="font-size: 12.5px; color: #64748b; font-weight: 500; transition: all 0.2s;">Not started</div>
+                            </div>
+                        </div>`;
+    }).join('')}
                 </div>
-                <span id="ob-progress-percent" style="font-size:26px;font-weight:900;color:#3b82f6;">${progress}%</span>
             </div>
-            <div class="ob-prog-bar"><div id="ob-progress-fill" class="ob-prog-fill" style="width:${progress}%"></div></div>
-        </div>
-        <button id="ob-submit-verification-btn" onclick="obSubmitAllForVerification()" class="ob-submit-btn" disabled style="height:fit-content;padding:14px 28px;">
-            Submit for Verification
-        </button>
-    </div>`)}
-
-    <div class="wizard-container">
-        <!-- Horizontal Navigation Stepper -->
-        <div class="wizard-sidebar" id="ob-wizard-sidebar">
-            ${ONBOARDING_STEPS.map((step, idx) => {
-                return `
-                <div class="wizard-step-tab" id="tab-${step.key}" onclick="selectObStep('${step.key}')">
-                    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px;">
-                        <div class="wizard-step-icon" id="icon-${step.key}">
-                            <!-- Icon set dynamically -->
-                        </div>
-                        <span class="wizard-step-badge" id="badge-${step.key}">Not Started</span>
-                    </div>
-                    <div class="wizard-step-info">
-                        <div class="wizard-step-title">Step ${idx+1}: ${step.title}</div>
-                    </div>
-                </div>`;
-            }).join('')}
         </div>
         
-        <!-- Main Form Panel -->
-        <div class="wizard-content" id="ob-form-workspace">
-            <!-- Active step form rendered dynamically -->
+        <!-- Main Column (Progress Banner + Form Panel) -->
+        <div class="wizard-main-col">
+            ${isActivated ? `
+            <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0;border-radius:20px;padding:28px;margin-bottom:0;display:flex;align-items:center;gap:20px;box-shadow: 0 10px 25px rgba(22, 163, 74, 0.05);">
+                <div style="width:54px;height:54px;border-radius:16px;background:#16a34a;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow: 0 8px 20px rgba(22, 163, 74, 0.2);">
+                    <svg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>
+                </div>
+                <div>
+                    <div style="font-family:Outfit,sans-serif;font-size:20px;font-weight:800;color:#14532d;">🎉 Your Client Portal is Fully Activated!</div>
+                    <div style="font-size:13px;color:#166534;margin-top:4px;line-height:1.6;">All onboarding steps are completed and approved. Explore all platform modules now.</div>
+                </div>
+                <button onclick="switchTab('home')" style="margin-left:auto;padding:12px 24px;background:#16a34a;color:#fff;border:none;border-radius:14px;font-family:Outfit,sans-serif;font-size:13px;font-weight:700;cursor:pointer;box-shadow: 0 4px 15px rgba(22,163,74,0.3);">Go to Dashboard →</button>
+            </div>` : (allSubmitted ? `
+            <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fcd34d;border-radius:20px;padding:28px;margin-bottom:0;display:flex;align-items:center;gap:20px;box-shadow: 0 10px 25px rgba(217, 119, 6, 0.05);">
+                <div style="width:54px;height:54px;border-radius:16px;background:#d97706;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow: 0 8px 20px rgba(217, 119, 6, 0.2);">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                </div>
+                <div>
+                    <div style="font-family:Outfit,sans-serif;font-size:18px;font-weight:800;color:#92400e;">⏳ Onboarding Submitted & Under Review</div>
+                    <div style="font-size:13px;color:#b45309;margin-top:4px;line-height:1.6;">Your application is currently being verified and reviewed by the Globalisor team. You will receive full access to the portal once the review is completed and approved.</div>
+                </div>
+            </div>` : `
+            <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;padding:20px 24px;margin-bottom:0;display:flex;align-items:center;justify-content:space-between;gap:32px;box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);">
+                <div style="display: flex; align-items: center; gap: 24px; flex-grow: 1;">
+                    <div style="width: 56px; height: 56px; background-color: #eff6ff; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#0d6efd" stroke="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="8 12 11 15 16 9" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+                    </div>
+                    
+                    <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="font-family: 'Inter', sans-serif; font-size: 14.5px; font-weight: 500; color: #334155;">
+                            Complete all steps to submit your onboarding for verification and unlock full access.
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 16px;">
+                            <div class="ob-prog-bar" style="flex-grow: 1; height: 6px; background: #f1f5f9; border-radius: 4px; overflow: hidden; margin: 0; border: none; box-shadow: none;">
+                                <div id="ob-progress-fill" class="ob-prog-fill" style="width:${progress}%; height: 100%; background: #0d6efd; border-radius: 4px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <span id="ob-progress-percent" style="font-size:28px;font-weight:800;color:#0d6efd;font-family: 'Outfit', sans-serif; flex-shrink: 0; min-width: 60px; text-align: right;">${progress}%</span>
+                </div>
+            </div>`)}
+            
+            <!-- Main Form Panel -->
+            <div class="wizard-content" id="ob-form-workspace" style="width: 100%;">
+                <!-- Active step form rendered dynamically -->
+            </div>
         </div>
     </div>
     `;
@@ -1144,7 +1179,7 @@ let obAutoSaveTimeout = null;
 function validateStep(stepKey, ob) {
     const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
     if (!step) return [];
-    
+
     const stepField = step.field;
     const stepData = ob && ob[stepField] ? ob[stepField] : {};
     const data = stepData.data || {};
@@ -1158,20 +1193,23 @@ function validateStep(stepKey, ob) {
         if (currencies.length === 0) {
             errors.push("At least one currency section is required.");
         }
+        if (!data.isConfirmed) {
+            errors.push("Please confirm the share capital details by checking the box at the bottom.");
+        }
         currencies.forEach((c, idx) => {
             const currencyCode = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
             if (!currencyCode) {
                 errors.push(`Section #${idx + 1}: Currency is required.`);
             }
 
-            const numShares = parseFloat(c.numberOfShares) || 0;
-            const amount = parseFloat(c.shareCapitalAmount) || 0;
+            const numShares = parseFloat(c.numberOfShares);
+            const amount = parseFloat(c.shareCapitalAmount);
 
-            if (numShares <= 0 || !Number.isInteger(numShares)) {
-                errors.push(`Section #${idx + 1} (${currencyCode} - ${c.shareClass}): Number of shares must be a positive whole number.`);
+            if (isNaN(numShares) || numShares <= 0) {
+                errors.push(`Section #${idx + 1} (${currencyCode} - ${c.shareClass}): Number of shares must be a positive number.`);
             }
-            if (amount < numShares) {
-                errors.push(`Section #${idx + 1} (${currencyCode} - ${c.shareClass}): Issued Share Capital Amount cannot be less than the Number of Shares.`);
+            if (isNaN(amount) || amount <= 0) {
+                errors.push(`Section #${idx + 1} (${currencyCode} - ${c.shareClass}): Issued Share Capital must be a positive number.`);
             }
         });
         return errors;
@@ -1185,7 +1223,7 @@ function validateStep(stepKey, ob) {
         list.forEach((item, idx) => {
             const currentRequiredDocs = getStepRequiredDocs(stepKey, item);
             const currentManualFields = getStepManualFields(stepKey, item);
-            
+
             // Check required documents for this item
             if (currentRequiredDocs) {
                 currentRequiredDocs.forEach(reqDoc => {
@@ -1211,7 +1249,7 @@ function validateStep(stepKey, ob) {
                     }
                 });
             }
-            
+
             // Check manual fields for this item
             if (currentManualFields) {
                 currentManualFields.forEach(field => {
@@ -1250,24 +1288,24 @@ function validateStep(stepKey, ob) {
         // Sum allocations across all shareholders and validate against master limits in Step 2
         if (stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') {
             const currencies = (ob.stepShareCapital && ob.stepShareCapital.data && ob.stepShareCapital.data.currencies) || [];
-            
+
             // Sum allocations across individual shareholders (current state)
             const indStep = ob.step3IndividualShareholder || { data: { list: [] } };
             const indList = (stepKey === 'individual_shareholder') ? (data.list || []) : (indStep.data.list || []);
-            
+
             // Sum allocations across corporate shareholders (current state)
             const corpStep = ob.step4CorporateShareholder || { data: { list: [] } };
             const corpList = (stepKey === 'corporate_shareholder') ? (data.list || []) : (corpStep.data.list || []);
 
             const allocatedSums = {}; // key: "CURRENCY_CLASS" -> { shares: X, capital: Y }
-            
+
             const addAllocation = (sh, shIdx, shType) => {
                 const shCurr = (sh.currency || '').trim().toUpperCase();
                 const shClass = (sh.shareClass || '').trim();
-                const shShares = parseFloat(sh.numberOfShares) || 0;
-                const shCapital = parseFloat(sh.shareCapitalAmount) || 0;
+                const shShares = parseFloat(String(sh.numberOfShares || '0').replace(/,/g, '')) || 0;
+                const shCapital = parseFloat(String(sh.shareCapitalAmount || '0').replace(/,/g, '')) || 0;
                 const shName = shType === 'individual' ? (sh.fullName || 'unnamed') : (sh.companyName || 'unnamed');
-                
+
                 if (!shCurr || shCurr === 'SELECT') return;
                 const keyCombo = `${shCurr}_${shClass}`;
                 if (!allocatedSums[keyCombo]) {
@@ -1293,12 +1331,15 @@ function validateStep(stepKey, ob) {
                 } else {
                     const totalSharesAllocated = allocatedSums[key].shares;
                     const totalCapitalAllocated = allocatedSums[key].capital;
-                    
-                    if (totalSharesAllocated > masterItem.numberOfShares) {
-                        errors.push(`Allocation error (${shCurr} - ${shClass}): Total allocated shares (${totalSharesAllocated}) exceeds the master limit (${masterItem.numberOfShares}) configured in Share Capital Details.`);
+
+                    const mShares = parseFloat(String(masterItem.numberOfShares || '0').replace(/,/g, '')) || 0;
+                    const mCapital = parseFloat(String(masterItem.shareCapitalAmount || '0').replace(/,/g, '')) || 0;
+
+                    if (totalSharesAllocated > mShares + 0.001) {
+                        errors.push(`Allocation error (${shCurr} - ${shClass}): Total allocated shares (${totalSharesAllocated.toLocaleString()}) exceeds the master limit (${mShares.toLocaleString()}) configured in Share Capital Details.`);
                     }
-                    if (totalCapitalAllocated > masterItem.shareCapitalAmount) {
-                        errors.push(`Allocation error (${shCurr} - ${shClass}): Total allocated share capital (${totalCapitalAllocated}) exceeds the master limit (${masterItem.shareCapitalAmount}) configured in Share Capital Details.`);
+                    if (totalCapitalAllocated > mCapital + 0.001) {
+                        errors.push(`Allocation error (${shCurr} - ${shClass}): Total allocated share capital (${totalCapitalAllocated.toLocaleString()}) exceeds the master limit (${mCapital.toLocaleString()}) configured in Share Capital Details.`);
                     }
                 }
             });
@@ -1530,28 +1571,28 @@ function getFriendlyStatus(stepKey, ob) {
     if (!step) return 'not_started';
     const stepData = ob && ob[step.field] ? ob[step.field] : {};
     const status = stepData.status || 'pending';
-    
+
     if (status === 'approved') return 'approved';
     if (status === 'submitted') return 'submitted';
     if (status === 'under_review') return 'under_review';
     if (status === 'rejected') return 'rejected';
     if (status === 'additional_info_required') return 'rejected';
-    
+
     const data = stepData.data || {};
     const docs = stepData.documents || [];
-    
+
     const hasData = Object.values(data).some(v => v !== undefined && v !== null && String(v).trim() !== '');
     const hasDocs = docs.length > 0;
-    
+
     if (!hasData && !hasDocs) {
         return 'not_started';
     }
-    
+
     const errors = validateStep(stepKey, ob);
     if (errors.length === 0) {
         return 'completed';
     }
-    
+
     return 'in_progress';
 }
 
@@ -1580,17 +1621,17 @@ async function selectObStep(stepKey) {
         alert("Step Locked! Please complete the previous steps in order before proceeding.");
         return;
     }
-    
+
     // Save any pending input immediately before switching
     await forceSaveActiveStep();
-    
+
     state.activeObStepKey = stepKey;
-    
+
     const workspace = document.getElementById('ob-form-workspace');
     if (workspace) {
         renderActiveStepForm(workspace);
     }
-    
+
     updateWizardUIFeedback();
 }
 
@@ -1799,7 +1840,7 @@ function obFlagImg(code, size = 18) {
     const emoji = obFlagEmoji(code);
     return `<span style="display:inline-flex;align-items:center;" title="${code}">
         <img src="https://flagcdn.com/w20/${code.toLowerCase()}.png" 
-             style="width:${size}px;height:${Math.round(size*0.75)}px;object-fit:cover;border-radius:2px;border:1px solid #e2e8f0;" 
+             style="width:${size}px;height:${Math.round(size * 0.75)}px;object-fit:cover;border-radius:2px;border:1px solid #e2e8f0;" 
              alt="${emoji}" onerror="this.style.display='none'">
     </span>`;
 }
@@ -1875,14 +1916,14 @@ function obRenderNationalityField({ inputId, val, readonlyAttr, onChangeCallback
     </div>`;
 }
 
-window.obPhoneSearchToggle = function(inputId) {
+window.obPhoneSearchToggle = function (inputId) {
     const container = document.getElementById(inputId + '-search-container');
     if (!container) return;
     const isHidden = container.style.display === 'none';
-    
+
     // Close other dropdowns first
     document.querySelectorAll('[id$="-search-container"]').forEach(dd => dd.style.display = 'none');
-    
+
     if (isHidden) {
         container.style.display = 'block';
         const searchInp = document.getElementById(inputId + '-search-inp');
@@ -1891,7 +1932,7 @@ window.obPhoneSearchToggle = function(inputId) {
             searchInp.focus();
         }
         obPhoneSearchCountry(inputId);
-        
+
         const clickOutside = (evt) => {
             if (!container.contains(evt.target) && !document.getElementById(inputId + '-picker-btn').contains(evt.target)) {
                 container.style.display = 'none';
@@ -1904,16 +1945,16 @@ window.obPhoneSearchToggle = function(inputId) {
     }
 };
 
-window.obPhoneSearchCountry = function(inputId) {
+window.obPhoneSearchCountry = function (inputId) {
     const searchInp = document.getElementById(inputId + '-search-inp');
     const itemsContainer = document.getElementById(inputId + '-country-items');
     if (!searchInp || !itemsContainer) return;
-    
+
     const q = searchInp.value.trim().toLowerCase();
     const filtered = q
         ? OB_COUNTRIES.filter(c => c.name.toLowerCase().includes(q) || c.dial.includes(q) || c.code.toLowerCase().includes(q))
         : OB_COUNTRIES;
-        
+
     itemsContainer.innerHTML = filtered.length === 0
         ? `<div style="padding:10px;font-size:12px;color:#94a3b8;text-align:center;">No results</div>`
         : filtered.map(c => `
@@ -1929,18 +1970,18 @@ window.obPhoneSearchCountry = function(inputId) {
         `).join('');
 };
 
-window.obPhoneSelectCountry = function(inputId, code, dial, maxLen) {
+window.obPhoneSelectCountry = function (inputId, code, dial, maxLen) {
     const hiddenVal = document.getElementById(inputId + '-country-val');
     const flagEl = document.getElementById(inputId + '-flag');
     const dialEl = document.getElementById(inputId + '-dialcode');
     const numInput = document.getElementById(inputId);
     const container = document.getElementById(inputId + '-search-container');
-    
+
     if (hiddenVal) hiddenVal.value = `${code}|${dial}|${maxLen}`;
     if (flagEl) flagEl.innerHTML = obFlagImg(code, 20);
     if (dialEl) dialEl.textContent = dial;
     if (container) container.style.display = 'none';
-    
+
     if (numInput) {
         numInput.maxLength = maxLen;
         numInput.placeholder = '0'.repeat(maxLen);
@@ -1949,7 +1990,7 @@ window.obPhoneSelectCountry = function(inputId, code, dial, maxLen) {
     }
 };
 
-window.obPhoneSyncValue = function(inputId) {
+window.obPhoneSyncValue = function (inputId) {
     const numInput = document.getElementById(inputId);
     const hiddenVal = document.getElementById(inputId + '-country-val');
     if (!numInput) return;
@@ -1959,15 +2000,15 @@ window.obPhoneSyncValue = function(inputId) {
 };
 
 // Nationality dropdown: filter list by name or nationality adjective
-window.obNatSearch = function(inputId) {
+window.obNatSearch = function (inputId) {
     const inp = document.getElementById(inputId);
     const listEl = document.getElementById(inputId + '-natlist');
     if (!inp || !listEl) return;
     const q = inp.value.trim().toLowerCase();
-    const filtered = q 
-        ? OB_COUNTRIES.filter(c => c.name.toLowerCase().includes(q) || c.nationality.toLowerCase().includes(q)) 
+    const filtered = q
+        ? OB_COUNTRIES.filter(c => c.name.toLowerCase().includes(q) || c.nationality.toLowerCase().includes(q))
         : OB_COUNTRIES;
-    
+
     listEl.innerHTML = filtered.length === 0
         ? `<div style="padding:10px 14px;font-size:12px;color:#94a3b8;">No results</div>`
         : filtered.map((c, i) => {
@@ -1975,7 +2016,7 @@ window.obNatSearch = function(inputId) {
             return `
             <div class="ob-nat-item" data-nat="${natVal}" data-idx="${i}"
                 style="display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:500;color:#1e293b;transition:background 0.1s;"
-                onmousedown="obNatSelect('${inputId}','${natVal}','${inputId.replace(/'/g,"\\'")}NatCb')"
+                onmousedown="obNatSelect('${inputId}','${natVal}','${inputId.replace(/'/g, "\\'")}NatCb')"
                 onmouseenter="obNatHover(this)"
                 onmouseleave="obNatUnhover(this)"
             >${obFlagImg(c.code, 18)} ${natVal}</div>`;
@@ -1985,10 +2026,10 @@ window.obNatSearch = function(inputId) {
     listEl.dataset.cursorIdx = '-1';
 };
 
-window.obNatHover = function(el) { el.style.background = '#eff6ff'; el.style.color = '#2563eb'; };
-window.obNatUnhover = function(el) { el.style.background = ''; el.style.color = '#1e293b'; };
+window.obNatHover = function (el) { el.style.background = '#eff6ff'; el.style.color = '#2563eb'; };
+window.obNatUnhover = function (el) { el.style.background = ''; el.style.color = '#1e293b'; };
 
-window.obNatSelect = function(inputId, name, cbName) {
+window.obNatSelect = function (inputId, name, cbName) {
     const inp = document.getElementById(inputId);
     if (inp) { inp.value = name; }
     obNatClose(inputId);
@@ -1996,12 +2037,12 @@ window.obNatSelect = function(inputId, name, cbName) {
     if (cbName && window[cbName]) window[cbName]();
 };
 
-window.obNatClose = function(inputId) {
+window.obNatClose = function (inputId) {
     const listEl = document.getElementById(inputId + '-natlist');
     if (listEl) listEl.style.display = 'none';
 };
 
-window.obNatKeyNav = function(event, inputId, cbName) {
+window.obNatKeyNav = function (event, inputId, cbName) {
     const listEl = document.getElementById(inputId + '-natlist');
     if (!listEl || listEl.style.display === 'none') {
         if (event.key === 'ArrowDown' || event.key === 'Enter') obNatSearch(inputId);
@@ -2063,7 +2104,7 @@ function renderActiveStepForm(container) {
     const data = stepData.data || {};
     const docs = stepData.documents || [];
     const reviewNotes = stepData.reviewNotes || '';
-    
+
     const friendlyStatus = getFriendlyStatus(stepKey, state.onboarding);
     const isReadOnly = ['submitted', 'under_review', 'approved'].includes(friendlyStatus);
 
@@ -2085,13 +2126,16 @@ function renderActiveStepForm(container) {
         contentHtml = data.list.map((item, idx) => {
             const currentRequiredDocs = getStepRequiredDocs(stepKey, item);
             const currentManualFields = getStepManualFields(stepKey, item);
-            
+
             let itemDocsHtml = '';
             if (currentRequiredDocs && currentRequiredDocs.length > 0) {
                 itemDocsHtml = `
-                    <div style="margin-bottom: 16px;">
-                        <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Documents for this entry</div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div style="margin-bottom: 0;">
+                        <div style="font-family: 'Inter', sans-serif; font-size:13.5px;font-weight:600;color:#334155;margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                            Required Documents
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                             ${currentRequiredDocs.map(doc => {
                                 const docTypeWithIdx = `${doc.type}_${idx}`;
                                 const uploaded = docs.find(d => d.type === docTypeWithIdx);
@@ -2115,33 +2159,36 @@ function renderActiveStepForm(container) {
                                 
                                 return `
                                 <div class="ob-doc-upload" id="doc-${stepKey}-${docTypeWithIdx}" 
-                                     style="${uploaded ? 'border-color:#16a34a;background:#f0fdf4;' : ''} ${isReadOnly ? 'cursor:default;opacity:0.85;' : ''} padding: 12px; cursor:default;"
+                                     style="${uploaded ? 'border-color:#10b981;background:#f0fdf4;' : 'border-color:#e2e8f0;background:#f8fafc;'} border-radius: 14px; transition: all 0.2s; ${isReadOnly ? 'cursor:default;opacity:0.85;' : ''} padding: 16px; cursor:${isReadOnly ? 'default' : 'pointer'};"
+                                     ${isReadOnly ? '' : `onclick="obUploadMultiItemDoc('${stepKey}','${docTypeWithIdx}','${doc.label}', ${idx})"`}
                                 >
                                     ${uploaded
-                                        ? `<div style='color:#16a34a;font-size:11px;font-weight:700;'>
-                                            ✅ ${labelText}<br>
-                                            <span style='font-size:9px;font-weight:500;color:#374151;word-break:break-all;'>${uploaded.fileName || 'Uploaded'}</span>
-                                            ${isReadOnly ? '' : `
-                                                <div style="margin-top:6px;text-align:right;">
-                                                    <button type="button" onclick="event.stopPropagation(); obClearMultiItemDoc('${stepKey}','${docTypeWithIdx}', ${idx})" style="padding:2px 8px;background:#fee2e2;border:1px solid #fecaca;border-radius:6px;color:#dc2626;font-size:9px;font-weight:700;cursor:pointer;">
-                                                        Remove Doc
-                                                    </button>
-                                                </div>
-                                            `}
+                            ? `<div style='display:flex; justify-content:space-between; align-items:flex-start;'>
+                                             <div style="text-align: left;">
+                                                 <div style='color:#059669;font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:6px;'><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> ${labelText}</div>
+                                                 <div style='font-size:11px;font-weight:500;color:#475569;margin-top:6px;word-break:break-all; max-width: 90%;'>📄 ${uploaded.fileName || 'Uploaded'}</div>
+                                             </div>
+                                             ${isReadOnly ? '' : `
+                                                 <button type="button" onclick="event.stopPropagation(); obClearMultiItemDoc('${stepKey}','${docTypeWithIdx}', ${idx})" style="padding:6px;background:#fee2e2;border:none;border-radius:8px;color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'" title="Remove Document">
+                                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                                 </button>
+                                             `}
                                            </div>`
-                                        : `<div style='color:#64748b;cursor:pointer;' ${isReadOnly ? '' : `onclick="obUploadMultiItemDoc('${stepKey}','${docTypeWithIdx}','${doc.label}', ${idx})"`}>
-                                            <svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='#94a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='margin:0 auto 4px;display:block;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='17 8 12 3 7 8'/><line x1='12' x2='12' y1='3' y2='15'/></svg>
-                                            <div style='font-size:11px;font-weight:600;'>${labelText}</div>
-                                            ${isReadOnly ? '' : `<div style='font-size:9px;color:#94a3b8;margin-top:2px;'>Click to upload</div>`}
+                            : `<div style='text-align:center;'>
+                                            <div style="width:40px;height:40px;border-radius:12px;background:#ffffff;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;margin:0 auto 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);">
+                                                <svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='#3b82f6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='17 8 12 3 7 8'/><line x1='12' x2='12' y1='3' y2='15'/></svg>
+                                            </div>
+                                            <div style='font-size:12.5px;font-weight:600;color:#1e293b;'>${labelText}</div>
+                                            ${isReadOnly ? '' : `<div style='font-size:11px;color:#64748b;margin-top:4px;'>Click or drag file to upload</div>`}
                                            </div>`
-                                    }
+                        }
                                 </div>`;
-                            }).join('')}
+                }).join('')}
                         </div>
                     </div>
                 `;
             }
-            
+
             let itemFieldsHtml = '';
             const hasNric = docs.some(d => d.type === `nric_${idx}`);
             const hasAddress = docs.some(d => d.type === `address_proof_${idx}`);
@@ -2160,45 +2207,45 @@ function renderActiveStepForm(container) {
                     itemFieldsHtml = `
                         <div class="ob-field-row">
                             ${currentManualFields.map(f => {
-                                const val = item[f.key] !== undefined ? item[f.key] : '';
-                                const inputId = `ob-${stepKey}-${idx}-${f.key}`;
-                                const readonlyAttr = (f.readonly || isReadOnly) ? 'readonly' : '';
-                                
-                                if (f.key === 'sameAsDirector') {
-                                    const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
-                                    const dirStep = ONBOARDING_STEPS.find(s => s.key === 'director_details');
-                                    const dirList = dirStep && state.onboarding[dirStep.field] ? (state.onboarding[dirStep.field].data.list || []) : [];
-                                    
-                                    let selectWrapperHtml = '';
-                                    if (val) {
-                                        const selectedDirectorIndices = new Set();
-                                        const currentStepConfig = ONBOARDING_STEPS.find(s => s.key === stepKey);
-                                        const stepField = currentStepConfig ? currentStepConfig.field : 'step3IndividualShareholder';
-                                        const shareholdersList = state.onboarding[stepField] && state.onboarding[stepField].data && state.onboarding[stepField].data.list ? state.onboarding[stepField].data.list : [];
-                                        shareholdersList.forEach((s, sIdx) => {
-                                            if (sIdx !== idx && s.selectedDirectorIdx !== undefined && s.selectedDirectorIdx !== null && s.selectedDirectorIdx !== '') {
-                                                selectedDirectorIndices.add(String(s.selectedDirectorIdx));
-                                            }
-                                        });
+                        const val = item[f.key] !== undefined ? item[f.key] : '';
+                        const inputId = `ob-${stepKey}-${idx}-${f.key}`;
+                        const readonlyAttr = (f.readonly || isReadOnly) ? 'readonly' : '';
 
-                                        selectWrapperHtml = `
+                        if (f.key === 'sameAsDirector') {
+                            const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
+                            const dirStep = ONBOARDING_STEPS.find(s => s.key === 'director_details');
+                            const dirList = dirStep && state.onboarding[dirStep.field] ? (state.onboarding[dirStep.field].data.list || []) : [];
+
+                            let selectWrapperHtml = '';
+                            if (val) {
+                                const selectedDirectorIndices = new Set();
+                                const currentStepConfig = ONBOARDING_STEPS.find(s => s.key === stepKey);
+                                const stepField = currentStepConfig ? currentStepConfig.field : 'step3IndividualShareholder';
+                                const shareholdersList = state.onboarding[stepField] && state.onboarding[stepField].data && state.onboarding[stepField].data.list ? state.onboarding[stepField].data.list : [];
+                                shareholdersList.forEach((s, sIdx) => {
+                                    if (sIdx !== idx && s.selectedDirectorIdx !== undefined && s.selectedDirectorIdx !== null && s.selectedDirectorIdx !== '') {
+                                        selectedDirectorIndices.add(String(s.selectedDirectorIdx));
+                                    }
+                                });
+
+                                selectWrapperHtml = `
                                         <div class="ob-field" style="grid-column: span 2; margin-bottom: 12px;">
                                             <label for="${inputId}-director-select">Select Director Source</label>
                                             <select id="${inputId}-director-select" ${disabledAttr} onchange="obIndividualShareholderSameAsDirectorChange(${idx}, this.value)">
                                                 <option value="">Select Director</option>
                                                 ${dirList.map((d, dIdx) => {
-                                                    const isSelected = item.selectedDirectorIdx === String(dIdx);
-                                                    if (!isSelected && selectedDirectorIndices.has(String(dIdx))) {
-                                                        return '';
-                                                    }
-                                                    return `<option value="${dIdx}" ${isSelected ? 'selected' : ''}>Director #${dIdx + 1}: ${d.fullName || '(No Name)'}</option>`;
-                                                }).join('')}
+                                    const isSelected = item.selectedDirectorIdx === String(dIdx);
+                                    if (!isSelected && selectedDirectorIndices.has(String(dIdx))) {
+                                        return '';
+                                    }
+                                    return `<option value="${dIdx}" ${isSelected ? 'selected' : ''}>Director #${dIdx + 1}: ${d.fullName || '(No Name)'}</option>`;
+                                }).join('')}
                                             </select>
                                         </div>
                                         `;
-                                    }
-                                    
-                                    return `
+                            }
+
+                            return `
                                     <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:16px; grid-column: span 2; margin-top: 8px; margin-bottom: 8px;">
                                         <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="obIndividualShareholderSameAsDirectorCheckboxChange(${idx}, this.checked)" style="width:16px; height:16px; cursor:pointer;">
                                         <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569; user-select:none;">${f.label}</label>
@@ -2409,172 +2456,191 @@ function renderActiveStepForm(container) {
                                                 options = ['Select', ...Array.from(configuredClasses)];
                                             }
                                         }
+                                    });
+                                    if (configuredCurrs.size > 0) {
+                                        options = ['Select', ...Array.from(configuredCurrs)];
                                     }
-                                    
-                                    return `
+                                } else if (f.key === 'shareClass') {
+                                    const configuredClasses = new Set();
+                                    scCurrencies.forEach(c => {
+                                        const sc = c.shareClass || '';
+                                        if (sc) {
+                                            configuredClasses.add(sc);
+                                        }
+                                    });
+                                    if (configuredClasses.size > 0) {
+                                        options = ['Select', ...Array.from(configuredClasses)];
+                                    }
+                                }
+                            }
+
+                            return `
                                     <div class="ob-field">
                                         <label for="${inputId}">${f.label}</label>
                                         <select id="${inputId}" onchange="triggerMultiItemAutoSave('${stepKey}', ${idx})" ${disabledAttr}>
                                             ${options.map(o => `<option value='${o}' ${String(val).trim().toLowerCase() === String(o).trim().toLowerCase() ? 'selected' : ''}>${o}</option>`).join('')}
                                         </select>
                                     </div>`;
-                                } else if (f.type === 'checkbox') {
-                                    const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
-                                    return `
+                        } else if (f.type === 'checkbox') {
+                            const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
+                            const mandatoryMark = f.mandatory ? '<span style="color:#ef4444; margin-left:2px;">*</span>' : '';
+                            return `
                                     <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:16px; grid-column: span 2; margin-top: 8px; margin-bottom: 8px;">
                                         <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="triggerMultiItemAutoSave('${stepKey}', ${idx}, true)" style="width:16px; height:16px; cursor:pointer;">
-                                        <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569; user-select:none;">${f.label}</label>
+                                        <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569; user-select:none;">${f.label}${mandatoryMark}</label>
                                     </div>`;
-                                } else if (f.type === 'phone') {
-                                    let fieldReadonlyAttr = readonlyAttr;
-                                    if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
-                                        fieldReadonlyAttr = 'readonly';
+                        } else if (f.type === 'phone') {
+                            let fieldReadonlyAttr = readonlyAttr;
+                            if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
+                                fieldReadonlyAttr = 'readonly';
+                            }
+                            const cbKey = `${inputId.replace(/-/g, '_')}NatCb`;
+                            return obRenderPhoneField({
+                                inputId,
+                                val: String(val),
+                                readonlyAttr: fieldReadonlyAttr,
+                                onInputCallback: `triggerMultiItemAutoSave('${stepKey}', ${idx})`
+                            });
+                        } else if (f.type === 'nationality') {
+                            let fieldReadonlyAttr = readonlyAttr;
+                            if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
+                                fieldReadonlyAttr = 'readonly';
+                            }
+                            const cbKey = inputId.replace(/-/g, '_') + 'NatCb';
+                            window[cbKey] = () => {
+                                const el = document.getElementById(inputId);
+                                if (el) {
+                                    const stepData = state.onboarding[ONBOARDING_STEPS.find(s => s.key === stepKey).field];
+                                    if (stepData && stepData.data && stepData.data.list && stepData.data.list[idx]) {
+                                        stepData.data.list[idx][f.key] = el.value;
                                     }
-                                    const cbKey = `${inputId.replace(/-/g,'_')}NatCb`;
-                                    return obRenderPhoneField({
-                                        inputId,
-                                        val: String(val),
-                                        readonlyAttr: fieldReadonlyAttr,
-                                        onInputCallback: `triggerMultiItemAutoSave('${stepKey}', ${idx})`
-                                    });
-                                } else if (f.type === 'nationality') {
-                                    let fieldReadonlyAttr = readonlyAttr;
-                                    if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
-                                        fieldReadonlyAttr = 'readonly';
-                                    }
-                                    const cbKey = inputId.replace(/-/g,'_') + 'NatCb';
-                                    window[cbKey] = () => {
-                                        const el = document.getElementById(inputId);
-                                        if (el) {
-                                            const stepData = state.onboarding[ONBOARDING_STEPS.find(s=>s.key===stepKey).field];
-                                            if (stepData && stepData.data && stepData.data.list && stepData.data.list[idx]) {
-                                                stepData.data.list[idx][f.key] = el.value;
-                                            }
-                                            triggerMultiItemAutoSave(stepKey, idx);
-                                        }
-                                    };
-                                    return obRenderNationalityField({
-                                        inputId,
-                                        val: String(val),
-                                        readonlyAttr: fieldReadonlyAttr,
-                                        onChangeCallback: cbKey
-                                    });
-                                } else {
-                                    let fieldReadonlyAttr = readonlyAttr;
-                                    if (f.readonly === true) {
-                                        fieldReadonlyAttr = 'readonly';
-                                    }
-                                    if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
-                                        const isPersonalField = ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].includes(f.key);
-                                        if (isPersonalField) fieldReadonlyAttr = 'readonly';
-                                    }
-                                    
-                                    let validationWarningHtml = '';
-                                    let isIdDuplicate = false;
-                                    if (f.key === 'passportExpiry' && val) {
-                                        const expiryDate = new Date(val);
-                                        const threeMonthsLater = new Date();
-                                        threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
-                                        if (expiryDate < threeMonthsLater) {
-                                            validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">Passport validity is less than 3 months. Please upload your latest passport.</div>`;
-                                        }
-                                    }
-                                    if (f.key === 'idNumber' && val) {
-                                        const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
-                                        const stepData = state.onboarding[stepField] || {};
-                                        const list = (stepData.data && stepData.data.list) || [];
-                                        isIdDuplicate = list.some((item, itemIdx) => itemIdx !== idx && item.idNumber && String(item.idNumber).trim().toUpperCase() === String(val).trim().toUpperCase());
-                                    }
-                                    if ((stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') && (f.key === 'numberOfShares' || f.key === 'shareCapitalAmount' || f.key === 'numberOfSharesPct' || f.key === 'shareCapitalAmountPct')) {
-                                        const shCurr = (item.currency || '').trim().toUpperCase();
-                                        const shClass = (item.shareClass || '').trim();
-                                        
-                                        if (shCurr && shCurr !== 'SELECT' && shClass && shClass !== 'SELECT') {
-                                            const ob = state.onboarding || {};
-                                            const currencies = (ob.stepShareCapital && ob.stepShareCapital.data && ob.stepShareCapital.data.currencies) || [];
-                                            const masterItem = currencies.find(c => {
-                                                const masterCurr = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
-                                                return masterCurr.toUpperCase() === shCurr && c.shareClass === shClass;
-                                            });
+                                    triggerMultiItemAutoSave(stepKey, idx);
+                                }
+                            };
+                            return obRenderNationalityField({
+                                inputId,
+                                val: String(val),
+                                readonlyAttr: fieldReadonlyAttr,
+                                onChangeCallback: cbKey
+                            });
+                        } else {
+                            let fieldReadonlyAttr = readonlyAttr;
+                            if (f.readonly === true) {
+                                fieldReadonlyAttr = 'readonly';
+                            }
+                            if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
+                                const isPersonalField = ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].includes(f.key);
+                                if (isPersonalField) fieldReadonlyAttr = 'readonly';
+                            }
 
-                                            if (!masterItem) {
-                                                validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Currency/Class combo (${shCurr} - ${shClass}) not configured in Share Capital Details step.</div>`;
+                            let validationWarningHtml = '';
+                            if (f.key === 'passportExpiry' && val) {
+                                const expiryDate = new Date(val);
+                                const threeMonthsLater = new Date();
+                                threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
+                                if (expiryDate < threeMonthsLater) {
+                                    validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">Passport validity is less than 3 months. Please upload your latest passport.</div>`;
+                                }
+                            }
+                            let isIdDuplicate = false;
+                            if (f.key === 'idNumber' && val) {
+                                const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
+                                const stepData = state.onboarding[stepField] || {};
+                                const list = (stepData.data && stepData.data.list) || [];
+                                isIdDuplicate = list.some((item, itemIdx) => itemIdx !== idx && item.idNumber && String(item.idNumber).trim().toUpperCase() === String(val).trim().toUpperCase());
+                            }
+                            if ((stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') && (f.key === 'numberOfShares' || f.key === 'shareCapitalAmount' || f.key === 'numberOfSharesPct' || f.key === 'shareCapitalAmountPct')) {
+                                const shCurr = (item.currency || '').trim().toUpperCase();
+                                const shClass = (item.shareClass || '').trim();
+
+                                if (shCurr && shCurr.toUpperCase() !== 'SELECT' && shClass && shClass.toUpperCase() !== 'SELECT') {
+                                    const ob = state.onboarding || {};
+                                    const currencies = (ob.stepShareCapital && ob.stepShareCapital.data && ob.stepShareCapital.data.currencies) || [];
+                                    const masterItem = currencies.find(c => {
+                                        const masterCurr = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
+                                        return masterCurr.toUpperCase() === shCurr && c.shareClass === shClass;
+                                    });
+
+                                    if (!masterItem) {
+                                        validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Currency/Class combo (${shCurr} - ${shClass}) not configured in Share Capital Details step.</div>`;
+                                    } else {
+                                        const indStep = ob.step3IndividualShareholder || { data: { list: [] } };
+                                        const indList = indStep.data.list || [];
+                                        const corpStep = ob.step4CorporateShareholder || { data: { list: [] } };
+                                        const corpList = corpStep.data.list || [];
+
+                                        let usedShares = 0;
+                                        let usedCapital = 0;
+
+                                        indList.forEach((sh, shIdx) => {
+                                            if (shIdx === idx && stepKey === 'individual_shareholder') return;
+                                            const c = (sh.currency || '').trim().toUpperCase();
+                                            const cl = (sh.shareClass || '').trim();
+                                            if (c === shCurr && cl === shClass) {
+                                                usedShares += parseFloat(sh.numberOfShares) || 0;
+                                                usedCapital += parseFloat(sh.shareCapitalAmount) || 0;
+                                            }
+                                        });
+
+                                        corpList.forEach((sh, shIdx) => {
+                                            if (shIdx === idx && stepKey === 'corporate_shareholder') return;
+                                            const c = (sh.currency || '').trim().toUpperCase();
+                                            const cl = (sh.shareClass || '').trim();
+                                            if (c === shCurr && cl === shClass) {
+                                                usedShares += parseFloat(sh.numberOfShares) || 0;
+                                                usedCapital += parseFloat(sh.shareCapitalAmount) || 0;
+                                            }
+                                        });
+
+                                        const availableShares = masterItem.numberOfShares - usedShares;
+                                        const availableCapital = masterItem.shareCapitalAmount - usedCapital;
+
+                                        if (f.key === 'numberOfShares' || f.key === 'numberOfSharesPct') {
+                                            const enteredShares = parseFloat(item.numberOfShares) || 0;
+                                            if (enteredShares > availableShares) {
+                                                validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Allocation (${enteredShares}) exceeds available limit of ${availableShares} shares.</div>`;
                                             } else {
-                                                const indStep = ob.step3IndividualShareholder || { data: { list: [] } };
-                                                const indList = indStep.data.list || [];
-                                                const corpStep = ob.step4CorporateShareholder || { data: { list: [] } };
-                                                const corpList = corpStep.data.list || [];
-
-                                                let usedShares = 0;
-                                                let usedCapital = 0;
-
-                                                indList.forEach((sh, shIdx) => {
-                                                    if (shIdx === idx && stepKey === 'individual_shareholder') return;
-                                                    const c = (sh.currency || '').trim().toUpperCase();
-                                                    const cl = (sh.shareClass || '').trim();
-                                                    if (c === shCurr && cl === shClass) {
-                                                        usedShares += parseFloat(sh.numberOfShares) || 0;
-                                                        usedCapital += parseFloat(sh.shareCapitalAmount) || 0;
-                                                    }
-                                                });
-
-                                                corpList.forEach((sh, shIdx) => {
-                                                    if (shIdx === idx && stepKey === 'corporate_shareholder') return;
-                                                    const c = (sh.currency || '').trim().toUpperCase();
-                                                    const cl = (sh.shareClass || '').trim();
-                                                    if (c === shCurr && cl === shClass) {
-                                                        usedShares += parseFloat(sh.numberOfShares) || 0;
-                                                        usedCapital += parseFloat(sh.shareCapitalAmount) || 0;
-                                                    }
-                                                });
-
-                                                const availableShares = masterItem.numberOfShares - usedShares;
-                                                const availableCapital = masterItem.shareCapitalAmount - usedCapital;
-
-                                                if (f.key === 'numberOfShares' || f.key === 'numberOfSharesPct') {
-                                                    const enteredShares = parseFloat(item.numberOfShares) || 0;
-                                                    if (enteredShares > availableShares) {
-                                                        validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Allocation (${enteredShares}) exceeds available limit of ${availableShares} shares.</div>`;
-                                                    } else {
-                                                        validationWarningHtml = `<div style="color:#16a34a;font-size:10px;font-weight:600;margin-top:4px;">Available limit: ${availableShares} shares (total master: ${masterItem.numberOfShares})</div>`;
-                                                    }
-                                                } else if (f.key === 'shareCapitalAmount' || f.key === 'shareCapitalAmountPct') {
-                                                    const enteredCapital = parseFloat(item.shareCapitalAmount) || 0;
-                                                    if (enteredCapital > availableCapital) {
-                                                        validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Allocation (${enteredCapital}) exceeds available limit of ${availableCapital} ${shCurr}.</div>`;
-                                                    } else {
-                                                        validationWarningHtml = `<div style="color:#16a34a;font-size:10px;font-weight:600;margin-top:4px;">Available limit: ${availableCapital} ${shCurr} (total master: ${masterItem.shareCapitalAmount})</div>`;
-                                                    }
-                                                }
+                                                validationWarningHtml = `<div style="color:#16a34a;font-size:10px;font-weight:600;margin-top:4px;">Available limit: ${availableShares} shares (total master: ${masterItem.numberOfShares})</div>`;
+                                            }
+                                        } else if (f.key === 'shareCapitalAmount' || f.key === 'shareCapitalAmountPct') {
+                                            const enteredCapital = parseFloat(item.shareCapitalAmount) || 0;
+                                            if (enteredCapital > availableCapital) {
+                                                validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Allocation (${enteredCapital}) exceeds available limit of ${availableCapital} ${shCurr}.</div>`;
+                                            } else {
+                                                validationWarningHtml = `<div style="color:#16a34a;font-size:10px;font-weight:600;margin-top:4px;">Available limit: ${availableCapital} ${shCurr} (total master: ${masterItem.shareCapitalAmount})</div>`;
                                             }
                                         }
                                     }
+                                }
+                            }
 
-                                    const isIdField = f.key === 'idNumber' || f.key === 'uen';
-                                    const isFullWidth = ['residentialAddress', 'alternativeAddress', 'registeredAddress'].includes(f.key);
-                                    return `
+                            const isIdField = f.key === 'idNumber' || f.key === 'uen';
+                            const isFullWidth = ['residentialAddress', 'alternativeAddress', 'registeredAddress'].includes(f.key);
+                            return `
                                     <div class="ob-field" style="${isFullWidth ? 'grid-column: span 2;' : ''}">
                                         <label for="${inputId}">${f.label}</label>
                                         <input type="${f.type || 'text'}" id="${inputId}" value="${val}" placeholder="Enter ${f.label.toLowerCase()}" ${fieldReadonlyAttr} 
                                             oninput="${isIdField ? 'obIdNumberInputHandler(this); ' : ''}triggerMultiItemAutoSave('${stepKey}', ${idx})">
                                         <div id="${inputId}-warn" style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;display:${(f.key === 'idNumber' && isIdDuplicate) ? 'block' : 'none'};">⚠️ Warning: This NRIC / FIN is already registered for another entry.</div>
-                                        ${validationWarningHtml}
+                                        <div id="${inputId}-limit-warn">${validationWarningHtml}</div>
                                     </div>`;
-                                }
-                            }).join('')}
+                        }
+                    }).join('')}
                         </div>
                     `;
                 }
             } else {
                 itemFieldsHtml = `
-                    <div style="margin-top: 16px; padding: 20px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; text-align: center;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto 8px; display: block;"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                        <div style="font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 4px;">Form Fields Locked</div>
-                        <div style="font-size: 11px; color: #64748b; line-height: 1.4;">Please upload both the NRIC / FIN and Utility Bill / Bank Statement / Mobile Bill above. Once uploaded, OCR will extract your details and all fields will be unlocked for manual confirmation.</div>
+                    <div style="margin-top: 24px; padding: 32px 20px; background: linear-gradient(180deg, #f8fafc, #f1f5f9); border: 1px dashed #cbd5e1; border-radius: 16px; text-align: center;">
+                        <div style="width: 48px; height: 48px; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        </div>
+                        <div style="font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 8px;">Form Fields Locked</div>
+                        <div style="font-size: 13px; color: #64748b; line-height: 1.6; max-width: 400px; margin: 0 auto;">Please upload the required documents above. Once uploaded, OCR will extract the details and unlock the fields for manual confirmation.</div>
                     </div>
                 `;
             }
-            
+
             let itemLabel = 'Entry';
             if (step.title) {
                 if (step.title.toLowerCase().endsWith(' details')) {
@@ -2590,7 +2656,7 @@ function renderActiveStepForm(container) {
                 itemLabel = 'Corporate Shareholder';
             }
 
-            let headingText = `${itemLabel} #${idx + 1}`;
+let headingText = `${itemLabel} #${idx + 1}`;
             if (stepKey === 'director_details') {
                 const isForeignerJourney = state.onboarding && state.onboarding.journeyType === 'FOREIGNER';
                 if (isForeignerJourney) {
@@ -2605,25 +2671,42 @@ function renderActiveStepForm(container) {
                     }
                 }
             }
-            
+            let itemIconSvg = '';
+            if (stepKey === 'director_details') {
+                itemIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><polyline points="16 11 18 13 22 9"></polyline></svg>`;
+            } else if (stepKey === 'individual_shareholder') {
+                itemIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`;
+            } else {
+                itemIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path><path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path><path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path></svg>`;
+            }
+
             return `
-                <div style="border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; margin-bottom: 20px; background: #ffffff; position: relative;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <h4 style="font-family: Outfit, sans-serif; font-size: 14px; font-weight: 800; color: #1e293b; margin: 0;">${headingText}</h4>
-                        ${isReadOnly || data.list.length <= 1 ? '' : `
-                            <button type="button" onclick="removeMultiItem('${stepKey}', ${idx})" style="padding: 6px 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #dc2626; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s;">
-                                ❌ Remove
-                            </button>
-                        `}
+                <div style="border: 1px solid #e2e8f0; border-radius: 20px; margin-bottom: 24px; background: #ffffff; position: relative; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); overflow: hidden; transition: all 0.3s;" onmouseover="this.style.boxShadow='0 8px 30px rgba(0, 0, 0, 0.06)'; this.style.transform='translateY(-2px)';" onmouseout="this.style.boxShadow='0 4px 20px rgba(0, 0, 0, 0.03)'; this.style.transform='translateY(0)';">
+                    <div style="height: 4px; width: 100%; background: linear-gradient(90deg, #3b82f6, #06b6d4);"></div>
+                    <div style="padding: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #f1f5f9;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="width: 40px; height: 40px; border-radius: 12px; background: #eff6ff; display: flex; align-items: center; justify-content: center;">
+                                    ${itemIconSvg}
+                                </div>
+                                <h4 style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 700; color: #0f172a; margin: 0;">${headingText}</h4>
+                            </div>
+                            ${isReadOnly || data.list.length <= 1 ? '' : `
+                                <button type="button" onclick="removeMultiItem('${stepKey}', ${idx})" style="padding: 8px 16px; background: #ffffff; border: 1px solid #fecaca; border-radius: 10px; color: #ef4444; font-size: 13px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.05);" onmouseover="this.style.background='#fef2f2'; this.style.borderColor='#ef4444';" onmouseout="this.style.background='#ffffff'; this.style.borderColor='#fecaca';">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                                    Remove
+                                </button>
+                            `}
+                        </div>
+                        ${itemDocsHtml}
+                        ${itemDocsHtml && itemFieldsHtml ? '<div style="height: 1px; background: #f1f5f9; margin: 24px 0;"></div>' : ''}
+                        ${itemFieldsHtml}
                     </div>
-                    ${itemDocsHtml}
-                    ${itemFieldsHtml}
                 </div>
             `;
         }).join('');
 
 
-        
         if (!isReadOnly) {
             let itemLabel = 'Entry';
             if (step.title) {
@@ -2640,9 +2723,10 @@ function renderActiveStepForm(container) {
                 itemLabel = 'Corporate Shareholder';
             }
             contentHtml += `
-                <div style="margin-top: 10px; margin-bottom: 24px;">
-                    <button type="button" onclick="addMultiItem('${stepKey}')" style="padding: 10px 20px; background: #eff6ff; border: 1px dashed #bfdbfe; border-radius: 12px; color: #2563eb; font-family: Outfit, sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
-                        ➕ Add ${itemLabel}
+                <div style="margin-top: 16px; margin-bottom: 32px; display: flex; justify-content: center;">
+                    <button type="button" onclick="addMultiItem('${stepKey}')" style="padding: 12px 24px; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 14px; color: #3b82f6; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;" onmouseover="this.style.background='#eff6ff'; this.style.borderColor='#93c5fd';" onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#cbd5e1';">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        Add Another ${itemLabel}
                     </button>
                 </div>
             `;
@@ -2650,7 +2734,7 @@ function renderActiveStepForm(container) {
     } else {
         const currentRequiredDocs = getStepRequiredDocs(stepKey, data);
         const currentManualFields = getStepManualFields(stepKey, data);
-        
+
         let docsHtml = '';
         if (currentRequiredDocs && currentRequiredDocs.length > 0) {
             docsHtml = `
@@ -2658,16 +2742,16 @@ function renderActiveStepForm(container) {
                     <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:10px;">Required Document Uploads</div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                         ${currentRequiredDocs.map(doc => {
-                            const uploaded = docs.find(d => d.type === doc.type);
-                            const labelText = doc.label + ' (Required)';
-                            
-                            return `
+                const uploaded = docs.find(d => d.type === doc.type);
+                const labelText = doc.label + ' (Required)';
+
+                return `
                             <div class="ob-doc-upload" id="doc-${step.key}-${doc.type}" 
                                  ${isReadOnly ? '' : `onclick="obUploadDoc('${step.key}','${doc.type}','${doc.label}')"`}
                                  style="${uploaded ? 'border-color:#16a34a;background:#f0fdf4;' : ''} ${isReadOnly ? 'cursor:default;opacity:0.85;' : ''}"
                             >
                                 ${uploaded
-                                    ? `<div style='color:#16a34a;font-size:12px;font-weight:700;'>
+                        ? `<div style='color:#16a34a;font-size:12px;font-weight:700;'>
                                         ✅ ${labelText}<br>
                                         <span style='font-size:10px;font-weight:500;color:#374151;word-break:break-all;'>${uploaded.fileName || 'Uploaded'}</span>
                                         ${isReadOnly ? '' : `
@@ -2678,14 +2762,14 @@ function renderActiveStepForm(container) {
                                             </div>
                                         `}
                                        </div>`
-                                    : `<div style='color:#64748b;'>
+                        : `<div style='color:#64748b;'>
                                         <svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='#94a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='margin:0 auto 8px;display:block;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='17 8 12 3 7 8'/><line x1='12' x2='12' y1='3' y2='15'/></svg>
                                         <div style='font-size:12px;font-weight:600;'>${labelText}</div>
                                         ${isReadOnly ? '' : `<div style='font-size:10px;color:#94a3b8;margin-top:3px;'>Click to upload</div>`}
                                        </div>`
-                                }
+                    }
                             </div>`;
-                        }).join('')}
+            }).join('')}
                     </div>
                 </div>
             `;
@@ -2698,68 +2782,70 @@ function renderActiveStepForm(container) {
                     <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:10px;">Information Checklist details</div>
                     <div class="ob-field-row">
                         ${currentManualFields.map(f => {
-                            const val = data[f.key] !== undefined ? data[f.key] : '';
-                            const inputId = `ob-${step.key}-${f.key}`;
-                            const readonlyAttr = (f.readonly || isReadOnly) ? 'readonly' : '';
-                            
-                            if (f.type === 'select') {
-                                return `
+                const val = data[f.key] !== undefined ? data[f.key] : '';
+                const inputId = `ob-${step.key}-${f.key}`;
+                const readonlyAttr = (f.readonly || isReadOnly) ? 'readonly' : '';
+
+                if (f.type === 'select') {
+                    return `
                                 <div class="ob-field">
                                     <label for="${inputId}">${f.label}</label>
                                     <select id="${inputId}" onchange="triggerAutoSave('${step.key}')" ${isReadOnly ? 'disabled' : ''}>
                                         ${(f.options || []).map(o => `<option value='${o}' ${String(val).trim().toLowerCase() === String(o).trim().toLowerCase() ? 'selected' : ''}>${o}</option>`).join('')}
                                     </select>
                                 </div>`;
-                            } else if (f.type === 'checkbox') {
-                                return `
+                } else if (f.type === 'checkbox') {
+                    const mandatoryMark = f.mandatory ? '<span style="color:#ef4444; margin-left:2px;">*</span>' : '';
+                    return `
                                 <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:24px;">
                                     <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${isReadOnly ? 'disabled' : ''} onchange="triggerAutoSave('${step.key}')" style="width:16px; height:16px; cursor:pointer;">
-                                    <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569;">${f.label}</label>
+                                    <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569;">${f.label}${mandatoryMark}</label>
                                 </div>`;
-                            } else if (f.type === 'phone') {
-                                return obRenderPhoneField({
-                                    inputId,
-                                    val: String(val),
-                                    readonlyAttr,
-                                    onInputCallback: `triggerAutoSave('${step.key}')`
-                                });
-                            } else if (f.type === 'nationality') {
-                                const cbKey = inputId.replace(/-/g,'_') + 'NatCb';
-                                window[cbKey] = () => {
-                                    const el = document.getElementById(inputId);
-                                    if (el) {
-                                        const sf = ONBOARDING_STEPS.find(s=>s.key===step.key).field;
-                                        if (!state.onboarding[sf]) state.onboarding[sf] = { data:{}, status:'pending', documents:[] };
-                                        state.onboarding[sf].data[f.key] = el.value;
-                                        triggerAutoSave(step.key);
-                                    }
-                                };
-                                return obRenderNationalityField({
-                                    inputId,
-                                    val: String(val),
-                                    readonlyAttr,
-                                    onChangeCallback: cbKey
-                                });
-                            } else {
-                                return `
+                } else if (f.type === 'phone') {
+                    return obRenderPhoneField({
+                        inputId,
+                        val: String(val),
+                        readonlyAttr,
+                        onInputCallback: `triggerAutoSave('${step.key}')`
+                    });
+                } else if (f.type === 'nationality') {
+                    const cbKey = inputId.replace(/-/g, '_') + 'NatCb';
+                    window[cbKey] = () => {
+                        const el = document.getElementById(inputId);
+                        if (el) {
+                            const sf = ONBOARDING_STEPS.find(s => s.key === step.key).field;
+                            if (!state.onboarding[sf]) state.onboarding[sf] = { data: {}, status: 'pending', documents: [] };
+                            state.onboarding[sf].data[f.key] = el.value;
+                            triggerAutoSave(step.key);
+                        }
+                    };
+                    return obRenderNationalityField({
+                        inputId,
+                        val: String(val),
+                        readonlyAttr,
+                        onChangeCallback: cbKey
+                    });
+                } else {
+                    return `
                                 <div class="ob-field">
                                     <label for="${inputId}">${f.label}</label>
                                     <input type="${f.type || 'text'}" id="${inputId}" value="${val}" placeholder="Enter ${f.label.toLowerCase()}" ${readonlyAttr} oninput="triggerAutoSave('${step.key}')">
                                 </div>`;
-                            }
-                        }).join('')}
+                }
+            }).join('')}
                     </div>
                 </div>
             `;
         }
-        
+
         contentHtml = docsHtml + fieldsHtml;
     }
 
     if (stepKey === 'final_declaration') {
         const incompleteSteps = ONBOARDING_STEPS.filter(s => s.key !== 'final_declaration' && !['completed', 'approved', 'submitted', 'under_review'].includes(getFriendlyStatus(s.key, state.onboarding)));
+        let bannerHtml = '';
         if (incompleteSteps.length > 0) {
-            contentHtml = `
+            bannerHtml = `
                 <div style="margin-bottom:24px;background:#fef2f2;border:1px solid #fecaca;border-radius:16px;padding:20px;">
                     <div style="font-size:14px;font-weight:800;color:#dc2626;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -2769,15 +2855,59 @@ function renderActiveStepForm(container) {
                         ${incompleteSteps.map(s => `<li>${s.title}</li>`).join('')}
                     </ul>
                 </div>
-            ` + contentHtml;
+            `;
         } else {
-            contentHtml = `
+            bannerHtml = `
                 <div style="margin-bottom:24px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:16px;padding:20px;display:flex;align-items:center;gap:12px;color:#16a34a;font-weight:600;font-size:13px;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                     All previous onboarding steps are completed successfully! Please review, sign the declarations, and submit.
                 </div>
-            ` + contentHtml;
+            `;
         }
+
+        const fyeVal = data['fye'] !== undefined ? data['fye'] : '';
+        const declVal = data['declarationAgreed'] ? 'checked' : '';
+        const consentVal = data['consentAgreed'] ? 'checked' : '';
+        const readonlyAttr = isReadOnly ? 'disabled' : '';
+        const readonlyInput = isReadOnly ? 'readonly' : '';
+        
+        let customFieldsHtml = `
+            <div style="background:linear-gradient(145deg, #ffffff, #f8fafc); border:1px solid #e2e8f0; border-radius:16px; padding:28px; box-shadow:0 10px 25px rgba(0,0,0,0.03); margin-bottom:24px;">
+                <h4 style="font-family:'Outfit', sans-serif; font-size:18px; font-weight:700; color:#0f172a; margin-bottom:20px; display:flex; align-items:center; gap:8px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d6efd" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    Corporate Details
+                </h4>
+                <div class="ob-field" style="max-width: 300px;">
+                    <label for="ob-final_declaration-fye" style="font-weight:600; color:#475569;">Financial Year End (FYE) <span style="color:#ef4444; margin-left:2px;">*</span></label>
+                    <input type="date" id="ob-final_declaration-fye" value="${fyeVal}" ${readonlyInput} oninput="triggerAutoSave('final_declaration')" style="background:#fff; border:1px solid #cbd5e1; border-radius:10px; padding:12px 14px; width:100%; font-size:14px; font-weight:500; color:#334155; transition:all 0.2s; outline:none;" onfocus="this.style.borderColor='#3b82f6';" onblur="this.style.borderColor='#cbd5e1';">
+                </div>
+            </div>
+
+            <div style="background:linear-gradient(145deg, #f8fafc, #f1f5f9); border:1px solid #e2e8f0; border-radius:16px; padding:28px; box-shadow:inset 0 2px 4px rgba(255,255,255,0.5); margin-bottom:24px;">
+                <h4 style="font-family:'Outfit', sans-serif; font-size:18px; font-weight:700; color:#0f172a; margin-bottom:20px; display:flex; align-items:center; gap:8px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d6efd" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+                    Declarations & Consent
+                </h4>
+                
+                <div style="display:flex; flex-direction:column; gap:16px;">
+                    <label style="display:flex; align-items:flex-start; gap:12px; background:#ffffff; border:1px solid #cbd5e1; border-radius:12px; padding:16px; cursor:${isReadOnly ? 'default' : 'pointer'}; transition:all 0.2s; box-shadow:0 2px 4px rgba(0,0,0,0.02);" onmouseover="if(!${isReadOnly}) { this.style.borderColor='#3b82f6'; this.style.boxShadow='0 4px 12px rgba(59, 130, 246, 0.1)'; }" onmouseout="if(!${isReadOnly}) { this.style.borderColor='#cbd5e1'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.02)'; }">
+                        <input type="checkbox" id="ob-final_declaration-declarationAgreed" ${declVal} ${readonlyAttr} onchange="triggerAutoSave('final_declaration')" style="width:20px; height:20px; margin-top:2px; accent-color:#0d6efd; cursor:${isReadOnly ? 'default' : 'pointer'};">
+                        <div style="font-size:14px; font-weight:600; color:#334155; line-height:1.5;">
+                            I confirm that all the details provided are true and accurate to the best of my knowledge. <span style="color:#ef4444; margin-left:2px;">*</span>
+                        </div>
+                    </label>
+
+                    <label style="display:flex; align-items:flex-start; gap:12px; background:#ffffff; border:1px solid #cbd5e1; border-radius:12px; padding:16px; cursor:${isReadOnly ? 'default' : 'pointer'}; transition:all 0.2s; box-shadow:0 2px 4px rgba(0,0,0,0.02);" onmouseover="if(!${isReadOnly}) { this.style.borderColor='#3b82f6'; this.style.boxShadow='0 4px 12px rgba(59, 130, 246, 0.1)'; }" onmouseout="if(!${isReadOnly}) { this.style.borderColor='#cbd5e1'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.02)'; }">
+                        <input type="checkbox" id="ob-final_declaration-consentAgreed" ${consentVal} ${readonlyAttr} onchange="triggerAutoSave('final_declaration')" style="width:20px; height:20px; margin-top:2px; accent-color:#0d6efd; cursor:${isReadOnly ? 'default' : 'pointer'};">
+                        <div style="font-size:14px; font-weight:600; color:#334155; line-height:1.5;">
+                            I consent to Globalisor conducting compliance, AML/KYC screening, and verification checks. <span style="color:#ef4444; margin-left:2px;">*</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        `;
+
+        contentHtml = bannerHtml + customFieldsHtml;
     }
 
     let declHtml = '';
@@ -2836,14 +2966,14 @@ function renderActiveStepForm(container) {
         ${declHtml}
         
         <div style="display:flex;justify-content:space-between;margin-top:32px;padding-top:20px;border-top:1px solid #f1f5f9;">
-            ${hasPrev 
-                ? `<button onclick="obPrevStep()" style="padding:10px 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;font-family:Outfit,sans-serif;font-size:13px;font-weight:700;color:#475569;cursor:pointer;display:flex;align-items:center;gap:6px;">← Previous Step</button>` 
-                : `<div></div>`
-            }
-            ${hasNext 
-                ? `<button id="ob-continue-btn" onclick="obNextStep()" style="padding:10px 24px;background:#e2e8f0;color:#94a3b8;border:none;border-radius:12px;font-family:Outfit,sans-serif;font-size:13px;font-weight:700;cursor:not-allowed;transition:all 0.2s;display:flex;align-items:center;gap:6px;">Continue to Next Step →</button>`
-                : `<button id="ob-final-submit-btn" onclick="obSubmitAllForVerification()" class="ob-submit-btn" disabled style="padding:10px 24px;">Submit for Verification ✓</button>`
-            }
+            ${hasPrev
+            ? `<button onclick="obPrevStep()" style="padding:10px 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;font-family:Outfit,sans-serif;font-size:13px;font-weight:700;color:#475569;cursor:pointer;display:flex;align-items:center;gap:6px;">← Previous Step</button>`
+            : `<div></div>`
+        }
+            ${hasNext
+            ? `<button id="ob-continue-btn" onclick="obNextStep()" style="padding:10px 24px;background:#e2e8f0;color:#94a3b8;border:none;border-radius:12px;font-family:Outfit,sans-serif;font-size:13px;font-weight:700;cursor:not-allowed;transition:all 0.2s;display:flex;align-items:center;gap:6px;">Continue to Next Step →</button>`
+            : `<button id="ob-final-submit-btn" onclick="obSubmitAllForVerification()" class="ob-submit-btn" disabled style="padding:10px 24px;">Submit for Verification ✓</button>`
+        }
         </div>
     `;
 
@@ -2865,15 +2995,17 @@ function renderActiveStepForm(container) {
 
 function updateWizardUIFeedback() {
     const ob = state.onboarding || {};
-    
+
     // 1. Calculate progress
     const completedCount = ONBOARDING_STEPS.filter(s => ['completed', 'approved', 'submitted', 'under_review'].includes(getFriendlyStatus(s.key, ob))).length;
     const progressPercent = Math.round((completedCount / ONBOARDING_STEPS.length) * 100);
-    
+
     const progressFill = document.getElementById('ob-progress-fill');
     const progressPctText = document.getElementById('ob-progress-percent');
+    const sidebarProgress = document.getElementById('sidebar-progress');
     if (progressFill) progressFill.style.width = progressPercent + '%';
     if (progressPctText) progressPctText.innerText = progressPercent + '%';
+    if (sidebarProgress) sidebarProgress.innerText = progressPercent + '%';
 
     // 2. Stepper list update
     ONBOARDING_STEPS.forEach((step, idx) => {
@@ -2886,24 +3018,53 @@ function updateWizardUIFeedback() {
         const locked = isStepLocked(idx, ob);
         const active = (state.activeObStepKey === step.key);
 
-        tab.className = 'wizard-step-tab';
-        if (active) tab.classList.add('active');
-        if (locked) tab.classList.add('locked');
-        if (friendly === 'completed' || friendly === 'approved') tab.classList.add('completed');
+        if (tab.classList.contains('wizard-step-vertical')) {
+            const titleEl = document.getElementById(`title-${step.key}`);
 
-        badgeEl.className = `wizard-step-badge badge-${friendly.replace(/_/g, '-')}`;
-        let statusText = friendly.replace(/_/g, ' ');
-        if (friendly === 'completed') statusText = 'Completed (Draft)';
-        badgeEl.innerText = statusText;
+            let statusText = friendly.replace(/_/g, ' ');
+            if (friendly === 'completed') statusText = 'Completed';
+            statusText = statusText.charAt(0).toUpperCase() + statusText.slice(1);
+            badgeEl.innerText = statusText;
 
-        if (locked) {
-            iconEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
-        } else if (friendly === 'completed' || friendly === 'approved') {
-            iconEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-        } else if (friendly === 'rejected') {
-            iconEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
+            if (active) {
+                iconEl.style.background = '#0d6efd';
+                iconEl.style.borderColor = '#0d6efd';
+                iconEl.innerHTML = `<div id="inner-dot-${step.key}" style="width: 6px; height: 6px; border-radius: 50%; background: #ffffff; transition: all 0.2s;"></div>`;
+                titleEl.style.color = '#0f172a';
+                titleEl.style.fontWeight = '800';
+            } else if (friendly === 'completed' || friendly === 'approved') {
+                iconEl.style.background = '#0d6efd';
+                iconEl.style.borderColor = '#0d6efd';
+                iconEl.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+                titleEl.style.color = '#334155';
+                titleEl.style.fontWeight = '600';
+            } else {
+                iconEl.style.background = '#ffffff';
+                iconEl.style.borderColor = '#cbd5e1';
+                iconEl.innerHTML = `<div id="inner-dot-${step.key}" style="width: 6px; height: 6px; border-radius: 50%; background: #94a3b8; transition: all 0.2s;"></div>`;
+                titleEl.style.color = '#475569';
+                titleEl.style.fontWeight = '500';
+            }
         } else {
-            iconEl.innerHTML = `<span style="font-weight: 800; font-size: 11px;">0${idx+1}</span>`;
+            tab.className = 'wizard-step-tab';
+            if (active) tab.classList.add('active');
+            if (locked) tab.classList.add('locked');
+            if (friendly === 'completed' || friendly === 'approved') tab.classList.add('completed');
+
+            badgeEl.className = `wizard-step-badge badge-${friendly.replace(/_/g, '-')}`;
+            let statusText = friendly.replace(/_/g, ' ');
+            if (friendly === 'completed') statusText = 'Completed (Draft)';
+            badgeEl.innerText = statusText;
+
+            if (locked) {
+                iconEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+            } else if (friendly === 'completed' || friendly === 'approved') {
+                iconEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+            } else if (friendly === 'rejected') {
+                iconEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
+            } else {
+                iconEl.innerHTML = `<span style="font-weight: 800; font-size: 11px;">0${idx + 1}</span>`;
+            }
         }
     });
 
@@ -2936,10 +3097,71 @@ function updateWizardUIFeedback() {
     // 4. Continue button
     const continueBtn = document.getElementById('ob-continue-btn');
     if (continueBtn) {
-        continueBtn.disabled = false;
-        continueBtn.style.opacity = '1';
-        continueBtn.style.cursor = 'pointer';
-        continueBtn.style.background = 'linear-gradient(135deg,#3b82f6,#06b6d4)';
+        let disableBtn = false;
+        if (state.activeObStepKey === 'share_capital') {
+            const hasNumError = errors.some(e => e.includes('positive whole number') || e.includes('positive number'));
+            const missingConfirmation = errors.some(e => e.includes('Please confirm the share capital details'));
+            if (hasNumError || missingConfirmation) disableBtn = true;
+        } else if (state.activeObStepKey === 'director_details') {
+            const missingDirectorConfirmation = errors.some(e => e.includes('I confirm that I am not disqualified'));
+            if (missingDirectorConfirmation) disableBtn = true;
+        } else if (state.activeObStepKey === 'corporate_shareholder') {
+            let notFullyAllocated = false;
+            const obCurrent = state.onboarding || {};
+            const currencies = (obCurrent.stepShareCapital && obCurrent.stepShareCapital.data && obCurrent.stepShareCapital.data.currencies) || [];
+            
+            const indStep = obCurrent.step3IndividualShareholder || { data: { list: [] } };
+            const indList = indStep.data.list || [];
+            const corpStep = obCurrent.step4CorporateShareholder || { data: { list: [] } };
+            const corpList = corpStep.data.list || [];
+
+            const usage = {};
+            const countUsage = (list) => {
+                list.forEach(sh => {
+                    const shCurr = (sh.currency || '').trim().toUpperCase();
+                    const shClass = (sh.shareClass || '').trim();
+                    if (shCurr && shCurr !== 'SELECT' && shClass && shClass.toUpperCase() !== 'SELECT') {
+                        const key = `${shCurr}_${shClass}`;
+                        if (!usage[key]) usage[key] = { shares: 0, capital: 0 };
+                        usage[key].shares += parseFloat(String(sh.numberOfShares || '0').replace(/,/g, '')) || 0;
+                        usage[key].capital += parseFloat(String(sh.shareCapitalAmount || '0').replace(/,/g, '')) || 0;
+                    }
+                });
+            };
+            countUsage(indList);
+            countUsage(corpList);
+
+            currencies.forEach(masterItem => {
+                const mCurr = masterItem.currency === 'Others' ? (masterItem.customCurrency || '').trim().toUpperCase() : (masterItem.currency || '').toUpperCase();
+                const mClass = (masterItem.shareClass || '').trim();
+                const mShares = parseFloat(String(masterItem.numberOfShares || '0').replace(/,/g, '')) || 0;
+                const mCapital = parseFloat(String(masterItem.shareCapitalAmount || '0').replace(/,/g, '')) || 0;
+                
+                const key = `${mCurr}_${mClass}`;
+                const usedShares = usage[key] ? usage[key].shares : 0;
+                const usedCapital = usage[key] ? usage[key].capital : 0;
+                
+                if (Math.abs(usedShares - mShares) > 0.001 || Math.abs(usedCapital - mCapital) > 0.001) {
+                    notFullyAllocated = true;
+                }
+            });
+
+            if (notFullyAllocated) disableBtn = true;
+        }
+
+        if (disableBtn) {
+            continueBtn.disabled = true;
+            continueBtn.style.opacity = '0.5';
+            continueBtn.style.cursor = 'not-allowed';
+            continueBtn.style.background = '#e2e8f0';
+            continueBtn.style.color = '#94a3b8';
+        } else {
+            continueBtn.disabled = false;
+            continueBtn.style.opacity = '1';
+            continueBtn.style.cursor = 'pointer';
+            continueBtn.style.background = '#2563eb';
+            continueBtn.style.color = '#ffffff';
+        }
     }
 
     // 5. Submit for Verification button
@@ -2950,7 +3172,7 @@ function updateWizardUIFeedback() {
         const status = getFriendlyStatus(s.key, ob);
         return status === 'completed' || status === 'rejected';
     });
-    
+
     const canSubmit = allCompleted && needsSubmission;
     if (submitBtn) submitBtn.disabled = !canSubmit;
     if (finalSubmitBtn) {
@@ -2969,14 +3191,14 @@ function updateWizardUIFeedback() {
 
 function triggerAutoSave(stepKey) {
     if (obAutoSaveTimeout) clearTimeout(obAutoSaveTimeout);
-    
+
     const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
     if (!step) return;
     const stepField = step.field;
     if (!state.onboarding) state.onboarding = {};
     if (!state.onboarding[stepField]) state.onboarding[stepField] = { data: {}, status: 'pending', documents: [] };
     const stepData = state.onboarding[stepField];
-    
+
     if (stepKey === 'individual_verification') {
         const typeEl = document.getElementById('ob-individual_verification-shareholderType');
         if (typeEl) {
@@ -2985,7 +3207,7 @@ function triggerAutoSave(stepKey) {
             if (oldType && oldType !== newType) {
                 // Type changed! Update data immediately and re-render.
                 stepData.data.shareholderType = newType;
-                
+
                 // Clear out other fields
                 const keepKeys = ['shareholderType'];
                 Object.keys(stepData.data).forEach(k => {
@@ -2996,14 +3218,14 @@ function triggerAutoSave(stepKey) {
                 stepData.documents = [];
                 state.onboarding[stepField] = stepData;
                 updateWizardUIFeedback();
-                
+
                 (async () => {
                     await ensureOnboardingRecord();
                     if (state.onboardingId) {
                         try {
                             const res = await fetch(`/api/onboarding/${state.onboardingId}/step/individual_verification`, {
                                 method: 'PATCH',
-                                headers: {'Content-Type':'application/json'},
+                                headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
                                     data: stepData.data,
                                     documents: stepData.documents,
@@ -3013,7 +3235,7 @@ function triggerAutoSave(stepKey) {
                             if (res.ok) {
                                 state.onboarding = normalizeOnboardingData(await res.json());
                             }
-                        } catch (e) {}
+                        } catch (e) { }
                     }
                     const mainView = document.getElementById('main-view');
                     if (mainView) renderOnboarding(mainView);
@@ -3024,7 +3246,7 @@ function triggerAutoSave(stepKey) {
     }
 
     const currentManualFields = getStepManualFields(stepKey, stepData.data);
-    
+
     if (currentManualFields) {
         currentManualFields.forEach(f => {
             const el = document.getElementById(`ob-${stepKey}-${f.key}`);
@@ -3048,12 +3270,12 @@ function triggerAutoSave(stepKey) {
             }
         });
     }
-    
+
     const declEl = document.getElementById(`ob-decl-${stepKey}`);
     if (declEl) {
         stepData.data.declarationAgreed = declEl.checked;
     }
-    
+
     if (stepKey === 'individual_shareholder') {
         const sameAsDirectorEl = document.getElementById('ob-individual_shareholder-sameAsDirector');
         if (sameAsDirectorEl && sameAsDirectorEl.checked) {
@@ -3072,7 +3294,7 @@ function triggerAutoSave(stepKey) {
             }
         }
     }
-    
+
     if (stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') {
         const numSharesEl = document.getElementById(`ob-${stepKey}-numberOfShares`);
         const numSharesPctEl = document.getElementById(`ob-${stepKey}-numberOfSharesPct`);
@@ -3080,10 +3302,10 @@ function triggerAutoSave(stepKey) {
         const shareCapitalAmountPctEl = document.getElementById(`ob-${stepKey}-shareCapitalAmountPct`);
         const ownershipEl = document.getElementById(`ob-${stepKey}-ownershipPercentage`);
         const uboEl = document.getElementById(`ob-${stepKey}-uboDeclaration`);
-        
+
         const shCurr = (stepData.data.currency || '').trim().toUpperCase();
         const shClass = (stepData.data.shareClass || '').trim();
-        
+
         let totalSharesForCombo = 0;
         let totalAmountForCombo = 0;
         if (shCurr && shCurr !== 'SELECT' && shClass && shClass !== 'SELECT') {
@@ -3099,7 +3321,7 @@ function triggerAutoSave(stepKey) {
                 totalAmountForCombo = parseFloat(match.shareCapitalAmount) || 0;
             }
         }
-        
+
         let pctVal = 0;
         if (numSharesPctEl) {
             const pct = parseFloat(numSharesPctEl.value) || 0;
@@ -3111,7 +3333,7 @@ function triggerAutoSave(stepKey) {
             }
             pctVal = pct;
         }
-        
+
         if (shareCapitalAmountPctEl) {
             const pct = parseFloat(shareCapitalAmountPctEl.value) || 0;
             stepData.data.shareCapitalAmountPct = shareCapitalAmountPctEl.value === '' ? '' : pct;
@@ -3131,63 +3353,63 @@ function triggerAutoSave(stepKey) {
             uboEl.value = uboVal;
             stepData.data.uboDeclaration = uboVal;
         }
-        
+
         if (stepKey === 'individual_shareholder' && pctVal >= 25) {
             const uboStep = ONBOARDING_STEPS.find(s => s.key === 'ubo');
             const uboField = uboStep ? uboStep.field : null;
-                if (uboField) {
-                    if (!state.onboarding[uboField]) state.onboarding[uboField] = { data: {}, status: 'pending', documents: [] };
-                    
-                    // Copy fields
-                    ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile', 'ownershipPercentage'].forEach(key => {
-                        const sourceVal = stepData.data[key];
-                        if (sourceVal !== undefined) {
-                            state.onboarding[uboField].data[key] = sourceVal;
-                        }
-                    });
-                    
-                    // Also copy NRIC/FIN document if uploaded in step 3
-                    const sourceDocs = stepData.documents || [];
-                    const nricDoc = sourceDocs.find(d => d.type === 'nric');
-                    if (nricDoc) {
-                        const targetDocs = state.onboarding[uboField].documents || [];
-                        const hasNric = targetDocs.some(d => d.type === 'nric');
-                        if (!hasNric) {
-                            targetDocs.push({ ...nricDoc });
-                            state.onboarding[uboField].documents = targetDocs;
-                        }
+            if (uboField) {
+                if (!state.onboarding[uboField]) state.onboarding[uboField] = { data: {}, status: 'pending', documents: [] };
+
+                // Copy fields
+                ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile', 'ownershipPercentage'].forEach(key => {
+                    const sourceVal = stepData.data[key];
+                    if (sourceVal !== undefined) {
+                        state.onboarding[uboField].data[key] = sourceVal;
                     }
-                    
-                    // Trigger background save of UBO step data so it persists
-                    (async () => {
-                        await ensureOnboardingRecord();
-                        if (state.onboardingId) {
-                            await fetch(`/api/onboarding/${state.onboardingId}/step/ubo`, {
-                                method: 'PATCH',
-                                headers: {'Content-Type':'application/json'},
-                                body: JSON.stringify({
-                                    data: state.onboarding[uboField].data,
-                                    documents: state.onboarding[uboField].documents,
-                                    status: 'pending'
-                                })
-                            });
-                        }
-                    })();
+                });
+
+                // Also copy NRIC/FIN document if uploaded in step 3
+                const sourceDocs = stepData.documents || [];
+                const nricDoc = sourceDocs.find(d => d.type === 'nric');
+                if (nricDoc) {
+                    const targetDocs = state.onboarding[uboField].documents || [];
+                    const hasNric = targetDocs.some(d => d.type === 'nric');
+                    if (!hasNric) {
+                        targetDocs.push({ ...nricDoc });
+                        state.onboarding[uboField].documents = targetDocs;
+                    }
                 }
+
+                // Trigger background save of UBO step data so it persists
+                (async () => {
+                    await ensureOnboardingRecord();
+                    if (state.onboardingId) {
+                        await fetch(`/api/onboarding/${state.onboardingId}/step/ubo`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                data: state.onboarding[uboField].data,
+                                documents: state.onboarding[uboField].documents,
+                                status: 'pending'
+                            })
+                        });
+                    }
+                })();
             }
         }
-    
+    }
+
     state.onboarding[stepField] = stepData;
     updateWizardUIFeedback();
 
     obAutoSaveTimeout = setTimeout(async () => {
         await ensureOnboardingRecord();
         if (!state.onboardingId) return;
-        
+
         try {
             const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
                 method: 'PATCH',
-                headers: {'Content-Type':'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     data: stepData.data,
                     status: stepData.status
@@ -3208,21 +3430,21 @@ async function forceSaveActiveStep() {
     if (obAutoSaveTimeout) {
         clearTimeout(obAutoSaveTimeout);
         obAutoSaveTimeout = null;
-        
+
         const stepKey = state.activeObStepKey;
         const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
         if (!step) return;
         const stepField = step.field;
         const stepData = state.onboarding[stepField];
         if (!stepData) return;
-        
+
         await ensureOnboardingRecord();
         if (!state.onboardingId) return;
-        
+
         try {
             const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
                 method: 'PATCH',
-                headers: {'Content-Type':'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     data: stepData.data,
                     status: stepData.status
@@ -3241,13 +3463,13 @@ async function forceSaveActiveStep() {
 function extractNricFields(text) {
     const extracted = {};
     const t = text;
-    
+
     // 1. NRIC / FIN Number
     const nricMatch = t.match(/([STFGM]\d{7}[A-Z])/i);
     if (nricMatch) {
         extracted.idNumber = nricMatch[1].toUpperCase();
     }
-    
+
     // 2. Full Name
     const lines = t.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     let nameIdx = -1;
@@ -3269,7 +3491,7 @@ function extractNricFields(text) {
             }
         }
     }
-    
+
     // 3. Date of Birth
     const dobMatch = t.match(/(\d{2})[-/](\d{2})[-/](\d{4})/);
     if (dobMatch) {
@@ -3278,7 +3500,7 @@ function extractNricFields(text) {
         let year = dobMatch[3];
         extracted.dateOfBirth = `${year}-${month}-${day}`;
     }
-    
+
     // 4. Nationality / Race
     let raceIdx = -1;
     for (let i = 0; i < lines.length; i++) {
@@ -3302,7 +3524,7 @@ function extractNricFields(text) {
             }
         }
     }
-    
+
     // 5. Gender / Sex
     const sexMatch = t.match(/(?:sex|gender)[:\s]*(MALE|FEMALE|M|F)/i);
     if (sexMatch) {
@@ -3319,7 +3541,7 @@ function extractNricFields(text) {
             }
         }
     }
-    
+
     // 6. Address
     const postalMatch = t.match(/(?:singapore\s+)?(\d{6})/i);
     if (postalMatch) {
@@ -3337,10 +3559,10 @@ function extractNricFields(text) {
             extracted.residentialAddress = (part1 ? part1 + ', ' : '') + part2;
         }
     }
-    
+
     extracted.email = '';
     extracted.mobile = '';
-    
+
     return extracted;
 }
 
@@ -3415,7 +3637,7 @@ async function obUploadDoc(stepKey, docType, docLabel) {
         const ob = state.onboarding || {};
         if (!state.onboardingId) {
             const createRes = await fetch(`/api/onboarding/client/${state.user.id}`, {
-                method: 'POST', headers: {'Content-Type':'application/json'},
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ clientEmail: state.user.email, clientName: state.user.name })
             });
             if (createRes.ok) { const d = await createRes.json(); state.onboardingId = d.id; }
@@ -3439,7 +3661,7 @@ async function obUploadDoc(stepKey, docType, docLabel) {
             });
 
             const patchRes = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
-                method: 'PATCH', headers: {'Content-Type':'application/json'},
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     documents: filteredDocs
                 })
@@ -3447,7 +3669,7 @@ async function obUploadDoc(stepKey, docType, docLabel) {
             if (patchRes.ok) {
                 const updatedOb = await patchRes.json();
                 state.onboarding = normalizeOnboardingData(updatedOb);
-                
+
                 // Pre-fill extracted fields
                 if (extracted) {
                     const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
@@ -3457,7 +3679,7 @@ async function obUploadDoc(stepKey, docType, docLabel) {
                                 state.onboarding[step.field].data[k] = v;
                             }
                         });
-                        
+
                         // Copy Step 1 details to Step 2 if shareholderType is Individual
                         if (stepKey === 'individual_verification') {
                             const currentType = state.onboarding[step.field].data.shareholderType || 'Individual Shareholder';
@@ -3482,7 +3704,7 @@ async function obUploadDoc(stepKey, docType, docLabel) {
                     if (step) {
                         await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
                             method: 'PATCH',
-                            headers: {'Content-Type':'application/json'},
+                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 data: state.onboarding[step.field].data,
                                 status: 'pending'
@@ -3496,7 +3718,7 @@ async function obUploadDoc(stepKey, docType, docLabel) {
                             if (dirStep && state.onboarding[dirStep.field]) {
                                 await fetch(`/api/onboarding/${state.onboardingId}/step/director_details`, {
                                     method: 'PATCH',
-                                    headers: {'Content-Type':'application/json'},
+                                    headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
                                         data: state.onboarding[dirStep.field].data,
                                         status: 'pending'
@@ -3506,12 +3728,12 @@ async function obUploadDoc(stepKey, docType, docLabel) {
                         }
                     }
                 }
-                
+
                 // Re-fetch complete onboarding state to sync UI
                 try {
                     const freshRes = await fetch(`/api/onboarding/client/${state.user.id}`);
                     if (freshRes.ok) state.onboarding = normalizeOnboardingData(await freshRes.json());
-                } catch (e) {}
+                } catch (e) { }
 
                 const workspace = document.getElementById('ob-form-workspace');
                 if (workspace) {
@@ -3527,11 +3749,11 @@ async function ensureOnboardingRecord() {
     if (state.onboardingId) return;
     try {
         const res = await fetch(`/api/onboarding/client/${state.user.id}`, {
-            method: 'POST', headers: {'Content-Type':'application/json'},
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ clientEmail: state.user.email, clientName: state.user.name })
         });
         if (res.ok) { const d = await res.json(); state.onboardingId = d.id; }
-    } catch(e) {}
+    } catch (e) { }
 }
 
 async function obNextStep() {
@@ -3579,7 +3801,7 @@ async function obSubmitAllForVerification() {
         try {
             const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${step.key}`, {
                 method: 'PATCH',
-                headers: {'Content-Type':'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     data: stepData.data,
                     status: 'submitted'
@@ -3598,10 +3820,10 @@ async function obSubmitAllForVerification() {
     try {
         const res = await fetch(`/api/onboarding/client/${state.user.id}`);
         if (res.ok) state.onboarding = normalizeOnboardingData(await res.json());
-    } catch (e) {}
+    } catch (e) { }
 
     alert("Onboarding submitted successfully for verification!");
-    
+
     // Re-render onboarding view
     const view = document.getElementById('main-view');
     if (view && state.currentTab === 'onboarding') {
@@ -3660,24 +3882,24 @@ function renderHome(container) {
                 <div class="space-y-3.5 my-3">
                     <div class="flex items-center justify-between text-xs">
                         <span class="text-slate-500 font-medium flex items-center gap-1.5"><i data-lucide="file-digit" class="w-3.5 h-3.5"></i> ID Verification</span>
-                        <span class="font-bold ${idStat==='verified'?'text-emerald-500':'text-red-500'}">${idStat==='verified'?'🟢 Verified':(idStat==='failed'?'🔴 Failed':'⚪ Pending')}</span>
+                        <span class="font-bold ${idStat === 'verified' ? 'text-emerald-500' : 'text-red-500'}">${idStat === 'verified' ? '🟢 Verified' : (idStat === 'failed' ? '🔴 Failed' : '⚪ Pending')}</span>
                     </div>
                     <div class="flex items-center justify-between text-xs">
                         <span class="text-slate-500 font-medium flex items-center gap-1.5"><i data-lucide="search" class="w-3.5 h-3.5"></i> AML Screening</span>
-                        <span class="font-bold ${amlStat==='clean'?'text-emerald-500':'text-red-500'}">${amlStat==='clean'?'🟢 Clean':(amlStat==='flagged'?'🔴 Flagged':'⚪ Pending')}</span>
+                        <span class="font-bold ${amlStat === 'clean' ? 'text-emerald-500' : 'text-red-500'}">${amlStat === 'clean' ? '🟢 Clean' : (amlStat === 'flagged' ? '🔴 Flagged' : '⚪ Pending')}</span>
                     </div>
                     <div class="flex items-center justify-between text-xs">
                         <span class="text-slate-500 font-medium flex items-center gap-1.5"><i data-lucide="users" class="w-3.5 h-3.5"></i> PEP Watchlist Search</span>
-                        <span class="font-bold ${pepStat==='clean'?'text-emerald-500':'text-red-500'}">${pepStat==='clean'?'🟢 Clean':(pepStat==='match'?'🔴 Match Found':'⚪ Pending')}</span>
+                        <span class="font-bold ${pepStat === 'clean' ? 'text-emerald-500' : 'text-red-500'}">${pepStat === 'clean' ? '🟢 Clean' : (pepStat === 'match' ? '🔴 Match Found' : '⚪ Pending')}</span>
                     </div>
                     <div class="flex items-center justify-between text-xs">
                         <span class="text-slate-500 font-medium flex items-center gap-1.5"><i data-lucide="globe" class="w-3.5 h-3.5"></i> Sanctions Screening</span>
-                        <span class="font-bold ${sancStat==='clean'?'text-emerald-500':'text-red-500'}">${sancStat==='clean'?'🟢 Clean':(sancStat==='match'?'🔴 Match Found':'⚪ Pending')}</span>
+                        <span class="font-bold ${sancStat === 'clean' ? 'text-emerald-500' : 'text-red-500'}">${sancStat === 'clean' ? '🟢 Clean' : (sancStat === 'match' ? '🔴 Match Found' : '⚪ Pending')}</span>
                     </div>
                 </div>
 
                 <div class="flex items-center justify-between gap-4 border-t border-slate-100 pt-3 mt-2">
-                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Risk: <span class="${kRisk==='High'?'text-red-500':(kRisk==='Medium'?'text-amber-500':'text-emerald-500')}">${kRisk}</span></span>
+                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Risk: <span class="${kRisk === 'High' ? 'text-red-500' : (kRisk === 'Medium' ? 'text-amber-500' : 'text-emerald-500')}">${kRisk}</span></span>
                     ${kStatus !== 'approved' ? `
                         <button onclick="openPortalShuftiModal()" class="px-4 py-2 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl text-[10px] font-bold hover:bg-blue-100 transition-all">Verify Now</button>
                     ` : `
@@ -3856,7 +4078,7 @@ function renderBilling(container) {
 function toggleAIAssistant() {
     const windowEl = document.getElementById('ai-assistant-window');
     state.isAIActive = !state.isAIActive;
-    
+
     if (state.isAIActive) {
         windowEl.classList.remove('hidden');
         setTimeout(() => {
@@ -3908,7 +4130,7 @@ function appendAIMessage(sender, text) {
 
 function generateAIResponse(msg) {
     const m = msg.toLowerCase();
-    
+
     if (m.includes('incorporat') || m.includes('setup') || m.includes('register') || m.includes('start company')) {
         return `To incorporate your company in Singapore, the primary requirements are:
         
@@ -3920,13 +4142,13 @@ function generateAIResponse(msg) {
 
 You can complete all of this inside the **Onboarding Journey** tab! Would you like me to guide you to Step 1?`;
     }
-    
+
     if (m.includes('chat') || m.includes('agent') || m.includes('human') || m.includes('support') || m.includes('talk') || m.includes('yes')) {
         return `I have notified a support specialist. You can also chat directly with our incorporation experts in the Messages page, or submit a ticket in the Support Desk. 
 
 A team member will join you shortly!`;
     }
-    
+
     if (m.includes('compliance') || m.includes('annual return') || m.includes('acra')) {
         return `Singapore companies have three main annual compliance milestones:
         
@@ -3948,7 +4170,7 @@ If you do not have a local resident director, Globalisor provides a Nominee Resi
 
 You can allocate share percentages for individual or corporate shareholders in Step 3 and Step 4 of Onboarding. The "Number of Shares" and "Share Capital Amount" fields are read-only and will auto-calculate instantly based on the percentages you enter.`;
     }
-    
+
     if (m.includes('address') || m.includes('registered address')) {
         return `Your company must have a physical registered address in Singapore. We provide a premium registered address at **Globalisor Address** which is selected by default in your incorporation package. 
 
@@ -3958,15 +4180,15 @@ You can review or change this in the Onboarding Journey.`;
     if (m.includes('document') || m.includes('upload')) {
         return "You can manage all your documents in the **Compliance Vault** tab. Currently, we're waiting for your **Proof of Address**. Would you like me to open that section for you?";
     }
-    
+
     if (m.includes('invoice') || m.includes('bill')) {
         return "Your recent invoice **INV-2026-042** for SGD 3,000.00 is pending. You can pay it directly in the **Payments** module.";
     }
-    
+
     if (m.includes('hi') || m.includes('hello')) {
         return "Hello! I'm your Globalisor operational assistant. I can help you track workflows, manage compliance, or answer questions about your Singapore entity. What's on your mind?";
     }
-    
+
     return "That's a great question about Singapore business operations. I'll need a moment to verify the latest ACRA guidelines, or I can connect you with a human expert in the Support Desk.";
 }
 
@@ -3996,10 +4218,10 @@ function renderUpdates(container) {
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 ${state.blogs.map(blog => {
-                    const displayTitle = blog.publishedTitle || blog.title;
-                    const displayExcerpt = blog.publishedExcerpt || blog.description || blog.excerpt || '';
-                    const displayCoverImage = blog.publishedCoverImage || blog.coverImage || '';
-                    return `
+        const displayTitle = blog.publishedTitle || blog.title;
+        const displayExcerpt = blog.publishedExcerpt || blog.description || blog.excerpt || '';
+        const displayCoverImage = blog.publishedCoverImage || blog.coverImage || '';
+        return `
                         <div class="premium-card p-0 overflow-hidden group cursor-pointer" onclick="openBlogDetail('${blog.id}')">
                             ${displayCoverImage ? `
                             <div class="h-48 bg-slate-100 relative overflow-hidden">
@@ -4010,7 +4232,7 @@ function renderUpdates(container) {
                             <div class="p-8">
                                 <div class="flex items-center gap-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
                                     ${!displayCoverImage ? `<span class="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">${blog.category || 'Compliance'}</span>` : ''}
-                                    <span>${new Date(blog.createdAt || blog.date).toLocaleDateString('en-SG', {day: '2-digit', month: 'short', year: 'numeric'})}</span>
+                                    <span>${new Date(blog.createdAt || blog.date).toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
                                 </div>
                                 <h3 class="text-xl font-extrabold text-slate-900 mb-4 group-hover:text-blue-600 transition-colors line-clamp-2">${displayTitle}</h3>
                                 <p class="text-sm text-slate-500 line-clamp-3 mb-8 leading-relaxed">${displayExcerpt}</p>
@@ -4020,7 +4242,7 @@ function renderUpdates(container) {
                             </div>
                         </div>
                     `;
-                }).join('')}
+    }).join('')}
             </div>
         </div>
     `;
@@ -4325,7 +4547,7 @@ function openBlogDetail(id) {
                 <div class="premium-card border-none shadow-2xl p-12">
                     <div class="flex flex-wrap gap-3 mb-8">
                         <span class="px-4 py-1.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-widest border border-blue-100">${blog.category || 'Blogs'}</span>
-                        <span class="px-4 py-1.5 rounded-full bg-slate-50 text-slate-500 text-[10px] font-bold uppercase tracking-widest border border-slate-100">${new Date(blog.createdAt || blog.date).toLocaleDateString('en-SG', {day: '2-digit', month: 'long', year: 'numeric'})}</span>
+                        <span class="px-4 py-1.5 rounded-full bg-slate-50 text-slate-500 text-[10px] font-bold uppercase tracking-widest border border-slate-100">${new Date(blog.createdAt || blog.date).toLocaleDateString('en-SG', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
                     </div>
                     <h2 class="text-4xl font-extrabold text-slate-900 mb-8 tracking-tight">${displayTitle}</h2>
                     <div class="prose prose-slate max-w-none text-slate-600 leading-[1.8] text-lg space-y-6">
@@ -4440,13 +4662,13 @@ function renderGuidance(container) {
     if (window.lucide) window.lucide.createIcons();
 }
 
-window.openGuidanceDetail = function(id) {
+window.openGuidanceDetail = function (id) {
     const item = state.staticContent.find(i => i.id === id);
     if (!item) return;
 
     const modal = document.getElementById('modal-container');
     const content = document.getElementById('modal-content');
-    
+
     content.innerHTML = `
         <div class="flex justify-between items-start mb-10">
             <div>
@@ -4467,16 +4689,16 @@ window.openGuidanceDetail = function(id) {
             <button onclick="closeModal()" class="px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold text-sm hover:scale-105 transition-all">Understood</button>
         </div>
     `;
-    
+
     modal.classList.remove('pointer-events-none', 'opacity-0');
     content.classList.remove('scale-95');
     if (window.lucide) window.lucide.createIcons();
 }
 
-window.filterGuidance = function(category) {
+window.filterGuidance = function (category) {
     const list = document.getElementById('guidance-list');
     const items = state.staticContent.filter(c => c.isPublished && (category === 'all' || c.category === category));
-    
+
     list.innerHTML = items.map(item => `
         <div class="premium-card group cursor-pointer hover:border-blue-200" onclick="openGuidanceDetail('${item.id}')">
             <div class="flex items-center gap-2 mb-4">
@@ -4491,7 +4713,7 @@ window.filterGuidance = function(category) {
             </div>
         </div>
     `).join('') || '<div class="col-span-full p-20 text-center text-slate-400 bg-slate-50 rounded-[32px] border border-dashed border-slate-200">No resources available in this section.</div>';
-    
+
     if (window.lucide) window.lucide.createIcons();
 }
 
@@ -4508,7 +4730,7 @@ function connectWebSocket() {
     }
     socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${state.user.id}&role=client`);
 
-    socket.onmessage = async function(event) {
+    socket.onmessage = async function (event) {
         try {
             const data = JSON.parse(event.data);
             if (data.type === 'presence') {
@@ -4523,7 +4745,7 @@ function connectWebSocket() {
             } else if (data.type === 'notification') {
                 const notif = data.notification;
                 const isMessageFromMe = notif.type === 'message' && notif.message.startsWith(state.user.name + ':');
-                if (!isMessageFromMe && (notif.clientId === 'all' || notif.clientId === 'client' || notif.clientId === state.user.id || 
+                if (!isMessageFromMe && (notif.clientId === 'all' || notif.clientId === 'client' || notif.clientId === state.user.id ||
                     (notif.clientId.startsWith('team_group_')) ||
                     (notif.clientId.startsWith('chat_') && notif.clientId.includes(state.user.id)) ||
                     (notif.clientId.startsWith('team_chat_') && notif.clientId.includes(state.user.id)))) {
@@ -4562,7 +4784,7 @@ function connectWebSocket() {
         } catch (e) { console.error('WS parsing error:', e); }
     };
 
-    socket.onclose = function() {
+    socket.onclose = function () {
         socket = null;
         setTimeout(connectWebSocket, 5000);
     };
@@ -4652,16 +4874,16 @@ function renderMessages(container) {
     `;
 
     if (window.lucide) window.lucide.createIcons();
-    
+
     // Connect WS if not connected
     connectWebSocket();
-    
+
     // Mark as read
     markAsRead();
-    
+
     // Update status
     updateSupportPresence();
-    
+
     // Start polling fallback
     startMessagePolling();
 
@@ -4791,7 +5013,7 @@ function renderChatMessages(messages) {
     const shouldScroll = container.scrollTop + container.clientHeight >= container.scrollHeight - 100;
     container.innerHTML = html;
     if (window.lucide) window.lucide.createIcons();
-    if (shouldScroll || container.innerHTML.length < 1000) { 
+    if (shouldScroll || container.innerHTML.length < 1000) {
         container.scrollTop = container.scrollHeight;
     }
 }
@@ -4838,7 +5060,7 @@ async function markAllNotificationsAsRead(event) {
                 }
             });
             updateNotificationUI();
-            
+
             // Show custom toast message
             const container = document.getElementById('toast-container') || (() => {
                 const div = document.createElement('div');
@@ -4876,20 +5098,20 @@ async function handleNotifClick(notifId, type, relatedId) {
     } catch (e) {
         console.error("Failed to mark read:", e);
     }
-    
+
     const notif = state.notifications.find(n => n.id === notifId);
     if (notif && !notif.readBy.includes(state.user.id)) {
         notif.readBy.push(state.user.id);
     }
     updateNotificationUI();
-    
+
     const dropdown = document.getElementById('notif-dropdown');
     if (dropdown) {
         dropdown.classList.remove('scale-100', 'opacity-100');
         dropdown.classList.add('scale-95', 'opacity-0');
         setTimeout(() => dropdown.classList.add('hidden'), 200);
     }
-    
+
     if (type === 'message') {
         window.location.href = 'messages.html';
     } else if (type === 'blog') {
@@ -4912,14 +5134,14 @@ function showToastNotification(n) {
         document.body.appendChild(div);
         return div;
     })();
-    
+
     const toast = document.createElement('div');
     if (n.type === 'error') {
         toast.className = 'bg-rose-50 border border-rose-200 shadow-2xl p-4 rounded-2xl flex items-start gap-3 w-80 translate-y-5 opacity-0 transition-all duration-300 cursor-pointer font-outfit';
     } else {
         toast.className = 'bg-white border border-slate-100 shadow-2xl p-4 rounded-2xl flex items-start gap-3 w-80 translate-y-5 opacity-0 transition-all duration-300 cursor-pointer font-outfit';
     }
-    
+
     let icon = '🔔';
     if (n.type === 'message') icon = '💬';
     else if (n.type === 'blog') icon = '📰';
@@ -4927,7 +5149,7 @@ function showToastNotification(n) {
     else if (n.type === 'document_request') icon = '📄';
     else if (n.type === 'assignment') icon = '👤';
     else if (n.type === 'error') icon = '❌';
-    
+
     toast.innerHTML = `
         <div class="text-xl">${icon}</div>
         <div class="flex-1">
@@ -4935,20 +5157,20 @@ function showToastNotification(n) {
             <div class="text-[11px] text-slate-500 mt-0.5 leading-relaxed">${n.message}</div>
         </div>
     `;
-    
+
     toast.onclick = () => {
         toast.remove();
         if (n.type !== 'error') {
             handleNotifClick(n.id, n.type, n.relatedId);
         }
     };
-    
+
     container.appendChild(toast);
     setTimeout(() => {
         toast.classList.remove('translate-y-5', 'opacity-0');
         toast.classList.add('translate-y-0', 'opacity-100');
     }, 10);
-    
+
     setTimeout(() => {
         if (toast.parentNode) {
             toast.classList.remove('translate-y-0', 'opacity-100');
@@ -5000,7 +5222,7 @@ async function openPortalShuftiModal() {
     if (!modal || !content) return;
 
     const currentName = state.user ? state.user.name : '';
-    
+
     content.innerHTML = `
         <div class="relative font-outfit">
             <button onclick="closeModal()" class="absolute -top-4 -right-4 p-2 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-500 transition-all"><i data-lucide="x" class="w-5 h-5"></i></button>
@@ -5516,7 +5738,7 @@ async function openPortalShuftiModal() {
             if (res.ok) {
                 const kycRes = await res.json();
                 state.kyc = kycRes;
-                
+
                 // Hydrate Compliance status too
                 const cpRes = await fetch('/api/compliance');
                 if (cpRes.ok) {
@@ -5601,7 +5823,7 @@ function refreshPortalHome() {
 
 function triggerMultiItemAutoSave(stepKey, idx, isCheckboxChange) {
     if (obAutoSaveTimeout) clearTimeout(obAutoSaveTimeout);
-    
+
     const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
     if (!step) return;
     const stepField = step.field;
@@ -5611,7 +5833,7 @@ function triggerMultiItemAutoSave(stepKey, idx, isCheckboxChange) {
     if (!stepData.data.list) stepData.data.list = [];
     if (!stepData.data.list[idx]) stepData.data.list[idx] = {};
     const item = stepData.data.list[idx];
-    
+
     const currentManualFields = getStepManualFields(stepKey, item);
     if (currentManualFields) {
         currentManualFields.forEach(f => {
@@ -5675,7 +5897,7 @@ function triggerMultiItemAutoSave(stepKey, idx, isCheckboxChange) {
             if (dirStepField) {
                 const dirList = (state.onboarding[dirStepField] || {}).data?.list || [];
                 const dirData = dirList[idx] || dirList[0] || {};
-                
+
                 ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].forEach(key => {
                     const el = document.getElementById(`ob-individual_shareholder-${idx}-${key}`);
                     if (el && dirData[key]) {
@@ -5691,7 +5913,7 @@ function triggerMultiItemAutoSave(stepKey, idx, isCheckboxChange) {
                             }
                             el.value = phoneNum;
                             el.dataset.fullVal = dirData['mobile'];
-                            
+
                             const flagEl = document.getElementById(`ob-individual_shareholder-${idx}-flag`);
                             if (flagEl) {
                                 flagEl.innerHTML = obFlagImg(selectedCode, 20);
@@ -5721,17 +5943,17 @@ function triggerMultiItemAutoSave(stepKey, idx, isCheckboxChange) {
         const shareCapitalAmountPctEl = document.getElementById(`ob-${stepKey}-${idx}-shareCapitalAmountPct`);
         const ownershipEl = document.getElementById(`ob-${stepKey}-${idx}-ownershipPercentage`);
         const uboEl = document.getElementById(`ob-${stepKey}-${idx}-uboDeclaration`);
-        
+
         const shCurr = (item.currency || '').trim().toUpperCase();
         const shClass = (item.shareClass || '').trim().toUpperCase();
-        
+
         let totalSharesForCombo = 0;
         let totalAmountForCombo = 0;
-        
+
         const scStep = state.onboarding.stepShareCapital || {};
         const scData = scStep.data || {};
         const scCurrencies = scData.currencies || [];
-        
+
         if (shCurr && shCurr !== 'SELECT' && shClass && shClass !== 'SELECT') {
             const match = scCurrencies.find(c => {
                 const scCurr = (c.currency === 'Others' ? (c.customCurrency || '') : c.currency).trim().toUpperCase();
@@ -5762,7 +5984,7 @@ function triggerMultiItemAutoSave(stepKey, idx, isCheckboxChange) {
             totalSharesForCombo = parseFloat(match.numberOfShares) || 0;
             totalAmountForCombo = parseFloat(match.shareCapitalAmount) || 0;
         }
-        
+
         console.log("Onboarding auto-calc query debug:", {
             shCurr,
             shClass,
@@ -5770,7 +5992,7 @@ function triggerMultiItemAutoSave(stepKey, idx, isCheckboxChange) {
             totalAmountForCombo,
             scCurrencies
         });
-        
+
         let pctVal = 0;
         if (numSharesPctEl) {
             const pct = parseFloat(numSharesPctEl.value) || 0;
@@ -5782,7 +6004,7 @@ function triggerMultiItemAutoSave(stepKey, idx, isCheckboxChange) {
             }
             pctVal = pct;
         }
-        
+
         if (shareCapitalAmountPctEl) {
             const pct = parseFloat(shareCapitalAmountPctEl.value) || 0;
             item.shareCapitalAmountPct = shareCapitalAmountPctEl.value === '' ? '' : pct;
@@ -5802,28 +6024,29 @@ function triggerMultiItemAutoSave(stepKey, idx, isCheckboxChange) {
             uboEl.value = uboVal;
             item.uboDeclaration = uboVal;
         }
-        
+
         if (stepKey === 'individual_shareholder' && pctVal >= 25) {
             syncUBOFromIndividualShareholder(idx, item);
         }
     }
-    
+
     state.onboarding[stepField] = stepData;
     updateWizardUIFeedback();
-    
+    updateAllocationLimitsUI();
+
     if (isCheckboxChange) {
         const workspace = document.getElementById('ob-form-workspace');
         if (workspace) renderActiveStepForm(workspace);
     }
-    
+
     obAutoSaveTimeout = setTimeout(async () => {
         await ensureOnboardingRecord();
         if (!state.onboardingId) return;
-        
+
         try {
             const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
                 method: 'PATCH',
-                headers: {'Content-Type':'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     data: stepData.data,
                     status: stepData.status
@@ -5846,14 +6069,14 @@ function syncUBOFromIndividualShareholder(idx, item) {
     if (!uboField) return;
 
     if (!state.onboarding[uboField]) state.onboarding[uboField] = { data: {}, status: 'pending', documents: [] };
-    
+
     ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile', 'ownershipPercentage'].forEach(key => {
         const sourceVal = item[key];
         if (sourceVal !== undefined) {
             state.onboarding[uboField].data[key] = sourceVal;
         }
     });
-    
+
     const indStep = ONBOARDING_STEPS.find(s => s.key === 'individual_shareholder');
     const indStepField = indStep ? indStep.field : null;
     if (indStepField) {
@@ -5868,13 +6091,13 @@ function syncUBOFromIndividualShareholder(idx, item) {
             }
         }
     }
-    
+
     (async () => {
         await ensureOnboardingRecord();
         if (state.onboardingId) {
             await fetch(`/api/onboarding/${state.onboardingId}/step/ubo`, {
                 method: 'PATCH',
-                headers: {'Content-Type':'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     data: state.onboarding[uboField].data,
                     documents: state.onboarding[uboField].documents,
@@ -5892,16 +6115,16 @@ async function addMultiItem(stepKey) {
     if (!state.onboarding[stepField]) state.onboarding[stepField] = { data: { list: [] }, status: 'pending', documents: [] };
     const stepData = state.onboarding[stepField];
     if (!stepData.data.list) stepData.data.list = [];
-    
+
     stepData.data.list.push({});
     state.onboarding[stepField] = stepData;
-    
+
     await ensureOnboardingRecord();
     if (state.onboardingId) {
         try {
             const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
                 method: 'PATCH',
-                headers: {'Content-Type':'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     data: stepData.data,
                     status: 'pending'
@@ -5910,9 +6133,9 @@ async function addMultiItem(stepKey) {
             if (res.ok) {
                 state.onboarding = normalizeOnboardingData(await res.json());
             }
-        } catch(e) {}
+        } catch (e) { }
     }
-    
+
     const workspace = document.getElementById('ob-form-workspace');
     if (workspace) renderActiveStepForm(workspace);
     updateWizardUIFeedback();
@@ -5924,9 +6147,9 @@ async function removeMultiItem(stepKey, idx) {
     const stepField = step.field;
     const stepData = state.onboarding[stepField];
     if (!stepData || !stepData.data.list) return;
-    
+
     stepData.data.list.splice(idx, 1);
-    
+
     if (stepData.documents) {
         const newDocs = [];
         stepData.documents.forEach(d => {
@@ -5948,15 +6171,15 @@ async function removeMultiItem(stepKey, idx) {
         });
         stepData.documents = newDocs;
     }
-    
+
     state.onboarding[stepField] = stepData;
-    
+
     await ensureOnboardingRecord();
     if (state.onboardingId) {
         try {
             const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
                 method: 'PATCH',
-                headers: {'Content-Type':'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     data: stepData.data,
                     documents: stepData.documents,
@@ -5966,9 +6189,9 @@ async function removeMultiItem(stepKey, idx) {
             if (res.ok) {
                 state.onboarding = normalizeOnboardingData(await res.json());
             }
-        } catch(e) {}
+        } catch (e) { }
     }
-    
+
     const workspace = document.getElementById('ob-form-workspace');
     if (workspace) renderActiveStepForm(workspace);
     updateWizardUIFeedback();
@@ -5981,7 +6204,7 @@ async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
     input.onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        
+
         // Check if this document has already been uploaded for another item in this step
         const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
         const currentDocs = (state.onboarding && state.onboarding[stepField] && state.onboarding[stepField].documents) || [];
@@ -5995,7 +6218,7 @@ async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
             });
             return;
         }
-        
+
         const docEl = document.getElementById(`doc-${stepKey}-${docTypeWithIdx}`);
         if (docEl) docEl.innerHTML = `<div style='color:#3b82f6;font-size:11px;font-weight:700;'>⏳ Uploading & extracting...</div>`;
         
@@ -6032,14 +6255,14 @@ async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
                 return;
             }
         }
-        
+
         await ensureOnboardingRecord();
         if (state.onboardingId) {
             const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
             const currentDocs = state.onboarding[stepField].documents || [];
-            
+
             const filteredDocs = currentDocs.filter(d => d.type !== docTypeWithIdx);
-            
+
             const newDoc = {
                 id: "DOC-" + Date.now() + "-" + Math.floor(Math.random() * 1000),
                 type: docTypeWithIdx,
@@ -6052,10 +6275,10 @@ async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
                 uploadedAt: Date.now()
             };
             filteredDocs.push(newDoc);
-            
+
             const patchRes = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
                 method: 'PATCH',
-                headers: {'Content-Type':'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     documents: filteredDocs
                 })
@@ -6063,7 +6286,7 @@ async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
             if (patchRes.ok) {
                 const updatedOb = await patchRes.json();
                 state.onboarding = normalizeOnboardingData(updatedOb);
-                
+
                 if (extracted) {
                     const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
                     if (step) {
@@ -6077,17 +6300,17 @@ async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
                         }
                     }
                 }
-                
+
                 await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
                     method: 'PATCH',
-                    headers: {'Content-Type':'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         data: state.onboarding[stepField].data
                     })
                 });
             }
         }
-        
+
         const workspace = document.getElementById('ob-form-workspace');
         if (workspace) renderActiveStepForm(workspace);
         updateWizardUIFeedback();
@@ -6103,6 +6326,7 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
     const shs = req.shareholders || [];
     const inds = shs.filter(s => s.type === 'individual' || s.type === '👤' || (typeof s.type === 'string' && (s.type.toLowerCase().includes('individual') || s.type.includes('👤'))));
     const corps = shs.filter(s => !(s.type === 'individual' || s.type === '👤' || (typeof s.type === 'string' && (s.type.toLowerCase().includes('individual') || s.type.includes('👤')))));
+    const repData = (state.onboarding && state.onboarding.step6CorporateRep && state.onboarding.step6CorporateRep.data) || {};
 
     const cleanContactVal = (val, fallback) => {
         if (!val) return fallback;
@@ -6114,114 +6338,170 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
     };
 
     let html = `
-    <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 24px; font-family: Outfit, sans-serif;">
-        <h4 style="font-size: 15px; font-weight: 800; color: #0f172a; margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-            📋 Document Preparation Checklist
-        </h4>
-        <p style="font-size: 13px; color: #64748b; margin-bottom: 20px; line-height: 1.6;">
-            Based on your pre-registration selections (<b>${dirs.length} Director(s)</b>, <b>${inds.length} Individual Shareholder(s)</b>, <b>${corps.length} Corporate Shareholder(s)</b>), please prepare the following documents before proceeding:
-        </p>
-        
-        <div style="display: flex; flex-direction: column; gap: 16px;">
-    `;
-
-    if (dirs.length > 0) {
-        html += `
-            <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px;">
-                <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-                    👤 Director Documents (${dirs.length} Director${dirs.length > 1 ? 's' : ''})
-                </div>
-                <ul style="list-style-type: none; padding-left: 0; margin: 0 0 12px 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: #475569;">
-                    <li style="display: flex; align-items: center; gap: 8px;">🔲 NRIC / FIN (front & back) for all directors</li>
-                    <li style="display: flex; align-items: center; gap: 8px;">🔲 Proof of Address (Utility Bill / Bank Statement / Mobile Bill dated &lt; 3 months)</li>
-                </ul>
-                <div style="border-top: 1px solid #f1f5f9; padding-top: 10px; margin-top: 10px;">
-                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em;">Director Registry Details:</div>
-                    <div style="display: flex; flex-direction: column; gap: 6px;">
-                        ${dirs.map((d, dIdx) => `
-                            <div style="font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px;">
-                                <div style="font-weight: 600; color: #1e293b;">Director ${dIdx + 1}${d.name && d.name !== 'N/A' ? `: ${d.name}` : ''}</div>
-                                <div style="color: #64748b; padding-left: 8px;">1. ${cleanContactVal(d.email, 'Email ID')}</div>
-                                <div style="color: #64748b; padding-left: 8px;">2. ${cleanContactVal(d.phone, 'Phone Number')}</div>
-                            </div>
-                        `).join('')}
+    <div style="background: #ffffff; border-radius: 16px; padding: 0; font-family: 'Outfit', sans-serif;">
+        <!-- Header Section -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding: 0 0 0 0;">
+            <div style="font-size: 12.5px; color: #475569; background: #f8fafc; padding: 12px 16px; border-radius: 8px; border: 1px dashed #cbd5e1;">
+                <div style="font-weight: 600; margin-bottom: 4px; color: #334155;">Mandatory for all:</div>
+                <div>1. Email ID</div>
+                <div>2. Phone Number</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 20px; font-size: 13px; color: #64748b; font-weight: 500;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <div style="width: 16px; height: 16px; background: #c084fc; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                     </div>
+                    <span>Mandatory</span>
+                </div>
+                <div style="width: 1px; height: 16px; background: #e2e8f0;"></div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    <span>As per selection</span>
                 </div>
             </div>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 16px; padding: 0 0 0 0;">
+    `;
+
+    const renderSection = (config) => {
+        const { theme, icon, title, count, checkboxes, detailsTitle, detailsList } = config;
+        const colors = {
+            purple: { bg: '#faf5ff', iconBg: '#f3e8ff', text: '#9333ea', border: '#e9d5ff', dark: '#6b21a8' },
+            green: { bg: '#f0fdf4', iconBg: '#dcfce7', text: '#22c55e', border: '#bbf7d0', dark: '#15803d' },
+            orange: { bg: '#fff7ed', iconBg: '#ffedd5', text: '#f97316', border: '#fed7aa', dark: '#c2410c' },
+            blue: { bg: '#eff6ff', iconBg: '#dbeafe', text: '#3b82f6', border: '#bfdbfe', dark: '#1d4ed8' }
+        };
+        const c = colors[theme];
+
+        let rightContent = '';
+        if (detailsList && detailsList.length > 0) {
+            const detailsHtml = detailsList.map((item, idx) => `
+                <div style="margin-bottom: 12px; font-family: 'Inter', sans-serif;">
+                    <div style="font-weight: 700; color: #1e293b; font-size: 13px; margin-bottom: 6px;">${item.name}</div>
+                    <div style="color: #475569; font-size: 12.5px; line-height: 1.6; padding-left: 2px;">
+                        ${item.email !== 'Email ID' ? '<div>' + item.email + '</div>' : ''}
+                        ${item.phone !== 'Phone Number' ? '<div>' + item.phone + '</div>' : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            rightContent = `
+                <div style="width: 420px; background: ${c.bg}; border: 1px solid ${c.bg}; border-radius: 12px; padding: 20px 24px; flex-shrink: 0; display: flex; justify-content: space-between; align-items: flex-start; margin: 4px 4px 4px 0;">
+                    <div style="flex-grow: 1;">
+                        <div style="font-size: 11px; font-weight: 800; color: ${c.text}; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.05em;">${detailsTitle}</div>
+                        ${detailsHtml}
+                    </div>
+                    <div style="color: #64748b; padding-top: 2px; cursor: pointer;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+                </div>
+            `;
+        }
+
+        const checkboxHtml = checkboxes.map(text => `
+            <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
+                <div style="width: 18px; height: 18px; background: ${c.text}; border-radius: 4px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+                <div style="font-size: 13.5px; color: #475569; font-weight: 500; font-family: 'Inter', sans-serif;">${text}</div>
+            </div>
+        `).join('');
+
+        return `
+            <div style="border: 1px solid #e2e8f0; border-radius: 16px; display: flex; overflow: hidden; background: #fff; min-height: 120px;">
+                <div style="flex-grow: 1; padding: 24px; display: flex; gap: 20px;">
+                    <div style="width: 48px; height: 48px; background-color: ${c.iconBg}; color: ${c.dark}; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        ${icon}
+                    </div>
+                    <div style="flex-grow: 1; padding-top: 2px;">
+                        <div style="font-size: 15px; font-weight: 700; color: #1e293b; margin-bottom: 16px;">
+                            ${title} ${count ? `(${count})` : ''}
+                        </div>
+                        <div>
+                            ${checkboxHtml}
+                        </div>
+                    </div>
+                </div>
+                ${rightContent}
+            </div>
         `;
+    };
+
+    if (dirs.length > 0) {
+        html += renderSection({
+            theme: 'purple',
+            icon: `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`,
+            title: 'Director Documents',
+            count: `${dirs.length} Director${dirs.length > 1 ? 's' : ''}`,
+            checkboxes: [
+                'NRIC / FIN (front & back) for all directors',
+                'Proof of Address (Utility Bill / Bank Statement /<br/>Mobile Bill dated Within 3 months)'
+            ],
+            detailsTitle: 'DIRECTOR REGISTRY DETAILS',
+            detailsList: dirs.map((d, dIdx) => ({
+                name: `Director ${dIdx + 1}${d.name && d.name !== 'N/A' ? ` - ${d.name}` : ''}`,
+                email: cleanContactVal(d.email, 'Email ID'),
+                phone: cleanContactVal(d.phone, 'Phone Number')
+            }))
+        });
     }
 
     if (inds.length > 0) {
-        html += `
-            <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px;">
-                <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-                    👥 Individual Shareholder Documents (${inds.length} Shareholder${inds.length > 1 ? 's' : ''})
-                </div>
-                <ul style="list-style-type: none; padding-left: 0; margin: 0 0 12px 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: #475569;">
-                    <li style="display: flex; align-items: center; gap: 8px;">🔲 NRIC / FIN (front & back) for all individual shareholders</li>
-                    <li style="display: flex; align-items: center; gap: 8px;">🔲 Proof of Address for all individual shareholders</li>
-                </ul>
-                <div style="border-top: 1px solid #f1f5f9; padding-top: 10px; margin-top: 10px;">
-                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em;">Individual Shareholder Registry Details:</div>
-                    <div style="display: flex; flex-direction: column; gap: 6px;">
-                        ${inds.map((s, sIdx) => `
-                            <div style="font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px;">
-                                <div style="font-weight: 600; color: #1e293b;">Shareholder ${sIdx + 1}${s.name && s.name !== 'N/A' ? `: ${s.name}` : ''}</div>
-                                <div style="color: #64748b; padding-left: 8px;">1. ${cleanContactVal(s.email, 'Email ID')}</div>
-                                <div style="color: #64748b; padding-left: 8px;">2. ${cleanContactVal(s.phone, 'Phone Number')}</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            </div>
-        `;
+        html += renderSection({
+            theme: 'green',
+            icon: `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`,
+            title: 'Individual Shareholder Documents',
+            count: `${inds.length} Shareholder${inds.length > 1 ? 's' : ''}`,
+            checkboxes: [
+                'NRIC / FIN (front & back) for all individual shareholders',
+                'Proof of Address for all individual shareholders'
+            ],
+            detailsTitle: 'INDIVIDUAL SHAREHOLDER REGISTRY DETAILS',
+            detailsList: inds.map((s, sIdx) => ({
+                name: `Shareholder ${sIdx + 1}${s.name && s.name !== 'N/A' ? ` - ${s.name}` : ''}`,
+                email: cleanContactVal(s.email, 'Email ID'),
+                phone: cleanContactVal(s.phone, 'Phone Number')
+            }))
+        });
     }
 
     if (corps.length > 0) {
-        const repData = (state.onboarding && state.onboarding.step6CorporateRep && state.onboarding.step6CorporateRep.data) || {};
-        html += `
-            <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px;">
-                <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-                    🏢 Corporate Shareholder Documents (${corps.length} Corporate Shareholder${corps.length > 1 ? 's' : ''})
-                </div>
-                <ul style="list-style-type: none; padding-left: 0; margin: 0 0 12px 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: #475569;">
-                    <li style="display: flex; align-items: center; gap: 8px;">🔲 ACRA Bizfile (or foreign registry equivalent)</li>
-                    <li style="display: flex; align-items: center; gap: 8px;">🔲 Company Constitution (M&AA)</li>
-                    <li style="display: flex; align-items: center; gap: 8px;">🔲 Certificate of Incorporation (for non-Singapore companies)</li>
-                </ul>
-                <div style="border-top: 1px solid #f1f5f9; padding-top: 10px; margin-top: 10px;">
-                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em;">Corporate Shareholder Registry Details:</div>
-                    <div style="display: flex; flex-direction: column; gap: 6px;">
-                        ${corps.map((s, cIdx) => `
-                            <div style="font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px;">
-                                <div style="font-weight: 600; color: #1e293b;">Corporate Shareholder ${cIdx + 1}${s.name && s.name !== 'N/A' ? `: ${s.name}` : ''}</div>
-                                <div style="color: #64748b; padding-left: 8px;">1. ${cleanContactVal(s.email, 'Email ID')}</div>
-                                <div style="color: #64748b; padding-left: 8px;">2. ${cleanContactVal(s.phone, 'Phone Number')}</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            </div>
-            
-            <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px;">
-                <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-                    👔 Corporate Representative Documents
-                </div>
-                <ul style="list-style-type: none; padding-left: 0; margin: 0 0 12px 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: #475569;">
-                    <li style="display: flex; align-items: center; gap: 8px;">🔲 NRIC / FIN for the authorized corporate representative</li>
-                    <li style="display: flex; align-items: center; gap: 8px;">🔲 Proof of Address for the representative</li>
-                    <li style="display: flex; align-items: center; gap: 8px;">🔲 Board Resolution or Letter of Authorization appointing the representative</li>
-                </ul>
-                <div style="border-top: 1px solid #f1f5f9; padding-top: 10px; margin-top: 10px;">
-                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em;">Representative Contact Details:</div>
-                    <div style="font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px;">
-                        <div style="font-weight: 600; color: #1e293b;">Representative${repData.fullName && repData.fullName !== 'Not Filled Yet' && repData.fullName !== 'N/A' ? `: ${repData.fullName}` : ''}</div>
-                        <div style="color: #64748b; padding-left: 8px;">1. ${cleanContactVal(repData.email, 'Email ID')}</div>
-                        <div style="color: #64748b; padding-left: 8px;">2. ${cleanContactVal(repData.mobile, 'Phone Number')}</div>
-                    </div>
-                </div>
-            </div>
-        `;
+        html += renderSection({
+            theme: 'orange',
+            icon: `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path><path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path><path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path></svg>`,
+            title: 'Corporate Shareholder Documents',
+            count: `${corps.length} Corporate Shareholder${corps.length > 1 ? 's' : ''}`,
+            checkboxes: [
+                'ACRA Bizfile (or foreign registry equivalent)',
+                'Company Constitution (M&AA)',
+                'Certificate of Incorporation (for non-Singapore companies)'
+            ],
+            detailsTitle: 'CORPORATE SHAREHOLDER REGISTRY DETAILS',
+            detailsList: corps.map((s, cIdx) => ({
+                name: `Corporate Shareholder ${cIdx + 1}${s.name && s.name !== 'N/A' ? ` - ${s.name}` : ''}`,
+                email: cleanContactVal(s.email, 'Email ID'),
+                phone: cleanContactVal(s.phone, 'Phone Number')
+            }))
+        });
+
+        html += renderSection({
+            theme: 'blue',
+            icon: `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><circle cx="12" cy="13" r="3"></circle><path d="M17 19v-1a4 4 0 0 0-8 0v1"></path></svg>`,
+            title: 'Corporate Representative Documents',
+            count: null,
+            checkboxes: [
+                'NRIC / FIN for the authorized corporate representative',
+                'Proof of Address for the representative',
+                'Board Resolution or Letter of Authorization appointing the representative'
+            ],
+            detailsTitle: 'REPRESENTATIVE CONTACT DETAILS',
+            detailsList: [{
+                name: `Representative${repData.fullName && repData.fullName !== 'Not Filled Yet' && repData.fullName !== 'N/A' ? ` - ${repData.fullName}` : ''}`,
+                email: cleanContactVal(repData.email, 'Email ID'),
+                phone: cleanContactVal(repData.mobile, 'Phone Number')
+            }]
+        });
     }
 
     html += `
@@ -6247,44 +6527,50 @@ function obRenderShareCapitalHtml(isReadOnly) {
 
     if (currencies.length === 0) {
         sectionsHtml = `
-            <div style="text-align:center;padding:30px;color:#64748b;font-size:13px;background:#f8fafc;border:2.5px dashed #cbd5e1;border-radius:12px;margin-bottom:20px;">
-                No share capital sections added. Click "Add Currency Section" below to start.
+            <div style="text-align:center;padding:40px 20px;background:linear-gradient(180deg, #f8fafc, #f1f5f9);border:2px dashed #cbd5e1;border-radius:16px;margin-bottom:24px;box-shadow:inset 0 2px 4px rgba(0,0,0,0.02);">
+                <div style="width:48px;height:48px;background:#ffffff;border-radius:16px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 4px 10px rgba(0,0,0,0.03);">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="7.5 4.21 12 6.81 16.5 4.21"></polyline><polyline points="7.5 19.79 7.5 14.6 3 12"></polyline><polyline points="21 12 16.5 14.6 16.5 19.79"></polyline><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                </div>
+                <div style="font-family:'Outfit',sans-serif;font-size:16px;font-weight:700;color:#1e293b;margin-bottom:8px;">No Share Capital Configured</div>
+                <div style="font-size:13px;color:#64748b;line-height:1.6;max-width:350px;margin:0 auto;">Add a currency section below to define your company's share capital structure.</div>
             </div>
         `;
     } else {
         sectionsHtml = currencies.map((c, idx) => {
             const isCollapsed = !!c.isCollapsed;
-            
+
             // Validation check for this specific block
             const currCode = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
             const numShares = parseFloat(c.numberOfShares) || 0;
             const amount = parseFloat(c.shareCapitalAmount) || 0;
-            
+
             let errorText = '';
             if (!currCode) {
                 errorText = '⚠️ Currency code is required.';
-            } else if (numShares <= 0 || !Number.isInteger(numShares)) {
-                errorText = '⚠️ Number of Shares must be a positive whole number.';
-            } else if (amount < numShares) {
-                errorText = '⚠️ Issued Share Capital Amount cannot be less than the Number of Shares.';
             }
 
             const headerSummary = `${currCode || '???'} – ${numShares.toLocaleString()} ${c.shareClass === 'Ordinary' ? 'ORD' : 'PREF'} – ${currCode || '???'} ${amount.toLocaleString()} Issued`;
 
             if (isCollapsed) {
                 return `
-                <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 20px;margin-bottom:16px;box-shadow: 0 1px 3px rgba(0,0,0,0.05);display:flex;justify-content:space-between;align-items:center;transition: all 0.2s ease;">
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <span style="font-size:13px;font-weight:700;color:#1e293b;">${headerSummary}</span>
-                        ${errorText ? `<span style="font-size:11px;color:#ef4444;font-weight:600;margin-left:8px;">(Invalid)</span>` : ''}
+                <div style="background:#ffffff;border:1px solid ${errorText ? '#fecaca' : '#e2e8f0'};border-radius:16px;padding:16px 24px;margin-bottom:16px;box-shadow:0 4px 12px rgba(0,0,0,0.03);display:flex;justify-content:space-between;align-items:center;transition:all 0.2s ease;border-left:4px solid ${errorText ? '#ef4444' : '#3b82f6'};" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 16px rgba(0,0,0,0.05)';" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.03)';">
+                    <div style="display:flex;align-items:center;gap:16px;">
+                        <div style="width:36px;height:36px;border-radius:10px;background:${errorText ? '#fef2f2' : '#eff6ff'};display:flex;align-items:center;justify-content:center;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${errorText ? '#ef4444' : '#3b82f6'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg>
+                        </div>
+                        <div>
+                            <span style="font-family:'Outfit',sans-serif;font-size:15px;font-weight:700;color:#0f172a;">${headerSummary}</span>
+                            ${errorText ? `<div style="font-size:11.5px;color:#ef4444;font-weight:600;margin-top:2px;">⚠️ Needs attention</div>` : ''}
+                        </div>
                     </div>
                     <div style="display:flex;gap:8px;">
-                        <button type="button" onclick="obToggleCurrencyCollapse(${idx})" style="padding:6px 12px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">
+                        <button type="button" onclick="obToggleCurrencyCollapse(${idx})" style="padding:8px 16px;background:#f8fafc;color:#334155;border:1px solid #e2e8f0;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                             Expand
                         </button>
                         ${isReadOnly ? '' : `
-                            <button type="button" onclick="obDeleteCurrencySection(${idx})" style="padding:6px 12px;background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">
-                                Delete
+                            <button type="button" onclick="obDeleteCurrencySection(${idx})" style="padding:8px;background:#ffffff;color:#ef4444;border:1px solid #fecaca;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;box-shadow:0 2px 4px rgba(239,68,68,0.05);" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='#ffffff'" title="Delete">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
                             </button>
                         `}
                     </div>
@@ -6294,33 +6580,40 @@ function obRenderShareCapitalHtml(isReadOnly) {
 
             // Expanded view
             return `
-            <div style="background:#ffffff;border:1.5px solid ${errorText ? '#fecaca' : '#e2e8f0'};border-radius:12px;padding:20px;margin-bottom:16px;box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid #f1f5f9;padding-bottom:10px;">
-                    <span style="font-size:13px;font-weight:700;color:#0f172a;">Currency Section #${idx + 1}</span>
-                    <div style="display:flex;gap:8px;">
-                        <button type="button" onclick="obToggleCurrencyCollapse(${idx})" style="padding:4px 10px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:8px;font-size:10px;font-weight:600;cursor:pointer;">
+            <div style="background:#ffffff;border:1px solid ${errorText ? '#fecaca' : '#e2e8f0'};border-left:4px solid ${errorText ? '#ef4444' : '#2563eb'};border-radius:12px;padding:24px;margin-bottom:24px;position:relative;box-shadow:0 4px 20px rgba(0,0,0,0.03);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;border-bottom:1px solid #f1f5f9;padding-bottom:16px;">
+                    <div style="display:flex;align-items:center;gap:16px;">
+                        <div style="width:40px;height:40px;border-radius:10px;background:${errorText ? '#fef2f2' : '#eff6ff'};display:flex;align-items:center;justify-content:center;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${errorText ? '#ef4444' : '#2563eb'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg>
+                        </div>
+                        <h4 style="font-family:'Outfit',sans-serif;font-size:18px;font-weight:800;color:#0f172a;margin:0;">Currency Section #${idx + 1}</h4>
+                    </div>
+                    <div style="display:flex;gap:12px;">
+                        <button type="button" onclick="obToggleCurrencyCollapse(${idx})" style="padding:8px 16px;background:#ffffff;color:#475569;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#ffffff'">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
                             Collapse
                         </button>
                         ${isReadOnly ? '' : `
-                            <button type="button" onclick="obDeleteCurrencySection(${idx})" style="padding:4px 10px;background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;font-size:10px;font-weight:600;cursor:pointer;">
-                                Delete
+                            <button type="button" onclick="obDeleteCurrencySection(${idx})" style="padding:8px 16px;background:#ffffff;color:#ef4444;border:1px solid #fca5a5;border-radius:8px;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.2s;" onmouseover="this.style.background='#fef2f2';" onmouseout="this.style.background='#ffffff';">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                                Remove
                             </button>
                         `}
                     </div>
                 </div>
                 
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px;">
-                    <div class="ob-field">
-                        <label>Currency</label>
-                        <select id="ob-share-capital-${idx}-currency" onchange="obUpdateCurrencyField(${idx}, 'currency', this.value)" ${isReadOnly ? 'disabled' : ''}>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:16px;">
+                    <div class="ob-field" style="gap:8px;">
+                        <label style="color:#64748b;font-weight:700;font-size:11px;letter-spacing:0.5px;">CURRENCY</label>
+                        <select id="ob-share-capital-${idx}-currency" onchange="obUpdateCurrencyField(${idx}, 'currency', this.value)" ${isReadOnly ? 'disabled' : ''} style="width:100%;padding:12px 16px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;color:#0f172a;font-size:14px;font-family:'Inter',sans-serif;appearance:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2216%22 height=%2216%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%230f172a%22 stroke-width=%222.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><polyline points=%226 9 12 15 18 9%22></polyline></svg>');background-repeat:no-repeat;background-position:right 16px center;">
                             <option value="SGD" ${c.currency === 'SGD' ? 'selected' : ''}>SGD</option>
                             <option value="USD" ${c.currency === 'USD' ? 'selected' : ''}>USD</option>
                             <option value="Others" ${c.currency === 'Others' ? 'selected' : ''}>Others</option>
                         </select>
                     </div>
-                    <div class="ob-field">
-                        <label>Class of Shares</label>
-                        <select id="ob-share-capital-${idx}-shareClass" onchange="obUpdateCurrencyField(${idx}, 'shareClass', this.value)" ${isReadOnly ? 'disabled' : ''}>
+                    <div class="ob-field" style="gap:8px;">
+                        <label style="color:#64748b;font-weight:700;font-size:11px;letter-spacing:0.5px;">CLASS OF SHARES</label>
+                        <select id="ob-share-capital-${idx}-shareClass" onchange="obUpdateCurrencyField(${idx}, 'shareClass', this.value)" ${isReadOnly ? 'disabled' : ''} style="width:100%;padding:12px 16px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;color:#0f172a;font-size:14px;font-family:'Inter',sans-serif;appearance:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2216%22 height=%2216%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%230f172a%22 stroke-width=%222.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><polyline points=%226 9 12 15 18 9%22></polyline></svg>');background-repeat:no-repeat;background-position:right 16px center;">
                             <option value="Ordinary" ${c.shareClass === 'Ordinary' ? 'selected' : ''}>Ordinary</option>
                             <option value="Preference" ${c.shareClass === 'Preference' ? 'selected' : ''}>Preference</option>
                         </select>
@@ -6328,25 +6621,31 @@ function obRenderShareCapitalHtml(isReadOnly) {
                 </div>
 
                 ${c.currency === 'Others' ? `
-                    <div class="ob-field" style="margin-bottom:12px;">
-                        <label>Specify Custom Currency Code</label>
-                        <input type="text" id="ob-share-capital-${idx}-customCurrency" value="${c.customCurrency || ''}" placeholder="e.g. EUR, GBP" oninput="obUpdateCurrencyFieldLocal(${idx}, 'customCurrency', this.value)" onchange="obUpdateCurrencyField(${idx}, 'customCurrency', this.value)" ${isReadOnly ? 'disabled' : ''}>
+                    <div class="ob-field" style="margin-bottom:16px;gap:8px;">
+                        <label style="color:#64748b;font-weight:700;font-size:11px;letter-spacing:0.5px;">SPECIFY CUSTOM CURRENCY CODE</label>
+                        <input type="text" id="ob-share-capital-${idx}-customCurrency" value="${c.customCurrency || ''}" placeholder="e.g. EUR, GBP" oninput="obUpdateCurrencyFieldLocal(${idx}, 'customCurrency', this.value)" onchange="obUpdateCurrencyField(${idx}, 'customCurrency', this.value)" ${isReadOnly ? 'disabled' : ''} style="width:100%;padding:12px 16px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;color:#0f172a;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
                     </div>
                 ` : ''}
 
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px;">
-                    <div class="ob-field">
-                        <label>Total Number of Shares</label>
-                        <input type="number" id="ob-share-capital-${idx}-numberOfShares" step="1" value="${c.numberOfShares !== undefined && c.numberOfShares !== null ? c.numberOfShares : ''}" placeholder="e.g. 100" oninput="obUpdateCurrencyFieldLocal(${idx}, 'numberOfShares', this.value)" onchange="obUpdateCurrencyField(${idx}, 'numberOfShares', this.value)" ${isReadOnly ? 'disabled' : ''}>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:12px;">
+                    <div class="ob-field" style="gap:8px;">
+                        <label style="color:#64748b;font-weight:700;font-size:11px;letter-spacing:0.5px;">TOTAL NUMBER OF SHARES</label>
+                        <input type="text" id="ob-share-capital-${idx}-numberOfShares" value="${c.numberOfShares !== undefined && c.numberOfShares !== null ? (Number(c.numberOfShares) ? Number(c.numberOfShares).toLocaleString() : c.numberOfShares) : ''}" placeholder="e.g. 1,000" oninput="obUpdateCurrencyFieldLocal(${idx}, 'numberOfShares', this.value.replace(/,/g, ''))" onchange="obUpdateCurrencyField(${idx}, 'numberOfShares', this.value.replace(/,/g, ''))" ${isReadOnly ? 'disabled' : ''} style="width:100%;padding:12px 16px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;color:#0f172a;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
                     </div>
-                    <div class="ob-field">
-                        <label>Total Issued Share Capital Amount</label>
-                        <input type="number" id="ob-share-capital-${idx}-shareCapitalAmount" value="${c.shareCapitalAmount !== undefined && c.shareCapitalAmount !== null ? c.shareCapitalAmount : ''}" placeholder="e.g. 100" oninput="obUpdateCurrencyFieldLocal(${idx}, 'shareCapitalAmount', this.value)" onchange="obUpdateCurrencyField(${idx}, 'shareCapitalAmount', this.value)" ${isReadOnly ? 'disabled' : ''}>
+                    <div class="ob-field" style="gap:8px;">
+                        <label style="color:#64748b;font-weight:700;font-size:11px;letter-spacing:0.5px;">TOTAL ISSUED SHARE CAPITAL AMOUNT</label>
+                        <div style="position:relative;display:flex;align-items:center;">
+                            <input type="text" id="ob-share-capital-${idx}-shareCapitalAmount" value="${c.shareCapitalAmount !== undefined && c.shareCapitalAmount !== null ? (Number(c.shareCapitalAmount) ? Number(c.shareCapitalAmount).toLocaleString() : c.shareCapitalAmount) : ''}" placeholder="e.g. 1,000" oninput="obUpdateCurrencyFieldLocal(${idx}, 'shareCapitalAmount', this.value.replace(/,/g, ''))" onchange="obUpdateCurrencyField(${idx}, 'shareCapitalAmount', this.value.replace(/,/g, ''))" ${isReadOnly ? 'disabled' : ''} style="width:100%;padding:12px 16px;padding-right:60px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;color:#0f172a;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+                            <div style="position:absolute;right:8px;background:#eff6ff;color:#2563eb;font-size:12px;font-weight:700;font-family:'Inter',sans-serif;padding:4px 8px;border-radius:8px;">
+                                ${currCode || 'SGD'}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 ${errorText ? `
-                    <div style="color:#ef4444;font-size:11px;font-weight:600;margin-top:8px;background:#fef2f2;border:1px solid #fecaca;padding:8px 12px;border-radius:8px;">
+                    <div style="color:#ef4444;font-size:11.5px;font-weight:600;margin-top:12px;background:#fef2f2;border:1px solid #fecaca;padding:10px 14px;border-radius:10px;display:flex;align-items:center;gap:8px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                         ${errorText}
                     </div>
                 ` : ''}
@@ -6373,26 +6672,47 @@ function obRenderShareCapitalHtml(isReadOnly) {
         });
 
         const capitalSummaryStrings = Object.keys(capitalByCurrency).map(curr => {
-            return `<strong style="color:#0f172a;">${curr} ${capitalByCurrency[curr].toLocaleString()}</strong>`;
+            return `${curr} ${capitalByCurrency[curr].toLocaleString()}`;
         }).join(', ');
 
         summaryHtml = `
-            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-top:20px;">
-                <h5 style="margin:0 0 12px 0;font-size:13px;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:6px;">
-                    📊 Consolidated Share Capital Summary
-                </h5>
-                <div style="display:grid;grid-template-columns:1fr 1fr 1.5fr;gap:16px;font-size:12.5px;color:#475569;">
-                    <div style="background:#ffffff;border:1px solid #f1f5f9;border-radius:8px;padding:12px;">
-                        <span style="display:block;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;">Currencies</span>
-                        <span style="font-size:16px;font-weight:800;color:#0f172a;">${uniqueCurrencies.size}</span>
+            <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:24px;margin-top:32px;">
+                <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
+                    <div style="width:48px;height:48px;border-radius:12px;background:#f0fdf4;display:flex;align-items:center;justify-content:center;">
+                        <span style="color:#16a34a;font-size:24px;font-weight:700;font-family:'Outfit',sans-serif;">$</span>
                     </div>
-                    <div style="background:#ffffff;border:1px solid #f1f5f9;border-radius:8px;padding:12px;">
-                        <span style="display:block;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;">Total Shares</span>
-                        <span style="font-size:16px;font-weight:800;color:#0f172a;">${totalShares.toLocaleString()}</span>
+                    <div>
+                        <h5 style="margin:0;font-family:'Outfit',sans-serif;font-size:18px;font-weight:800;color:#0f172a;">Consolidated Summary</h5>
+                        <div style="font-size:13px;color:#64748b;margin-top:2px;">Overview of your configured share capital</div>
                     </div>
-                    <div style="background:#ffffff;border:1px solid #f1f5f9;border-radius:8px;padding:12px;">
-                        <span style="display:block;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;">Total Issued Share Capital</span>
-                        <span style="font-size:13px;font-weight:500;">${capitalSummaryStrings || 'None'}</span>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1.5fr;gap:16px;">
+                    <div style="background:#ffffff;border:1px solid #f1f5f9;border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px;">
+                        <div style="width:48px;height:48px;border-radius:12px;background:#eff6ff;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"></circle><path d="M18.09 10.37A6 6 0 1 1 10.34 18"></path><path d="M7 6h1v4"></path><path d="M16.7 16H16v-4"></path></svg>
+                        </div>
+                        <div>
+                            <span style="display:block;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Currencies</span>
+                            <span style="font-family:'Outfit',sans-serif;font-size:24px;font-weight:800;color:#0f172a;line-height:1;">${uniqueCurrencies.size}</span>
+                        </div>
+                    </div>
+                    <div style="background:#ffffff;border:1px solid #f1f5f9;border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px;">
+                        <div style="width:48px;height:48px;border-radius:12px;background:#f5f3ff;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
+                        </div>
+                        <div>
+                            <span style="display:block;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Total Shares</span>
+                            <span style="font-family:'Outfit',sans-serif;font-size:24px;font-weight:800;color:#0f172a;line-height:1;">${totalShares.toLocaleString()}</span>
+                        </div>
+                    </div>
+                    <div style="background:#ffffff;border:1px solid #f1f5f9;border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px;">
+                        <div style="width:48px;height:48px;border-radius:12px;background:#f0fdf4;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M2 10h20"></path><path d="M12 2l10 5H2z"></path></svg>
+                        </div>
+                        <div>
+                            <span style="display:block;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Total Issued Capital</span>
+                            <span style="font-family:'Outfit',sans-serif;font-size:20px;font-weight:800;color:#0f172a;line-height:1.2;display:block;">${capitalSummaryStrings || 'None'}</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -6402,16 +6722,41 @@ function obRenderShareCapitalHtml(isReadOnly) {
     let addBtnHtml = '';
     if (!isReadOnly) {
         addBtnHtml = `
-            <div style="margin-bottom:20px;display:flex;gap:10px;">
-                <button type="button" onclick="obAddCurrencySection()" style="padding:10px 20px;background:#3b82f6;color:#fff;border:none;border-radius:10px;font-family:Outfit,sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
-                    ➕ Add Currency Section
+            <div style="margin:24px 0 32px 0;display:flex;justify-content:center;">
+                <button type="button" onclick="obAddCurrencySection()" style="padding:12px 24px;background:#f8fafc;border:2px dashed #cbd5e1;border-radius:14px;color:#3b82f6;font-family:'Inter',sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;" onmouseover="this.style.background='#eff6ff'; this.style.borderColor='#93c5fd';" onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#cbd5e1';">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Add Currency Section
                 </button>
             </div>
         `;
     }
 
-    return sectionsHtml + addBtnHtml + summaryHtml;
+    const isConfirmed = ob.stepShareCapital.data.isConfirmed === true;
+    const confirmHtml = `
+        <div style="margin-top: 24px; padding-top: 24px; border-top: 1px dashed #cbd5e1;">
+            <label style="display:flex; align-items:flex-start; gap:12px; cursor:pointer; background:#f8fafc; padding:16px; border-radius:12px; border:1px solid #e2e8f0; transition:all 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
+                <input type="checkbox" ${isConfirmed ? 'checked' : ''} ${isReadOnly ? 'disabled' : ''} 
+                    onchange="obUpdateShareCapitalConfirm(this.checked)"
+                    style="width:18px; height:18px; accent-color:#3b82f6; margin-top:2px; cursor:pointer;">
+                <span style="font-size:14px; color:#334155; font-weight:600; line-height:1.5;">
+                    I have reviewed and confirmed that the Share Capital details above are correct.
+                </span>
+            </label>
+        </div>
+    `;
+
+    return sectionsHtml + addBtnHtml + summaryHtml + confirmHtml;
 }
+
+window.obUpdateShareCapitalConfirm = function (checked) {
+    const ob = state.onboarding;
+    if (ob && ob.stepShareCapital && ob.stepShareCapital.data) {
+        ob.stepShareCapital.data.isConfirmed = checked;
+        triggerAutoSave('share_capital');
+        renderActiveStepForm(document.getElementById('ob-dynamic-form'));
+        updateStepsSidebar();
+    }
+};
 
 function obUpdateCurrencyFieldLocal(idx, key, val) {
     const ob = state.onboarding || {};
@@ -6442,7 +6787,7 @@ async function obUpdateCurrencyField(idx, key, val) {
         try {
             const res = await fetch(`/api/onboarding/${state.onboardingId}/step/share_capital`, {
                 method: 'PATCH',
-                headers: {'Content-Type':'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     data: ob.stepShareCapital.data,
                     status: 'pending'
@@ -6468,13 +6813,13 @@ async function obToggleCurrencyCollapse(idx) {
         const c = ob.stepShareCapital.data.currencies[idx];
         if (c) {
             c.isCollapsed = !c.isCollapsed;
-            
+
             await ensureOnboardingRecord();
             if (state.onboardingId) {
                 try {
                     const res = await fetch(`/api/onboarding/${state.onboardingId}/step/share_capital`, {
                         method: 'PATCH',
-                        headers: {'Content-Type':'application/json'},
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             data: ob.stepShareCapital.data,
                             status: 'pending'
@@ -6483,7 +6828,7 @@ async function obToggleCurrencyCollapse(idx) {
                     if (res.ok) {
                         state.onboarding = normalizeOnboardingData(await res.json());
                     }
-                } catch (e) {}
+                } catch (e) { }
             }
         }
     }
@@ -6501,8 +6846,8 @@ async function obAddCurrencySection() {
         currency: 'SGD',
         customCurrency: '',
         shareClass: 'Ordinary',
-        numberOfShares: 0,
-        shareCapitalAmount: 0,
+        numberOfShares: '',
+        shareCapitalAmount: '',
         isCollapsed: false
     });
 
@@ -6511,7 +6856,7 @@ async function obAddCurrencySection() {
         try {
             const res = await fetch(`/api/onboarding/${state.onboardingId}/step/share_capital`, {
                 method: 'PATCH',
-                headers: {'Content-Type':'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     data: ob.stepShareCapital.data,
                     status: 'pending'
@@ -6520,7 +6865,7 @@ async function obAddCurrencySection() {
             if (res.ok) {
                 state.onboarding = normalizeOnboardingData(await res.json());
             }
-        } catch (e) {}
+        } catch (e) { }
     }
     const workspace = document.getElementById('ob-form-workspace');
     if (workspace) renderActiveStepForm(workspace);
@@ -6531,13 +6876,13 @@ async function obDeleteCurrencySection(idx) {
     const ob = state.onboarding || {};
     if (ob.stepShareCapital && ob.stepShareCapital.data && ob.stepShareCapital.data.currencies) {
         ob.stepShareCapital.data.currencies.splice(idx, 1);
-        
+
         await ensureOnboardingRecord();
         if (state.onboardingId) {
             try {
                 const res = await fetch(`/api/onboarding/${state.onboardingId}/step/share_capital`, {
                     method: 'PATCH',
-                    headers: {'Content-Type':'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         data: ob.stepShareCapital.data,
                         status: 'pending'
@@ -6546,7 +6891,7 @@ async function obDeleteCurrencySection(idx) {
                 if (res.ok) {
                     state.onboarding = normalizeOnboardingData(await res.json());
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
     }
     const workspace = document.getElementById('ob-form-workspace');
@@ -6564,10 +6909,10 @@ function getShareholderAllocation(type, name, idx) {
     const ob = state.onboarding || {};
     const stepData = ob.stepShareCapital || {};
     const allocations = (stepData.data || {}).allocations || [];
-    
+
     // Convert type
     const normalizedType = (type.toLowerCase().includes('individual') || type.includes('👤')) ? 'individual' : 'corporate';
-    
+
     let searchName = (name || '').trim();
     if (!searchName) {
         const req = state.requirements || {};
@@ -6580,16 +6925,16 @@ function getShareholderAllocation(type, name, idx) {
             searchName = filtered[idx].name;
         }
     }
-    
+
     if (!searchName) return null;
-    
+
     const found = allocations.find(a => {
         const aType = (a.type || '').toLowerCase();
         const searchType = normalizedType.toLowerCase();
-        const isTypeMatch = aType === searchType || 
-                            (aType.includes('individual') && searchType.includes('individual')) ||
-                            (aType.includes('corporate') && searchType.includes('corporate'));
-        
+        const isTypeMatch = aType === searchType ||
+            (aType.includes('individual') && searchType.includes('individual')) ||
+            (aType.includes('corporate') && searchType.includes('corporate'));
+
         const aName = (a.name || '').trim().toLowerCase();
         const sName = searchName.trim().toLowerCase();
         return isTypeMatch && aName === sName;
@@ -6615,7 +6960,7 @@ async function obIndividualShareholderSameAsDirectorCheckboxChange(idx, checked)
 
     const item = stepData.data.list[idx];
     item.sameAsDirector = checked;
-    
+
     if (!checked) {
         item.selectedDirectorIdx = '';
         ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].forEach(key => {
@@ -6630,14 +6975,14 @@ async function obIndividualShareholderSameAsDirectorCheckboxChange(idx, checked)
         try {
             await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
                 method: 'PATCH',
-                headers: {'Content-Type':'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     data: stepData.data,
                     documents: stepData.documents,
                     status: 'pending'
                 })
             });
-        } catch (e) {}
+        } catch (e) { }
     }
 
     const workspace = document.getElementById('ob-form-workspace');
@@ -6668,7 +7013,7 @@ async function obIndividualShareholderSameAsDirectorChange(idx, dirIdx) {
             const dirDocs = (state.onboarding[dirStep.field] || {}).documents || [];
             const dirNric = dirDocs.find(d => d.type === `nric_${dirIdx}`);
             const dirAddr = dirDocs.find(d => d.type === `address_proof_${dirIdx}`);
-            
+
             const currentDocs = stepData.documents || [];
             const filteredDocs = currentDocs.filter(d => d.type !== `nric_${idx}` && d.type !== `address_proof_${idx}`);
 
@@ -6702,14 +7047,14 @@ async function obIndividualShareholderSameAsDirectorChange(idx, dirIdx) {
         try {
             await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
                 method: 'PATCH',
-                headers: {'Content-Type':'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     data: stepData.data,
                     documents: stepData.documents,
                     status: 'pending'
                 })
             });
-        } catch (e) {}
+        } catch (e) { }
     }
 
     const workspace = document.getElementById('ob-form-workspace');
@@ -6778,7 +7123,7 @@ async function obClearMultiItemDoc(stepKey, docTypeWithIdx, idx) {
         try {
             const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
                 method: 'PATCH',
-                headers: {'Content-Type':'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     data: stepData.data,
                     documents: stepData.documents,
@@ -6815,7 +7160,7 @@ async function obClearDoc(stepKey, docType) {
         try {
             const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
                 method: 'PATCH',
-                headers: {'Content-Type':'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     data: stepData.data,
                     documents: stepData.documents,
@@ -6949,3 +7294,78 @@ window.obRemoveExternalController = (idx, extIdx) => {
     }
 };
 
+function updateAllocationLimitsUI() {
+    const ob = state.onboarding || {};
+    const currencies = (ob.stepShareCapital && ob.stepShareCapital.data && ob.stepShareCapital.data.currencies) || [];
+
+    const indStep = ob.step3IndividualShareholder || { data: { list: [] } };
+    const indList = indStep.data.list || [];
+    const corpStep = ob.step4CorporateShareholder || { data: { list: [] } };
+    const corpList = corpStep.data.list || [];
+
+    const usage = {};
+    const countUsage = (list) => {
+        list.forEach(sh => {
+            const shCurr = (sh.currency || '').trim().toUpperCase();
+            const shClass = (sh.shareClass || '').trim();
+            if (shCurr && shCurr !== 'SELECT' && shClass && shClass.toUpperCase() !== 'SELECT') {
+                const key = `${shCurr}_${shClass}`;
+                if (!usage[key]) usage[key] = { shares: 0, capital: 0 };
+                usage[key].shares += parseFloat(sh.numberOfShares) || 0;
+                usage[key].capital += parseFloat(sh.shareCapitalAmount) || 0;
+            }
+        });
+    };
+    countUsage(indList);
+    countUsage(corpList);
+
+    const updateUI = (list, stepKey) => {
+        list.forEach((sh, shIdx) => {
+            const shCurr = (sh.currency || '').trim().toUpperCase();
+            const shClass = (sh.shareClass || '').trim();
+            if (shCurr && shCurr !== 'SELECT' && shClass && shClass.toUpperCase() !== 'SELECT') {
+                const masterItem = currencies.find(c => {
+                    const masterCurr = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
+                    return masterCurr.toUpperCase() === shCurr && c.shareClass === shClass;
+                });
+
+                if (masterItem) {
+                    const key = `${shCurr}_${shClass}`;
+                    const usedShares = usage[key] ? usage[key].shares : 0;
+                    const usedCapital = usage[key] ? usage[key].capital : 0;
+
+                    const myShares = parseFloat(sh.numberOfShares) || 0;
+                    const myCapital = parseFloat(sh.shareCapitalAmount) || 0;
+
+                    const otherUsedShares = usedShares - myShares;
+                    const otherUsedCapital = usedCapital - myCapital;
+
+                    const availableShares = masterItem.numberOfShares - otherUsedShares;
+                    const availableCapital = masterItem.shareCapitalAmount - otherUsedCapital;
+
+                    const sharesWarnEl = document.getElementById(`ob-${stepKey}-${shIdx}-numberOfShares-limit-warn`);
+                    if (sharesWarnEl) {
+                        if (myShares > availableShares) {
+                            sharesWarnEl.innerHTML = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Allocation (${myShares}) exceeds available limit of ${availableShares} shares.</div>`;
+                        } else {
+                            sharesWarnEl.innerHTML = `<div style="color:#16a34a;font-size:10px;font-weight:600;margin-top:4px;">Available limit: ${availableShares} shares (total master: ${masterItem.numberOfShares})</div>`;
+                        }
+                    }
+
+                    const capitalWarnEl = document.getElementById(`ob-${stepKey}-${shIdx}-shareCapitalAmount-limit-warn`);
+                    if (capitalWarnEl) {
+                        if (myCapital > availableCapital) {
+                            capitalWarnEl.innerHTML = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Allocation (${myCapital}) exceeds available limit of ${availableCapital} ${shCurr}.</div>`;
+                        } else {
+                            capitalWarnEl.innerHTML = `<div style="color:#16a34a;font-size:10px;font-weight:600;margin-top:4px;">Available limit: ${availableCapital} ${shCurr} (total master: ${masterItem.shareCapitalAmount})</div>`;
+                        }
+                    }
+                }
+            }
+        });
+    };
+
+    updateUI(indList, 'individual_shareholder');
+    updateUI(corpList, 'corporate_shareholder');
+}
+window.updateAllocationLimitsUI = updateAllocationLimitsUI;
