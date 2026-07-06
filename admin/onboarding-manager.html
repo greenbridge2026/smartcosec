@@ -68,12 +68,19 @@
                 </h2>
                 <p class="text-slate-500 text-xs mt-1">Add, reorder, edit fields, configure OCR extractions, set conditionals, and publish steps dynamically.</p>
             </div>
-            <div class="flex gap-3">
+            <div class="flex items-center gap-3">
+                <div class="flex flex-col text-left">
+                    <label class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Onboarding Template</label>
+                    <select id="journey-type-selector" onchange="changeJourneyType(this.value)" class="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer">
+                        <option value="LOCAL">Local Incorporation Journey</option>
+                        <option value="FOREIGNER">Foreigner Incorporation Journey</option>
+                    </select>
+                </div>
                 <button onclick="seedDefaults()" class="px-4 py-2.5 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all">
-                    <i data-lucide="database-backup" class="w-4 h-4"></i> Seed Default Steps
+                    <i data-lucide="database-backup" class="w-4 h-4"></i> Seed Defaults
                 </button>
                 <button onclick="addNewStep()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-lg shadow-blue-500/20">
-                    <i data-lucide="plus" class="w-4 h-4"></i> Create Custom Step
+                    <i data-lucide="plus" class="w-4 h-4"></i> Create Step
                 </button>
             </div>
         </div>
@@ -283,7 +290,16 @@
     let stepsList = [];
     let activeStep = null;
     let activeTab = 'basic';
+    let currentJourneyType = 'LOCAL';
     
+    function changeJourneyType(val) {
+        currentJourneyType = val;
+        activeStep = null;
+        document.getElementById('no-step-selected').classList.remove('hidden');
+        document.getElementById('step-editor-workspace').classList.add('hidden');
+        loadSteps();
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         loadSteps();
     });
@@ -305,7 +321,7 @@
         const container = document.getElementById('steps-list-container');
         const showArchived = document.getElementById('show-archived-toggle')?.checked || false;
         try {
-            const res = await fetch(`/api/onboarding-config?includeArchived=${showArchived}`, {
+            const res = await fetch(`/api/onboarding-config?includeArchived=${showArchived}&journeyType=${currentJourneyType}`, {
                 headers: getAuthHeadersOnly()
             });
             if (res.ok) {
@@ -1043,9 +1059,9 @@
     }
 
     async function seedDefaults() {
-        if (!confirm("Seed default canonical 7 steps? If steps with matching keys already exist, they will be skipped.")) return;
+        if (!confirm(`Seed default canonical steps for the ${currentJourneyType} journey? If steps with matching keys already exist, they will be skipped.`)) return;
         try {
-            const res = await fetch('/api/onboarding-config/import-defaults', {
+            const res = await fetch(`/api/onboarding-config/import-defaults?journeyType=${currentJourneyType}`, {
                 method: 'POST',
                 headers: getAuthHeadersOnly()
             });
@@ -1073,6 +1089,7 @@
             icon: 'clipboard-list',
             description: 'Provide instructions for client onboarding here.',
             status: 'DRAFT',
+            journeyType: currentJourneyType,
             manualFields: [],
             requiredDocs: [],
             extractedFields: [],

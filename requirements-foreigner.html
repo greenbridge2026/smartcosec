@@ -1864,13 +1864,22 @@
                 // Load initial client data structure
                 const savedData = JSON.parse(localStorage.getItem('globalisor_master_v3'));
                 const defaultData = {
+                    journeyType: 'FOREIGNER',
+                    localDirectorsCount: 1,
+                    foreignDirectorsCount: 1,
+                    hasLocalDirector: 'yes',
+                    individualShareholdersCount: 0,
+                    corporateShareholdersCount: 0,
                     companyType: 'Pte Ltd',
                     names: ['', '', '', ''],
                     activities: { primary: null, secondary: null },
-                    directors: [{ name: '', idType: 'local', idNum: '', dob: '', phone: '', passportExpiry: '', docs: {} }],
+                    directors: [
+                        { name: 'Marcus Ng', idType: 'local', idNum: 'S8812345Z', dob: '1988-08-08', phone: '+65 9123 4567', email: 'marcus.ng@example.com', addr: 'Blk 123 Ang Mo Kio Ave 4 #05-67, Singapore 560123', source: 'self', docs: {} },
+                        { name: '', idType: 'foreign', idNum: '', dob: '', phone: '', email: '', addr: '', source: 'self', docs: {} }
+                    ],
                     shareholders: [],
-                    capital: { issued: 1000, numShares: 1000, paidUp: 1000, currency: 'SGD', type: 'Ordinary' },
-                    office: { useService: true, address: '', hasOwnAddress: false, residency: 'local' },
+                    capital: { issued: 10000, numShares: 10000, paidUp: 10000, currency: 'SGD', type: 'Ordinary' },
+                    office: { useService: true, address: '', hasOwnAddress: false, residency: 'foreigner' },
                     contact: { firstName: '', lastName: '', phone: '', email: '' },
                     paymentStatus: 'pending',
                     secretary: { required: true, named: true, details: { name: '', idNum: '', nation: '', dob: '', phone: '', email: '', addr: '' } },
@@ -1879,7 +1888,104 @@
                 };
                 
                 this.data = savedData ? { ...defaultData, ...savedData, completedSteps: savedData.completedSteps || [] } : defaultData;
+                this.data.journeyType = 'FOREIGNER';
                 this.migrateActivitiesData();
+                this.syncDirectorsList();
+                this.syncShareholdersList();
+            }
+
+            syncDirectorsList() {
+                if (!this.data.directors) this.data.directors = [];
+                const localCount = this.data.hasLocalDirector === 'no' ? 1 : (this.data.localDirectorsCount || 1);
+                const foreignCount = this.data.foreignDirectorsCount || 1;
+
+                const localList = [];
+                if (this.data.hasLocalDirector === 'no') {
+                    localList.push({
+                        name: 'Globalisor Nominee Director',
+                        idType: 'local',
+                        idNum: 'Nominee',
+                        dob: '',
+                        phone: '',
+                        email: 'nominee@globalisor.com',
+                        addr: '10 Anson Road, #16-04 International Plaza, Singapore 079903',
+                        source: 'globalisor',
+                        docs: {}
+                    });
+                } else {
+                    const existingLocals = this.data.directors.filter(d => d.idType === 'local' && d.source !== 'globalisor');
+                    for (let i = 0; i < localCount; i++) {
+                        localList.push(existingLocals[i] || {
+                            name: i === 0 ? 'Marcus Ng' : '',
+                            idType: 'local',
+                            idNum: i === 0 ? 'S8812345Z' : '',
+                            dob: i === 0 ? '1988-08-08' : '',
+                            phone: i === 0 ? '+65 9123 4567' : '',
+                            email: i === 0 ? 'marcus.ng@example.com' : '',
+                            addr: i === 0 ? 'Blk 123 Ang Mo Kio Ave 4 #05-67, Singapore 560123' : '',
+                            source: 'self',
+                            docs: {}
+                        });
+                    }
+                }
+
+                const foreignList = [];
+                const existingForeigns = this.data.directors.filter(d => d.idType === 'foreign');
+                for (let i = 0; i < foreignCount; i++) {
+                    foreignList.push(existingForeigns[i] || {
+                        name: '',
+                        idType: 'foreign',
+                        idNum: '',
+                        dob: '',
+                        phone: '',
+                        email: '',
+                        addr: '',
+                        source: 'self',
+                        docs: {}
+                    });
+                }
+
+                this.data.directors = [...localList, ...foreignList];
+            }
+
+            syncShareholdersList() {
+                if (!this.data.shareholders) this.data.shareholders = [];
+                const indCount = this.data.individualShareholdersCount || 0;
+                const corpCount = this.data.corporateShareholdersCount || 0;
+
+                const indList = [];
+                const existingInds = this.data.shareholders.filter(s => s.type === 'individual');
+                for (let i = 0; i < indCount; i++) {
+                    indList.push(existingInds[i] || {
+                        type: 'individual',
+                        name: i === 0 ? 'Sarah Lim' : '',
+                        shares: i === 0 ? '10000' : '0',
+                        percent: i === 0 ? '100' : '0',
+                        phone: i === 0 ? '+65 9876 5432' : '',
+                        email: i === 0 ? 'sarah.lim@example.com' : '',
+                        addr: i === 0 ? 'Blk 456 Jurong West St 42 #12-34, Singapore 640456' : '',
+                        docs: {},
+                        bo: []
+                    });
+                }
+
+                const corpList = [];
+                const existingCorps = this.data.shareholders.filter(s => s.type === 'corporate');
+                for (let i = 0; i < corpCount; i++) {
+                    corpList.push(existingCorps[i] || {
+                        type: 'corporate',
+                        name: '',
+                        shares: '0',
+                        percent: '0',
+                        phone: '',
+                        email: '',
+                        addr: '',
+                        docs: {},
+                        bo: []
+                    });
+                }
+
+                this.data.shareholders = [...indList, ...corpList];
             }
 
             isSectionApplicable(sec) {
@@ -1957,7 +2063,7 @@
                 }
 
                 // Load dynamic sections from backend
-                const endpoint = (this.isPreview ? '/api/prereg-sections/preview' : '/api/prereg-sections/published') + '?journeyType=LOCAL';
+                const endpoint = (this.isPreview ? '/api/prereg-sections/preview' : '/api/prereg-sections/published') + '?journeyType=FOREIGNER';
                 try {
                     const token = localStorage.getItem('token');
                     const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
@@ -2361,23 +2467,49 @@
 
             scrollToActiveSsicItem(containerId) {}
 
+            getSsicArray() {
+                const acts = this.data.activities;
+                if (!acts) return [];
+                if (Array.isArray(acts)) return acts;
+                const arr = [];
+                if (acts.primary) arr.push(acts.primary);
+                if (acts.secondary) arr.push(acts.secondary);
+                return arr;
+            }
+
+            syncActivities(list) {
+                this.data.activities = {
+                    primary: list[0] || null,
+                    secondary: list[1] || null
+                };
+            }
+
             selectSsicActivity(containerId, fullPath, activity) {
-                let list = getVal(this.data, fullPath);
-                if (!Array.isArray(list)) list = [];
+                let list = this.getSsicArray();
+                if (list.length >= 2) {
+                    showToast('ACRA regulations permit a maximum of 2 business activities (Primary and Secondary).', 'error');
+                    return;
+                }
                 if (list.some(a => a.code === activity.code && a.code !== 'MANUAL')) { showToast('Already added!', 'error'); return; }
                 list.push({ code: activity.code, name: activity.name, category: activity.category||'ACRA Activity', description: activity.description||activity.name });
-                setVal(this.data, fullPath, list);
+                this.syncActivities(list);
                 this.save(); this.render(); this.evaluateConditionalFields(); this.updateContinueButtonState();
             }
 
             removeSsicActivity(fullPath, index) {
-                const list = getVal(this.data, fullPath);
-                if (Array.isArray(list)) { list.splice(index,1); setVal(this.data, fullPath, list); this.save(); this.render(); this.evaluateConditionalFields(); this.updateContinueButtonState(); }
+                const list = this.getSsicArray();
+                list.splice(index, 1);
+                this.syncActivities(list);
+                this.save(); this.render(); this.evaluateConditionalFields(); this.updateContinueButtonState();
             }
 
             updateSsicDescription(fullPath, index, value) {
-                const list = getVal(this.data, fullPath);
-                if (Array.isArray(list) && list[index]) { list[index].description = value; setVal(this.data, fullPath, list); this.save(); this.evaluateConditionalFields(); this.updateContinueButtonState(); }
+                const list = this.getSsicArray();
+                if (list[index]) { 
+                    list[index].description = value; 
+                    this.syncActivities(list);
+                    this.save(); this.evaluateConditionalFields(); this.updateContinueButtonState(); 
+                }
             }
 
             showManualSsicEntry(containerId, fullPath) {
@@ -3719,58 +3851,123 @@
                 }
 
                 if (sec.id === 'sec-directors-shareholders' || sec.key === 'directors-shareholders') {
-                    const directors = this.data.directors || [];
-                    const shareholders = this.data.shareholders || [];
-                    
-                    const officeChecked = (this.data.office && this.data.office.useService !== false);
-                    const secretaryChecked = (this.data.secretary && this.data.secretary.required !== false);
-                    
+                    const localDirsCount = this.data.hasLocalDirector === 'no' ? 1 : (this.data.localDirectorsCount || 1);
+                    const foreignDirsCount = this.data.foreignDirectorsCount || 1;
+                    const indShsCount = this.data.individualShareholdersCount !== undefined ? this.data.individualShareholdersCount : 0;
+                    const corpShsCount = this.data.corporateShareholdersCount !== undefined ? this.data.corporateShareholdersCount : 0;
+
                     return `
                         <div>
                             ${rejectionBanner}
+
+                            <!-- Ask Local Director prompt -->
+                            <div style="margin-bottom: 1.5rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem;">
+                                <label style="font-size: 0.9rem; font-weight: 700; color: #1f2937; display: block; margin-bottom: 0.5rem;">
+                                    Do you have a Local Director? <span style="color:#ef4444;">*</span>
+                                </label>
+                                <p style="font-size: 0.78rem; color: #6b7280; margin-top: 0; margin-bottom: 1rem; line-height:1.4;">
+                                    ACRA regulations require all Singapore companies to have at least one local resident director. If you do not have one, Globalisor can provide a Nominee Director Service (SGD 3,000/year).
+                                </p>
+                                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: #374151;">
+                                        <input type="radio" name="has-local-director" value="yes" ${this.data.hasLocalDirector !== 'no' ? 'checked' : ''} onchange="wizard.handleHasLocalDirectorChange('yes')" style="accent-color: #2563eb; width: 1.05rem; height: 1.05rem;">
+                                        Yes, I have a Local Director
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: #374151;">
+                                        <input type="radio" name="has-local-director" value="no" ${this.data.hasLocalDirector === 'no' ? 'checked' : ''} onchange="wizard.handleHasLocalDirectorChange('no')" style="accent-color: #2563eb; width: 1.05rem; height: 1.05rem;">
+                                        No (Globalisor will provide a Nominee Director - SGD 3,000/year)
+                                    </label>
+                                </div>
+                            </div>
                             
                             <!-- Counter cards grid -->
                             <div class="counters-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                                <div class="counter-card">
-                                    <h3>👥 Directors</h3>
-                                    <p>People who legally direct the company.</p>
-                                    <div class="counter-controls">
-                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('directors', -1)">-</button>
-                                        <div class="counter-val" id="directors-count-val">${directors.length}</div>
-                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('directors', 1)">+</button>
+                                <div class="counter-card" style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem; background: white; text-align: center;">
+                                    <h3 style="font-size: 0.95rem; font-weight: 700; color: #1f2937; margin: 0 0 0.5rem 0;">👥 Local Directors</h3>
+                                    <p style="font-size: 0.75rem; color: #6b7280; margin: 0 0 1rem 0;">Singapore resident directors.</p>
+                                    <div class="counter-controls" style="display: flex; align-items: center; justify-content: center; gap: 1rem;">
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('localDirectors', -1)" ${this.data.hasLocalDirector === 'no' ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>-</button>
+                                        <div class="counter-val" id="local-directors-count-val" style="font-size: 1.2rem; font-weight: 700; color: #111827;">
+                                            ${this.data.hasLocalDirector === 'no' ? '1 (Nominee)' : localDirsCount}
+                                        </div>
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('localDirectors', 1)" ${this.data.hasLocalDirector === 'no' ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>+</button>
                                     </div>
                                 </div>
-                                <div class="counter-card">
-                                    <h3>👤 Individual Shareholders</h3>
-                                    <p>Natural persons who hold shares in the company.</p>
-                                    <div class="counter-controls">
+
+                                <div class="counter-card" style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem; background: white; text-align: center;">
+                                    <h3 style="font-size: 0.95rem; font-weight: 700; color: #1f2937; margin: 0 0 0.5rem 0;">👥 Foreign Directors</h3>
+                                    <p style="font-size: 0.75rem; color: #6b7280; margin: 0 0 1rem 0;">Non-Singapore resident directors.</p>
+                                    <div class="counter-controls" style="display: flex; align-items: center; justify-content: center; gap: 1rem;">
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('foreignDirectors', -1)">-</button>
+                                        <div class="counter-val" id="foreign-directors-count-val" style="font-size: 1.2rem; font-weight: 700; color: #111827;">${foreignDirsCount}</div>
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('foreignDirectors', 1)">+</button>
+                                    </div>
+                                </div>
+
+                                <div class="counter-card" style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem; background: white; text-align: center;">
+                                    <h3 style="font-size: 0.95rem; font-weight: 700; color: #1f2937; margin: 0 0 0.5rem 0;">👤 Individual Shareholders</h3>
+                                    <p style="font-size: 0.75rem; color: #6b7280; margin: 0 0 1rem 0;">Natural persons holding shares.</p>
+                                    <div class="counter-controls" style="display: flex; align-items: center; justify-content: center; gap: 1rem;">
                                         <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('individual', -1)">-</button>
-                                        <div class="counter-val" id="ind-shareholders-count-val">${shareholders.filter(s => s.type === 'individual').length}</div>
+                                        <div class="counter-val" id="ind-shareholders-count-val" style="font-size: 1.2rem; font-weight: 700; color: #111827;">${indShsCount}</div>
                                         <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('individual', 1)">+</button>
                                     </div>
                                 </div>
-                                <div class="counter-card">
-                                    <h3>🏢 Corporate Shareholders</h3>
-                                    <p>Corporate entities that hold shares in the company.</p>
-                                    <div class="counter-controls">
+
+                                <div class="counter-card" style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem; background: white; text-align: center;">
+                                    <h3 style="font-size: 0.95rem; font-weight: 700; color: #1f2937; margin: 0 0 0.5rem 0;">🏢 Corporate Shareholders</h3>
+                                    <p style="font-size: 0.75rem; color: #6b7280; margin: 0 0 1rem 0;">Corporate entities holding shares.</p>
+                                    <div class="counter-controls" style="display: flex; align-items: center; justify-content: center; gap: 1rem;">
                                         <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('corporate', -1)">-</button>
-                                        <div class="counter-val" id="corp-shareholders-count-val">${shareholders.filter(s => s.type === 'corporate').length}</div>
+                                        <div class="counter-val" id="corp-shareholders-count-val" style="font-size: 1.2rem; font-weight: 700; color: #111827;">${corpShsCount}</div>
                                         <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('corporate', 1)">+</button>
                                     </div>
                                 </div>
                             </div>
+
                             <!-- Additional Services Toggles -->
                             <div class="service-toggle-container" style="display: flex; flex-direction: column; gap: 1.5rem; width: 100%;">
                                 ${(sec.fields || []).filter(f => f.type === 'switch').map(f => this.renderField(f, f.key)).join('')}
+                                ${(() => {
+                                    const indShsCount = this.data.individualShareholdersCount !== undefined ? this.data.individualShareholdersCount : 0;
+                                    if (indShsCount > 1) {
+                                        const extra = indShsCount - 1;
+                                        const isChecked = this.data.additional_shareholders !== false;
+                                        return `
+                                            <div class="service-toggle-card ${isChecked ? '' : 'inactive'}" style="margin-bottom: 0px;" id="switch-card-additional-shareholders">
+                                                <div class="service-toggle-left">
+                                                    <div class="service-toggle-icon" style="color: #4f46e5; background: #e0e7ff;">
+                                                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm14 10v-2a4 4 0 0 0-3-3.87m-4-12a4 4 0 0 1 0 7.75"/></svg>
+                                                    </div>
+                                                    <div class="service-toggle-details">
+                                                        <h4 class="service-toggle-title">Additional individual shareholders</h4>
+                                                        <p class="service-toggle-desc">Compliance check and registration fee for ${extra} additional individual shareholder(s).</p>
+                                                    </div>
+                                                </div>
+                                                <div class="service-toggle-right">
+                                                    <div class="service-toggle-price">
+                                                        <span class="service-toggle-price-val">$${extra * 150}</span>
+                                                        <span class="service-toggle-price-lbl">one-time</span>
+                                                    </div>
+                                                    <label class="switch-input-container">
+                                                        <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="
+                                                            wizard.toggleAdditionalShareholders(this.checked);
+                                                        ">
+                                                        <span class="switch-slider"></span>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        `;
+                                    }
+                                    return '';
+                                })()}
                             </div>
                             <!-- Other custom fields -->
                             <div class="form-grid" style="margin-top: 1.5rem;">
                                 ${(sec.fields || []).filter(f => f.type !== 'switch').map(f => this.renderField(f, f.key)).join('')}
                             </div>
-
                         </div>
                     `;
-
                 }
                 if (sec.id === 'sec-addons') {
                     return `
@@ -3995,27 +4192,40 @@
             }
 
             adjustCount(key, change) {
-                let list = getVal(this.data, key);
-                if (!list || !Array.isArray(list)) {
-                    list = [];
-                }
-                
-                if (change > 0) {
-                    let defaultObj = {};
-                    if (key === 'directors') {
-                        defaultObj = { name: '', idType: 'local', idNum: '', dob: '', phone: '', passportExpiry: '', docs: {} };
-                    }
-                    list.push(defaultObj);
-                } else if (change < 0) {
-                    if (list.length > 1) {
-                        list.pop();
-                    } else {
-                        showToast(`At least one director is required.`, "error");
+                if (key === 'localDirectors') {
+                    if (this.data.hasLocalDirector === 'no') {
+                        showToast("Local director is provided by Globalisor Nominee service.", "info");
                         return;
                     }
+                    const current = this.data.localDirectorsCount || 1;
+                    const next = Math.max(1, current + change);
+                    this.data.localDirectorsCount = next;
+                } else if (key === 'foreignDirectors') {
+                    const current = this.data.foreignDirectorsCount || 1;
+                    const next = Math.max(1, current + change);
+                    this.data.foreignDirectorsCount = next;
+                } else {
+                    // fallback
+                    let list = getVal(this.data, key);
+                    if (!list || !Array.isArray(list)) list = [];
+                    if (change > 0) {
+                        list.push({});
+                    } else if (change < 0) {
+                        if (list.length > 1) list.pop();
+                    }
+                    setVal(this.data, key, list);
                 }
-                
-                setVal(this.data, key, list);
+                this.syncDirectorsList();
+                this.save();
+                this.render();
+            }
+
+            handleHasLocalDirectorChange(val) {
+                this.data.hasLocalDirector = val;
+                if (val === 'no') {
+                    this.data.localDirectorsCount = 1;
+                }
+                this.syncDirectorsList();
                 this.save();
                 this.render();
             }
@@ -4605,25 +4815,22 @@
             }
 
             adjustShareholderCount(type, change) {
-                let list = getVal(this.data, 'shareholders');
-                if (!list || !Array.isArray(list)) {
-                    list = [];
+                if (type === 'individual') {
+                    const current = this.data.individualShareholdersCount !== undefined ? this.data.individualShareholdersCount : 0;
+                    const next = Math.max(0, current + change);
+                    this.data.individualShareholdersCount = next;
+                } else if (type === 'corporate') {
+                    const current = this.data.corporateShareholdersCount !== undefined ? this.data.corporateShareholdersCount : 0;
+                    const next = Math.max(0, current + change);
+                    this.data.corporateShareholdersCount = next;
                 }
-                
-                if (change > 0) {
-                    const defaultObj = { type: type, name: '', shares: '', percent: '', regNum: '', regPlace: '', regDate: '', phone: '', email: '', addr: '', docs: {}, bo: [] };
-                    list.push(defaultObj);
-                } else if (change < 0) {
-                    const lastIdx = list.map(s => s.type).lastIndexOf(type);
-                    if (lastIdx !== -1) {
-                        list.splice(lastIdx, 1);
-                    } else {
-                        showToast(`No ${type} shareholders to remove.`, "error");
-                        return;
-                    }
-                }
-                
-                setVal(this.data, 'shareholders', list);
+                this.syncShareholdersList();
+                this.save();
+                this.render();
+            }
+
+            toggleAdditionalShareholders(isChecked) {
+                this.data.additional_shareholders = isChecked;
                 this.save();
                 this.render();
             }
@@ -4711,7 +4918,8 @@
                     { code: 'ID', flag: '🇮🇩', prefix: '+62', name: 'Indonesia', lengths: [9, 10, 11, 12] },
                     { code: 'US', flag: '🇺🇸', prefix: '+1', name: 'USA', lengths: [10] },
                     { code: 'GB', flag: '🇬🇧', prefix: '+44', name: 'UK', lengths: [10] },
-                    { code: 'AU', flag: '🇦🇺', prefix: '+61', name: 'Australia', lengths: [9] }
+                    { code: 'AU', flag: '🇦🇺', prefix: '+61', name: 'Australia', lengths: [9] },
+                    { code: 'OTHER', flag: '🌐', prefix: '+', name: 'Other', lengths: [] }
                 ];
                 
                 const selectEl = document.getElementById('phone-country');
@@ -4724,7 +4932,11 @@
                 const c = countries.find(x => x.code === countryCode) || countries[0];
                 
                 if (flagImgEl) {
-                    flagImgEl.src = `https://flagcdn.com/20x15/${c.code.toLowerCase()}.png`;
+                    if (c.code === 'OTHER') {
+                        flagImgEl.src = 'https://flagcdn.com/20x15/un.png'; // fallback or global flag
+                    } else {
+                        flagImgEl.src = `https://flagcdn.com/20x15/${c.code.toLowerCase()}.png`;
+                    }
                 }
 
                 const placeholders = {
@@ -4734,7 +4946,8 @@
                     ID: '812-3456-7890',
                     US: '202-555-0143',
                     GB: '7911 123456',
-                    AU: '412 345 678'
+                    AU: '412 345 678',
+                    OTHER: 'Enter country code & phone number'
                 };
                 inputEl.placeholder = placeholders[c.code] || '1234 5678';
                 
@@ -4742,21 +4955,27 @@
                 inputEl.value = digits;
                 
                 let isValid = false;
-                if (c.lengths.includes(digits.length)) {
+                if (c.code === 'OTHER') {
+                    isValid = digits.length >= 6 && digits.length <= 15;
+                } else if (c.lengths.includes(digits.length)) {
                     isValid = true;
                 }
                 
                 if (errorEl) {
                     if (!isValid && digits.length > 0) {
-                        const lengthText = c.lengths.join(' or ');
-                        errorEl.innerText = `Phone number must be ${lengthText} digits for ${c.name}`;
+                        if (c.code === 'OTHER') {
+                            errorEl.innerText = `Phone number must be between 6 and 15 digits`;
+                        } else {
+                            const lengthText = c.lengths.join(' or ');
+                            errorEl.innerText = `Phone number must be ${lengthText} digits for ${c.name}`;
+                        }
                         errorEl.style.display = 'block';
                     } else {
                         errorEl.style.display = 'none';
                     }
                 }
                 
-                const fullNumber = digits.length > 0 ? `${c.prefix} ${digits}` : '';
+                const fullNumber = digits.length > 0 ? `${c.prefix}${digits}` : '';
                 setVal(this.data, 'contact.phone', fullNumber);
                 this.save();
                 this.evaluateConditionalFields();
@@ -4947,18 +5166,79 @@
                 this.render();
             }
 
+            async autoLoginAndRedirect() {
+                const email = this.data.contact ? this.data.contact.email : '';
+                const password = localStorage.getItem('signup_password') || 'password123';
+                if (!email) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+                try {
+                    const res = await fetch('/api/auth/signin', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password })
+                    });
+                    if (res.ok) {
+                        const credentials = await res.json();
+                        localStorage.setItem('token', credentials.accessToken);
+                        localStorage.setItem('role', credentials.roles ? credentials.roles[0] : 'ROLE_USER');
+                        localStorage.setItem('username', credentials.username);
+                        localStorage.setItem('client_id', credentials.id);
+                        localStorage.setItem('client_email', credentials.email);
+                        window.location.href = '/client/portal.html?tab=onboarding';
+                    } else {
+                        window.location.href = '/login.html?email=' + encodeURIComponent(email);
+                    }
+                } catch(e) {
+                    console.error("Auto login error:", e);
+                    window.location.href = '/login.html?email=' + encodeURIComponent(email);
+                }
+            }
+
             getCheckoutHTML(rejectionBanner) {
+                const indShsCount = this.data.individualShareholdersCount !== undefined ? this.data.individualShareholdersCount : 0;
+                const corpShsCount = this.data.corporateShareholdersCount !== undefined ? this.data.corporateShareholdersCount : 0;
+                const localDirsCount = this.data.hasLocalDirector === 'no' ? 1 : (this.data.localDirectorsCount || 1);
+                const foreignDirsCount = this.data.foreignDirectorsCount || 1;
+
                 const billingItems = [
                     {
                         key: 'base',
-                        name: 'Singapore Incorporation',
-                        desc: 'ACRA registration, filing fees & setup',
-                        price: 350,
+                        name: 'Singapore Foreigner Incorporation Package',
+                        desc: 'ACRA registration, filing fees & standard setup',
+                        price: 1315,
                         period: '',
                         locked: true,
                         checked: true
                     }
                 ];
+
+                if (this.data.hasLocalDirector === 'no') {
+                    billingItems.push({
+                        key: 'nominee_director',
+                        name: 'Nominee Director Service',
+                        desc: 'Globalisor Nominee Director to satisfy ACRA residency requirement.',
+                        price: 3000,
+                        period: '/yr',
+                        locked: true,
+                        checked: true
+                    });
+                }
+
+                if (indShsCount > 1) {
+                    const extra = indShsCount - 1;
+                    const isChecked = this.data.additional_shareholders !== undefined ? this.data.additional_shareholders : true;
+                    billingItems.push({
+                        key: 'additional_shareholders',
+                        name: `Additional Shareholders (${extra})`,
+                        desc: 'Additional individual shareholder registration & compliance check fee',
+                        price: extra * 150,
+                        period: '',
+                        locked: false,
+                        checked: isChecked
+                    });
+                }
                 
                 const addedKeys = new Set();
                 
@@ -5039,23 +5319,19 @@
 
                 const formattedTotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(total).replace('$', 'SGD ');
 
+                // Pass totalAmount and journeyType in data so it saves to the backend
+                this.data.totalAmount = formattedTotal;
+                this.data.journeyType = 'FOREIGNER';
+
                 const name1 = getVal(this.data, 'names[0]') || 'Not specified';
                 const name2 = getVal(this.data, 'names[1]') || 'Not specified';
-                let primaryAct = 'Not specified';
-                const activitiesList = getVal(this.data, 'activities');
-                if (Array.isArray(activitiesList) && activitiesList.length > 0) {
-                    primaryAct = activitiesList.map(a => `${a.code === 'MANUAL' ? '' : a.code + ' - '}${a.name}`).join(', ');
-                } else {
-                    const oldPrimary = getVal(this.data, 'activities.primary');
-                    if (oldPrimary) {
-                        primaryAct = typeof oldPrimary === 'object' ? `${oldPrimary.code || ''} ${oldPrimary.name || ''}`.trim() : oldPrimary;
-                    }
-                }
-                const compType = getVal(this.data, 'companyType') || 'Pte Ltd';
                 
-                const dirsCount = this.data.directors ? this.data.directors.length : 1;
-                const indShsCount = this.data.shareholders ? this.data.shareholders.filter(s => s.type === 'individual').length : 0;
-                const corpShsCount = this.data.shareholders ? this.data.shareholders.filter(s => s.type === 'corporate').length : 0;
+                const primaryActObj = getVal(this.data, 'activities.primary');
+                const secondaryActObj = getVal(this.data, 'activities.secondary');
+                const primaryActStr = primaryActObj ? `${primaryActObj.code || ''} - ${primaryActObj.name || ''}`.trim() : 'Not specified';
+                const secondaryActStr = secondaryActObj ? `${secondaryActObj.code || ''} - ${secondaryActObj.name || ''}`.trim() : 'None';
+
+                const compType = getVal(this.data, 'companyType') || 'Pte Ltd';
                 
                 const firstName = getVal(this.data, 'contact.firstName') || '';
                 const lastName = getVal(this.data, 'contact.lastName') || '';
@@ -5074,6 +5350,7 @@
                             <p style="color: #64748b; font-size: 1rem; line-height: 1.6; margin-bottom: 2rem;">
                                 Thank you for your payment, <strong>${firstName}</strong>. A summary email containing your selected package and incorporation details has been sent to <strong>${email}</strong>.
                             </p>
+
                             <div style="background: #f8fafc; border-radius: 12px; padding: 1.25rem; border: 1px dashed #e2e8f0; text-align: left; margin-bottom: 2rem; font-size: 0.9rem; color: #475569;">
                                 <div style="font-weight: 700; margin-bottom: 0.5rem;">Billing Transaction Details:</div>
                                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
@@ -5138,24 +5415,32 @@
                                         <span class="summary-value">${name2}</span>
                                     </div>
                                     <div class="summary-row">
-                                        <span class="summary-label">Primary Business Activity:</span>
-                                        <span class="summary-value">${primaryAct}</span>
+                                        <span class="summary-label">Primary Activity:</span>
+                                        <span class="summary-value">${primaryActStr}</span>
+                                    </div>
+                                    <div class="summary-row">
+                                        <span class="summary-label">Secondary Activity:</span>
+                                        <span class="summary-value">${secondaryActStr}</span>
                                     </div>
                                 </div>
                                 
                                 <div class="summary-card">
-                                    <div class="summary-section-title">👥 Structure & Team</div>
+                                    <div class="summary-section-title">👥 Officer Structure & Team</div>
                                     <div class="summary-row">
-                                        <span class="summary-label">Directors:</span>
-                                        <span class="summary-value">${dirsCount} member(s)</span>
+                                        <span class="summary-label">Local Directors:</span>
+                                        <span class="summary-value">${localDirsCount} officer(s) ${this.data.hasLocalDirector === 'no' ? '(Nominee)' : ''}</span>
+                                    </div>
+                                    <div class="summary-row">
+                                        <span class="summary-label">Foreign Directors:</span>
+                                        <span class="summary-value">${foreignDirsCount} officer(s)</span>
                                     </div>
                                     <div class="summary-row">
                                         <span class="summary-label">Individual Shareholders:</span>
-                                        <span class="summary-value">${indShsCount} member(s)</span>
+                                        <span class="summary-value">${indShsCount} officer(s)</span>
                                     </div>
                                     <div class="summary-row">
                                         <span class="summary-label">Corporate Shareholders:</span>
-                                        <span class="summary-value">${corpShsCount} member(s)</span>
+                                        <span class="summary-value">${corpShsCount} officer(s)</span>
                                     </div>
                                 </div>
                                 
@@ -5797,7 +6082,104 @@
                         { code: 'ID', flag: '🇮🇩', prefix: '+62', name: 'Indonesia', lengths: [9, 10, 11, 12] },
                         { code: 'US', flag: '🇺🇸', prefix: '+1', name: 'USA', lengths: [10] },
                         { code: 'GB', flag: '🇬🇧', prefix: '+44', name: 'UK', lengths: [10] },
-                        { code: 'AU', flag: '🇦🇺', prefix: '+61', name: 'Australia', lengths: [9] }
+                        { code: 'AU', flag: '🇦🇺', prefix: '+61', name: 'Australia', lengths: [9] },
+                        { code: 'CA', flag: '🇨🇦', prefix: '+1', name: 'Canada', lengths: [10] },
+                        { code: 'CN', flag: '🇨🇳', prefix: '+86', name: 'China', lengths: [11] },
+                        { code: 'HK', flag: '🇭🇰', prefix: '+852', name: 'Hong Kong', lengths: [8] },
+                        { code: 'JP', flag: '🇯🇵', prefix: '+81', name: 'Japan', lengths: [10] },
+                        { code: 'KR', flag: '🇰🇷', prefix: '+82', name: 'South Korea', lengths: [9, 10] },
+                        { code: 'VN', flag: '🇻🇳', prefix: '+84', name: 'Vietnam', lengths: [9, 10] },
+                        { code: 'TH', flag: '🇹🇭', prefix: '+66', name: 'Thailand', lengths: [9, 10] },
+                        { code: 'PH', flag: '🇵🇭', prefix: '+63', name: 'Philippines', lengths: [10] },
+                        { code: 'TW', flag: '🇹🇼', prefix: '+886', name: 'Taiwan', lengths: [9] },
+                        { code: 'AE', flag: '🇦🇪', prefix: '+971', name: 'UAE', lengths: [9] },
+                        { code: 'SA', flag: '🇸🇦', prefix: '+966', name: 'Saudi Arabia', lengths: [9] },
+                        { code: 'DE', flag: '🇩🇪', prefix: '+49', name: 'Germany', lengths: [10, 11] },
+                        { code: 'FR', flag: '🇫🇷', prefix: '+33', name: 'France', lengths: [9] },
+                        { code: 'IT', flag: '🇮🇹', prefix: '+39', name: 'Italy', lengths: [10] },
+                        { code: 'ES', flag: '🇪🇸', prefix: '+34', name: 'Spain', lengths: [9] },
+                        { code: 'NL', flag: '🇳🇱', prefix: '+31', name: 'Netherlands', lengths: [9] },
+                        { code: 'CH', flag: '🇨🇭', prefix: '+41', name: 'Switzerland', lengths: [9] },
+                        { code: 'NZ', flag: '🇳🇿', prefix: '+64', name: 'New Zealand', lengths: [8, 9, 10] },
+                        { code: 'ZA', flag: '🇿🇦', prefix: '+27', name: 'South Africa', lengths: [9] },
+                        { code: 'BR', flag: '🇧🇷', prefix: '+55', name: 'Brazil', lengths: [10, 11] },
+                        { code: 'RU', flag: '🇷🇺', prefix: '+7', name: 'Russia', lengths: [10] },
+                        { code: 'MX', flag: '🇲🇽', prefix: '+52', name: 'Mexico', lengths: [10] },
+                        { code: 'TR', flag: '🇹🇷', prefix: '+90', name: 'Turkey', lengths: [10] },
+                        { code: 'AR', flag: '🇦🇷', prefix: '+54', name: 'Argentina', lengths: [10] },
+                        { code: 'AT', flag: '🇦🇹', prefix: '+43', name: 'Austria', lengths: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13] },
+                        { code: 'BE', flag: '🇧🇪', prefix: '+32', name: 'Belgium', lengths: [9] },
+                        { code: 'CL', flag: '🇨🇱', prefix: '+56', name: 'Chile', lengths: [9] },
+                        { code: 'CO', flag: '🇨🇴', prefix: '+57', name: 'Colombia', lengths: [10] },
+                        { code: 'DK', flag: '🇩🇰', prefix: '+45', name: 'Denmark', lengths: [8] },
+                        { code: 'EG', flag: '🇪🇬', prefix: '+20', name: 'Egypt', lengths: [10] },
+                        { code: 'FI', flag: '🇫🇮', prefix: '+358', name: 'Finland', lengths: [5, 6, 7, 8, 9, 10, 11, 12] },
+                        { code: 'GR', flag: '🇬🇷', prefix: '+30', name: 'Greece', lengths: [10] },
+                        { code: 'IE', flag: '🇮🇪', prefix: '+353', name: 'Ireland', lengths: [9] },
+                        { code: 'IL', flag: '🇮🇱', prefix: '+972', name: 'Israel', lengths: [9] },
+                        { code: 'NO', flag: '🇳🇴', prefix: '+47', name: 'Norway', lengths: [8] },
+                        { code: 'PL', flag: '🇵🇱', prefix: '+48', name: 'Poland', lengths: [9] },
+                        { code: 'PT', flag: '🇵🇹', prefix: '+351', name: 'Portugal', lengths: [9] },
+                        { code: 'SE', flag: '🇸🇪', prefix: '+46', name: 'Sweden', lengths: [9] },
+                        { code: 'UA', flag: '🇺🇦', prefix: '+380', name: 'Ukraine', lengths: [9] },
+                        { code: 'BD', flag: '🇧🇩', prefix: '+880', name: 'Bangladesh', lengths: [10] },
+                        { code: 'PK', flag: '🇵🇰', prefix: '+92', name: 'Pakistan', lengths: [10] },
+                        { code: 'LK', flag: '🇱🇰', prefix: '+94', name: 'Sri Lanka', lengths: [9] },
+                        { code: 'NP', flag: '🇳🇵', prefix: '+977', name: 'Nepal', lengths: [10] },
+                        { code: 'MM', flag: '🇲🇲', prefix: '+95', name: 'Myanmar', lengths: [8, 9, 10] },
+                        { code: 'KH', flag: '🇰🇭', prefix: '+855', name: 'Cambodia', lengths: [8, 9] },
+                        { code: 'LA', flag: '🇱🇦', prefix: '+856', name: 'Laos', lengths: [8, 9] },
+                        { code: 'BN', flag: '🇧🇳', prefix: '+673', name: 'Brunei', lengths: [7, 8] },
+                        { code: 'MV', flag: '🇲🇻', prefix: '+960', name: 'Maldives', lengths: [7] },
+                        { code: 'QA', flag: '🇶🇦', prefix: '+974', name: 'Qatar', lengths: [8] },
+                        { code: 'KW', flag: '🇰🇼', prefix: '+965', name: 'Kuwait', lengths: [8] },
+                        { code: 'OM', flag: '🇴🇲', prefix: '+968', name: 'Oman', lengths: [8] },
+                        { code: 'BH', flag: '🇧🇭', prefix: '+973', name: 'Bahrain', lengths: [8] },
+                        { code: 'JO', flag: '🇯🇴', prefix: '+962', name: 'Jordan', lengths: [9] },
+                        { code: 'LB', flag: '🇱🇧', prefix: '+961', name: 'Lebanon', lengths: [8] },
+                        { code: 'NG', flag: '🇳🇬', prefix: '+234', name: 'Nigeria', lengths: [10] },
+                        { code: 'KE', flag: '🇰🇪', prefix: '+254', name: 'Kenya', lengths: [9] },
+                        { code: 'MA', flag: '🇲🇦', prefix: '+212', name: 'Morocco', lengths: [9] },
+                        { code: 'GH', flag: '🇬🇭', prefix: '+233', name: 'Ghana', lengths: [9] },
+                        { code: 'PE', flag: '🇵🇪', prefix: '+51', name: 'Peru', lengths: [9] },
+                        { code: 'VE', flag: '🇻🇪', prefix: '+58', name: 'Venezuela', lengths: [10] },
+                        { code: 'RO', flag: '🇷🇴', prefix: '+40', name: 'Romania', lengths: [9] },
+                        { code: 'HU', flag: '🇭🇺', prefix: '+36', name: 'Hungary', lengths: [9] },
+                        { code: 'CZ', flag: '🇨🇿', prefix: '+420', name: 'Czechia', lengths: [9] },
+                        { code: 'SK', flag: '🇸🇰', prefix: '+421', name: 'Slovakia', lengths: [9] },
+                        { code: 'BG', flag: '🇧🇬', prefix: '+359', name: 'Bulgaria', lengths: [9] },
+                        { code: 'HR', flag: '🇭🇷', prefix: '+385', name: 'Croatia', lengths: [9] },
+                        { code: 'SI', flag: '🇸🇮', prefix: '+386', name: 'Slovenia', lengths: [9] },
+                        { code: 'LU', flag: '🇱🇺', prefix: '+352', name: 'Luxembourg', lengths: [9] },
+                        { code: 'EE', flag: '🇪🇪', prefix: '+372', name: 'Estonia', lengths: [7, 8] },
+                        { code: 'LV', flag: '🇱🇻', prefix: '+371', name: 'Latvia', lengths: [8] },
+                        { code: 'LT', flag: '🇱🇹', prefix: '+370', name: 'Lithuania', lengths: [8] },
+                        { code: 'CY', flag: '🇨🇾', prefix: '+357', name: 'Cyprus', lengths: [8] },
+                        { code: 'MT', flag: '🇲🇹', prefix: '+356', name: 'Malta', lengths: [8] },
+                        { code: 'IS', flag: '🇮🇸', prefix: '+354', name: 'Iceland', lengths: [7] },
+                        { code: 'MC', flag: '🇲🇨', prefix: '+377', name: 'Monaco', lengths: [8, 9] },
+                        { code: 'AD', flag: '🇦🇩', prefix: '+376', name: 'Andorra', lengths: [6] },
+                        { code: 'LI', flag: '🇱🇮', prefix: '+423', name: 'Liechtenstein', lengths: [7] },
+                        { code: 'SM', flag: '🇸🇲', prefix: '+378', name: 'San Marino', lengths: [10] },
+                        { code: 'PA', flag: '🇵🇦', prefix: '+507', name: 'Panama', lengths: [7, 8] },
+                        { code: 'CR', flag: '🇨🇷', prefix: '+506', name: 'Costa Rica', lengths: [8] },
+                        { code: 'GT', flag: '🇬🇹', prefix: '+502', name: 'Guatemala', lengths: [8] },
+                        { code: 'EC', flag: '🇪🇨', prefix: '+593', name: 'Ecuador', lengths: [9] },
+                        { code: 'UY', flag: '🇺🇾', prefix: '+598', name: 'Uruguay', lengths: [8] },
+                        { code: 'AZ', flag: '🇦🇿', prefix: '+994', name: 'Azerbaijan', lengths: [9] },
+                        { code: 'GE', flag: '🇬🇪', prefix: '+995', name: 'Georgia', lengths: [9] },
+                        { code: 'KZ', flag: '🇰🇿', prefix: '+7', name: 'Kazakhstan', lengths: [10] },
+                        { code: 'UZ', flag: '🇺🇿', prefix: '+998', name: 'Uzbekistan', lengths: [9] },
+                        { code: 'DZ', flag: '🇩🇿', prefix: '+213', name: 'Algeria', lengths: [9] },
+                        { code: 'TN', flag: '🇹🇳', prefix: '+216', name: 'Tunisia', lengths: [8] },
+                        { code: 'ET', flag: '🇪🇹', prefix: '+251', name: 'Ethiopia', lengths: [9] },
+                        { code: 'TZ', flag: '🇹🇿', prefix: '+255', name: 'Tanzania', lengths: [9] },
+                        { code: 'UG', flag: '🇺🇬', prefix: '+256', name: 'Uganda', lengths: [9] },
+                        { code: 'MU', flag: '🇲🇺', prefix: '+230', name: 'Mauritius', lengths: [7] },
+                        { code: 'SC', flag: '🇸🇨', prefix: '+248', name: 'Seychelles', lengths: [7] },
+                        { code: 'FJ', flag: '🇫🇯', prefix: '+679', name: 'Fiji', lengths: [7] },
+                        { code: 'PG', flag: '🇵🇬', prefix: '+675', name: 'Papua New Guinea', lengths: [7, 8] },
+                        { code: 'OTHER', flag: '🌐', prefix: '+', name: 'Other', lengths: [] }
                     ];
 
                     let selectedCountry = countries[0];
@@ -5805,15 +6187,19 @@
                     if (val) {
                         const cleanedVal = val.trim();
                         for (const c of countries) {
-                            if (cleanedVal.startsWith(c.prefix)) {
+                            if (c.code !== 'OTHER' && cleanedVal.startsWith(c.prefix)) {
                                 selectedCountry = c;
                                 numberPart = cleanedVal.slice(c.prefix.length).trim();
                                 break;
                             }
                         }
+                        if (cleanedVal.startsWith('+') && selectedCountry.code === 'SG' && !cleanedVal.startsWith('+65')) {
+                            selectedCountry = countries.find(c => c.code === 'OTHER');
+                            numberPart = cleanedVal.slice(1).trim();
+                        }
                     }
 
-                    const flagUrl = `https://flagcdn.com/20x15/${selectedCountry.code.toLowerCase()}.png`;
+                    const flagUrl = selectedCountry.code === 'OTHER' ? 'https://flagcdn.com/20x15/un.png' : `https://flagcdn.com/20x15/${selectedCountry.code.toLowerCase()}.png`;
 
                     return `
                         <div class="form-group" style="flex: 1 1 100%;">
@@ -5838,7 +6224,7 @@
                 let html = '';
                 switch (field.type) {
                     case 'ssic':
-                        const list = Array.isArray(val) ? val : [];
+                        const list = this.getSsicArray();
                         html = `
                             <div class="form-group full" style="position: relative; flex: 1 1 100%; display: flex; flex-direction: column;" id="ssic-container-${containerId}">
                                 <label class="form-label">${field.label}${requiredAsterisk}</label>

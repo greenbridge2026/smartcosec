@@ -175,6 +175,11 @@
                         </div>
                     </div>
                     
+                    <select id="journey-type-selector" onchange="changeJourneyType(this.value)" class="bg-white border border-slate-200 text-slate-700 font-bold px-3 py-2.5 rounded-xl text-xs outline-none cursor-pointer shadow-sm">
+                        <option value="LOCAL">Local Incorporation Journey</option>
+                        <option value="FOREIGNER">Foreigner Incorporation Journey</option>
+                    </select>
+
                     <button onclick="previewOnboarding()" class="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-all shadow-sm">
                         <i data-lucide="eye" class="w-4 h-4 text-slate-400"></i> Preview
                     </button>
@@ -560,6 +565,13 @@
         let sections = [];
         let selectedSectionId = null;
         let draggedElementId = null;
+        let currentJourneyType = 'LOCAL';
+
+        function changeJourneyType(val) {
+            currentJourneyType = val;
+            selectedSectionId = null;
+            loadSections();
+        }
 
         function updateSectionTitleLive(val) {
             const sec = sections.find(s => s.id === selectedSectionId);
@@ -601,7 +613,7 @@
             try {
                 const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
                 const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
-                const res = await fetch('/api/prereg-sections', { headers });
+                const res = await fetch(`/api/prereg-sections?journeyType=${currentJourneyType}`, { headers });
                 
                 if (res.ok) {
                     sections = await res.json();
@@ -1616,7 +1628,8 @@
                 documents: [],
                 checklists: [],
                 attachments: [],
-                faqs: []
+                faqs: [],
+                journeyType: currentJourneyType
             };
 
             try {

@@ -778,7 +778,7 @@ async function init() {
 
         // Delay redirect slightly so the click action is visually visible to the user
         setTimeout(() => {
-            window.location.href = '/requirements';
+            window.location.href = isLocal ? '/requirements' : '/requirements-foreigner.html';
         }, 500);
     }
 
