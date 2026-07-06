@@ -274,7 +274,7 @@ state.onboardingData = null;
 
 async function checkPortalActivation() {
     try {
-        const res = await fetch(`/api/onboarding/client/${state.user.id}/status`);
+        const res = await fetch(`/api/onboarding/client/${state.user.id}/status?_t=${Date.now()}`);
         if (res.ok) {
             const data = await res.json();
             state.portalActivated = data.portalActivated === true;
@@ -395,7 +395,8 @@ function getStepRequiredDocs(stepKey, data) {
         }
         if (data && data.idType === 'foreign') {
             return [
-                { type: 'nric', label: 'Passport Copy' }
+                { type: 'passport', label: 'Passport Copy' },
+                { type: 'address_proof', label: 'Utility Bill / Bank Statement / Mobile Bill' }
             ];
         } else {
             return [
@@ -409,8 +410,9 @@ function getStepRequiredDocs(stepKey, data) {
         if (data && (data.sameAsDirector === true || data.sameAsDirector === 'true')) {
             return [];
         }
-        const isLocal = data && data.shareholderType === 'Local';
-        const isForeignerSh = data && data.shareholderType === 'Foreigner';
+        const st = data ? String(data.shareholderType || '').trim().toLowerCase() : '';
+        const isLocal = st === 'local';
+        const isForeignerSh = st === 'foreigner';
         if (isLocal) {
             return [
                 { type: 'nric', label: 'NRIC' },
@@ -418,7 +420,7 @@ function getStepRequiredDocs(stepKey, data) {
             ];
         } else if (isForeignerSh) {
             return [
-                { type: 'nric', label: 'Passport Copy' },
+                { type: 'passport', label: 'Passport' },
                 { type: 'address_proof', label: 'Utility Bill / Bank Statement / Mobile Bill' }
             ];
         } else {
@@ -715,7 +717,7 @@ async function renderOnboarding(container) {
     // Fetch latest onboarding data
     let ob = null;
     try {
-        const res = await fetch(`/api/onboarding/client/${state.user.id}`);
+        const res = await fetch(`/api/onboarding/client/${state.user.id}?_t=${Date.now()}`);
         if (res.ok) ob = await res.json();
     } catch (e) { }
 
@@ -834,6 +836,7 @@ async function renderOnboarding(container) {
                         residentialAddress: existing.residentialAddress || d.addr || '',
                         email: existing.email || d.email || '',
                         mobile: existing.mobile || d.phone || '',
+                        passportExpiry: existing.passportExpiry || d.passportExpiry || '',
                         disqualificationAcknowledge: existing.disqualificationAcknowledge || false,
                         idType: existing.idType || d.idType || 'local',
                         source: existing.source || d.source || 'self'
@@ -867,12 +870,15 @@ async function renderOnboarding(container) {
                         residentialAddress: existing.residentialAddress || s.addr || '',
                         email: existing.email || s.email || '',
                         mobile: existing.mobile || s.phone || '',
+                        passportExpiry: existing.passportExpiry || s.passportExpiry || '',
                         totalShares: existing.totalShares || s.totalShares || '',
                         totalShareCapital: existing.totalShareCapital || s.totalShareCapital || '',
                         currency: existing.currency || s.currency || 'Select',
                         shareClass: existing.shareClass || s.shareClass || 'Select',
                         numberOfShares: existing.numberOfShares || s.shares || '',
+                        numberOfSharesPct: existing.numberOfSharesPct || '',
                         shareCapitalAmount: existing.shareCapitalAmount || s.percent || '',
+                        shareCapitalAmountPct: existing.shareCapitalAmountPct || '',
                         ownershipPercentage: existing.ownershipPercentage || '',
                         uboDeclaration: existing.uboDeclaration || 'Select'
                     });
@@ -1864,11 +1870,11 @@ function obRenderPhoneField({ inputId, val, readonlyAttr, onInputCallback }) {
 
     return `<div class="ob-field">
         <label>Mobile Number</label>
-        <div style="display:flex;gap:0;align-items:stretch;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#fff;transition:border-color 0.2s;position:relative;" id="${inputId}-wrap"
+        <div style="display:flex;gap:0;align-items:stretch;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;transition:border-color 0.2s;position:relative;" id="${inputId}-wrap"
             onfocusin="this.style.borderColor='#3b82f6'" onfocusout="this.style.borderColor='#e2e8f0'">
             
             <div id="${inputId}-picker-btn" onclick="${isReadOnly ? '' : `obPhoneSearchToggle('${inputId}')`}"
-                 style="display:flex;align-items:center;gap:5px;padding:0 10px;background:#f8fafc;border-right:1.5px solid #e2e8f0;min-width:90px;cursor:${isReadOnly ? 'default' : 'pointer'};position:relative;user-select:none;">
+                 style="display:flex;align-items:center;gap:5px;padding:0 10px;background:#f8fafc;border-right:1.5px solid #e2e8f0;min-width:90px;cursor:${isReadOnly ? 'default' : 'pointer'};position:relative;user-select:none; border-top-left-radius: 8px; border-bottom-left-radius: 8px;">
                 <span id="${inputId}-flag" style="display:flex;align-items:center;">${obFlagImg(selectedCode, 20)}</span>
                 <span id="${inputId}-dialcode" style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap;">${selectedDial}</span>
                 ${isReadOnly ? '' : `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`}
@@ -2125,7 +2131,32 @@ function renderActiveStepForm(container) {
 
         contentHtml = data.list.map((item, idx) => {
             const currentRequiredDocs = getStepRequiredDocs(stepKey, item);
-            const currentManualFields = getStepManualFields(stepKey, item);
+            let currentManualFields = getStepManualFields(stepKey, item);
+
+            let topFieldsHtml = '';
+            if (stepKey === 'individual_shareholder') {
+                const shTypeIdx = currentManualFields.findIndex(f => f.key === 'shareholderType');
+                if (shTypeIdx !== -1) {
+                    const f = currentManualFields[shTypeIdx];
+                    currentManualFields.splice(shTypeIdx, 1); // Remove from main list
+                    
+                    const val = item[f.key] !== undefined ? item[f.key] : '';
+                    const inputId = `ob-${stepKey}-${idx}-${f.key}`;
+                    const disabledAttr = isReadOnly ? 'disabled' : '';
+                    const options = f.options || [];
+                    
+                    topFieldsHtml = `
+                        <div class="ob-field-row" style="margin-bottom: 24px;">
+                            <div class="ob-field">
+                                <label for="${inputId}">${f.label}</label>
+                                <select id="${inputId}" ${disabledAttr} onchange="triggerMultiItemAutoSave('${stepKey}', ${idx}, true)">
+                                    ${options.map(o => `<option value="${o}" ${String(val).trim().toLowerCase() === String(o).trim().toLowerCase() ? 'selected' : ''}>${o}</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
 
             let itemDocsHtml = '';
             if (currentRequiredDocs && currentRequiredDocs.length > 0) {
@@ -2191,8 +2222,9 @@ function renderActiveStepForm(container) {
 
             let itemFieldsHtml = '';
             const hasNric = docs.some(d => d.type === `nric_${idx}`);
+            const hasPassport = docs.some(d => d.type === `passport_${idx}`);
             const hasAddress = docs.some(d => d.type === `address_proof_${idx}`);
-            const showFields = (stepKey !== 'director_details') || (hasNric || hasAddress) || (item.source === 'globalisor');
+            const showFields = (stepKey !== 'director_details') || (hasNric || hasPassport || hasAddress) || (item.source === 'globalisor');
 
             if (item.source === 'globalisor') {
                 itemFieldsHtml = `
@@ -2304,7 +2336,8 @@ function renderActiveStepForm(container) {
                                          } else {
                                              externalControllers.forEach((ext, extIdx) => {
                                                  const docKey = `external_passport_${idx}_${extIdx}`;
-                                                 const docsList = state.onboarding.step4CorporateShareholder.documents || [];
+                                                 const corpStepData = state.onboarding.step4CorporateShareholder || {};
+                                                 const docsList = corpStepData.documents || [];
                                                  const uploadedDoc = docsList.find(d => d.type === docKey);
                                                  let uploadHtml = '';
                                                  if (uploadedDoc) {
@@ -2497,6 +2530,18 @@ function renderActiveStepForm(container) {
                                     const stepData = state.onboarding[ONBOARDING_STEPS.find(s => s.key === stepKey).field];
                                     if (stepData && stepData.data && stepData.data.list && stepData.data.list[idx]) {
                                         stepData.data.list[idx][f.key] = el.value;
+                                        
+                                        // Auto-update mobile phone code
+                                        const natVal = el.value.trim();
+                                        if (natVal) {
+                                            const foundCountry = OB_COUNTRIES.find(c => c.name.toLowerCase() === natVal.toLowerCase() || (c.nationality && c.nationality.toLowerCase() === natVal.toLowerCase()));
+                                            if (foundCountry) {
+                                                const mobileInputId = `ob-${stepKey}-${idx}-mobile`;
+                                                if (document.getElementById(mobileInputId)) {
+                                                    obPhoneSelectCountry(mobileInputId, foundCountry.code, foundCountry.dial, foundCountry.maxLen);
+                                                }
+                                            }
+                                        }
                                     }
                                     triggerMultiItemAutoSave(stepKey, idx);
                                 }
@@ -2682,6 +2727,7 @@ let headingText = `${itemLabel} #${idx + 1}`;
                                 </button>
                             `}
                         </div>
+                        ${topFieldsHtml}
                         ${itemDocsHtml}
                         ${itemDocsHtml && itemFieldsHtml ? '<div style="height: 1px; background: #f1f5f9; margin: 24px 0;"></div>' : ''}
                         ${itemFieldsHtml}
@@ -2852,8 +2898,18 @@ let headingText = `${itemLabel} #${idx + 1}`;
         const fyeVal = data['fye'] !== undefined ? data['fye'] : '';
         const declVal = data['declarationAgreed'] ? 'checked' : '';
         const consentVal = data['consentAgreed'] ? 'checked' : '';
-        const readonlyAttr = isReadOnly ? 'disabled' : '';
-        const readonlyInput = isReadOnly ? 'readonly' : '';
+
+        const allCompleted = ONBOARDING_STEPS.every(s => ['completed', 'approved', 'submitted', 'under_review'].includes(getFriendlyStatus(s.key, state.onboarding)));
+        const needsSubmission = ONBOARDING_STEPS.some(s => {
+            if (s.key === 'document_checklist') return false;
+            const st = getFriendlyStatus(s.key, state.onboarding);
+            return st === 'completed' || st === 'rejected';
+        });
+        const isFinalSubmitted = allCompleted && !needsSubmission;
+        const finalReadOnly = isReadOnly || isFinalSubmitted;
+
+        const readonlyAttr = finalReadOnly ? 'disabled' : '';
+        const readonlyInput = finalReadOnly ? 'disabled' : ''; // Use disabled instead of readonly for the date picker
         
         let customFieldsHtml = `
             <div style="background:linear-gradient(145deg, #ffffff, #f8fafc); border:1px solid #e2e8f0; border-radius:16px; padding:28px; box-shadow:0 10px 25px rgba(0,0,0,0.03); margin-bottom:24px;">
@@ -2874,15 +2930,15 @@ let headingText = `${itemLabel} #${idx + 1}`;
                 </h4>
                 
                 <div style="display:flex; flex-direction:column; gap:16px;">
-                    <label style="display:flex; align-items:flex-start; gap:12px; background:#ffffff; border:1px solid #cbd5e1; border-radius:12px; padding:16px; cursor:${isReadOnly ? 'default' : 'pointer'}; transition:all 0.2s; box-shadow:0 2px 4px rgba(0,0,0,0.02);" onmouseover="if(!${isReadOnly}) { this.style.borderColor='#3b82f6'; this.style.boxShadow='0 4px 12px rgba(59, 130, 246, 0.1)'; }" onmouseout="if(!${isReadOnly}) { this.style.borderColor='#cbd5e1'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.02)'; }">
-                        <input type="checkbox" id="ob-final_declaration-declarationAgreed" ${declVal} ${readonlyAttr} onchange="triggerAutoSave('final_declaration')" style="width:20px; height:20px; margin-top:2px; accent-color:#0d6efd; cursor:${isReadOnly ? 'default' : 'pointer'};">
+                    <label style="display:flex; align-items:flex-start; gap:12px; background:#ffffff; border:1px solid #cbd5e1; border-radius:12px; padding:16px; cursor:${finalReadOnly ? 'default' : 'pointer'}; transition:all 0.2s; box-shadow:0 2px 4px rgba(0,0,0,0.02);" onmouseover="if(!${finalReadOnly}) { this.style.borderColor='#3b82f6'; this.style.boxShadow='0 4px 12px rgba(59, 130, 246, 0.1)'; }" onmouseout="if(!${finalReadOnly}) { this.style.borderColor='#cbd5e1'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.02)'; }">
+                        <input type="checkbox" id="ob-final_declaration-declarationAgreed" ${declVal} ${readonlyAttr} onchange="triggerAutoSave('final_declaration')" style="width:20px; height:20px; margin-top:2px; accent-color:#0d6efd; cursor:${finalReadOnly ? 'default' : 'pointer'};">
                         <div style="font-size:14px; font-weight:600; color:#334155; line-height:1.5;">
                             I confirm that all the details provided are true and accurate to the best of my knowledge. <span style="color:#ef4444; margin-left:2px;">*</span>
                         </div>
                     </label>
 
-                    <label style="display:flex; align-items:flex-start; gap:12px; background:#ffffff; border:1px solid #cbd5e1; border-radius:12px; padding:16px; cursor:${isReadOnly ? 'default' : 'pointer'}; transition:all 0.2s; box-shadow:0 2px 4px rgba(0,0,0,0.02);" onmouseover="if(!${isReadOnly}) { this.style.borderColor='#3b82f6'; this.style.boxShadow='0 4px 12px rgba(59, 130, 246, 0.1)'; }" onmouseout="if(!${isReadOnly}) { this.style.borderColor='#cbd5e1'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.02)'; }">
-                        <input type="checkbox" id="ob-final_declaration-consentAgreed" ${consentVal} ${readonlyAttr} onchange="triggerAutoSave('final_declaration')" style="width:20px; height:20px; margin-top:2px; accent-color:#0d6efd; cursor:${isReadOnly ? 'default' : 'pointer'};">
+                    <label style="display:flex; align-items:flex-start; gap:12px; background:#ffffff; border:1px solid #cbd5e1; border-radius:12px; padding:16px; cursor:${finalReadOnly ? 'default' : 'pointer'}; transition:all 0.2s; box-shadow:0 2px 4px rgba(0,0,0,0.02);" onmouseover="if(!${finalReadOnly}) { this.style.borderColor='#3b82f6'; this.style.boxShadow='0 4px 12px rgba(59, 130, 246, 0.1)'; }" onmouseout="if(!${finalReadOnly}) { this.style.borderColor='#cbd5e1'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.02)'; }">
+                        <input type="checkbox" id="ob-final_declaration-consentAgreed" ${consentVal} ${readonlyAttr} onchange="triggerAutoSave('final_declaration')" style="width:20px; height:20px; margin-top:2px; accent-color:#0d6efd; cursor:${finalReadOnly ? 'default' : 'pointer'};">
                         <div style="font-size:14px; font-weight:600; color:#334155; line-height:1.5;">
                             I consent to Globalisor conducting compliance, AML/KYC screening, and verification checks. <span style="color:#ef4444; margin-left:2px;">*</span>
                         </div>
@@ -3088,7 +3144,24 @@ function updateWizardUIFeedback() {
             if (hasNumError || missingConfirmation) disableBtn = true;
         } else if (state.activeObStepKey === 'director_details') {
             const missingDirectorConfirmation = errors.some(e => e.includes('I confirm that I am not disqualified'));
-            if (missingDirectorConfirmation) disableBtn = true;
+            const missingEmail = errors.some(e => e.includes('Field "Email" is required'));
+            const missingMobile = errors.some(e => e.includes('Field "Mobile Number" is required'));
+            if (missingDirectorConfirmation || missingEmail || missingMobile) disableBtn = true;
+        } else if (state.activeObStepKey === 'individual_shareholder') {
+            const missingEmail = errors.some(e => e.includes('Field "Email" is required'));
+            const missingMobile = errors.some(e => e.includes('Field "Mobile Number" is required'));
+            const missingShareDetails = errors.some(e => 
+                e.includes('Field "Currency" is required') || 
+                e.includes('Field "Share Class" is required') || 
+                e.includes('Field "Number of Shares') || 
+                e.includes('Field "Share Capital Amount') || 
+                e.includes('Allocation error')
+            );
+            if (missingEmail || missingMobile || missingShareDetails) disableBtn = true;
+        } else if (state.activeObStepKey === 'corporate_rep') {
+            const missingEmail = errors.some(e => e.includes('Field "Email" is required'));
+            const missingMobile = errors.some(e => e.includes('Field "Mobile Number" is required'));
+            if (missingEmail || missingMobile) disableBtn = true;
         } else if (state.activeObStepKey === 'corporate_shareholder') {
             let notFullyAllocated = false;
             const obCurrent = state.onboarding || {};
@@ -3153,6 +3226,7 @@ function updateWizardUIFeedback() {
     const finalSubmitBtn = document.getElementById('ob-final-submit-btn');
     const allCompleted = ONBOARDING_STEPS.every(s => ['completed', 'approved', 'submitted', 'under_review'].includes(getFriendlyStatus(s.key, ob)));
     const needsSubmission = ONBOARDING_STEPS.some(s => {
+        if (s.key === 'document_checklist') return false;
         const status = getFriendlyStatus(s.key, ob);
         return status === 'completed' || status === 'rejected';
     });
@@ -3165,10 +3239,16 @@ function updateWizardUIFeedback() {
             finalSubmitBtn.style.opacity = '1';
             finalSubmitBtn.style.cursor = 'pointer';
             finalSubmitBtn.style.background = 'linear-gradient(135deg,#16a34a,#10b981)';
+            finalSubmitBtn.innerHTML = 'Submit for Verification ✓';
         } else {
             finalSubmitBtn.style.opacity = '0.5';
             finalSubmitBtn.style.cursor = 'not-allowed';
             finalSubmitBtn.style.background = '#e2e8f0';
+            if (allCompleted && !needsSubmission) {
+                finalSubmitBtn.innerHTML = 'Submitted ✓';
+            } else {
+                finalSubmitBtn.innerHTML = 'Submit for Verification ✓';
+            }
         }
     }
 }
@@ -3715,7 +3795,7 @@ async function obUploadDoc(stepKey, docType, docLabel) {
 
                 // Re-fetch complete onboarding state to sync UI
                 try {
-                    const freshRes = await fetch(`/api/onboarding/client/${state.user.id}`);
+                    const freshRes = await fetch(`/api/onboarding/client/${state.user.id}?_t=${Date.now()}`);
                     if (freshRes.ok) state.onboarding = normalizeOnboardingData(await freshRes.json());
                 } catch (e) { }
 
@@ -3751,6 +3831,12 @@ async function obNextStep() {
     }
     const stepIndex = ONBOARDING_STEPS.findIndex(s => s.key === state.activeObStepKey);
     if (stepIndex !== -1 && stepIndex < ONBOARDING_STEPS.length - 1) {
+        const btn = document.getElementById('ob-continue-btn');
+        if (btn) {
+            btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity="0.25" stroke-width="3"/><path d="M12 2C6.47715 2 2 6.47715 2 12" stroke="currentColor" stroke-width="3" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/></path></svg> Processing...`;
+            btn.style.opacity = '0.8';
+            btn.style.pointerEvents = 'none';
+        }
         const nextStep = ONBOARDING_STEPS[stepIndex + 1];
         await selectObStep(nextStep.key);
     }
@@ -3765,6 +3851,13 @@ async function obPrevStep() {
 }
 
 async function obSubmitAllForVerification() {
+    const btn = document.getElementById('ob-final-submit-btn');
+    if (btn) {
+        btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity="0.25" stroke-width="3"/><path d="M12 2C6.47715 2 2 6.47715 2 12" stroke="currentColor" stroke-width="3" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/></path></svg> Submitting...`;
+        btn.style.opacity = '0.8';
+        btn.style.pointerEvents = 'none';
+    }
+
     await ensureOnboardingRecord();
     const ob = state.onboarding || {};
     if (!state.onboardingId) return;
@@ -3774,6 +3867,7 @@ async function obSubmitAllForVerification() {
 
     // Filter steps that are not approved/submitted/under_review
     const stepsToSubmit = ONBOARDING_STEPS.filter(step => {
+        if (step.key === 'document_checklist') return false;
         const status = getFriendlyStatus(step.key, state.onboarding);
         return status === 'completed' || status === 'rejected';
     });
@@ -3802,7 +3896,7 @@ async function obSubmitAllForVerification() {
 
     // Re-fetch final status
     try {
-        const res = await fetch(`/api/onboarding/client/${state.user.id}`);
+        const res = await fetch(`/api/onboarding/client/${state.user.id}?_t=${Date.now()}`);
         if (res.ok) state.onboarding = normalizeOnboardingData(await res.json());
     } catch (e) { }
 
@@ -6038,7 +6132,7 @@ function triggerMultiItemAutoSave(stepKey, idx, isCheckboxChange) {
             });
             if (res.ok) {
                 const updated = await res.json();
-                state.onboarding = updated;
+                state.onboarding = normalizeOnboardingData(updated);
                 console.log(`Auto-saved step ${stepKey}`);
             }
         } catch (e) {
@@ -6054,7 +6148,7 @@ function syncUBOFromIndividualShareholder(idx, item) {
 
     if (!state.onboarding[uboField]) state.onboarding[uboField] = { data: {}, status: 'pending', documents: [] };
 
-    ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile', 'ownershipPercentage'].forEach(key => {
+    ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile', 'passportExpiry', 'ownershipPercentage'].forEach(key => {
         const sourceVal = item[key];
         if (sourceVal !== undefined) {
             state.onboarding[uboField].data[key] = sourceVal;
@@ -6383,14 +6477,19 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
             `;
         }
 
-        const checkboxHtml = checkboxes.map(text => `
+        const checkboxHtml = checkboxes.map(text => {
+            if (text.startsWith('HEADER:')) {
+                return `<div style="font-size: 13.5px; color: #1e293b; font-weight: 700; margin: 16px 0 8px 0;">${text.replace('HEADER:', '')}</div>`;
+            }
+            return `
             <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
                 <div style="width: 18px; height: 18px; background: ${c.text}; border-radius: 4px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
                 <div style="font-size: 13.5px; color: #475569; font-weight: 500; font-family: 'Inter', sans-serif;">${text}</div>
             </div>
-        `).join('');
+            `;
+        }).join('');
 
         return `
             <div style="border: 1px solid #e2e8f0; border-radius: 16px; display: flex; overflow: hidden; background: #fff; min-height: 120px;">
@@ -6419,8 +6518,10 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
             title: 'Director Documents',
             count: `${dirs.length} Director${dirs.length > 1 ? 's' : ''}`,
             checkboxes: [
-                'NRIC / FIN (front & back) for all directors',
-                'Proof of Address (Utility Bill / Bank Statement /<br/>Mobile Bill dated Within 3 months)'
+                'NRIC / FIN / Notarised Passport (validity at least 3 months) – JPG or PDF (front and back)',
+                'Proof of Residential Address (in the name of the individual) dated within the last 3 months: Utility Bill / Bank Statement / Mobile Bill (notarised in case of foreigners)',
+                'Email Address',
+                'Contact Number'
             ],
             detailsTitle: 'DIRECTOR REGISTRY DETAILS',
             detailsList: dirs.map((d, dIdx) => ({
@@ -6438,8 +6539,10 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
             title: 'Individual Shareholder Documents',
             count: `${inds.length} Shareholder${inds.length > 1 ? 's' : ''}`,
             checkboxes: [
-                'NRIC / FIN (front & back) for all individual shareholders',
-                'Proof of Address for all individual shareholders'
+                'NRIC / FIN / Notarised Passport (validity at least 3 months) – JPG or PDF (front and back)',
+                'Proof of Residential Address (in the name of the individual) dated within the last 3 months: Utility Bill / Bank Statement / Mobile Bill (notarised in case of foreigners)',
+                'Email Address',
+                'Contact Number'
             ],
             detailsTitle: 'INDIVIDUAL SHAREHOLDER REGISTRY DETAILS',
             detailsList: inds.map((s, sIdx) => ({
@@ -6457,9 +6560,13 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
             title: 'Corporate Shareholder Documents',
             count: `${corps.length} Corporate Shareholder${corps.length > 1 ? 's' : ''}`,
             checkboxes: [
-                'ACRA Bizfile (or foreign registry equivalent)',
+                'HEADER:If the Corporate Shareholder is a Singapore Company:',
+                'ACRA BizFile',
                 'Company Constitution (M&AA)',
-                'Certificate of Incorporation (for non-Singapore companies)'
+                'HEADER:If the Corporate Shareholder is a Non-Singapore Company:',
+                'Certificate of Incorporation / Registration',
+                'Company Constitution (M&AA or equivalent)',
+                'Supporting Corporate Registration Documents'
             ],
             detailsTitle: 'CORPORATE SHAREHOLDER REGISTRY DETAILS',
             detailsList: corps.map((s, cIdx) => ({
@@ -6475,9 +6582,10 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
             title: 'Corporate Representative Documents',
             count: null,
             checkboxes: [
-                'NRIC / FIN for the authorized corporate representative',
-                'Proof of Address for the representative',
-                'Board Resolution or Letter of Authorization appointing the representative'
+                'NRIC / FIN / Passport (validity at least 3 months) – JPG or PDF (front and back)',
+                'Proof of Residential Address (in the name of the individual) dated within the last 3 months: Utility Bill / Bank Statement / Mobile Bill (notarised in case of foreigners)',
+                'Email Address',
+                'Contact Number'
             ],
             detailsTitle: 'REPRESENTATIVE CONTACT DETAILS',
             detailsList: [{
@@ -6489,6 +6597,9 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
     }
 
     html += `
+            <div style="font-size: 13.5px; color: #475569; font-style: italic; margin-top: 12px; padding: 0 16px;">
+                Please ensure all documents are clear, valid, and legible before proceeding.
+            </div>
         </div>
     </div>
     `;
@@ -7224,6 +7335,18 @@ window.obUpdateExternalControllerField = (idx, extIdx, key, value) => {
     const item = state.onboarding[stepField].data.list[idx];
     if (item && item.externalControllers && item.externalControllers[extIdx]) {
         item.externalControllers[extIdx][key] = value;
+        
+        if (key === 'nationality' && value.trim()) {
+            const natVal = value.trim();
+            const foundCountry = OB_COUNTRIES.find(c => c.name.toLowerCase() === natVal.toLowerCase() || (c.nationality && c.nationality.toLowerCase() === natVal.toLowerCase()));
+            if (foundCountry) {
+                const mobileInputId = `ob-corporate_shareholder-${idx}-ext-${extIdx}-mobile`;
+                if (document.getElementById(mobileInputId)) {
+                    obPhoneSelectCountry(mobileInputId, foundCountry.code, foundCountry.dial, foundCountry.maxLen);
+                }
+            }
+        }
+        
         triggerMultiItemAutoSave('corporate_shareholder', idx);
     }
 };
