@@ -2028,14 +2028,23 @@
                 // Pre-populate defaults for Globalisor Premium CBD Address if useService is active and fields are empty
                 if (this.data.office && this.data.office.useService !== false) {
                     if (!this.data.office.block) {
-                        this.data.office.block = '10';
-                        this.data.office.streetName = 'Anson Road';
-                        this.data.office.floor = '16';
-                        this.data.office.unit = '04';
-                        this.data.office.building = 'International Plaza';
-                        this.data.office.country = 'Singapore';
-                        this.data.office.postalCode = '079903';
-                        this.data.office.address = '10 Anson Road, #16-04 International Plaza, Singapore 079903';
+                        const officeSec = this.sections ? this.sections.find(s => s.key === 'office') : null;
+                        const fields = officeSec ? (officeSec.fields || []) : [];
+                        const getPlaceholderValue = (fieldKey) => {
+                            const f = fields.find(field => field.key === fieldKey);
+                            if (!f || !f.placeholder) return '';
+                            return f.placeholder.replace(/^e\.g\.\s*/i, '').trim();
+                        };
+
+                        this.data.office.block = getPlaceholderValue('office.block') || '10';
+                        this.data.office.streetName = getPlaceholderValue('office.streetName') || 'Anson Road';
+                        this.data.office.floor = getPlaceholderValue('office.floor') || '16';
+                        this.data.office.unit = getPlaceholderValue('office.unit') || '04';
+                        this.data.office.building = getPlaceholderValue('office.building') || 'International Plaza';
+                        this.data.office.country = getPlaceholderValue('office.country') || 'Singapore';
+                        this.data.office.postalCode = getPlaceholderValue('office.postalCode') || '079903';
+                        
+                        this.recompileOwnAddress();
                         this.save();
                     }
                 }
@@ -2212,18 +2221,25 @@
                         type: 'Ordinary'
                     };
                 } else if (sec.id === 'sec-office' || sec.key === 'office') {
+                    const fields = sec.fields || [];
+                    const getPlaceholderValue = (fieldKey) => {
+                        const f = fields.find(field => field.key === fieldKey);
+                        if (!f || !f.placeholder) return '';
+                        return f.placeholder.replace(/^e\.g\.\s*/i, '').trim();
+                    };
+
                     this.data.office = {
                         useService: true,
-                        block: '10',
-                        streetName: 'Anson Road',
-                        floor: '16',
-                        unit: '04',
-                        building: 'International Plaza',
-                        country: 'Singapore',
-                        postalCode: '079903',
-                        address: '10 Anson Road, #16-04 International Plaza, Singapore 079903',
+                        block: getPlaceholderValue('office.block') || '10',
+                        streetName: getPlaceholderValue('office.streetName') || 'Anson Road',
+                        floor: getPlaceholderValue('office.floor') || '16',
+                        unit: getPlaceholderValue('office.unit') || '04',
+                        building: getPlaceholderValue('office.building') || 'International Plaza',
+                        country: getPlaceholderValue('office.country') || 'Singapore',
+                        postalCode: getPlaceholderValue('office.postalCode') || '079903',
                         residency: 'local'
                     };
+                    this.recompileOwnAddress();
                 } else if (sec.id === 'sec-addons' || sec.key === 'addons') {
                     this.data.addons = {
                         bankIntro: true,
@@ -3776,12 +3792,12 @@
                     const isGlobalisor = this.data.office.useService === true;
                     const useService = this.data.office.useService;
                     const previewText = isGlobalisor 
-                        ? '10 Anson Road, #16-04 International Plaza, Singapore 079903'
+                        ? (this.data.office.address || '10 Anson Road, #16-04 International Plaza, Singapore 079903')
                         : this.getFormattedOwnAddressPreview();
 
                     const useServiceField = (sec.fields || []).find(f => f.key === 'office.useService') || {
                         label: 'Registered Address Option *',
-                        options: ['false:Yes, I have Office Address', 'true:Globalisor Address']
+                        options: ['false:Yes I have Office Address', 'true:Globalisor Address']
                     };
                     const optionLabel = useServiceField.label || 'Registered Address Option *';
                     const parsedOptions = (useServiceField.options || []).map(opt => {
@@ -3791,7 +3807,7 @@
                             label: parts.slice(1).join(':')
                         };
                     });
-                    const opt1 = parsedOptions[0] || { value: 'false', label: 'Yes, I have Office Address' };
+                    const opt1 = parsedOptions[0] || { value: 'false', label: 'Yes I have Office Address' };
                     const opt2 = parsedOptions[1] || { value: 'true', label: 'Globalisor Address' };
 
                     const serviceTitle = useServiceField.label || 'Registered office address';
@@ -4749,14 +4765,24 @@
                 if (!this.data.office) this.data.office = {};
                 if (value === "true") {
                     this.data.office.useService = true;
-                    this.data.office.block = '10';
-                    this.data.office.streetName = 'Anson Road';
-                    this.data.office.floor = '16';
-                    this.data.office.unit = '04';
-                    this.data.office.building = 'International Plaza';
-                    this.data.office.country = 'Singapore';
-                    this.data.office.postalCode = '079903';
-                    this.data.office.address = '10 Anson Road, #16-04 International Plaza, Singapore 079903';
+                    
+                    const officeSec = this.sections ? this.sections.find(s => s.key === 'office') : null;
+                    const fields = officeSec ? (officeSec.fields || []) : [];
+                    const getPlaceholderValue = (fieldKey) => {
+                        const f = fields.find(field => field.key === fieldKey);
+                        if (!f || !f.placeholder) return '';
+                        return f.placeholder.replace(/^e\.g\.\s*/i, '').trim();
+                    };
+
+                    this.data.office.block = getPlaceholderValue('office.block') || '10';
+                    this.data.office.streetName = getPlaceholderValue('office.streetName') || 'Anson Road';
+                    this.data.office.floor = getPlaceholderValue('office.floor') || '16';
+                    this.data.office.unit = getPlaceholderValue('office.unit') || '04';
+                    this.data.office.building = getPlaceholderValue('office.building') || 'International Plaza';
+                    this.data.office.country = getPlaceholderValue('office.country') || 'Singapore';
+                    this.data.office.postalCode = getPlaceholderValue('office.postalCode') || '079903';
+                    
+                    this.recompileOwnAddress();
                 } else if (value === "false") {
                     this.data.office.useService = false;
                     this.data.office.block = '';
@@ -4788,14 +4814,23 @@
                     if (!this.data.office) this.data.office = {};
                     this.data.office.useService = isChecked;
                     if (isChecked) {
-                        this.data.office.block = '10';
-                        this.data.office.streetName = 'Anson Road';
-                        this.data.office.floor = '16';
-                        this.data.office.unit = '04';
-                        this.data.office.building = 'International Plaza';
-                        this.data.office.country = 'Singapore';
-                        this.data.office.postalCode = '079903';
-                        this.data.office.address = '10 Anson Road, #16-04 International Plaza, Singapore 079903';
+                        const officeSec = this.sections ? this.sections.find(s => s.key === 'office') : null;
+                        const fields = officeSec ? (officeSec.fields || []) : [];
+                        const getPlaceholderValue = (fieldKey) => {
+                            const f = fields.find(field => field.key === fieldKey);
+                            if (!f || !f.placeholder) return '';
+                            return f.placeholder.replace(/^e\.g\.\s*/i, '').trim();
+                        };
+
+                        this.data.office.block = getPlaceholderValue('office.block') || '10';
+                        this.data.office.streetName = getPlaceholderValue('office.streetName') || 'Anson Road';
+                        this.data.office.floor = getPlaceholderValue('office.floor') || '16';
+                        this.data.office.unit = getPlaceholderValue('office.unit') || '04';
+                        this.data.office.building = getPlaceholderValue('office.building') || 'International Plaza';
+                        this.data.office.country = getPlaceholderValue('office.country') || 'Singapore';
+                        this.data.office.postalCode = getPlaceholderValue('office.postalCode') || '079903';
+                        
+                        this.recompileOwnAddress();
                     } else {
                         this.data.office.block = '';
                         this.data.office.streetName = '';
@@ -4837,14 +4872,23 @@
                 if (key === 'office.useService') {
                     if (!this.data.office) this.data.office = {};
                     if (isChecked) {
-                        this.data.office.block = '10';
-                        this.data.office.streetName = 'Anson Road';
-                        this.data.office.floor = '16';
-                        this.data.office.unit = '04';
-                        this.data.office.building = 'International Plaza';
-                        this.data.office.country = 'Singapore';
-                        this.data.office.postalCode = '079903';
-                        this.data.office.address = '10 Anson Road, #16-04 International Plaza, Singapore 079903';
+                        const officeSec = this.sections ? this.sections.find(s => s.key === 'office') : null;
+                        const fields = officeSec ? (officeSec.fields || []) : [];
+                        const getPlaceholderValue = (fieldKey) => {
+                            const f = fields.find(field => field.key === fieldKey);
+                            if (!f || !f.placeholder) return '';
+                            return f.placeholder.replace(/^e\.g\.\s*/i, '').trim();
+                        };
+
+                        this.data.office.block = getPlaceholderValue('office.block') || '10';
+                        this.data.office.streetName = getPlaceholderValue('office.streetName') || 'Anson Road';
+                        this.data.office.floor = getPlaceholderValue('office.floor') || '16';
+                        this.data.office.unit = getPlaceholderValue('office.unit') || '04';
+                        this.data.office.building = getPlaceholderValue('office.building') || 'International Plaza';
+                        this.data.office.country = getPlaceholderValue('office.country') || 'Singapore';
+                        this.data.office.postalCode = getPlaceholderValue('office.postalCode') || '079903';
+                        
+                        this.recompileOwnAddress();
                     } else {
                         this.data.office.block = '';
                         this.data.office.streetName = '';
