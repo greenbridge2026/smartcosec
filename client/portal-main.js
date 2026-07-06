@@ -2410,77 +2410,61 @@ function renderActiveStepForm(container) {
                                              ${externalFormHtml}
                                          </div>
                                          `;
+                                      }
+
+                                      return `
+                                      <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:16px; grid-column: span 2; margin-top: 8px; margin-bottom: 8px;">
+                                          <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="obCorporateShareholderAnyAdditionalControllerCheckboxChange(${idx}, this.checked)" style="width:16px; height:16px; cursor:pointer;">
+                                          <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569; user-select:none;">${f.label}</label>
+                                      </div>
+                                      ${selectWrapperHtml}
+                                      `;
+                                 }
+
+                                 if (f.type === 'select') {
+                                     let disabledAttr = isReadOnly ? 'disabled' : '';
+                                     if (f.key === 'uboDeclaration') {
+                                         disabledAttr = 'disabled';
+                                     }
+                                     
+                                     let options = f.options || [];
+                                     if (stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') {
+                                         const scStep = state.onboarding.stepShareCapital || {};
+                                         const scData = scStep.data || {};
+                                         const scCurrencies = scData.currencies || [];
+                                         
+                                         if (f.key === 'currency') {
+                                             const configuredCurrs = new Set();
+                                             scCurrencies.forEach(c => {
+                                                 const currCode = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
+                                                 if (currCode) {
+                                                     configuredCurrs.add(currCode);
+                                                 }
+                                             });
+                                             if (configuredCurrs.size > 0) {
+                                                 options = ['Select', ...Array.from(configuredCurrs)];
+                                             }
+                                         } else if (f.key === 'shareClass') {
+                                             const configuredClasses = new Set();
+                                             scCurrencies.forEach(c => {
+                                                 const sc = c.shareClass || '';
+                                                 if (sc) {
+                                                     configuredClasses.add(sc);
+                                                 }
+                                             });
+                                             if (configuredClasses.size > 0) {
+                                                 options = ['Select', ...Array.from(configuredClasses)];
+                                             }
+                                         }
                                      }
 
                                      return `
-                                     <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:16px; grid-column: span 2; margin-top: 8px; margin-bottom: 8px;">
-                                         <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="obCorporateShareholderAnyAdditionalControllerCheckboxChange(${idx}, this.checked)" style="width:16px; height:16px; cursor:pointer;">
-                                         <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569; user-select:none;">${f.label}</label>
-                                     </div>
-                                     ${selectWrapperHtml}
-                                     `;
-                                }
-
-                                if (f.type === 'select') {
-                                    let disabledAttr = isReadOnly ? 'disabled' : '';
-                                    if (f.key === 'uboDeclaration') {
-                                        disabledAttr = 'disabled';
-                                    }
-                                    
-                                    let options = f.options || [];
-                                    if (stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') {
-                                        const scStep = state.onboarding.stepShareCapital || {};
-                                        const scData = scStep.data || {};
-                                        const scCurrencies = scData.currencies || [];
-                                        
-                                        if (f.key === 'currency') {
-                                            const configuredCurrs = new Set();
-                                            scCurrencies.forEach(c => {
-                                                const currCode = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
-                                                if (currCode) {
-                                                    configuredCurrs.add(currCode);
-                                                }
-                                            });
-                                            if (configuredCurrs.size > 0) {
-                                                options = ['Select', ...Array.from(configuredCurrs)];
-                                            }
-                                        } else if (f.key === 'shareClass') {
-                                            const configuredClasses = new Set();
-                                            scCurrencies.forEach(c => {
-                                                const sc = c.shareClass || '';
-                                                if (sc) {
-                                                    configuredClasses.add(sc);
-                                                }
-                                            });
-                                            if (configuredClasses.size > 0) {
-                                                options = ['Select', ...Array.from(configuredClasses)];
-                                            }
-                                        }
-                                    });
-                                    if (configuredCurrs.size > 0) {
-                                        options = ['Select', ...Array.from(configuredCurrs)];
-                                    }
-                                } else if (f.key === 'shareClass') {
-                                    const configuredClasses = new Set();
-                                    scCurrencies.forEach(c => {
-                                        const sc = c.shareClass || '';
-                                        if (sc) {
-                                            configuredClasses.add(sc);
-                                        }
-                                    });
-                                    if (configuredClasses.size > 0) {
-                                        options = ['Select', ...Array.from(configuredClasses)];
-                                    }
-                                }
-                            }
-
-                            return `
-                                    <div class="ob-field">
-                                        <label for="${inputId}">${f.label}</label>
-                                        <select id="${inputId}" onchange="triggerMultiItemAutoSave('${stepKey}', ${idx})" ${disabledAttr}>
-                                            ${options.map(o => `<option value='${o}' ${String(val).trim().toLowerCase() === String(o).trim().toLowerCase() ? 'selected' : ''}>${o}</option>`).join('')}
-                                        </select>
-                                    </div>`;
+                                     <div class="ob-field">
+                                         <label for="${inputId}">${f.label}</label>
+                                         <select id="${inputId}" onchange="triggerMultiItemAutoSave('${stepKey}', ${idx})" ${disabledAttr}>
+                                             ${options.map(o => `<option value='${o}' ${String(val).trim().toLowerCase() === String(o).trim().toLowerCase() ? 'selected' : ''}>${o}</option>`).join('')}
+                                         </select>
+                                     </div>`;
                         } else if (f.type === 'checkbox') {
                             const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
                             const mandatoryMark = f.mandatory ? '<span style="color:#ef4444; margin-left:2px;">*</span>' : '';
