@@ -5901,65 +5901,12 @@
                         `;
                         break;
                     case 'text':
-                        // Check if this is a name field — render ACRA name checker
-                        if (fullPath && (fullPath === 'names[0]' || fullPath === 'names[1]' || fullPath === 'names[2]' || fullPath === 'names[3]')) {
-                            const fieldIdx = fullPath.replace('names[', '').replace(']', '');
-                            const ncId = `nc-${fullPath.replace(/[\[\]]/g, '_')}`;
-                            const cachedCheck = wizard.data.nameChecks && wizard.data.nameChecks[fullPath];
-                            let statusHtml = '';
-                            if (cachedCheck && cachedCheck.status) {
-                                const icons = { available: '🟢', taken: '🔴', similar: '🟡', invalid: '🔴' };
-                                const icon = icons[cachedCheck.status] || '';
-                                const timeAgo = cachedCheck.checkedAt ? nameChecker.timeAgo(cachedCheck.checkedAt) : '';
-                                const suggestionsHtml = (cachedCheck.suggestions && cachedCheck.suggestions.length > 0)
-                                    ? `<div class="nc-suggestions">${cachedCheck.suggestions.map(s => `<span class="nc-suggestion-chip" onclick="nameChecker.applyName('${fullPath}', '${s.replace(/'/g, "\\'")}')" title="Click to use this name" role="button" tabindex="0" onkeydown="if(event.key==='Enter')nameChecker.applyName('${fullPath}','${s.replace(/'/g, "\\'")}')">↩ ${s}</span>`).join('')}</div>`
-                                    : '';
-                                statusHtml = `<div id="${ncId}-status" class="name-check-status ${cachedCheck.status} visible">
-                                    <span class="nc-status-icon">${icon}</span>${cachedCheck.message || cachedCheck.status}
-                                    ${timeAgo ? `<span class="nc-timestamp" style="margin-left:0.5rem;font-weight:400;">· ${timeAgo}</span>` : ''}
-                                    ${suggestionsHtml}
-                                </div>`;
-                            } else {
-                                statusHtml = `<div id="${ncId}-status" class="name-check-status"></div>`;
-                            }
-                            const dupHtml = `<div id="${ncId}-dup" class="name-duplicate-warning">⚠️ This name is already used in another option above.</div>`;
-                            html = `
-                                <div class="form-group ${field.key.includes('address') || field.key.includes('desc') ? 'full' : ''}">
-                                    <label class="form-label">${field.label}${requiredAsterisk}</label>
-                                    <div class="name-check-field-wrapper">
-                                        <div class="name-check-input-row">
-                                            <input type="text"
-                                                id="${ncId}-input"
-                                                class="input-box"
-                                                placeholder="${field.placeholder || ''}"
-                                                value="${val}"
-                                                autocomplete="off"
-                                                aria-label="${field.label}"
-                                                oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save(); wizard.evaluateConditionalFields(); wizard.updateContinueButtonState(); nameChecker.onInput('${fullPath}', this.value);"
-                                                onkeydown="if(event.key === 'Enter') nameChecker.check('${fullPath}', document.getElementById('${ncId}-input').value, true);"
-                                            >
-                                            <button class="name-check-btn"
-                                                id="${ncId}-btn"
-                                                type="button"
-                                                aria-label="Check ACRA name availability"
-                                                onclick="nameChecker.check('${fullPath}', document.getElementById('${ncId}-input').value, true);">
-                                                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="m21 21-4.35-4.35"/></svg>
-                                                Check
-                                            </button>
-                                        </div>
-                                        ${dupHtml}
-                                        ${statusHtml}
-                                    </div>
-                                </div>
-                            `;
-                        } else {
-                            html = `
-                                <div class="form-group ${field.key.includes('address') || field.key.includes('desc') ? 'full' : ''}">
-                                    <label class="form-label">${field.label}${requiredAsterisk}</label>
-                                    <input type="text" class="input-box" placeholder="${field.placeholder || ''}" value="${val}" oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save(); wizard.evaluateConditionalFields(); wizard.updateContinueButtonState()">
-                                </div>
-                            `;
-                        }
+                        html = `
+                            <div class="form-group ${field.key.includes('address') || field.key.includes('desc') ? 'full' : ''}">
+                                <label class="form-label">${field.label}${requiredAsterisk}</label>
+                                <input type="text" class="input-box" placeholder="${field.placeholder || ''}" value="${val}" oninput="setVal(wizard.data, '${fullPath}', this.value); wizard.save(); wizard.evaluateConditionalFields(); wizard.updateContinueButtonState()">
+                            </div>
+                        `;
                         break;
                     case 'number':
                         html = `
