@@ -241,14 +241,19 @@
             <div id="dashboard-home-view">
                 <div class="draggable-container" id="main-dashboard-grid">
                     <div class="lg:col-span-3 draggable-widget" draggable="true" id="widget-clients">
-                        <div class="flex items-center gap-2 mb-4">
-                            <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 drag-handle"></i>
-                            <div id="filter-tabs" class="filter-tabs mb-0 flex-1">
-                                <div class="filter-tab active" data-filter="all">All Clients</div>
-                                <div class="filter-tab" data-filter="pending">Pending</div>
-                                <div class="filter-tab" data-filter="review">Under Review</div>
-                                <div class="filter-tab" data-filter="approved">Approved</div>
+                        <div class="flex items-center justify-between gap-2 mb-4">
+                            <div class="flex items-center gap-2 flex-1">
+                                <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 drag-handle"></i>
+                                <div id="filter-tabs" class="filter-tabs mb-0 flex-1">
+                                    <div class="filter-tab active" data-filter="all">All Clients</div>
+                                    <div class="filter-tab" data-filter="pending">Pending</div>
+                                    <div class="filter-tab" data-filter="review">Under Review</div>
+                                    <div class="filter-tab" data-filter="approved">Approved</div>
+                                </div>
                             </div>
+                            <button onclick="confirmClearAllClients()" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-[11px] flex items-center gap-1.5 transition-all shadow-md active:scale-[0.98]">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear All Clients
+                            </button>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="clients-grid"></div>
                     </div>
@@ -288,6 +293,19 @@
             <div class="flex gap-4">
                 <button class="btn btn-outline flex-1 py-3" onclick="closeModal()">Cancel</button>
                 <button class="btn btn-primary flex-1 py-3" id="modal-confirm-btn" onclick="confirmAction()">Proceed</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clear Clients Confirmation Modal -->
+    <div class="hidden fixed inset-0 z-[3000] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300" id="clear-clients-modal">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto" onclick="closeClearClientsModal()"></div>
+        <div class="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl relative z-10 pointer-events-auto transform scale-90 transition-transform">
+            <h3 class="text-xl font-bold mb-2 text-red-600">Clear All Clients?</h3>
+            <p class="text-slate-600 mb-8">Are you sure you want to clear all existing clients? This will delete all client accounts, their applications, KYC reviews, compliance screenings, and messages. This action is irreversible.</p>
+            <div class="flex gap-4">
+                <button class="btn btn-outline flex-1 py-3" onclick="closeClearClientsModal()">Cancel</button>
+                <button class="btn btn-primary bg-red-600 hover:bg-red-700 border-none flex-1 py-3" onclick="executeClearAllClients()">Clear All</button>
             </div>
         </div>
     </div>
@@ -461,14 +479,19 @@
                     <div id="dashboard-home-view">
                         <div class="draggable-container" id="main-dashboard-grid">
                             <div class="lg:col-span-3 draggable-widget" draggable="true" id="widget-clients">
-                                <div class="flex items-center gap-2 mb-4">
-                                    <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 drag-handle"></i>
-                                    <div id="filter-tabs" class="filter-tabs mb-0 flex-1">
-                                        <div class="filter-tab active" data-filter="all" onclick="setFilter('all')">All Clients</div>
-                                        <div class="filter-tab" data-filter="pending" onclick="setFilter('pending')">Pending</div>
-                                        <div class="filter-tab" data-filter="review" onclick="setFilter('review')">Under Review</div>
-                                        <div class="filter-tab" data-filter="approved" onclick="setFilter('approved')">Approved</div>
+                                <div class="flex items-center justify-between gap-2 mb-4">
+                                    <div class="flex items-center gap-2 flex-1">
+                                        <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 drag-handle"></i>
+                                        <div id="filter-tabs" class="filter-tabs mb-0 flex-1">
+                                            <div class="filter-tab active" data-filter="all" onclick="setFilter('all')">All Clients</div>
+                                            <div class="filter-tab" data-filter="pending" onclick="setFilter('pending')">Pending</div>
+                                            <div class="filter-tab" data-filter="review" onclick="setFilter('review')">Under Review</div>
+                                            <div class="filter-tab" data-filter="approved" onclick="setFilter('approved')">Approved</div>
+                                        </div>
                                     </div>
+                                    <button onclick="confirmClearAllClients()" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-[11px] flex items-center gap-1.5 transition-all shadow-md active:scale-[0.98]">
+                                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear All Clients
+                                    </button>
                                 </div>
                                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="clients-grid"></div>
                             </div>
@@ -1589,6 +1612,55 @@
                 t.classList.toggle('active', t.dataset.filter === filter);
             });
             renderClients();
+        }
+
+        window.confirmClearAllClients = function() {
+            const modal = document.getElementById('clear-clients-modal');
+            modal.classList.remove('hidden');
+            modal.offsetHeight; // force reflow
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.remove('scale-90');
+            modal.classList.add('opacity-100', 'pointer-events-auto');
+        }
+
+        window.closeClearClientsModal = function() {
+            const modal = document.getElementById('clear-clients-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.add('scale-90');
+            modal.classList.remove('opacity-100', 'pointer-events-auto');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        window.executeClearAllClients = async function() {
+            closeClearClientsModal();
+            try {
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const token = authObj.token;
+                const headers = {};
+                if (token) {
+                    headers['Authorization'] = 'Bearer ' + token;
+                }
+                const res = await fetch('/api/clients', {
+                    method: 'DELETE',
+                    headers
+                });
+                if (res.ok) {
+                    alert("All clients have been cleared successfully!");
+                    fetchDashboard();
+                } else {
+                    let errMsg = "API Error";
+                    try {
+                        const err = await res.json();
+                        errMsg = err.message || errMsg;
+                    } catch (e) {}
+                    alert("Failed to clear clients: " + errMsg);
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Network error clearing clients.");
+            }
         }
 
         let socket = null;
