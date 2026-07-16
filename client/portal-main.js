@@ -80,45 +80,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function fetchData() {
     try {
-        // Fetch Services
-        const sRes = await fetch(`/api/clients/${state.user.id}/services`);
-        if (sRes.ok) {
-            const sData = await sRes.json();
-            state.services = sData.services.map(s => ({
-                id: s.serviceId,
-                type: s.serviceType,
-                status: s.status === 'pending' ? 'In Progress' : (s.status === 'approved' ? 'Active' : s.status),
-                progress: s.status === 'approved' ? 100 : (s.status === 'review' ? 65 : 30),
-                company: s.companyName || 'Globalisor Entity',
-                date: s.date ? new Date(s.date).toLocaleDateString() : 'N/A',
-                staff: (!s.staff || s.staff.toLowerCase() === 'sarah lim' || s.staff.toLowerCase() === 'unassigned') ? 'Unassigned' : s.staff
-            }));
-        }
-
-        // Fetch Intelligence Feed
-        try {
-            const bRes = await fetch('/api/blogs');
-            if (bRes.ok) {
-                const allBlogs = await bRes.json() || [];
-                const filtered = allBlogs.filter(b => b.published || b.status === 'published');
-                const getBlogTime = (b) => {
-                    if (b.lastModified) return b.lastModified;
-                    if (b.date) {
-                        const parsed = Date.parse(b.date);
-                        if (!isNaN(parsed)) return parsed;
-                    }
-                    return 0;
-                };
-                state.blogs = filtered.sort((a, b) => getBlogTime(b) - getBlogTime(a));
-            } else {
-                throw new Error("API response not ok");
-            }
-        } catch (blogErr) {
-            console.warn('REST API blogs endpoint offline, loading from localStorage fallback:', blogErr);
-            const cached = localStorage.getItem('admin_blogs');
-            if (cached) {
-                try {
-                    const allBlogs = JSON.parse(cached) || [];
+        const promises = [
+            fetch(`/api/clients/${state.user.id}/services`).then(async sRes => {
+                if (sRes.ok) {
+                    const sData = await sRes.json();
+                    state.services = sData.services.map(s => ({
+                        id: s.serviceId,
+                        type: s.serviceType,
+                        status: s.status === 'pending' ? 'In Progress' : (s.status === 'approved' ? 'Active' : s.status),
+                        progress: s.status === 'approved' ? 100 : (s.status === 'review' ? 65 : 30),
+                        company: s.companyName || 'Globalisor Entity',
+                        date: s.date ? new Date(s.date).toLocaleDateString() : 'N/A',
+                        staff: (!s.staff || s.staff.toLowerCase() === 'sarah lim' || s.staff.toLowerCase() === 'unassigned') ? 'Unassigned' : s.staff
+                    }));
+                }
+            }),
+            fetch('/api/blogs').then(async bRes => {
+                if (bRes.ok) {
+                    const allBlogs = await bRes.json() || [];
                     const filtered = allBlogs.filter(b => b.published || b.status === 'published');
                     const getBlogTime = (b) => {
                         if (b.lastModified) return b.lastModified;
@@ -129,91 +108,106 @@ async function fetchData() {
                         return 0;
                     };
                     state.blogs = filtered.sort((a, b) => getBlogTime(b) - getBlogTime(a));
-                } catch (e) {
-                    state.blogs = [];
+                } else {
+                    throw new Error("REST API blogs offline");
                 }
-            } else {
-                state.blogs = [
-                    {
-                        id: "default-incorporation",
-                        title: "Navigating Singapore Startup Incorporation",
-                        category: "Compliance",
-                        description: "A complete step-by-step walkthrough on incorporation requirements, nominee directors, and local secretarial guidelines.",
-                        excerpt: "A complete step-by-step walkthrough on incorporation requirements, nominee directors, and local secretarial guidelines.",
-                        content: "<p>Incorporating a startup in Singapore is a popular choice for founders globally due to the country's business-friendly policies, attractive tax structures, and robust intellectual property protections.</p><p>In this guide, we cover structural setups, ACRA requirements, nominee directors, and statutory registration processes to get you running in hours.</p>",
-                        coverImage: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40",
-                        author: "Admin Team",
-                        date: "28 May 2026",
-                        status: "published",
-                        published: true
-                    },
-                    {
-                        id: "default-tax",
-                        title: "Understanding Corporate Tax Benefits & Rates",
-                        category: "Corporate Tax",
-                        description: "Learn how the single-tier territorial tax system and startup exemptions can optimize your company's effective tax liability.",
-                        excerpt: "Learn how the single-tier territorial tax system and startup exemptions can optimize your company's effective tax liability.",
-                        content: "<p>Singapore corporate tax rates are capped flat at 17%. Thanks to tax exemptions for new startups and partial tax exemptions, the effective tax rate is often significantly lower.</p>",
-                        coverImage: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c",
-                        author: "Tax Advisory",
-                        date: "24 May 2026",
-                        status: "published",
-                        published: true
+            }).catch(blogErr => {
+                console.warn('REST API blogs endpoint offline, loading from localStorage fallback:', blogErr);
+                const cached = localStorage.getItem('admin_blogs');
+                if (cached) {
+                    try {
+                        const allBlogs = JSON.parse(cached) || [];
+                        const filtered = allBlogs.filter(b => b.published || b.status === 'published');
+                        const getBlogTime = (b) => {
+                            if (b.lastModified) return b.lastModified;
+                            if (b.date) {
+                                const parsed = Date.parse(b.date);
+                                if (!isNaN(parsed)) return parsed;
+                            }
+                            return 0;
+                        };
+                        state.blogs = filtered.sort((a, b) => getBlogTime(b) - getBlogTime(a));
+                    } catch (e) {
+                        state.blogs = [];
                     }
-                ];
-            }
-        }
-
-        // Fetch Notifications
-        await fetchNotifications();
-
-        // Hydrate Invoices
-        const iRes = await fetch(`/api/clients/${state.user.id}/invoices`);
-        if (iRes.ok) state.invoices = await iRes.json();
-
-        // Hydrate Documents from KYC
-        const kRes = await fetch('/api/kyc');
-        if (kRes.ok) {
-            const kycList = await kRes.json();
-            const clientKYC = kycList.find(k => k.clientId === state.user.id);
-            state.kyc = clientKYC;
-            if (clientKYC && clientKYC.documents) {
-                state.documents = clientKYC.documents.map(d => ({
-                    name: d.name,
-                    status: d.status,
-                    category: d.type || 'Identity',
-                    expiry: d.expiry || 'N/A',
-                    date: d.uploadedAt || '2026-05-11'
-                }));
-            }
-        }
-        // Hydrate Catalog
-        const cRes = await fetch('/api/catalog');
-        if (cRes.ok) state.catalog = await cRes.json();
-
-        // Hydrate Compliance Status
-        const cpRes = await fetch('/api/compliance');
-        if (cpRes.ok) {
-            const cpList = await cpRes.json();
-            state.compliance = cpList.find(c => c.clientId === state.user.id);
-        }
-
-        // Fetch Static Content
-        const scRes = await fetch('/api/static-content?portal=client');
-        if (scRes.ok) state.staticContent = await scRes.json();
-
-        // Fetch Published Onboarding Steps Configuration
-        try {
-            const osRes = await fetch('/api/onboarding-config/published');
-            if (osRes.ok) {
-                const osData = await osRes.json();
-                if (osData && osData.length > 0) {
-                    ONBOARDING_STEPS = osData;
+                } else {
+                    state.blogs = [
+                        {
+                            id: "default-incorporation",
+                            title: "Navigating Singapore Startup Incorporation",
+                            category: "Compliance",
+                            description: "A complete step-by-step walkthrough on incorporation requirements, nominee directors, and local secretarial guidelines.",
+                            excerpt: "A complete step-by-step walkthrough on incorporation requirements, nominee directors, and local secretarial guidelines.",
+                            content: "<p>Incorporating a startup in Singapore is a popular choice for founders globally due to the country's business-friendly policies, attractive tax structures, and robust intellectual property protections.</p><p>In this guide, we cover structural setups, ACRA requirements, nominee directors, and statutory registration processes to get you running in hours.</p>",
+                            coverImage: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40",
+                            author: "Admin Team",
+                            date: "28 May 2026",
+                            status: "published",
+                            published: true
+                        },
+                        {
+                            id: "default-tax",
+                            title: "Understanding Corporate Tax Benefits & Rates",
+                            category: "Corporate Tax",
+                            description: "Learn how the single-tier territorial tax system and startup exemptions can optimize your company's effective tax liability.",
+                            excerpt: "Learn how the single-tier territorial tax system and startup exemptions can optimize your company's effective tax liability.",
+                            content: "<p>Singapore corporate tax rates are capped flat at 17%. Thanks to tax exemptions for new startups and partial tax exemptions, the effective tax rate is often significantly lower.</p>",
+                            coverImage: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c",
+                            author: "Tax Advisory",
+                            date: "24 May 2026",
+                            status: "published",
+                            published: true
+                        }
+                    ];
                 }
-            }
-        } catch (osErr) {
-            console.error('Error fetching onboarding steps configuration:', osErr);
-        }
+            }),
+            fetchNotifications(),
+            fetch(`/api/clients/${state.user.id}/invoices`).then(async iRes => {
+                if (iRes.ok) state.invoices = await iRes.json();
+            }),
+            fetch('/api/kyc').then(async kRes => {
+                if (kRes.ok) {
+                    const kycList = await kRes.json();
+                    const clientKYC = kycList.find(k => k.clientId === state.user.id);
+                    state.kyc = clientKYC;
+                    if (clientKYC && clientKYC.documents) {
+                        state.documents = clientKYC.documents.map(d => ({
+                            name: d.name,
+                            status: d.status,
+                            category: d.type || 'Identity',
+                            expiry: d.expiry || 'N/A',
+                            date: d.uploadedAt || '2026-05-11'
+                        }));
+                    }
+                }
+            }),
+            fetch('/api/catalog').then(async cRes => {
+                if (cRes.ok) state.catalog = await cRes.json();
+            }),
+            fetch('/api/compliance').then(async cpRes => {
+                if (cpRes.ok) {
+                    const cpList = await cpRes.json();
+                    state.compliance = cpList.find(c => c.clientId === state.user.id);
+                }
+            }),
+            fetch('/api/static-content?portal=client').then(async scRes => {
+                if (scRes.ok) state.staticContent = await scRes.json();
+            }),
+            fetch('/api/onboarding-config/published').then(async osRes => {
+                try {
+                    if (osRes.ok) {
+                        const osData = await osRes.json();
+                        if (osData && osData.length > 0) {
+                            ONBOARDING_STEPS = osData;
+                        }
+                    }
+                } catch (osErr) {
+                    console.error('Error parsing onboarding steps configuration:', osErr);
+                }
+            })
+        ];
+
+        await Promise.allSettled(promises);
     } catch (e) {
         console.error('Core Data Hydration Failed:', e);
     }
@@ -312,6 +306,17 @@ function applyPortalFreezeUI(activated) {
     }
 }
 
+function obStartOnboarding() {
+    state.activeObStepKey = 'document_checklist';
+    switchTab('onboarding');
+}
+
+function obSetShareholderTab(tabKey) {
+    state.activeShareholderTab = tabKey;
+    const workspace = document.getElementById('ob-form-workspace');
+    if (workspace) renderActiveStepForm(workspace);
+}
+
 function switchTab(tab) {
     // Block locked tabs if portal not yet activated
     const LOCKED_TABS = ['services', 'billing', 'guidance', 'updates'];
@@ -326,7 +331,7 @@ function switchTab(tab) {
                 <p style="font-size:14px;color:#64748b;max-width:420px;line-height:1.7;margin-bottom:28px;">
                     The remaining portal sections will be available after Globalisor completes verification and activation.
                 </p>
-                <button onclick="state.activeObStepKey = 'document_checklist'; switchTab('onboarding')" style="padding:12px 28px;background:linear-gradient(135deg,#3b82f6,#06b6d4);color:#fff;border:none;border-radius:14px;font-family:Outfit,sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(59,130,246,0.3);">
+                <button onclick="obStartOnboarding()" style="padding:12px 28px;background:linear-gradient(135deg,#3b82f6,#06b6d4);color:#fff;border:none;border-radius:14px;font-family:Outfit,sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(59,130,246,0.3);">
                     Complete Your Onboarding
                 </button>
             </div>`;
@@ -385,7 +390,7 @@ function switchTab(tab) {
 function getStepRequiredDocs(stepKey, data) {
     const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
     if (!step) return [];
-    
+
     const isForeigner = state.onboarding && state.onboarding.journeyType === 'FOREIGNER';
     let docs = step.requiredDocs || [];
 
@@ -452,7 +457,7 @@ function getStepRequiredDocs(stepKey, data) {
             { type: 'address_proof', label: 'Address Proof' }
         ];
     }
-    
+
     return docs.filter(doc => {
         if (doc.conditionalOn) {
             const condVal = data[doc.conditionalOn];
@@ -465,7 +470,7 @@ function getStepRequiredDocs(stepKey, data) {
 function getStepManualFields(stepKey, data) {
     const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
     if (!step) return [];
-    
+
     const isForeigner = state.onboarding && state.onboarding.journeyType === 'FOREIGNER';
     let fields = step.manualFields || [];
 
@@ -475,7 +480,7 @@ function getStepManualFields(stepKey, data) {
         }
         // Always remove these checkboxes for all directors in foreigner journey
         fields = fields.filter(f => !['useDifferentAddress', 'alternativeAddress', 'disqualificationAcknowledge'].includes(f.key));
-        
+
         const isLocal = data && data.idType === 'local';
         if (!isLocal) {
             // Foreign Director
@@ -528,7 +533,7 @@ function getStepManualFields(stepKey, data) {
             fields.push({ key: 'passportExpiry', label: 'Passport Expiry Date', type: 'date' });
         }
     }
-    
+
     return fields.filter(field => {
         if (field.conditionalOn) {
             const condVal = data[field.conditionalOn];
@@ -540,18 +545,54 @@ function getStepManualFields(stepKey, data) {
 
 function normalizeOnboardingData(ob) {
     if (!ob) return ob;
+    
+    // Explicit mappings for standard keys to match portal-main.js step fields
+    const explicitMappings = {
+        'document_checklist': 'stepDocumentChecklist',
+        'director_details': 'step2DirectorDetails',
+        'share_capital': 'stepShareCapital',
+        'shareholder_details': 'stepShareholderDetails',
+        'individual_shareholder': 'step3IndividualShareholder',
+        'corporate_shareholder': 'step4CorporateShareholder',
+        'ubo': 'step5UBO',
+        'corporate_rep': 'step6CorporateRep',
+        'final_declaration': 'step7FinalDeclaration'
+    };
+
     if (ob.dynamicSteps) {
         Object.entries(ob.dynamicSteps).forEach(([key, step]) => {
-            if (key === 'document_checklist') {
-                ob.stepDocumentChecklist = step;
-            } else if (key === 'share_capital') {
-                ob.stepShareCapital = step;
-            } else {
-                const targetKey = 'step' + key.charAt(0).toUpperCase() + key.slice(1).replace(/_([a-z])/g, (m, c) => c.toUpperCase());
-                ob[targetKey] = step;
-            }
+            const targetKey = explicitMappings[key] || ('step' + key.charAt(0).toUpperCase() + key.slice(1).replace(/_([a-z])/g, (m, c) => c.toUpperCase()));
+            ob[targetKey] = step;
         });
     }
+
+    // Ensure standard keys are initialized if not present
+    Object.values(explicitMappings).forEach(field => {
+        if (!ob[field]) {
+            ob[field] = { data: { list: [] }, status: 'pending', documents: [] };
+        }
+        if (!ob[field].data) {
+            ob[field].data = { list: [] };
+        }
+        if (!ob[field].data.list) {
+            ob[field].data.list = [];
+        }
+        if (!ob[field].documents) {
+            ob[field].documents = [];
+        }
+        
+        // Sync percentages for individual and corporate shareholders
+        if ((field === 'step3IndividualShareholder' || field === 'step4CorporateShareholder') && ob[field].data.list) {
+            ob[field].data.list.forEach(item => {
+                if (item.numberOfSharesPct && !item.shareCapitalAmountPct) {
+                    item.shareCapitalAmountPct = item.numberOfSharesPct;
+                } else if (item.shareCapitalAmountPct && !item.numberOfSharesPct) {
+                    item.numberOfSharesPct = item.shareCapitalAmountPct;
+                }
+            });
+        }
+    });
+
     return ob;
 }
 
@@ -601,10 +642,19 @@ const DEFAULT_ONBOARDING_STEPS = [
         manualFields: []
     },
     {
+        key: 'shareholder_details',
+        field: 'stepShareholderDetails',
+        title: 'Shareholder Details',
+        icon: 'users',
+        description: 'Collect tabular details for all company shareholders.',
+        requiredDocs: [],
+        manualFields: []
+    },
+    {
         key: 'individual_shareholder',
         field: 'step3IndividualShareholder',
         title: 'Individual Shareholder Details',
-        icon: 'users',
+        icon: 'user-check',
         description: 'Capture individual shareholder information. Ownership ≥ 25% will automatically trigger UBO and AML/KYC screening.',
         requiredDocs: [
             { type: 'nric', label: 'NRIC / FIN' },
@@ -623,12 +673,13 @@ const DEFAULT_ONBOARDING_STEPS = [
             { key: 'alternativeAddress', label: 'Alternative Residential Address', type: 'text', conditionalOn: 'useDifferentAddress', conditionalValue: 'true' },
             { key: 'currency', label: 'Currency', type: 'select', options: ['Select', 'SGD', 'USD'] },
             { key: 'shareClass', label: 'Share Class', type: 'select', options: ['Select', 'Ordinary', 'Preference'] },
-            { key: 'numberOfSharesPct', label: 'Number of Shares (%)', type: 'number' },
             { key: 'shareCapitalAmountPct', label: 'Share Capital Amount (%)', type: 'number' },
-            { key: 'numberOfShares', label: 'Number of Shares', type: 'number', readonly: true },
             { key: 'shareCapitalAmount', label: 'Share Capital Amount', type: 'number', readonly: true },
+            { key: 'numberOfSharesPct', label: 'Number of Shares (%)', type: 'number' },
+            { key: 'numberOfShares', label: 'Number of Shares', type: 'number', readonly: true },
             { key: 'ownershipPercentage', label: 'Ownership % (auto-calculated)', type: 'number', readonly: true },
-            { key: 'uboDeclaration', label: 'Is the Shareholder the Ultimate Beneficial Owner?', type: 'select', options: ['Select', 'No', 'Yes'] }
+            { key: 'uboDeclaration', label: 'Is the Shareholder the Ultimate Beneficial Owner?', type: 'select', options: ['Select', 'No', 'Yes'] },
+            { key: 'isNominee', label: 'Is the shareholder a nominee shareholder?', type: 'checkbox' }
         ],
         dynamicSection: true,
         dynamicCountKey: 'individualShareholderCount'
@@ -653,13 +704,14 @@ const DEFAULT_ONBOARDING_STEPS = [
             { key: 'registeredAddress', label: 'Registered Address', type: 'text' },
             { key: 'currency', label: 'Currency', type: 'select', options: ['SGD', 'USD'] },
             { key: 'shareClass', label: 'Share Class', type: 'select', options: ['Select', 'Ordinary', 'Preference'] },
-            { key: 'numberOfSharesPct', label: 'Number of Shares (%)', type: 'number' },
             { key: 'shareCapitalAmountPct', label: 'Share Capital Amount (%)', type: 'number' },
-            { key: 'numberOfShares', label: 'Number of Shares', type: 'number', readonly: true },
             { key: 'shareCapitalAmount', label: 'Share Capital Amount', type: 'number', readonly: true },
+            { key: 'numberOfSharesPct', label: 'Number of Shares (%)', type: 'number' },
+            { key: 'numberOfShares', label: 'Number of Shares', type: 'number', readonly: true },
             { key: 'ownershipPercentage', label: 'Ownership % (auto-calculated)', type: 'number', readonly: true },
             { key: 'uboDeclaration', label: 'Is the Shareholder the Ultimate Beneficial Owner?', type: 'select', options: ['No', 'Yes'] },
-            { key: 'anyAdditionalController', label: 'Any Additional Controller?', type: 'checkbox' }
+            { key: 'anyAdditionalController', label: 'Any Additional Controller?', type: 'checkbox' },
+            { key: 'isNominee', label: 'Is the shareholder a nominee shareholder?', type: 'checkbox' }
         ],
         dynamicSection: true,
         dynamicCountKey: 'corporateShareholderCount'
@@ -674,7 +726,7 @@ const DEFAULT_ONBOARDING_STEPS = [
             { type: 'nric', label: 'Passport Copy' },
             { type: 'address_proof', label: 'Address Proof' }
         ],
-        extractedFields: ['fullName','nationality','dateOfBirth','passportExpiry'],
+        extractedFields: ['fullName', 'nationality', 'dateOfBirth', 'passportExpiry'],
         manualFields: [
             { key: 'fullName', label: 'Full Legal Name', type: 'text' },
             { key: 'nationality', label: 'Nationality', type: 'nationality' },
@@ -686,6 +738,15 @@ const DEFAULT_ONBOARDING_STEPS = [
         ],
         dynamicSection: true,
         dynamicCountKey: 'corporateRepCount'
+    },
+    {
+        key: 'rons',
+        field: 'stepRons',
+        title: 'Register of Nominee Shareholders (RONS)',
+        icon: 'users-cog',
+        description: 'Declare nominee shareholders and capture their details and required documents.',
+        requiredDocs: [],
+        manualFields: []
     },
     {
         key: 'final_declaration',
@@ -706,13 +767,21 @@ const DEFAULT_ONBOARDING_STEPS = [
 let ONBOARDING_STEPS = [...DEFAULT_ONBOARDING_STEPS];
 
 async function renderOnboarding(container) {
-    container.innerHTML = `
-        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:100px 20px; width:100%;">
-            <div style="width:40px; height:40px; border:3px solid #e2e8f0; border-top-color:#3b82f6; border-radius:50%; animation:ob-spin 1s linear infinite;"></div>
-            <div style="margin-top:16px; font-family:'Outfit', sans-serif; font-size:15px; font-weight:600; color:#64748b;">Loading Onboarding Details...</div>
-            <style>@keyframes ob-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
-        </div>
-    `;
+    // Optimistic/Cached Render: If onboarding details are already loaded from previous page views, render instantly!
+    const hasCache = state.onboarding && ONBOARDING_STEPS.length > 0;
+    if (hasCache) {
+        drawOnboardingLayout(container);
+        const workspace = document.getElementById('ob-form-workspace');
+        if (workspace) renderActiveStepForm(workspace);
+    } else {
+        container.innerHTML = `
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:100px 20px; width:100%;">
+                <div style="width:40px; height:40px; border:3px solid #e2e8f0; border-top-color:#3b82f6; border-radius:50%; animation:ob-spin 1s linear infinite;"></div>
+                <div style="margin-top:16px; font-family:'Outfit', sans-serif; font-size:15px; font-weight:600; color:#64748b;">Loading Onboarding Details...</div>
+                <style>@keyframes ob-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+            </div>
+        `;
+    }
 
     // Fetch latest onboarding data
     let ob = null;
@@ -738,7 +807,7 @@ async function renderOnboarding(container) {
     } catch (osErr) {
         console.error('Error fetching onboarding steps configuration:', osErr);
     }
-    
+
     // Fetch pre-registration requirements to initialize counts/lists
     let reqData = null;
     try {
@@ -936,7 +1005,7 @@ async function renderOnboarding(container) {
                 changed = true;
             }
         }
-        
+
         if (changed && state.onboardingId) {
             try {
                 const stepsToSync = ['share_capital', 'director_details', 'individual_shareholder', 'corporate_shareholder', 'corporate_rep'];
@@ -966,6 +1035,21 @@ async function renderOnboarding(container) {
 
     const progress = ob && ob.progressPercent ? ob.progressPercent : 0;
     const isActivated = ob && ob.portalActivated;
+    const allSubmitted = ONBOARDING_STEPS.every(s => ['submitted', 'approved', 'under_review'].includes(getFriendlyStatus(s.key, ob)));
+
+    drawOnboardingLayout(container);
+
+    // Render active step form
+    const formWorkspace = document.getElementById('ob-form-workspace');
+    if (formWorkspace) {
+        renderActiveStepForm(formWorkspace);
+    }
+}
+
+function drawOnboardingLayout(container) {
+    const ob = state.onboarding || {};
+    const progress = ob.progressPercent || 0;
+    const isActivated = ob.portalActivated;
     const allSubmitted = ONBOARDING_STEPS.every(s => ['submitted', 'approved', 'under_review'].includes(getFriendlyStatus(s.key, ob)));
 
     container.innerHTML = `
@@ -1062,23 +1146,29 @@ async function renderOnboarding(container) {
                 gap: 8px;
             }
             .wizard-step-tab {
-                min-width: 0 !important;
+                min-width: 100px !important;
                 flex: 1 1 0px !important;
                 flex-shrink: 1 !important;
                 padding: 10px 8px !important;
-                gap: 8px !important;
+                gap: 6px !important;
                 border-radius: 12px !important;
             }
             .wizard-step-title {
                 font-size: 11px !important;
+                white-space: normal !important;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                line-height: 1.25 !important;
             }
             .wizard-step-icon {
-                width: 28px !important;
-                height: 28px !important;
-                font-size: 12px !important;
+                width: 24px !important;
+                height: 24px !important;
+                font-size: 11px !important;
             }
             .wizard-step-badge {
-                padding: 1px 6px !important;
+                padding: 1px 4px !important;
                 font-size: 7px !important;
             }
         }
@@ -1087,43 +1177,12 @@ async function renderOnboarding(container) {
     <style>
         body { overflow-y: scroll; }
         .wizard-layout-row { display: flex; flex-direction: column; gap: 24px; margin-top: 10px; width: 100%; }
-        .wizard-sidebar-left { display: flex; flex-direction: column; gap: 24px; width: 100%; }
-        .wizard-main-col { display: flex; flex-direction: column; gap: 24px; width: 950px; max-width: 100%; flex-shrink: 1; min-width: 0; }
-        @media (min-width: 768px) {
-            .wizard-layout-row { flex-direction: row; align-items: flex-start; }
-            .wizard-sidebar-left { width: 250px; flex-shrink: 0; }
-        }
+        .wizard-main-col { display: flex; flex-direction: column; gap: 24px; width: 100%; min-width: 0; }
     </style>
     <div class="wizard-layout-row">
-        <!-- Vertical Navigation Stepper (Moved to left) -->
-        <div class="wizard-sidebar-left">
-            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
-                <div style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">Your Progress</div>
-                <div style="font-size: 13.5px; color: #475569; font-weight: 500; margin-bottom: 24px;"><span id="sidebar-progress" style="color: #0d6efd; font-weight: 700;">${progress}%</span> Completed</div>
-                
-                <div style="display: flex; flex-direction: column; position: relative;" id="ob-wizard-sidebar">
-                    <!-- Line connecting dots -->
-                    <div style="position: absolute; left: 9px; top: 16px; bottom: 32px; width: 1px; border-left: 1.5px dotted #cbd5e1; z-index: 0;"></div>
-                    
-                    ${ONBOARDING_STEPS.map((step, idx) => {
-        const isLast = idx === ONBOARDING_STEPS.length - 1;
-        return `
-                        <div class="wizard-step-vertical" id="tab-${step.key}" onclick="selectObStep('${step.key}')" style="display: flex; gap: 16px; position: relative; z-index: 1; margin-bottom: ${isLast ? '0' : '24px'}; cursor: pointer;">
-                            <div class="wizard-step-dot" id="icon-${step.key}" style="width: 20px; height: 20px; border-radius: 50%; background: #ffffff; border: 2px solid #cbd5e1; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; transition: all 0.2s;">
-                                <div id="inner-dot-${step.key}" style="width: 6px; height: 6px; border-radius: 50%; background: #94a3b8; transition: all 0.2s;"></div>
-                            </div>
-                            <div>
-                                <div id="title-${step.key}" style="font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 600; color: #334155; line-height: 1.2; margin-bottom: 6px; transition: all 0.2s;">${step.title}</div>
-                                <div id="badge-${step.key}" style="font-size: 12.5px; color: #64748b; font-weight: 500; transition: all 0.2s;">Not started</div>
-                            </div>
-                        </div>`;
-    }).join('')}
-                </div>
-            </div>
-        </div>
-        
-        <!-- Main Column (Progress Banner + Form Panel) -->
+        <!-- Main Column (Progress Banner + Steps Stepper + Form Panel) -->
         <div class="wizard-main-col">
+            <!-- Progress Banner -->
             ${isActivated ? `
             <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0;border-radius:20px;padding:28px;margin-bottom:0;display:flex;align-items:center;gap:20px;box-shadow: 0 10px 25px rgba(22, 163, 74, 0.05);">
                 <div style="width:54px;height:54px;border-radius:16px;background:#16a34a;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow: 0 8px 20px rgba(22, 163, 74, 0.2);">
@@ -1144,14 +1203,14 @@ async function renderOnboarding(container) {
                     <div style="font-size:13px;color:#b45309;margin-top:4px;line-height:1.6;">Your application is currently being verified and reviewed by the Globalisor team. You will receive full access to the portal once the review is completed and approved.</div>
                 </div>
             </div>` : `
-            <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;padding:20px 24px;margin-bottom:0;display:flex;align-items:center;justify-content:space-between;gap:32px;box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);">
-                <div style="display: flex; align-items: center; gap: 24px; flex-grow: 1;">
+            <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;padding:20px 24px;margin-bottom:0;display:flex;align-items:center;justify-content:space-between;gap:32px;box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02); width:100%; box-sizing:border-box;">
+                <div style="display: flex; align-items: center; gap: 24px; flex-grow: 1; width:100%;">
                     <div style="width: 56px; height: 56px; background-color: #eff6ff; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#0d6efd" stroke="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="8 12 11 15 16 9" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
                     </div>
                     
-                    <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 8px;">
-                        <div style="font-family: 'Inter', sans-serif; font-size: 14.5px; font-weight: 500; color: #334155;">
+                    <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 8px; min-width:0;">
+                        <div style="font-family: 'Inter', sans-serif; font-size: 14.5px; font-weight: 500; color: #334155; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                             Complete all steps to submit your onboarding for verification and unlock full access.
                         </div>
                         <div style="display: flex; align-items: center; gap: 16px;">
@@ -1164,20 +1223,33 @@ async function renderOnboarding(container) {
                     <span id="ob-progress-percent" style="font-size:28px;font-weight:800;color:#0d6efd;font-family: 'Outfit', sans-serif; flex-shrink: 0; min-width: 60px; text-align: right;">${progress}%</span>
                 </div>
             </div>`)}
+
+            <!-- Horizontal Stepper Progress Cards at the Top -->
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); width: 100%; box-sizing:border-box;">
+                <div style="font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 800; color: #0f172a; margin-bottom: 16px;">Your Progress</div>
+                <div class="wizard-sidebar" id="ob-wizard-sidebar" style="display: flex; gap: 12px; overflow-x: auto; width: 100%; box-sizing: border-box;">
+                    ${ONBOARDING_STEPS.map((step, idx) => {
+                        return `
+                        <div class="wizard-step-tab" id="tab-${step.key}" onclick="selectObStep('${step.key}')" style="min-width: 180px; flex: 1; padding: 12px 16px; border: 1px solid #e2e8f0; border-radius: 12px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 10px; box-sizing: border-box;">
+                            <div class="wizard-step-icon" id="icon-${step.key}" style="width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; background: #eff6ff; color: #3b82f6; flex-shrink: 0;">
+                                <span style="font-weight: 800;">${idx + 1}</span>
+                            </div>
+                            <div style="flex-grow: 1; min-width: 0;">
+                                <div class="wizard-step-title" id="title-${step.key}" style="font-size: 12px; font-weight: 700; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${step.title}</div>
+                                <div class="wizard-step-badge" id="badge-${step.key}" style="font-size: 8px; font-weight: bold; margin-top: 2px;">Not started</div>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>
             
             <!-- Main Form Panel -->
-            <div class="wizard-content" id="ob-form-workspace" style="width: 100%;">
+            <div class="wizard-content" id="ob-form-workspace" style="width: 100%; box-sizing: border-box;">
                 <!-- Active step form rendered dynamically -->
             </div>
         </div>
     </div>
     `;
-
-    // Render active step form
-    const formWorkspace = document.getElementById('ob-form-workspace');
-    if (formWorkspace) {
-        renderActiveStepForm(formWorkspace);
-    }
 }
 
 let obAutoSaveTimeout = null;
@@ -1246,7 +1318,7 @@ function validateStep(stepKey, ob) {
                     }
                     if (stepKey === 'individual_shareholder') {
                         if (item.sameAsDirector === true || item.sameAsDirector === 'true') {
-                            if (reqDoc.type === 'nric') return;
+                            return; // Exempt all documents if they are mapped to an existing director
                         }
                     }
                     const hasDoc = docs.some(d => d.type === docTypeWithIdx);
@@ -1350,6 +1422,39 @@ function validateStep(stepKey, ob) {
                 }
             });
         }
+    } else if (stepKey === 'rons') {
+        const hasNom = data.hasNominee || 'No';
+        if (hasNom === 'Yes') {
+            const nomineeList = data.nomineeList || [];
+            if (nomineeList.length === 0) {
+                errors.push("At least one nominee shareholder details must be provided if Yes is selected.");
+            }
+            nomineeList.forEach((nom, idx) => {
+                if (!nom.shareholderId) {
+                    errors.push(`Nominee #${idx + 1}: Select Shareholder is required.`);
+                } else {
+                    const shType = nom.type;
+                    if (!nom.email || nom.email.trim() === '') {
+                        errors.push(`Nominee #${idx + 1}: Email Address is required.`);
+                    }
+                    if (!nom.mobile || nom.mobile.trim() === '') {
+                        errors.push(`Nominee #${idx + 1}: Contact Number is required.`);
+                    }
+                    if (shType === 'individual') {
+                        const idDoc = docs.some(d => d.type === `rons_id_proof_${idx}`);
+                        if (!idDoc) errors.push(`Nominee #${idx + 1}: ID Proof document is required.`);
+                        const addrDoc = docs.some(d => d.type === `rons_addr_proof_${idx}`);
+                        if (!addrDoc) errors.push(`Nominee #${idx + 1}: Address Proof document is required.`);
+                    } else if (shType === 'corporate') {
+                        const bizDoc = docs.some(d => d.type === `rons_bizfile_${idx}`);
+                        if (!bizDoc) errors.push(`Nominee #${idx + 1}: BizFile document is required.`);
+                        const constDoc = docs.some(d => d.type === `rons_constitution_${idx}`);
+                        if (!constDoc) errors.push(`Nominee #${idx + 1}: Constitution document is required.`);
+                    }
+                }
+            });
+        }
+        return errors;
     } else {
         const currentRequiredDocs = getStepRequiredDocs(stepKey, data);
         const currentManualFields = getStepManualFields(stepKey, data);
@@ -1606,11 +1711,38 @@ function isStepLocked(idx, ob) {
     return false;
 }
 
-async function selectObStep(stepKey) {
+async function selectObStep(stepKey, isFromContinue = false) {
+    let actualStepKey = stepKey;
+    const ob = state.onboarding || {};
+    
+    if (isFromContinue) {
+        while (true) {
+            const step = ONBOARDING_STEPS.find(s => s.key === actualStepKey);
+            if (!step) break;
+            
+            const isAutomaticSection = ['individual_shareholder', 'corporate_shareholder', 'corporate_rep', 'rons'].includes(actualStepKey);
+            if (isAutomaticSection) {
+                const stepField = step.field;
+                const stepData = ob[stepField] || { status: 'pending', data: {}, documents: [] };
+                const errors = validateStep(actualStepKey, ob);
+                if (errors.length === 0) {
+                    stepData.status = 'completed';
+                    ob[stepField] = stepData;
+                    
+                    const nextIdx = ONBOARDING_STEPS.findIndex(s => s.key === actualStepKey) + 1;
+                    if (nextIdx < ONBOARDING_STEPS.length) {
+                        actualStepKey = ONBOARDING_STEPS[nextIdx].key;
+                        continue;
+                    }
+                }
+            }
+            break;
+        }
+    }
+
     const currentIdx = ONBOARDING_STEPS.findIndex(s => s.key === state.activeObStepKey);
-    const targetIdx = ONBOARDING_STEPS.findIndex(s => s.key === stepKey);
+    const targetIdx = ONBOARDING_STEPS.findIndex(s => s.key === actualStepKey);
     if (currentIdx !== -1 && targetIdx > currentIdx) {
-        const ob = state.onboarding || {};
         const errors = validateStep(state.activeObStepKey, ob);
         if (errors.length > 0) {
             if (!state.showObErrors) state.showObErrors = {};
@@ -1620,9 +1752,9 @@ async function selectObStep(stepKey) {
         }
     }
     if (!state.showObErrors) state.showObErrors = {};
-    state.showObErrors[stepKey] = false;
+    state.showObErrors[actualStepKey] = false;
 
-    const idx = ONBOARDING_STEPS.findIndex(s => s.key === stepKey);
+    const idx = ONBOARDING_STEPS.findIndex(s => s.key === actualStepKey);
     if (isStepLocked(idx, state.onboarding)) {
         alert("Step Locked! Please complete the previous steps in order before proceeding.");
         return;
@@ -1631,7 +1763,7 @@ async function selectObStep(stepKey) {
     // Save any pending input immediately before switching
     await forceSaveActiveStep();
 
-    state.activeObStepKey = stepKey;
+    state.activeObStepKey = actualStepKey;
 
     const workspace = document.getElementById('ob-form-workspace');
     if (workspace) {
@@ -2097,7 +2229,7 @@ function renderActiveStepForm(container) {
         try {
             selectionStart = activeEl.selectionStart;
             selectionEnd = activeEl.selectionEnd;
-        } catch (e) {}
+        } catch (e) { }
     }
 
     const stepKey = state.activeObStepKey;
@@ -2121,646 +2253,12 @@ function renderActiveStepForm(container) {
         contentHtml = obRenderDocumentChecklistHtml(isReadOnly);
     } else if (stepKey === 'share_capital') {
         contentHtml = obRenderShareCapitalHtml(isReadOnly);
+    } else if (stepKey === 'shareholder_details') {
+        contentHtml = obRenderIndividualShareholderHtml(isReadOnly);
+    } else if (stepKey === 'rons') {
+        contentHtml = obRenderRonsHtml(isReadOnly);
     } else if (isMultiItem) {
-        if (!data.list || !Array.isArray(data.list)) {
-            data.list = [];
-        }
-        if (data.list.length === 0) {
-            data.list.push({});
-        }
-
-        contentHtml = data.list.map((item, idx) => {
-            const currentRequiredDocs = getStepRequiredDocs(stepKey, item);
-            let currentManualFields = getStepManualFields(stepKey, item);
-
-            let topFieldsHtml = '';
-            if (stepKey === 'individual_shareholder') {
-                const shTypeIdx = currentManualFields.findIndex(f => f.key === 'shareholderType');
-                if (shTypeIdx !== -1) {
-                    const f = currentManualFields[shTypeIdx];
-                    currentManualFields.splice(shTypeIdx, 1); // Remove from main list
-                    
-                    const val = item[f.key] !== undefined ? item[f.key] : '';
-                    const inputId = `ob-${stepKey}-${idx}-${f.key}`;
-                    const disabledAttr = isReadOnly ? 'disabled' : '';
-                    const options = f.options || [];
-                    
-                    topFieldsHtml = `
-                        <div class="ob-field-row" style="margin-bottom: 24px;">
-                            <div class="ob-field">
-                                <label for="${inputId}">${f.label}</label>
-                                <select id="${inputId}" ${disabledAttr} onchange="triggerMultiItemAutoSave('${stepKey}', ${idx}, true)">
-                                    ${options.map(o => `<option value="${o}" ${String(val).trim().toLowerCase() === String(o).trim().toLowerCase() ? 'selected' : ''}>${o}</option>`).join('')}
-                                </select>
-                            </div>
-                        </div>
-                    `;
-                }
-            }
-
-            let itemDocsHtml = '';
-            if (currentRequiredDocs && currentRequiredDocs.length > 0) {
-                itemDocsHtml = `
-                    <div style="margin-bottom: 0;">
-                        <div style="font-family: 'Inter', sans-serif; font-size:13.5px;font-weight:600;color:#334155;margin-bottom:12px; display:flex; align-items:center; gap:8px;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                            Required Documents
-                        </div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-                            ${currentRequiredDocs.map(doc => {
-                                const docTypeWithIdx = `${doc.type}_${idx}`;
-                                const uploaded = docs.find(d => d.type === docTypeWithIdx);
-                                
-                                let isReq = true;
-                                if (stepKey === 'corporate_shareholder') {
-                                    const country = (item.countryOfIncorporation || '').trim().toLowerCase();
-                                    const isSG = country === 'singapore' || country === 'sg';
-                                    if (isSG) {
-                                        isReq = (doc.type === 'bizfile' || doc.type === 'constitution');
-                                    } else {
-                                        isReq = (doc.type === 'cert_incorporation' || doc.type === 'constitution');
-                                    }
-                                }
-                                if (stepKey === 'individual_shareholder') {
-                                    if (item.sameAsDirector === true || item.sameAsDirector === 'true') {
-                                        isReq = false;
-                                    }
-                                }
-                                const labelText = doc.label + (isReq ? ' (Required)' : ' (Optional)');
-                                
-                                return `
-                                <div class="ob-doc-upload" id="doc-${stepKey}-${docTypeWithIdx}" 
-                                     style="${uploaded ? 'border-color:#10b981;background:#f0fdf4;' : 'border-color:#e2e8f0;background:#f8fafc;'} border-radius: 14px; transition: all 0.2s; ${isReadOnly ? 'cursor:default;opacity:0.85;' : ''} padding: 16px; cursor:${isReadOnly ? 'default' : 'pointer'};"
-                                     ${isReadOnly ? '' : `onclick="obUploadMultiItemDoc('${stepKey}','${docTypeWithIdx}','${doc.label}', ${idx})"`}
-                                >
-                                    ${uploaded
-                            ? `<div style='display:flex; justify-content:space-between; align-items:flex-start;'>
-                                             <div style="text-align: left;">
-                                                 <div style='color:#059669;font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:6px;'><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> ${labelText}</div>
-                                                 <div style='font-size:11px;font-weight:500;color:#475569;margin-top:6px;word-break:break-all; max-width: 90%;'>📄 ${uploaded.fileName || 'Uploaded'}</div>
-                                             </div>
-                                             ${isReadOnly ? '' : `
-                                                 <button type="button" onclick="event.stopPropagation(); obClearMultiItemDoc('${stepKey}','${docTypeWithIdx}', ${idx})" style="padding:6px;background:#fee2e2;border:none;border-radius:8px;color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'" title="Remove Document">
-                                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                                 </button>
-                                             `}
-                                           </div>`
-                            : `<div style='text-align:center;'>
-                                            <div style="width:40px;height:40px;border-radius:12px;background:#ffffff;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;margin:0 auto 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);">
-                                                <svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='#3b82f6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='17 8 12 3 7 8'/><line x1='12' x2='12' y1='3' y2='15'/></svg>
-                                            </div>
-                                            <div style='font-size:12.5px;font-weight:600;color:#1e293b;'>${labelText}</div>
-                                            ${isReadOnly ? '' : `<div style='font-size:11px;color:#64748b;margin-top:4px;'>Click or drag file to upload</div>`}
-                                           </div>`
-                        }
-                                </div>`;
-                }).join('')}
-                        </div>
-                    </div>
-                `;
-            }
-
-            let itemFieldsHtml = '';
-            const hasNric = docs.some(d => d.type === `nric_${idx}`);
-            const hasPassport = docs.some(d => d.type === `passport_${idx}`);
-            const hasAddress = docs.some(d => d.type === `address_proof_${idx}`);
-            const showFields = (stepKey !== 'director_details') || (hasNric || hasPassport || hasAddress) || (item.source === 'globalisor');
-
-            if (item.source === 'globalisor') {
-                itemFieldsHtml = `
-                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-top: 12px; width: 100%;">
-                        <div style="font-size: 13px; font-weight: 600; color: #475569; display: flex; align-items: center; gap: 8px;">
-                            <span>👤</span> Nominee Director service will be provided by Globalisor. No action is required.
-                        </div>
-                    </div>
-                `;
-            } else if (showFields) {
-                if (currentManualFields && currentManualFields.length > 0) {
-                    itemFieldsHtml = `
-                        <div class="ob-field-row">
-                            ${currentManualFields.map(f => {
-                        const val = item[f.key] !== undefined ? item[f.key] : '';
-                        const inputId = `ob-${stepKey}-${idx}-${f.key}`;
-                        const readonlyAttr = (f.readonly || isReadOnly) ? 'readonly' : '';
-
-                        if (f.key === 'sameAsDirector') {
-                            const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
-                            const dirStep = ONBOARDING_STEPS.find(s => s.key === 'director_details');
-                            const dirList = dirStep && state.onboarding[dirStep.field] ? (state.onboarding[dirStep.field].data.list || []) : [];
-
-                            let selectWrapperHtml = '';
-                            if (val) {
-                                const selectedDirectorIndices = new Set();
-                                const currentStepConfig = ONBOARDING_STEPS.find(s => s.key === stepKey);
-                                const stepField = currentStepConfig ? currentStepConfig.field : 'step3IndividualShareholder';
-                                const shareholdersList = state.onboarding[stepField] && state.onboarding[stepField].data && state.onboarding[stepField].data.list ? state.onboarding[stepField].data.list : [];
-                                shareholdersList.forEach((s, sIdx) => {
-                                    if (sIdx !== idx && s.selectedDirectorIdx !== undefined && s.selectedDirectorIdx !== null && s.selectedDirectorIdx !== '') {
-                                        selectedDirectorIndices.add(String(s.selectedDirectorIdx));
-                                    }
-                                });
-
-                                selectWrapperHtml = `
-                                        <div class="ob-field" style="grid-column: span 2; margin-bottom: 12px;">
-                                            <label for="${inputId}-director-select">Select Director Source</label>
-                                            <select id="${inputId}-director-select" ${disabledAttr} onchange="obIndividualShareholderSameAsDirectorChange(${idx}, this.value)">
-                                                <option value="">Select Director</option>
-                                                ${dirList.map((d, dIdx) => {
-                                    const isSelected = item.selectedDirectorIdx === String(dIdx);
-                                    if (!isSelected && selectedDirectorIndices.has(String(dIdx))) {
-                                        return '';
-                                    }
-                                    return `<option value="${dIdx}" ${isSelected ? 'selected' : ''}>Director #${dIdx + 1}: ${d.fullName || '(No Name)'}</option>`;
-                                }).join('')}
-                                            </select>
-                                        </div>
-                                        `;
-                            }
-
-                            return `
-                                    <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:16px; grid-column: span 2; margin-top: 8px; margin-bottom: 8px;">
-                                        <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="obIndividualShareholderSameAsDirectorCheckboxChange(${idx}, this.checked)" style="width:16px; height:16px; cursor:pointer;">
-                                        <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569; user-select:none;">${f.label}</label>
-                                    </div>
-                                    ${selectWrapperHtml}
-                                    `;
-                                }
-
-                                if (f.key === 'anyAdditionalController') {
-                                    const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
-                                    const maxOwnership = (() => {
-                                        let max = 0;
-                                        const ob = state.onboarding || {};
-                                        const indList = (ob.step3IndividualShareholder && ob.step3IndividualShareholder.data && ob.step3IndividualShareholder.data.list) || [];
-                                        const corpList = (ob.step4CorporateShareholder && ob.step4CorporateShareholder.data && ob.step4CorporateShareholder.data.list) || [];
-                                        indList.forEach(it => {
-                                            const pct = parseFloat(it.numberOfSharesPct) || parseFloat(it.shareCapitalAmountPct) || 0;
-                                            if (pct > max) max = pct;
-                                        });
-                                        corpList.forEach(it => {
-                                            const pct = parseFloat(it.numberOfSharesPct) || parseFloat(it.shareCapitalAmountPct) || 0;
-                                            if (pct > max) max = pct;
-                                        });
-                                        return max;
-                                    })();
-
-                                    if (maxOwnership >= 25) {
-                                        return '';
-                                    }
-
-                                    let selectWrapperHtml = '';
-                                    if (val) {
-                                         const dirStep = state.onboarding.step2DirectorDetails || {};
-                                         const dirList = (dirStep.data && dirStep.data.list) || [];
-                                         const selectedDirectors = item.additionalControllerDirectors || [];
-
-                                         const externalControllers = item.externalControllers || [];
-                                         let externalFormHtml = `
-                                         <div style="margin-top:12px; padding:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; display:flex; flex-direction:column; gap:16px; width:100%; box-sizing:border-box;">
-                                             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #e2e8f0; padding-bottom:8px;">
-                                                 <h5 style="font-size:12px; font-weight:700; color:#1e293b; margin:0;">External Additional Controllers</h5>
-                                                 ${isReadOnly ? '' : `
-                                                     <button type="button" onclick="obAddExternalController(${idx})" style="padding: 6px 12px; background: #eff6ff; border: 1px dashed #bfdbfe; border-radius: 8px; color: #2563eb; font-size:11px; font-weight:700; cursor:pointer;">
-                                                         ➕ Add External Controller
-                                                     </button>
-                                                 `}
-                                             </div>
-                                         `;
-
-                                         if (externalControllers.length === 0) {
-                                             externalFormHtml += `
-                                             <div style="text-align:center; padding:12px; font-size:12px; color:#64748b;">
-                                                 No external controllers added yet. Click the button to add.
-                                             </div>
-                                             `;
-                                         } else {
-                                             externalControllers.forEach((ext, extIdx) => {
-                                                 const docKey = `external_passport_${idx}_${extIdx}`;
-                                                 const corpStepData = state.onboarding.step4CorporateShareholder || {};
-                                                 const docsList = corpStepData.documents || [];
-                                                 const uploadedDoc = docsList.find(d => d.type === docKey);
-                                                 let uploadHtml = '';
-                                                 if (uploadedDoc) {
-                                                     uploadHtml = `
-                                                     <div style="display:flex; align-items:center; justify-content:space-between; padding:10px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; margin-top:8px;">
-                                                         <span style="font-size:11px; font-weight:600; color:#16a34a;">✅ Passport Uploaded: ${uploadedDoc.fileName}</span>
-                                                         <button type="button" onclick="obClearMultiItemDoc('corporate_shareholder', '${docKey}', ${idx})" style="background:transparent; border:none; color:#ef4444; font-size:11px; font-weight:700; cursor:pointer;">Delete</button>
-                                                     </div>`;
-                                                 } else {
-                                                     uploadHtml = `
-                                                     <div id="doc-corporate_shareholder-${docKey}" style="margin-top:8px;">
-                                                         <button type="button" onclick="obUploadMultiItemDoc('corporate_shareholder', '${docKey}', 'External Controller Passport', ${idx})" class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 border-dashed text-slate-700 font-bold px-4 py-2 rounded-lg text-xs flex items-center justify-center gap-2 transition-all">
-                                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" x2="12" y1="3" y2="15"></line></svg> Upload Passport Copy (Required)
-                                                         </button>
-                                                     </div>`;
-                                                 }
-
-                                                 const extFields = [
-                                                     { key: 'fullName', label: 'Full Legal Name', type: 'text' },
-                                                     { key: 'idNumber', label: 'Passport / ID Number', type: 'text' },
-                                                     { key: 'nationality', label: 'Nationality', type: 'nationality' },
-                                                     { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
-                                                     { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
-                                                     { key: 'email', label: 'Email Address', type: 'email' },
-                                                     { key: 'mobile', label: 'Mobile Number', type: 'phone' },
-                                                     { key: 'passportExpiry', label: 'Passport Expiry Date', type: 'date' }
-                                                 ];
-
-                                                 const extFieldsHtml = extFields.map(ef => {
-                                                     const extVal = ext[ef.key] || '';
-                                                     const extInputId = `ob-corporate_shareholder-${idx}-ext-${extIdx}-${ef.key}`;
-                                                     
-                                                     if (ef.type === 'nationality') {
-                                                         const cbKey = `ob_corp_sh_${idx}_ext_${extIdx}_nat_cb`;
-                                                         window[cbKey] = () => {
-                                                             const el = document.getElementById(extInputId);
-                                                             if (el) {
-                                                                  obUpdateExternalControllerField(idx, extIdx, ef.key, el.value);
-                                                              }
-                                                         };
-                                                         return obRenderNationalityField({
-                                                             inputId: extInputId,
-                                                             val: String(extVal),
-                                                             readonlyAttr: isReadOnly ? 'readonly' : '',
-                                                             onChangeCallback: cbKey
-                                                         });
-                                                     } else if (ef.type === 'phone') {
-                                                         return obRenderPhoneField({
-                                                             inputId: extInputId,
-                                                             val: String(extVal),
-                                                             readonlyAttr: isReadOnly ? 'readonly' : '',
-                                                             onInputCallback: `obUpdateExternalControllerFieldPhone(${idx}, ${extIdx}, '${extInputId}')`
-                                                         });
-                                                     } else {
-                                                         return `
-                                                         <div class="ob-field" style="margin-top:8px;">
-                                                             <label>${ef.label}</label>
-                                                             <input type="${ef.type}" id="${extInputId}" value="${extVal}" placeholder="Enter ${ef.label.toLowerCase()}" ${isReadOnly ? 'readonly' : ''} oninput="obUpdateExternalControllerField(${idx}, ${extIdx}, '${ef.key}', this.value)">
-                                                         </div>`;
-                                                     }
-                                                 }).join('');
-
-                                                 externalFormHtml += `
-                                                 <div style="border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; background: white; margin-bottom: 12px; position:relative; box-sizing:border-box;">
-                                                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px dashed #e2e8f0; padding-bottom:8px;">
-                                                         <span style="font-size:12px; font-weight:700; color:#334155;">External Controller #${extIdx + 1}</span>
-                                                         ${isReadOnly ? '' : `
-                                                             <button type="button" onclick="obRemoveExternalController(${idx}, ${extIdx})" style="padding: 4px 10px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #dc2626; font-size:10px; font-weight:700; cursor:pointer;">
-                                                                 Remove
-                                                             </button>
-                                                         `}
-                                                     </div>
-                                                     ${uploadHtml}
-                                                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;">
-                                                         ${extFieldsHtml}
-                                                     </div>
-                                                 </div>
-                                                 `;
-                                             });
-                                         }
-
-                                         externalFormHtml += `</div>`;
-
-                                         selectWrapperHtml = `
-                                         <div style="grid-column: span 2; margin-top:12px; padding:16px; background:#f1f5f9; border-radius:12px; display:flex; flex-direction:column; gap:12px; box-sizing:border-box; width:100%;">
-                                             <div class="ob-field" style="width:100%; box-sizing:border-box;">
-                                                 <div style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 6px;">Select Director(s) as Controller</div>
-                                                 <div style="display:flex; flex-direction:column; gap:8px; border:1px solid #cbd5e1; border-radius:8px; padding:12px; background:white; max-height:150px; overflow-y:auto; box-sizing:border-box; width:100%;">
-                                                     ${dirList.length === 0 ? `
-                                                         <div style="font-size:12px; color:#64748b; text-align:center; padding:8px;">No directors found to select.</div>
-                                                     ` : dirList.map((d, dIdx) => {
-                                                         const isSelected = selectedDirectors.includes(String(dIdx));
-                                                         const cbId = `${inputId}-director-cb-${dIdx}`;
-                                                         return `
-                                                         <label for="${cbId}" style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:500; color:#334155; cursor:pointer; margin-bottom:0; text-transform:none; letter-spacing:normal; width:100%;">
-                                                             <input type="checkbox" id="${cbId}" ${isSelected ? 'checked' : ''} ${disabledAttr} onchange="obCorporateShareholderAdditionalControllersCheckboxChange(${idx}, ${dIdx}, this.checked)" style="width:16px; height:16px; cursor:pointer; margin:0;">
-                                                             Director #${dIdx + 1}: ${d.fullName || d.name || '(No Name)'}
-                                                         </label>
-                                                         `;
-                                                     }).join('')}
-                                                 </div>
-                                             </div>
-                                             ${externalFormHtml}
-                                         </div>
-                                         `;
-                                      }
-
-                                      return `
-                                      <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:16px; grid-column: span 2; margin-top: 8px; margin-bottom: 8px;">
-                                          <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="obCorporateShareholderAnyAdditionalControllerCheckboxChange(${idx}, this.checked)" style="width:16px; height:16px; cursor:pointer;">
-                                          <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569; user-select:none;">${f.label}</label>
-                                      </div>
-                                      ${selectWrapperHtml}
-                                      `;
-                                 }
-
-                                 if (f.type === 'select') {
-                                     let disabledAttr = isReadOnly ? 'disabled' : '';
-                                     if (f.key === 'uboDeclaration') {
-                                         disabledAttr = 'disabled';
-                                     }
-                                     
-                                     let options = f.options || [];
-                                     if (stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') {
-                                         const scStep = state.onboarding.stepShareCapital || {};
-                                         const scData = scStep.data || {};
-                                         const scCurrencies = scData.currencies || [];
-                                         
-                                         if (f.key === 'currency') {
-                                             const configuredCurrs = new Set();
-                                             scCurrencies.forEach(c => {
-                                                 const currCode = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
-                                                 if (currCode) {
-                                                     configuredCurrs.add(currCode);
-                                                 }
-                                             });
-                                             if (configuredCurrs.size > 0) {
-                                                 options = ['Select', ...Array.from(configuredCurrs)];
-                                             }
-                                         } else if (f.key === 'shareClass') {
-                                             const configuredClasses = new Set();
-                                             scCurrencies.forEach(c => {
-                                                 const sc = c.shareClass || '';
-                                                 if (sc) {
-                                                     configuredClasses.add(sc);
-                                                 }
-                                             });
-                                             if (configuredClasses.size > 0) {
-                                                 options = ['Select', ...Array.from(configuredClasses)];
-                                             }
-                                         }
-                                     }
-
-                                     return `
-                                     <div class="ob-field">
-                                         <label for="${inputId}">${f.label}</label>
-                                         <select id="${inputId}" onchange="triggerMultiItemAutoSave('${stepKey}', ${idx})" ${disabledAttr}>
-                                             ${options.map(o => `<option value='${o}' ${String(val).trim().toLowerCase() === String(o).trim().toLowerCase() ? 'selected' : ''}>${o}</option>`).join('')}
-                                         </select>
-                                     </div>`;
-                        } else if (f.type === 'checkbox') {
-                            const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
-                            const mandatoryMark = f.mandatory ? '<span style="color:#ef4444; margin-left:2px;">*</span>' : '';
-                            return `
-                                    <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:16px; grid-column: span 2; margin-top: 8px; margin-bottom: 8px;">
-                                        <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="triggerMultiItemAutoSave('${stepKey}', ${idx}, true)" style="width:16px; height:16px; cursor:pointer;">
-                                        <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569; user-select:none;">${f.label}${mandatoryMark}</label>
-                                    </div>`;
-                        } else if (f.type === 'phone') {
-                            let fieldReadonlyAttr = readonlyAttr;
-                            if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
-                                fieldReadonlyAttr = 'readonly';
-                            }
-                            const cbKey = `${inputId.replace(/-/g, '_')}NatCb`;
-                            return obRenderPhoneField({
-                                inputId,
-                                val: String(val),
-                                readonlyAttr: fieldReadonlyAttr,
-                                onInputCallback: `triggerMultiItemAutoSave('${stepKey}', ${idx})`
-                            });
-                        } else if (f.type === 'nationality') {
-                            let fieldReadonlyAttr = readonlyAttr;
-                            if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
-                                fieldReadonlyAttr = 'readonly';
-                            }
-                            const cbKey = inputId.replace(/-/g, '_') + 'NatCb';
-                            window[cbKey] = () => {
-                                const el = document.getElementById(inputId);
-                                if (el) {
-                                    const stepData = state.onboarding[ONBOARDING_STEPS.find(s => s.key === stepKey).field];
-                                    if (stepData && stepData.data && stepData.data.list && stepData.data.list[idx]) {
-                                        stepData.data.list[idx][f.key] = el.value;
-                                        
-                                        // Auto-update mobile phone code
-                                        const natVal = el.value.trim();
-                                        if (natVal) {
-                                            const foundCountry = OB_COUNTRIES.find(c => c.name.toLowerCase() === natVal.toLowerCase() || (c.nationality && c.nationality.toLowerCase() === natVal.toLowerCase()));
-                                            if (foundCountry) {
-                                                const mobileInputId = `ob-${stepKey}-${idx}-mobile`;
-                                                if (document.getElementById(mobileInputId)) {
-                                                    obPhoneSelectCountry(mobileInputId, foundCountry.code, foundCountry.dial, foundCountry.maxLen);
-                                                }
-                                            }
-                                        }
-                                    }
-                                    triggerMultiItemAutoSave(stepKey, idx);
-                                }
-                            };
-                            return obRenderNationalityField({
-                                inputId,
-                                val: String(val),
-                                readonlyAttr: fieldReadonlyAttr,
-                                onChangeCallback: cbKey
-                            });
-                        } else {
-                            let fieldReadonlyAttr = readonlyAttr;
-                            if (f.readonly === true) {
-                                fieldReadonlyAttr = 'readonly';
-                            }
-                            if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
-                                const isPersonalField = ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].includes(f.key);
-                                if (isPersonalField) fieldReadonlyAttr = 'readonly';
-                            }
-
-                            let validationWarningHtml = '';
-                            if (f.key === 'passportExpiry' && val) {
-                                const expiryDate = new Date(val);
-                                const threeMonthsLater = new Date();
-                                threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
-                                if (expiryDate < threeMonthsLater) {
-                                    validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">Passport validity is less than 3 months. Please upload your latest passport.</div>`;
-                                }
-                            }
-                            let isIdDuplicate = false;
-                            if (f.key === 'idNumber' && val) {
-                                const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
-                                const stepData = state.onboarding[stepField] || {};
-                                const list = (stepData.data && stepData.data.list) || [];
-                                isIdDuplicate = list.some((item, itemIdx) => itemIdx !== idx && item.idNumber && String(item.idNumber).trim().toUpperCase() === String(val).trim().toUpperCase());
-                            }
-                            if ((stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') && (f.key === 'numberOfShares' || f.key === 'shareCapitalAmount' || f.key === 'numberOfSharesPct' || f.key === 'shareCapitalAmountPct')) {
-                                const shCurr = (item.currency || '').trim().toUpperCase();
-                                const shClass = (item.shareClass || '').trim();
-
-                                if (shCurr && shCurr.toUpperCase() !== 'SELECT' && shClass && shClass.toUpperCase() !== 'SELECT') {
-                                    const ob = state.onboarding || {};
-                                    const currencies = (ob.stepShareCapital && ob.stepShareCapital.data && ob.stepShareCapital.data.currencies) || [];
-                                    const masterItem = currencies.find(c => {
-                                        const masterCurr = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
-                                        return masterCurr.toUpperCase() === shCurr && c.shareClass === shClass;
-                                    });
-
-                                    if (!masterItem) {
-                                        validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Currency/Class combo (${shCurr} - ${shClass}) not configured in Share Capital Details step.</div>`;
-                                    } else {
-                                        const indStep = ob.step3IndividualShareholder || { data: { list: [] } };
-                                        const indList = indStep.data.list || [];
-                                        const corpStep = ob.step4CorporateShareholder || { data: { list: [] } };
-                                        const corpList = corpStep.data.list || [];
-
-                                        let usedShares = 0;
-                                        let usedCapital = 0;
-
-                                        indList.forEach((sh, shIdx) => {
-                                            if (shIdx === idx && stepKey === 'individual_shareholder') return;
-                                            const c = (sh.currency || '').trim().toUpperCase();
-                                            const cl = (sh.shareClass || '').trim();
-                                            if (c === shCurr && cl === shClass) {
-                                                usedShares += parseFloat(sh.numberOfShares) || 0;
-                                                usedCapital += parseFloat(sh.shareCapitalAmount) || 0;
-                                            }
-                                        });
-
-                                        corpList.forEach((sh, shIdx) => {
-                                            if (shIdx === idx && stepKey === 'corporate_shareholder') return;
-                                            const c = (sh.currency || '').trim().toUpperCase();
-                                            const cl = (sh.shareClass || '').trim();
-                                            if (c === shCurr && cl === shClass) {
-                                                usedShares += parseFloat(sh.numberOfShares) || 0;
-                                                usedCapital += parseFloat(sh.shareCapitalAmount) || 0;
-                                            }
-                                        });
-
-                                        const availableShares = masterItem.numberOfShares - usedShares;
-                                        const availableCapital = masterItem.shareCapitalAmount - usedCapital;
-
-                                        if (f.key === 'numberOfShares' || f.key === 'numberOfSharesPct') {
-                                            const enteredShares = parseFloat(item.numberOfShares) || 0;
-                                            if (enteredShares > availableShares) {
-                                                validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Allocation (${enteredShares}) exceeds available limit of ${availableShares} shares.</div>`;
-                                            } else {
-                                                validationWarningHtml = `<div style="color:#16a34a;font-size:10px;font-weight:600;margin-top:4px;">Available limit: ${availableShares} shares (total master: ${masterItem.numberOfShares})</div>`;
-                                            }
-                                        } else if (f.key === 'shareCapitalAmount' || f.key === 'shareCapitalAmountPct') {
-                                            const enteredCapital = parseFloat(item.shareCapitalAmount) || 0;
-                                            if (enteredCapital > availableCapital) {
-                                                validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Allocation (${enteredCapital}) exceeds available limit of ${availableCapital} ${shCurr}.</div>`;
-                                            } else {
-                                                validationWarningHtml = `<div style="color:#16a34a;font-size:10px;font-weight:600;margin-top:4px;">Available limit: ${availableCapital} ${shCurr} (total master: ${masterItem.shareCapitalAmount})</div>`;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            const isIdField = f.key === 'idNumber' || f.key === 'uen';
-                            const isFullWidth = ['residentialAddress', 'alternativeAddress', 'registeredAddress'].includes(f.key);
-                            return `
-                                    <div class="ob-field" style="${isFullWidth ? 'grid-column: span 2;' : ''}">
-                                        <label for="${inputId}">${f.label}</label>
-                                        <input type="${f.type || 'text'}" id="${inputId}" value="${val}" placeholder="Enter ${f.label.toLowerCase()}" ${fieldReadonlyAttr} 
-                                            oninput="${isIdField ? 'obIdNumberInputHandler(this); ' : ''}triggerMultiItemAutoSave('${stepKey}', ${idx})">
-                                        <div id="${inputId}-warn" style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;display:${(f.key === 'idNumber' && isIdDuplicate) ? 'block' : 'none'};">⚠️ Warning: This NRIC / FIN is already registered for another entry.</div>
-                                        <div id="${inputId}-limit-warn">${validationWarningHtml}</div>
-                                    </div>`;
-                        }
-                    }).join('')}
-                        </div>
-                    `;
-                }
-            } else {
-                itemFieldsHtml = `
-                    <div style="margin-top: 24px; padding: 32px 20px; background: linear-gradient(180deg, #f8fafc, #f1f5f9); border: 1px dashed #cbd5e1; border-radius: 16px; text-align: center;">
-                        <div style="width: 48px; height: 48px; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                        </div>
-                        <div style="font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 8px;">Form Fields Locked</div>
-                        <div style="font-size: 13px; color: #64748b; line-height: 1.6; max-width: 400px; margin: 0 auto;">Please upload the required documents above. Once uploaded, OCR will extract the details and unlock the fields for manual confirmation.</div>
-                    </div>
-                `;
-            }
-
-            let itemLabel = 'Entry';
-            if (step.title) {
-                if (step.title.toLowerCase().endsWith(' details')) {
-                    itemLabel = step.title.substring(0, step.title.toLowerCase().lastIndexOf(' details'));
-                } else {
-                    itemLabel = step.title;
-                }
-            } else if (stepKey === 'director_details') {
-                itemLabel = 'Director';
-            } else if (stepKey === 'individual_shareholder') {
-                itemLabel = 'Individual Shareholder';
-            } else if (stepKey === 'corporate_shareholder') {
-                itemLabel = 'Corporate Shareholder';
-            }
-
-let headingText = `${itemLabel} #${idx + 1}`;
-            if (stepKey === 'director_details') {
-                const isForeignerJourney = state.onboarding && state.onboarding.journeyType === 'FOREIGNER';
-                if (isForeignerJourney) {
-                    if (item.source === 'globalisor') {
-                        headingText = 'Nominee Director (Globalisor)';
-                    } else if (item.idType === 'local') {
-                        const localIdx = data.list.filter((d, dIdx) => dIdx <= idx && d.idType === 'local' && d.source !== 'globalisor').length;
-                        headingText = `Local Director #${localIdx}`;
-                    } else {
-                        const foreignIdx = data.list.filter((d, dIdx) => dIdx <= idx && d.idType === 'foreign').length;
-                        headingText = `Foreign Director #${foreignIdx}`;
-                    }
-                }
-            }
-            let itemIconSvg = '';
-            if (stepKey === 'director_details') {
-                itemIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><polyline points="16 11 18 13 22 9"></polyline></svg>`;
-            } else if (stepKey === 'individual_shareholder') {
-                itemIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`;
-            } else {
-                itemIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path><path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path><path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path></svg>`;
-            }
-
-            return `
-                <div style="border: 1px solid #e2e8f0; border-radius: 20px; margin-bottom: 24px; background: #ffffff; position: relative; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); overflow: hidden; transition: all 0.3s;" onmouseover="this.style.boxShadow='0 8px 30px rgba(0, 0, 0, 0.06)'; this.style.transform='translateY(-2px)';" onmouseout="this.style.boxShadow='0 4px 20px rgba(0, 0, 0, 0.03)'; this.style.transform='translateY(0)';">
-                    <div style="height: 4px; width: 100%; background: linear-gradient(90deg, #3b82f6, #06b6d4);"></div>
-                    <div style="padding: 24px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #f1f5f9;">
-                            <div style="display: flex; align-items: center; gap: 12px;">
-                                <div style="width: 40px; height: 40px; border-radius: 12px; background: #eff6ff; display: flex; align-items: center; justify-content: center;">
-                                    ${itemIconSvg}
-                                </div>
-                                <h4 style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 700; color: #0f172a; margin: 0;">${headingText}</h4>
-                            </div>
-                            ${isReadOnly || data.list.length <= 1 ? '' : `
-                                <button type="button" onclick="removeMultiItem('${stepKey}', ${idx})" style="padding: 8px 16px; background: #ffffff; border: 1px solid #fecaca; border-radius: 10px; color: #ef4444; font-size: 13px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.05);" onmouseover="this.style.background='#fef2f2'; this.style.borderColor='#ef4444';" onmouseout="this.style.background='#ffffff'; this.style.borderColor='#fecaca';">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                                    Remove
-                                </button>
-                            `}
-                        </div>
-                        ${topFieldsHtml}
-                        ${itemDocsHtml}
-                        ${itemDocsHtml && itemFieldsHtml ? '<div style="height: 1px; background: #f1f5f9; margin: 24px 0;"></div>' : ''}
-                        ${itemFieldsHtml}
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-
-        if (!isReadOnly) {
-            let itemLabel = 'Entry';
-            if (step.title) {
-                if (step.title.toLowerCase().endsWith(' details')) {
-                    itemLabel = step.title.substring(0, step.title.toLowerCase().lastIndexOf(' details'));
-                } else {
-                    itemLabel = step.title;
-                }
-            } else if (stepKey === 'director_details') {
-                itemLabel = 'Director';
-            } else if (stepKey === 'individual_shareholder') {
-                itemLabel = 'Individual Shareholder';
-            } else if (stepKey === 'corporate_shareholder') {
-                itemLabel = 'Corporate Shareholder';
-            }
-            contentHtml += `
-                <div style="margin-top: 16px; margin-bottom: 32px; display: flex; justify-content: center;">
-                    <button type="button" onclick="addMultiItem('${stepKey}')" style="padding: 12px 24px; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 14px; color: #3b82f6; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;" onmouseover="this.style.background='#eff6ff'; this.style.borderColor='#93c5fd';" onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#cbd5e1';">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        Add Another ${itemLabel}
-                    </button>
-                </div>
-            `;
-        }
+        contentHtml = renderMultiItemStepHtml(stepKey, isReadOnly);
     } else {
         const currentRequiredDocs = getStepRequiredDocs(stepKey, data);
         const currentManualFields = getStepManualFields(stepKey, data);
@@ -2910,7 +2408,7 @@ let headingText = `${itemLabel} #${idx + 1}`;
 
         const readonlyAttr = finalReadOnly ? 'disabled' : '';
         const readonlyInput = finalReadOnly ? 'disabled' : ''; // Use disabled instead of readonly for the date picker
-        
+
         let customFieldsHtml = `
             <div style="background:linear-gradient(145deg, #ffffff, #f8fafc); border:1px solid #e2e8f0; border-radius:16px; padding:28px; box-shadow:0 10px 25px rgba(0,0,0,0.03); margin-bottom:24px;">
                 <h4 style="font-family:'Outfit', sans-serif; font-size:18px; font-weight:700; color:#0f172a; margin-bottom:20px; display:flex; align-items:center; gap:8px;">
@@ -3024,10 +2522,16 @@ let headingText = `${itemLabel} #${idx + 1}`;
         const restoredEl = document.getElementById(activeId);
         if (restoredEl) {
             restoredEl.focus();
-            if (selectionStart !== null && selectionEnd !== null) {
+            if (restoredEl.type === 'number') {
+                try {
+                    restoredEl.type = 'text';
+                    restoredEl.setSelectionRange(restoredEl.value.length, restoredEl.value.length);
+                    restoredEl.type = 'number';
+                } catch (e) { }
+            } else if (selectionStart !== null && selectionEnd !== null) {
                 try {
                     restoredEl.setSelectionRange(selectionStart, selectionEnd);
-                } catch (e) {}
+                } catch (e) { }
             }
         }
     }
@@ -3150,11 +2654,11 @@ function updateWizardUIFeedback() {
         } else if (state.activeObStepKey === 'individual_shareholder') {
             const missingEmail = errors.some(e => e.includes('Field "Email" is required'));
             const missingMobile = errors.some(e => e.includes('Field "Mobile Number" is required'));
-            const missingShareDetails = errors.some(e => 
-                e.includes('Field "Currency" is required') || 
-                e.includes('Field "Share Class" is required') || 
-                e.includes('Field "Number of Shares') || 
-                e.includes('Field "Share Capital Amount') || 
+            const missingShareDetails = errors.some(e =>
+                e.includes('Field "Currency" is required') ||
+                e.includes('Field "Share Class" is required') ||
+                e.includes('Field "Number of Shares') ||
+                e.includes('Field "Share Capital Amount') ||
                 e.includes('Allocation error')
             );
             if (missingEmail || missingMobile || missingShareDetails) disableBtn = true;
@@ -3166,7 +2670,7 @@ function updateWizardUIFeedback() {
             let notFullyAllocated = false;
             const obCurrent = state.onboarding || {};
             const currencies = (obCurrent.stepShareCapital && obCurrent.stepShareCapital.data && obCurrent.stepShareCapital.data.currencies) || [];
-            
+
             const indStep = obCurrent.step3IndividualShareholder || { data: { list: [] } };
             const indList = indStep.data.list || [];
             const corpStep = obCurrent.step4CorporateShareholder || { data: { list: [] } };
@@ -3193,11 +2697,11 @@ function updateWizardUIFeedback() {
                 const mClass = (masterItem.shareClass || '').trim();
                 const mShares = parseFloat(String(masterItem.numberOfShares || '0').replace(/,/g, '')) || 0;
                 const mCapital = parseFloat(String(masterItem.shareCapitalAmount || '0').replace(/,/g, '')) || 0;
-                
+
                 const key = `${mCurr}_${mClass}`;
                 const usedShares = usage[key] ? usage[key].shares : 0;
                 const usedCapital = usage[key] ? usage[key].capital : 0;
-                
+
                 if (Math.abs(usedShares - mShares) > 0.001 || Math.abs(usedCapital - mCapital) > 0.001) {
                     notFullyAllocated = true;
                 }
@@ -3251,6 +2755,39 @@ function updateWizardUIFeedback() {
             }
         }
     }
+}
+
+async function saveOnboardingDraft() {
+    const stepKey = state.activeObStepKey;
+    const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+    if (!step) return;
+    const stepField = step.field;
+    const stepData = state.onboarding[stepField];
+    if (!stepData) return;
+
+    await ensureOnboardingRecord();
+    if (!state.onboardingId) return;
+
+    if (obAutoSaveTimeout) clearTimeout(obAutoSaveTimeout);
+    obAutoSaveTimeout = setTimeout(async () => {
+        try {
+            const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    data: stepData.data,
+                    status: stepData.status || 'pending'
+                })
+            });
+            if (res.ok) {
+                const updated = await res.json();
+                state.onboarding = normalizeOnboardingData(updated);
+                console.log(`Auto-saved step ${stepKey}`);
+            }
+        } catch (e) {
+            console.error('Error auto-saving step draft:', e);
+        }
+    }, 1000);
 }
 
 function triggerAutoSave(stepKey) {
@@ -3658,9 +3195,9 @@ async function performOcrOnFileInput(file, docType) {
                     const base64Data = reader.result.split(',')[1];
                     const ocrRes = await fetch('/api/onboarding/ocr-extract', {
                         method: 'POST',
-                        headers: {'Content-Type':'application/json'},
-                        body: JSON.stringify({ 
-                            type: docType, 
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            type: docType,
                             fileName: file.name,
                             fileData: base64Data,
                             mimeType: file.type
@@ -3669,7 +3206,7 @@ async function performOcrOnFileInput(file, docType) {
                     if (ocrRes.ok) {
                         extracted = await ocrRes.json();
                     }
-                } catch(e) {
+                } catch (e) {
                     console.error('[Gemini OCR Fallback] Failed:', e);
                 }
             }
@@ -3685,7 +3222,7 @@ async function performOcrOnFileInput(file, docType) {
 async function obUploadDoc(stepKey, docType, docLabel) {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.jpg,.jpeg,.png,.pdf';
+    input.accept = '.jpg,.jpeg,.png,.pdf,.JPG,.JPEG,.PNG,.PDF';
     input.onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -3709,6 +3246,12 @@ async function obUploadDoc(stepKey, docType, docLabel) {
 
         if (state.onboardingId) {
             const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
+            if (!state.onboarding[stepField]) {
+                state.onboarding[stepField] = { data: {}, status: 'pending', documents: [] };
+            }
+            if (!state.onboarding[stepField].data) {
+                state.onboarding[stepField].data = {};
+            }
             const currentDocs = (state.onboarding[stepField] && state.onboarding[stepField].documents) || [];
             const filteredDocs = currentDocs.filter(d => d.type !== docType);
             filteredDocs.push({
@@ -3806,7 +3349,10 @@ async function obUploadDoc(stepKey, docType, docLabel) {
             }
         }
     };
+    input.style.display = 'none';
+    document.body.appendChild(input);
     input.click();
+    document.body.removeChild(input);
 }
 
 async function ensureOnboardingRecord() {
@@ -3838,7 +3384,7 @@ async function obNextStep() {
             btn.style.pointerEvents = 'none';
         }
         const nextStep = ONBOARDING_STEPS[stepIndex + 1];
-        await selectObStep(nextStep.key);
+        await selectObStep(nextStep.key, true);
     }
 }
 
@@ -4683,7 +4229,10 @@ function triggerUpload() {
             appendAIMessage('bot', `System detected upload: **${file.name}**. I'm initiating the security scan and sending it to our compliance team for review.`);
         }
     };
+    input.style.display = 'none';
+    document.body.appendChild(input);
     input.click();
+    document.body.removeChild(input);
 }
 
 // --- Static Content / Guidance System ---
@@ -5261,6 +4810,8 @@ function showToastNotification(n) {
 // Bind to window for HTML inline event handlers
 window.logout = logout;
 window.switchTab = switchTab;
+window.obStartOnboarding = obStartOnboarding;
+window.obSetShareholderTab = obSetShareholderTab;
 window.toggleAIAssistant = toggleAIAssistant;
 window.handleAISend = handleAISend;
 window.openBlogDetail = openBlogDetail;
@@ -6071,6 +5622,16 @@ function triggerMultiItemAutoSave(stepKey, idx, isCheckboxChange) {
             scCurrencies
         });
 
+        if (numSharesPctEl && document.activeElement === numSharesPctEl) {
+            if (shareCapitalAmountPctEl) {
+                shareCapitalAmountPctEl.value = numSharesPctEl.value;
+            }
+        } else if (shareCapitalAmountPctEl && document.activeElement === shareCapitalAmountPctEl) {
+            if (numSharesPctEl) {
+                numSharesPctEl.value = shareCapitalAmountPctEl.value;
+            }
+        }
+
         let pctVal = 0;
         if (numSharesPctEl) {
             const pct = parseFloat(numSharesPctEl.value) || 0;
@@ -6278,28 +5839,28 @@ async function removeMultiItem(stepKey, idx) {
 async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.jpg,.jpeg,.png,.pdf';
+    input.accept = '.jpg,.jpeg,.png,.pdf,.JPG,.JPEG,.PNG,.PDF';
     input.onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Check if this document has already been uploaded for another item in this step
-        const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
-        const currentDocs = (state.onboarding && state.onboarding[stepField] && state.onboarding[stepField].documents) || [];
-        const isDuplicate = currentDocs.some(d => d.fileName === file.name && d.type !== docTypeWithIdx);
-        if (isDuplicate) {
-            showToastNotification({
-                id: "err-" + Date.now(),
-                type: "error",
-                title: "Duplicate Upload Error",
-                message: `The file "${file.name}" has already been uploaded for another entry in this section.`
-            });
-            return;
-        }
-
         const docEl = document.getElementById(`doc-${stepKey}-${docTypeWithIdx}`);
         if (docEl) docEl.innerHTML = `<div style='color:#3b82f6;font-size:11px;font-weight:700;'>⏳ Uploading & extracting...</div>`;
-        
+
+        const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
+        if (!state.onboarding[stepField]) {
+            state.onboarding[stepField] = { data: { list: [] }, status: 'pending', documents: [] };
+        }
+        if (!state.onboarding[stepField].data) {
+            state.onboarding[stepField].data = { list: [] };
+        }
+        if (!state.onboarding[stepField].data.list) {
+            state.onboarding[stepField].data.list = [];
+        }
+        while (state.onboarding[stepField].data.list.length <= idx) {
+            state.onboarding[stepField].data.list.push({});
+        }
+
         let docType = docTypeWithIdx.split('_')[0];
         if (docType === 'nric') {
             const item = state.onboarding[stepField].data.list[idx];
@@ -6314,10 +5875,9 @@ async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
         const ocrResult = await performOcrOnFileInput(file, docType);
         const extracted = ocrResult.extracted;
         const base64DataUri = ocrResult.fileData;
-        
+
         // Post-Extraction validation: Check if extracted ID number is already registered for another item
         if (extracted && extracted.idNumber) {
-            const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
             const stepData = state.onboarding[stepField] || {};
             const list = (stepData.data && stepData.data.list) || [];
             const isIdDuplicate = list.some((item, itemIdx) => itemIdx !== idx && item.idNumber && String(item.idNumber).trim().toUpperCase() === String(extracted.idNumber).trim().toUpperCase());
@@ -6336,7 +5896,6 @@ async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
 
         await ensureOnboardingRecord();
         if (state.onboardingId) {
-            const stepField = ONBOARDING_STEPS.find(s => s.key === stepKey).field;
             const currentDocs = state.onboarding[stepField].documents || [];
 
             const filteredDocs = currentDocs.filter(d => d.type !== docTypeWithIdx);
@@ -6392,8 +5951,11 @@ async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
         const workspace = document.getElementById('ob-form-workspace');
         if (workspace) renderActiveStepForm(workspace);
         updateWizardUIFeedback();
-    }
+    };
+    input.style.display = 'none';
+    document.body.appendChild(input);
     input.click();
+    document.body.removeChild(input);
 }
 
 // ─── Extra Onboarding Helpers ───────────────────────────────────────────────
@@ -6418,12 +5980,7 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
     let html = `
     <div style="background: #ffffff; border-radius: 16px; padding: 0; font-family: 'Outfit', sans-serif;">
         <!-- Header Section -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding: 0 0 0 0;">
-            <div style="font-size: 12.5px; color: #475569; background: #f8fafc; padding: 12px 16px; border-radius: 8px; border: 1px dashed #cbd5e1;">
-                <div style="font-weight: 600; margin-bottom: 4px; color: #334155;">Mandatory for all:</div>
-                <div>1. Email ID</div>
-                <div>2. Phone Number</div>
-            </div>
+        <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 24px; padding: 0 0 0 0;">
             <div style="display: flex; align-items: center; gap: 20px; font-size: 13px; color: #64748b; font-weight: 500;">
                 <div style="display: flex; align-items: center; gap: 6px;">
                     <div style="width: 16px; height: 16px; background: #c084fc; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
@@ -6452,7 +6009,7 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
         };
         const c = colors[theme];
 
-        let rightContent = '';
+        let leftDetailsHtml = '';
         if (detailsList && detailsList.length > 0) {
             const detailsHtml = detailsList.map((item, idx) => `
                 <div style="margin-bottom: 12px; font-family: 'Inter', sans-serif;">
@@ -6464,14 +6021,11 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
                 </div>
             `).join('');
 
-            rightContent = `
-                <div style="width: 420px; background: ${c.bg}; border: 1px solid ${c.bg}; border-radius: 12px; padding: 20px 24px; flex-shrink: 0; display: flex; justify-content: space-between; align-items: flex-start; margin: 4px 4px 4px 0;">
+            leftDetailsHtml = `
+                <div style="width: 320px; background: ${c.bg}; border-right: 1px solid ${c.border}; padding: 20px 24px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: flex-start; margin: 4px 0 4px 4px; border-radius: 12px 0 0 12px;">
+                    <div style="font-size: 11px; font-weight: 800; color: ${c.text}; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.05em;">${detailsTitle}</div>
                     <div style="flex-grow: 1;">
-                        <div style="font-size: 11px; font-weight: 800; color: ${c.text}; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.05em;">${detailsTitle}</div>
                         ${detailsHtml}
-                    </div>
-                    <div style="color: #64748b; padding-top: 2px; cursor: pointer;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                     </div>
                 </div>
             `;
@@ -6492,9 +6046,10 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
         }).join('');
 
         return `
-            <div style="border: 1px solid #e2e8f0; border-radius: 16px; display: flex; overflow: hidden; background: #fff; min-height: 120px;">
+            <div style="border: 1px solid #e2e8f0; border-radius: 16px; display: flex; overflow: hidden; background: #fff; min-height: 120px; box-shadow: 0 4px 15px rgba(0,0,0,0.015);">
+                ${leftDetailsHtml}
                 <div style="flex-grow: 1; padding: 24px; display: flex; gap: 20px;">
-                    <div style="width: 48px; height: 48px; background-color: ${c.iconBg}; color: ${c.dark}; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <div style="width: 44px; height: 44px; background-color: ${c.iconBg}; color: ${c.dark}; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.03);">
                         ${icon}
                     </div>
                     <div style="flex-grow: 1; padding-top: 2px;">
@@ -6506,7 +6061,6 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
                         </div>
                     </div>
                 </div>
-                ${rightContent}
             </div>
         `;
     };
@@ -6519,9 +6073,7 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
             count: `${dirs.length} Director${dirs.length > 1 ? 's' : ''}`,
             checkboxes: [
                 'NRIC / FIN / Notarised Passport (validity at least 3 months) – JPG or PDF (front and back)',
-                'Proof of Residential Address (in the name of the individual) dated within the last 3 months: Utility Bill / Bank Statement / Mobile Bill (notarised in case of foreigners)',
-                'Email Address',
-                'Contact Number'
+                'Proof of Residential Address (in the name of the individual) dated within the last 3 months: Utility Bill / Bank Statement / Mobile Bill (notarised in case of foreigners)'
             ],
             detailsTitle: 'DIRECTOR REGISTRY DETAILS',
             detailsList: dirs.map((d, dIdx) => ({
@@ -6540,9 +6092,7 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
             count: `${inds.length} Shareholder${inds.length > 1 ? 's' : ''}`,
             checkboxes: [
                 'NRIC / FIN / Notarised Passport (validity at least 3 months) – JPG or PDF (front and back)',
-                'Proof of Residential Address (in the name of the individual) dated within the last 3 months: Utility Bill / Bank Statement / Mobile Bill (notarised in case of foreigners)',
-                'Email Address',
-                'Contact Number'
+                'Proof of Residential Address (in the name of the individual) dated within the last 3 months: Utility Bill / Bank Statement / Mobile Bill (notarised in case of foreigners)'
             ],
             detailsTitle: 'INDIVIDUAL SHAREHOLDER REGISTRY DETAILS',
             detailsList: inds.map((s, sIdx) => ({
@@ -6583,9 +6133,7 @@ function obRenderDocumentChecklistHtml(isReadOnly) {
             count: null,
             checkboxes: [
                 'NRIC / FIN / Passport (validity at least 3 months) – JPG or PDF (front and back)',
-                'Proof of Residential Address (in the name of the individual) dated within the last 3 months: Utility Bill / Bank Statement / Mobile Bill (notarised in case of foreigners)',
-                'Email Address',
-                'Contact Number'
+                'Proof of Residential Address (in the name of the individual) dated within the last 3 months: Utility Bill / Bank Statement / Mobile Bill (notarised in case of foreigners)'
             ],
             detailsTitle: 'REPRESENTATIVE CONTACT DETAILS',
             detailsList: [{
@@ -7278,11 +6826,11 @@ async function obClearDoc(stepKey, docType) {
 async function obSaveStepData(stepKey, data) {
     await ensureOnboardingRecord();
     if (!state.onboardingId) return;
-    
+
     try {
         const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
             method: 'PATCH',
-            headers: {'Content-Type':'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 data: data,
                 status: 'pending'
@@ -7335,7 +6883,7 @@ window.obUpdateExternalControllerField = (idx, extIdx, key, value) => {
     const item = state.onboarding[stepField].data.list[idx];
     if (item && item.externalControllers && item.externalControllers[extIdx]) {
         item.externalControllers[extIdx][key] = value;
-        
+
         if (key === 'nationality' && value.trim()) {
             const natVal = value.trim();
             const foundCountry = OB_COUNTRIES.find(c => c.name.toLowerCase() === natVal.toLowerCase() || (c.nationality && c.nationality.toLowerCase() === natVal.toLowerCase()));
@@ -7346,7 +6894,7 @@ window.obUpdateExternalControllerField = (idx, extIdx, key, value) => {
                 }
             }
         }
-        
+
         triggerMultiItemAutoSave('corporate_shareholder', idx);
     }
 };
@@ -7476,3 +7024,1812 @@ function updateAllocationLimitsUI() {
     updateUI(corpList, 'corporate_shareholder');
 }
 window.updateAllocationLimitsUI = updateAllocationLimitsUI;
+
+function obRenderIndividualShareholderHtml(isReadOnly) {
+    const ob = state.onboarding || {};
+
+    // Generate progress bars from share capital details
+    const scStep = ob.stepShareCapital || {};
+    const scData = scStep.data || {};
+    const scCurrencies = scData.currencies || [];
+
+    let progressBarsHtml = '';
+    if (scCurrencies.length === 0) {
+        progressBarsHtml = `
+            <div style="background:#fffbeb; border:1px solid #fcd34d; border-radius:12px; padding:16px; margin-bottom:24px; color:#b45309; font-size:13px; font-weight:600; text-align:center;">
+                ⚠️ No Share Capital details configured. Please configure Share Capital Details first.
+            </div>
+        `;
+    } else {
+        const allocations = {};
+        scCurrencies.forEach(c => {
+            const code = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
+            const sClass = c.shareClass || 'Ordinary';
+            const key = `${code}_${sClass}`;
+            allocations[key] = {
+                totalShares: parseFloat(String(c.numberOfShares || '0').replace(/,/g, '')) || 0,
+                totalCapital: parseFloat(String(c.shareCapitalAmount || '0').replace(/,/g, '')) || 0,
+                allocatedShares: 0,
+                allocatedCapital: 0,
+                currency: code,
+                shareClass: sClass
+            };
+        });
+
+        // Sum Individual Shareholders
+        const indStep = ob.step3IndividualShareholder || {};
+        const indList = (indStep.data && indStep.data.list) || [];
+        indList.forEach(sh => {
+            const shCurr = (sh.currency || '').trim().toUpperCase();
+            const shClass = (sh.shareClass || '').trim();
+            const key = `${shCurr}_${shClass}`;
+            if (allocations[key]) {
+                allocations[key].allocatedShares += parseFloat(String(sh.numberOfShares || '0').replace(/,/g, '')) || 0;
+                allocations[key].allocatedCapital += parseFloat(String(sh.shareCapitalAmount || '0').replace(/,/g, '')) || 0;
+            }
+        });
+
+        // Sum Corporate Shareholders
+        const corpStep = ob.step4CorporateShareholder || {};
+        const corpList = (corpStep.data && corpStep.data.list) || [];
+        corpList.forEach(sh => {
+            const shCurr = (sh.currency || '').trim().toUpperCase();
+            const shClass = (sh.shareClass || '').trim();
+            const key = `${shCurr}_${shClass}`;
+            if (allocations[key]) {
+                allocations[key].allocatedShares += parseFloat(String(sh.numberOfShares || '0').replace(/,/g, '')) || 0;
+                allocations[key].allocatedCapital += parseFloat(String(sh.shareCapitalAmount || '0').replace(/,/g, '')) || 0;
+            }
+        });
+
+        progressBarsHtml = `<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:20px; margin-bottom:24px; display:flex; flex-direction:column; gap:16px;">
+            <h5 style="font-size:13.5px; font-weight:700; color:#334155; margin:0;">📈 Capital Allocation Progress (Step 2 Configurations)</h5>`;
+
+        Object.values(allocations).forEach(alloc => {
+            const pct = alloc.totalShares > 0 ? Math.min(100, Math.round((alloc.allocatedShares / alloc.totalShares) * 100)) : 0;
+            let barColor = '#3b82f6';
+            if (Math.abs(alloc.allocatedShares - alloc.totalShares) < 0.1) {
+                barColor = '#10b981';
+            } else if (alloc.allocatedShares > alloc.totalShares) {
+                barColor = '#ef4444';
+            }
+
+            progressBarsHtml += `
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:#475569; margin-bottom:6px;">
+                        <span>${alloc.currency} ${alloc.shareClass} Shares</span>
+                        <span>${alloc.allocatedShares.toLocaleString()} / ${alloc.totalShares.toLocaleString()} Shares (${pct}%)</span>
+                    </div>
+                    <div style="width:100%; height:8px; background:#e2e8f0; border-radius:4px; overflow:hidden;">
+                        <div style="width:${pct}%; height:100%; background:${barColor}; border-radius:4px; transition:width 0.3s;"></div>
+                    </div>
+                </div>
+            `;
+        });
+        progressBarsHtml += `</div>`;
+    }
+
+    const activeTab = state.activeShareholderTab || 'individual';
+
+    const tabStyles = `
+        display: flex;
+        gap: 8px;
+        margin-bottom: 24px;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 8px;
+        flex-wrap: wrap;
+    `;
+
+    const getTabBtnClass = (tabKey) => {
+        const isActive = activeTab === tabKey;
+        return `
+            padding: 10px 20px;
+            font-size: 13.5px;
+            font-weight: 600;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: ${isActive ? '#eff6ff' : 'transparent'};
+            color: ${isActive ? '#2563eb' : '#64748b'};
+            box-shadow: ${isActive ? '0 2px 4px rgba(37, 99, 235, 0.05)' : 'none'};
+        `;
+    };
+
+    const tabsHtml = `
+        <div style="${tabStyles}">
+            <button type="button" style="${getTabBtnClass('individual')}" onclick="obSetShareholderTab('individual')">
+                👤 Individual Shareholders
+            </button>
+            <button type="button" style="${getTabBtnClass('corporate')}" onclick="obSetShareholderTab('corporate')">
+                🏢 Corporate Shareholders
+            </button>
+            <button type="button" style="${getTabBtnClass('rep')}" onclick="obSetShareholderTab('rep')">
+                👔 Corporate Representatives
+            </button>
+            <button type="button" style="${getTabBtnClass('rons')}" onclick="obSetShareholderTab('rons')">
+                🤝 Nominee Shareholders (RONS)
+            </button>
+        </div>
+    `;
+
+    let contentHtml = '';
+    if (activeTab === 'individual') {
+        contentHtml = obRenderIndividualShareholderTableHtml(isReadOnly);
+    } else if (activeTab === 'corporate') {
+        contentHtml = obRenderCorporateShareholderTableHtml(isReadOnly);
+    } else if (activeTab === 'rep') {
+        contentHtml = obRenderCorporateRepTableHtml(isReadOnly);
+    } else if (activeTab === 'rons') {
+        contentHtml = obRenderRonsTableHtml(isReadOnly);
+    }
+
+    return `
+        <div style="font-family:'Outfit', sans-serif;">
+            ${progressBarsHtml}
+            ${tabsHtml}
+            <div style="margin-top: 16px;">
+                ${contentHtml}
+            </div>
+        </div>
+    `;
+}
+
+function obRenderIndividualShareholderTableHtml(isReadOnly) {
+    const ob = state.onboarding || {};
+    const stepField = 'step3IndividualShareholder';
+    const stepData = ob[stepField] || { status: 'pending', data: {}, documents: [] };
+    const data = stepData.data || {};
+    const list = data.list || [];
+
+    if (!Array.isArray(list) || list.length === 0) {
+        if (!data.list) data.list = [];
+        data.list.push({
+            fullName: '',
+            numberOfSharesPct: '',
+            shareCapitalAmountPct: '',
+            numberOfShares: '',
+            shareCapitalAmount: '',
+            currency: 'Select',
+            shareClass: 'Select',
+            email: '',
+            mobile: '',
+            idNumber: '',
+            residentialAddress: '',
+            sameAsDirector: false,
+            selectedDirectorIdx: '',
+            uboDeclaration: 'Select',
+            isNominee: false
+        });
+    }
+
+    const scStep = ob.stepShareCapital || {};
+    const scData = scStep.data || {};
+    const scCurrencies = scData.currencies || [];
+    
+    const currenciesList = Array.from(new Set(scCurrencies.map(c => {
+        if (!c) return '';
+        return c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
+    }))).filter(Boolean);
+    const classesList = Array.from(new Set(scCurrencies.map(c => c ? c.shareClass : ''))).filter(Boolean);
+
+    const currs = currenciesList.length > 0 ? ['Select', ...currenciesList] : ['Select', 'SGD', 'USD'];
+    const classes = classesList.length > 0 ? ['Select', ...classesList] : ['Select', 'Ordinary', 'Preference'];
+
+    const dirStep = ONBOARDING_STEPS.find(s => s.key === 'director_details');
+    const dirList = dirStep && ob[dirStep.field] ? (ob[dirStep.field].data.list || []) : [];
+
+    let rowsHtml = data.list.map((item, idx) => {
+        const isSame = item.sameAsDirector === true || item.sameAsDirector === 'true';
+
+        // Auto-default if only one option is available
+        if (!item.currency && currenciesList.length === 1) {
+            item.currency = currenciesList[0];
+        }
+        if (!item.shareClass && classesList.length === 1) {
+            item.shareClass = classesList[0];
+        }
+
+        // Unique director selection list
+        const selectedDirectorIndices = new Set();
+        data.list.forEach((sh, shIdx) => {
+            if (shIdx !== idx && (sh.sameAsDirector === true || sh.sameAsDirector === 'true') && sh.selectedDirectorIdx !== undefined && sh.selectedDirectorIdx !== '') {
+                selectedDirectorIndices.add(String(sh.selectedDirectorIdx));
+            }
+        });
+
+        const dirDropdownOptions = dirList.map((d, dIdx) => {
+            const isSelected = String(item.selectedDirectorIdx) === String(dIdx);
+            if (!isSelected && selectedDirectorIndices.has(String(dIdx))) {
+                return '';
+            }
+            return `<option value="${dIdx}" ${isSelected ? 'selected' : ''}>Director #${dIdx + 1}: ${d.fullName || 'Unnamed'}</option>`;
+        }).join('');
+
+        const amtVal = (item.shareCapitalAmount !== undefined && item.shareCapitalAmount !== '') ? parseFloat(item.shareCapitalAmount).toLocaleString() : '';
+        const sharesVal = (item.numberOfShares !== undefined && item.numberOfShares !== '') ? parseFloat(item.numberOfShares).toLocaleString() : '';
+
+        return `
+            <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="text-align:center; padding:12px 8px; font-weight:700; color:#64748b; font-size:12.5px;">${idx + 1}</td>
+                <td style="padding:8px;">
+                    <input type="text" id="ob-individual_shareholder-${idx}-fullName" value="${item.fullName || ''}" placeholder="Name" ${isReadOnly || isSame ? 'readonly style="background:#f8fafc; color:#64748b;"' : ''} oninput="obUpdateIndividualShareholderField(${idx}, 'fullName', this.value)" style="width:100%; min-width:140px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                </td>
+                <td style="padding:8px; text-align:center;">
+                    <input type="checkbox" id="ob-individual_shareholder-${idx}-sameAsDirector" ${isSame ? 'checked' : ''} ${isReadOnly ? 'disabled' : ''} onchange="obIndividualShareholderSameAsDirectorCheckboxChange(${idx}, this.checked)" style="width:16px; height:16px; cursor:pointer;">
+                </td>
+                <td style="padding:8px;">
+                    ${isSame ? `
+                        <select id="ob-individual_shareholder-${idx}-sameAsDirectorSelect" onchange="obIndividualShareholderSameAsDirectorChange(${idx}, this.value)" ${isReadOnly ? 'disabled' : ''} style="width:100%; min-width:140px; padding:6px 8px; border-radius:6px; border:1px solid #e2e8f0; font-size:12px; outline:none; background:#ffffff; color:#334155;">
+                            <option value="">Select Director</option>
+                            ${dirDropdownOptions}
+                        </select>
+                    ` : `<span style="color:#94a3b8; font-size:12px; font-style:italic;">Manual Entry</span>`}
+                </td>
+                <td style="padding:8px;">
+                    <input type="number" id="ob-individual_shareholder-${idx}-numberOfSharesPct" value="${item.numberOfSharesPct || ''}" placeholder="%" ${isReadOnly ? 'readonly' : ''} oninput="obUpdateIndividualShareholderField(${idx}, 'numberOfSharesPct', this.value)" style="width:100%; min-width:60px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <input type="text" id="ob-individual_shareholder-${idx}-shareCapitalAmount" value="${amtVal}" readonly style="width:100%; min-width:100px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; background:#f8fafc; color:#64748b; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <input type="text" id="ob-individual_shareholder-${idx}-numberOfShares" value="${sharesVal}" readonly style="width:100%; min-width:100px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; background:#f8fafc; color:#64748b; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <select id="ob-individual_shareholder-${idx}-currency" ${isReadOnly ? 'disabled' : ''} onchange="obUpdateIndividualShareholderField(${idx}, 'currency', this.value)" style="width:100%; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none; background:#ffffff; color:#334155;">
+                        ${currs.map(c => `<option value="${c}" ${String(item.currency).trim().toUpperCase() === String(c).trim().toUpperCase() ? 'selected' : ''}>${c}</option>`).join('')}
+                    </select>
+                </td>
+                <td style="padding:8px;">
+                    <select id="ob-individual_shareholder-${idx}-shareClass" ${isReadOnly ? 'disabled' : ''} onchange="obUpdateIndividualShareholderField(${idx}, 'shareClass', this.value)" style="width:100%; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none; background:#ffffff; color:#334155;">
+                        ${classes.map(c => `<option value="${c}" ${String(item.shareClass).trim().toLowerCase() === String(c).trim().toLowerCase() ? 'selected' : ''}>${c}</option>`).join('')}
+                    </select>
+                </td>
+                <td style="padding:8px;">
+                    <input type="email" id="ob-individual_shareholder-${idx}-email" value="${item.email || ''}" placeholder="Email" ${isReadOnly || isSame ? 'readonly style="background:#f8fafc; color:#64748b;"' : ''} oninput="obUpdateIndividualShareholderField(${idx}, 'email', this.value)" style="width:100%; min-width:120px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <input type="text" id="ob-individual_shareholder-${idx}-mobile" value="${item.mobile || ''}" placeholder="Phone" ${isReadOnly || isSame ? 'readonly style="background:#f8fafc; color:#64748b;"' : ''} oninput="obUpdateIndividualShareholderField(${idx}, 'mobile', this.value)" style="width:100%; min-width:110px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <input type="text" id="ob-individual_shareholder-${idx}-idNumber" value="${item.idNumber || ''}" placeholder="ID / NRIC" ${isReadOnly || isSame ? 'readonly style="background:#f8fafc; color:#64748b;"' : ''} oninput="obUpdateIndividualShareholderField(${idx}, 'idNumber', this.value)" style="width:100%; min-width:100px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <select id="ob-individual_shareholder-${idx}-uboDeclaration" ${isReadOnly ? 'disabled' : ''} onchange="obUpdateIndividualShareholderField(${idx}, 'uboDeclaration', this.value)" style="width:100%; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none; background:#ffffff; color:#334155;">
+                        <option value="Select" ${item.uboDeclaration === 'Select' ? 'selected' : ''}>Select</option>
+                        <option value="No" ${item.uboDeclaration === 'No' ? 'selected' : ''}>No</option>
+                        <option value="Yes" ${item.uboDeclaration === 'Yes' ? 'selected' : ''}>Yes</option>
+                    </select>
+                </td>
+                <td style="padding:8px; text-align:center;">
+                    <input type="checkbox" id="ob-individual_shareholder-${idx}-isNominee" ${item.isNominee === true || item.isNominee === 'true' ? 'checked' : ''} ${isReadOnly ? 'disabled' : ''} onchange="obUpdateIndividualShareholderField(${idx}, 'isNominee', this.checked)" style="width:16px; height:16px; cursor:pointer;">
+                </td>
+                <td style="padding:12px 8px; text-align:center;">
+                    ${isReadOnly ? '' : `
+                        <button type="button" onclick="removeMultiItem('individual_shareholder', ${idx})" style="padding:6px; background:#fee2e2; border:none; border-radius:8px; color:#ef4444; cursor:pointer;" title="Delete Row">🗑️</button>
+                    `}
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    const actionButtonHtml = isReadOnly ? '' : `
+        <div style="margin-top:16px; display:flex; justify-content:center; padding:12px;">
+            <button type="button" onclick="addMultiItem('individual_shareholder')" style="padding:10px 20px; background:#eff6ff; border:1px dashed #bfdbfe; border-radius:12px; color:#2563eb; font-weight:700; font-family:'Inter'; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                ➕ Add Shareholder Row
+            </button>
+        </div>
+    `;
+
+    return `
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:16px; overflow:hidden; box-shadow:0 4px 15px rgba(0,0,0,0.015); margin-bottom:24px;">
+            <div style="overflow-x:auto; width:100%;">
+                <table style="width:100%; border-collapse:collapse; text-align:left; font-family:'Inter', sans-serif;">
+                    <thead>
+                        <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+                            <th style="padding:12px 8px; text-align:center; font-size:12px; font-weight:700; color:#475569; width:40px;">S.No.</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Shareholder Name</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569; width:90px; text-align:center;">Same as Dir?</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Director Source</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569; width:90px;">Share Capital %</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Share Capital Amt</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Number of Shares</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569; width:95px;">Currency</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569; width:110px;">Share Class</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Email</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Mobile</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">ID / NRIC</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569; width:90px;">UBO</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569; width:90px; text-align:center;">Nominee</th>
+                            <th style="padding:12px 8px; text-align:center; font-size:12px; font-weight:700; color:#475569; width:50px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            </div>
+            ${actionButtonHtml}
+        </div>
+    `;
+}
+
+function obRenderCorporateShareholderTableHtml(isReadOnly) {
+    const ob = state.onboarding || {};
+    const stepField = 'step4CorporateShareholder';
+    const stepData = ob[stepField] || { status: 'pending', data: {}, documents: [] };
+    const data = stepData.data || {};
+    const list = data.list || [];
+
+    if (!Array.isArray(list) || list.length === 0) {
+        if (!data.list) data.list = [];
+        data.list.push({
+            companyName: '',
+            uen: '',
+            dateOfIncorporation: '',
+            registeredAddress: '',
+            numberOfSharesPct: '',
+            shareCapitalAmountPct: '',
+            numberOfShares: '',
+            shareCapitalAmount: '',
+            currency: 'Select',
+            shareClass: 'Select',
+            uboDeclaration: 'Select',
+            isNominee: false
+        });
+    }
+
+    const scStep = ob.stepShareCapital || {};
+    const scData = scStep.data || {};
+    const scCurrencies = scData.currencies || [];
+    
+    const currenciesList = Array.from(new Set(scCurrencies.map(c => {
+        if (!c) return '';
+        return c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
+    }))).filter(Boolean);
+    const classesList = Array.from(new Set(scCurrencies.map(c => c ? c.shareClass : ''))).filter(Boolean);
+
+    const currs = currenciesList.length > 0 ? ['Select', ...currenciesList] : ['Select', 'SGD', 'USD'];
+    const classes = classesList.length > 0 ? ['Select', ...classesList] : ['Select', 'Ordinary', 'Preference'];
+
+    let rowsHtml = data.list.map((item, idx) => {
+        // Auto-default if only one option is available
+        if (!item.currency && currenciesList.length === 1) {
+            item.currency = currenciesList[0];
+        }
+        if (!item.shareClass && classesList.length === 1) {
+            item.shareClass = classesList[0];
+        }
+
+        const amtVal = (item.shareCapitalAmount !== undefined && item.shareCapitalAmount !== '') ? parseFloat(item.shareCapitalAmount).toLocaleString() : '';
+        const sharesVal = (item.numberOfShares !== undefined && item.numberOfShares !== '') ? parseFloat(item.numberOfShares).toLocaleString() : '';
+
+        return `
+            <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="text-align:center; padding:12px 8px; font-weight:700; color:#64748b; font-size:12.5px;">${idx + 1}</td>
+                <td style="padding:8px;">
+                    <input type="text" id="ob-corporate_shareholder-${idx}-companyName" value="${item.companyName || ''}" placeholder="Company Name" ${isReadOnly ? 'readonly style="background:#f8fafc; color:#64748b;"' : ''} oninput="obUpdateCorporateShareholderField(${idx}, 'companyName', this.value)" style="width:100%; min-width:140px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <input type="text" id="ob-corporate_shareholder-${idx}-uen" value="${item.uen || ''}" placeholder="UEN / Reg Number" ${isReadOnly ? 'readonly style="background:#f8fafc; color:#64748b;"' : ''} oninput="obUpdateCorporateShareholderField(${idx}, 'uen', this.value)" style="width:100%; min-width:120px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <input type="date" id="ob-corporate_shareholder-${idx}-dateOfIncorporation" value="${item.dateOfIncorporation || ''}" ${isReadOnly ? 'readonly style="background:#f8fafc; color:#64748b;"' : ''} oninput="obUpdateCorporateShareholderField(${idx}, 'dateOfIncorporation', this.value)" style="width:100%; min-width:130px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <input type="text" id="ob-corporate_shareholder-${idx}-registeredAddress" value="${item.registeredAddress || ''}" placeholder="Address" ${isReadOnly ? 'readonly style="background:#f8fafc; color:#64748b;"' : ''} oninput="obUpdateCorporateShareholderField(${idx}, 'registeredAddress', this.value)" style="width:100%; min-width:160px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <input type="number" id="ob-corporate_shareholder-${idx}-numberOfSharesPct" value="${item.numberOfSharesPct || ''}" placeholder="%" ${isReadOnly ? 'readonly' : ''} oninput="obUpdateCorporateShareholderField(${idx}, 'numberOfSharesPct', this.value)" style="width:100%; min-width:60px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <input type="text" id="ob-corporate_shareholder-${idx}-shareCapitalAmount" value="${amtVal}" readonly style="width:100%; min-width:100px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; background:#f8fafc; color:#64748b; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <input type="text" id="ob-corporate_shareholder-${idx}-numberOfShares" value="${sharesVal}" readonly style="width:100%; min-width:100px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; background:#f8fafc; color:#64748b; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <select id="ob-corporate_shareholder-${idx}-currency" ${isReadOnly ? 'disabled' : ''} onchange="obUpdateCorporateShareholderField(${idx}, 'currency', this.value)" style="width:100%; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none; background:#ffffff; color:#334155;">
+                        ${currs.map(c => `<option value="${c}" ${String(item.currency).trim().toUpperCase() === String(c).trim().toUpperCase() ? 'selected' : ''}>${c}</option>`).join('')}
+                    </select>
+                </td>
+                <td style="padding:8px;">
+                    <select id="ob-corporate_shareholder-${idx}-shareClass" ${isReadOnly ? 'disabled' : ''} onchange="obUpdateCorporateShareholderField(${idx}, 'shareClass', this.value)" style="width:100%; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none; background:#ffffff; color:#334155;">
+                        ${classes.map(c => `<option value="${c}" ${String(item.shareClass).trim().toLowerCase() === String(c).trim().toLowerCase() ? 'selected' : ''}>${c}</option>`).join('')}
+                    </select>
+                </td>
+                <td style="padding:8px;">
+                    <select id="ob-corporate_shareholder-${idx}-uboDeclaration" ${isReadOnly ? 'disabled' : ''} onchange="obUpdateCorporateShareholderField(${idx}, 'uboDeclaration', this.value)" style="width:100%; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none; background:#ffffff; color:#334155;">
+                        <option value="Select" ${item.uboDeclaration === 'Select' ? 'selected' : ''}>Select</option>
+                        <option value="No" ${item.uboDeclaration === 'No' ? 'selected' : ''}>No</option>
+                        <option value="Yes" ${item.uboDeclaration === 'Yes' ? 'selected' : ''}>Yes</option>
+                    </select>
+                </td>
+                <td style="padding:8px; text-align:center;">
+                    <input type="checkbox" id="ob-corporate_shareholder-${idx}-isNominee" ${item.isNominee === true || item.isNominee === 'true' ? 'checked' : ''} ${isReadOnly ? 'disabled' : ''} onchange="obUpdateCorporateShareholderField(${idx}, 'isNominee', this.checked)" style="width:16px; height:16px; cursor:pointer;">
+                </td>
+                <td style="padding:12px 8px; text-align:center;">
+                    ${isReadOnly ? '' : `
+                        <button type="button" onclick="removeMultiItem('corporate_shareholder', ${idx})" style="padding:6px; background:#fee2e2; border:none; border-radius:8px; color:#ef4444; cursor:pointer;" title="Delete Row">🗑️</button>
+                    `}
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    const actionButtonHtml = isReadOnly ? '' : `
+        <div style="margin-top:16px; display:flex; justify-content:center; padding:12px;">
+            <button type="button" onclick="addMultiItem('corporate_shareholder')" style="padding:10px 20px; background:#eff6ff; border:1px dashed #bfdbfe; border-radius:12px; color:#2563eb; font-weight:700; font-family:'Inter'; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                ➕ Add Corporate Shareholder Row
+            </button>
+        </div>
+    `;
+
+    return `
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:16px; overflow:hidden; box-shadow:0 4px 15px rgba(0,0,0,0.015); margin-bottom:24px;">
+            <div style="overflow-x:auto; width:100%;">
+                <table style="width:100%; border-collapse:collapse; text-align:left; font-family:'Inter', sans-serif;">
+                    <thead>
+                        <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+                            <th style="padding:12px 8px; text-align:center; font-size:12px; font-weight:700; color:#475569; width:40px;">S.No.</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Company Name</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">UEN / Reg Number</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Incorporation Date</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Registered Address</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569; width:90px;">Share Capital %</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Share Capital Amt</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Number of Shares</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569; width:95px;">Currency</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569; width:110px;">Share Class</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569; width:90px;">UBO</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569; width:90px; text-align:center;">Nominee</th>
+                            <th style="padding:12px 8px; text-align:center; font-size:12px; font-weight:700; color:#475569; width:50px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            </div>
+            ${actionButtonHtml}
+        </div>
+    `;
+}
+
+function obRenderCorporateRepTableHtml(isReadOnly) {
+    const ob = state.onboarding || {};
+    const repField = 'step6CorporateRep';
+    const repData = ob[repField] || { status: 'pending', data: { list: [] }, documents: [] };
+    const data = repData.data || { list: [] };
+    const list = data.list || [];
+
+    if (!Array.isArray(list) || list.length === 0) {
+        if (!data.list) data.list = [];
+        data.list.push({
+            corporateShareholderUen: '',
+            fullName: '',
+            idNumber: '',
+            nationality: '',
+            dateOfBirth: '',
+            residentialAddress: '',
+            email: '',
+            mobile: '',
+            passportExpiry: ''
+        });
+    }
+
+    const corpStep = ob.step4CorporateShareholder || {};
+    const corpList = (corpStep.data && corpStep.data.list) || [];
+
+    let rowsHtml = list.map((item, idx) => {
+        return `
+            <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="text-align:center; padding:12px 8px; font-weight:700; color:#64748b; font-size:12.5px;">${idx + 1}</td>
+                <td style="padding:8px;">
+                    <select ${isReadOnly ? 'disabled' : ''} onchange="obUpdateCorporateRepField(${idx}, 'corporateShareholderUen', this.value)" style="width:100%; min-width:150px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none; background:#ffffff; color:#334155;">
+                        <option value="">Select Company</option>
+                        ${corpList.map(c => `<option value="${c.uen || ''}" ${String(item.corporateShareholderUen) === String(c.uen) ? 'selected' : ''}>${c.companyName || 'Unnamed'}</option>`).join('')}
+                    </select>
+                </td>
+                <td style="padding:8px;">
+                    <input type="text" value="${item.fullName || ''}" placeholder="Name" ${isReadOnly ? 'readonly style="background:#f8fafc; color:#64748b;"' : ''} oninput="obUpdateCorporateRepField(${idx}, 'fullName', this.value)" style="width:100%; min-width:140px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <input type="text" value="${item.idNumber || ''}" placeholder="ID / Passport" ${isReadOnly ? 'readonly style="background:#f8fafc; color:#64748b;"' : ''} oninput="obUpdateCorporateRepField(${idx}, 'idNumber', this.value)" style="width:100%; min-width:110px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <input type="text" value="${item.nationality || ''}" placeholder="Nationality" ${isReadOnly ? 'readonly style="background:#f8fafc; color:#64748b;"' : ''} oninput="obUpdateCorporateRepField(${idx}, 'nationality', this.value)" style="width:100%; min-width:110px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <input type="date" value="${item.dateOfBirth || ''}" ${isReadOnly ? 'readonly style="background:#f8fafc; color:#64748b;"' : ''} oninput="obUpdateCorporateRepField(${idx}, 'dateOfBirth', this.value)" style="width:100%; min-width:130px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <input type="text" value="${item.residentialAddress || ''}" placeholder="Address" ${isReadOnly ? 'readonly style="background:#f8fafc; color:#64748b;"' : ''} oninput="obUpdateCorporateRepField(${idx}, 'residentialAddress', this.value)" style="width:100%; min-width:160px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <input type="email" value="${item.email || ''}" placeholder="Email" ${isReadOnly ? 'readonly style="background:#f8fafc; color:#64748b;"' : ''} oninput="obUpdateCorporateRepField(${idx}, 'email', this.value)" style="width:100%; min-width:120px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <input type="text" value="${item.mobile || ''}" placeholder="Mobile" ${isReadOnly ? 'readonly style="background:#f8fafc; color:#64748b;"' : ''} oninput="obUpdateCorporateRepField(${idx}, 'mobile', this.value)" style="width:100%; min-width:110px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                </td>
+                <td style="padding:8px;">
+                    <input type="date" value="${item.passportExpiry || ''}" ${isReadOnly ? 'readonly style="background:#f8fafc; color:#64748b;"' : ''} oninput="obUpdateCorporateRepField(${idx}, 'passportExpiry', this.value)" style="width:100%; min-width:130px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                </td>
+                <td style="padding:12px 8px; text-align:center;">
+                    ${isReadOnly ? '' : `
+                        <button type="button" onclick="removeMultiItem('corporate_rep', ${idx})" style="padding:6px; background:#fee2e2; border:none; border-radius:8px; color:#ef4444; cursor:pointer;" title="Delete Row">🗑️</button>
+                    `}
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    const actionButtonHtml = isReadOnly ? '' : `
+        <div style="margin-top:16px; display:flex; justify-content:center; padding:12px;">
+            <button type="button" onclick="addMultiItem('corporate_rep')" style="padding:10px 20px; background:#eff6ff; border:1px dashed #bfdbfe; border-radius:12px; color:#2563eb; font-weight:700; font-family:'Inter'; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                ➕ Add Representative Row
+            </button>
+        </div>
+    `;
+
+    return `
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:16px; overflow:hidden; box-shadow:0 4px 15px rgba(0,0,0,0.015); margin-bottom:24px;">
+            <div style="overflow-x:auto; width:100%;">
+                <table style="width:100%; border-collapse:collapse; text-align:left; font-family:'Inter', sans-serif;">
+                    <thead>
+                        <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+                            <th style="padding:12px 8px; text-align:center; font-size:12px; font-weight:700; color:#475569; width:40px;">S.No.</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Corporate Shareholder</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Representative Name</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Passport / ID</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Nationality</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Date of Birth</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Residential Address</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Email</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Mobile Number</th>
+                            <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Passport Expiry Date</th>
+                            <th style="padding:12px 8px; text-align:center; font-size:12px; font-weight:700; color:#475569; width:50px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            </div>
+            ${actionButtonHtml}
+        </div>
+    `;
+}
+
+function obRenderRonsTableHtml(isReadOnly) {
+    const ob = state.onboarding || {};
+    const stepField = 'stepRons';
+    const stepData = ob[stepField] || { status: 'pending', data: { hasNominee: 'No', nomineeList: [] }, documents: [] };
+    const data = stepData.data || { hasNominee: 'No', nomineeList: [] };
+
+    if (!data.nomineeList) data.nomineeList = [];
+    if (!data.hasNominee) data.hasNominee = 'No';
+
+    const isYes = data.hasNominee === 'Yes';
+
+    // Get all nominee-flagged shareholders
+    const indStep = ob.step3IndividualShareholder || { data: { list: [] } };
+    const indList = indStep.data.list || [];
+    const corpStep = ob.step4CorporateShareholder || { data: { list: [] } };
+    const corpList = corpStep.data.list || [];
+
+    const nomineeShareholders = [];
+    indList.forEach((sh, idx) => {
+        if (sh.isNominee === true || sh.isNominee === 'true') {
+            nomineeShareholders.push({
+                id: `individual_${idx}`,
+                name: sh.fullName || `Unnamed Individual Shareholder #${idx + 1}`
+            });
+        }
+    });
+    corpList.forEach((sh, idx) => {
+        if (sh.isNominee === true || sh.isNominee === 'true') {
+            nomineeShareholders.push({
+                id: `corporate_${idx}`,
+                name: sh.companyName || `Unnamed Corporate Shareholder #${idx + 1}`
+            });
+        }
+    });
+
+    let tableHtml = '';
+    if (isYes) {
+        if (nomineeShareholders.length === 0) {
+            tableHtml = `
+                <div style="background:#fffbeb; border:1px solid #fcd34d; border-radius:12px; padding:16px; color:#b45309; font-size:13px; font-weight:600; text-align:center; margin-top:16px;">
+                    ⚠️ Please check the "Nominee" checkbox for the nominee shareholders in the Individual or Corporate tabs first.
+                </div>
+            `;
+        } else {
+            if (data.nomineeList.length === 0) {
+                data.nomineeList.push({ shareholderId: '', type: '', email: '', mobile: '' });
+            }
+
+            let rowsHtml = data.nomineeList.map((nom, idx) => {
+                return `
+                    <tr style="border-bottom:1px solid #f1f5f9;">
+                        <td style="text-align:center; padding:12px 8px; font-weight:700; color:#64748b; font-size:12.5px;">${idx + 1}</td>
+                        <td style="padding:8px;">
+                            <select ${isReadOnly ? 'disabled' : ''} onchange="obUpdateRonsNomineeShareholder(${idx}, this.value)" style="width:100%; min-width:180px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none; background:#ffffff; color:#334155;">
+                                <option value="">Select Nominee Shareholder</option>
+                                ${nomineeShareholders.map(s => `<option value="${s.id}" ${nom.shareholderId === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
+                            </select>
+                        </td>
+                        <td style="padding:8px;">
+                            <input type="email" value="${nom.email || ''}" placeholder="Email" ${isReadOnly ? 'readonly' : ''} oninput="obUpdateRonsNomineeField(${idx}, 'email', this.value)" style="width:100%; min-width:150px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                        </td>
+                        <td style="padding:8px;">
+                            <input type="text" value="${nom.mobile || ''}" placeholder="Mobile" ${isReadOnly ? 'readonly' : ''} oninput="obUpdateRonsNomineeField(${idx}, 'mobile', this.value)" style="width:100%; min-width:120px; font-size:12.5px; padding:6px 8px; border:1px solid #e2e8f0; border-radius:6px; outline:none;">
+                        </td>
+                        <td style="padding:12px 8px; text-align:center;">
+                            ${isReadOnly ? '' : `
+                                <button type="button" onclick="obRemoveRonsNominee(${idx})" style="padding:6px; background:#fee2e2; border:none; border-radius:8px; color:#ef4444; cursor:pointer;" title="Delete Row">🗑️</button>
+                            `}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            const actionButtonHtml = isReadOnly ? '' : `
+                <div style="margin-top:16px; display:flex; justify-content:center; padding:12px;">
+                    <button type="button" onclick="obAddRonsNominee()" style="padding:10px 20px; background:#eff6ff; border:1px dashed #bfdbfe; border-radius:12px; color:#2563eb; font-weight:700; font-family:'Inter'; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                        ➕ Add Nominee Row
+                    </button>
+                </div>
+            `;
+
+            tableHtml = `
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:16px; overflow:hidden; box-shadow:0 4px 15px rgba(0,0,0,0.015); margin-top:20px; margin-bottom:24px;">
+                    <div style="overflow-x:auto; width:100%;">
+                        <table style="width:100%; border-collapse:collapse; text-align:left; font-family:'Inter', sans-serif;">
+                            <thead>
+                                <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+                                    <th style="padding:12px 8px; text-align:center; font-size:12px; font-weight:700; color:#475569; width:40px;">S.No.</th>
+                                    <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Nominee Shareholder</th>
+                                    <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Email Address</th>
+                                    <th style="padding:12px 8px; font-size:12px; font-weight:700; color:#475569;">Contact Number</th>
+                                    <th style="padding:12px 8px; text-align:center; font-size:12px; font-weight:700; color:#475569; width:50px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rowsHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                    ${actionButtonHtml}
+                </div>
+            `;
+        }
+    } else {
+        tableHtml = `
+            <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:16px; padding:20px; text-align:center; color:#166534; font-size:13.5px; font-weight:500; margin-top:20px; font-family:'Inter';">
+                ✅ No nominee shareholders declared.
+            </div>
+        `;
+    }
+
+    return `
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:16px; padding:24px; box-shadow:0 4px 15px rgba(0,0,0,0.015);">
+            <div style="font-size:14px; font-weight:600; color:#334155; margin-bottom:12px;">Is any shareholder a nominee shareholder?</div>
+            <div style="display:flex; gap:24px; margin-bottom:12px;">
+                <label style="display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; color:#475569; cursor:pointer;">
+                    <input type="radio" name="hasNominee" value="Yes" ${isYes ? 'checked' : ''} ${isReadOnly ? 'disabled' : ''} onchange="obUpdateRonsHasNominee('Yes')" style="width:18px; height:18px; cursor:pointer;">
+                    Yes
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; color:#475569; cursor:pointer;">
+                    <input type="radio" name="hasNominee" value="No" ${!isYes ? 'checked' : ''} ${isReadOnly ? 'disabled' : ''} onchange="obUpdateRonsHasNominee('No')" style="width:18px; height:18px; cursor:pointer;">
+                    No
+                </label>
+            </div>
+            ${tableHtml}
+        </div>
+    `;
+}
+
+function obUpdateCorporateShareholderField(idx, key, value) {
+    const ob = state.onboarding || {};
+    const stepField = 'step4CorporateShareholder';
+    
+    if (!ob[stepField]) {
+        ob[stepField] = { data: { list: [] }, status: 'pending', documents: [] };
+    }
+    if (!ob[stepField].data) {
+        ob[stepField].data = { list: [] };
+    }
+    if (!ob[stepField].data.list) {
+        ob[stepField].data.list = [];
+    }
+    if (!ob[stepField].data.list[idx]) {
+        ob[stepField].data.list[idx] = {};
+    }
+    
+    ob[stepField].data.list[idx][key] = value;
+    
+    if (key === 'numberOfSharesPct') {
+        ob[stepField].data.list[idx].shareCapitalAmountPct = value;
+        if (value === '') {
+            ob[stepField].data.list[idx].numberOfShares = '';
+            ob[stepField].data.list[idx].shareCapitalAmount = '';
+            ob[stepField].data.list[idx].ownershipPercentage = '';
+        }
+    }
+
+    try {
+        if (key === 'numberOfSharesPct' || key === 'currency' || key === 'shareClass') {
+            const pctValStr = String(ob[stepField].data.list[idx].numberOfSharesPct || '').trim();
+            if (pctValStr === '') {
+                ob[stepField].data.list[idx].numberOfShares = '';
+                ob[stepField].data.list[idx].shareCapitalAmount = '';
+                ob[stepField].data.list[idx].ownershipPercentage = '';
+            } else {
+                const pct = parseFloat(pctValStr) || 0;
+                const currEl = document.getElementById(`ob-corporate_shareholder-${idx}-currency`);
+                const classEl = document.getElementById(`ob-corporate_shareholder-${idx}-shareClass`);
+                const shCurr = (ob[stepField].data.list[idx].currency || (currEl ? currEl.value : '') || '').trim().toUpperCase();
+                const shClass = (ob[stepField].data.list[idx].shareClass || (classEl ? classEl.value : '') || '').trim();
+
+                const scStep = ob.stepShareCapital || {};
+                const scCurrencies = (scStep.data && scStep.data.currencies) || [];
+                const masterItem = scCurrencies.find(c => {
+                    if (!c) return false;
+                    const masterCurr = String(c.currency === 'Others' ? (c.customCurrency || '') : (c.currency || '')).trim().toUpperCase();
+                    const masterClass = String(c.shareClass || '').trim().toLowerCase();
+                    return masterCurr === shCurr.toUpperCase() && masterClass === shClass.toLowerCase();
+                });
+
+                if (masterItem) {
+                    const mShares = parseFloat(String(masterItem.numberOfShares || '0').replace(/,/g, '')) || 0;
+                    const mCapital = parseFloat(String(masterItem.shareCapitalAmount || '0').replace(/,/g, '')) || 0;
+
+                    const calculatedShares = Math.round((pct / 100) * mShares);
+                    const calculatedCapital = (pct / 100) * mCapital;
+
+                    ob[stepField].data.list[idx].numberOfShares = calculatedShares;
+                    ob[stepField].data.list[idx].shareCapitalAmount = calculatedCapital;
+                    ob[stepField].data.list[idx].ownershipPercentage = pct;
+
+                    if (!ob[stepField].data.list[idx].currency) {
+                        ob[stepField].data.list[idx].currency = shCurr;
+                    }
+                    if (!ob[stepField].data.list[idx].shareClass) {
+                        ob[stepField].data.list[idx].shareClass = shClass;
+                    }
+                } else {
+                    ob[stepField].data.list[idx].numberOfShares = '';
+                    ob[stepField].data.list[idx].shareCapitalAmount = '';
+                    ob[stepField].data.list[idx].ownershipPercentage = '';
+                }
+            }
+        }
+    } catch (err) {
+        console.error("Error calculating corporate shareholder fields:", err);
+    }
+
+    saveOnboardingDraft();
+    const workspace = document.getElementById('ob-form-workspace');
+    if (workspace) renderActiveStepForm(workspace);
+    updateWizardUIFeedback();
+}
+
+function obUpdateCorporateRepField(idx, key, value) {
+    const ob = state.onboarding || {};
+    const stepField = 'step6CorporateRep';
+    
+    if (!ob[stepField]) {
+        ob[stepField] = { data: { list: [] }, status: 'pending', documents: [] };
+    }
+    if (!ob[stepField].data) {
+        ob[stepField].data = { list: [] };
+    }
+    if (!ob[stepField].data.list) {
+        ob[stepField].data.list = [];
+    }
+    if (!ob[stepField].data.list[idx]) {
+        ob[stepField].data.list[idx] = {};
+    }
+    
+    ob[stepField].data.list[idx][key] = value;
+    
+    saveOnboardingDraft();
+    const workspace = document.getElementById('ob-form-workspace');
+    if (workspace) renderActiveStepForm(workspace);
+    updateWizardUIFeedback();
+}
+
+window.obRenderIndividualShareholderTableHtml = obRenderIndividualShareholderTableHtml;
+window.obRenderCorporateShareholderTableHtml = obRenderCorporateShareholderTableHtml;
+window.obRenderCorporateRepTableHtml = obRenderCorporateRepTableHtml;
+window.obRenderRonsTableHtml = obRenderRonsTableHtml;
+window.obUpdateCorporateShareholderField = obUpdateCorporateShareholderField;
+window.obUpdateCorporateRepField = obUpdateCorporateRepField;
+
+function obUpdateIndividualShareholderField(idx, key, value) {
+    const ob = state.onboarding || {};
+    const stepField = 'step3IndividualShareholder';
+    
+    if (!ob[stepField]) {
+        ob[stepField] = { data: { list: [] }, status: 'pending', documents: [] };
+    }
+    if (!ob[stepField].data) {
+        ob[stepField].data = { list: [] };
+    }
+    if (!ob[stepField].data.list) {
+        ob[stepField].data.list = [];
+    }
+    if (!ob[stepField].data.list[idx]) {
+        ob[stepField].data.list[idx] = {};
+    }
+    
+    ob[stepField].data.list[idx][key] = value;
+    
+    if (key === 'numberOfSharesPct') {
+        ob[stepField].data.list[idx].shareCapitalAmountPct = value;
+        if (value === '') {
+            ob[stepField].data.list[idx].numberOfShares = '';
+            ob[stepField].data.list[idx].shareCapitalAmount = '';
+            ob[stepField].data.list[idx].ownershipPercentage = '';
+        }
+    }
+
+    // Auto-calculate logic here!
+    try {
+        if (key === 'numberOfSharesPct' || key === 'currency' || key === 'shareClass') {
+            const pctValStr = String(ob[stepField].data.list[idx].numberOfSharesPct || '').trim();
+            if (pctValStr === '') {
+                ob[stepField].data.list[idx].numberOfShares = '';
+                ob[stepField].data.list[idx].shareCapitalAmount = '';
+                ob[stepField].data.list[idx].ownershipPercentage = '';
+            } else {
+                // Calculate shares and capital based on percentage
+                const pct = parseFloat(pctValStr) || 0;
+                const currEl = document.getElementById(`ob-individual_shareholder-${idx}-currency`);
+                const classEl = document.getElementById(`ob-individual_shareholder-${idx}-shareClass`);
+                const shCurr = (ob[stepField].data.list[idx].currency || (currEl ? currEl.value : '') || '').trim().toUpperCase();
+                const shClass = (ob[stepField].data.list[idx].shareClass || (classEl ? classEl.value : '') || '').trim();
+
+                const scStep = ob.stepShareCapital || {};
+                const scCurrencies = (scStep.data && scStep.data.currencies) || [];
+                const masterItem = scCurrencies.find(c => {
+                    if (!c) return false;
+                    const masterCurr = String(c.currency === 'Others' ? (c.customCurrency || '') : (c.currency || '')).trim().toUpperCase();
+                    const masterClass = String(c.shareClass || '').trim().toLowerCase();
+                    return masterCurr === shCurr.toUpperCase() && masterClass === shClass.toLowerCase();
+                });
+
+                if (masterItem) {
+                    const mShares = parseFloat(String(masterItem.numberOfShares || '0').replace(/,/g, '')) || 0;
+                    const mCapital = parseFloat(String(masterItem.shareCapitalAmount || '0').replace(/,/g, '')) || 0;
+
+                    const calculatedShares = Math.round((pct / 100) * mShares);
+                    const calculatedCapital = (pct / 100) * mCapital;
+
+                    ob[stepField].data.list[idx].numberOfShares = calculatedShares;
+                    ob[stepField].data.list[idx].shareCapitalAmount = calculatedCapital;
+                    ob[stepField].data.list[idx].ownershipPercentage = pct;
+
+                    // Sync fallback values back to the model
+                    if (!ob[stepField].data.list[idx].currency) {
+                        ob[stepField].data.list[idx].currency = shCurr;
+                    }
+                    if (!ob[stepField].data.list[idx].shareClass) {
+                        ob[stepField].data.list[idx].shareClass = shClass;
+                    }
+                } else {
+                    ob[stepField].data.list[idx].numberOfShares = '';
+                    ob[stepField].data.list[idx].shareCapitalAmount = '';
+                    ob[stepField].data.list[idx].ownershipPercentage = '';
+                }
+            }
+        }
+    } catch (err) {
+        console.error("Error calculating individual shareholder fields:", err);
+    }
+
+    saveOnboardingDraft();
+
+    // Re-render the active step form workspace
+    const workspace = document.getElementById('ob-form-workspace');
+    if (workspace) renderActiveStepForm(workspace);
+    updateWizardUIFeedback();
+}
+
+window.obRenderIndividualShareholderHtml = obRenderIndividualShareholderHtml;
+window.obUpdateIndividualShareholderField = obUpdateIndividualShareholderField;
+
+function obRenderRonsHtml(isReadOnly) {
+    const ob = state.onboarding || {};
+    const stepField = 'stepRons';
+    const stepData = ob[stepField] || { status: 'pending', data: { hasNominee: 'No', nomineeList: [] }, documents: [] };
+    const data = stepData.data || { hasNominee: 'No', nomineeList: [] };
+    const docs = stepData.documents || [];
+
+    if (!data.nomineeList) data.nomineeList = [];
+    if (!data.hasNominee) data.hasNominee = 'No';
+
+    // Get all individual and corporate shareholders
+    const indStep = ob.step3IndividualShareholder || { data: { list: [] } };
+    const indList = indStep.data.list || [];
+    const corpStep = ob.step4CorporateShareholder || { data: { list: [] } };
+    const corpList = corpStep.data.list || [];
+
+    const shareholders = [];
+    indList.forEach((sh, idx) => {
+        shareholders.push({
+            id: `individual_${idx}`,
+            name: sh.fullName || `Unnamed Individual Shareholder #${idx + 1}`,
+            type: 'individual'
+        });
+    });
+    corpList.forEach((sh, idx) => {
+        shareholders.push({
+            id: `corporate_${idx}`,
+            name: sh.companyName || `Unnamed Corporate Shareholder #${idx + 1}`,
+            type: 'corporate'
+        });
+    });
+
+    const isYes = data.hasNominee === 'Yes';
+
+    let nomineeSectionHtml = '';
+    if (isYes) {
+        if (data.nomineeList.length === 0) {
+            data.nomineeList.push({ shareholderId: '', type: '', email: '', mobile: '' });
+        }
+
+        nomineeSectionHtml = `
+            <div style="margin-top:24px;">
+                <h4 style="font-family:'Outfit'; font-size:16px; font-weight:700; color:#1e293b; margin-bottom:16px;">👤 Nominee Shareholder Details</h4>
+                <div style="display:flex; flex-direction:column; gap:20px;">
+                    ${data.nomineeList.map((nom, idx) => {
+            const selectedSh = shareholders.find(s => s.id === nom.shareholderId);
+            const shType = selectedSh ? selectedSh.type : nom.type;
+
+            let docFieldsHtml = '';
+            if (shType === 'individual') {
+                const idDocType = `rons_id_proof_${idx}`;
+                const addrDocType = `rons_addr_proof_${idx}`;
+
+                const idUploaded = docs.find(d => d.type === idDocType);
+                const addrUploaded = docs.find(d => d.type === addrDocType);
+
+                docFieldsHtml = `
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:12px;">
+                                    <div class="ob-doc-upload" id="doc-rons-${idDocType}" style="${idUploaded ? 'border-color:#10b981; background:#f0fdf4;' : 'border-color:#e2e8f0; background:#f8fafc;'} border-radius:12px; padding:16px; cursor:${isReadOnly ? 'default' : 'pointer'};" ${isReadOnly ? '' : `onclick="obUploadMultiItemDoc('rons', '${idDocType}', 'ID Proof', ${idx})"`}>
+                                        ${idUploaded ? `
+                                            <div style="color:#059669; font-size:12px; font-weight:700; display:flex; justify-content:space-between; align-items:center;">
+                                                <span>✅ ID Proof</span>
+                                                ${isReadOnly ? '' : `<button type="button" onclick="event.stopPropagation(); obClearMultiItemDoc('rons', '${idDocType}', ${idx})" style="border:none; background:transparent; color:#ef4444; font-size:11px; cursor:pointer;" title="Delete">❌</button>`}
+                                            </div>
+                                            <div style="font-size:10px; color:#475569; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">📄 ${idUploaded.fileName}</div>
+                                        ` : `<div style="text-align:center; font-size:12px; color:#64748b;">📤 Upload ID Proof</div>`}
+                                    </div>
+                                    <div class="ob-doc-upload" id="doc-rons-${addrDocType}" style="${addrUploaded ? 'border-color:#10b981; background:#f0fdf4;' : 'border-color:#e2e8f0; background:#f8fafc;'} border-radius:12px; padding:16px; cursor:${isReadOnly ? 'default' : 'pointer'};" ${isReadOnly ? '' : `onclick="obUploadMultiItemDoc('rons', '${addrDocType}', 'Address Proof', ${idx})"`}>
+                                        ${addrUploaded ? `
+                                            <div style="color:#059669; font-size:12px; font-weight:700; display:flex; justify-content:space-between; align-items:center;">
+                                                <span>✅ Address Proof</span>
+                                                ${isReadOnly ? '' : `<button type="button" onclick="event.stopPropagation(); obClearMultiItemDoc('rons', '${addrDocType}', ${idx})" style="border:none; background:transparent; color:#ef4444; font-size:11px; cursor:pointer;" title="Delete">❌</button>`}
+                                            </div>
+                                            <div style="font-size:10px; color:#475569; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">📄 ${addrUploaded.fileName}</div>
+                                        ` : `<div style="text-align:center; font-size:12px; color:#64748b;">📤 Upload Address Proof</div>`}
+                                    </div>
+                                </div>
+                            `;
+            } else if (shType === 'corporate') {
+                const bizDocType = `rons_bizfile_${idx}`;
+                const constDocType = `rons_constitution_${idx}`;
+
+                const bizUploaded = docs.find(d => d.type === bizDocType);
+                const constUploaded = docs.find(d => d.type === constDocType);
+
+                docFieldsHtml = `
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:12px;">
+                                    <div class="ob-doc-upload" id="doc-rons-${bizDocType}" style="${bizUploaded ? 'border-color:#10b981; background:#f0fdf4;' : 'border-color:#e2e8f0; background:#f8fafc;'} border-radius:12px; padding:16px; cursor:${isReadOnly ? 'default' : 'pointer'};" ${isReadOnly ? '' : `onclick="obUploadMultiItemDoc('rons', '${bizDocType}', 'BizFile', ${idx})"`}>
+                                        ${bizUploaded ? `
+                                            <div style="color:#059669; font-size:12px; font-weight:700; display:flex; justify-content:space-between; align-items:center;">
+                                                <span>✅ BizFile</span>
+                                                ${isReadOnly ? '' : `<button type="button" onclick="event.stopPropagation(); obClearMultiItemDoc('rons', '${bizDocType}', ${idx})" style="border:none; background:transparent; color:#ef4444; font-size:11px; cursor:pointer;" title="Delete">❌</button>`}
+                                            </div>
+                                            <div style="font-size:10px; color:#475569; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">📄 ${bizUploaded.fileName}</div>
+                                        ` : `<div style="text-align:center; font-size:12px; color:#64748b;">📤 Upload BizFile</div>`}
+                                    </div>
+                                    <div class="ob-doc-upload" id="doc-rons-${constDocType}" style="${constUploaded ? 'border-color:#10b981; background:#f0fdf4;' : 'border-color:#e2e8f0; background:#f8fafc;'} border-radius:12px; padding:16px; cursor:${isReadOnly ? 'default' : 'pointer'};" ${isReadOnly ? '' : `onclick="obUploadMultiItemDoc('rons', '${constDocType}', 'Constitution', ${idx})"`}>
+                                        ${constUploaded ? `
+                                            <div style="color:#059669; font-size:12px; font-weight:700; display:flex; justify-content:space-between; align-items:center;">
+                                                <span>✅ Constitution</span>
+                                                ${isReadOnly ? '' : `<button type="button" onclick="event.stopPropagation(); obClearMultiItemDoc('rons', '${constDocType}', ${idx})" style="border:none; background:transparent; color:#ef4444; font-size:11px; cursor:pointer;" title="Delete">❌</button>`}
+                                            </div>
+                                            <div style="font-size:10px; color:#475569; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">📄 ${constUploaded.fileName}</div>
+                                        ` : `<div style="text-align:center; font-size:12px; color:#64748b;">📤 Upload Constitution</div>`}
+                                    </div>
+                                </div>
+                            `;
+            }
+
+            return `
+                            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:16px; padding:20px; box-shadow:0 4px 15px rgba(0,0,0,0.015); position:relative;">
+                                ${isReadOnly ? '' : `
+                                    <button type="button" onclick="obRemoveRonsNominee(${idx})" style="position:absolute; top:16px; right:16px; border:none; background:#fee2e2; color:#ef4444; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">Remove</button>
+                                `}
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                                    <div class="ob-field">
+                                        <label style="font-family:'Outfit'; font-size:12px; font-weight:700; color:#475569; text-transform:uppercase;">Select Nominee Shareholder</label>
+                                        <select ${isReadOnly ? 'disabled' : ''} onchange="obUpdateRonsNomineeShareholder(${idx}, this.value)" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; outline:none; background:white;">
+                                            <option value="">Select Shareholder</option>
+                                            ${shareholders.map(s => `<option value="${s.id}" ${nom.shareholderId === s.id ? 'selected' : ''}>${s.name} (${s.type === 'individual' ? 'Individual' : 'Corporate'})</option>`).join('')}
+                                        </select>
+                                    </div>
+                                    <div class="ob-field" style="display:flex; flex-direction:row; gap:16px;">
+                                        <div style="flex:1;">
+                                            <label style="font-family:'Outfit'; font-size:12px; font-weight:700; color:#475569; text-transform:uppercase;">Email Address</label>
+                                            <input type="email" value="${nom.email || ''}" placeholder="Email" ${isReadOnly ? 'readonly' : ''} oninput="obUpdateRonsNomineeField(${idx}, 'email', this.value)" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; outline:none;">
+                                        </div>
+                                        <div style="flex:1;">
+                                            <label style="font-family:'Outfit'; font-size:12px; font-weight:700; color:#475569; text-transform:uppercase;">Contact Number</label>
+                                            <input type="text" value="${nom.mobile || ''}" placeholder="Contact Number" ${isReadOnly ? 'readonly' : ''} oninput="obUpdateRonsNomineeField(${idx}, 'mobile', this.value)" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; outline:none;">
+                                        </div>
+                                    </div>
+                                </div>
+                                ${docFieldsHtml}
+                            </div>
+                        `;
+        }).join('')}
+                </div>
+                ${isReadOnly ? '' : `
+                    <div style="display:flex; justify-content:center; margin-top:20px;">
+                        <button type="button" onclick="obAddRonsNominee()" style="padding:10px 20px; background:#eff6ff; border:1px dashed #bfdbfe; border-radius:12px; color:#2563eb; font-weight:700; font-family:'Inter'; font-size:13px; cursor:pointer;">
+                            ➕ Add Nominee Shareholder
+                        </button>
+                    </div>
+                `}
+            </div>
+        `;
+    } else {
+        nomineeSectionHtml = `
+            <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:16px; padding:20px; text-align:center; color:#166534; font-size:13.5px; font-weight:500; margin-top:24px; font-family:'Inter';">
+                ✅ No nominee shareholders declared. You can proceed directly to Final Declaration & Consent.
+            </div>
+        `;
+    }
+
+    return `
+        <div style="font-family:'Outfit';">
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:16px; padding:24px; box-shadow:0 4px 15px rgba(0,0,0,0.015);">
+                <div style="font-size:14.5px; font-weight:600; color:#334155; margin-bottom:12px;">Is any shareholder a nominee shareholder?</div>
+                <div style="display:flex; gap:24px;">
+                    <label style="display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; color:#475569; cursor:pointer;">
+                        <input type="radio" name="hasNominee" value="Yes" ${isYes ? 'checked' : ''} ${isReadOnly ? 'disabled' : ''} onchange="obUpdateRonsHasNominee('Yes')" style="width:18px; height:18px; cursor:pointer;">
+                        Yes
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; color:#475569; cursor:pointer;">
+                        <input type="radio" name="hasNominee" value="No" ${!isYes ? 'checked' : ''} ${isReadOnly ? 'disabled' : ''} onchange="obUpdateRonsHasNominee('No')" style="width:18px; height:18px; cursor:pointer;">
+                        No
+                    </label>
+                </div>
+            </div>
+            ${nomineeSectionHtml}
+        </div>
+    `;
+}
+
+function obUpdateRonsHasNominee(val) {
+    const ob = state.onboarding || {};
+    const stepField = 'stepRons';
+    if (!ob[stepField]) ob[stepField] = { key: 'rons', title: 'Register of Nominee Shareholders (RONS)', status: 'pending', data: { hasNominee: 'No', nomineeList: [] }, documents: [] };
+    ob[stepField].data.hasNominee = val;
+    if (val === 'No') {
+        ob[stepField].data.nomineeList = [];
+        ob[stepField].documents = [];
+    } else {
+        if (!ob[stepField].data.nomineeList || ob[stepField].data.nomineeList.length === 0) {
+            ob[stepField].data.nomineeList = [{ shareholderId: '', type: '', email: '', mobile: '' }];
+        }
+    }
+    saveOnboardingDraft();
+    const workspace = document.getElementById('ob-form-workspace');
+    if (workspace) renderActiveStepForm(workspace);
+    updateWizardUIFeedback();
+}
+
+function obUpdateRonsNomineeShareholder(idx, value) {
+    const ob = state.onboarding || {};
+    const stepField = 'stepRons';
+    if (!ob[stepField].data.nomineeList[idx]) ob[stepField].data.nomineeList[idx] = {};
+    ob[stepField].data.nomineeList[idx].shareholderId = value;
+
+    if (value) {
+        const type = value.startsWith('individual_') ? 'individual' : 'corporate';
+        ob[stepField].data.nomineeList[idx].type = type;
+    } else {
+        ob[stepField].data.nomineeList[idx].type = '';
+    }
+
+    saveOnboardingDraft();
+    const workspace = document.getElementById('ob-form-workspace');
+    if (workspace) renderActiveStepForm(workspace);
+    updateWizardUIFeedback();
+}
+
+function obUpdateRonsNomineeField(idx, key, value) {
+    const ob = state.onboarding || {};
+    const stepField = 'stepRons';
+    if (!ob[stepField].data.nomineeList[idx]) ob[stepField].data.nomineeList[idx] = {};
+    ob[stepField].data.nomineeList[idx][key] = value;
+    saveOnboardingDraft();
+}
+
+function obAddRonsNominee() {
+    const ob = state.onboarding || {};
+    const stepField = 'stepRons';
+    ob[stepField].data.nomineeList.push({ shareholderId: '', type: '', email: '', mobile: '' });
+    saveOnboardingDraft();
+    const workspace = document.getElementById('ob-form-workspace');
+    if (workspace) renderActiveStepForm(workspace);
+    updateWizardUIFeedback();
+}
+
+function obRemoveRonsNominee(idx) {
+    const ob = state.onboarding || {};
+    const stepField = 'stepRons';
+    ob[stepField].data.nomineeList.splice(idx, 1);
+
+    // Also clean up any associated documents for this index
+    const prefix = `_${idx}`;
+    ob[stepField].documents = (ob[stepField].documents || []).filter(d => !d.type.endsWith(prefix));
+
+    saveOnboardingDraft();
+    const workspace = document.getElementById('ob-form-workspace');
+    if (workspace) renderActiveStepForm(workspace);
+    updateWizardUIFeedback();
+}
+
+window.obRenderRonsHtml = obRenderRonsHtml;
+window.obUpdateRonsHasNominee = obUpdateRonsHasNominee;
+window.obUpdateRonsNomineeShareholder = obUpdateRonsNomineeShareholder;
+window.obUpdateRonsNomineeField = obUpdateRonsNomineeField;
+window.obAddRonsNominee = obAddRonsNominee;
+window.obRemoveRonsNominee = obRemoveRonsNominee;
+
+function renderMultiItemStepHtml(stepKey, isReadOnly) {
+    const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
+    if (!step) return '';
+    
+    const stepField = step.field;
+    const ob = state.onboarding || {};
+    const stepData = ob[stepField] || { status: 'pending', data: {}, documents: [] };
+    const data = stepData.data || {};
+    const docs = stepData.documents || [];
+    
+    if (!data.list || !Array.isArray(data.list)) {
+        data.list = [];
+    }
+    if (data.list.length === 0) {
+        data.list.push({});
+    }
+
+    let cardsHtml = data.list.map((item, idx) => {
+        const currentRequiredDocs = getStepRequiredDocs(stepKey, item);
+        let currentManualFields = getStepManualFields(stepKey, item);
+
+        let topFieldsHtml = '';
+        if (stepKey === 'individual_shareholder') {
+            const shTypeIdx = currentManualFields.findIndex(f => f.key === 'shareholderType');
+            if (shTypeIdx !== -1) {
+                const f = currentManualFields[shTypeIdx];
+                currentManualFields.splice(shTypeIdx, 1); // Remove from main list
+
+                const val = item[f.key] !== undefined ? item[f.key] : '';
+                const inputId = `ob-${stepKey}-${idx}-${f.key}`;
+                const disabledAttr = isReadOnly ? 'disabled' : '';
+                const options = f.options || [];
+
+                topFieldsHtml = `
+                    <div class="ob-field-row" style="margin-bottom: 24px;">
+                        <div class="ob-field">
+                            <label for="${inputId}">${f.label}</label>
+                            <select id="${inputId}" ${disabledAttr} onchange="triggerMultiItemAutoSave('${stepKey}', ${idx}, true)">
+                                ${options.map(o => `<option value="${o}" ${String(val).trim().toLowerCase() === String(o).trim().toLowerCase() ? 'selected' : ''}>${o}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        let itemDocsHtml = '';
+        if (currentRequiredDocs && currentRequiredDocs.length > 0) {
+            itemDocsHtml = `
+                <div style="margin-bottom: 0;">
+                    <div style="font-family: 'Inter', sans-serif; font-size:13.5px;font-weight:600;color:#334155;margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        Required Documents
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                        ${currentRequiredDocs.map(doc => {
+                const docTypeWithIdx = `${doc.type}_${idx}`;
+                const uploaded = docs.find(d => d.type === docTypeWithIdx);
+
+                let isReq = true;
+                if (stepKey === 'corporate_shareholder') {
+                    const country = (item.countryOfIncorporation || '').trim().toLowerCase();
+                    const isSG = country === 'singapore' || country === 'sg';
+                    if (isSG) {
+                        isReq = (doc.type === 'bizfile' || doc.type === 'constitution');
+                    } else {
+                        isReq = (doc.type === 'cert_incorporation' || doc.type === 'constitution');
+                    }
+                }
+                if (stepKey === 'individual_shareholder') {
+                    if (item.sameAsDirector === true || item.sameAsDirector === 'true') {
+                        isReq = false;
+                    }
+                }
+                const labelText = doc.label + (isReq ? ' (Required)' : ' (Optional)');
+
+                return `
+                            <div class="ob-doc-upload" id="doc-${stepKey}-${docTypeWithIdx}" 
+                                 style="${uploaded ? 'border-color:#10b981;background:#f0fdf4;' : 'border-color:#e2e8f0;background:#f8fafc;'} border-radius: 14px; transition: all 0.2s; ${isReadOnly ? 'cursor:default;opacity:0.85;' : ''} padding: 16px; cursor:${isReadOnly ? 'default' : 'pointer'};"
+                                 ${isReadOnly ? '' : `onclick="obUploadMultiItemDoc('${stepKey}','${docTypeWithIdx}','${doc.label}', ${idx})"`}
+                            >
+                                ${uploaded
+                        ? `<div style='display:flex; justify-content:space-between; align-items:flex-start;'>
+                                         <div style="text-align: left;">
+                                             <div style='color:#059669;font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:6px;'><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> ${labelText}</div>
+                                             <div style='font-size:11px;font-weight:500;color:#475569;margin-top:6px;word-break:break-all; max-width: 90%;'>📄 ${uploaded.fileName || 'Uploaded'}</div>
+                                         </div>
+                                         ${isReadOnly ? '' : `
+                                             <button type="button" onclick="event.stopPropagation(); obClearMultiItemDoc('${stepKey}','${docTypeWithIdx}', ${idx})" style="padding:6px;background:#fee2e2;border:none;border-radius:8px;color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'" title="Remove Document">
+                                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                             </button>
+                                         `}
+                                       </div>`
+                        : `<div style='text-align:center;'>
+                                        <div style="width:40px;height:40px;border-radius:12px;background:#ffffff;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;margin:0 auto 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);">
+                                            <svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='#3b82f6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='17 8 12 3 7 8'/><line x1='12' x2='12' y1='3' y2='15'/></svg>
+                                        </div>
+                                        <div style='font-size:12.5px;font-weight:600;color:#1e293b;'>${labelText}</div>
+                                        ${isReadOnly ? '' : `<div style='font-size:11px;color:#64748b;margin-top:4px;'>Click or drag file to upload</div>`}
+                                       </div>`
+                    }
+                            </div>`;
+            }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        let itemFieldsHtml = '';
+        const hasNric = docs.some(d => d.type === `nric_${idx}`);
+        const hasPassport = docs.some(d => d.type === `passport_${idx}`);
+        const hasAddress = docs.some(d => d.type === `address_proof_${idx}`);
+        const showFields = (stepKey !== 'director_details') || (hasNric || hasPassport || hasAddress) || (item.source === 'globalisor');
+
+        if (item.source === 'globalisor') {
+            itemFieldsHtml = `
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-top: 12px; width: 100%;">
+                    <div style="font-size: 13px; font-weight: 600; color: #475569; display: flex; align-items: center; gap: 8px;">
+                        <span>👤</span> Nominee Director service will be provided by Globalisor. No action is required.
+                    </div>
+                </div>
+            `;
+        } else if (showFields) {
+            if (currentManualFields && currentManualFields.length > 0) {
+                itemFieldsHtml = `
+                    <div class="ob-field-row">
+                        ${currentManualFields.map(f => {
+                    const val = item[f.key] !== undefined ? item[f.key] : '';
+                    const inputId = `ob-${stepKey}-${idx}-${f.key}`;
+                    const readonlyAttr = (f.readonly || isReadOnly) ? 'readonly' : '';
+
+                    if (f.key === 'sameAsDirector') {
+                        const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
+                        const dirStep = ONBOARDING_STEPS.find(s => s.key === 'director_details');
+                        const dirList = dirStep && state.onboarding[dirStep.field] ? (state.onboarding[dirStep.field].data.list || []) : [];
+
+                        let selectWrapperHtml = '';
+                        if (val) {
+                            const selectedDirectorIndices = new Set();
+                            const currentStepConfig = ONBOARDING_STEPS.find(s => s.key === stepKey);
+                            const stepField = currentStepConfig ? currentStepConfig.field : 'step3IndividualShareholder';
+                            const shareholdersList = state.onboarding[stepField] && state.onboarding[stepField].data && state.onboarding[stepField].data.list ? state.onboarding[stepField].data.list : [];
+                            shareholdersList.forEach((s, sIdx) => {
+                                if (sIdx !== idx && s.selectedDirectorIdx !== undefined && s.selectedDirectorIdx !== null && s.selectedDirectorIdx !== '') {
+                                    selectedDirectorIndices.add(String(s.selectedDirectorIdx));
+                                }
+                            });
+
+                            selectWrapperHtml = `
+                                    <div class="ob-field" style="grid-column: span 2; margin-bottom: 12px;">
+                                        <label for="${inputId}-director-select">Select Director Source</label>
+                                        <select id="${inputId}-director-select" ${disabledAttr} onchange="obIndividualShareholderSameAsDirectorChange(${idx}, this.value)">
+                                            <option value="">Select Director</option>
+                                            ${dirList.map((d, dIdx) => {
+                                const isSelected = item.selectedDirectorIdx === String(dIdx);
+                                if (!isSelected && selectedDirectorIndices.has(String(dIdx))) {
+                                    return ''; // Restored unique selection block!
+                                }
+                                return `<option value="${dIdx}" ${isSelected ? 'selected' : ''}>Director #${dIdx + 1}: ${d.fullName || '(No Name)'}</option>`;
+                            }).join('')}
+                                        </select>
+                                    </div>
+                                    `;
+                        }
+
+                        return `
+                                <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:16px; grid-column: span 2; margin-top: 8px; margin-bottom: 8px;">
+                                    <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="obIndividualShareholderSameAsDirectorCheckboxChange(${idx}, this.checked)" style="width:16px; height:16px; cursor:pointer;">
+                                    <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569; user-select:none;">${f.label}</label>
+                                </div>
+                                ${selectWrapperHtml}
+                                `;
+                    }
+
+                    if (f.key === 'anyAdditionalController') {
+                        const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
+                        const maxOwnership = (() => {
+                            let max = 0;
+                            const ob = state.onboarding || {};
+                            const indList = (ob.step3IndividualShareholder && ob.step3IndividualShareholder.data && ob.step3IndividualShareholder.data.list) || [];
+                            const corpList = (ob.step4CorporateShareholder && ob.step4CorporateShareholder.data && ob.step4CorporateShareholder.data.list) || [];
+                            indList.forEach(it => {
+                                const pct = parseFloat(it.numberOfSharesPct) || parseFloat(it.shareCapitalAmountPct) || 0;
+                                if (pct > max) max = pct;
+                            });
+                            corpList.forEach(it => {
+                                const pct = parseFloat(it.numberOfSharesPct) || parseFloat(it.shareCapitalAmountPct) || 0;
+                                if (pct > max) max = pct;
+                            });
+                            return max;
+                        })();
+
+                        if (maxOwnership >= 25) {
+                            return '';
+                        }
+
+                        let selectWrapperHtml = '';
+                        if (val) {
+                            const dirStep = state.onboarding.step2DirectorDetails || {};
+                            const dirList = (dirStep.data && dirStep.data.list) || [];
+                            const selectedDirectors = item.additionalControllerDirectors || [];
+
+                            const externalControllers = item.externalControllers || [];
+                            let externalFormHtml = `
+                                     <div style="margin-top:12px; padding:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; display:flex; flex-direction:column; gap:16px; width:100%; box-sizing:border-box;">
+                                         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #e2e8f0; padding-bottom:8px;">
+                                             <h5 style="font-size:12px; font-weight:700; color:#1e293b; margin:0;">External Additional Controllers</h5>
+                                             ${isReadOnly ? '' : `
+                                                 <button type="button" onclick="obAddExternalController(${idx})" style="padding: 6px 12px; background: #eff6ff; border: 1px dashed #bfdbfe; border-radius: 8px; color: #2563eb; font-size:11px; font-weight:700; cursor:pointer;">
+                                                     ➕ Add External Controller
+                                                 </button>
+                                             `}
+                                         </div>
+                                     `;
+
+                            if (externalControllers.length === 0) {
+                                externalFormHtml += `
+                                         <div style="text-align:center; padding:12px; font-size:12px; color:#64748b;">
+                                             No external controllers added yet. Click the button to add.
+                                         </div>
+                                         `;
+                            } else {
+                                externalControllers.forEach((ext, extIdx) => {
+                                    const docKey = `external_passport_${idx}_${extIdx}`;
+                                    const corpStepData = state.onboarding.step4CorporateShareholder || {};
+                                    const docsList = corpStepData.documents || [];
+                                    const uploadedDoc = docsList.find(d => d.type === docKey);
+                                    let uploadHtml = '';
+                                    if (uploadedDoc) {
+                                        uploadHtml = `
+                                                 <div style="display:flex; align-items:center; justify-content:space-between; padding:10px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; margin-top:8px;">
+                                                     <span style="font-size:11px; font-weight:600; color:#16a34a;">✅ Passport Uploaded: ${uploadedDoc.fileName}</span>
+                                                     <button type="button" onclick="obClearMultiItemDoc('corporate_shareholder', '${docKey}', ${idx})" style="background:transparent; border:none; color:#ef4444; font-size:11px; font-weight:700; cursor:pointer;">Delete</button>
+                                                 </div>`;
+                                    } else {
+                                        uploadHtml = `
+                                                 <div id="doc-corporate_shareholder-${docKey}" style="margin-top:8px;">
+                                                     <button type="button" onclick="obUploadMultiItemDoc('corporate_shareholder', '${docKey}', 'External Controller Passport', ${idx})" class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 border-dashed text-slate-700 font-bold px-4 py-2 rounded-lg text-xs flex items-center justify-center gap-2 transition-all">
+                                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" x2="12" y1="3" y2="15"></line></svg> Upload Passport Copy (Required)
+                                                     </button>
+                                                 </div>`;
+                                    }
+
+                                    const extFields = [
+                                        { key: 'fullName', label: 'Full Legal Name', type: 'text' },
+                                        { key: 'idNumber', label: 'Passport / ID Number', type: 'text' },
+                                        { key: 'nationality', label: 'Nationality', type: 'nationality' },
+                                        { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
+                                        { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
+                                        { key: 'email', label: 'Email Address', type: 'email' },
+                                        { key: 'mobile', label: 'Mobile Number', type: 'phone' },
+                                        { key: 'passportExpiry', label: 'Passport Expiry Date', type: 'date' }
+                                    ];
+
+                                    const extFieldsHtml = extFields.map(ef => {
+                                        const extVal = ext[ef.key] || '';
+                                        const extInputId = `ob-corporate_shareholder-${idx}-ext-${extIdx}-${ef.key}`;
+
+                                        if (ef.type === 'nationality') {
+                                            const cbKey = `ob_corp_sh_${idx}_ext_${extIdx}_nat_cb`;
+                                            window[cbKey] = () => {
+                                                const el = document.getElementById(extInputId);
+                                                if (el) {
+                                                    obUpdateExternalControllerField(idx, extIdx, ef.key, el.value);
+                                                }
+                                            };
+                                            return obRenderNationalityField({
+                                                inputId: extInputId,
+                                                val: String(extVal),
+                                                readonlyAttr: isReadOnly ? 'readonly' : '',
+                                                onChangeCallback: cbKey
+                                            });
+                                        } else if (ef.type === 'phone') {
+                                            return obRenderPhoneField({
+                                                inputId: extInputId,
+                                                val: String(extVal),
+                                                readonlyAttr: isReadOnly ? 'readonly' : '',
+                                                onInputCallback: `obUpdateExternalControllerFieldPhone(${idx}, ${extIdx}, '${extInputId}')`
+                                            });
+                                        } else {
+                                            return `
+                                                     <div class="ob-field" style="margin-top:8px;">
+                                                         <label>${ef.label}</label>
+                                                         <input type="${ef.type}" id="${extInputId}" value="${extVal}" placeholder="Enter ${ef.label.toLowerCase()}" ${isReadOnly ? 'readonly' : ''} oninput="obUpdateExternalControllerField(${idx}, ${extIdx}, '${ef.key}', this.value)">
+                                                     </div>`;
+                                        }
+                                    }).join('');
+
+                                    externalFormHtml += `
+                                             <div style="border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; background: white; margin-bottom: 12px; position:relative; box-sizing:border-box;">
+                                                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px dashed #e2e8f0; padding-bottom:8px;">
+                                                     <span style="font-size:12px; font-weight:700; color:#334155;">External Controller #${extIdx + 1}</span>
+                                                     ${isReadOnly ? '' : `
+                                                         <button type="button" onclick="obRemoveExternalController(${idx}, ${extIdx})" style="padding: 4px 10px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #dc2626; font-size:10px; font-weight:700; cursor:pointer;">
+                                                             Remove
+                                                         </button>
+                                                     `}
+                                                 </div>
+                                                 ${uploadHtml}
+                                                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;">
+                                                     ${extFieldsHtml}
+                                                 </div>
+                                             </div>
+                                             `;
+                                });
+                            }
+
+                            externalFormHtml += `</div>`;
+
+                            selectWrapperHtml = `
+                                     <div style="grid-column: span 2; margin-top:12px; padding:16px; background:#f1f5f9; border-radius:12px; display:flex; flex-direction:column; gap:12px; box-sizing:border-box; width:100%;">
+                                         <div class="ob-field" style="width:100%; box-sizing:border-box;">
+                                             <div style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 6px;">Select Director(s) as Controller</div>
+                                             <div style="display:flex; flex-direction:column; gap:8px; border:1px solid #cbd5e1; border-radius:8px; padding:12px; background:white; max-height:150px; overflow-y:auto; box-sizing:border-box; width:100%;">
+                                                 ${dirList.length === 0 ? `
+                                                     <div style="font-size:12px; color:#64748b; text-align:center; padding:8px;">No directors found to select.</div>
+                                                 ` : dirList.map((d, dIdx) => {
+                                const isSelected = selectedDirectors.includes(String(dIdx));
+                                const cbId = `${inputId}-director-cb-${dIdx}`;
+                                return `
+                                                     <label for="${cbId}" style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:500; color:#334155; cursor:pointer; margin-bottom:0; text-transform:none; letter-spacing:normal; width:100%;">
+                                                         <input type="checkbox" id="${cbId}" ${isSelected ? 'checked' : ''} ${disabledAttr} onchange="obCorporateShareholderAdditionalControllersCheckboxChange(${idx}, ${dIdx}, this.checked)" style="width:16px; height:16px; cursor:pointer; margin:0;">
+                                                         Director #${dIdx + 1}: ${d.fullName || d.name || '(No Name)'}
+                                                     </label>
+                                                     `;
+                            }).join('')}
+                                             </div>
+                                         </div>
+                                         ${externalFormHtml}
+                                     </div>
+                                     `;
+                        }
+
+                        return `
+                                  <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:16px; grid-column: span 2; margin-top: 8px; margin-bottom: 8px;">
+                                      <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="obCorporateShareholderAnyAdditionalControllerCheckboxChange(${idx}, this.checked)" style="width:16px; height:16px; cursor:pointer;">
+                                      <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569; user-select:none;">${f.label}</label>
+                                  </div>
+                                  ${selectWrapperHtml}
+                                  `;
+                    }
+
+                    if (f.type === 'select') {
+                        let disabledAttr = isReadOnly ? 'disabled' : '';
+                        if (f.key === 'uboDeclaration') {
+                            disabledAttr = 'disabled';
+                        }
+
+                        let options = f.options || [];
+                        if (stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') {
+                            const scStep = ob.stepShareCapital || {};
+                            const scData = scStep.data || {};
+                            const scCurrencies = scData.currencies || [];
+
+                            if (f.key === 'currency') {
+                                const configuredCurrs = new Set();
+                                scCurrencies.forEach(c => {
+                                    const currCode = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
+                                    if (currCode) {
+                                        configuredCurrs.add(currCode);
+                                    }
+                                });
+                                if (configuredCurrs.size > 0) {
+                                    options = ['Select', ...Array.from(configuredCurrs)];
+                                }
+                            } else if (f.key === 'shareClass') {
+                                const configuredClasses = new Set();
+                                scCurrencies.forEach(c => {
+                                    const sc = c.shareClass || '';
+                                    if (sc) {
+                                        configuredClasses.add(sc);
+                                    }
+                                });
+                                if (configuredClasses.size > 0) {
+                                    options = ['Select', ...Array.from(configuredClasses)];
+                                }
+                            }
+                        } else if (stepKey === 'corporate_rep' && f.key === 'corporateShareholderUen') {
+                            const corpStep = ob.step4CorporateShareholder || {};
+                            const corpList = (corpStep.data && corpStep.data.list) || [];
+                            options = ['Select', ...corpList.map(c => (c.companyName || 'Unnamed Corporate') + ' (' + (c.uen || 'No UEN') + ')')];
+                        }
+
+                        return `
+                                 <div class="ob-field">
+                                     <label for="${inputId}">${f.label}</label>
+                                     <select id="${inputId}" onchange="triggerMultiItemAutoSave('${stepKey}', ${idx})" ${disabledAttr}>
+                                         ${options.map(o => `<option value='${o}' ${String(val).trim().toLowerCase() === String(o).trim().toLowerCase() ? 'selected' : ''}>${o}</option>`).join('')}
+                                     </select>
+                                 </div>`;
+                    } else if (f.type === 'checkbox') {
+                        const disabledAttr = (f.readonly || isReadOnly) ? 'disabled' : '';
+                        const mandatoryMark = f.mandatory ? '<span style="color:#ef4444; margin-left:2px;">*</span>' : '';
+                        return `
+                                <div class="ob-field" style="flex-direction:row; align-items:center; gap:8px; padding-top:16px; grid-column: span 2; margin-top: 8px; margin-bottom: 8px;">
+                                    <input type="checkbox" id="${inputId}" ${val ? 'checked' : ''} ${disabledAttr} onchange="triggerMultiItemAutoSave('${stepKey}', ${idx}, true)" style="width:16px; height:16px; cursor:pointer;">
+                                    <label for="${inputId}" style="cursor:pointer; margin-bottom:0; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:#475569; user-select:none;">${f.label}${mandatoryMark}</label>
+                                </div>`;
+                    } else if (f.type === 'phone') {
+                        let fieldReadonlyAttr = readonlyAttr;
+                        if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
+                            fieldReadonlyAttr = 'readonly';
+                        }
+                        return obRenderPhoneField({
+                            inputId,
+                            val: String(val),
+                            readonlyAttr: fieldReadonlyAttr,
+                            onInputCallback: `triggerMultiItemAutoSave('${stepKey}', ${idx})`
+                        });
+                    } else if (f.type === 'nationality') {
+                        let fieldReadonlyAttr = readonlyAttr;
+                        if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
+                            fieldReadonlyAttr = 'readonly';
+                        }
+                        const cbKey = `${inputId.replace(/-/g, '_')}NatCb`;
+                        window[cbKey] = () => {
+                            const el = document.getElementById(inputId);
+                            if (el) {
+                                triggerMultiItemAutoSave(stepKey, idx);
+                            }
+                        };
+                        return obRenderNationalityField({
+                            inputId,
+                            val: String(val),
+                            readonlyAttr: fieldReadonlyAttr,
+                            onChangeCallback: cbKey
+                        });
+                    } else {
+                        let fieldReadonlyAttr = readonlyAttr;
+                        if (f.readonly === true) {
+                            fieldReadonlyAttr = 'readonly';
+                        }
+                        if (stepKey === 'individual_shareholder' && (item.sameAsDirector === true || item.sameAsDirector === 'true')) {
+                            const isPersonalField = ['fullName', 'idNumber', 'nationality', 'dateOfBirth', 'residentialAddress', 'email', 'mobile'].includes(f.key);
+                            if (isPersonalField) fieldReadonlyAttr = 'readonly';
+                        }
+
+                        let validationWarningHtml = '';
+                        if (f.key === 'passportExpiry' && val) {
+                            const expiryDate = new Date(val);
+                            const threeMonthsLater = new Date();
+                            threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
+                            if (expiryDate < threeMonthsLater) {
+                                validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">Passport validity is less than 3 months. Please upload your latest passport.</div>`;
+                            }
+                        }
+                        let isIdDuplicate = false;
+                        if (f.key === 'idNumber' && val) {
+                            const stepFieldConfig = ONBOARDING_STEPS.find(s => s.key === stepKey);
+                            const list = (ob[stepFieldConfig.field] && ob[stepFieldConfig.field].data && ob[stepFieldConfig.field].data.list) || [];
+                            isIdDuplicate = list.some((item, itemIdx) => itemIdx !== idx && item.idNumber && String(item.idNumber).trim().toUpperCase() === String(val).trim().toUpperCase());
+                        }
+                        if ((stepKey === 'individual_shareholder' || stepKey === 'corporate_shareholder') && (f.key === 'numberOfShares' || f.key === 'shareCapitalAmount' || f.key === 'numberOfSharesPct' || f.key === 'shareCapitalAmountPct')) {
+                            const shCurr = (item.currency || '').trim().toUpperCase();
+                            const shClass = (item.shareClass || '').trim();
+
+                            if (shCurr && shCurr.toUpperCase() !== 'SELECT' && shClass && shClass.toUpperCase() !== 'SELECT') {
+                                const currencies = (ob.stepShareCapital && ob.stepShareCapital.data && ob.stepShareCapital.data.currencies) || [];
+                                const masterItem = currencies.find(c => {
+                                    const masterCurr = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : c.currency;
+                                    return masterCurr.toUpperCase() === shCurr && c.shareClass === shClass;
+                                });
+
+                                if (!masterItem) {
+                                    validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Currency/Class combo (${shCurr} - ${shClass}) not configured in Share Capital Details step.</div>`;
+                                } else {
+                                    const indStep = ob.step3IndividualShareholder || { data: { list: [] } };
+                                    const indList = indStep.data.list || [];
+                                    const corpStep = ob.step4CorporateShareholder || { data: { list: [] } };
+                                    const corpList = corpStep.data.list || [];
+
+                                    let usedShares = 0;
+                                    let usedCapital = 0;
+
+                                    indList.forEach((sh, shIdx) => {
+                                        if (shIdx === idx && stepKey === 'individual_shareholder') return;
+                                        const c = (sh.currency || '').trim().toUpperCase();
+                                        const cl = (sh.shareClass || '').trim();
+                                        if (c === shCurr && cl === shClass) {
+                                            usedShares += parseFloat(sh.numberOfShares) || 0;
+                                            usedCapital += parseFloat(sh.shareCapitalAmount) || 0;
+                                        }
+                                    });
+
+                                    corpList.forEach((sh, shIdx) => {
+                                        if (shIdx === idx && stepKey === 'corporate_shareholder') return;
+                                        const c = (sh.currency || '').trim().toUpperCase();
+                                        const cl = (sh.shareClass || '').trim();
+                                        if (c === shCurr && cl === shClass) {
+                                            usedShares += parseFloat(sh.numberOfShares) || 0;
+                                            usedCapital += parseFloat(sh.shareCapitalAmount) || 0;
+                                        }
+                                    });
+
+                                    const availableShares = masterItem.numberOfShares - usedShares;
+                                    const availableCapital = masterItem.shareCapitalAmount - usedCapital;
+
+                                    if (f.key === 'numberOfShares' || f.key === 'numberOfSharesPct') {
+                                        const enteredShares = parseFloat(item.numberOfShares) || 0;
+                                        if (enteredShares > availableShares) {
+                                            validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Allocation (${enteredShares}) exceeds available limit of ${availableShares} shares.</div>`;
+                                        } else {
+                                            validationWarningHtml = `<div style="color:#16a34a;font-size:10px;font-weight:600;margin-top:4px;">Available limit: ${availableShares} shares (total master: ${masterItem.numberOfShares})</div>`;
+                                        }
+                                    } else if (f.key === 'shareCapitalAmount' || f.key === 'shareCapitalAmountPct') {
+                                        const enteredCapital = parseFloat(item.shareCapitalAmount) || 0;
+                                        if (enteredCapital > availableCapital) {
+                                            validationWarningHtml = `<div style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;">⚠️ Warning: Allocation (${enteredCapital}) exceeds available limit of ${availableCapital} ${shCurr}.</div>`;
+                                        } else {
+                                            validationWarningHtml = `<div style="color:#16a34a;font-size:10px;font-weight:600;margin-top:4px;">Available limit: ${availableCapital} ${shCurr} (total master: ${masterItem.shareCapitalAmount})</div>`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        const isIdField = f.key === 'idNumber' || f.key === 'uen';
+                        const isFullWidth = ['residentialAddress', 'alternativeAddress', 'registeredAddress'].includes(f.key);
+                        return `
+                                <div class="ob-field" style="${isFullWidth ? 'grid-column: span 2;' : ''}">
+                                    <label for="${inputId}">${f.label}</label>
+                                    <input type="${f.type || 'text'}" id="${inputId}" value="${val}" placeholder="Enter ${f.label.toLowerCase()}" ${fieldReadonlyAttr} 
+                                        oninput="${isIdField ? 'obIdNumberInputHandler(this); ' : ''}triggerMultiItemAutoSave('${stepKey}', ${idx})">
+                                    <div id="${inputId}-warn" style="color:#ef4444;font-size:10px;font-weight:600;margin-top:4px;display:${(f.key === 'idNumber' && isIdDuplicate) ? 'block' : 'none'};">⚠️ Warning: This NRIC / FIN is already registered for another entry.</div>
+                                    <div id="${inputId}-limit-warn">${validationWarningHtml}</div>
+                                </div>`;
+                    }
+                }).join('')}
+                    </div>
+                `;
+            }
+        } else {
+            itemFieldsHtml = `
+                <div style="margin-top: 24px; padding: 32px 20px; background: linear-gradient(180deg, #f8fafc, #f1f5f9); border: 1px dashed #cbd5e1; border-radius: 16px; text-align: center;">
+                    <div style="width: 48px; height: 48px; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </div>
+                    <div style="font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 8px;">Form Fields Locked</div>
+                    <div style="font-size: 13px; color: #64748b; line-height: 1.6; max-width: 400px; margin: 0 auto;">Please upload the required documents above. Once uploaded, OCR will extract the details and unlock the fields for manual confirmation.</div>
+                </div>
+            `;
+        }
+
+        let itemLabel = 'Entry';
+        if (step.title) {
+            if (step.title.toLowerCase().endsWith(' details')) {
+                itemLabel = step.title.substring(0, step.title.toLowerCase().lastIndexOf(' details'));
+            } else {
+                itemLabel = step.title;
+            }
+        } else if (stepKey === 'director_details') {
+            itemLabel = 'Director';
+        } else if (stepKey === 'individual_shareholder') {
+            itemLabel = 'Individual Shareholder';
+        } else if (stepKey === 'corporate_shareholder') {
+            itemLabel = 'Corporate Shareholder';
+        }
+
+        let headingText = `${itemLabel} #${idx + 1}`;
+        if (stepKey === 'director_details') {
+            const isForeignerJourney = state.onboarding && state.onboarding.journeyType === 'FOREIGNER';
+            if (isForeignerJourney) {
+                if (item.source === 'globalisor') {
+                    headingText = 'Nominee Director (Globalisor)';
+                } else if (item.idType === 'local') {
+                    const localIdx = data.list.filter((d, dIdx) => dIdx <= idx && d.idType === 'local' && d.source !== 'globalisor').length;
+                    headingText = `Local Director #${localIdx}`;
+                } else {
+                    const foreignIdx = data.list.filter((d, dIdx) => dIdx <= idx && d.idType === 'foreign').length;
+                    headingText = `Foreign Director #${foreignIdx}`;
+                }
+            }
+        }
+        let itemIconSvg = '';
+        if (stepKey === 'director_details') {
+            itemIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><polyline points="16 11 18 13 22 9"></polyline></svg>`;
+        } else if (stepKey === 'individual_shareholder') {
+            itemIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`;
+        } else {
+            itemIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path><path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path><path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path></svg>`;
+        }
+
+        return `
+            <div style="border: 1px solid #e2e8f0; border-radius: 20px; margin-bottom: 24px; background: #ffffff; position: relative; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); overflow: hidden; transition: all 0.3s;" onmouseover="this.style.boxShadow='0 8px 30px rgba(0, 0, 0, 0.06)'; this.style.transform='translateY(-2px)';" onmouseout="this.style.boxShadow='0 4px 20px rgba(0, 0, 0, 0.03)'; this.style.transform='translateY(0)';">
+                <div style="height: 4px; width: 100%; background: linear-gradient(90deg, #3b82f6, #06b6d4);"></div>
+                <div style="padding: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #f1f5f9;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 40px; height: 40px; border-radius: 12px; background: #eff6ff; display: flex; align-items: center; justify-content: center;">
+                                ${itemIconSvg}
+                            </div>
+                            <h4 style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 700; color: #0f172a; margin: 0;">${headingText}</h4>
+                        </div>
+                        ${isReadOnly || data.list.length <= 1 ? '' : `
+                            <button type="button" onclick="removeMultiItem('${stepKey}', ${idx})" style="padding: 8px 16px; background: #ffffff; border: 1px solid #fecaca; border-radius: 10px; color: #ef4444; font-size: 13px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.05);" onmouseover="this.style.background='#fef2f2'; this.style.borderColor='#ef4444';" onmouseout="this.style.background='#ffffff'; this.style.borderColor='#fecaca';">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                                Remove
+                            </button>
+                        `}
+                    </div>
+                    ${topFieldsHtml}
+                    ${itemDocsHtml}
+                    ${itemDocsHtml && itemFieldsHtml ? '<div style="height: 1px; background: #f1f5f9; margin: 24px 0;"></div>' : ''}
+                    ${itemFieldsHtml}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    let addButtonHtml = '';
+    if (!isReadOnly) {
+        let itemLabel = 'Entry';
+        if (step.title) {
+            if (step.title.toLowerCase().endsWith(' details')) {
+                itemLabel = step.title.substring(0, step.title.toLowerCase().lastIndexOf(' details'));
+            } else {
+                itemLabel = step.title;
+            }
+        } else if (stepKey === 'director_details') {
+            itemLabel = 'Director';
+        } else if (stepKey === 'individual_shareholder') {
+            itemLabel = 'Individual Shareholder';
+        } else if (stepKey === 'corporate_shareholder') {
+            itemLabel = 'Corporate Shareholder';
+        }
+        addButtonHtml = `
+            <div style="margin-top: 16px; margin-bottom: 32px; display: flex; justify-content: center;">
+                <button type="button" onclick="addMultiItem('${stepKey}')" style="padding: 12px 24px; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 14px; color: #3b82f6; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;" onmouseover="this.style.background='#eff6ff'; this.style.borderColor='#93c5fd';" onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#cbd5e1';">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Add Another ${itemLabel}
+                </button>
+            </div>
+        `;
+    }
+
+    return cardsHtml + addButtonHtml;
+}
+
+window.renderMultiItemStepHtml = renderMultiItemStepHtml;
+window.obRemoveRonsNominee = obRemoveRonsNominee;
