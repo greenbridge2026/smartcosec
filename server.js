@@ -9,7 +9,8 @@ const app = express();
 const port = process.env.PORT || 8081;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const DB_FILE = path.join(__dirname, 'db.json');
 console.log('Server using DB at:', DB_FILE);
@@ -1112,12 +1113,23 @@ app.get('/api/onboarding-config/published', (req, res) => {
                 requiredDocs: []
             },
             {
+                key: 'shareholder_details',
+                field: 'stepShareholderDetails',
+                title: 'Shareholder Details',
+                icon: 'users',
+                description: 'Collect tabular details for all company shareholders.',
+                sortOrder: 3,
+                status: 'PUBLISHED',
+                manualFields: [],
+                requiredDocs: []
+            },
+            {
                 key: 'individual_shareholder',
                 field: 'step3IndividualShareholder',
                 title: 'Individual Shareholder Details',
-                icon: 'users',
+                icon: 'user-check',
                 description: 'Capture individual shareholder information. Ownership ≥ 25% will automatically trigger UBO and AML/KYC screening.',
-                sortOrder: 3,
+                sortOrder: 4,
                 status: 'PUBLISHED',
                 dynamicSection: true,
                 dynamicCountKey: 'individualShareholderCount',
@@ -1153,7 +1165,7 @@ app.get('/api/onboarding-config/published', (req, res) => {
                 title: 'Corporate Shareholder Details',
                 icon: 'building-2',
                 description: 'Upload Bizfile and supporting documents for corporate shareholders.',
-                sortOrder: 4,
+                sortOrder: 5,
                 status: 'PUBLISHED',
                 dynamicSection: true,
                 dynamicCountKey: 'corporateShareholderCount',
@@ -1185,7 +1197,7 @@ app.get('/api/onboarding-config/published', (req, res) => {
                 title: 'Ultimate Beneficial Owner (UBO)',
                 icon: 'key',
                 description: 'Provide details and documents for Ultimate Beneficial Owners.',
-                sortOrder: 5,
+                sortOrder: 6,
                 status: 'PUBLISHED',
                 manualFields: [
                     { key: 'fullName', label: 'Full Legal Name', type: 'text' },
@@ -1205,7 +1217,7 @@ app.get('/api/onboarding-config/published', (req, res) => {
                 title: 'Corporate Representative',
                 icon: 'user-cog',
                 description: 'Capture details and authorization documents for corporate representatives.',
-                sortOrder: 6,
+                sortOrder: 7,
                 status: 'PUBLISHED',
                 dynamicSection: true,
                 dynamicCountKey: 'corporateRepCount',
@@ -1216,7 +1228,8 @@ app.get('/api/onboarding-config/published', (req, res) => {
                     { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
                     { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
                     { key: 'email', label: 'Email Address', type: 'email' },
-                    { key: 'mobile', label: 'Mobile Number', type: 'phone' }
+                    { key: 'mobile', label: 'Mobile Number', type: 'phone' },
+                    { key: 'corporateShareholderUen', label: 'Select Corporate Shareholder Representative For', type: 'select', options: ['Select'] }
                 ],
                 requiredDocs: [
                     { type: 'nric', label: 'Passport Copy' },
@@ -1224,12 +1237,23 @@ app.get('/api/onboarding-config/published', (req, res) => {
                 ]
             },
             {
+                key: 'rons',
+                field: 'stepRons',
+                title: 'Register of Nominee Shareholders (RONS)',
+                icon: 'users-cog',
+                description: 'Declare nominee shareholders and capture their details and required documents.',
+                sortOrder: 8,
+                status: 'PUBLISHED',
+                manualFields: [],
+                requiredDocs: []
+            },
+            {
                 key: 'final_declaration',
                 field: 'step7FinalDeclaration',
                 title: 'Final Declaration & Consent',
                 icon: 'file-signature',
                 description: 'Please review all details and declare final consent before submitting your application.',
-                sortOrder: 7,
+                sortOrder: 9,
                 status: 'PUBLISHED',
                 manualFields: [
                     { key: 'declarationAgreed', label: 'I confirm that all the details provided are true and accurate to the best of my knowledge.', type: 'checkbox' },
@@ -1292,12 +1316,23 @@ app.get('/api/onboarding-config/published', (req, res) => {
             requiredDocs: []
         },
         {
+            key: 'shareholder_details',
+            field: 'stepShareholderDetails',
+            title: 'Shareholder Details',
+            icon: 'users',
+            description: 'Collect tabular details for all company shareholders.',
+            sortOrder: 3,
+            status: 'PUBLISHED',
+            manualFields: [],
+            requiredDocs: []
+        },
+        {
             key: 'individual_shareholder',
             field: 'step3IndividualShareholder',
             title: 'Individual Shareholder Details',
-            icon: 'users',
+            icon: 'user-check',
             description: 'Capture individual shareholder information. Ownership ≥ 25% will automatically trigger UBO and AML/KYC screening.',
-            sortOrder: 3,
+            sortOrder: 4,
             status: 'PUBLISHED',
             dynamicSection: true,
             dynamicCountKey: 'individualShareholderCount',
@@ -1330,7 +1365,7 @@ app.get('/api/onboarding-config/published', (req, res) => {
             title: 'Corporate Shareholder Details',
             icon: 'building',
             description: 'Capture corporate shareholder details, including UEN, corporate structure, and UBO declarations.',
-            sortOrder: 4,
+            sortOrder: 5,
             status: 'PUBLISHED',
             dynamicSection: true,
             dynamicCountKey: 'corporateShareholderCount',
@@ -1362,7 +1397,7 @@ app.get('/api/onboarding-config/published', (req, res) => {
             title: 'Ultimate Beneficial Owner (UBO)',
             icon: 'key',
             description: 'Provide details and documents for Ultimate Beneficial Owners (individuals holding >= 25% ownership).',
-            sortOrder: 5,
+            sortOrder: 6,
             status: 'PUBLISHED',
             manualFields: [
                 { key: 'fullName', label: 'Full Legal Name', type: 'text' },
@@ -1382,7 +1417,7 @@ app.get('/api/onboarding-config/published', (req, res) => {
             title: 'Corporate Representative',
             icon: 'user-tie',
             description: 'Capture details and authorization documents for the appointed corporate representative.',
-            sortOrder: 6,
+            sortOrder: 7,
             status: 'PUBLISHED',
             manualFields: [
                 { key: 'fullName', label: 'Full Name', type: 'text' },
@@ -1391,7 +1426,8 @@ app.get('/api/onboarding-config/published', (req, res) => {
                 { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
                 { key: 'residentialAddress', label: 'Residential Address', type: 'text' },
                 { key: 'email', label: 'Email Address', type: 'email' },
-                { key: 'mobile', label: 'Mobile Number', type: 'phone' }
+                { key: 'mobile', label: 'Mobile Number', type: 'phone' },
+                { key: 'corporateShareholderUen', label: 'Select Corporate Shareholder Representative For', type: 'select', options: ['Select'] }
             ],
             requiredDocs: [
                 { type: 'nric', label: 'NRIC / Passport Copy' },
@@ -1400,12 +1436,23 @@ app.get('/api/onboarding-config/published', (req, res) => {
             ]
         },
         {
+            key: 'rons',
+            field: 'stepRons',
+            title: 'Register of Nominee Shareholders (RONS)',
+            icon: 'users-cog',
+            description: 'Declare nominee shareholders and capture their details and required documents.',
+            sortOrder: 8,
+            status: 'PUBLISHED',
+            manualFields: [],
+            requiredDocs: []
+        },
+        {
             key: 'final_declaration',
             field: 'step7FinalDeclaration',
             title: 'Final Declaration & Consent',
             icon: 'file-signature',
             description: 'Please review all details and declare final consent before submitting your application.',
-            sortOrder: 7,
+            sortOrder: 9,
             status: 'PUBLISHED',
             manualFields: [
                 { key: 'declarationAgreed', label: 'I confirm that all the details provided are true and accurate to the best of my knowledge.', type: 'checkbox' },
@@ -1459,10 +1506,12 @@ app.get('/api/onboarding/client/:clientId', (req, res) => {
             stepDocumentChecklist: { key: 'document_checklist', title: 'Document Checklist', status: 'pending', data: {}, documents: [] },
             step2DirectorDetails: { key: 'director_details', title: 'Director Details', status: 'pending', data: { list: [] }, documents: [] },
             stepShareCapital: { key: 'share_capital', title: 'Share Capital Details', status: 'pending', data: { allocations: [], currencies: [] }, documents: [] },
+            stepShareholderDetails: { key: 'shareholder_details', title: 'Shareholder Details', status: 'pending', data: {}, documents: [] },
             step3IndividualShareholder: { key: 'individual_shareholder', title: 'Individual Shareholder Details', status: 'pending', data: { list: [] }, documents: [] },
             step4CorporateShareholder: { key: 'corporate_shareholder', title: 'Corporate Shareholder Details', status: 'pending', data: { list: [] }, documents: [] },
             step5UBO: { key: 'ubo', title: 'Ultimate Beneficial Owner', status: 'pending', data: {}, documents: [] },
             step6CorporateRep: { key: 'corporate_rep', title: 'Corporate Representative', status: 'pending', data: {}, documents: [] },
+            stepRons: { key: 'rons', title: 'Register of Nominee Shareholders (RONS)', status: 'pending', data: { hasNominee: 'No', nomineeList: [] }, documents: [] },
             step7FinalDeclaration: { key: 'final_declaration', title: 'Final Declaration & Consent', status: 'pending', data: {}, documents: [] },
             auditLogs: ['Onboarding initiated automatically at ' + new Date()],
             createdAt: Date.now(),
@@ -1639,10 +1688,12 @@ app.post('/api/onboarding/client/:clientId', (req, res) => {
             stepDocumentChecklist: { key: 'document_checklist', title: 'Document Checklist', status: 'pending', data: {}, documents: [] },
             step2DirectorDetails: { key: 'director_details', title: 'Director Details', status: 'pending', data: { list: [] }, documents: [] },
             stepShareCapital: { key: 'share_capital', title: 'Share Capital Details', status: 'pending', data: { allocations: [], currencies: [] }, documents: [] },
+            stepShareholderDetails: { key: 'shareholder_details', title: 'Shareholder Details', status: 'pending', data: {}, documents: [] },
             step3IndividualShareholder: { key: 'individual_shareholder', title: 'Individual Shareholder Details', status: 'pending', data: { list: [] }, documents: [] },
             step4CorporateShareholder: { key: 'corporate_shareholder', title: 'Corporate Shareholder Details', status: 'pending', data: { list: [] }, documents: [] },
             step5UBO: { key: 'ubo', title: 'Ultimate Beneficial Owner', status: 'pending', data: {}, documents: [] },
             step6CorporateRep: { key: 'corporate_rep', title: 'Corporate Representative', status: 'pending', data: {}, documents: [] },
+            stepRons: { key: 'rons', title: 'Register of Nominee Shareholders (RONS)', status: 'pending', data: { hasNominee: 'No', nomineeList: [] }, documents: [] },
             step7FinalDeclaration: { key: 'final_declaration', title: 'Final Declaration & Consent', status: 'pending', data: {}, documents: [] },
             auditLogs: ['Onboarding record created.'],
             createdAt: Date.now(),
@@ -1660,14 +1711,21 @@ app.post('/api/onboarding/client/:clientId', (req, res) => {
 
 // Helper for step retrieval in mock server
 const getMockStep = (ob, stepKey) => {
+    if (stepKey === 'rons' && !ob.stepRons) {
+        ob.stepRons = { key: 'rons', title: 'Register of Nominee Shareholders (RONS)', status: 'pending', data: { hasNominee: 'No', nomineeList: [] }, documents: [] };
+    }
     switch (stepKey) {
         case 'document_checklist': return ob.stepDocumentChecklist;
         case 'director_details': return ob.step2DirectorDetails;
         case 'share_capital': return ob.stepShareCapital;
+        case 'shareholder_details':
+            if (!ob.stepShareholderDetails) ob.stepShareholderDetails = { key: 'shareholder_details', title: 'Shareholder Details', status: 'pending', data: {}, documents: [] };
+            return ob.stepShareholderDetails;
         case 'individual_shareholder': return ob.step3IndividualShareholder;
         case 'corporate_shareholder': return ob.step4CorporateShareholder;
         case 'ubo': return ob.step5UBO;
         case 'corporate_rep': return ob.step6CorporateRep;
+        case 'rons': return ob.stepRons;
         case 'final_declaration': return ob.step7FinalDeclaration;
         default: return null;
     }
@@ -1679,10 +1737,12 @@ const calculateMockProgress = (ob) => {
         ob.stepDocumentChecklist.status,
         ob.step2DirectorDetails.status,
         ob.stepShareCapital.status,
+        ob.stepShareholderDetails ? ob.stepShareholderDetails.status : 'pending',
         ob.step3IndividualShareholder.status,
         ob.step4CorporateShareholder.status,
         ob.step5UBO.status,
         ob.step6CorporateRep.status,
+        ob.stepRons ? ob.stepRons.status : 'pending',
         ob.step7FinalDeclaration.status
     ];
     const approved = statuses.filter(s => s === 'approved').length;
@@ -1829,7 +1889,100 @@ app.post('/api/onboarding/ocr-extract', (req, res) => {
     res.json(extracted);
 });
 
-app.delete('/api/requirements', (req, res) => {
+app.post('/api/ocr/save', (req, res) => {
+    const db = getDb();
+    if (!db.ocrResults) db.ocrResults = [];
+    const item = req.body || {};
+    item.id = item.id || 'ocr-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+    item.createdAt = item.createdAt || Date.now();
+    db.ocrResults.push(item);
+    saveDb(db);
+    res.json(item);
+});
+
+app.get('/api/ocr/all', (req, res) => {
+    const db = getDb();
+    res.json(db.ocrResults || []);
+});
+
+app.post('/api/ocr/:id/confirm', (req, res) => {
+    const db = getDb();
+    const id = req.params.id;
+    const item = (db.ocrResults || []).find(r => r.id === id);
+    if (item) {
+        item.reviewedByClient = true;
+        item.status = 'COMPLETE';
+        saveDb(db);
+        res.json({ success: true, item });
+    } else {
+        res.status(404).json({ message: 'OCR result not found' });
+    }
+});
+
+app.get('/api/requirements/all-drafts', (req, res) => {
+    const db = getDb();
+    res.json(db.requirements || []);
+});
+
+app.post('/api/ocr/save-corrected', (req, res) => {
+    const db = getDb();
+    const { id, fieldPath, userId, correctedFields } = req.body || {};
+    
+    // 1. Update OCR record
+    const ocrItem = (db.ocrResults || []).find(r => r.id === id);
+    if (ocrItem) {
+        ocrItem.extractedFields = { ...ocrItem.extractedFields, ...correctedFields };
+        ocrItem.status = 'COMPLETE';
+        ocrItem.reviewedByClient = true;
+    }
+    
+    // 2. Update Onboarding step if exist
+    const onboardingItem = (db.onboarding || []).find(o => o.clientId === userId || o.id === userId || o.clientEmail === userId);
+    if (onboardingItem) {
+        const parts = fieldPath.split('.');
+        let current = onboardingItem;
+        for (let i = 0; i < parts.length - 1; i++) {
+            if (current[parts[i]]) {
+                current = current[parts[i]];
+            }
+        }
+        const lastPart = parts[parts.length - 1];
+        if (current && current[lastPart]) {
+            Object.entries(correctedFields).forEach(([k, v]) => {
+                current[lastPart][k] = v.value;
+            });
+            const stepKey = fieldPath.includes('step2DirectorDetails') ? 'director_details' : 
+                            fieldPath.includes('step3IndividualShareholder') ? 'individual_shareholder' :
+                            fieldPath.includes('step4CorporateShareholder') ? 'corporate_shareholder' :
+                            fieldPath.includes('step6CorporateRep') ? 'corporate_rep' : '';
+            if (stepKey) {
+                const s = getMockStep(onboardingItem, stepKey);
+                if (s) s.status = 'approved';
+            }
+        }
+    }
+    
+    // 3. Update Pre-Reg requirements if exist
+    const reqDraft = (db.requirements || []).find(r => r.userId === userId);
+    if (reqDraft && reqDraft.data) {
+        const parts = fieldPath.split('.');
+        let current = reqDraft.data;
+        for (let i = 0; i < parts.length - 1; i++) {
+            if (current[parts[i]]) {
+                current = current[parts[i]];
+            }
+        }
+        const lastPart = parts[parts.length - 1];
+        if (current && current[lastPart]) {
+            Object.entries(correctedFields).forEach(([k, v]) => {
+                current[lastPart][k] = v.value;
+            });
+        }
+    }
+    
+    saveDb(db);
+    res.json({ success: true, ocrItem });
+});
     const db = getDb();
     const authHeader = req.headers['authorization'];
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -2310,11 +2463,13 @@ app.post('/api/ssic-activities/reorder', (req, res) => {
     }
 });
 
-// --- PREREG SECTIONS ENDPOINTS ---
 app.get('/api/prereg-sections', (req, res) => {
     const db = getDb();
     const journey = req.query.journeyType || 'LOCAL';
-    const filtered = (db.preregSections || []).filter(s => (s.journeyType || 'LOCAL') === journey);
+    let filtered = (db.preregSections || []).filter(s => (s.journeyType || 'LOCAL') === journey);
+    if (filtered.length === 0 && journey === 'FOREIGNER') {
+        filtered = (db.preregSections || []).filter(s => (s.journeyType || 'LOCAL') === 'LOCAL');
+    }
     const sorted = [...filtered].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     res.json(sorted);
 });
@@ -2322,7 +2477,10 @@ app.get('/api/prereg-sections', (req, res) => {
 app.get('/api/prereg-sections/published', (req, res) => {
     const db = getDb();
     const journey = req.query.journeyType || 'LOCAL';
-    const filtered = (db.preregSections || []).filter(s => (s.journeyType || 'LOCAL') === journey);
+    let filtered = (db.preregSections || []).filter(s => (s.journeyType || 'LOCAL') === journey);
+    if (filtered.length === 0 && journey === 'FOREIGNER') {
+        filtered = (db.preregSections || []).filter(s => (s.journeyType || 'LOCAL') === 'LOCAL');
+    }
     const sorted = [...filtered].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     const published = sorted
         .filter(s => s.status === 'PUBLISHED' && s.publishedData)
@@ -2333,7 +2491,10 @@ app.get('/api/prereg-sections/published', (req, res) => {
 app.get('/api/prereg-sections/preview', (req, res) => {
     const db = getDb();
     const journey = req.query.journeyType || 'LOCAL';
-    const filtered = (db.preregSections || []).filter(s => (s.journeyType || 'LOCAL') === journey);
+    let filtered = (db.preregSections || []).filter(s => (s.journeyType || 'LOCAL') === journey);
+    if (filtered.length === 0 && journey === 'FOREIGNER') {
+        filtered = (db.preregSections || []).filter(s => (s.journeyType || 'LOCAL') === 'LOCAL');
+    }
     const sorted = [...filtered].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     const preview = sorted.filter(s => s.status !== 'UNPUBLISHED');
     res.json(preview);

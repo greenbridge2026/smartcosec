@@ -210,16 +210,32 @@
         }
 
         let allResults = [];
+        let allOnboardings = [];
+        let allRequirements = [];
         const token = localStorage.getItem('token') || '';
 
         async function loadOcrResults() {
             document.getElementById('ocr-grid-container').innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
             try {
+                // Fetch OCR results
                 const res = await fetch('/api/ocr/all', {
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
                 if (!res.ok) throw new Error('API error');
                 allResults = await res.json();
+
+                // Fetch Onboarding records
+                const obRes = await fetch('/api/onboarding', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (obRes.ok) allOnboardings = await obRes.json();
+
+                // Fetch Requirements drafts
+                const reqRes = await fetch('/api/requirements/all-drafts', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (reqRes.ok) allRequirements = await reqRes.json();
+
                 updateStats(allResults);
                 renderCards(allResults);
             } catch (e) {
@@ -230,6 +246,47 @@
                         <p>When clients upload documents and run OCR extraction, results will appear here.</p>
                     </div>`;
             }
+        }
+
+        function getFormObject(userId, fieldPath) {
+            if (!userId || !fieldPath) return null;
+            
+            // Search in Onboarding
+            const ob = allOnboardings.find(o => o.clientId === userId || o.id === userId || o.clientEmail === userId);
+            if (ob) {
+                const parts = fieldPath.split('.');
+                let current = ob;
+                for (let i = 0; i < parts.length; i++) {
+                    const p = parts[i];
+                    if (current[p] !== undefined) {
+                        current = current[p];
+                    } else if (p === 'list' && current.data && current.data.list) {
+                        current = current.data.list;
+                    } else {
+                        current = null;
+                        break;
+                    }
+                }
+                return current;
+            }
+
+            // Search in Requirements drafts
+            const req = allRequirements.find(r => r.userId === userId);
+            if (req && req.data) {
+                const parts = fieldPath.split('.');
+                let current = req.data;
+                for (let i = 0; i < parts.length; i++) {
+                    const p = parts[i];
+                    if (current[p] !== undefined) {
+                        current = current[p];
+                    } else {
+                        current = null;
+                        break;
+                    }
+                }
+                return current;
+            }
+            return null;
         }
 
         function updateStats(results) {
@@ -300,16 +357,25 @@
                 'generic': '📄 Document',
             }[r.documentType] || '📄 ' + (r.documentType || 'Document');
 
+            const formObject = getFormObject(r.userId, r.fieldPath);
             const fields = r.extractedFields || {};
+            
             const fieldsHtml = Object.entries(fields).filter(([,v]) => v && v.value).map(([k, v]) => {
                 const c = v.confidence || 0.7;
                 const confClass = c >= 0.8 ? 'conf-high' : c >= 0.5 ? 'conf-med' : 'conf-low';
-                return `<div class="field-row">
-                    <span class="field-key">${k}</span>
-                    <span style="display:flex;align-items:center;gap:4px;">
-                        <span class="field-val">${v.value}</span>
-                        <span class="conf-chip ${confClass}">${Math.round(c*100)}%</span>
-                    </span>
+                
+                const formVal = formObject ? formObject[k] : null;
+                const isMismatch = formVal !== undefined && formVal !== null && String(formVal).trim().toLowerCase() !== String(v.value).trim().toLowerCase();
+                
+                return `<div class="field-row" style="${isMismatch ? 'background:#fee2e2; border-left:3px solid #ef4444; padding:8px; border-radius:6px;' : ''}">
+                    <span class="field-key" style="font-weight:700;">${k}</span>
+                    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <input type="text" class="ocr-edit-input" data-field-key="${k}" value="${v.value}" style="font-size:0.8rem; padding:4px 8px; border:1px solid #cbd5e1; border-radius:6px; outline:none; text-align:right; font-weight:700; width:180px;">
+                            <span class="conf-chip ${confClass}">${Math.round(c*100)}%</span>
+                        </div>
+                        ${isMismatch ? `<div style="font-size:10px; color:#ef4444; font-weight:700;">⚠️ Form has: "${formVal || 'empty'}"</div>` : `<div style="font-size:10px; color:#10b981; font-weight:700;">✅ Matches Form</div>`}
+                    </div>
                 </div>`;
             }).join('');
 
@@ -354,7 +420,7 @@
                         <div style="display:flex;gap:0.5rem;">
                             ${r.rawText ? `<button class="btn-view-raw" onclick="showRawText('${r.id}')">Raw Text</button>` : ''}
                             <button class="btn-flag" onclick="flagResult('${r.id}')">Flag</button>
-                            <button class="btn-approve" onclick="approveResult('${r.id}')">✓ Approve</button>
+                            <button class="btn-approve" onclick="approveResult('${r.id}')">✓ Save & Confirm</button>
                         </div>
                     </div>
                 </div>
@@ -373,20 +439,45 @@
         }
 
         async function approveResult(id) {
+            const card = document.getElementById('card-' + id);
+            if (!card) return;
+
+            const inputs = card.querySelectorAll('.ocr-edit-input');
+            const correctedFields = {};
+            inputs.forEach(input => {
+                const key = input.getAttribute('data-field-key');
+                const val = input.value;
+                correctedFields[key] = { value: val, confidence: 1.0 };
+            });
+
+            const r = allResults.find(res => res.id === id);
+            if (!r) return;
+
             try {
-                await fetch('/api/ocr/' + id + '/confirm', {
+                const res = await fetch('/api/ocr/save-corrected', {
                     method: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + token }
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token 
+                    },
+                    body: JSON.stringify({
+                        id: id,
+                        fieldPath: r.fieldPath,
+                        userId: r.userId,
+                        correctedFields: correctedFields
+                    })
                 });
-                const r = allResults.find(r => r.id === id);
-                if (r) r.reviewedByClient = true;
-                const card = document.getElementById('card-' + id);
-                if (card) {
-                    card.style.opacity = '0.5';
-                    card.style.border = '1.5px solid #10b981';
-                    setTimeout(() => { card.style.opacity = '1'; }, 500);
-                }
-            } catch(e) { alert('Error approving result'); }
+                if (!res.ok) throw new Error('API error');
+                
+                card.style.opacity = '0.5';
+                card.style.border = '2px solid #10b981';
+                card.style.background = '#f0fdf4';
+                setTimeout(() => {
+                    loadOcrResults();
+                }, 600);
+            } catch (e) {
+                alert('Error saving corrected details');
+            }
         }
 
         async function flagResult(id) {

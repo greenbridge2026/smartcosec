@@ -1780,7 +1780,15 @@
                 key: "addons",
                 title: "Add-on Services",
                 description: "Select additional corporate and compliance services",
-                type: "custom"
+                type: "form",
+                fields: [
+                    { key: "addons.bankIntro", label: "Bank account introduction", type: "switch", required: false, placeholder: "$350 one-time", hint: "Warm intros to DBS, OCBC, HSBC, Aspire, Wio, Mashreq. We prepare KYC and stay on the call." },
+                    { key: "addons.statCompliance", label: "Statutory & compliance package", type: "switch", required: false, placeholder: "$480 per year", hint: "Annual filings, AGM resolutions, statutory registers maintained, ESOP support when needed." },
+                    { key: "addons.accounting", label: "Accounting & bookkeeping", type: "switch", required: false, placeholder: "$220 per month", hint: "Monthly bookkeeping in Xero, financial statements compiled to standards, payroll with CPF processing." },
+                    { key: "addons.taxCompliance", label: "Tax compliance package", type: "switch", required: false, placeholder: "$720 per year", hint: "Compilation of corporate tax returns (Form C-S), filing of ECI, GST advisory and filings." },
+                    { key: "addons.crossBorderTax", label: "Cross-Border Tax Structuring", type: "switch", required: false, placeholder: "$4,500 one-time", hint: "Advisory on IP holding, transfer pricing policy documentation, setup of offshore corporate wrappers." },
+                    { key: "addons.apostille", label: "Apostille + Notarisation", type: "switch", required: false, placeholder: "$280 one-time", hint: "Legalisation of incorporation files for use in foreign countries. Includes courier fees." }
+                ]
             },
             {
                 id: "sec-package-next",
@@ -1897,7 +1905,7 @@
             syncDirectorsList() {
                 if (!this.data.directors) this.data.directors = [];
                 const localCount = this.data.hasLocalDirector === 'no' ? 1 : (this.data.localDirectorsCount || 1);
-                const foreignCount = this.data.foreignDirectorsCount || 1;
+                const foreignCount = this.data.foreignDirectorsCount !== undefined ? this.data.foreignDirectorsCount : 1;
 
                 const localList = [];
                 if (this.data.hasLocalDirector === 'no') {
@@ -3017,6 +3025,7 @@
 
                 // Check lock
                 if (step > 1 && !this.data.completedSteps.includes(step - 1) && !this.data.completedSteps.includes(step)) {
+                    this.open(1);
                     return; 
                 }
 
@@ -3852,7 +3861,7 @@
 
                 if (sec.id === 'sec-directors-shareholders' || sec.key === 'directors-shareholders') {
                     const localDirsCount = this.data.hasLocalDirector === 'no' ? 1 : (this.data.localDirectorsCount || 1);
-                    const foreignDirsCount = this.data.foreignDirectorsCount || 1;
+                    const foreignDirsCount = this.data.foreignDirectorsCount !== undefined ? this.data.foreignDirectorsCount : 1;
                     const indShsCount = this.data.individualShareholdersCount !== undefined ? this.data.individualShareholdersCount : 0;
                     const corpShsCount = this.data.corporateShareholdersCount !== undefined ? this.data.corporateShareholdersCount : 0;
 
@@ -4201,8 +4210,8 @@
                     const next = Math.max(1, current + change);
                     this.data.localDirectorsCount = next;
                 } else if (key === 'foreignDirectors') {
-                    const current = this.data.foreignDirectorsCount || 1;
-                    const next = Math.max(1, current + change);
+                    const current = this.data.foreignDirectorsCount !== undefined ? this.data.foreignDirectorsCount : 1;
+                    const next = Math.max(0, current + change);
                     this.data.foreignDirectorsCount = next;
                 } else {
                     // fallback
@@ -5204,7 +5213,7 @@
                 const indShsCount = this.data.individualShareholdersCount !== undefined ? this.data.individualShareholdersCount : 0;
                 const corpShsCount = this.data.corporateShareholdersCount !== undefined ? this.data.corporateShareholdersCount : 0;
                 const localDirsCount = this.data.hasLocalDirector === 'no' ? 1 : (this.data.localDirectorsCount || 1);
-                const foreignDirsCount = this.data.foreignDirectorsCount || 1;
+                const foreignDirsCount = this.data.foreignDirectorsCount !== undefined ? this.data.foreignDirectorsCount : 1;
 
                 const billingItems = [
                     {
