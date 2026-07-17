@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Profile & Registers | Globalisor Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <script>
+        // Authentication Check
+        if (!localStorage.getItem('admin_auth')) {
+            window.location.href = '/admin/index.html';
+        } else {
+            try {
+                const auth = JSON.parse(localStorage.getItem('admin_auth'));
+                if (auth.role !== 'admin') window.location.href = '/admin/index.html';
+            } catch(e) {
+                window.location.href = '/admin/index.html';
+            }
+        }
+
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], outfit: ['Outfit', 'sans-serif'] },
+                    colors: { 
+                        slate: { 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 800: '#1e293b', 900: '#0f172a' },
+                        primary: '#0f172a', accent: '#3b82f6' 
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { 
+            font-family: 'Outfit', sans-serif;
+            background: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden; 
+        }
+        .top-nav { height: 60px; background: #ffffff; backdrop-filter: blur(20px); border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1.5rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
+        .main-container { padding: 2rem; max-width: 1600px; margin-left: 240px !important; margin-right: auto; }
+        .module-nav-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #64748b; transition: all 0.2s; cursor: pointer !important; border: none; background: transparent; white-space: nowrap; width: 100% !important; box-sizing: border-box !important; }
+        .module-nav-btn:hover { color: #0f172a; background: #ffffff; }
+        .module-nav-btn.active { color: #0f172a; background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        
+        .top-nav > div:nth-child(2), #module-switcher {
+            position: fixed !important;
+            top: 60px !important;
+            left: 0 !important;
+            width: 240px !important;
+            height: calc(100vh - 60px) !important;
+            background: #ffffff !important;
+            backdrop-filter: blur(20px) !important;
+            border-right: 1px solid #e2e8f0 !important;
+            border-top: none !important;
+            border-left: none !important;
+            border-bottom: none !important;
+            border-radius: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            padding: 1.5rem 1rem !important;
+            gap: 0.5rem !important;
+            align-items: stretch !important;
+            justify-content: flex-start !important;
+            z-index: 9998 !important;
+            box-shadow: none !important;
+        }
+
+        .submenu-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            transition: all 0.3s ease;
+        }
+        .submenu-container.hidden {
+            display: none !important;
+        }
+        .submenu-arrow {
+            transition: transform 0.2s ease;
+        }
+        
+        .glass-card { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.02); }
+        .tab-btn.active { border-color: #3b82f6; color: #3b82f6; font-weight: 700; }
+    </style>
+    <script type="module" src="admin-sidebar.js"></script>
+</head>
+<body>
+
+    <!-- Top Navigation with module switcher interceptor -->
+    <nav class="top-nav">
+        <div class="flex items-center gap-4">
+            <div class="flex flex-col leading-none cursor-pointer" onclick="window.location.href='dashboard.html'">
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Admin</span>
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Portal</span>
+            </div>
+        </div>
+        <div id="module-switcher" class="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-white/80">
+            <button onclick="window.location.href='dashboard.html'" class="module-nav-btn" id="btn-clients">Clients</button>
+            <button onclick="window.location.href='applications.html'" class="module-nav-btn" id="btn-applications">Applications</button>
+            <button onclick="window.location.href='kyc.html'" class="module-nav-btn" id="btn-kyc">KYC Review</button>
+            <button onclick="window.location.href='compliance.html'" class="module-nav-btn" id="btn-compliance">Compliance</button>
+            <button onclick="window.location.href='reports.html'" class="module-nav-btn" id="btn-reports">Reports</button>
+            <button onclick="window.location.href='messages.html'" class="module-nav-btn" id="btn-messages">Messages</button>
+            <button onclick="window.location.href='content.html'" class="module-nav-btn" id="btn-content">Content</button>
+        </div>
+        <div class="flex items-center justify-end gap-3 relative">
+            <button onclick="window.location.href='dashboard.html'" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Back to Dashboard
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="main-container">
+        <!-- Profile Banner with Embedded Back Button -->
+        <div id="company-banner" class="glass-card p-8 mb-6 relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div class="absolute -right-20 -top-20 w-48 h-48 rounded-full bg-blue-500/5 blur-3xl"></div>
+            <div class="flex items-center gap-5">
+                <!-- Back Button next to avatar -->
+                <button onclick="window.location.href='/admin/dashboard.html'" class="p-2.5 hover:bg-slate-100/80 rounded-xl text-slate-400 hover:text-slate-700 transition flex items-center justify-center border border-slate-200/50 shadow-sm" title="Back to Dashboard">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                </button>
+                <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white font-black text-3xl flex items-center justify-center shadow-lg shadow-blue-500/20" id="company-initial">
+                    —
+                </div>
+                <div>
+                    <h1 class="text-3xl font-extrabold text-slate-900 leading-tight mb-2" id="company-name">Loading Company...</h1>
+                    <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                        <span class="flex items-center gap-1 font-mono font-bold" id="company-uen-badge"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 inline-block mr-1"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg> UEN: Loading...</span>
+                        <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                        <span class="flex items-center gap-1 font-semibold" id="company-type-badge"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 inline-block mr-1"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg> Company Type: —</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="px-3.5 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wider shadow-sm" id="company-status-badge">Loading...</span>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="flex border-b border-slate-200 mb-6 overflow-x-auto gap-1">
+            <button onclick="switchTab('overview')" id="tab-btn-overview" class="tab-btn px-5 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg> Overview
+            </button>
+            <button onclick="switchTab('directors')" id="tab-btn-directors" class="tab-btn px-5 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Directors
+            </button>
+            <button onclick="switchTab('secretaries')" id="tab-btn-secretaries" class="tab-btn px-5 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Secretaries
+            </button>
+            <button onclick="switchTab('members')" id="tab-btn-members" class="tab-btn px-5 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg> Shareholders
+            </button>
+            <button onclick="switchTab('controllers')" id="tab-btn-controllers" class="tab-btn px-5 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg> UBOs & Controllers
+            </button>
+        </div>
+
+        <!-- Tab Contents -->
+        <div id="panel-overview" class="tab-panel hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Company General Info -->
+                <div class="glass-card p-6 lg:col-span-2 space-y-5">
+                    <h3 class="font-bold text-slate-900 text-lg border-b border-slate-100 pb-3 flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-blue-500"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="9" y1="22" x2="9" y2="16"/><line x1="15" y1="22" x2="15" y2="16"/><line x1="9" y1="16" x2="15" y2="16"/><path d="M9 6h6"/><path d="M9 10h6"/></svg> Corporate Profile</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
+                        <div>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Company Name</span>
+                            <div class="font-bold text-slate-800 mt-1" id="info-name">—</div>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">UEN</span>
+                            <div class="font-mono font-bold text-slate-800 mt-1" id="info-uen">—</div>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Company Type</span>
+                            <div class="font-semibold text-slate-800 mt-1" id="info-type">—</div>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Country of Incorporation</span>
+                            <div class="font-semibold text-slate-800 mt-1" id="info-country">Singapore</div>
+                        </div>
+                        <div class="md:col-span-2">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Primary SSIC & Activity Description</span>
+                            <div class="font-medium text-slate-800 mt-1" id="info-primary-activity">—</div>
+                        </div>
+                        <div class="md:col-span-2">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Secondary SSIC & Activity Description</span>
+                            <div class="font-medium text-slate-800 mt-1" id="info-secondary-activity">—</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Annual Return & Compliance Dates -->
+                <div class="glass-card p-6 space-y-5">
+                    <h3 class="font-bold text-slate-900 text-lg border-b border-slate-100 pb-3 flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-purple-500"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Compliance Timeline</h3>
+                    <div class="space-y-4 text-sm">
+                        <div class="flex justify-between items-center py-1 border-b border-slate-50">
+                            <span class="text-slate-500 font-medium">Financial Year End (FYE)</span>
+                            <span class="font-bold text-slate-800" id="info-fye">—</span>
+                        </div>
+                        <div class="flex justify-between items-center py-1 border-b border-slate-50">
+                            <span class="text-slate-500 font-medium">Last AGM Date</span>
+                            <span class="font-bold text-slate-800" id="info-agm">—</span>
+                        </div>
+                        <div class="flex justify-between items-center py-1 border-b border-slate-50">
+                            <span class="text-slate-500 font-medium">Date of Annual Return</span>
+                            <span class="font-bold text-slate-800" id="info-ar">—</span>
+                        </div>
+                        <div class="flex justify-between items-center py-1">
+                            <span class="text-slate-500 font-medium">XBRL Prepared</span>
+                            <span class="font-bold text-slate-800" id="info-xbrl">—</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Registered Address -->
+                <div class="glass-card p-6 lg:col-span-3 space-y-4">
+                    <h3 class="font-bold text-slate-900 text-lg border-b border-slate-100 pb-3 flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-red-500"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Registered Office Address</h3>
+                    <div class="text-sm font-semibold text-slate-700 bg-slate-50/50 p-4 rounded-xl border border-slate-100 leading-relaxed" id="info-address">
+                        —
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="panel-directors" class="tab-panel hidden space-y-6">
+            <div class="glass-card p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-bold text-slate-900 text-lg flex items-center gap-2"><i data-lucide="users" class="w-5 h-5 text-blue-500"></i> Register of Directors</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-slate-400 font-bold text-xs uppercase">
+                                <th class="pb-3 font-bold">Director Name</th>
+                                <th class="pb-3 font-bold">Position/Type</th>
+                                <th class="pb-3 font-bold">ID / NRIC / Passport</th>
+                                <th class="pb-3 font-bold">Nationality</th>
+                                <th class="pb-3 font-bold">Date Appointed</th>
+                                <th class="pb-3 font-bold">Contact details</th>
+                                <th class="pb-3 font-bold">Address</th>
+                            </tr>
+                        </thead>
+                        <tbody id="directors-table-body" class="divide-y divide-slate-100 text-slate-700">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="panel-secretaries" class="tab-panel hidden space-y-6">
+            <div class="glass-card p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-bold text-slate-900 text-lg flex items-center gap-2"><i data-lucide="key" class="w-5 h-5 text-purple-500"></i> Register of Secretaries</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-slate-400 font-bold text-xs uppercase">
+                                <th class="pb-3 font-bold">Secretary Name</th>
+                                <th class="pb-3 font-bold">ID / NRIC / Passport</th>
+                                <th class="pb-3 font-bold">Nationality</th>
+                                <th class="pb-3 font-bold">Date Appointed</th>
+                                <th class="pb-3 font-bold">Address</th>
+                            </tr>
+                        </thead>
+                        <tbody id="secretaries-table-body" class="divide-y divide-slate-100 text-slate-700">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="panel-members" class="tab-panel hidden space-y-6">
+            <div class="glass-card p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-bold text-slate-900 text-lg flex items-center gap-2"><i data-lucide="pie-chart" class="w-5 h-5 text-indigo-500"></i> Register of Members / Shareholders</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-slate-400 font-bold text-xs uppercase">
+                                <th class="pb-3 font-bold">Shareholder Name</th>
+                                <th class="pb-3 font-bold">Identification UEN/ID</th>
+                                <th class="pb-3 font-bold">Nationality</th>
+                                <th class="pb-3 font-bold">Date Entered</th>
+                                <th class="pb-3 font-bold">Address</th>
+                            </tr>
+                        </thead>
+                        <tbody id="members-table-body" class="divide-y divide-slate-100 text-slate-700">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="panel-controllers" class="tab-panel hidden space-y-6">
+            <div class="glass-card p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-bold text-slate-900 text-lg flex items-center gap-2"><i data-lucide="shield-check" class="w-5 h-5 text-emerald-500"></i> Register of Controllers (UBOs)</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-slate-400 font-bold text-xs uppercase">
+                                <th class="pb-3 font-bold">Controller Name</th>
+                                <th class="pb-3 font-bold">ID / NRIC / Passport</th>
+                                <th class="pb-3 font-bold">Nationality</th>
+                                <th class="pb-3 font-bold">Date of Birth</th>
+                                <th class="pb-3 font-bold">Date entered</th>
+                                <th class="pb-3 font-bold">Address</th>
+                            </tr>
+                        </thead>
+                        <tbody id="controllers-table-body" class="divide-y divide-slate-100 text-slate-700">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script>
+        let clientData = null;
+        let activeTab = 'overview';
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+                btn.classList.remove('border-blue-600', 'text-blue-600');
+                btn.classList.add('text-slate-500', 'border-transparent');
+            });
+
+            document.getElementById('panel-' + tabId).classList.remove('hidden');
+            const activeBtn = document.getElementById('tab-btn-' + tabId);
+            if (activeBtn) {
+                activeBtn.classList.add('active');
+                activeBtn.classList.add('border-blue-600', 'text-blue-600');
+            }
+            activeTab = tabId;
+        }
+
+        async function loadCompanyDetails() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const clientId = urlParams.get('clientId');
+            if (!clientId) {
+                alert("Client ID is missing in URL parameters!");
+                window.location.href = '/admin/dashboard.html';
+                return;
+            }
+
+            try {
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const token = authObj.token;
+                const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+
+                const res = await fetch(`/api/clients/${clientId}/services`, { headers });
+                if (!res.ok) throw new Error("Failed to load client details from backend");
+                
+                clientData = await res.json();
+                renderPage(clientData);
+            } catch(e) {
+                console.error("Error loading company details", e);
+                document.getElementById('company-name').innerText = "Error Loading Details";
+            }
+        }
+
+        function renderPage(data) {
+            const client = data.client;
+            const service = data.services && data.services.length > 0 ? data.services[0] : null;
+            const details = service ? (service.details || {}) : {};
+            const excel = details.excelData;
+
+            // 1. Set Company Banner Headers
+            const companyName = client.name || "N/A";
+            document.getElementById('company-name').innerText = companyName;
+            document.getElementById('company-initial').innerText = companyName.charAt(0).toUpperCase();
+
+            const uen = client.uen || (excel ? excel.uen : "") || "N/A";
+            document.getElementById('company-uen-badge').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 inline-block mr-1"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg> UEN: ${uen}`;
+
+            const companyType = (excel ? excel.companyType : "") || "Private Company Limited by shares";
+            document.getElementById('company-type-badge').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 inline-block mr-1"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg> ${companyType}`;
+
+            const status = service ? service.status : "pending";
+            const badge = document.getElementById('company-status-badge');
+            if (status === 'approved' || status === 'completed') {
+                badge.className = "px-3.5 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wider shadow-sm bg-emerald-50 text-emerald-600 border-emerald-100";
+                badge.innerText = "Active / Approved";
+            } else {
+                badge.className = "px-3.5 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wider shadow-sm bg-blue-50 text-blue-600 border-blue-100";
+                badge.innerText = status;
+            }
+
+            // 2. Render Overview Tab Info
+            document.getElementById('info-name').innerText = companyName;
+            document.getElementById('info-uen').innerText = uen;
+            document.getElementById('info-type').innerText = companyType;
+
+            // Default fallback mappings if Excel register isn't present
+            if (excel) {
+                document.getElementById('info-primary-activity').innerText = excel.primaryActivity || "—";
+                document.getElementById('info-secondary-activity').innerText = excel.secondaryActivity || "—";
+                document.getElementById('info-address').innerText = excel.registeredOfficeAddress || "—";
+                document.getElementById('info-fye').innerText = excel.fye || "—";
+                document.getElementById('info-agm').innerText = excel.lastAgmDate || "—";
+                document.getElementById('info-ar').innerText = excel.annualReturnDate || "—";
+                document.getElementById('info-xbrl').innerText = excel.xbrlPrepared || "—";
+
+                // Directors Table
+                const dirBody = document.getElementById('directors-table-body');
+                dirBody.innerHTML = (excel.directors || []).map(d => `
+                    <tr class="hover:bg-slate-50/50 transition">
+                        <td class="p-4 font-bold text-slate-900">${d.name}</td>
+                        <td class="p-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100 uppercase">${d.type}</span></td>
+                        <td class="p-4 font-mono font-semibold text-xs">${d.idNumber || '—'}</td>
+                        <td class="p-4 font-medium">${d.nationality || '—'}</td>
+                        <td class="p-4 text-xs font-semibold text-slate-500">${d.appointmentDate || '—'}</td>
+                        <td class="p-4 text-xs">
+                            <div><strong>E:</strong> ${d.email || '—'}</div>
+                            <div class="mt-0.5"><strong>P:</strong> ${d.mobile || '—'}</div>
+                        </td>
+                        <td class="p-4 text-xs max-w-[200px] truncate" title="${d.address}">${d.address || '—'}</td>
+                    </tr>
+                `).join('') || `<tr><td colspan="7" class="p-8 text-center text-slate-400 text-sm">No directors found in Excel register.</td></tr>`;
+
+                // Secretaries Table
+                const secBody = document.getElementById('secretaries-table-body');
+                secBody.innerHTML = (excel.secretaries || []).map(s => `
+                    <tr class="hover:bg-slate-50/50 transition">
+                        <td class="p-4 font-bold text-slate-900">${s.name}</td>
+                        <td class="p-4 font-mono font-semibold text-xs">${s.idNumber || '—'}</td>
+                        <td class="p-4 font-medium">${s.nationality || '—'}</td>
+                        <td class="p-4 text-xs font-semibold text-slate-500">${s.appointmentDate || '—'}</td>
+                        <td class="p-4 text-xs max-w-[250px] truncate" title="${s.address}">${s.address || '—'}</td>
+                    </tr>
+                `).join('') || `<tr><td colspan="5" class="p-8 text-center text-slate-400 text-sm">No secretaries found in Excel register.</td></tr>`;
+
+                // Shareholders Table
+                const memBody = document.getElementById('members-table-body');
+                memBody.innerHTML = (excel.members || []).map(m => `
+                    <tr class="hover:bg-slate-50/50 transition">
+                        <td class="p-4 font-bold text-slate-900">${m.name}</td>
+                        <td class="p-4 font-mono font-semibold text-xs">${m.idNumber || '—'}</td>
+                        <td class="p-4 font-medium">${m.nationality || '—'}</td>
+                        <td class="p-4 text-xs font-semibold text-slate-500">${m.dateEntered || '—'}</td>
+                        <td class="p-4 text-xs max-w-[250px] truncate" title="${m.address}">${m.address || '—'}</td>
+                    </tr>
+                `).join('') || `<tr><td colspan="5" class="p-8 text-center text-slate-400 text-sm">No shareholders found in Excel register.</td></tr>`;
+
+                // Controllers Table
+                const ctrlBody = document.getElementById('controllers-table-body');
+                ctrlBody.innerHTML = (excel.controllers || []).map(c => `
+                    <tr class="hover:bg-slate-50/50 transition">
+                        <td class="p-4 font-bold text-slate-900">${c.name}</td>
+                        <td class="p-4 font-mono font-semibold text-xs">${c.idNumber || '—'}</td>
+                        <td class="p-4 font-medium">${c.nationality || '—'}</td>
+                        <td class="p-4 text-xs font-semibold text-slate-500">${c.dob || '—'}</td>
+                        <td class="p-4 text-xs font-semibold text-slate-500">${c.dateOfEntry || '—'}</td>
+                        <td class="p-4 text-xs max-w-[250px] truncate" title="${c.address}">${c.address || '—'}</td>
+                    </tr>
+                `).join('') || `<tr><td colspan="6" class="p-8 text-center text-slate-400 text-sm">No controllers found in Excel register.</td></tr>`;
+
+            } else {
+                // Fallback to onboarding details layout
+                const office = details.office || {};
+                const officeStr = office.postalCode 
+                    ? `Block ${office.block || '—'} ${office.streetName || '—'}, Floor ${office.floor || '—'} Unit ${office.unit || '—'}, ${office.building || ''} Singapore ${office.postalCode}`
+                    : "—";
+                
+                const actPri = details.activities && details.activities.primary ? details.activities.primary : "—";
+                const actSec = details.activities && details.activities.secondary ? details.activities.secondary : "—";
+
+                document.getElementById('info-primary-activity').innerText = actPri;
+                document.getElementById('info-secondary-activity').innerText = actSec;
+                document.getElementById('info-address').innerText = officeStr;
+                document.getElementById('info-fye').innerText = details.fye || "—";
+                document.getElementById('info-agm').innerText = "—";
+                document.getElementById('info-ar').innerText = "—";
+                document.getElementById('info-xbrl').innerText = "—";
+
+                // Directors Table Fallback
+                const dirBody = document.getElementById('directors-table-body');
+                dirBody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400 text-sm">No multi-sheet Excel register uploaded. Details available in onboarding check.</td></tr>`;
+
+                // Secretaries Table Fallback
+                const secBody = document.getElementById('secretaries-table-body');
+                secBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400 text-sm">No secretaries found in onboarding details.</td></tr>`;
+
+                // Shareholders Table Fallback
+                const memBody = document.getElementById('members-table-body');
+                memBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400 text-sm">No shareholders found in onboarding details.</td></tr>`;
+
+                // Controllers Table Fallback
+                const ctrlBody = document.getElementById('controllers-table-body');
+                ctrlBody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400 text-sm">No controllers found in onboarding details.</td></tr>`;
+            }
+
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            switchTab('overview');
+            loadCompanyDetails();
+        });
+    </script>
+</body>
+</html>

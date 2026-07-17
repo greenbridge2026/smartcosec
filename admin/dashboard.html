@@ -1571,19 +1571,7 @@
         }
 
         async function openClientProfile(id) {
-            currentClientId = id;
-            try {
-                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
-                const token = authObj.token;
-                const res = await fetch('/api/clients/' + id + '/services', {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    currentClientServices = data.services;
-                    renderClientPanel(data.client, data.services);
-                }
-            } catch(e) { console.error(e); }
+            window.location.href = `/admin/company-detail.html?clientId=${id}`;
         }
 
         function renderClientPanel(client, services) {
@@ -1845,10 +1833,161 @@
                     `;
                 }).join('');
 
-                document.getElementById('detail-body').innerHTML = html;
+                let excelHtml = '';
+                if (details.excelData) {
+                    const ed = details.excelData;
+                    excelHtml = `
+                        <div class="border border-slate-200/60 bg-white/50 backdrop-blur-md rounded-2xl p-5 mb-4 shadow-sm">
+                            <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-100/50">
+                                <div>
+                                    <h4 class="font-bold text-slate-900 text-sm">Corporate Register</h4>
+                                    <p class="text-[10px] text-slate-400 mt-0.5">Details extracted from Master Excel file</p>
+                                </div>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">Migrated</span>
+                            </div>
+                            
+                            <!-- Register Tabs -->
+                            <div class="flex border-b border-slate-100 mb-4 overflow-x-auto gap-2">
+                                <button onclick="switchRegisterTab('company')" id="reg-tab-company" class="reg-tab-btn px-3 py-1.5 text-xs font-bold text-blue-600 border-b-2 border-blue-600">Company Info</button>
+                                <button onclick="switchRegisterTab('directors')" id="reg-tab-directors" class="reg-tab-btn px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700">Directors (${ed.directors ? ed.directors.length : 0})</button>
+                                <button onclick="switchRegisterTab('secretaries')" id="reg-tab-secretaries" class="reg-tab-btn px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700">Secretaries (${ed.secretaries ? ed.secretaries.length : 0})</button>
+                                <button onclick="switchRegisterTab('members')" id="reg-tab-members" class="reg-tab-btn px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700">Shareholders (${ed.members ? ed.members.length : 0})</button>
+                                <button onclick="switchRegisterTab('controllers')" id="reg-tab-controllers" class="reg-tab-btn px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700">UBOs/Controllers (${ed.controllers ? ed.controllers.length : 0})</button>
+                            </div>
+                            
+                            <!-- Register Tab Contents -->
+                            <div id="reg-content-company" class="reg-tab-content space-y-2">
+                                <div class="grid grid-cols-2 gap-3 text-xs">
+                                    <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase">Company Name</span>
+                                        <div class="font-bold text-slate-800 mt-0.5">${ed.companyName || '—'}</div>
+                                    </div>
+                                    <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase">UEN</span>
+                                        <div class="font-mono font-bold text-slate-800 mt-0.5">${ed.uen || '—'}</div>
+                                    </div>
+                                    <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase">Company Type</span>
+                                        <div class="font-bold text-slate-800 mt-0.5">${ed.companyType || '—'}</div>
+                                    </div>
+                                    <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase">Primary Activity</span>
+                                        <div class="font-bold text-slate-800 mt-0.5">${ed.primaryActivity || '—'}</div>
+                                    </div>
+                                    <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100 col-span-2">
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase">Registered Office Address</span>
+                                        <div class="font-medium text-slate-800 mt-0.5">${ed.registeredOfficeAddress || '—'}</div>
+                                    </div>
+                                    <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase">FYE (Financial Year End)</span>
+                                        <div class="font-bold text-slate-800 mt-0.5">${ed.fye || '—'}</div>
+                                    </div>
+                                    <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase">Last AGM Date</span>
+                                        <div class="font-bold text-slate-800 mt-0.5">${ed.lastAgmDate || '—'}</div>
+                                    </div>
+                                    <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase">Date of Annual Return</span>
+                                        <div class="font-bold text-slate-800 mt-0.5">${ed.annualReturnDate || '—'}</div>
+                                    </div>
+                                    <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase">XBRL Prepared</span>
+                                        <div class="font-bold text-slate-800 mt-0.5">${ed.xbrlPrepared || '—'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="reg-content-directors" class="reg-tab-content hidden space-y-3">
+                                ${ed.directors && ed.directors.length > 0 ? ed.directors.map(d => `
+                                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
+                                        <div class="flex justify-between items-center">
+                                            <span class="font-bold text-slate-800 text-xs">${d.name}</span>
+                                            <span class="px-2 py-0.5 rounded text-[9px] font-bold bg-blue-50 text-blue-600 border border-blue-100 uppercase">${d.type}</span>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
+                                            <div><strong>ID/Passport:</strong> ${d.idNumber || '—'}</div>
+                                            <div><strong>Nationality:</strong> ${d.nationality || '—'}</div>
+                                            <div><strong>DOB:</strong> ${d.dob || '—'}</div>
+                                            <div><strong>Appointed:</strong> ${d.appointmentDate || '—'}</div>
+                                            <div><strong>Email:</strong> ${d.email || '—'}</div>
+                                            <div><strong>Mobile:</strong> ${d.mobile || '—'}</div>
+                                            <div class="col-span-2"><strong>Address:</strong> ${d.address || '—'}</div>
+                                        </div>
+                                    </div>
+                                `).join('') : '<div class="text-xs text-slate-400 text-center py-4">No directors registered.</div>'}
+                            </div>
+                            
+                            <div id="reg-content-secretaries" class="reg-tab-content hidden space-y-3">
+                                ${ed.secretaries && ed.secretaries.length > 0 ? ed.secretaries.map(s => `
+                                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
+                                        <span class="font-bold text-slate-800 text-xs block">${s.name}</span>
+                                        <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
+                                            <div><strong>ID/Passport:</strong> ${s.idNumber || '—'}</div>
+                                            <div><strong>Nationality:</strong> ${s.nationality || '—'}</div>
+                                            <div><strong>Appointed:</strong> ${s.appointmentDate || '—'}</div>
+                                            <div class="col-span-2"><strong>Address:</strong> ${s.address || '—'}</div>
+                                        </div>
+                                    </div>
+                                `).join('') : '<div class="text-xs text-slate-400 text-center py-4">No secretaries registered.</div>'}
+                            </div>
+                            
+                            <div id="reg-content-members" class="reg-tab-content hidden space-y-3">
+                                ${ed.members && ed.members.length > 0 ? ed.members.map(m => `
+                                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
+                                        <span class="font-bold text-slate-800 text-xs block">${m.name}</span>
+                                        <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
+                                            <div><strong>ID/UEN:</strong> ${m.idNumber || '—'}</div>
+                                            <div><strong>Nationality:</strong> ${m.nationality || '—'}</div>
+                                            <div><strong>Entered:</strong> ${m.dateEntered || '—'}</div>
+                                            <div class="col-span-2"><strong>Address:</strong> ${m.address || '—'}</div>
+                                        </div>
+                                    </div>
+                                `).join('') : '<div class="text-xs text-slate-400 text-center py-4">No shareholders registered.</div>'}
+                            </div>
+                            
+                            <div id="reg-content-controllers" class="reg-tab-content hidden space-y-3">
+                                ${ed.controllers && ed.controllers.length > 0 ? ed.controllers.map(c => `
+                                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
+                                        <span class="font-bold text-slate-800 text-xs block">${c.name}</span>
+                                        <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
+                                            <div><strong>ID/Passport:</strong> ${c.idNumber || '—'}</div>
+                                            <div><strong>Nationality:</strong> ${c.nationality || '—'}</div>
+                                            <div><strong>DOB:</strong> ${c.dob || '—'}</div>
+                                            <div><strong>Date of Entry:</strong> ${c.dateOfEntry || '—'}</div>
+                                            <div class="col-span-2"><strong>Address:</strong> ${c.address || '—'}</div>
+                                        </div>
+                                    </div>
+                                `).join('') : '<div class="text-xs text-slate-400 text-center py-4">No controllers registered.</div>'}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                document.getElementById('detail-body').innerHTML = excelHtml + html;
                 const footer = document.getElementById('panel-footer');
                 if (footer) footer.style.display = 'flex';
                 safeCreateIcons();
+
+                window.switchRegisterTab = function(tabId) {
+                    document.querySelectorAll('.reg-tab-btn').forEach(btn => {
+                        btn.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+                        btn.classList.add('text-slate-500', 'hover:text-slate-700');
+                    });
+                    document.querySelectorAll('.reg-tab-content').forEach(content => {
+                        content.classList.add('hidden');
+                    });
+                    
+                    const activeBtn = document.getElementById('reg-tab-' + tabId);
+                    if (activeBtn) {
+                        activeBtn.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+                        activeBtn.classList.remove('text-slate-500', 'hover:text-slate-700');
+                    }
+                    
+                    const activeContent = document.getElementById('reg-content-' + tabId);
+                    if (activeContent) {
+                        activeContent.classList.remove('hidden');
+                    }
+                };
             } catch(e) { console.error(e); }
         }
 
