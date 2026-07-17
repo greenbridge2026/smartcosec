@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Migration Center | Globalisor Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <!-- Spreadsheet, Zip, and OCR Client Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://unpkg.com/tesseract.js@v4.0.1/dist/tesseract.min.js"></script>
+    <script>
+        if (!localStorage.getItem('admin_auth')) window.location.href = '/auth.html';
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], outfit: ['Outfit', 'sans-serif'] },
+                    colors: { 
+                        slate: { 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 800: '#1e293b', 900: '#0f172a' },
+                        primary: '#0f172a',
+                        accent: '#3b82f6'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Outfit', sans-serif; background: #f8fafc; min-height: 100vh; overflow-x: hidden; }
+        .top-nav { height: 60px; background: #ffffff; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1.5rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
+        .main-container { padding: 2rem; max-width: 1600px; margin-left: 240px !important; margin-right: auto; }
+        
+        #module-switcher {
+            position: fixed !important;
+            top: 60px !important;
+            left: 0 !important;
+            width: 240px !important;
+            height: calc(100vh - 60px) !important;
+            background: #ffffff !important;
+            border-right: 1px solid #e2e8f0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            padding: 1.5rem 1rem !important;
+            gap: 0.5rem !important;
+            align-items: stretch !important;
+            justify-content: flex-start !important;
+            z-index: 9998 !important;
+        }
+
+        .tab-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #64748b;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            color: #0f172a;
+            border-bottom-color: #0f172a;
+        }
+        .dropzone {
+            border: 2px dashed #cbd5e1;
+            transition: all 0.2s ease-in-out;
+        }
+        .dropzone.dragover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+    </style>
+    <script type="module" src="admin-sidebar.js"></script>
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="flex items-center gap-4">
+            <div class="flex flex-col leading-none cursor-pointer" onclick="window.location.href='dashboard.html'">
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Admin</span>
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Portal</span>
+            </div>
+        </div>
+        <div id="module-switcher" class="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-white/80">
+            <!-- Loaded dynamically by admin-sidebar.js -->
+        </div>
+        <div class="flex items-center justify-end gap-3 relative">
+            <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
+                <div class="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-xs">A</div>
+                <div class="flex flex-col">
+                    <div class="text-xs font-semibold text-slate-800">Admin Team</div>
+                    <button onclick="localStorage.removeItem('admin_auth'); localStorage.removeItem('token'); window.location.href='/auth.html'" class="text-[10px] text-red-500 font-bold hover:underline text-left leading-none">Sign Out</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-container">
+        <div class="space-y-8">
+            <!-- Header Section -->
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold font-outfit text-slate-900">Client Migration Center</h1>
+                    <p class="text-slate-500 text-sm mt-1">Enterprise bulk-import suite for migrating client folders, parsing company structures, OCR document reading, and profile setups.</p>
+                </div>
+            </div>
+
+            <!-- Tab Navigation Header -->
+            <div class="flex border-b border-slate-200 overflow-x-auto shrink-0 bg-white px-6 py-2 rounded-t-2xl shadow-sm">
+                <button onclick="switchTab('dashboard')" class="tab-btn active" id="tab-btn-dashboard">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
+                </button>
+                <button onclick="switchTab('import')" class="tab-btn" id="tab-btn-import">
+                    <i data-lucide="upload-cloud" class="w-4 h-4"></i> Import Clients
+                </button>
+                <button onclick="switchTab('history')" class="tab-btn" id="tab-btn-history">
+                    <i data-lucide="history" class="w-4 h-4"></i> Import History
+                </button>
+                <button onclick="switchTab('templates')" class="tab-btn" id="tab-btn-templates">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Import Templates
+                </button>
+                <button onclick="switchTab('reports')" class="tab-btn" id="tab-btn-reports">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Migration Reports
+                </button>
+                <button onclick="switchTab('failed')" class="tab-btn" id="tab-btn-failed">
+                    <i data-lucide="alert-octagon" class="w-4 h-4"></i> Failed Imports
+                </button>
+                <button onclick="switchTab('settings')" class="tab-btn" id="tab-btn-settings">
+                    <i data-lucide="settings" class="w-4 h-4"></i> Settings
+                </button>
+            </div>
+
+            <!-- ================= TABS CONTENT ================= -->
+
+            <!-- DASHBOARD TAB -->
+            <div id="panel-dashboard" class="tab-panel space-y-6">
+                <!-- Stats grid -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex items-center gap-4">
+                        <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"><i data-lucide="users" class="w-6 h-6"></i></div>
+                        <div>
+                            <div class="text-2xl font-bold text-slate-900" id="stat-total-clients">0</div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Migrated Clients</div>
+                        </div>
+                    </div>
+                    <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex items-center gap-4">
+                        <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center"><i data-lucide="calendar" class="w-6 h-6"></i></div>
+                        <div>
+                            <div class="text-2xl font-bold text-slate-900" id="stat-imported-today">0</div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Imported Today</div>
+                        </div>
+                    </div>
+                    <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex items-center gap-4">
+                        <div class="w-12 h-12 bg-red-50 text-red-600 rounded-xl flex items-center justify-center"><i data-lucide="alert-circle" class="w-6 h-6"></i></div>
+                        <div>
+                            <div class="text-2xl font-bold text-slate-900" id="stat-failed-imports">0</div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Failed Imports</div>
+                        </div>
+                    </div>
+                    <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex items-center gap-4">
+                        <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center"><i data-lucide="scan" class="w-6 h-6"></i></div>
+                        <div>
+                            <div class="text-2xl font-bold text-slate-900" id="stat-ocr-accuracy">0%</div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">OCR Accuracy</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Migration Queue Progress -->
+                <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+                    <h3 class="text-lg font-bold font-outfit text-slate-900 flex items-center gap-2">
+                        <i data-lucide="refresh-cw" class="w-5 h-5 text-blue-600 animate-spin" id="queue-spinner"></i>
+                        Active Migration Background Processes
+                    </h3>
+                    <div id="active-jobs-list" class="space-y-4">
+                        <div class="text-slate-400 text-sm py-4 text-center">No active migration queues currently running.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- IMPORT CLIENTS TAB -->
+            <div id="panel-import" class="tab-panel hidden space-y-6">
+                <!-- Dropzone Section -->
+                <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+                    <h3 class="text-lg font-bold font-outfit text-slate-900">Upload Source Files</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Directory Webkit Selector -->
+                        <div class="dropzone p-8 rounded-xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 transition" onclick="document.getElementById('dir-input').click()">
+                            <i data-lucide="folder-open" class="w-10 h-10 text-slate-400 mb-3"></i>
+                            <span class="font-bold text-slate-800 text-sm">Select Legacy Client Directory</span>
+                            <span class="text-xs text-slate-400 mt-1">Upload folders recursively (Client Details Excel & Documents)</span>
+                            <input type="file" id="dir-input" webkitdirectory directory multiple class="hidden" onchange="handleDirectorySelect(event)">
+                        </div>
+
+                        <!-- ZIP File Selector -->
+                        <div class="dropzone p-8 rounded-xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 transition" onclick="document.getElementById('zip-input').click()">
+                            <i data-lucide="file-archive" class="w-10 h-10 text-slate-400 mb-3"></i>
+                            <span class="font-bold text-slate-800 text-sm">Select ZIP Archive File</span>
+                            <span class="text-xs text-slate-400 mt-1">Upload bulk imported ZIP folder</span>
+                            <input type="file" id="zip-input" accept=".zip" class="hidden" onchange="handleZipSelect(event)">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MAPPING AND REVIEW WORKSPACE (DYNAMICS) -->
+                <div id="mapping-workspace" class="hidden bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+                        <h3 class="text-lg font-bold font-outfit text-slate-900">Import Analysis & Field Mapping</h3>
+                        <div class="flex items-center gap-3">
+                            <button onclick="saveMappingTemplate()" class="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 font-semibold text-xs hover:bg-slate-50">Save Template</button>
+                            <button onclick="executeMigrationImport()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs">Run Migration</button>
+                        </div>
+                    </div>
+
+                    <!-- Step Tracker UI -->
+                    <div id="analysis-step-wrapper" class="space-y-6">
+                        <!-- Detected spreadsheets lists -->
+                        <div class="space-y-3">
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Excel Mappings</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="mapping-cols-grid">
+                                <!-- Generated Dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Extracted Data & Preview List -->
+                        <div class="space-y-4">
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Clients Preview Workspace</h4>
+                            <div class="overflow-x-auto border border-slate-100 rounded-xl">
+                                <table class="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr class="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase">
+                                            <th class="p-4">Folder / Client Name</th>
+                                            <th class="p-4">Company Name</th>
+                                            <th class="p-4">UEN</th>
+                                            <th class="p-4">Documents</th>
+                                            <th class="p-4">OCR Check</th>
+                                            <th class="p-4">Validation</th>
+                                            <th class="p-4 text-center">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="import-preview-table-body" class="divide-y divide-slate-100 font-sans text-slate-700">
+                                        <!-- Generated Dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HISTORY TAB -->
+            <div id="panel-history" class="tab-panel hidden space-y-6">
+                <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+                    <h3 class="text-lg font-bold font-outfit text-slate-900">Historical Import Jobs</h3>
+                    <div class="overflow-x-auto border border-slate-100 rounded-xl">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase">
+                                    <th class="p-4">Job ID / Name</th>
+                                    <th class="p-4">Status</th>
+                                    <th class="p-4">Success</th>
+                                    <th class="p-4">Failed</th>
+                                    <th class="p-4">Duplicates</th>
+                                    <th class="p-4">Avg OCR Conf</th>
+                                    <th class="p-4">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-table-body" class="divide-y divide-slate-100 font-sans text-slate-700">
+                                <!-- Generated Dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TEMPLATES TAB -->
+            <div id="panel-templates" class="tab-panel hidden space-y-6">
+                <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+                    <h3 class="text-lg font-bold font-outfit text-slate-900">Saved Mappings Templates</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="templates-grid-wrapper">
+                        <!-- Generated Dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- REPORTS TAB -->
+            <div id="panel-reports" class="tab-panel hidden space-y-6">
+                <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-bold font-outfit text-slate-900">Migration Analytical Reports</h3>
+                        <div class="flex gap-3">
+                            <button onclick="downloadReport('CSV')" class="px-4 py-2 bg-slate-800 text-white rounded-lg font-bold text-xs flex items-center gap-2"><i data-lucide="download" class="w-3.5 h-3.5"></i> CSV</button>
+                            <button onclick="downloadReport('PDF')" class="px-4 py-2 bg-slate-800 text-white rounded-lg font-bold text-xs flex items-center gap-2"><i data-lucide="download" class="w-3.5 h-3.5"></i> PDF</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- OCR Mismatches -->
+                        <div class="border border-slate-100 rounded-xl p-5 space-y-3">
+                            <h4 class="font-bold text-sm text-slate-800">OCR Warnings & Mismatches</h4>
+                            <div class="space-y-2 max-h-[250px] overflow-y-auto" id="report-ocr-mismatches-list">
+                                <!-- Dynamic -->
+                            </div>
+                        </div>
+                        <!-- Missing Files -->
+                        <div class="border border-slate-100 rounded-xl p-5 space-y-3">
+                            <h4 class="font-bold text-sm text-slate-800">Clients with Missing Required Files</h4>
+                            <div class="space-y-2 max-h-[250px] overflow-y-auto" id="report-missing-files-list">
+                                <!-- Dynamic -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAILED IMPORTS TAB -->
+            <div id="panel-failed" class="tab-panel hidden space-y-6">
+                <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+                    <h3 class="text-lg font-bold font-outfit text-slate-900 font-sans">Validation Exceptions & Failed Records</h3>
+                    <div class="overflow-x-auto border border-slate-100 rounded-xl">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase">
+                                    <th class="p-4">Import Name</th>
+                                    <th class="p-4">Email</th>
+                                    <th class="p-4">Failure Reason</th>
+                                    <th class="p-4">Job Reference</th>
+                                    <th class="p-4">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="failed-records-table-body" class="divide-y divide-slate-100 font-sans text-slate-700">
+                                <!-- Generated Dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SETTINGS TAB -->
+            <div id="panel-settings" class="tab-panel hidden space-y-6">
+                <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+                    <h3 class="text-lg font-bold font-outfit text-slate-900">Deduplication & Validation Config</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">OCR Confidence Threshold</label>
+                                <div class="flex items-center gap-3">
+                                    <input type="range" min="50" max="99" value="80" class="flex-1 accent-blue-600" id="setting-ocr-conf" oninput="document.getElementById('setting-ocr-conf-val').innerText = this.value + '%'">
+                                    <span class="font-bold text-slate-700 text-sm" id="setting-ocr-conf-val">80%</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">De-duplication Action</label>
+                                <select class="w-full border border-slate-200 rounded-xl p-3 bg-white text-slate-700 text-sm outline-none" id="setting-dedup">
+                                    <option value="SKIP">Skip Row (Mark Failed/Duplicate)</option>
+                                    <option value="MERGE">Merge (Update Existing Record Fields)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Welcome Email Template</label>
+                            <textarea id="setting-email-tpl" rows="6" class="w-full border border-slate-200 rounded-xl p-4 text-slate-700 text-sm outline-none font-sans">Hello {ClientName},
+
+Welcome to Globalisor! Your legacy corporate records have been successfully migrated. 
+
+Username: {Email}
+Temporary Password: {TempPassword}
+Activation Link: https://globalisor-fe.vercel.app/auth.html
+
+Please log in immediately to complete your activation.</textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end pt-4 border-t border-slate-100">
+                        <button onclick="saveMigrationSettings()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs">Save Settings</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Client Detail Preview Editor Modal -->
+    <div class="hidden fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300" id="preview-editor-modal">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto" onclick="closePreviewModal()"></div>
+        <div class="bg-white rounded-2xl p-8 w-full max-w-2xl shadow-2xl relative z-10 pointer-events-auto transform scale-90 transition-transform flex flex-col max-h-[85vh]">
+            <h3 class="text-xl font-bold mb-4 font-outfit text-slate-900" id="modal-client-header">Edit Import Candidate</h3>
+            
+            <div class="space-y-4 overflow-y-auto flex-1 pr-2 text-sm font-sans" id="modal-fields-body">
+                <!-- Loaded dynamically -->
+            </div>
+
+            <div class="flex gap-4 mt-6 border-t border-slate-100 pt-4">
+                <button class="px-5 py-3 border border-slate-200 rounded-xl flex-1 text-slate-600 font-bold" onclick="closePreviewModal()">Cancel</button>
+                <button class="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex-1 font-bold" onclick="savePreviewRowEdited()">Save & Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script workspace -->
+    <script>
+        let statsData = {};
+        let activeJobs = [];
+        let importedRecords = []; // Temporary clients list parsed locally before job start
+        let selectedExcelColumns = [];
+        let mappings = {
+            clientName: "",
+            companyName: "",
+            email: "",
+            uen: "",
+            country: ""
+        };
+
+        function safeCreateIcons() {
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById('panel-' + tabId).classList.remove('hidden');
+            document.getElementById('tab-btn-' + tabId).classList.add('active');
+            
+            if (tabId === 'dashboard') fetchStatsAndActiveJobs();
+            if (tabId === 'history') fetchHistory();
+            if (tabId === 'templates') fetchTemplates();
+            if (tabId === 'failed') fetchFailedRecords();
+            if (tabId === 'reports') generateReports();
+            safeCreateIcons();
+        }
+
+        async function init() {
+            safeCreateIcons();
+            fetchStatsAndActiveJobs();
+            fetchSettings();
+            
+            // Poll for background migration statuses
+            setInterval(() => {
+                const activeTab = document.querySelector('.tab-btn.active').id.replace('tab-btn-', '');
+                if (activeTab === 'dashboard') {
+                    fetchStatsAndActiveJobs();
+                }
+            }, 6000);
+        }
+
+        async function fetchStatsAndActiveJobs() {
+            try {
+                const sRes = await fetch('/api/migration/stats');
+                if (sRes.ok) {
+                    const stats = await sRes.json();
+                    document.getElementById('stat-total-clients').innerText = stats.totalClients;
+                    document.getElementById('stat-imported-today').innerText = stats.importedToday;
+                    document.getElementById('stat-failed-imports').innerText = stats.failedImports;
+                    document.getElementById('stat-ocr-accuracy').innerText = Math.round(stats.ocrAccuracy) + '%';
+                }
+                
+                const hRes = await fetch('/api/migration/history');
+                if (hRes.ok) {
+                    const jobs = await hRes.json();
+                    activeJobs = jobs.filter(j => j.status === 'PENDING' || j.status === 'IN_PROGRESS' || j.status === 'PAUSED');
+                    renderActiveJobs();
+                }
+            } catch (err) {
+                console.error("Error loading stats:", err);
+            }
+        }
+
+        function renderActiveJobs() {
+            const wrapper = document.getElementById('active-jobs-list');
+            const spinner = document.getElementById('queue-spinner');
+            
+            if (activeJobs.length === 0) {
+                wrapper.innerHTML = `<div class="text-slate-400 text-sm py-4 text-center">No active migration queues currently running.</div>`;
+                spinner.classList.add('hidden');
+                return;
+            }
+            
+            spinner.classList.remove('hidden');
+            
+            wrapper.innerHTML = activeJobs.map(job => {
+                const pct = job.totalRecords > 0 ? Math.round((job.processedRecords * 100) / job.totalRecords) : 0;
+                
+                return `
+                    <div class="border border-slate-100 rounded-xl p-5 space-y-4 shadow-sm bg-slate-50/50">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <span class="font-bold text-slate-800 text-sm">${job.name}</span>
+                                <div class="text-[10px] text-slate-400 font-bold uppercase mt-1">Status: <span class="text-blue-600">${job.status}</span> | Processed: ${job.processedRecords}/${job.totalRecords}</div>
+                            </div>
+                            <div class="flex gap-2">
+                                ${job.status === 'IN_PROGRESS' 
+                                    ? `<button onclick="controlJob('${job.id}', 'pause')" class="p-2 border border-slate-200 rounded-lg hover:bg-white text-slate-600"><i data-lucide="pause" class="w-3.5 h-3.5"></i></button>`
+                                    : `<button onclick="controlJob('${job.id}', 'resume')" class="p-2 border border-slate-200 rounded-lg hover:bg-white text-slate-600"><i data-lucide="play" class="w-3.5 h-3.5"></i></button>`
+                                }
+                                <button onclick="controlJob('${job.id}', 'cancel')" class="p-2 border border-red-100 text-red-500 rounded-lg hover:bg-red-50"><i data-lucide="square" class="w-3.5 h-3.5"></i></button>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-[10px] font-bold text-slate-500">
+                                <span>Progress</span>
+                                <span>${pct}%</span>
+                            </div>
+                            <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                                <div class="h-full bg-blue-600 transition-all duration-300" style="width: ${pct}%"></div>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-900 text-slate-100 text-[10px] p-4 rounded-xl font-mono space-y-1 max-h-[120px] overflow-y-auto">
+                            ${job.logs.slice(-5).map(log => `<div>> ${log}</div>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            safeCreateIcons();
+        }
+
+        async function controlJob(id, action) {
+            try {
+                const res = await fetch(`/api/migration/job/${id}/${action}`, { method: 'POST' });
+                if (res.ok) {
+                    fetchStatsAndActiveJobs();
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        // ================= CLIENT DIRECTORY / ZIP SELECTION =================
+
+        async function handleDirectorySelect(event) {
+            const files = event.target.files;
+            if (!files || files.length === 0) return;
+            
+            importedRecords = [];
+            let excelFile = null;
+            
+            // Build tree mapping
+            const folderMap = {};
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const relativePath = file.webkitRelativePath || file.name;
+                const parts = relativePath.split('/');
+                const companyFolder = parts[1] || "Default Client";
+                
+                if (!folderMap[companyFolder]) {
+                    folderMap[companyFolder] = {
+                        clientName: companyFolder.replace(/Pte\s*Ltd/gi, '').trim(),
+                        companyName: companyFolder,
+                        email: companyFolder.toLowerCase().replace(/\s+/g, '') + "@example.com",
+                        documents: [],
+                        data: {
+                            uen: "2026" + Math.floor(10000 + Math.random() * 90000) + "T",
+                            country: "Singapore"
+                        }
+                    };
+                }
+                
+                if (file.name.endsWith('.xlsx') || file.name.endsWith('.csv')) {
+                    excelFile = file;
+                } else {
+                    // Read file as base64 preview mapping
+                    const fileBase64 = await readFileAsBase64(file);
+                    let docType = "Other Supporting Documents";
+                    if (file.name.toLowerCase().includes('passport')) docType = "Passport";
+                    else if (file.name.toLowerCase().includes('nric') || file.name.toLowerCase().includes('fin')) docType = "NRIC / FIN";
+                    else if (file.name.toLowerCase().includes('bizfile')) docType = "Bizfile";
+                    else if (file.name.toLowerCase().includes('constitution')) docType = "Constitution";
+                    else if (file.name.toLowerCase().includes('invoice')) docType = "Invoices";
+
+                    folderMap[companyFolder].documents.push({
+                        fileName: file.name,
+                        documentType: docType,
+                        fileData: fileBase64,
+                        confidence: 0.96, // Simulated OCR confidence
+                        extractedFields: simulateOcrExtracted(docType, folderMap[companyFolder].clientName)
+                    });
+                }
+            }
+
+            if (excelFile) {
+                // Read Excel data to override folder map
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const json = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+                    
+                    if (json.length > 0) {
+                        selectedExcelColumns = Object.keys(json[0]);
+                        renderExcelMapper(folderMap, json);
+                    } else {
+                        mapFoldersDirectly(folderMap);
+                    }
+                };
+                reader.readAsArrayBuffer(excelFile);
+            } else {
+                mapFoldersDirectly(folderMap);
+            }
+        }
+
+        async function handleZipSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            importedRecords = [];
+            const folderMap = {};
+            
+            try {
+                const zip = await JSZip.loadAsync(file);
+                const filePromises = [];
+                
+                zip.forEach((relativePath, zipEntry) => {
+                    if (zipEntry.dir) return;
+                    
+                    const parts = relativePath.split('/');
+                    const companyFolder = parts[0] || "Imported Client";
+                    
+                    if (!folderMap[companyFolder]) {
+                        folderMap[companyFolder] = {
+                            clientName: companyFolder.replace(/Pte\s*Ltd/gi, '').trim(),
+                            companyName: companyFolder,
+                            email: companyFolder.toLowerCase().replace(/\s+/g, '') + "@example.com",
+                            documents: [],
+                            data: {
+                                uen: "2026" + Math.floor(10000 + Math.random() * 90000) + "T",
+                                country: "Singapore"
+                            }
+                        };
+                    }
+                    
+                    if (zipEntry.name.endsWith('.xlsx') || zipEntry.name.endsWith('.csv')) {
+                        // Skip loading spreadsheet in folders direct
+                    } else {
+                        const promise = zipEntry.async('base64').then(base64 => {
+                            let docType = "Other Supporting Documents";
+                            if (zipEntry.name.toLowerCase().includes('passport')) docType = "Passport";
+                            else if (zipEntry.name.toLowerCase().includes('nric') || zipEntry.name.toLowerCase().includes('fin')) docType = "NRIC / FIN";
+                            else if (zipEntry.name.toLowerCase().includes('bizfile')) docType = "Bizfile";
+                            else if (zipEntry.name.toLowerCase().includes('constitution')) docType = "Constitution";
+                            
+                            folderMap[companyFolder].documents.push({
+                                fileName: zipEntry.name.split('/').pop(),
+                                documentType: docType,
+                                fileData: "data:application/pdf;base64," + base64,
+                                confidence: 0.98,
+                                extractedFields: simulateOcrExtracted(docType, folderMap[companyFolder].clientName)
+                            });
+                        });
+                        filePromises.push(promise);
+                    }
+                });
+
+                await Promise.all(filePromises);
+                mapFoldersDirectly(folderMap);
+            } catch (err) {
+                console.error("ZIP load error:", err);
+                alert("Failed to load ZIP archive.");
+            }
+        }
+
+        function readFileAsBase64(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function simulateOcrExtracted(docType, clientName) {
+            if (docType === 'Passport') {
+                return {
+                    name: clientName,
+                    passportNum: "E" + Math.floor(1000000 + Math.random() * 9000000),
+                    nationality: "Singaporean",
+                    dob: "1990-05-15"
+                };
+            }
+            if (docType === 'NRIC / FIN') {
+                return {
+                    name: clientName,
+                    nric: "S" + Math.floor(8000000 + Math.random() * 1000000) + "D",
+                    dob: "1988-12-04",
+                    gender: "Male"
+                };
+            }
+            if (docType === 'Bizfile') {
+                return {
+                    companyName: clientName + " Pte. Ltd.",
+                    uen: "2026" + Math.floor(10000 + Math.random() * 90000) + "R",
+                    incorporationDate: "2026-06-18",
+                    address: "10 Marina Boulevard, Tower 2, Singapore 018983"
+                };
+            }
+            return {};
+        }
+
+        function mapFoldersDirectly(folderMap) {
+            importedRecords = Object.values(folderMap);
+            renderPreviewGrid();
+        }
+
+        // ================= COLUMN AUTO-MAPPING WORKSPACE =================
+
+        function renderExcelMapper(folderMap, excelRows) {
+            const grid = document.getElementById('mapping-cols-grid');
+            document.getElementById('mapping-workspace').classList.remove('hidden');
+            
+            const fieldOptions = [
+                { key: 'clientName', label: 'Client / Director Name' },
+                { key: 'companyName', label: 'Company Incorporation Name' },
+                { key: 'email', label: 'Client Sign-In Email' },
+                { key: 'uen', label: 'Bizfile UEN Number' },
+                { key: 'country', label: 'Incorp Country' }
+            ];
+
+            grid.innerHTML = fieldOptions.map(opt => {
+                // Try auto match column name
+                const bestCol = selectedExcelColumns.find(col => col.toLowerCase().includes(opt.key.toLowerCase()) || opt.label.toLowerCase().includes(col.toLowerCase())) || "";
+                
+                return `
+                    <div class="flex flex-col gap-1 border border-slate-100 p-4 rounded-xl bg-slate-50">
+                        <span class="text-xs font-bold text-slate-800 uppercase tracking-wide">${opt.label}</span>
+                        <select onchange="updateMappingKey('${opt.key}', this.value)" class="border border-slate-200 bg-white rounded-lg p-2 text-slate-700 text-xs outline-none">
+                            <option value="">-- Manual Map Column --</option>
+                            ${selectedExcelColumns.map(col => `<option value="${col}" ${col === bestCol ? 'selected' : ''}>${col}</option>`).join('')}
+                        </select>
+                    </div>
+                `;
+            }).join('');
+
+            // Save auto matched maps
+            fieldOptions.forEach(opt => {
+                const bestCol = selectedExcelColumns.find(col => col.toLowerCase().includes(opt.key.toLowerCase()) || opt.label.toLowerCase().includes(col.toLowerCase())) || "";
+                mappings[opt.key] = bestCol;
+            });
+
+            // Map data
+            applyExcelMappers(folderMap, excelRows);
+        }
+
+        function updateMappingKey(field, colName) {
+            mappings[field] = colName;
+        }
+
+        function applyExcelMappers(folderMap, excelRows) {
+            excelRows.forEach((row, index) => {
+                const key = mappings.companyName ? row[mappings.companyName] : "Client Folder " + (index + 1);
+                
+                let details = folderMap[key];
+                if (!details) {
+                    details = {
+                        clientName: row[mappings.clientName] || "Client " + index,
+                        companyName: row[mappings.companyName] || "Company " + index,
+                        email: row[mappings.email] || `client-${index}@example.com`,
+                        documents: [],
+                        data: {}
+                    };
+                    folderMap[key] = details;
+                } else {
+                    if (row[mappings.clientName]) details.clientName = row[mappings.clientName];
+                    if (row[mappings.email]) details.email = row[mappings.email];
+                }
+
+                if (row[mappings.uen]) details.data.uen = row[mappings.uen];
+                if (row[mappings.country]) details.data.country = row[mappings.country];
+            });
+
+            importedRecords = Object.values(folderMap);
+            renderPreviewGrid();
+        }
+
+        // ================= INTERACTIVE PREVIEW GRID =================
+
+        function renderPreviewGrid() {
+            document.getElementById('mapping-workspace').classList.remove('hidden');
+            const tbody = document.getElementById('import-preview-table-body');
+            
+            if (importedRecords.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400 text-sm">No clients parsed yet. Select folders/ZIP to import.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = importedRecords.map((rec, index) => {
+                const uenVal = rec.data.uen || "N/A";
+                const docCount = rec.documents.length;
+                const ocrConf = rec.documents.length > 0 ? Math.round(rec.documents[0].confidence * 100) + '%' : 'N/A';
+                
+                // Validation checks
+                const validationErrors = [];
+                if (!rec.email || !rec.email.includes('@')) validationErrors.push('Invalid Email');
+                if (rec.documents.length === 0) validationErrors.push('Missing Docs');
+                
+                const isValid = validationErrors.length === 0;
+
+                return `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-4 font-bold text-slate-900">${rec.clientName}</td>
+                        <td class="p-4 text-slate-600">${rec.companyName}</td>
+                        <td class="p-4 font-mono">${uenVal}</td>
+                        <td class="p-4"><span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-bold">${docCount} File(s)</span></td>
+                        <td class="p-4 font-semibold text-slate-700">${ocrConf}</td>
+                        <td class="p-4">
+                            ${isValid 
+                                ? `<span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 font-bold">Valid</span>`
+                                : `<span class="px-2 py-0.5 rounded bg-red-50 text-red-600 font-bold" title="${validationErrors.join(', ')}">${validationErrors[0]}</span>`
+                            }
+                        </td>
+                        <td class="p-4 text-center">
+                            <button onclick="openPreviewEditor(${index})" class="px-3 py-1 bg-slate-800 text-white rounded hover:bg-slate-700 font-semibold text-[10px]">Edit Candidate</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ================= EDIT PREVIEW ROW MODAL =================
+
+        let currentEditingIndex = -1;
+
+        function openPreviewEditor(idx) {
+            currentEditingIndex = idx;
+            const rec = importedRecords[idx];
+            
+            document.getElementById('modal-client-header').innerText = "Edit " + rec.clientName;
+            const body = document.getElementById('modal-fields-body');
+            
+            body.innerHTML = `
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">Client Name</label>
+                        <input type="text" id="edit-client-name" value="${rec.clientName}" class="w-full border border-slate-200 rounded-lg p-2.5 outline-none text-slate-700">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">Company Name</label>
+                        <input type="text" id="edit-company-name" value="${rec.companyName}" class="w-full border border-slate-200 rounded-lg p-2.5 outline-none text-slate-700">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">Client Sign-in Email</label>
+                        <input type="email" id="edit-client-email" value="${rec.email}" class="w-full border border-slate-200 rounded-lg p-2.5 outline-none text-slate-700">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">Company UEN</label>
+                        <input type="text" id="edit-company-uen" value="${rec.data.uen || ''}" class="w-full border border-slate-200 rounded-lg p-2.5 outline-none text-slate-700">
+                    </div>
+                </div>
+
+                <div class="space-y-2 mt-4">
+                    <span class="block text-xs font-bold text-slate-400 uppercase tracking-wide">Extracted Files List</span>
+                    <div class="space-y-2 border border-slate-100 rounded-xl p-4">
+                        ${rec.documents.map(d => `
+                            <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200/50">
+                                <span class="font-semibold text-slate-700 text-xs">${d.fileName}</span>
+                                <span class="px-2 py-0.5 rounded bg-blue-50 text-blue-600 font-bold text-[9px] uppercase">${d.documentType}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+
+            const modal = document.getElementById('preview-editor-modal');
+            modal.classList.remove('hidden');
+            modal.offsetHeight;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.remove('scale-90');
+            modal.classList.add('opacity-100', 'pointer-events-auto');
+        }
+
+        function savePreviewRowEdited() {
+            if (currentEditingIndex === -1) return;
+            const rec = importedRecords[currentEditingIndex];
+            
+            rec.clientName = document.getElementById('edit-client-name').value.trim();
+            rec.companyName = document.getElementById('edit-company-name').value.trim();
+            rec.email = document.getElementById('edit-client-email').value.trim();
+            rec.data.uen = document.getElementById('edit-company-uen').value.trim();
+            
+            closePreviewModal();
+            renderPreviewGrid();
+        }
+
+        function closePreviewModal() {
+            const modal = document.getElementById('preview-editor-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.add('scale-90');
+            modal.classList.remove('opacity-100', 'pointer-events-auto');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+            currentEditingIndex = -1;
+        }
+
+        // ================= SAVE MAPPING TEMPLATES =================
+
+        async function saveMappingTemplate() {
+            const name = prompt("Enter a name for this column mapping template:", "ACRA Legacy Column Mappings");
+            if (!name) return;
+
+            const tpl = {
+                name: name,
+                excelMapping: mappings
+            };
+
+            try {
+                const res = await fetch('/api/migration/templates', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(tpl)
+                });
+                if (res.ok) {
+                    alert("Template saved successfully.");
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        // ================= RUN MIGRATION BACKGROUND JOB =================
+
+        async function executeMigrationImport() {
+            if (importedRecords.length === 0) return;
+            
+            const payload = {
+                name: "Legacy Folder Migration (" + new Date().toLocaleString() + ")",
+                records: importedRecords
+            };
+
+            try {
+                const res = await fetch('/api/migration/job', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (res.ok) {
+                    alert("Migration job has been queued in the background successfully!");
+                    document.getElementById('mapping-workspace').classList.add('hidden');
+                    importedRecords = [];
+                    switchTab('dashboard');
+                } else {
+                    alert("Failed to queue migration job.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("API connection error.");
+            }
+        }
+
+        // ================= HISTORY TAB RENDER =================
+
+        async function fetchHistory() {
+            const tbody = document.getElementById('history-table-body');
+            try {
+                const res = await fetch('/api/migration/history');
+                if (res.ok) {
+                    const jobs = await res.json();
+                    tbody.innerHTML = jobs.map(job => `
+                        <tr>
+                            <td class="p-4 font-bold text-slate-800">${job.name}</td>
+                            <td class="p-4"><span class="px-2 py-0.5 rounded font-bold uppercase ${job.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}">${job.status}</span></td>
+                            <td class="p-4 text-emerald-600 font-bold">${job.successCount}</td>
+                            <td class="p-4 text-red-500 font-bold">${job.failedCount}</td>
+                            <td class="p-4 font-semibold text-slate-600">${job.duplicateCount}</td>
+                            <td class="p-4 font-semibold text-slate-600">${Math.round(job.avgOcrConfidence * 100)}%</td>
+                            <td class="p-4 font-mono text-slate-500">${new Date(job.createdAt).toLocaleDateString()}</td>
+                        </tr>
+                    `).join('');
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        // ================= TEMPLATES TAB RENDER =================
+
+        async function fetchTemplates() {
+            const wrapper = document.getElementById('templates-grid-wrapper');
+            try {
+                const res = await fetch('/api/migration/templates');
+                if (res.ok) {
+                    const templates = await res.json();
+                    if (templates.length === 0) {
+                        wrapper.innerHTML = `<div class="col-span-3 py-8 text-center text-slate-400 text-sm">No saved templates found. Map fields during import to save mappings.</div>`;
+                        return;
+                    }
+                    wrapper.innerHTML = templates.map(tpl => `
+                        <div class="border border-slate-100 rounded-xl p-5 shadow-sm bg-white hover:shadow-md transition">
+                            <span class="font-bold text-slate-900 text-sm block mb-3">${tpl.name}</span>
+                            <div class="space-y-1 text-xs text-slate-500">
+                                <div><strong>Client Name Mapping:</strong> ${tpl.excelMapping.clientName || 'Manual'}</div>
+                                <div><strong>Company Name Mapping:</strong> ${tpl.excelMapping.companyName || 'Manual'}</div>
+                                <div><strong>Email Mapping:</strong> ${tpl.excelMapping.email || 'Manual'}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        // ================= REPORTS TAB RENDER =================
+
+        async function generateReports() {
+            const ocrList = document.getElementById('report-ocr-mismatches-list');
+            const docsList = document.getElementById('report-missing-files-list');
+            
+            try {
+                const res = await fetch('/api/migration/history');
+                if (res.ok) {
+                    const jobs = await res.json();
+                    let ocrItems = [];
+                    let missingDocs = [];
+
+                    jobs.forEach(job => {
+                        job.records.forEach(rec => {
+                            if (rec.ocrMismatches && rec.ocrMismatches.length > 0) {
+                                ocrItems.push({ client: rec.clientName, issues: rec.ocrMismatches });
+                            }
+                            if (rec.missingDocs && rec.missingDocs.length > 0) {
+                                missingDocs.push({ client: rec.clientName, docs: rec.missingDocs });
+                            }
+                        });
+                    });
+
+                    ocrList.innerHTML = ocrItems.length > 0 ? ocrItems.map(item => `
+                        <div class="bg-amber-50/50 border border-amber-100 p-3 rounded-lg text-xs">
+                            <div class="font-bold text-slate-800">${item.client}</div>
+                            <div class="text-amber-600 mt-1">${item.issues.join(', ')}</div>
+                        </div>
+                    `).join('') : `<div class="text-slate-400 text-center py-8">No OCR mismatches identified.</div>`;
+
+                    docsList.innerHTML = missingDocs.length > 0 ? missingDocs.map(item => `
+                        <div class="bg-red-50/50 border border-red-100 p-3 rounded-lg text-xs">
+                            <div class="font-bold text-slate-800">${item.client}</div>
+                            <div class="text-red-500 mt-1">Missing: ${item.docs.join(', ')}</div>
+                        </div>
+                    `).join('') : `<div class="text-slate-400 text-center py-8">No missing documents reports.</div>`;
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        function downloadReport(format) {
+            alert(`Report file downloaded successfully as a mock ${format} document.`);
+        }
+
+        // ================= FAILED IMPORTS TAB RENDER =================
+
+        async function fetchFailedRecords() {
+            const tbody = document.getElementById('failed-records-table-body');
+            try {
+                const res = await fetch('/api/migration/failed');
+                if (res.ok) {
+                    const records = await res.json();
+                    if (records.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400 text-sm">No validation failures or failed records found.</td></tr>`;
+                        return;
+                    }
+                    tbody.innerHTML = records.map(rec => `
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-4 font-bold text-slate-800">${rec.clientName}</td>
+                            <td class="p-4 font-mono">${rec.email}</td>
+                            <td class="p-4 text-red-500 font-semibold">${rec.errorMessage}</td>
+                            <td class="p-4 text-slate-500 font-semibold">${rec.jobName}</td>
+                            <td class="p-4 font-mono text-slate-400">${new Date(rec.date).toLocaleDateString()}</td>
+                        </tr>
+                    `).join('');
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        // ================= SETTINGS TAB WORKSPACE =================
+
+        async function fetchSettings() {
+            try {
+                const res = await fetch('/api/migration/settings');
+                if (res.ok) {
+                    const settings = await res.json();
+                    document.getElementById('setting-ocr-conf').value = settings.ocrConfidenceThreshold * 100;
+                    document.getElementById('setting-ocr-conf-val').innerText = (settings.ocrConfidenceThreshold * 100) + '%';
+                    document.getElementById('setting-dedup').value = settings.deduplicationStrategy;
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        async function saveMigrationSettings() {
+            const conf = parseFloat(document.getElementById('setting-ocr-conf').value) / 100;
+            const dedup = document.getElementById('setting-dedup').value;
+            const emailTpl = document.getElementById('setting-email-tpl').value;
+
+            const payload = {
+                ocrConfidenceThreshold: conf,
+                deduplicationStrategy: dedup
+            };
+
+            try {
+                const res = await fetch('/api/migration/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    alert("Migration settings saved successfully!");
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>

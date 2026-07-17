@@ -1753,7 +1753,45 @@ const calculateMockProgress = (ob) => {
 // GET /api/onboarding → get all onboarding records for admin/staff review
 app.get('/api/onboarding', (req, res) => {
     const db = getDb();
-    res.json(db.onboarding || []);
+    if (!db.onboarding) db.onboarding = [];
+    
+    let updated = false;
+    (db.clients || []).forEach(client => {
+        let ob = db.onboarding.find(o => o.clientId === client.clientId);
+        if (!ob) {
+            ob = {
+                id: 'ob-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                clientId: client.clientId,
+                clientEmail: client.email || '',
+                clientName: client.name || '',
+                portalActivated: false,
+                status: 'in_progress',
+                progressPercent: 0,
+                stepDocumentChecklist: { key: 'document_checklist', title: 'Document Checklist', status: 'pending', data: {}, documents: [] },
+                step2DirectorDetails: { key: 'director_details', title: 'Director Details', status: 'pending', data: { list: [] }, documents: [] },
+                stepShareCapital: { key: 'share_capital', title: 'Share Capital Details', status: 'pending', data: { allocations: [], currencies: [] }, documents: [] },
+                stepShareholderDetails: { key: 'shareholder_details', title: 'Shareholder Details', status: 'pending', data: {}, documents: [] },
+                step3IndividualShareholder: { key: 'individual_shareholder', title: 'Individual Shareholder Details', status: 'pending', data: { list: [] }, documents: [] },
+                step4CorporateShareholder: { key: 'corporate_shareholder', title: 'Corporate Shareholder Details', status: 'pending', data: { list: [] }, documents: [] },
+                step5UBO: { key: 'ubo', title: 'Ultimate Beneficial Owner', status: 'pending', data: {}, documents: [] },
+                step6CorporateRep: { key: 'corporate_rep', title: 'Corporate Representative', status: 'pending', data: {}, documents: [] },
+                stepRons: { key: 'rons', title: 'Register of Nominee Shareholders (RONS)', status: 'pending', data: { hasNominee: 'No', nomineeList: [] }, documents: [] },
+                step7FinalDeclaration: { key: 'final_declaration', title: 'Final Declaration & Consent', status: 'pending', data: {}, documents: [] },
+                auditLogs: ['Onboarding initiated automatically at ' + new Date()],
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            };
+            db.onboarding.push(ob);
+            updated = true;
+        } else {
+            if (!ob.clientName && client.name) { ob.clientName = client.name; updated = true; }
+            if (!ob.clientEmail && client.email) { ob.clientEmail = client.email; updated = true; }
+        }
+    });
+    if (updated) {
+        saveDb(db);
+    }
+    res.json(db.onboarding);
 });
 
 // PATCH /api/onboarding/:id/step/:stepKey → update onboarding step details/status
