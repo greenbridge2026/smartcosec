@@ -533,15 +533,275 @@ Please log in immediately to complete your activation.</textarea>
 
         // ================= CLIENT DIRECTORY / ZIP SELECTION =================
 
+        function parseExcelFile(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                        const result = {
+                            companyName: '',
+                            uen: '',
+                            companyType: '',
+                            primaryActivity: '',
+                            secondaryActivity: '',
+                            registeredOfficeAddress: '',
+                            lastAgmDate: 'NA',
+                            fye: '',
+                            annualReturnDate: 'NA',
+                            xbrlPrepared: 'NA',
+                            directors: [],
+                            secretaries: [],
+                            members: [],
+                            controllers: []
+                        };
+
+                        const getSheet = (name) => {
+                            const key = workbook.SheetNames.find(s => s.trim().toLowerCase() === name.trim().toLowerCase());
+                            return key ? workbook.Sheets[key] : null;
+                        };
+
+                        const formatDate = (val) => {
+                            if (val instanceof Date) {
+                                return val.toISOString().split('T')[0];
+                            }
+                            if (val && typeof val === 'string') {
+                                return val.trim();
+                            }
+                            return val ? String(val).trim() : '';
+                        };
+
+                        // 1. Home sheet
+                        const homeSheet = getSheet('Home');
+                        if (homeSheet) {
+                            const rows = XLSX.utils.sheet_to_json(homeSheet, { header: 1 });
+                            rows.forEach(row => {
+                                if (!row || row.length < 3) return;
+                                const label = String(row[1] || '').trim().toLowerCase();
+                                const val = String(row[2] || '').trim();
+                                if (label.includes('name of the company')) result.companyName = val;
+                                else if (label.includes('uen no.')) result.uen = val;
+                                else if (label.includes('company type')) result.companyType = val;
+                                else if (label.includes('primary activity')) result.primaryActivity = val;
+                                else if (label.includes('secondary activity')) result.secondaryActivity = val;
+                                else if (label.includes('registered office address')) result.registeredOfficeAddress = val;
+                                else if (label.includes('last agm date')) result.lastAgmDate = val;
+                                else if (label.includes('fye of fs laid at agm')) result.fye = formatDate(row[2]);
+                                else if (label.includes('date of annual return')) result.annualReturnDate = val;
+                                else if (label.includes('xbrl prepared')) result.xbrlPrepared = val;
+                            });
+                        }
+
+                        // 2. Directors sheet
+                        const directorsSheet = getSheet('Directors');
+                        if (directorsSheet) {
+                            const rows = XLSX.utils.sheet_to_json(directorsSheet, { header: 1 });
+                            let section = '';
+                            let headers = [];
+                            rows.forEach(row => {
+                                if (!row || row.length === 0) return;
+                                const firstCell = String(row[0] || '').trim();
+                                if (firstCell.toLowerCase().startsWith('register of directors')) {
+                                    section = 'directors';
+                                    headers = [];
+                                    return;
+                                } else if (firstCell.toLowerCase().startsWith('register of nominee directors')) {
+                                    section = 'nominee';
+                                    headers = [];
+                                    return;
+                                } else if (firstCell.toLowerCase().startsWith('name')) {
+                                    headers = row.map(h => String(h || '').trim().toLowerCase());
+                                    return;
+                                }
+
+                                if (headers.length > 0 && (section === 'directors' || section === 'nominee')) {
+                                    if (firstCell && firstCell !== 'NONE' && !firstCell.toLowerCase().startsWith('register') && !firstCell.toLowerCase().startsWith('position')) {
+                                        const director = { type: section === 'nominee' ? 'Nominee Director' : 'Director' };
+                                        headers.forEach((header, idx) => {
+                                            const val = row[idx];
+                                            if (val === undefined || val === null) return;
+                                            if (header.includes('former') || header.includes('alias')) {
+                                                director.formerName = String(val).trim();
+                                            } else if (header.includes('expiry')) {
+                                                director.passportExpiry = formatDate(val);
+                                            } else if (header.includes('nric') || header.includes('id card') || header.includes('passport') || header.includes('fin')) {
+                                                director.idNumber = String(val).trim();
+                                            } else if (header.includes('name')) {
+                                                director.name = String(val).trim();
+                                            } else if (header.includes('birth') || header.includes('dob')) {
+                                                director.dob = formatDate(val);
+                                            } else if (header.includes('nationality')) {
+                                                director.nationality = String(val).trim();
+                                            } else if (header.includes('address')) {
+                                                director.address = String(val).trim();
+                                            } else if (header.includes('appointment')) {
+                                                director.appointmentDate = formatDate(val);
+                                            } else if (header.includes('cessation')) {
+                                                director.cessationDate = formatDate(val);
+                                            } else if (header.includes('mobile')) {
+                                                director.mobile = String(val).trim();
+                                            } else if (header.includes('email')) {
+                                                director.email = String(val).trim();
+                                            }
+                                        });
+                                        if (director.name) result.directors.push(director);
+                                    }
+                                }
+                            });
+                        }
+
+                        // 3. Secretaries sheet
+                        const secretariesSheet = getSheet('Secretaries');
+                        if (secretariesSheet) {
+                            const rows = XLSX.utils.sheet_to_json(secretariesSheet, { header: 1 });
+                            let headers = [];
+                            rows.forEach(row => {
+                                if (!row || row.length === 0) return;
+                                const firstCell = String(row[0] || '').trim();
+                                if (firstCell.toLowerCase().startsWith('name')) {
+                                    headers = row.map(h => String(h || '').trim().toLowerCase());
+                                    return;
+                                }
+                                if (headers.length > 0 && firstCell && firstCell !== 'NONE' && !firstCell.toLowerCase().startsWith('register')) {
+                                    const secretary = {};
+                                    headers.forEach((header, idx) => {
+                                        const val = row[idx];
+                                        if (val === undefined || val === null) return;
+                                        if (header.includes('former') || header.includes('alias')) {
+                                            secretary.formerName = String(val).trim();
+                                        } else if (header.includes('id card') || header.includes('passport') || header.includes('fin') || header.includes('nric')) {
+                                            secretary.idNumber = String(val).trim();
+                                        } else if (header.includes('name')) {
+                                            secretary.name = String(val).trim();
+                                        } else if (header.includes('nationality')) {
+                                            secretary.nationality = String(val).trim();
+                                        } else if (header.includes('address')) {
+                                            secretary.address = String(val).trim();
+                                        } else if (header.includes('appointment')) {
+                                            secretary.appointmentDate = formatDate(val);
+                                        } else if (header.includes('resignation')) {
+                                            secretary.resignationDate = formatDate(val);
+                                        }
+                                    });
+                                    if (secretary.name) result.secretaries.push(secretary);
+                                }
+                            });
+                        }
+
+                        // 4. Members sheet
+                        const membersSheet = getSheet('Members');
+                        if (membersSheet) {
+                            const rows = XLSX.utils.sheet_to_json(membersSheet, { header: 1 });
+                            let headers = [];
+                            let inRegister = false;
+                            rows.forEach(row => {
+                                if (!row || row.length === 0) return;
+                                const rowStr = row.join(' ').toLowerCase();
+                                if (rowStr.includes('date entered as member')) {
+                                    inRegister = true;
+                                    headers = row.map(h => String(h || '').trim().toLowerCase());
+                                    return;
+                                } else if (rowStr.includes('share certificate') || rowStr.includes('ledger') || rowStr.includes('transactions')) {
+                                    inRegister = false;
+                                    return;
+                                }
+
+                                if (inRegister && headers.length > 0) {
+                                    const firstCell = String(row[1] || '').trim(); // Name is at index 1
+                                    if (firstCell && firstCell !== 'NONE' && !firstCell.toLowerCase().startsWith('register') && !firstCell.toLowerCase().startsWith('s. no.')) {
+                                        const member = {};
+                                        headers.forEach((header, idx) => {
+                                            const val = row[idx];
+                                            if (val === undefined || val === null) return;
+                                            if (header.includes('name of member')) {
+                                                member.name = String(val).trim();
+                                            } else if (header.includes('nric') || header.includes('id card') || header.includes('passport') || header.includes('fin')) {
+                                                member.idNumber = String(val).trim();
+                                            } else if (header.includes('nationality')) {
+                                                member.nationality = String(val).trim();
+                                            } else if (header.includes('address')) {
+                                                member.address = String(val).trim();
+                                            } else if (header.includes('entered')) {
+                                                member.dateEntered = formatDate(val);
+                                            } else if (header.includes('ceased')) {
+                                                member.dateCeased = formatDate(val);
+                                            } else if (header.includes('email')) {
+                                                member.email = String(val).trim();
+                                            } else if (header.includes('mobile')) {
+                                                member.mobile = String(val).trim();
+                                            }
+                                        });
+                                        if (member.name) result.members.push(member);
+                                    }
+                                }
+                            });
+                        }
+
+                        // 5. Controllers sheet
+                        const controllersSheet = getSheet('Controllers');
+                        if (controllersSheet) {
+                            const rows = XLSX.utils.sheet_to_json(controllersSheet, { header: 1 });
+                            let headers = [];
+                            rows.forEach(row => {
+                                if (!row || row.length === 0) return;
+                                const nameCell = String(row[2] || '').trim(); // Name of controller is at index 2
+                                if (String(row[1] || '').trim().toLowerCase().startsWith('date of entry') || String(row[2] || '').trim().toLowerCase().startsWith('name of controller')) {
+                                    headers = row.map(h => String(h || '').trim().toLowerCase());
+                                    return;
+                                }
+                                if (headers.length > 0 && nameCell && nameCell !== 'NONE' && !nameCell.toLowerCase().startsWith('register')) {
+                                    const controller = {};
+                                    headers.forEach((header, idx) => {
+                                        const val = row[idx];
+                                        if (val === undefined || val === null) return;
+                                        if (header.includes('former') || header.includes('alias')) {
+                                            controller.formerName = String(val).trim();
+                                        } else if (header.includes('expiry')) {
+                                            controller.passportExpiry = formatDate(val);
+                                        } else if (header.includes('id card') || header.includes('passport') || header.includes('nric') || header.includes('fin')) {
+                                            controller.idNumber = String(val).trim();
+                                        } else if (header.includes('name of controller')) {
+                                            controller.name = String(val).trim();
+                                        } else if (header.includes('date of entry')) {
+                                            controller.dateOfEntry = formatDate(val);
+                                        } else if (header.includes('birth') || header.includes('dob')) {
+                                            controller.dob = formatDate(val);
+                                        } else if (header.includes('address')) {
+                                            controller.address = String(val).trim();
+                                        } else if (header.includes('remarks')) {
+                                            controller.remarks = String(val).trim();
+                                        } else if (header.includes('mobile')) {
+                                            controller.mobile = String(val).trim();
+                                        } else if (header.includes('email')) {
+                                            controller.email = String(val).trim();
+                                        }
+                                    });
+                                    if (controller.name) result.controllers.push(controller);
+                                }
+                            });
+                        }
+
+                        resolve(result);
+                    } catch (err) {
+                        console.error("Excel parse error:", err);
+                        resolve(null);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // ================= CLIENT DIRECTORY / ZIP SELECTION =================
+
         async function handleDirectorySelect(event) {
             const files = event.target.files;
             if (!files || files.length === 0) return;
             
             importedRecords = [];
-            let excelFile = null;
-            
-            // Build tree mapping
             const folderMap = {};
+            const excelPromises = [];
+            
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 const relativePath = file.webkitRelativePath || file.name;
@@ -561,10 +821,28 @@ Please log in immediately to complete your activation.</textarea>
                     };
                 }
                 
-                if (file.name.endsWith('.xlsx') || file.name.endsWith('.csv')) {
-                    excelFile = file;
+                if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                    const promise = parseExcelFile(file).then(excelData => {
+                        if (excelData) {
+                            folderMap[companyFolder].data.excelData = excelData;
+                            if (excelData.companyName) {
+                                folderMap[companyFolder].companyName = excelData.companyName;
+                                folderMap[companyFolder].clientName = excelData.companyName.replace(/Pte\s*Ltd/gi, '').trim();
+                            }
+                            if (excelData.uen) {
+                                folderMap[companyFolder].data.uen = excelData.uen;
+                            }
+                            if (excelData.directors && excelData.directors.length > 0) {
+                                const mainDir = excelData.directors.find(d => d.type === 'Director') || excelData.directors[0];
+                                folderMap[companyFolder].clientName = mainDir.name;
+                                if (mainDir.email) {
+                                    folderMap[companyFolder].email = mainDir.email;
+                                }
+                            }
+                        }
+                    });
+                    excelPromises.push(promise);
                 } else {
-                    // Read file as base64 preview mapping
                     const fileBase64 = await readFileAsBase64(file);
                     let docType = "Other Supporting Documents";
                     if (file.name.toLowerCase().includes('passport')) docType = "Passport";
@@ -583,26 +861,8 @@ Please log in immediately to complete your activation.</textarea>
                 }
             }
 
-            if (excelFile) {
-                // Read Excel data to override folder map
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const sheetName = workbook.SheetNames[0];
-                    const json = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
-                    
-                    if (json.length > 0) {
-                        selectedExcelColumns = Object.keys(json[0]);
-                        renderExcelMapper(folderMap, json);
-                    } else {
-                        mapFoldersDirectly(folderMap);
-                    }
-                };
-                reader.readAsArrayBuffer(excelFile);
-            } else {
-                mapFoldersDirectly(folderMap);
-            }
+            await Promise.all(excelPromises);
+            mapFoldersDirectly(folderMap);
         }
 
         async function handleZipSelect(event) {
@@ -611,10 +871,11 @@ Please log in immediately to complete your activation.</textarea>
             
             importedRecords = [];
             const folderMap = {};
+            const excelPromises = [];
+            const filePromises = [];
             
             try {
                 const zip = await JSZip.loadAsync(file);
-                const filePromises = [];
                 
                 zip.forEach((relativePath, zipEntry) => {
                     if (zipEntry.dir) return;
@@ -635,8 +896,28 @@ Please log in immediately to complete your activation.</textarea>
                         };
                     }
                     
-                    if (zipEntry.name.endsWith('.xlsx') || zipEntry.name.endsWith('.csv')) {
-                        // Skip loading spreadsheet in folders direct
+                    if (zipEntry.name.endsWith('.xlsx') || zipEntry.name.endsWith('.xls')) {
+                        const excelPromise = zipEntry.async('arraybuffer').then(async (buffer) => {
+                            const excelData = await parseExcelFile(new Blob([buffer]));
+                            if (excelData) {
+                                folderMap[companyFolder].data.excelData = excelData;
+                                if (excelData.companyName) {
+                                    folderMap[companyFolder].companyName = excelData.companyName;
+                                    folderMap[companyFolder].clientName = excelData.companyName.replace(/Pte\s*Ltd/gi, '').trim();
+                                }
+                                if (excelData.uen) {
+                                    folderMap[companyFolder].data.uen = excelData.uen;
+                                }
+                                if (excelData.directors && excelData.directors.length > 0) {
+                                    const mainDir = excelData.directors.find(d => d.type === 'Director') || excelData.directors[0];
+                                    folderMap[companyFolder].clientName = mainDir.name;
+                                    if (mainDir.email) {
+                                        folderMap[companyFolder].email = mainDir.email;
+                                    }
+                                }
+                            }
+                        });
+                        excelPromises.push(excelPromise);
                     } else {
                         const promise = zipEntry.async('base64').then(base64 => {
                             let docType = "Other Supporting Documents";
@@ -658,6 +939,7 @@ Please log in immediately to complete your activation.</textarea>
                 });
 
                 await Promise.all(filePromises);
+                await Promise.all(excelPromises);
                 mapFoldersDirectly(folderMap);
             } catch (err) {
                 console.error("ZIP load error:", err);

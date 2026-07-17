@@ -3534,6 +3534,169 @@ function renderHome(container) {
         `;
     }
 
+    let companyDisplayName = "My Company";
+    let companyStatus = "In Progress";
+    let companyPercent = 65;
+    
+    if (state.requirements) {
+        if (state.requirements.excelData && state.requirements.excelData.companyName) {
+            companyDisplayName = state.requirements.excelData.companyName;
+            companyStatus = "Completed";
+            companyPercent = 100;
+        } else if (state.requirements.names && state.requirements.names[0]) {
+            companyDisplayName = state.requirements.names[0];
+        }
+    }
+    
+    if (activeService) {
+        companyDisplayName = activeService.companyName || companyDisplayName;
+        companyStatus = activeService.status || companyStatus;
+        if (companyStatus === 'approved' || companyStatus === 'completed') {
+            companyPercent = 100;
+        }
+    }
+
+    let registerHtml = '';
+    if (state.requirements && state.requirements.excelData) {
+        const ed = state.requirements.excelData;
+        registerHtml = `
+            <!-- Corporate Register -->
+            <div class="premium-card bg-white border-none shadow-sm p-6">
+                <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-lg">Corporate Register</h3>
+                        <p class="text-xs text-slate-400 mt-1">Your official company records and registers.</p>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-lg border text-[10px] font-bold bg-emerald-50 text-emerald-600 border-emerald-100 uppercase tracking-wider">Active</span>
+                </div>
+                
+                <!-- Register Tabs -->
+                <div class="flex border-b border-slate-100 mb-6 overflow-x-auto gap-4">
+                    <button onclick="switchRegisterTab('company')" id="reg-tab-company" class="reg-tab-btn px-4 py-2 text-sm font-bold text-blue-600 border-b-2 border-blue-600 transition-all">Company Profile</button>
+                    <button onclick="switchRegisterTab('directors')" id="reg-tab-directors" class="reg-tab-btn px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700 transition-all">Directors (${ed.directors ? ed.directors.length : 0})</button>
+                    <button onclick="switchRegisterTab('secretaries')" id="reg-tab-secretaries" class="reg-tab-btn px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700 transition-all">Secretaries (${ed.secretaries ? ed.secretaries.length : 0})</button>
+                    <button onclick="switchRegisterTab('members')" id="reg-tab-members" class="reg-tab-btn px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700 transition-all">Shareholders (${ed.members ? ed.members.length : 0})</button>
+                    <button onclick="switchRegisterTab('controllers')" id="reg-tab-controllers" class="reg-tab-btn px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700 transition-all">Controllers / UBOs (${ed.controllers ? ed.controllers.length : 0})</button>
+                </div>
+                
+                <!-- Register Tab Contents -->
+                <div id="reg-content-company" class="reg-tab-content space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
+                        <div class="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Company Name</span>
+                            <div class="font-bold text-slate-800">${ed.companyName || '—'}</div>
+                        </div>
+                        <div class="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">UEN (Unique Entity Number)</span>
+                            <div class="font-mono font-bold text-slate-800">${ed.uen || '—'}</div>
+                        </div>
+                        <div class="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Company Type</span>
+                            <div class="font-bold text-slate-800">${ed.companyType || '—'}</div>
+                        </div>
+                        <div class="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Primary Activity (SSIC)</span>
+                            <div class="font-bold text-slate-800">${ed.primaryActivity || '—'}</div>
+                        </div>
+                        <div class="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Secondary Activity (SSIC)</span>
+                            <div class="font-bold text-slate-800">${ed.secondaryActivity || '—'}</div>
+                        </div>
+                        <div class="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Financial Year End (FYE)</span>
+                            <div class="font-bold text-slate-800">${ed.fye || '—'}</div>
+                        </div>
+                        <div class="bg-slate-50/50 p-4 rounded-xl border border-slate-100 lg:col-span-2">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Registered Address</span>
+                            <div class="font-medium text-slate-800">${ed.registeredOfficeAddress || '—'}</div>
+                        </div>
+                        <div class="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Last AGM Date</span>
+                            <div class="font-bold text-slate-800">${ed.lastAgmDate || '—'}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="reg-content-directors" class="reg-tab-content hidden space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        ${ed.directors && ed.directors.length > 0 ? ed.directors.map(d => `
+                            <div class="p-4 bg-slate-50/50 rounded-xl border border-slate-100 space-y-3">
+                                <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+                                    <span class="font-bold text-slate-800 text-sm">${d.name}</span>
+                                    <span class="px-2 py-0.5 rounded text-[9px] font-bold bg-blue-50 text-blue-600 border border-blue-100 uppercase">${d.type}</span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-y-2 gap-x-4 text-xs text-slate-600">
+                                    <div><strong>ID/Passport:</strong> ${d.idNumber || '—'}</div>
+                                    <div><strong>Nationality:</strong> ${d.nationality || '—'}</div>
+                                    <div><strong>DOB:</strong> ${d.dob || '—'}</div>
+                                    <div><strong>Appointed:</strong> ${d.appointmentDate || '—'}</div>
+                                    <div><strong>Email:</strong> ${d.email || '—'}</div>
+                                    <div><strong>Mobile:</strong> ${d.mobile || '—'}</div>
+                                    <div class="col-span-2"><strong>Address:</strong> ${d.address || '—'}</div>
+                                </div>
+                            </div>
+                        `).join('') : '<div class="text-xs text-slate-400 text-center py-4">No directors registered.</div>'}
+                    </div>
+                </div>
+                
+                <div id="reg-content-secretaries" class="reg-tab-content hidden space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        ${ed.secretaries && ed.secretaries.length > 0 ? ed.secretaries.map(s => `
+                            <div class="p-4 bg-slate-50/50 rounded-xl border border-slate-100 space-y-3">
+                                <div class="pb-2 border-b border-slate-100">
+                                    <span class="font-bold text-slate-800 text-sm">${s.name}</span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-y-2 gap-x-4 text-xs text-slate-600">
+                                    <div><strong>ID/Passport:</strong> ${s.idNumber || '—'}</div>
+                                    <div><strong>Nationality:</strong> ${s.nationality || '—'}</div>
+                                    <div><strong>Appointed:</strong> ${s.appointmentDate || '—'}</div>
+                                    <div class="col-span-2"><strong>Address:</strong> ${s.address || '—'}</div>
+                                </div>
+                            </div>
+                        `).join('') : '<div class="text-xs text-slate-400 text-center py-4">No secretaries registered.</div>'}
+                    </div>
+                </div>
+                
+                <div id="reg-content-members" class="reg-tab-content hidden space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        ${ed.members && ed.members.length > 0 ? ed.members.map(m => `
+                            <div class="p-4 bg-slate-50/50 rounded-xl border border-slate-100 space-y-3">
+                                <div class="pb-2 border-b border-slate-100">
+                                    <span class="font-bold text-slate-800 text-sm">${m.name}</span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-y-2 gap-x-4 text-xs text-slate-600">
+                                    <div><strong>ID/UEN:</strong> ${m.idNumber || '—'}</div>
+                                    <div><strong>Nationality:</strong> ${m.nationality || '—'}</div>
+                                    <div><strong>Entered:</strong> ${m.dateEntered || '—'}</div>
+                                    <div class="col-span-2"><strong>Address:</strong> ${m.address || '—'}</div>
+                                </div>
+                            </div>
+                        `).join('') : '<div class="text-xs text-slate-400 text-center py-4">No shareholders registered.</div>'}
+                    </div>
+                </div>
+                
+                <div id="reg-content-controllers" class="reg-tab-content hidden space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        ${ed.controllers && ed.controllers.length > 0 ? ed.controllers.map(c => `
+                            <div class="p-4 bg-slate-50/50 rounded-xl border border-slate-100 space-y-3">
+                                <div class="pb-2 border-b border-slate-100">
+                                    <span class="font-bold text-slate-800 text-sm">${c.name}</span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-y-2 gap-x-4 text-xs text-slate-600">
+                                    <div><strong>ID/Passport:</strong> ${c.idNumber || '—'}</div>
+                                    <div><strong>Nationality:</strong> ${c.nationality || '—'}</div>
+                                    <div><strong>DOB:</strong> ${c.dob || '—'}</div>
+                                    <div><strong>Date of Entry:</strong> ${c.dateOfEntry || '—'}</div>
+                                    <div class="col-span-2"><strong>Address:</strong> ${c.address || '—'}</div>
+                                </div>
+                            </div>
+                        `).join('') : '<div class="text-xs text-slate-400 text-center py-4">No controllers registered.</div>'}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
     container.innerHTML = `
         <div class="space-y-8">
             <div class="flex flex-col lg:flex-row gap-6">
@@ -3543,9 +3706,9 @@ function renderHome(container) {
                         <div class="relative z-10">
                             <div class="flex justify-between items-start">
                                 <div>
-                                    <h2 class="text-3xl font-bold mb-3">LionPath Trading Pte. Ltd.</h2>
+                                    <h2 class="text-3xl font-bold mb-3">${companyDisplayName}</h2>
                                     <div class="flex items-center gap-3">
-                                        <span class="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold uppercase">In Progress</span>
+                                        <span class="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold uppercase">${companyStatus}</span>
                                         <span class="text-[11px] font-medium opacity-90 flex items-center gap-2"><i data-lucide="calendar" class="w-3.5 h-3.5"></i> Est. Completion: 3-5 Business Days</span>
                                     </div>
                                 </div>
@@ -3554,19 +3717,19 @@ function renderHome(container) {
                                 </button>
                             </div>
                         </div>
-
+                        
                         <div class="mt-12 relative z-10">
                             <div class="flex justify-between items-end mb-3">
                                 <span class="text-xs font-bold opacity-80 uppercase tracking-widest">Application Progress</span>
-                                <span class="text-sm font-bold">65%</span>
+                                <span class="text-sm font-bold">${companyPercent}%</span>
                             </div>
-                            <div class="h-2 bg-white/20 rounded-full overflow-hidden">
-                                <div class="h-full bg-white rounded-full" style="width: 65%"></div>
+                            <div class="w-full h-2 bg-white/20 rounded-full overflow-hidden">
+                                <div class="h-full bg-white rounded-full transition-all duration-500" style="width: ${companyPercent}%"></div>
                             </div>
                         </div>
                     </div>
                 </div>
-
+                
                 <!-- Staff Sidebar Card -->
                 <div class="w-full lg:w-80">
                     <div class="premium-card bg-white border-none shadow-sm h-full flex flex-col items-center justify-center p-8">
@@ -3579,7 +3742,9 @@ function renderHome(container) {
                     </div>
                 </div>
             </div>
-
+            
+            ${registerHtml}
+            
             <!-- Quick Action Grid -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <!-- Card 2 -->
@@ -4807,9 +4972,31 @@ function showToastNotification(n) {
     }, 5000);
 }
 
+function switchRegisterTab(tabId) {
+    document.querySelectorAll('.reg-tab-btn').forEach(btn => {
+        btn.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+        btn.classList.add('text-slate-500', 'hover:text-slate-700');
+    });
+    document.querySelectorAll('.reg-tab-content').forEach(content => {
+        content.classList.add('hidden');
+    });
+    
+    const activeBtn = document.getElementById('reg-tab-' + tabId);
+    if (activeBtn) {
+        activeBtn.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+        activeBtn.classList.remove('text-slate-500', 'hover:text-slate-700');
+    }
+    
+    const activeContent = document.getElementById('reg-content-' + tabId);
+    if (activeContent) {
+        activeContent.classList.remove('hidden');
+    }
+}
+
 // Bind to window for HTML inline event handlers
 window.logout = logout;
 window.switchTab = switchTab;
+window.switchRegisterTab = switchRegisterTab;
 window.obStartOnboarding = obStartOnboarding;
 window.obSetShareholderTab = obSetShareholderTab;
 window.toggleAIAssistant = toggleAIAssistant;
