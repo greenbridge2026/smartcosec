@@ -246,6 +246,18 @@
                                     <div class="filter-tab" data-filter="review">Under Review</div>
                                     <div class="filter-tab" data-filter="approved">Approved</div>
                                 </div>
+                                <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/50 mr-2 shrink-0">
+                                    <button onclick="setViewMode('grid')" id="view-mode-grid-btn-static" class="p-1.5 rounded-lg text-blue-600 bg-white shadow-sm border border-slate-200/20 transition-all" title="Grid View">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                                    </button>
+                                    <button onclick="setViewMode('list')" id="view-mode-list-btn-static" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 transition-all" title="List View">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="relative w-60 shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                <input type="text" id="dashboard-search-input" oninput="renderClients()" placeholder="Search clients, UEN..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
                             </div>
                             <button onclick="confirmClearAllClients()" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-[11px] flex items-center gap-1.5 transition-all shadow-md active:scale-[0.98]">
                                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear All Clients
@@ -325,6 +337,7 @@
         let statsData = {};
         let currentModule = 'clients';
         let currentFilter = 'all';
+        let currentViewMode = 'grid';
         let currentClientId = null;
         let currentServiceId = null;
         let notifications = [];
@@ -332,6 +345,35 @@
         let activeClickOutsideHandler = null;
         let activeScrollHandler = null;
         let activeEditorAppId = null;
+
+        window.setViewMode = function(mode) {
+            currentViewMode = mode;
+            // Update button styles for static view mode toggle
+            const gridBtnStatic = document.getElementById('view-mode-grid-btn-static');
+            const listBtnStatic = document.getElementById('view-mode-list-btn-static');
+            if (gridBtnStatic && listBtnStatic) {
+                if (mode === 'grid') {
+                    gridBtnStatic.className = "p-1.5 rounded-lg text-blue-600 bg-white shadow-sm border border-slate-200/20 transition-all";
+                    listBtnStatic.className = "p-1.5 rounded-lg text-slate-400 hover:text-slate-800 transition-all";
+                } else {
+                    gridBtnStatic.className = "p-1.5 rounded-lg text-slate-400 hover:text-slate-800 transition-all";
+                    listBtnStatic.className = "p-1.5 rounded-lg text-blue-600 bg-white shadow-sm border border-slate-200/20 transition-all";
+                }
+            }
+            // Update button styles for dynamic view mode toggle
+            const gridBtnDynamic = document.getElementById('view-mode-grid-btn-dynamic');
+            const listBtnDynamic = document.getElementById('view-mode-list-btn-dynamic');
+            if (gridBtnDynamic && listBtnDynamic) {
+                if (mode === 'grid') {
+                    gridBtnDynamic.className = "p-1.5 rounded-lg text-blue-600 bg-white shadow-sm border border-slate-200/20 transition-all";
+                    listBtnDynamic.className = "p-1.5 rounded-lg text-slate-400 hover:text-slate-800 transition-all";
+                } else {
+                    gridBtnDynamic.className = "p-1.5 rounded-lg text-slate-400 hover:text-slate-800 transition-all";
+                    listBtnDynamic.className = "p-1.5 rounded-lg text-blue-600 bg-white shadow-sm border border-slate-200/20 transition-all";
+                }
+            }
+            renderClients();
+        }
 
         // Initialization
         async function init() {
@@ -994,6 +1036,18 @@
                                                 <div class="filter-tab" data-filter="review" onclick="window.setFilter('review')">Under Review</div>
                                                 <div class="filter-tab" data-filter="approved" onclick="window.setFilter('approved')">Approved</div>
                                             </div>
+                                            <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/50 mr-2 shrink-0">
+                                                <button onclick="setViewMode('grid')" id="view-mode-grid-btn-dynamic" class="\${currentViewMode === 'grid' ? 'p-1.5 rounded-lg text-blue-600 bg-white shadow-sm border border-slate-200/20 transition-all' : 'p-1.5 rounded-lg text-slate-400 hover:text-slate-800 transition-all'}" title="Grid View">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                                                </button>
+                                                <button onclick="setViewMode('list')" id="view-mode-list-btn-dynamic" class="\${currentViewMode === 'list' ? 'p-1.5 rounded-lg text-blue-600 bg-white shadow-sm border border-slate-200/20 transition-all' : 'p-1.5 rounded-lg text-slate-400 hover:text-slate-800 transition-all'}" title="List View">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="relative w-60 shrink-0">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                            <input type="text" id="dashboard-search-input" oninput="renderClients()" placeholder="Search clients, UEN..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
                                         </div>
                                     </div>
                                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="clients-grid"></div>
@@ -1438,13 +1492,29 @@
                 return matchesFilter && matchesSearch;
             });
 
+            // Toggle grid vs list wrapper class
+            if (currentViewMode === 'list') {
+                grid.className = "flex flex-col gap-2.5";
+            } else {
+                grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4";
+            }
+
             grid.innerHTML = filtered.map(c => {
                 const props = getStatusProps(c.latestStatus);
+                const nomineeDirs = c.nomineeDirectors || [];
                 const businessHeader = c.companyNames && c.companyNames.length > 0 
                     ? c.companyNames.join(', ') 
                     : 'No associated business';
                 
                 const clientBadge = `<div class="text-xs font-bold text-blue-600 bg-blue-50/50 px-2 py-1 rounded border border-blue-100/50 inline-block mb-3">${c.name}</div>`;
+
+                const nomineeHtml = nomineeDirs.length > 0 ? `
+                    <div class="flex items-center gap-1.5 mb-3 text-[10px] text-amber-700 bg-amber-50/60 border border-amber-100/50 rounded-lg px-2.5 py-1 inline-flex shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500 mr-0.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                        <span class="font-extrabold">Nominee:</span>
+                        <span class="font-semibold text-slate-700 truncate max-w-[150px]" title="${nomineeDirs.join(', ')}">${nomineeDirs.join(', ')}</span>
+                    </div>
+                ` : '';
 
                 let joinedDateStr = 'N/A';
                 try {
@@ -1492,6 +1562,63 @@
                 const staffInitial = staff === 'Unassigned' ? '?' : staff.charAt(0).toUpperCase();
                 const staffColor = staff === 'Unassigned' ? 'bg-slate-300 text-slate-500' : 'bg-indigo-500 text-white';
 
+                if (currentViewMode === 'list') {
+                    return `
+                        <div class="client-list-item flex flex-col md:flex-row md:items-center justify-between p-4 bg-white border border-slate-200/60 hover:border-slate-300 rounded-2xl shadow-sm transition-all cursor-pointer gap-4 relative overflow-hidden" onclick="openClientProfile('${c.clientId}')" style="border-left: 4px solid ${props.key === 'pending' ? '#3b82f6' : props.key === 'review' ? '#f59e0b' : '#10b981'};">
+                            <!-- Left section: Client Info + Seq ID -->
+                            <div class="flex items-center gap-3.5 min-w-[280px]">
+                                <div class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100 text-slate-400 shrink-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                </div>
+                                <div class="min-w-0">
+                                    <h4 class="font-extrabold text-slate-800 text-sm truncate" title="${businessHeader}">${businessHeader}</h4>
+                                    <div class="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-slate-400">
+                                        <span class="font-bold text-blue-600 bg-blue-50/40 px-1.5 py-0.5 rounded border border-blue-100/30">${c.name}</span>
+                                        <span class="font-bold">#${seqId}</span>
+                                        ${nomineeDirs.length > 0 ? `<span class="px-2 py-0.5 font-bold bg-amber-50 text-amber-700 border border-amber-100 rounded-md">Nominee: ${nomineeDirs.join(', ')}</span>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Middle section: Services / Activities -->
+                            <div class="flex-1 min-w-[200px] flex items-center gap-1.5 flex-wrap">
+                                ${uniqueTypes.map(t => `
+                                    <span class="text-[10px] font-bold text-slate-505 bg-slate-50 border border-slate-100 rounded px-2.5 py-1">
+                                        ${t}
+                                    </span>
+                                `).join('') || '<span class="text-[10px] text-slate-400 font-bold">No services</span>'}
+                            </div>
+
+                            <!-- Right section: Status & Assignee & Date -->
+                            <div class="flex items-center gap-6 justify-between md:justify-end shrink-0">
+                                <!-- Date -->
+                                <div class="text-right hidden lg:block">
+                                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Joined Date</div>
+                                    <div class="text-xs font-semibold text-slate-600 mt-0.5">${joinedDateStr}</div>
+                                </div>
+
+                                <!-- Assignee -->
+                                <div class="flex items-center gap-2">
+                                    <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black uppercase ${staffColor} shadow-sm border border-white/50">
+                                        ${staffInitial}
+                                    </div>
+                                    <div class="text-xs text-slate-600 font-bold hidden sm:block">${staff}</div>
+                                </div>
+
+                                <!-- Status Badge -->
+                                <div class="min-w-[100px] text-right">
+                                    <span class="status-badge ${props.class} inline-block">${props.text}</span>
+                                </div>
+
+                                <!-- Chevron right -->
+                                <div class="text-slate-300">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><polyline points="9 18 15 12 9 6"/></svg>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
                 return `
                     <div class="client-card" data-status="${props.key}" onclick="openClientProfile('${c.clientId}')">
                         <!-- Header row: status + ID -->
@@ -1517,6 +1644,8 @@
                             <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                             <span class="truncate">${c.email || '—'}</span>
                         </div>
+
+                        ${nomineeHtml}
 
                         <!-- Service type tags -->
                         ${uniqueTypes.length > 0 ? `
