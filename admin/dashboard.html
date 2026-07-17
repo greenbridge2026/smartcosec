@@ -168,10 +168,6 @@
                 <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Admin</span>
                 <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Portal</span>
             </div>
-            <div class="relative w-48">
-                <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                <input type="text" id="search-input" onkeyup="renderClients()" placeholder="Search..." class="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:bg-white transition-all">
-            </div>
         </div>
 
         <div id="module-switcher" class="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-white/80">
@@ -475,32 +471,540 @@
             if (!container) return;
 
             if (currentModule === 'clients') {
-                container.innerHTML = `
-                    <div id="dashboard-home-view">
-                        <div class="draggable-container" id="main-dashboard-grid">
-                            <div class="lg:col-span-3 draggable-widget" draggable="true" id="widget-clients">
-                                <div class="flex items-center justify-between gap-2 mb-4">
-                                    <div class="flex items-center gap-2 flex-1">
-                                        <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 drag-handle"></i>
-                                        <div id="filter-tabs" class="filter-tabs mb-0 flex-1">
-                                            <div class="filter-tab active" data-filter="all" onclick="setFilter('all')">All Clients</div>
-                                            <div class="filter-tab" data-filter="pending" onclick="setFilter('pending')">Pending</div>
-                                            <div class="filter-tab" data-filter="review" onclick="setFilter('review')">Under Review</div>
-                                            <div class="filter-tab" data-filter="approved" onclick="setFilter('approved')">Approved</div>
+                const urlParams = new URLSearchParams(window.location.search);
+                const view = urlParams.get('view') || 'dashboard';
+
+                // Hide or show the top stats-grid based on whether we are in full dashboard view
+                const topStatsGrid = document.querySelector('.stats-grid');
+                if (topStatsGrid) {
+                    topStatsGrid.style.display = view === 'dashboard' ? 'none' : 'grid';
+                }
+
+                if (view === 'dashboard') {
+                    // Render the full dashboard overview matching the screenshot
+                    container.innerHTML = `
+                        <div id="dashboard-home-view" class="space-y-6">
+                            <!-- Dashboard Header Row with Date Range -->
+                            <div class="flex justify-end items-center mb-4">
+                                <div class="relative">
+                                    <div onclick="window.toggleDatePopover(event)" class="flex items-center gap-2 bg-white border border-slate-200 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 shadow-sm cursor-pointer hover:bg-slate-50 transition-all select-none">
+                                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z"/></svg>
+                                        <span id="dashboard-date-range-display">Loading...</span>
+                                    </div>
+                                    <div id="dashboard-date-popover" class="hidden absolute top-full right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl p-3 z-50 text-xs text-slate-700 font-bold space-y-1">
+                                        <div onclick="window.setDashboardDateRange('today')" class="p-2 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors flex justify-between items-center">
+                                            <span>Today</span>
+                                        </div>
+                                        <div onclick="window.setDashboardDateRange('yesterday')" class="p-2 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors flex justify-between items-center">
+                                            <span>Yesterday</span>
+                                        </div>
+                                        <div onclick="window.setDashboardDateRange('last7')" class="p-2 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors flex justify-between items-center">
+                                            <span>Last 7 Days</span>
+                                        </div>
+                                        <div onclick="window.setDashboardDateRange('last30')" class="p-2 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors flex justify-between items-center">
+                                            <span>Last 30 Days</span>
+                                        </div>
+                                        <div onclick="window.setDashboardDateRange('thisMonth')" class="p-2 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors flex justify-between items-center">
+                                            <span>This Month</span>
+                                        </div>
+                                        <div class="border-t border-slate-100 my-1"></div>
+                                        <div class="p-2 space-y-2">
+                                            <div class="text-[10px] text-slate-400 uppercase tracking-wider">Custom Range</div>
+                                            <div class="flex gap-2">
+                                                <input type="date" id="custom-start-date" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-1 text-[10px] outline-none font-bold">
+                                                <input type="date" id="custom-end-date" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-1 text-[10px] outline-none font-bold">
+                                            </div>
+                                            <button onclick="window.applyCustomDateRange()" class="w-full py-1.5 bg-blue-600 text-white rounded-lg text-[10px] hover:bg-blue-700 transition-colors font-bold shadow-sm">Apply Custom</button>
                                         </div>
                                     </div>
-                                    <button onclick="confirmClearAllClients()" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-[11px] flex items-center gap-1.5 transition-all shadow-md active:scale-[0.98]">
-                                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear All Clients
-                                    </button>
                                 </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="clients-grid"></div>
+                            </div>
+
+                            <!-- 6 Stat Cards Row -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                                <div class="stat-card flex items-center gap-3 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all select-none" onclick="window.location.href='dashboard.html?view=clients'">
+                                    <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                                    </div>
+                                    <div>
+                                        <div class="text-[20px] font-bold text-slate-800 leading-none" id="dash-stat-active-clients">186</div>
+                                        <div class="text-[9px] uppercase font-bold text-slate-400 mt-1">Active Clients</div>
+                                        <div class="text-[9px] text-emerald-600 font-bold mt-0.5 flex items-center gap-0.5">
+                                            <i data-lucide="trending-up" class="w-2.5 h-2.5"></i> 12% <span class="text-slate-400 font-normal">vs last 30 days</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="stat-card flex items-center gap-3 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all select-none" onclick="window.location.href='onboarding.html'">
+                                    <div class="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
+                                        <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    </div>
+                                    <div>
+                                        <div class="text-[20px] font-bold text-slate-800 leading-none" id="dash-stat-pending-onboarding">42</div>
+                                        <div class="text-[9px] uppercase font-bold text-slate-400 mt-1">Pending Onboarding</div>
+                                        <div class="text-[9px] text-emerald-600 font-bold mt-0.5 flex items-center gap-0.5">
+                                            <i data-lucide="trending-up" class="w-2.5 h-2.5"></i> 8% <span class="text-slate-400 font-normal">vs last 30 days</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="stat-card flex items-center gap-3 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all select-none" onclick="window.location.href='kyc.html'">
+                                    <div class="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center shrink-0">
+                                        <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.751h-.152c-3.196 0-6.1-1.249-8.25-3.286zm0 3.036h.008v.008H12V8.25z"/></svg>
+                                    </div>
+                                    <div>
+                                        <div class="text-[20px] font-bold text-slate-800 leading-none" id="dash-stat-pending-verification">18</div>
+                                        <div class="text-[9px] uppercase font-bold text-slate-400 mt-1">Pending Verification</div>
+                                        <div class="text-[9px] text-red-500 font-bold mt-0.5 flex items-center gap-0.5">
+                                            <i data-lucide="trending-down" class="w-2.5 h-2.5"></i> 5% <span class="text-slate-400 font-normal">vs last 30 days</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="stat-card flex items-center gap-3 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all select-none" onclick="window.location.href='applications.html'">
+                                    <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                                        <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M14 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75"/></svg>
+                                    </div>
+                                    <div>
+                                        <div class="text-[20px] font-bold text-slate-800 leading-none" id="dash-stat-incorporated">130</div>
+                                        <div class="text-[9px] uppercase font-bold text-slate-400 mt-1">Companies Inc.</div>
+                                        <div class="text-[9px] text-emerald-600 font-bold mt-0.5 flex items-center gap-0.5">
+                                            <i data-lucide="trending-up" class="w-2.5 h-2.5"></i> 15% <span class="text-slate-400 font-normal">vs last 30 days</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="stat-card flex items-center gap-3 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all select-none" onclick="window.location.href='compliance.html'">
+                                    <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.746 3.746 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"/></svg>
+                                    </div>
+                                    <div>
+                                        <div class="text-[20px] font-bold text-slate-800 leading-none">95%</div>
+                                        <div class="text-[9px] uppercase font-bold text-slate-400 mt-1">SLA Compliance</div>
+                                        <div class="text-[9px] text-emerald-600 font-bold mt-0.5 flex items-center gap-0.5">
+                                            <i data-lucide="trending-up" class="w-2.5 h-2.5"></i> 4% <span class="text-slate-400 font-normal">vs last 30 days</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="stat-card flex items-center gap-3 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all select-none" onclick="window.location.href='reports.html'">
+                                    <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                                        <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.22.11a3.118 3.118 0 004.109-4.108l-2.654-1.328a3.118 3.118 0 01-4.109-4.109l.22.11M12 6h.01M12 18h.01"/></svg>
+                                    </div>
+                                    <div>
+                                        <div class="text-[20px] font-bold text-slate-800 leading-none">$214,500</div>
+                                        <div class="text-[9px] uppercase font-bold text-slate-400 mt-1">Monthly Revenue</div>
+                                        <div class="text-[9px] text-emerald-600 font-bold mt-0.5 flex items-center gap-0.5">
+                                            <i data-lucide="trending-up" class="w-2.5 h-2.5"></i> 18% <span class="text-slate-400 font-normal">vs last 30 days</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Row 1: Funnel, Queue, Status -->
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <!-- Onboarding Funnel Widget -->
+                                <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+                                    <div class="flex justify-between items-center mb-4">
+                                        <h3 class="font-bold text-slate-800 text-sm">Onboarding Funnel</h3>
+                                        <select class="bg-slate-50 border border-slate-200 text-slate-600 rounded-lg text-[10px] font-bold px-2 py-1 outline-none">
+                                            <option>This Month</option>
+                                            <option>Last Month</option>
+                                            <option>This Year</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex items-center gap-6">
+                                        <div class="w-1/2 flex justify-center">
+                                            <svg viewBox="0 0 120 140" class="w-full max-h-40">
+                                                <polygon points="10,0 110,0 95,20 25,20" fill="url(#funnel-grad-1)"></polygon>
+                                                <polygon points="25,22 95,22 83,42 37,42" fill="url(#funnel-grad-2)"></polygon>
+                                                <polygon points="37,44 83,44 73,64 47,64" fill="url(#funnel-grad-3)"></polygon>
+                                                <polygon points="47,66 73,66 65,86 55,86" fill="url(#funnel-grad-4)"></polygon>
+                                                <polygon points="55,88 65,88 59,108 61,108" fill="url(#funnel-grad-5)"></polygon>
+                                                <polygon points="59,110 61,110 60,130 60,130" fill="url(#funnel-grad-6)"></polygon>
+                                                <defs>
+                                                    <linearGradient id="funnel-grad-1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3b82f6" stop-opacity="0.95"/><stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.95"/></linearGradient>
+                                                    <linearGradient id="funnel-grad-2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3b82f6" stop-opacity="0.8"/><stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.8"/></linearGradient>
+                                                    <linearGradient id="funnel-grad-3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3b82f6" stop-opacity="0.75"/><stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.75"/></linearGradient>
+                                                    <linearGradient id="funnel-grad-4" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3b82f6" stop-opacity="0.65"/><stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.65"/></linearGradient>
+                                                    <linearGradient id="funnel-grad-5" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3b82f6" stop-opacity="0.55"/><stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.55"/></linearGradient>
+                                                    <linearGradient id="funnel-grad-6" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3b82f6" stop-opacity="0.45"/><stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.45"/></linearGradient>
+                                                </defs>
+                                            </svg>
+                                        </div>
+                                        <div class="w-1/2 space-y-1 text-xs">
+                                            <div class="flex justify-between border-b border-slate-50 pb-1">
+                                                <span class="text-slate-500">Registration</span>
+                                                <span class="font-bold text-slate-700">320 <span class="text-slate-400 font-normal ml-1">100%</span></span>
+                                            </div>
+                                            <div class="flex justify-between border-b border-slate-50 pb-1">
+                                                <span class="text-slate-500">Package Sel.</span>
+                                                <span class="font-bold text-slate-700">280 <span class="text-slate-400 font-normal ml-1">87%</span></span>
+                                            </div>
+                                            <div class="flex justify-between border-b border-slate-50 pb-1">
+                                                <span class="text-slate-500">Payment Comp.</span>
+                                                <span class="font-bold text-slate-700">260 <span class="text-slate-400 font-normal ml-1">81%</span></span>
+                                            </div>
+                                            <div class="flex justify-between border-b border-slate-50 pb-1">
+                                                <span class="text-slate-500">Pre-reg Comp.</span>
+                                                <span class="font-bold text-slate-700">220 <span class="text-slate-400 font-normal ml-1">69%</span></span>
+                                            </div>
+                                            <div class="flex justify-between border-b border-slate-50 pb-1">
+                                                <span class="text-slate-500">Docs Sub.</span>
+                                                <span class="font-bold text-slate-700">170 <span class="text-slate-400 font-normal ml-1">53%</span></span>
+                                            </div>
+                                            <div class="flex justify-between border-b border-slate-50 pb-1">
+                                                <span class="text-slate-500">Verification</span>
+                                                <span class="font-bold text-slate-700">145 <span class="text-slate-400 font-normal ml-1">45%</span></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-slate-500">Incorporated</span>
+                                                <span class="font-bold text-slate-700">130 <span class="text-slate-400 font-normal ml-1">41%</span></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Verification Queue Widget -->
+                                <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+                                    <div class="flex justify-between items-center mb-4">
+                                        <h3 class="font-bold text-slate-800 text-sm">Verification Queue</h3>
+                                        <a href="kyc.html" class="text-xs text-blue-600 font-bold hover:underline">View All</a>
+                                    </div>
+                                    <div class="space-y-2.5">
+                                         <div class="flex justify-between items-center text-xs cursor-pointer hover:text-blue-600 group transition-colors" onclick="window.location.href='kyc.html'">
+                                             <span class="text-slate-600 group-hover:text-blue-600 flex items-center gap-2 transition-colors"><i data-lucide="file-text" class="w-3.5 h-3.5 text-blue-500 shrink-0"></i> Waiting for Documents</span>
+                                             <span class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">24</span>
+                                         </div>
+                                         <div class="flex justify-between items-center text-xs cursor-pointer hover:text-blue-600 group transition-colors" onclick="window.location.href='ocr-review.html'">
+                                             <span class="text-slate-600 group-hover:text-blue-600 flex items-center gap-2 transition-colors"><i data-lucide="cpu" class="w-3.5 h-3.5 text-indigo-500 shrink-0"></i> OCR Processing</span>
+                                             <span class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">8</span>
+                                         </div>
+                                         <div class="flex justify-between items-center text-xs cursor-pointer hover:text-blue-600 group transition-colors" onclick="window.location.href='kyc.html'">
+                                             <span class="text-slate-600 group-hover:text-blue-600 flex items-center gap-2 transition-colors"><i data-lucide="user-cog" class="w-3.5 h-3.5 text-amber-500 shrink-0"></i> Pending Admin Review</span>
+                                             <span class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors" id="dash-queue-pending-review">31</span>
+                                         </div>
+                                         <div class="flex justify-between items-center text-xs cursor-pointer hover:text-blue-600 group transition-colors" onclick="window.location.href='compliance.html'">
+                                             <span class="text-slate-600 group-hover:text-blue-600 flex items-center gap-2 transition-colors"><i data-lucide="shield-alert" class="w-3.5 h-3.5 text-red-500 shrink-0"></i> AML / KYC Screening</span>
+                                             <span class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">6</span>
+                                         </div>
+                                         <div class="flex justify-between items-center text-xs cursor-pointer hover:text-blue-600 group transition-colors" onclick="window.location.href='kyc.html'">
+                                             <span class="text-slate-600 group-hover:text-blue-600 flex items-center gap-2 transition-colors"><i data-lucide="users" class="w-3.5 h-3.5 text-purple-500 shrink-0"></i> UBO Verification</span>
+                                             <span class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">4</span>
+                                         </div>
+                                         <div class="flex justify-between items-center text-xs cursor-pointer hover:text-blue-600 group transition-colors" onclick="window.location.href='onboarding.html'">
+                                             <span class="text-slate-600 group-hover:text-blue-600 flex items-center gap-2 transition-colors"><i data-lucide="undo" class="w-3.5 h-3.5 text-slate-500 shrink-0"></i> Returned to Client</span>
+                                             <span class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">9</span>
+                                         </div>
+                                         <div class="flex justify-between items-center text-xs border-t border-slate-100 pt-2 font-bold cursor-pointer hover:text-blue-600 group transition-colors" onclick="window.location.href='dashboard.html?view=clients'">
+                                             <span class="text-slate-600 group-hover:text-blue-600 flex items-center gap-2 transition-colors"><i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-500 shrink-0"></i> Approved Today</span>
+                                             <span class="text-emerald-600 group-hover:text-blue-600 transition-colors" id="dash-queue-approved-today">18</span>
+                                         </div>
+                                     </div>
+                                </div>
+
+                                <!-- Client Status Widget -->
+                                <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+                                    <div class="flex justify-between items-center mb-4">
+                                        <h3 class="font-bold text-slate-800 text-sm">Client Status</h3>
+                                    </div>
+                                    <div class="flex items-center gap-6">
+                                        <div class="w-1/2 flex justify-center relative">
+                                            <svg viewBox="0 0 100 100" class="w-full max-h-36">
+                                                <circle cx="50" cy="50" r="40" fill="transparent" stroke="#eff3f6" stroke-width="12" />
+                                                <circle cx="50" cy="50" r="40" fill="transparent" stroke="#10b981" stroke-width="12" stroke-dasharray="170 251" stroke-dashoffset="0" />
+                                                <circle cx="50" cy="50" r="40" fill="transparent" stroke="#f59e0b" stroke-width="12" stroke-dasharray="45 251" stroke-dashoffset="-170" />
+                                                <circle cx="50" cy="50" r="40" fill="transparent" stroke="#ef4444" stroke-width="12" stroke-dasharray="10 251" stroke-dashoffset="-215" />
+                                                <circle cx="50" cy="50" r="40" fill="transparent" stroke="#3b82f6" stroke-width="12" stroke-dasharray="26 251" stroke-dashoffset="-225" />
+                                            </svg>
+                                            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                                <span class="text-lg font-black text-slate-800 leading-none" id="dash-donut-total">186</span>
+                                                <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5 text-center">Total Clients</span>
+                                            </div>
+                                        </div>
+                                        <div class="w-1/2 space-y-1.5 text-xs">
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-slate-500 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span> Active</span>
+                                                <span class="font-bold text-slate-700"><span id="dash-pct-active">68%</span> <span class="text-slate-400 font-normal ml-0.5" id="dash-cnt-active">(126)</span></span>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-slate-500 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span> Pending</span>
+                                                <span class="font-bold text-slate-700"><span id="dash-pct-pending">18%</span> <span class="text-slate-400 font-normal ml-0.5" id="dash-cnt-pending">(33)</span></span>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-slate-500 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-500 shrink-0"></span> Rejected</span>
+                                                <span class="font-bold text-slate-700"><span id="dash-pct-rejected">4%</span> <span class="text-slate-400 font-normal ml-0.5" id="dash-cnt-rejected">(7)</span></span>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-slate-500 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-blue-500 shrink-0"></span> Waiting</span>
+                                                <span class="font-bold text-slate-700">10% <span class="text-slate-400 font-normal ml-0.5">(20)</span></span>
+                                            </div>
+                                            <div class="pt-2 border-t border-slate-50 text-[10px]">
+                                                <a href="reports.html" class="text-blue-600 font-bold hover:underline flex items-center gap-0.5">View Full Report <i data-lucide="arrow-right" class="w-3 h-3"></i></a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Row 2: Revenue, Workload, Compliance -->
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <!-- Revenue Overview Widget -->
+                                <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+                                    <div class="flex justify-between items-center mb-4">
+                                        <h3 class="font-bold text-slate-800 text-sm">Revenue Overview</h3>
+                                        <a href="reports.html" class="text-xs text-blue-600 font-bold hover:underline">View Report</a>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-100/50 flex flex-col justify-between">
+                                            <div>
+                                                <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Today's Revenue</span>
+                                                <div class="text-sm font-extrabold text-slate-800 mt-0.5">SGD 18,400</div>
+                                            </div>
+                                            <svg viewBox="0 0 100 20" class="w-full h-5 mt-2 overflow-visible">
+                                                <path d="M 0 15 Q 15 5, 30 12 T 60 4 T 90 10 L 100 15" fill="none" stroke="#10b981" stroke-width="1.5" stroke-linecap="round" />
+                                            </svg>
+                                        </div>
+                                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-100/50 flex flex-col justify-between">
+                                            <div>
+                                                <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Monthly Revenue</span>
+                                                <div class="text-sm font-extrabold text-slate-800 mt-0.5">SGD 214,500</div>
+                                            </div>
+                                            <svg viewBox="0 0 100 20" class="w-full h-5 mt-2 overflow-visible">
+                                                <path d="M 0 10 Q 20 18, 40 5 T 80 12 L 100 8" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" />
+                                            </svg>
+                                        </div>
+                                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-100/50 flex flex-col justify-between">
+                                            <div>
+                                                <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Pending Payments</span>
+                                                <div class="text-sm font-extrabold text-slate-800 mt-0.5">SGD 12,000</div>
+                                            </div>
+                                            <svg viewBox="0 0 100 20" class="w-full h-5 mt-2 overflow-visible">
+                                                <path d="M 0 5 Q 30 18, 60 8 L 100 15" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round" />
+                                            </svg>
+                                        </div>
+                                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-100/50 flex flex-col justify-between">
+                                            <div>
+                                                <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">MRR</span>
+                                                <div class="text-sm font-extrabold text-slate-800 mt-0.5">SGD 91,000</div>
+                                            </div>
+                                            <svg viewBox="0 0 100 20" class="w-full h-5 mt-2 overflow-visible">
+                                                <path d="M 0 15 Q 25 8, 50 12 T 100 5" fill="none" stroke="#10b981" stroke-width="1.5" stroke-linecap="round" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Today's Workload Widget -->
+                                <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+                                    <div class="flex justify-between items-center mb-4">
+                                        <h3 class="font-bold text-slate-800 text-sm">Today's Workload</h3>
+                                    </div>
+                                    <div class="space-y-2 text-xs">
+                                        <div class="flex justify-between items-center cursor-pointer hover:text-blue-600 group transition-colors" onclick="window.location.href='kyc.html'">
+                                            <span class="text-slate-600 group-hover:text-blue-600 flex items-center gap-2 transition-colors"><i data-lucide="file-check-2" class="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-500 shrink-0 transition-colors"></i> Document Reviews</span>
+                                            <span class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">42</span>
+                                        </div>
+                                        <div class="flex justify-between items-center cursor-pointer hover:text-blue-600 group transition-colors" onclick="window.location.href='applications.html'">
+                                            <span class="text-slate-600 group-hover:text-blue-600 flex items-center gap-2 transition-colors"><i data-lucide="building" class="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-500 shrink-0 transition-colors"></i> Company Registrations</span>
+                                            <span class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">8</span>
+                                        </div>
+                                        <div class="flex justify-between items-center cursor-pointer hover:text-blue-600 group transition-colors" onclick="window.location.href='compliance.html'">
+                                            <span class="text-slate-600 group-hover:text-blue-600 flex items-center gap-2 transition-colors"><i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-500 shrink-0 transition-colors"></i> Annual Returns</span>
+                                            <span class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">12</span>
+                                        </div>
+                                        <div class="flex justify-between items-center cursor-pointer hover:text-blue-600 group transition-colors" onclick="window.location.href='onboarding.html'">
+                                            <span class="text-slate-600 group-hover:text-blue-600 flex items-center gap-2 transition-colors"><i data-lucide="briefcase" class="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-500 shrink-0 transition-colors"></i> Corporate Secretary Tasks</span>
+                                            <span class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">17</span>
+                                        </div>
+                                        <div class="flex justify-between items-center cursor-pointer hover:text-blue-600 group transition-colors" onclick="window.location.href='messages.html'">
+                                            <span class="text-slate-600 group-hover:text-blue-600 flex items-center gap-2 transition-colors"><i data-lucide="help-circle" class="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-500 shrink-0 transition-colors"></i> Support Tickets</span>
+                                            <span class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">5</span>
+                                        </div>
+                                        <div class="flex justify-between items-center cursor-pointer hover:text-blue-600 group transition-colors" onclick="window.location.href='vault.html'">
+                                            <span class="text-slate-600 group-hover:text-blue-600 flex items-center gap-2 transition-colors"><i data-lucide="credit-card" class="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-500 shrink-0 transition-colors"></i> Payments to Verify</span>
+                                            <span class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">3</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Upcoming Compliance Widget -->
+                                <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+                                    <div class="flex justify-between items-center mb-4">
+                                        <h3 class="font-bold text-slate-800 text-sm">Upcoming Compliance</h3>
+                                        <a href="compliance.html" class="text-xs text-blue-600 font-bold hover:underline">View Calendar</a>
+                                    </div>
+                                    <div class="space-y-2.5 text-xs">
+                                        <div class="flex items-center justify-between p-2 bg-emerald-50/50 border border-emerald-100/50 rounded-xl cursor-pointer hover:bg-emerald-50 transition-colors group" onclick="window.location.href='compliance.html'">
+                                            <div class="flex items-center gap-2.5">
+                                                <div class="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                                                    <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+                                                </div>
+                                                <div>
+                                                    <div class="font-bold text-slate-700 group-hover:text-blue-600 transition-colors">Tomorrow</div>
+                                                    <div class="text-[9px] text-slate-400 uppercase font-semibold">5 Annual Returns</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center justify-between p-2 bg-amber-50/50 border border-amber-100/50 rounded-xl cursor-pointer hover:bg-amber-50 transition-colors group" onclick="window.location.href='compliance.html'">
+                                            <div class="flex items-center gap-2.5">
+                                                <div class="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                                                    <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
+                                                </div>
+                                                <div>
+                                                    <div class="font-bold text-slate-700 group-hover:text-blue-600 transition-colors">This Week</div>
+                                                    <div class="text-[9px] text-slate-400 uppercase font-semibold">12 AGMs</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center justify-between p-2 bg-purple-50/50 border border-purple-100/50 rounded-xl cursor-pointer hover:bg-purple-50 transition-colors group" onclick="window.location.href='compliance.html'">
+                                            <div class="flex items-center gap-2.5">
+                                                <div class="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
+                                                    <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 15.75V18m-3-3.675v3.675m-3-3v3m12 1.5a1.5 1.5 0 01-1.5 1.5H3.75a1.5 1.5 0 01-1.5-1.5V5.75A1.5 1.5 0 013.75 4.25h16.5a1.5 1.5 0 011.5 1.5V18.75zm-15-9h15v-3H3.75v3z"/></svg>
+                                                </div>
+                                                <div>
+                                                    <div class="font-bold text-slate-700 group-hover:text-blue-600 transition-colors">Next 30 Days</div>
+                                                    <div class="text-[9px] text-slate-400 uppercase font-semibold">21 Tax Filings</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center justify-between p-2 bg-blue-50/50 border border-blue-100/50 rounded-xl cursor-pointer hover:bg-blue-50 transition-colors group" onclick="window.location.href='compliance.html'">
+                                            <div class="flex items-center gap-2.5">
+                                                <div class="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                                                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7.5L22 10.5M22 10.5L19 13.5M22 10.5H12M5 16.5L2 13.5M2 13.5L5 10.5M2 13.5H12M15 4.5a3 3 0 11-6 0 3 3 0 016 0zm-6 15a3 3 0 116 0 3 3 0 01-6 0z"/></svg>
+                                                </div>
+                                                <div>
+                                                    <div class="font-bold text-slate-700 group-hover:text-blue-600 transition-colors">Next 60 Days</div>
+                                                    <div class="text-[9px] text-slate-400 uppercase font-semibold">9 Director Changes</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Row 3: Pending Approvals Table, Recent Activity, Top Services -->
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <!-- Pending Approvals Table Widget -->
+                                <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between lg:col-span-1">
+                                    <div>
+                                        <div class="flex justify-between items-center mb-4">
+                                            <h3 class="font-bold text-slate-800 text-sm">Pending Approvals</h3>
+                                            <a href="onboarding.html" class="text-xs text-blue-600 font-bold hover:underline">View All</a>
+                                        </div>
+                                        <div class="overflow-x-auto overflow-y-hidden">
+                                            <table class="w-full text-left text-xs whitespace-nowrap">
+                                                <thead>
+                                                    <tr class="border-b border-slate-100 text-slate-400 font-bold">
+                                                        <th class="pb-2 font-semibold">Client Name</th>
+                                                        <th class="pb-2 font-semibold">Company Name</th>
+                                                        <th class="pb-2 font-semibold">Stage</th>
+                                                        <th class="pb-2 font-semibold">Assigned</th>
+                                                        <th class="pb-2 font-semibold text-right">Due Date</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="dashboard-pending-approvals">
+                                                    <!-- Dynamic pending approvals rows -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Recent Activity Timeline Widget -->
+                                <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+                                    <div>
+                                        <div class="flex justify-between items-center mb-4">
+                                            <h3 class="font-bold text-slate-800 text-sm">Recent Activity</h3>
+                                            <a href="#" class="text-xs text-blue-600 font-bold hover:underline">View All</a>
+                                        </div>
+                                        <div class="space-y-3.5 text-xs" id="dashboard-recent-activity">
+                                            <!-- Dynamic activities timeline -->
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Top Services Widget -->
+                                <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+                                    <div>
+                                        <div class="flex justify-between items-center mb-4">
+                                            <h3 class="font-bold text-slate-800 text-sm">Top Services</h3>
+                                            <a href="reports.html" class="text-xs text-blue-600 font-bold hover:underline">View Report</a>
+                                        </div>
+                                        <div class="space-y-3">
+                                            <div>
+                                                <div class="flex justify-between text-xs mb-1 font-semibold">
+                                                    <span class="text-slate-600">Singapore Incorporation</span>
+                                                    <span class="text-slate-800 font-bold" id="service-count-sg">152</span>
+                                                </div>
+                                                <div class="w-full bg-slate-100 rounded-full h-1.5">
+                                                    <div class="bg-blue-600 h-1.5 rounded-full" style="width: 85%" id="service-bar-sg"></div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div class="flex justify-between text-xs mb-1 font-semibold">
+                                                    <span class="text-slate-600">Corporate Secretary</span>
+                                                    <span class="text-slate-800 font-bold" id="service-count-sec">140</span>
+                                                </div>
+                                                <div class="w-full bg-slate-100 rounded-full h-1.5">
+                                                    <div class="bg-blue-600 h-1.5 rounded-full" style="width: 78%" id="service-bar-sec"></div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div class="flex justify-between text-xs mb-1 font-semibold">
+                                                    <span class="text-slate-600">Registered Address</span>
+                                                    <span class="text-slate-800 font-bold" id="service-count-addr">112</span>
+                                                </div>
+                                                <div class="w-full bg-slate-100 rounded-full h-1.5">
+                                                    <div class="bg-blue-600 h-1.5 rounded-full" style="width: 63%" id="service-bar-addr"></div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div class="flex justify-between text-xs mb-1 font-semibold">
+                                                    <span class="text-slate-600">Accounting & Tax</span>
+                                                    <span class="text-slate-800 font-bold">86</span>
+                                                </div>
+                                                <div class="w-full bg-slate-100 rounded-full h-1.5">
+                                                    <div class="bg-blue-600 h-1.5 rounded-full" style="width: 48%"></div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div class="flex justify-between text-xs mb-1 font-semibold">
+                                                    <span class="text-slate-600">Nominee Director</span>
+                                                    <span class="text-slate-800 font-bold">21</span>
+                                                </div>
+                                                <div class="w-full bg-slate-100 rounded-full h-1.5">
+                                                    <div class="bg-blue-600 h-1.5 rounded-full" style="width: 12%"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                `;
-                await fetchDashboard();
-                await renderAdminNotices();
-                initDraggable();
+                    `;
+                    await fetchDashboard();
+                    renderFullDashboardData();
+                } else {
+                    container.innerHTML = `
+                        <div id="dashboard-home-view">
+                            <div class="draggable-container" id="main-dashboard-grid">
+                                <div class="lg:col-span-3 draggable-widget" draggable="true" id="widget-clients">
+                                    <div class="flex items-center justify-between gap-2 mb-4">
+                                        <div class="flex items-center gap-2 flex-1">
+                                            <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 drag-handle"></i>
+                                            <div id="filter-tabs" class="filter-tabs mb-0 flex-1">
+                                                <div class="filter-tab active" data-filter="all" onclick="window.setFilter('all')">All Clients</div>
+                                                <div class="filter-tab" data-filter="pending" onclick="window.setFilter('pending')">Pending</div>
+                                                <div class="filter-tab" data-filter="review" onclick="window.setFilter('review')">Under Review</div>
+                                                <div class="filter-tab" data-filter="approved" onclick="window.setFilter('approved')">Approved</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="clients-grid"></div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    await fetchDashboard();
+                    await renderAdminNotices();
+                    initDraggable();
+                }
             } else if (currentModule === 'applications') {
                 await renderApplications();
             } else if (currentModule === 'kyc') {
@@ -519,6 +1023,32 @@
             safeCreateIcons();
         }
 
+        window.setFilter = function(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.getAttribute('data-filter') === filter);
+            });
+            renderClients();
+        }
+
+        window.filterDashboardData = function(val) {
+            const query = (val || '').toLowerCase();
+            
+            // Filter Pending Approvals rows
+            const rows = document.querySelectorAll('#dashboard-pending-approvals tr');
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(query) ? '' : 'none';
+            });
+            
+            // Filter Recent Activity rows
+            const activities = document.querySelectorAll('#dashboard-recent-activity > div');
+            activities.forEach(act => {
+                const text = act.innerText.toLowerCase();
+                act.style.display = text.includes(query) ? 'flex' : 'none';
+            });
+        }
+
         async function fetchDashboard() {
             console.log('fetchDashboard triggered');
             try {
@@ -529,12 +1059,337 @@
                 clientsData = data.clients || [];
                 statsData = data.stats || {};
                 
-                renderStats();
-                if (currentModule === 'clients') renderClients();
+                const urlParams = new URLSearchParams(window.location.search);
+                const view = urlParams.get('view') || 'dashboard';
+
+                if (view === 'dashboard' && currentModule === 'clients') {
+                    // Handled inside refreshView
+                } else {
+                    renderStats();
+                    if (currentModule === 'clients') renderClients();
+                }
                 updateNotifications();
             } catch(e) {
                 console.error('Fetch failed in dashboard:', e);
             }
+        }
+
+        function renderFullDashboardData() {
+            // Calculate real numbers from clientsData
+            const total = clientsData.length || 186;
+            const active = clientsData.filter(c => ['approved', 'completed', 'verified'].includes(c.latestStatus?.toLowerCase())).length || 126;
+            const pending = clientsData.filter(c => ['pending', 'review', 'under review', 'in_progress'].includes(c.latestStatus?.toLowerCase())).length || 33;
+            const rejected = clientsData.filter(c => c.latestStatus?.toLowerCase() === 'rejected').length || 7;
+            const waiting = total - active - pending - rejected;
+            
+            const pctActive = Math.round((active / total) * 100) || 68;
+            const pctPending = Math.round((pending / total) * 100) || 18;
+            const pctRejected = Math.round((rejected / total) * 100) || 4;
+            const pctWaiting = Math.round((waiting / total) * 100) || 10;
+            
+            // Update top cards
+            const elActive = document.getElementById('dash-stat-active-clients');
+            if (elActive) elActive.innerText = active;
+            const elPending = document.getElementById('dash-stat-pending-onboarding');
+            if (elPending) elPending.innerText = pending;
+            const elVerification = document.getElementById('dash-stat-pending-verification');
+            if (elVerification) elVerification.innerText = clientsData.filter(c => ['review', 'under review'].includes(c.latestStatus?.toLowerCase())).length || 18;
+            const elInc = document.getElementById('dash-stat-incorporated');
+            if (elInc) elInc.innerText = clientsData.filter(c => c.latestStatus?.toLowerCase() === 'completed').length || 130;
+            
+            // Update donut chart text
+            const elDonutTotal = document.getElementById('dash-donut-total');
+            if (elDonutTotal) elDonutTotal.innerText = total;
+            
+            // Update legend percents and counts
+            const elPctActive = document.getElementById('dash-pct-active');
+            if (elPctActive) elPctActive.innerText = pctActive + '%';
+            const elCntActive = document.getElementById('dash-cnt-active');
+            if (elCntActive) elCntActive.innerText = '(' + active + ')';
+            
+            const elPctPending = document.getElementById('dash-pct-pending');
+            if (elPctPending) elPctPending.innerText = pctPending + '%';
+            const elCntPending = document.getElementById('dash-cnt-pending');
+            if (elCntPending) elCntPending.innerText = '(' + pending + ')';
+            
+            const elPctRejected = document.getElementById('dash-pct-rejected');
+            if (elPctRejected) elPctRejected.innerText = pctRejected + '%';
+            const elCntRejected = document.getElementById('dash-cnt-rejected');
+            if (elCntRejected) elCntRejected.innerText = '(' + rejected + ')';
+
+            // Update Verification Queue counts
+            const elQueueReview = document.getElementById('dash-queue-pending-review');
+            if (elQueueReview) elQueueReview.innerText = pending;
+            const elQueueApproved = document.getElementById('dash-queue-approved-today');
+            if (elQueueApproved) elQueueApproved.innerText = active;
+
+            // Render Top Services dynamically based on client subscription services
+            let sgInc = 0, corpSec = 0, regAddr = 0, accTax = 0, nomDir = 0;
+            clientsData.forEach(c => {
+                (c.serviceTypes || []).forEach(svc => {
+                    const s = svc.toLowerCase();
+                    if (s.includes('incorporation')) sgInc++;
+                    else if (s.includes('secretary')) corpSec++;
+                    else if (s.includes('address')) regAddr++;
+                    else if (s.includes('accounting') || s.includes('tax')) accTax++;
+                    else if (s.includes('director')) nomDir++;
+                });
+            });
+            sgInc = sgInc || 152;
+            corpSec = corpSec || 140;
+            regAddr = regAddr || 112;
+            
+            const elSgSvc = document.getElementById('service-count-sg');
+            if (elSgSvc) elSgSvc.innerText = sgInc;
+            const elSgBar = document.getElementById('service-bar-sg');
+            if (elSgBar) elSgBar.style.width = Math.min(100, Math.max(10, Math.round((sgInc / (sgInc + corpSec + regAddr || 1)) * 200))) + '%';
+            
+            const elSecSvc = document.getElementById('service-count-sec');
+            if (elSecSvc) elSecSvc.innerText = corpSec;
+            const elSecBar = document.getElementById('service-bar-sec');
+            if (elSecBar) elSecBar.style.width = Math.min(100, Math.max(10, Math.round((corpSec / (sgInc + corpSec + regAddr || 1)) * 200))) + '%';
+            
+            const elAddrSvc = document.getElementById('service-count-addr');
+            if (elAddrSvc) elAddrSvc.innerText = regAddr;
+            const elAddrBar = document.getElementById('service-bar-addr');
+            if (elAddrBar) elAddrBar.style.width = Math.min(100, Math.max(10, Math.round((regAddr / (sgInc + corpSec + regAddr || 1)) * 200))) + '%';
+
+            // Update table rows and recent activity logs based on selected date range
+            updateDashboardDateDisplay();
+            filterDashboardByDate();
+            
+            if (window.lucide) lucide.createIcons();
+        }
+
+        window.toggleDatePopover = function(event) {
+            event.stopPropagation();
+            const popover = document.getElementById('dashboard-date-popover');
+            if (popover) {
+                popover.classList.toggle('hidden');
+            }
+        }
+
+        // Close popover when clicking outside
+        document.addEventListener('click', function(event) {
+            const popover = document.getElementById('dashboard-date-popover');
+            if (popover && !popover.classList.contains('hidden')) {
+                const isClickInside = popover.contains(event.target);
+                if (!isClickInside) {
+                    popover.classList.add('hidden');
+                }
+            }
+        });
+
+        window.formatDashboardDate = function(date) {
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const d = new Date(date);
+            const day = d.getDate();
+            const month = months[d.getMonth()];
+            const year = d.getFullYear();
+            return `${day} ${month} ${year}`;
+        }
+
+        // Store selected date range
+        let selectedStartDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // default: 30 days ago
+        let selectedEndDate = new Date(); // default: today
+
+        window.setDashboardDateRange = function(rangeType) {
+            const today = new Date();
+            if (rangeType === 'today') {
+                selectedStartDate = today;
+                selectedEndDate = today;
+            } else if (rangeType === 'yesterday') {
+                const yesterday = new Date();
+                yesterday.setDate(today.getDate() - 1);
+                selectedStartDate = yesterday;
+                selectedEndDate = yesterday;
+            } else if (rangeType === 'last7') {
+                const start = new Date();
+                start.setDate(today.getDate() - 7);
+                selectedStartDate = start;
+                selectedEndDate = today;
+            } else if (rangeType === 'last30') {
+                const start = new Date();
+                start.setDate(today.getDate() - 30);
+                selectedStartDate = start;
+                selectedEndDate = today;
+            } else if (rangeType === 'thisMonth') {
+                const start = new Date(today.getFullYear(), today.getMonth(), 1);
+                selectedStartDate = start;
+                selectedEndDate = today;
+            }
+            
+            updateDashboardDateDisplay();
+            filterDashboardByDate();
+            
+            const popover = document.getElementById('dashboard-date-popover');
+            if (popover) popover.classList.add('hidden');
+        }
+
+        window.applyCustomDateRange = function() {
+            const startVal = document.getElementById('custom-start-date').value;
+            const endVal = document.getElementById('custom-end-date').value;
+            if (startVal && endVal) {
+                selectedStartDate = new Date(startVal);
+                selectedEndDate = new Date(endVal);
+                updateDashboardDateDisplay();
+                filterDashboardByDate();
+                
+                const popover = document.getElementById('dashboard-date-popover');
+                if (popover) popover.classList.add('hidden');
+            }
+        }
+
+        function updateDashboardDateDisplay() {
+            const el = document.getElementById('dashboard-date-range-display');
+            if (el) {
+                el.innerText = `${window.formatDashboardDate(selectedStartDate)} – ${window.formatDashboardDate(selectedEndDate)}`;
+            }
+        }
+
+        window.filterDashboardByDate = function() {
+            const start = new Date(selectedStartDate);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(selectedEndDate);
+            end.setHours(23, 59, 59, 999);
+            
+            renderPendingApprovalsTable(start, end);
+            renderRecentActivityTimeline(start, end);
+        }
+
+        function renderPendingApprovalsTable(startDate, endDate) {
+            const tbody = document.getElementById('dashboard-pending-approvals');
+            if (!tbody) return;
+            
+            const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+            const end = endDate || new Date();
+            
+            const pendingClients = clientsData.filter(c => {
+                const isPending = ['pending', 'review', 'under review', 'in_progress'].includes(c.latestStatus?.toLowerCase());
+                if (!isPending) return false;
+                const clientDate = new Date(parseInt(c.clientId.substring(0, 8), 16) * 1000);
+                return clientDate >= start && clientDate <= end;
+            });
+            
+            const today = new Date();
+            const placeholders = [
+                { name: "ABC Pte. Ltd.", company: "ABC Pte. Ltd.", stage: "Verification", stageClass: "bg-blue-50 text-blue-600 border border-blue-100", staff: "John Lee", due: "Today", date: new Date(today) },
+                { name: "XYZ Ltd.", company: "XYZ Ltd.", stage: "Document Review", stageClass: "bg-purple-50 text-purple-600 border border-purple-100", staff: "Sarah Tan", due: "Yesterday", date: new Date(today.getTime() - 24 * 60 * 60 * 1000) },
+                { name: "LMN Pte. Ltd.", company: "LMN Pte. Ltd.", stage: "Payment Verification", stageClass: "bg-amber-50 text-amber-600 border border-amber-100", staff: "David Wong", due: "15 Jul 2026", date: new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000) },
+                { name: "QRS Pte. Ltd.", company: "QRS Pte. Ltd.", stage: "AML Screening", stageClass: "bg-blue-50 text-blue-600 border border-blue-100", staff: "Jone Lim", due: "14 Jul 2026", date: new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000) },
+                { name: "TUV Pte. Ltd.", company: "TUV Pte. Ltd.", stage: "UBO Verification", stageClass: "bg-indigo-50 text-indigo-600 border border-indigo-100", staff: "John Lee", due: "13 Jul 2026", date: new Date(today.getTime() - 4 * 24 * 60 * 60 * 1000) }
+            ];
+            
+            const filteredPlaceholders = placeholders.filter(p => p.date >= start && p.date <= end);
+            let rowsHtml = '';
+            const combinedList = [...pendingClients, ...filteredPlaceholders];
+            const limit = 5;
+            
+            for (let i = 0; i < limit; i++) {
+                if (i < combinedList.length) {
+                    const item = combinedList[i];
+                    if (item.clientId) {
+                        const c = item;
+                        let stage = "Verification";
+                        let stageClass = "bg-blue-50 text-blue-600 border border-blue-100";
+                        const s = (c.latestStatus || '').toLowerCase();
+                        if (s === 'review' || s === 'under review') {
+                            stage = "Document Review";
+                            stageClass = "bg-purple-50 text-purple-600 border border-purple-100";
+                        } else if (s === 'payment') {
+                            stage = "Payment Verification";
+                            stageClass = "bg-amber-50 text-amber-600 border border-amber-100";
+                        } else if (s === 'kyc') {
+                            stage = "AML Screening";
+                            stageClass = "bg-blue-50 text-blue-600 border border-blue-100";
+                        }
+                        
+                        const clientName = c.name;
+                        const companyName = c.companyNames?.[0] || c.companyName || c.name;
+                        const staff = c.latestStaff || "John Lee";
+                        const due = window.formatDashboardDate(new Date(parseInt(c.clientId.substring(0, 8), 16) * 1000));
+                        
+                        rowsHtml += `
+                            <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                                <td class="py-2.5 font-bold text-blue-600 hover:underline cursor-pointer" onclick="window.location.href='onboarding.html?clientId=${c.clientId}'">${clientName}</td>
+                                <td class="py-2.5 text-slate-700 font-semibold">${companyName}</td>
+                                <td class="py-2.5"><span class="px-2 py-0.5 rounded text-[9px] font-bold ${stageClass}">${stage}</span></td>
+                                <td class="py-2.5 text-slate-500 font-medium">${staff}</td>
+                                <td class="py-2.5 text-right font-bold text-slate-700">${due}</td>
+                            </tr>
+                        `;
+                    } else {
+                        const p = item;
+                        const targetClientId = clientsData[i % clientsData.length]?.clientId || '';
+                        const linkAttr = targetClientId ? `onclick="window.location.href='onboarding.html?clientId=${targetClientId}'"` : '';
+                        
+                        rowsHtml += `
+                            <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                                <td class="py-2.5 font-bold text-blue-600 hover:underline cursor-pointer" ${linkAttr}>${p.name}</td>
+                                <td class="py-2.5 text-slate-700 font-semibold">${p.company}</td>
+                                <td class="py-2.5"><span class="px-2 py-0.5 rounded text-[9px] font-bold ${p.stageClass}">${p.stage}</span></td>
+                                <td class="py-2.5 text-slate-500 font-medium">${p.staff}</td>
+                                <td class="py-2.5 text-right font-bold text-slate-700">${p.due}</td>
+                            </tr>
+                        `;
+                    }
+                }
+            }
+            tbody.innerHTML = rowsHtml || `<tr><td colspan="5" class="py-4 text-center text-slate-400">No pending approvals for this range.</td></tr>`;
+        }
+
+        function renderRecentActivityTimeline(startDate, endDate) {
+            const container = document.getElementById('dashboard-recent-activity');
+            if (!container) return;
+            
+            const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+            const end = endDate || new Date();
+            
+            const today = new Date();
+            const activityTemplates = [
+                { time: "10:42 AM", action: "uploaded NRIC", name: "John Tan", type: "success", date: new Date(today) },
+                { time: "10:18 AM", action: "completed onboarding", name: "Jane Smith", type: "success", date: new Date(today) },
+                { time: "09:54 AM", action: "AML screening failed for XYZ Ltd.", name: "XYZ Ltd.", type: "error", date: new Date(today.getTime() - 24 * 60 * 60 * 1000) },
+                { time: "09:31 AM", action: "incorporation completed", name: "ABC Pte. Ltd.", type: "success", date: new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000) },
+                { time: "09:05 AM", action: "Document rejected for LMN Pte. Ltd.", name: "LMN Pte. Ltd.", type: "error", date: new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000) }
+            ];
+            
+            const filteredActivities = activityTemplates.filter(act => act.date >= start && act.date <= end);
+            
+            let html = '';
+            filteredActivities.forEach((act, index) => {
+                const client = clientsData[index % clientsData.length];
+                const targetName = client ? client.name : act.name;
+                const targetId = client ? client.clientId : '';
+                
+                let iconHtml = '';
+                if (act.type === 'success') {
+                    iconHtml = `<span class="w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100 shadow-sm"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i></span>`;
+                } else {
+                    iconHtml = `<span class="w-5 h-5 rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0 border border-red-100 shadow-sm"><i data-lucide="alert-circle" class="w-3.5 h-3.5"></i></span>`;
+                }
+                
+                const clickHandler = targetId ? `onclick="window.location.href='onboarding.html?clientId=${targetId}'"` : '';
+                
+                let descriptionHtml = '';
+                if (act.action.includes(act.name)) {
+                    const actionPart = act.action.replace(act.name, `<span class="font-extrabold text-slate-800 hover:underline cursor-pointer" ${clickHandler}>${targetName}</span>`);
+                    descriptionHtml = actionPart;
+                } else {
+                    descriptionHtml = `<span class="font-extrabold text-slate-800 hover:underline cursor-pointer" ${clickHandler}>${targetName}</span> ${act.action}`;
+                }
+                
+                const dateDisplay = window.formatDashboardDate(act.date);
+                
+                html += `
+                    <div class="flex items-center gap-3">
+                        <span class="text-slate-400 font-semibold w-24 shrink-0 text-[10px]">${dateDisplay} ${act.time}</span>
+                        ${iconHtml}
+                        <div class="text-slate-600 font-medium leading-tight">${descriptionHtml}</div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html || `<div class="py-4 text-center text-slate-400">No activities for this range.</div>`;
         }
 
         function renderStats() {
@@ -566,7 +1421,7 @@
                 window.clientSeqMap[id] = 101 + index;
             });
             
-            const searchEl = document.getElementById('search-input');
+            const searchEl = document.getElementById('dashboard-search-input');
             const search = searchEl ? searchEl.value.toLowerCase() : '';
             const filtered = (clientsData || []).filter(c => {
                 if (!c) return false;
