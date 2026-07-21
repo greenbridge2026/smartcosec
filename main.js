@@ -34,6 +34,7 @@ async function init() {
     const grid = document.getElementById('services-grid');
     const journeyContainer = document.getElementById('journey-container');
     const journeyProgressBar = document.getElementById('journey-progress-bar');
+    const officeQuestionStep = document.getElementById('office-question-step');
 
 
     // 1. Inject Services
@@ -1627,6 +1628,10 @@ async function init() {
                 }
             }, 500);
         }
+    }
+
+    if (window.lucide) {
+        window.lucide.createIcons();
     }
 }
 
