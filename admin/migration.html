@@ -187,9 +187,17 @@
                 <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
                     <h3 class="text-lg font-bold font-outfit text-slate-900">Upload Source Files</h3>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Individual Client Files / Master Selector -->
+                        <div class="dropzone p-8 rounded-xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 transition border-2 border-dashed border-slate-300 hover:border-blue-500" onclick="document.getElementById('client-file-input').click()">
+                            <i data-lucide="file-spreadsheet" class="w-10 h-10 text-blue-600 mb-3"></i>
+                            <span class="font-bold text-slate-800 text-sm">Upload Client Excel / Master File(s)</span>
+                            <span class="text-xs text-slate-400 mt-1">Upload & parse single/multiple client Excel files (.xlsx, .xls) or Master spreadsheet</span>
+                            <input type="file" id="client-file-input" accept=".xlsx,.xls,.csv" multiple class="hidden" onchange="handleIndividualFilesSelect(event)">
+                        </div>
+
                         <!-- Directory Webkit Selector -->
-                        <div class="dropzone p-8 rounded-xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 transition" onclick="document.getElementById('dir-input').click()">
+                        <div class="dropzone p-8 rounded-xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 transition border-2 border-dashed border-slate-300 hover:border-blue-500" onclick="document.getElementById('dir-input').click()">
                             <i data-lucide="folder-open" class="w-10 h-10 text-slate-400 mb-3"></i>
                             <span class="font-bold text-slate-800 text-sm">Select Legacy Client Directory</span>
                             <span class="text-xs text-slate-400 mt-1">Upload folders recursively (Client Details Excel & Documents)</span>
@@ -197,10 +205,10 @@
                         </div>
 
                         <!-- ZIP File Selector -->
-                        <div class="dropzone p-8 rounded-xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 transition" onclick="document.getElementById('zip-input').click()">
+                        <div class="dropzone p-8 rounded-xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 transition border-2 border-dashed border-slate-300 hover:border-blue-500" onclick="document.getElementById('zip-input').click()">
                             <i data-lucide="file-archive" class="w-10 h-10 text-slate-400 mb-3"></i>
                             <span class="font-bold text-slate-800 text-sm">Select ZIP Archive File</span>
-                            <span class="text-xs text-slate-400 mt-1">Upload bulk imported ZIP folder</span>
+                            <span class="text-xs text-slate-400 mt-1">Upload bulk imported ZIP folder archive</span>
                             <input type="file" id="zip-input" accept=".zip" class="hidden" onchange="handleZipSelect(event)">
                         </div>
                     </div>
@@ -389,7 +397,7 @@ Please log in immediately to complete your activation.</textarea>
     <!-- Client Detail Preview Editor Modal -->
     <div class="hidden fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300" id="preview-editor-modal">
         <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto" onclick="closePreviewModal()"></div>
-        <div class="bg-white rounded-2xl p-8 w-full max-w-2xl shadow-2xl relative z-10 pointer-events-auto transform scale-90 transition-transform flex flex-col max-h-[85vh]">
+        <div class="bg-white rounded-2xl p-8 w-full max-w-4xl shadow-2xl relative z-10 pointer-events-auto transform scale-90 transition-transform flex flex-col max-h-[85vh]">
             <h3 class="text-xl font-bold mb-4 font-outfit text-slate-900" id="modal-client-header">Edit Import Candidate</h3>
             
             <div class="space-y-4 overflow-y-auto flex-1 pr-2 text-sm font-sans" id="modal-fields-body">
@@ -540,22 +548,6 @@ Please log in immediately to complete your activation.</textarea>
                     try {
                         const data = new Uint8Array(e.target.result);
                         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-                        const result = {
-                            companyName: '',
-                            uen: '',
-                            companyType: '',
-                            primaryActivity: '',
-                            secondaryActivity: '',
-                            registeredOfficeAddress: '',
-                            lastAgmDate: 'NA',
-                            fye: '',
-                            annualReturnDate: 'NA',
-                            xbrlPrepared: 'NA',
-                            directors: [],
-                            secretaries: [],
-                            members: [],
-                            controllers: []
-                        };
 
                         const getSheet = (name) => {
                             const key = workbook.SheetNames.find(s => s.trim().toLowerCase() === name.trim().toLowerCase());
@@ -572,8 +564,88 @@ Please log in immediately to complete your activation.</textarea>
                             return val ? String(val).trim() : '';
                         };
 
-                        // 1. Home sheet
                         const homeSheet = getSheet('Home');
+                        const directorsSheet = getSheet('Directors');
+                        const secretariesSheet = getSheet('Secretaries');
+                        const membersSheet = getSheet('Members');
+                        const controllersSheet = getSheet('Controllers');
+
+                        // Check if it's a tabular master spreadsheet (no standard client tabs)
+                        if (!homeSheet && !directorsSheet && !secretariesSheet && !membersSheet && !controllersSheet) {
+                            const firstSheetName = workbook.SheetNames[0];
+                            if (firstSheetName) {
+                                const sheet = workbook.Sheets[firstSheetName];
+                                const rows = XLSX.utils.sheet_to_json(sheet);
+                                if (rows && rows.length > 0) {
+                                    const masterList = rows.map((row, idx) => {
+                                        let clientName = "";
+                                        let companyName = "";
+                                        let email = "";
+                                        let uen = "";
+                                        let country = "Singapore";
+
+                                        Object.keys(row).forEach(k => {
+                                            const keyLower = k.trim().toLowerCase();
+                                            const val = String(row[k] || '').trim();
+                                            if (keyLower.includes('client') || keyLower.includes('director') || keyLower.includes('contact') || keyLower.includes('owner') || keyLower.includes('name')) {
+                                                if (!clientName && !keyLower.includes('company')) clientName = val;
+                                            }
+                                            if (keyLower.includes('company') || keyLower.includes('entity') || keyLower.includes('business')) {
+                                                companyName = val;
+                                            }
+                                            if (keyLower.includes('email') || keyLower.includes('mail')) {
+                                                email = val;
+                                            }
+                                            if (keyLower.includes('uen') || keyLower.includes('reg') || keyLower.includes('tax id')) {
+                                                uen = val;
+                                            }
+                                            if (keyLower.includes('country')) {
+                                                country = val;
+                                            }
+                                        });
+
+                                        if (!companyName) companyName = clientName ? clientName + " Pte. Ltd." : "Client Company " + (idx + 1);
+                                        if (!clientName) clientName = companyName.replace(/Pte\s*Ltd/gi, '').trim();
+                                        if (!email) email = companyName.toLowerCase().replace(/[^a-z0-9]/g, '') + "@example.com";
+                                        if (!uen) uen = "2026" + Math.floor(10000 + Math.random() * 90000) + "M";
+
+                                        return {
+                                            clientName: clientName,
+                                            companyName: companyName,
+                                            email: email,
+                                            documents: [],
+                                            data: {
+                                                uen: uen,
+                                                country: country,
+                                                rowRaw: row
+                                            }
+                                        };
+                                    });
+
+                                    return resolve({ isMasterList: true, masterList: masterList });
+                                }
+                            }
+                        }
+
+                        const result = {
+                            isMasterList: false,
+                            companyName: '',
+                            uen: '',
+                            companyType: '',
+                            primaryActivity: '',
+                            secondaryActivity: '',
+                            registeredOfficeAddress: '',
+                            lastAgmDate: 'NA',
+                            fye: '',
+                            annualReturnDate: 'NA',
+                            xbrlPrepared: 'NA',
+                            directors: [],
+                            secretaries: [],
+                            members: [],
+                            controllers: []
+                        };
+
+                        // 1. Home sheet
                         if (homeSheet) {
                             const rows = XLSX.utils.sheet_to_json(homeSheet, { header: 1 });
                             rows.forEach(row => {
@@ -790,6 +862,91 @@ Please log in immediately to complete your activation.</textarea>
                 };
                 reader.readAsArrayBuffer(file);
             });
+        }
+
+        // ================= INDIVIDUAL CLIENT / MASTER FILE SELECTION =================
+
+        async function handleIndividualFilesSelect(event) {
+            const files = event.target.files;
+            if (!files || files.length === 0) return;
+
+            importedRecords = [];
+            const newRecords = [];
+            const excelPromises = [];
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv')) {
+                    const promise = parseExcelFile(file).then(parsed => {
+                        if (parsed) {
+                            if (parsed.isMasterList && parsed.masterList) {
+                                newRecords.push(...parsed.masterList);
+                            } else {
+                                let clientName = parsed.companyName ? parsed.companyName.replace(/Pte\s*Ltd/gi, '').trim() : file.name.replace(/\.[^/.]+$/, "");
+                                let email = file.name.toLowerCase().replace(/[^a-z0-9]/g, '') + "@example.com";
+                                
+                                if (parsed.directors && parsed.directors.length > 0) {
+                                    const mainDir = parsed.directors.find(d => d.type === 'Director') || parsed.directors[0];
+                                    if (mainDir.name) clientName = mainDir.name;
+                                    if (mainDir.email) email = mainDir.email;
+                                }
+
+                                newRecords.push({
+                                    clientName: clientName,
+                                    companyName: parsed.companyName || file.name.replace(/\.[^/.]+$/, ""),
+                                    email: email,
+                                    documents: [],
+                                    data: {
+                                        uen: parsed.uen || ("2026" + Math.floor(10000 + Math.random() * 90000) + "T"),
+                                        country: "Singapore",
+                                        excelData: parsed
+                                    }
+                                });
+                            }
+                        }
+                    });
+                    excelPromises.push(promise);
+                } else {
+                    const fileBase64 = await readFileAsBase64(file);
+                    let docType = "Other Supporting Documents";
+                    if (file.name.toLowerCase().includes('passport')) docType = "Passport";
+                    else if (file.name.toLowerCase().includes('nric') || file.name.toLowerCase().includes('fin')) docType = "NRIC / FIN";
+                    else if (file.name.toLowerCase().includes('bizfile')) docType = "Bizfile";
+                    else if (file.name.toLowerCase().includes('constitution')) docType = "Constitution";
+
+                    if (newRecords.length > 0) {
+                        newRecords[newRecords.length - 1].documents.push({
+                            fileName: file.name,
+                            documentType: docType,
+                            fileData: fileBase64,
+                            confidence: 0.98,
+                            extractedFields: simulateOcrExtracted(docType, newRecords[newRecords.length - 1].clientName)
+                        });
+                    } else {
+                        const clientName = file.name.replace(/\.[^/.]+$/, "");
+                        newRecords.push({
+                            clientName: clientName,
+                            companyName: clientName + " Pte. Ltd.",
+                            email: clientName.toLowerCase().replace(/[^a-z0-9]/g, '') + "@example.com",
+                            documents: [{
+                                fileName: file.name,
+                                documentType: docType,
+                                fileData: fileBase64,
+                                confidence: 0.98,
+                                extractedFields: simulateOcrExtracted(docType, clientName)
+                            }],
+                            data: {
+                                uen: "2026" + Math.floor(10000 + Math.random() * 90000) + "T",
+                                country: "Singapore"
+                            }
+                        });
+                    }
+                }
+            }
+
+            await Promise.all(excelPromises);
+            importedRecords = newRecords;
+            renderPreviewGrid();
         }
 
         // ================= CLIENT DIRECTORY / ZIP SELECTION =================
@@ -1065,7 +1222,7 @@ Please log in immediately to complete your activation.</textarea>
             const tbody = document.getElementById('import-preview-table-body');
             
             if (importedRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400 text-sm">No clients parsed yet. Select folders/ZIP to import.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400 text-sm">No clients parsed yet. Select files, folders or ZIP to import.</td></tr>`;
                 return;
             }
 
@@ -1074,16 +1231,33 @@ Please log in immediately to complete your activation.</textarea>
                 const docCount = rec.documents.length;
                 const ocrConf = rec.documents.length > 0 ? Math.round(rec.documents[0].confidence * 100) + '%' : 'N/A';
                 
+                const ex = rec.data ? rec.data.excelData : null;
+                const dirCount = ex && ex.directors ? ex.directors.length : 0;
+                const secCount = ex && ex.secretaries ? ex.secretaries.length : 0;
+                const memCount = ex && ex.members ? ex.members.length : 0;
+                const ctrlCount = ex && ex.controllers ? ex.controllers.length : 0;
+                
+                const parsedBadges = ex ? `
+                    <div class="flex flex-wrap gap-1 mt-1 text-[10px]">
+                        ${dirCount > 0 ? `<span class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-bold">${dirCount} Dir</span>` : ''}
+                        ${secCount > 0 ? `<span class="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-bold">${secCount} Sec</span>` : ''}
+                        ${memCount > 0 ? `<span class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold">${memCount} Mem</span>` : ''}
+                        ${ctrlCount > 0 ? `<span class="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 font-bold">${ctrlCount} Ctrl</span>` : ''}
+                    </div>
+                ` : '';
+
                 // Validation checks
                 const validationErrors = [];
                 if (!rec.email || !rec.email.includes('@')) validationErrors.push('Invalid Email');
-                if (rec.documents.length === 0) validationErrors.push('Missing Docs');
                 
                 const isValid = validationErrors.length === 0;
 
                 return `
                     <tr class="hover:bg-slate-50">
-                        <td class="p-4 font-bold text-slate-900">${rec.clientName}</td>
+                        <td class="p-4 font-bold text-slate-900">
+                            <div>${rec.clientName}</div>
+                            ${parsedBadges}
+                        </td>
                         <td class="p-4 text-slate-600">${rec.companyName}</td>
                         <td class="p-4 font-mono">${uenVal}</td>
                         <td class="p-4"><span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-bold">${docCount} File(s)</span></td>
@@ -1100,6 +1274,7 @@ Please log in immediately to complete your activation.</textarea>
                     </tr>
                 `;
             }).join('');
+            safeCreateIcons();
         }
 
         // ================= EDIT PREVIEW ROW MODAL =================
@@ -1109,10 +1284,55 @@ Please log in immediately to complete your activation.</textarea>
         function openPreviewEditor(idx) {
             currentEditingIndex = idx;
             const rec = importedRecords[idx];
+            const ex = rec.data ? rec.data.excelData : null;
             
-            document.getElementById('modal-client-header').innerText = "Edit " + rec.clientName;
+            document.getElementById('modal-client-header').innerText = "Edit Candidate: " + rec.clientName;
             const body = document.getElementById('modal-fields-body');
             
+            let structuredHtml = '';
+            if (ex) {
+                structuredHtml = `
+                    <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 space-y-3 mt-4">
+                        <div class="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-2">
+                            <i data-lucide="building-2" class="w-4 h-4 text-blue-600"></i> Parsed Client Company Structure
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 text-xs text-slate-600">
+                            <div><strong>Type:</strong> ${ex.companyType || 'N/A'}</div>
+                            <div><strong>Primary Activity:</strong> ${ex.primaryActivity || 'N/A'}</div>
+                            <div><strong>FYE:</strong> ${ex.fye || 'N/A'}</div>
+                            <div><strong>Registered Address:</strong> ${ex.registeredOfficeAddress || 'N/A'}</div>
+                        </div>
+
+                        ${ex.directors && ex.directors.length > 0 ? `
+                            <div class="mt-3 pt-3 border-t border-slate-200">
+                                <div class="font-bold text-slate-700 text-xs mb-1">Directors (${ex.directors.length}):</div>
+                                <div class="space-y-1 text-xs text-slate-600">
+                                    ${ex.directors.map(d => `<div class="bg-white p-2 rounded border border-slate-200 flex justify-between"><span><strong>${d.name}</strong> (${d.type || 'Director'})</span> <span class="font-mono text-slate-500">${d.idNumber || 'No ID'}</span></div>`).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${ex.secretaries && ex.secretaries.length > 0 ? `
+                            <div class="mt-3 pt-3 border-t border-slate-200">
+                                <div class="font-bold text-slate-700 text-xs mb-1">Secretaries (${ex.secretaries.length}):</div>
+                                <div class="space-y-1 text-xs text-slate-600">
+                                    ${ex.secretaries.map(s => `<div class="bg-white p-2 rounded border border-slate-200 flex justify-between"><span><strong>${s.name}</strong></span> <span class="font-mono text-slate-500">${s.idNumber || 'No ID'}</span></div>`).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${ex.members && ex.members.length > 0 ? `
+                            <div class="mt-3 pt-3 border-t border-slate-200">
+                                <div class="font-bold text-slate-700 text-xs mb-1">Members / Shareholders (${ex.members.length}):</div>
+                                <div class="space-y-1 text-xs text-slate-600">
+                                    ${ex.members.map(m => `<div class="bg-white p-2 rounded border border-slate-200 flex justify-between"><span><strong>${m.name}</strong></span> <span class="font-mono text-slate-500">${m.idNumber || 'No ID'}</span></div>`).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
             body.innerHTML = `
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -1133,12 +1353,20 @@ Please log in immediately to complete your activation.</textarea>
                     </div>
                 </div>
 
+                ${structuredHtml}
+
                 <div class="space-y-2 mt-4">
-                    <span class="block text-xs font-bold text-slate-400 uppercase tracking-wide">Extracted Files List</span>
-                    <div class="space-y-2 border border-slate-100 rounded-xl p-4">
-                        ${rec.documents.map(d => `
+                    <div class="flex justify-between items-center">
+                        <span class="block text-xs font-bold text-slate-400 uppercase tracking-wide">Extracted & Attached Files (${rec.documents.length})</span>
+                        <label class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-bold cursor-pointer">
+                            + Add Document File
+                            <input type="file" class="hidden" onchange="attachFileToCandidate(${idx}, event)">
+                        </label>
+                    </div>
+                    <div class="space-y-2 border border-slate-100 rounded-xl p-4 max-h-[160px] overflow-y-auto">
+                        ${rec.documents.length === 0 ? `<div class="text-xs text-slate-400 text-center py-2">No documents attached yet.</div>` : rec.documents.map(d => `
                             <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200/50">
-                                <span class="font-semibold text-slate-700 text-xs">${d.fileName}</span>
+                                <span class="font-semibold text-slate-700 text-xs truncate max-w-[300px]">${d.fileName}</span>
                                 <span class="px-2 py-0.5 rounded bg-blue-50 text-blue-600 font-bold text-[9px] uppercase">${d.documentType}</span>
                             </div>
                         `).join('')}
@@ -1152,6 +1380,30 @@ Please log in immediately to complete your activation.</textarea>
             modal.classList.remove('opacity-0', 'pointer-events-none');
             modal.querySelector('.transform').classList.remove('scale-90');
             modal.classList.add('opacity-100', 'pointer-events-auto');
+            safeCreateIcons();
+        }
+
+        async function attachFileToCandidate(idx, event) {
+            const file = event.target.files[0];
+            if (!file || idx < 0 || idx >= importedRecords.length) return;
+            
+            const fileBase64 = await readFileAsBase64(file);
+            let docType = "Other Supporting Documents";
+            if (file.name.toLowerCase().includes('passport')) docType = "Passport";
+            else if (file.name.toLowerCase().includes('nric') || file.name.toLowerCase().includes('fin')) docType = "NRIC / FIN";
+            else if (file.name.toLowerCase().includes('bizfile')) docType = "Bizfile";
+            else if (file.name.toLowerCase().includes('constitution')) docType = "Constitution";
+
+            importedRecords[idx].documents.push({
+                fileName: file.name,
+                documentType: docType,
+                fileData: fileBase64,
+                confidence: 0.98,
+                extractedFields: simulateOcrExtracted(docType, importedRecords[idx].clientName)
+            });
+
+            openPreviewEditor(idx);
+            renderPreviewGrid();
         }
 
         function savePreviewRowEdited() {
