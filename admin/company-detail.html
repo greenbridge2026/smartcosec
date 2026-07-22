@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script>
         // Authentication Check
         if (!localStorage.getItem('admin_auth')) {
@@ -107,9 +108,16 @@
             <button onclick="window.location.href='messages.html'" class="module-nav-btn" id="btn-messages">Messages</button>
             <button onclick="window.location.href='content.html'" class="module-nav-btn" id="btn-content">Content</button>
         </div>
-        <div class="flex items-center justify-end gap-5 relative">
-
-
+        <div class="flex items-center justify-end gap-3 relative">
+            <button onclick="document.getElementById('company-excel-input').click()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Upload Client Register (Excel)
+            </button>
+            <input type="file" id="company-excel-input" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleCompanyExcelUpload(event)">
+            
+            <button onclick="window.location.href='dashboard.html'" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Back to Dashboard
+            </button>
         </div>
     </nav>
 
@@ -2411,6 +2419,7 @@
 
             if (window.lucide) window.lucide.createIcons();
         }
+
 
         window.filterDirectorsList = function() {
             renderDirectorsList();
@@ -4933,6 +4942,309 @@
             switchTab('overview');
             loadCompanyDetails();
         }
+        async function handleCompanyExcelUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const clientId = urlParams.get('clientId');
+            if (!clientId) {
+                alert("Client ID missing in URL!");
+                return;
+            }
+
+            try {
+                const parsedExcel = await parseExcelFile(file);
+                if (!parsedExcel) {
+                    alert("Failed to parse Excel file. Please ensure it follows the Master Register format.");
+                    return;
+                }
+
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const token = authObj.token;
+                const headers = {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+                };
+
+                const res = await fetch(`/api/clients/${clientId}/excel-upload`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(parsedExcel)
+                });
+
+                if (res.ok) {
+                    alert("Client register updated successfully!");
+                    loadCompanyDetails();
+                } else {
+                    alert("Failed to update client register on backend.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Error processing Excel upload: " + err.message);
+            }
+        }
+
+        function parseExcelFile(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                        const result = {
+                            companyName: '',
+                            uen: '',
+                            companyType: '',
+                            primaryActivity: '',
+                            secondaryActivity: '',
+                            registeredOfficeAddress: '',
+                            lastAgmDate: 'NA',
+                            fye: '',
+                            annualReturnDate: 'NA',
+                            xbrlPrepared: 'NA',
+                            directors: [],
+                            secretaries: [],
+                            members: [],
+                            controllers: []
+                        };
+
+                        const getSheet = (name) => {
+                            const key = workbook.SheetNames.find(s => s.trim().toLowerCase() === name.trim().toLowerCase());
+                            return key ? workbook.Sheets[key] : null;
+                        };
+
+                        const formatDate = (val) => {
+                            if (val instanceof Date) {
+                                return val.toISOString().split('T')[0];
+                            }
+                            if (val && typeof val === 'string') {
+                                return val.trim();
+                            }
+                            return val ? String(val).trim() : '';
+                        };
+
+                        // 1. Home sheet
+                        const homeSheet = getSheet('Home');
+                        if (homeSheet) {
+                            const rows = XLSX.utils.sheet_to_json(homeSheet, { header: 1 });
+                            rows.forEach(row => {
+                                if (!row || row.length < 3) return;
+                                const label = String(row[1] || '').trim().toLowerCase();
+                                const val = String(row[2] || '').trim();
+                                if (label.includes('name of the company')) result.companyName = val;
+                                else if (label.includes('uen no.')) result.uen = val;
+                                else if (label.includes('company type')) result.companyType = val;
+                                else if (label.includes('primary activity')) result.primaryActivity = val;
+                                else if (label.includes('secondary activity')) result.secondaryActivity = val;
+                                else if (label.includes('registered office address')) result.registeredOfficeAddress = val;
+                                else if (label.includes('last agm date')) result.lastAgmDate = val;
+                                else if (label.includes('fye of fs laid at agm')) result.fye = formatDate(row[2]);
+                                else if (label.includes('date of annual return')) result.annualReturnDate = val;
+                                else if (label.includes('xbrl prepared')) result.xbrlPrepared = val;
+                            });
+                        }
+
+                        // 2. Directors sheet
+                        const directorsSheet = getSheet('Directors');
+                        if (directorsSheet) {
+                            const rows = XLSX.utils.sheet_to_json(directorsSheet, { header: 1 });
+                            let section = '';
+                            let headers = [];
+                            rows.forEach(row => {
+                                if (!row || row.length === 0) return;
+                                const firstCell = String(row[0] || '').trim();
+                                if (firstCell.toLowerCase().startsWith('register of directors')) {
+                                    section = 'directors';
+                                    headers = [];
+                                    return;
+                                } else if (firstCell.toLowerCase().startsWith('register of nominee directors')) {
+                                    section = 'nominee';
+                                    headers = [];
+                                    return;
+                                } else if (firstCell.toLowerCase().startsWith('name')) {
+                                    headers = row.map(h => String(h || '').trim().toLowerCase());
+                                    return;
+                                }
+
+                                if (headers.length > 0 && (section === 'directors' || section === 'nominee')) {
+                                    if (firstCell && firstCell !== 'NONE' && !firstCell.toLowerCase().startsWith('register') && !firstCell.toLowerCase().startsWith('position')) {
+                                        const director = { type: section === 'nominee' ? 'Nominee Director' : 'Director' };
+                                        headers.forEach((header, idx) => {
+                                            const val = row[idx];
+                                            if (val === undefined || val === null) return;
+                                            if (header.includes('former') || header.includes('alias')) {
+                                                director.formerName = String(val).trim();
+                                            } else if (header.includes('expiry')) {
+                                                director.passportExpiry = formatDate(val);
+                                            } else if (header.includes('nric') || header.includes('id card') || header.includes('passport') || header.includes('fin')) {
+                                                director.idNumber = String(val).trim();
+                                            } else if (header.includes('name')) {
+                                                director.name = String(val).trim();
+                                            } else if (header.includes('birth') || header.includes('dob')) {
+                                                director.dob = formatDate(val);
+                                            } else if (header.includes('nationality')) {
+                                                director.nationality = String(val).trim();
+                                            } else if (header.includes('address')) {
+                                                director.address = String(val).trim();
+                                            } else if (header.includes('appointment')) {
+                                                director.appointmentDate = formatDate(val);
+                                            } else if (header.includes('cessation')) {
+                                                director.cessationDate = formatDate(val);
+                                            } else if (header.includes('mobile')) {
+                                                director.mobile = String(val).trim();
+                                            } else if (header.includes('email')) {
+                                                director.email = String(val).trim();
+                                            }
+                                        });
+                                        if (director.name) result.directors.push(director);
+                                    }
+                                }
+                            });
+                        }
+
+                        // 3. Secretaries sheet
+                        const secretariesSheet = getSheet('Secretaries');
+                        if (secretariesSheet) {
+                            const rows = XLSX.utils.sheet_to_json(secretariesSheet, { header: 1 });
+                            let headers = [];
+                            rows.forEach(row => {
+                                if (!row || row.length === 0) return;
+                                const firstCell = String(row[0] || '').trim();
+                                if (firstCell.toLowerCase().startsWith('name')) {
+                                    headers = row.map(h => String(h || '').trim().toLowerCase());
+                                    return;
+                                }
+                                if (headers.length > 0 && firstCell && firstCell !== 'NONE' && !firstCell.toLowerCase().startsWith('register')) {
+                                    const secretary = {};
+                                    headers.forEach((header, idx) => {
+                                        const val = row[idx];
+                                        if (val === undefined || val === null) return;
+                                        if (header.includes('former') || header.includes('alias')) {
+                                            secretary.formerName = String(val).trim();
+                                        } else if (header.includes('id card') || header.includes('passport') || header.includes('fin') || header.includes('nric')) {
+                                            secretary.idNumber = String(val).trim();
+                                        } else if (header.includes('name')) {
+                                            secretary.name = String(val).trim();
+                                        } else if (header.includes('nationality')) {
+                                            secretary.nationality = String(val).trim();
+                                        } else if (header.includes('address')) {
+                                            secretary.address = String(val).trim();
+                                        } else if (header.includes('appointment')) {
+                                            secretary.appointmentDate = formatDate(val);
+                                        } else if (header.includes('resignation')) {
+                                            secretary.resignationDate = formatDate(val);
+                                        }
+                                    });
+                                    if (secretary.name) result.secretaries.push(secretary);
+                                }
+                            });
+                        }
+
+                        // 4. Members sheet
+                        const membersSheet = getSheet('Members');
+                        if (membersSheet) {
+                            const rows = XLSX.utils.sheet_to_json(membersSheet, { header: 1 });
+                            let headers = [];
+                            let inRegister = false;
+                            rows.forEach(row => {
+                                if (!row || row.length === 0) return;
+                                const rowStr = row.join(' ').toLowerCase();
+                                if (rowStr.includes('date entered as member')) {
+                                    inRegister = true;
+                                    headers = row.map(h => String(h || '').trim().toLowerCase());
+                                    return;
+                                } else if (rowStr.includes('share certificate') || rowStr.includes('ledger') || rowStr.includes('transactions')) {
+                                    inRegister = false;
+                                    return;
+                                }
+
+                                if (inRegister && headers.length > 0) {
+                                    const firstCell = String(row[1] || '').trim();
+                                    if (firstCell && firstCell !== 'NONE' && !firstCell.toLowerCase().startsWith('register') && !firstCell.toLowerCase().startsWith('s. no.')) {
+                                        const member = {};
+                                        headers.forEach((header, idx) => {
+                                            const val = row[idx];
+                                            if (val === undefined || val === null) return;
+                                            if (header.includes('name of member')) {
+                                                member.name = String(val).trim();
+                                            } else if (header.includes('nric') || header.includes('id card') || header.includes('passport') || header.includes('fin')) {
+                                                member.idNumber = String(val).trim();
+                                            } else if (header.includes('nationality')) {
+                                                member.nationality = String(val).trim();
+                                            } else if (header.includes('address')) {
+                                                member.address = String(val).trim();
+                                            } else if (header.includes('entered')) {
+                                                member.dateEntered = formatDate(val);
+                                            } else if (header.includes('ceased')) {
+                                                member.dateCeased = formatDate(val);
+                                            } else if (header.includes('email')) {
+                                                member.email = String(val).trim();
+                                            } else if (header.includes('mobile')) {
+                                                member.mobile = String(val).trim();
+                                            }
+                                        });
+                                        if (member.name) result.members.push(member);
+                                    }
+                                }
+                            });
+                        }
+
+                        // 5. Controllers sheet
+                        const controllersSheet = getSheet('Controllers');
+                        if (controllersSheet) {
+                            const rows = XLSX.utils.sheet_to_json(controllersSheet, { header: 1 });
+                            let headers = [];
+                            rows.forEach(row => {
+                                if (!row || row.length === 0) return;
+                                const nameCell = String(row[2] || '').trim();
+                                if (String(row[1] || '').trim().toLowerCase().startsWith('date of entry') || String(row[2] || '').trim().toLowerCase().startsWith('name of controller')) {
+                                    headers = row.map(h => String(h || '').trim().toLowerCase());
+                                    return;
+                                }
+                                if (headers.length > 0 && nameCell && nameCell !== 'NONE' && !nameCell.toLowerCase().startsWith('register')) {
+                                    const controller = {};
+                                    headers.forEach((header, idx) => {
+                                        const val = row[idx];
+                                        if (val === undefined || val === null) return;
+                                        if (header.includes('former') || header.includes('alias')) {
+                                            controller.formerName = String(val).trim();
+                                        } else if (header.includes('expiry')) {
+                                            controller.passportExpiry = formatDate(val);
+                                        } else if (header.includes('id card') || header.includes('passport') || header.includes('nric') || header.includes('fin')) {
+                                            controller.idNumber = String(val).trim();
+                                        } else if (header.includes('name of controller')) {
+                                            controller.name = String(val).trim();
+                                        } else if (header.includes('date of entry')) {
+                                            controller.dateOfEntry = formatDate(val);
+                                        } else if (header.includes('birth') || header.includes('dob')) {
+                                            controller.dob = formatDate(val);
+                                        } else if (header.includes('address')) {
+                                            controller.address = String(val).trim();
+                                        } else if (header.includes('remarks')) {
+                                            controller.remarks = String(val).trim();
+                                        } else if (header.includes('mobile')) {
+                                            controller.mobile = String(val).trim();
+                                        } else if (header.includes('email')) {
+                                            controller.email = String(val).trim();
+                                        }
+                                    });
+                                    if (controller.name) result.controllers.push(controller);
+                                }
+                            });
+                        }
+
+                        resolve(result);
+                    } catch (err) {
+                        console.error("Excel parse error:", err);
+                        resolve(null);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+
 
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initializePage);
