@@ -1149,12 +1149,29 @@
 
             console.log("Excel register data in renderPage:", excel);
 
-            // 1. Set Company Banner Headers
-            const companyName = (excel && excel.companyName) ? excel.companyName : (client.name || "N/A");
+            // 1. Set Company Banner Headers safely
+            let companyName = "N/A";
+            if (excel && excel.companyName && excel.companyName.trim() !== "" && excel.companyName !== "N/A" && excel.companyName !== "null") {
+                companyName = excel.companyName.trim();
+            } else if (client && client.name && !client.name.startsWith("Client C-") && client.name.trim() !== "") {
+                companyName = client.name.trim();
+            } else if (details && details.names && Array.isArray(details.names) && details.names.length > 0 && details.names[0]) {
+                companyName = details.names[0];
+            } else if (client && client.name) {
+                companyName = client.name;
+            }
+
             document.getElementById('company-name').innerText = companyName;
             document.getElementById('company-initial').innerText = companyName.charAt(0).toUpperCase();
 
-            const uen = (excel && excel.uen) ? excel.uen : (client.uen || "N/A");
+            let uen = "N/A";
+            if (excel && excel.uen && excel.uen.trim() !== "" && excel.uen !== "N/A" && excel.uen !== "null") {
+                uen = excel.uen.trim();
+            } else if (details && details.uen && details.uen.trim() !== "") {
+                uen = details.uen.trim();
+            } else if (client && client.uen && client.uen.trim() !== "") {
+                uen = client.uen.trim();
+            }
             document.getElementById('company-uen-badge').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 inline-block mr-1"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg> UEN: ${uen}`;
 
             const companyType = (excel && excel.companyType) ? excel.companyType : "Private Company Limited by shares";
