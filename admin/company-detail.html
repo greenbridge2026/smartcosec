@@ -5047,7 +5047,7 @@
                         };
 
                         // 1. Home sheet
-                        const homeSheet = getSheet('Home') || workbook.Sheets[workbook.SheetNames[0]];
+                        const homeSheet = getSheet('Home');
                         if (homeSheet) {
                             const rows = XLSX.utils.sheet_to_json(homeSheet, { header: 1 });
                             rows.forEach(row => {
@@ -5058,7 +5058,7 @@
                                     const cellStr = String(row[i] || '').trim();
                                     if (!cellStr) continue;
                                     const lower = cellStr.toLowerCase();
-                                    if (lower.includes('name of the company') || lower.includes('company name') || lower.includes('uen') || lower.includes('company type') || lower.includes('primary activity') || lower.includes('secondary activity') || lower.includes('registered office') || lower.includes('agm') || lower.includes('fye') || lower.includes('annual return') || lower.includes('xbrl')) {
+                                    if ((lower.includes('name of the company') || lower.includes('company name') || lower.includes('uen') || lower.includes('company type') || lower.includes('primary activity') || lower.includes('secondary activity') || lower.includes('registered office') || lower.includes('agm') || lower.includes('fye') || lower.includes('annual return') || lower.includes('xbrl')) && !lower.includes('director') && !lower.includes('member') && !lower.includes('secretary') && !lower.includes('controller')) {
                                         label = lower;
                                         for (let j = i + 1; j < row.length; j++) {
                                             if (row[j] !== undefined && row[j] !== null && String(row[j]).trim() !== '') {
@@ -5070,7 +5070,11 @@
                                     }
                                 }
                                 if (label && val) {
-                                    if (label.includes('name of the company') || label.includes('company name')) result.companyName = val;
+                                    if ((label.includes('name of the company') || label.includes('company name')) && !label.includes('director') && !label.includes('member') && !label.includes('secretary') && !label.includes('controller')) {
+                                        if (val.length > 2 && (val.includes(" ") || val.toUpperCase().includes("LTD") || val.toUpperCase().includes("PTE"))) {
+                                            result.companyName = val;
+                                        }
+                                    }
                                     else if (label.includes('uen')) result.uen = val;
                                     else if (label.includes('company type')) result.companyType = val;
                                     else if (label.includes('primary activity')) result.primaryActivity = val;
