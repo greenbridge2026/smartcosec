@@ -5050,42 +5050,54 @@
                         const homeSheet = getSheet('Home');
                         if (homeSheet) {
                             const rows = XLSX.utils.sheet_to_json(homeSheet, { header: 1 });
-                            rows.forEach(row => {
-                                if (!row || row.length < 2) return;
-                                let label = '';
-                                let val = '';
+                            for (let r = 0; r < rows.length; r++) {
+                                const row = rows[r];
+                                if (!row || row.length === 0) continue;
+                                const rowString = row.join(' ').toLowerCase();
+
+                                // Stop processing Home sheet when reaching Summary of Transactions table
+                                if (rowString.includes('summary of transactions') || rowString.includes('transaction description') || rowString.includes('lodged by')) {
+                                    break;
+                                }
+
                                 for (let i = 0; i < row.length; i++) {
                                     const cellStr = String(row[i] || '').trim();
                                     if (!cellStr) continue;
                                     const lower = cellStr.toLowerCase();
-                                    if ((lower.includes('name of the company') || lower.includes('company name') || lower.includes('uen') || lower.includes('company type') || lower.includes('primary activity') || lower.includes('secondary activity') || lower.includes('registered office') || lower.includes('agm') || lower.includes('fye') || lower.includes('annual return') || lower.includes('xbrl')) && !lower.includes('director') && !lower.includes('member') && !lower.includes('secretary') && !lower.includes('controller')) {
-                                        label = lower;
-                                        for (let j = i + 1; j < row.length; j++) {
-                                            if (row[j] !== undefined && row[j] !== null && String(row[j]).trim() !== '') {
-                                                val = String(row[j]).trim();
-                                                break;
-                                            }
-                                        }
-                                        break;
-                                    }
-                                }
-                                if (label && val) {
-                                    if ((label.includes('name of the company') || label.includes('company name')) && !label.includes('director') && !label.includes('member') && !label.includes('secretary') && !label.includes('controller')) {
-                                        if (val.length > 2 && (val.includes(" ") || val.toUpperCase().includes("LTD") || val.toUpperCase().includes("PTE"))) {
-                                            result.companyName = val;
+
+                                    // Find value in next non-empty cell
+                                    let val = '';
+                                    for (let j = i + 1; j < row.length; j++) {
+                                        if (row[j] !== undefined && row[j] !== null && String(row[j]).trim() !== '') {
+                                            val = String(row[j]).trim();
+                                            break;
                                         }
                                     }
-                                    else if (label.includes('uen')) result.uen = val;
-                                    else if (label.includes('company type')) result.companyType = val;
-                                    else if (label.includes('primary activity')) result.primaryActivity = val;
-                                    else if (label.includes('secondary activity')) result.secondaryActivity = val;
-                                    else if (label.includes('registered office')) result.registeredOfficeAddress = val;
-                                    else if (label.includes('last agm date') || label.includes('agm')) result.lastAgmDate = val;
-                                    else if (label.includes('fye')) result.fye = formatDate(val);
-                                    else if (label.includes('annual return')) result.annualReturnDate = val;
-                                    else if (label.includes('xbrl')) result.xbrlPrepared = val;
+                                    if (!val) continue;
+
+                                    if ((lower === 'name of the company' || lower.startsWith('name of the company') || lower === 'company name') && !result.companyName) {
+                                        result.companyName = val;
+                                    } else if ((lower.includes('uen no') || lower === 'uen' || lower.startsWith('uen no')) && !result.uen) {
+                                        result.uen = val;
+                                    } else if (lower.includes('company type') && !result.companyType) {
+                                        result.companyType = val;
+                                    } else if (lower.includes('primary activity') && !result.primaryActivity) {
+                                        result.primaryActivity = val;
+                                    } else if (lower.includes('secondary activity') && !result.secondaryActivity) {
+                                        result.secondaryActivity = val;
+                                    } else if (lower.includes('registered office') && !result.registeredOfficeAddress) {
+                                        result.registeredOfficeAddress = val;
+                                    } else if (lower.includes('last agm date') && !result.lastAgmDate) {
+                                        result.lastAgmDate = val;
+                                    } else if ((lower.includes('fye of fs') || lower.includes('fye')) && !result.fye) {
+                                        result.fye = formatDate(val);
+                                    } else if (lower.includes('date of annual return') && !result.annualReturnDate) {
+                                        result.annualReturnDate = val;
+                                    } else if (lower.includes('xbrl prepared') && !result.xbrlPrepared) {
+                                        result.xbrlPrepared = val;
+                                    }
                                 }
-                            });
+                            }
                         }
 
                         // 2. Directors sheet
