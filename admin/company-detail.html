@@ -1141,21 +1141,24 @@
         }
 
         function renderPage(data) {
-            const client = data.client;
+            console.log("renderPage received data:", data);
+            const client = data.client || {};
             const service = data.services && data.services.length > 0 ? data.services[0] : null;
             const details = service ? (service.details || {}) : {};
             const excel = details.excelData;
 
+            console.log("Excel register data in renderPage:", excel);
+
             // 1. Set Company Banner Headers
-            const companyName = client.name || "N/A";
+            const companyName = (excel && excel.companyName) ? excel.companyName : (client.name || "N/A");
             document.getElementById('company-name').innerText = companyName;
             document.getElementById('company-initial').innerText = companyName.charAt(0).toUpperCase();
 
-            const uen = client.uen || (excel ? excel.uen : "") || "N/A";
-            document.getElementById('company-uen-badge').innerHTML = `<i data-lucide="file-text" class="w-3.5 h-3.5"></i> UEN: ${uen}`;
+            const uen = (excel && excel.uen) ? excel.uen : (client.uen || "N/A");
+            document.getElementById('company-uen-badge').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 inline-block mr-1"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg> UEN: ${uen}`;
 
-            const companyType = (excel ? excel.companyType : "") || "Private Company Limited by shares";
-            document.getElementById('company-type-badge').innerHTML = `<i data-lucide="layers" class="w-3.5 h-3.5"></i> ${companyType}`;
+            const companyType = (excel && excel.companyType) ? excel.companyType : "Private Company Limited by shares";
+            document.getElementById('company-type-badge').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 inline-block mr-1"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg> ${companyType}`;
 
             const status = service ? service.status : "pending";
             const badge = document.getElementById('company-status-badge');
@@ -1199,7 +1202,7 @@
             document.getElementById('info-uen').innerText = uen;
             document.getElementById('info-type').innerText = companyType;
 
-            // Default fallback mappings if Excel register isn't present
+            // Render Excel register details or fallback to onboarding details
             if (excel) {
                 document.getElementById('info-primary-activity').innerText = excel.primaryActivity || "—";
                 document.getElementById('info-secondary-activity').innerText = excel.secondaryActivity || "—";
@@ -4977,7 +4980,9 @@
                     alert("Client register updated successfully!");
                     loadCompanyDetails();
                 } else {
-                    alert("Failed to update client register on backend.");
+                    const errText = await res.text();
+                    console.error("Backend error response:", res.status, errText);
+                    alert("Failed to update client register on backend (" + res.status + "): " + errText);
                 }
             } catch (err) {
                 console.error(err);
@@ -5025,23 +5030,40 @@
                         };
 
                         // 1. Home sheet
-                        const homeSheet = getSheet('Home');
+                        const homeSheet = getSheet('Home') || workbook.Sheets[workbook.SheetNames[0]];
                         if (homeSheet) {
                             const rows = XLSX.utils.sheet_to_json(homeSheet, { header: 1 });
                             rows.forEach(row => {
-                                if (!row || row.length < 3) return;
-                                const label = String(row[1] || '').trim().toLowerCase();
-                                const val = String(row[2] || '').trim();
-                                if (label.includes('name of the company')) result.companyName = val;
-                                else if (label.includes('uen no.')) result.uen = val;
-                                else if (label.includes('company type')) result.companyType = val;
-                                else if (label.includes('primary activity')) result.primaryActivity = val;
-                                else if (label.includes('secondary activity')) result.secondaryActivity = val;
-                                else if (label.includes('registered office address')) result.registeredOfficeAddress = val;
-                                else if (label.includes('last agm date')) result.lastAgmDate = val;
-                                else if (label.includes('fye of fs laid at agm')) result.fye = formatDate(row[2]);
-                                else if (label.includes('date of annual return')) result.annualReturnDate = val;
-                                else if (label.includes('xbrl prepared')) result.xbrlPrepared = val;
+                                if (!row || row.length < 2) return;
+                                let label = '';
+                                let val = '';
+                                for (let i = 0; i < row.length; i++) {
+                                    const cellStr = String(row[i] || '').trim();
+                                    if (!cellStr) continue;
+                                    const lower = cellStr.toLowerCase();
+                                    if (lower.includes('name of the company') || lower.includes('company name') || lower.includes('uen') || lower.includes('company type') || lower.includes('primary activity') || lower.includes('secondary activity') || lower.includes('registered office') || lower.includes('agm') || lower.includes('fye') || lower.includes('annual return') || lower.includes('xbrl')) {
+                                        label = lower;
+                                        for (let j = i + 1; j < row.length; j++) {
+                                            if (row[j] !== undefined && row[j] !== null && String(row[j]).trim() !== '') {
+                                                val = String(row[j]).trim();
+                                                break;
+                                            }
+                                        }
+                                        break;
+                                    }
+                                }
+                                if (label && val) {
+                                    if (label.includes('name of the company') || label.includes('company name')) result.companyName = val;
+                                    else if (label.includes('uen')) result.uen = val;
+                                    else if (label.includes('company type')) result.companyType = val;
+                                    else if (label.includes('primary activity')) result.primaryActivity = val;
+                                    else if (label.includes('secondary activity')) result.secondaryActivity = val;
+                                    else if (label.includes('registered office')) result.registeredOfficeAddress = val;
+                                    else if (label.includes('last agm date') || label.includes('agm')) result.lastAgmDate = val;
+                                    else if (label.includes('fye')) result.fye = formatDate(val);
+                                    else if (label.includes('annual return')) result.annualReturnDate = val;
+                                    else if (label.includes('xbrl')) result.xbrlPrepared = val;
+                                }
                             });
                         }
 
