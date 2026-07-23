@@ -1,3 +1,432 @@
+// --- SPA ROUTER & RESOURCE TRACKER SYSTEM ---
+let activeIntervals = [];
+let activeTimeouts = [];
+let activeEventListeners = [];
+let activeWebSockets = [];
+
+const originalSetInterval = window.setInterval;
+window.setInterval = function(handler, timeout, ...args) {
+    const id = originalSetInterval(handler, timeout, ...args);
+    activeIntervals.push(id);
+    return id;
+};
+
+const originalSetTimeout = window.setTimeout;
+window.setTimeout = function(handler, timeout, ...args) {
+    const id = originalSetTimeout(handler, timeout, ...args);
+    activeTimeouts.push(id);
+    return id;
+};
+
+const originalAddEventListener = window.addEventListener;
+window.addEventListener = function(type, listener, options) {
+    if (type !== 'popstate' && type !== 'storage') {
+        activeEventListeners.push({ target: window, type, listener, options });
+    }
+    originalAddEventListener.call(window, type, listener, options);
+};
+
+const originalDocAddEventListener = document.addEventListener;
+document.addEventListener = function(type, listener, options) {
+    if (type !== 'DOMContentLoaded') {
+        activeEventListeners.push({ target: document, type, listener, options });
+    }
+    originalDocAddEventListener.call(document, type, listener, options);
+};
+
+const originalWebSocket = window.WebSocket;
+window.WebSocket = function(url, protocols) {
+    const ws = new originalWebSocket(url, protocols);
+    activeWebSockets.push(ws);
+    return ws;
+};
+window.WebSocket.prototype = originalWebSocket.prototype;
+Object.getOwnPropertyNames(originalWebSocket).forEach(prop => {
+    if (!(prop in window.WebSocket)) {
+        try {
+            window.WebSocket[prop] = originalWebSocket[prop];
+        } catch (e) {}
+    }
+});
+
+// Intercept document.getElementById to prevent TypeErrors in legacy scripts
+const originalGetElementById = document.getElementById;
+document.getElementById = function(id) {
+    const el = originalGetElementById.call(document, id);
+    if (!el && (id === 'btn-services' || id === 'services-submenu')) {
+        const mockEl = document.createElement('div');
+        mockEl.id = id;
+        mockEl.classList.add = () => {};
+        mockEl.classList.remove = () => {};
+        mockEl.classList.toggle = () => {};
+        mockEl.classList.contains = () => false;
+        return mockEl;
+    }
+    return el;
+};
+
+function cleanupPageResources() {
+    // 1. Brute-force clear intervals
+    const maxIntervalId = originalSetInterval(() => {}, 9999);
+    for (let i = 1; i <= maxIntervalId; i++) {
+        clearInterval(i);
+    }
+    activeIntervals = [];
+
+    // 2. Brute-force clear timeouts
+    const maxTimeoutId = originalSetTimeout(() => {}, 9999);
+    for (let i = 1; i <= maxTimeoutId; i++) {
+        clearTimeout(i);
+    }
+    activeTimeouts = [];
+
+    // 3. Clear tracked event listeners
+    activeEventListeners.forEach(({ target, type, listener, options }) => {
+        try {
+            target.removeEventListener(type, listener, options);
+        } catch (e) {}
+    });
+    activeEventListeners = [];
+
+    // 4. Close tracked WebSockets
+    activeWebSockets.forEach(ws => {
+        try {
+            if (ws.readyState === originalWebSocket.OPEN || ws.readyState === originalWebSocket.CONNECTING) {
+                ws.close();
+            }
+        } catch (e) {}
+    });
+    activeWebSockets = [];
+}
+
+function isLocalAdminLink(url) {
+    if (!url) return false;
+    const loc = window.location;
+    let urlStr = url;
+    if (urlStr.startsWith(loc.origin)) {
+        urlStr = urlStr.substring(loc.origin.length);
+    }
+    if (urlStr.includes('://')) return false;
+    const path = urlStr.split('?')[0].split('#')[0];
+    return (path.endsWith('.html') || !path.includes('.')) && !path.includes('/auth.html');
+}
+
+function updateActiveSidebarItem(url) {
+    // Clear current active classes
+    document.querySelectorAll('.submenu-item, .direct-link-btn').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.category-btn').forEach(el => el.classList.remove('active-category', 'open-category'));
+    document.querySelectorAll('.submenu-wrapper').forEach(el => el.classList.remove('open'));
+
+    // Parse the path and query from url
+    try {
+        const urlObj = new URL(url, window.location.origin);
+        const path = urlObj.pathname;
+        const search = urlObj.search;
+
+        let activeId = '';
+        let activeCatId = '';
+        let activeSubId = '';
+
+        if (path.includes('dashboard.html')) {
+            if (search.includes('view=clients') || search.includes('tab=clients')) {
+                activeId = 'nav-clients';
+                activeCatId = 'cat-operations';
+                activeSubId = 'sub-operations';
+            } else {
+                activeId = 'nav-dashboard';
+            }
+        } else if (path.includes('applications.html')) {
+            activeId = 'nav-applications';
+            activeCatId = 'cat-operations';
+            activeSubId = 'sub-operations';
+        } else if (path.includes('kyc.html')) {
+            activeId = 'nav-kyc';
+            activeCatId = 'cat-operations';
+            activeSubId = 'sub-operations';
+        } else if (path.includes('onboarding.html')) {
+            activeId = 'nav-onboarding';
+            activeCatId = 'cat-operations';
+            activeSubId = 'sub-operations';
+        } else if (path.includes('compliance.html')) {
+            activeId = 'nav-compliance';
+            activeCatId = 'cat-operations';
+            activeSubId = 'sub-operations';
+        } else if (path.includes('messages.html')) {
+            activeId = 'nav-messages';
+            activeCatId = 'cat-communication';
+            activeSubId = 'sub-communication';
+        } else if (path.includes('content.html')) {
+            activeId = 'nav-content';
+            activeCatId = 'cat-communication';
+            activeSubId = 'sub-communication';
+        } else if (path.includes('blogs.html')) {
+            activeId = 'nav-blogs';
+            activeCatId = 'cat-services';
+            activeSubId = 'sub-services';
+        } else if (path.includes('countries.html')) {
+            activeId = 'nav-countries';
+            activeCatId = 'cat-services';
+            activeSubId = 'sub-services';
+        } else if (path.includes('users.html')) {
+            activeId = 'nav-users';
+            activeCatId = 'cat-services';
+            activeSubId = 'sub-services';
+        } else if (path.includes('packages.html')) {
+            activeId = 'nav-packages';
+            activeCatId = 'cat-services';
+            activeSubId = 'sub-services';
+        } else if (path.includes('ssic.html')) {
+            activeId = 'nav-ssic';
+            activeCatId = 'cat-services';
+            activeSubId = 'sub-services';
+        } else if (path.includes('onboarding-manager.html')) {
+            activeId = 'nav-onboarding-manager';
+            activeCatId = 'cat-services';
+            activeSubId = 'sub-services';
+        } else if (path.includes('vault.html')) {
+            activeId = 'nav-vault';
+            activeCatId = 'cat-documents';
+            activeSubId = 'sub-documents';
+        } else if (path.includes('reports.html')) {
+            activeId = 'nav-reports';
+            activeCatId = 'cat-analytics';
+            activeSubId = 'sub-analytics';
+        } else if (path.includes('staff-id-cards.html')) {
+            activeId = 'nav-staff-id-cards';
+            activeCatId = 'cat-hr';
+            activeSubId = 'sub-hr';
+        } else if (path.includes('attendance.html')) {
+            activeId = 'nav-attendance';
+            activeCatId = 'cat-hr';
+            activeSubId = 'sub-hr';
+        }
+
+        if (activeId) {
+            const activeEl = document.getElementById(activeId);
+            if (activeEl) {
+                activeEl.classList.add('active');
+            }
+        }
+        
+        const isCollapsed = document.body.classList.contains('sidebar-collapsed');
+        if (!isCollapsed && activeCatId && activeSubId) {
+            const catBtn = document.getElementById(activeCatId);
+            const subWrapper = document.getElementById(activeSubId);
+            if (catBtn) catBtn.classList.add('active-category', 'open-category');
+            if (subWrapper) subWrapper.classList.add('open');
+        }
+
+        const breadcrumbEl = document.getElementById('top-nav-page-header');
+        if (breadcrumbEl) {
+            const menuNames = {
+                'nav-dashboard': 'Dashboard',
+                'nav-clients': 'Clients',
+                'nav-applications': 'Applications',
+                'nav-kyc': 'KYC Review',
+                'nav-onboarding': 'Client Onboarding',
+                'nav-compliance': 'Compliance',
+                'nav-messages': 'Messages',
+                'nav-content': 'Content',
+                'nav-blogs': 'Blogs',
+                'nav-countries': 'Countries',
+                'nav-users': 'Users',
+                'nav-packages': 'Requirements Page Manager',
+                'nav-ssic': 'SSIC Codes Manager',
+                'nav-onboarding-manager': 'Onboarding Manager',
+                'nav-vault': 'Document Vault',
+                'nav-reports': 'Reports',
+                'nav-staff-id-cards': 'Staff ID Cards',
+                'nav-attendance': 'Attendance'
+            };
+            
+            const categoryNames = {
+                'cat-operations': 'Operations',
+                'cat-communication': 'Communication',
+                'cat-services': 'Services',
+                'cat-documents': 'Documents',
+                'cat-analytics': 'Analytics',
+                'cat-hr': 'HR Management'
+            };
+
+            let breadcrumbHtml = '';
+            if (activeCatId && activeId) {
+                const catName = categoryNames[activeCatId] || '';
+                const pageName = menuNames[activeId] || '';
+                breadcrumbHtml = `<span class="category">${catName}</span> <span class="separator">/</span> <span class="page">${pageName}</span>`;
+            } else if (activeId) {
+                const pageName = menuNames[activeId] || '';
+                breadcrumbHtml = `<span class="page">${pageName}</span>`;
+            }
+            breadcrumbEl.innerHTML = breadcrumbHtml;
+        }
+    } catch (e) {
+        console.error("Error updating active sidebar item:", e);
+    }
+}
+
+// Global openClientProfile getter/setter interceptor (defined read-only if not already)
+if (!Object.getOwnPropertyDescriptor(window, 'openClientProfile')) {
+    Object.defineProperty(window, 'openClientProfile', {
+        get: function() {
+            return function(id) {
+                window.navigateTo(`/admin/company-detail.html?clientId=${id}`);
+            };
+        },
+        set: function(val) {
+            // Prevent legacy page scripts from overwriting
+        },
+        configurable: true
+    });
+}
+
+// Global navigateTo router interceptor (defined read-only if not already)
+if (!Object.getOwnPropertyDescriptor(window, 'navigateTo')) {
+    Object.defineProperty(window, 'navigateTo', {
+        value: async function(url, pushState = true) {
+            cleanupPageResources();
+
+            // Preserve scroll position of switcher
+            const switcher = document.getElementById('module-switcher');
+            const scrollPos = switcher ? switcher.scrollTop : 0;
+
+            const mainContainer = document.querySelector('.main-container');
+            if (mainContainer) {
+                mainContainer.innerHTML = `
+                    <div class="animate-pulse space-y-6">
+                        <div class="flex justify-between items-end mb-6">
+                            <div class="space-y-2 w-full">
+                                <div class="h-8 bg-slate-200 rounded-xl w-1/4"></div>
+                                <div class="h-4 bg-slate-200 rounded-lg w-1/2"></div>
+                            </div>
+                        </div>
+                        <div class="bg-white border border-slate-100 p-6 rounded-2xl shadow-sm space-y-4">
+                            <div class="h-6 bg-slate-200 rounded-lg w-1/3 mb-4"></div>
+                            <div class="h-4 bg-slate-100 rounded w-full"></div>
+                            <div class="h-4 bg-slate-100 rounded w-5/6"></div>
+                            <div class="h-4 bg-slate-100 rounded w-4/5"></div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="h-32 bg-slate-50 border border-slate-100 rounded-2xl"></div>
+                            <div class="h-32 bg-slate-50 border border-slate-100 rounded-2xl"></div>
+                            <div class="h-32 bg-slate-50 border border-slate-100 rounded-2xl"></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const html = await response.text();
+
+                const parser = new DOMParser();
+                const newDoc = parser.parseFromString(html, 'text/html');
+
+                if (pushState) {
+                    history.pushState({ url }, '', url);
+                }
+
+                const newMain = newDoc.querySelector('.main-container');
+                if (newMain && mainContainer) {
+                    mainContainer.innerHTML = newMain.innerHTML;
+                }
+
+                if (newDoc.title) {
+                    document.title = newDoc.title;
+                }
+
+                if (switcher) {
+                    switcher.scrollTop = scrollPos;
+                }
+
+                updateActiveSidebarItem(url);
+
+                const newScripts = newDoc.querySelectorAll('script');
+                newScripts.forEach(script => {
+                    if (script.src && script.src.includes('admin-sidebar.js')) {
+                        return;
+                    }
+
+                    const newScript = document.createElement('script');
+                    if (script.src) {
+                        newScript.src = script.src;
+                    } else {
+                        const scriptText = script.textContent;
+                        const funcMatches = Array.from(scriptText.matchAll(/function\s+([a-zA-Z0-9_$]+)\s*\(/g)).map(m => m[1]);
+                        const uniqueFuncs = [...new Set(funcMatches)];
+                        const exportsCode = uniqueFuncs.map(name => `window.${name} = ${name};`).join('\n');
+                        
+                        newScript.textContent = `
+(function() {
+    try {
+        ${scriptText}
+        ${exportsCode}
+    } catch (e) {
+        console.error("Error executing page script:", e);
+    }
+})();
+                        `;
+                    }
+                    if (script.type) {
+                        newScript.type = script.type;
+                    }
+                    document.body.appendChild(newScript);
+                });
+
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+
+            } catch (error) {
+                console.error("Failed to navigate to:", url, error);
+                if (mainContainer) {
+                    mainContainer.innerHTML = `
+                        <div class="p-6 text-center text-red-600 bg-red-50 border border-red-100 rounded-2xl">
+                            <h3 class="font-bold text-lg">Failed to load page</h3>
+                            <p class="text-sm mt-2">${error.message}</p>
+                            <button onclick="window.navigateTo('${url}')" class="mt-4 px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold">Retry</button>
+                        </div>
+                    `;
+                }
+            }
+        },
+        writable: false,
+        configurable: true
+    });
+}
+
+window.addEventListener('popstate', (event) => {
+    window.navigateTo(window.location.href, false);
+});
+
+document.addEventListener('click', (event) => {
+    const anchor = event.target.closest('a');
+    if (anchor && isLocalAdminLink(anchor.href)) {
+        event.preventDefault();
+        window.navigateTo(anchor.href);
+        return;
+    }
+
+    const clickable = event.target.closest('[onclick]');
+    if (clickable) {
+        const onclickAttr = clickable.getAttribute('onclick');
+        const match = onclickAttr.match(/(?:window\.)?location\.href\s*=\s*([^;\n]+)/);
+        if (match) {
+            try {
+                const url = eval(match[1].trim());
+                if (isLocalAdminLink(url)) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    window.navigateTo(url);
+                    return;
+                }
+            } catch (e) {
+                console.warn("Failed to evaluate location.href expression", e);
+            }
+        }
+    }
+}, true);
+
 // Synchronously load sequence ID map from localStorage if available
 try {
     const cached = localStorage.getItem('globalisor_app_seq_map');
@@ -28,62 +457,64 @@ window.initAppSeqMap = async function() {
         const res = await fetch('/api/applications', { headers });
         if (res.ok) {
             const apps = await res.json();
-            if (apps && Array.isArray(apps)) {
-                // Sort chronologically (oldest first)
-                apps.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
-                const map = {};
-                apps.forEach((app, idx) => {
-                    map[app.id] = 101 + idx;
-                });
-                localStorage.setItem('globalisor_app_seq_map', JSON.stringify(map));
-                window.appSeqMap = map;
-                // Trigger customized event for real-time rendering refresh if needed
-                window.dispatchEvent(new CustomEvent('appSeqMapUpdated', { detail: map }));
-                return map;
-            }
-        } else if (res.status === 401) {
-            window.logout();
+            const seqMap = {};
+            apps.forEach((app, idx) => {
+                seqMap[app.id] = 101 + idx;
+            });
+            window.appSeqMap = seqMap;
+            localStorage.setItem('globalisor_app_seq_map', JSON.stringify(seqMap));
+            window.dispatchEvent(new CustomEvent('appSeqMapUpdated', { detail: seqMap }));
         }
     } catch (e) {
-        console.error("Failed to sync application sequence IDs", e);
+        console.error("Error fetching application sequences", e);
     }
-    return window.appSeqMap || {};
 };
-
-// Start background sync
 window.initAppSeqMap();
 
 // Global navigation functions
-window.toggleSubmenu = function(id, btnId) {
-    const submenu = document.getElementById(id);
-    let btn = btnId ? document.getElementById(btnId) : null;
-    if (!btn) {
-        btn = document.querySelector(`button[onclick*="${id}"]`);
-    }
-    
-    if (submenu) {
-        const isOpen = submenu.classList.contains('open');
-        if (isOpen) {
-            submenu.classList.remove('open');
-            if (btn) btn.classList.remove('open-category');
-        } else {
-            // Close other submenus first to reduce clutter
-            document.querySelectorAll('.submenu-wrapper').forEach(sub => {
-                if (sub.id !== id) {
-                    sub.classList.remove('open');
-                }
-            });
-            document.querySelectorAll('.category-btn').forEach(cBtn => {
-                if (cBtn.id !== btnId) {
-                    cBtn.classList.remove('open-category');
-                }
-            });
-            
-            submenu.classList.add('open');
-            if (btn) btn.classList.add('open-category');
+Object.defineProperty(window, 'toggleSubmenu', {
+    value: function(id, btnId) {
+        const isCollapsed = document.body.classList.contains('sidebar-collapsed');
+        const submenu = document.getElementById(id);
+        if (isCollapsed && submenu) {
+            const firstLink = submenu.querySelector('a');
+            if (firstLink && firstLink.href) {
+                window.navigateTo(firstLink.href);
+                return;
+            }
         }
-    }
-};
+
+        let btn = btnId ? document.getElementById(btnId) : null;
+        if (!btn) {
+            btn = document.querySelector(`button[onclick*="${id}"]`);
+        }
+        
+        if (submenu) {
+            const isOpen = submenu.classList.contains('open');
+            if (isOpen) {
+                submenu.classList.remove('open');
+                if (btn) btn.classList.remove('open-category');
+            } else {
+                // Close other submenus first to reduce clutter
+                document.querySelectorAll('.submenu-wrapper').forEach(sub => {
+                    if (sub.id !== id) {
+                        sub.classList.remove('open');
+                    }
+                });
+                document.querySelectorAll('.category-btn').forEach(cBtn => {
+                    if (cBtn.id !== btnId) {
+                        cBtn.classList.remove('open-category');
+                    }
+                });
+                
+                submenu.classList.add('open');
+                if (btn) btn.classList.add('open-category');
+            }
+        }
+    },
+    writable: false,
+    configurable: true
+});
 
 window.logout = function() {
     localStorage.removeItem('admin_auth');

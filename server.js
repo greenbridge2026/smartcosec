@@ -446,10 +446,57 @@ app.post('/api/clients/request', (req, res) => {
 app.get('/api/dashboard', (req, res) => {
     const db = getDb();
     if (!db.services) db.services = [];
+    if (!db.onboarding) db.onboarding = [];
     
     // Aggregate clients with their service counts
     const clientsWithStats = db.clients.map(c => {
         const clientServices = db.services.filter(s => s.clientId === c.clientId);
+        
+        // Find matching onboarding record
+        const onboarding = db.onboarding.find(o => 
+            o.clientId === c.clientId || 
+            (c.email && o.clientEmail === c.email) ||
+            o.clientId === `usr-${c.clientId}` ||
+            (c.clientId.startsWith('C-') && o.clientId === 'usr-' + c.clientId.substring(2))
+        );
+        
+        const directorNames = [];
+        const nomineeDirectors = [];
+        
+        // 1. Onboarding directors
+        if (onboarding && onboarding.step2DirectorDetails && onboarding.step2DirectorDetails.data && Array.isArray(onboarding.step2DirectorDetails.data.list)) {
+            onboarding.step2DirectorDetails.data.list.forEach(d => {
+                if (d && d.fullName) {
+                    directorNames.push(d.fullName);
+                }
+            });
+        }
+        
+        // 2. Services / Excel register directors
+        clientServices.forEach(s => {
+            if (s.details && s.details.excelData && Array.isArray(s.details.excelData.directors)) {
+                s.details.excelData.directors.forEach(d => {
+                    if (d && d.name) {
+                        directorNames.push(d.name);
+                        if (d.type === 'Nominee Director' || d.type === 'Nominee') {
+                            nomineeDirectors.push(d.name);
+                        }
+                    }
+                });
+            }
+            if (s.details && Array.isArray(s.details.nomineeDirectors)) {
+                s.details.nomineeDirectors.forEach(name => {
+                    if (name) {
+                        directorNames.push(name);
+                        nomineeDirectors.push(name);
+                    }
+                });
+            }
+        });
+        
+        const uniqueDirectorNames = [...new Set(directorNames)].filter(Boolean);
+        const uniqueNomineeDirectors = [...new Set(nomineeDirectors)].filter(Boolean);
+        
         return {
             ...c,
             serviceCount: clientServices.length,
@@ -458,7 +505,9 @@ app.get('/api/dashboard', (req, res) => {
             companyName: clientServices.length > 0 ? clientServices[0].companyName : 'N/A',
             priority: clientServices.length > 0 ? clientServices[0].priority : 'Normal',
             deadline: clientServices.length > 0 ? clientServices[0].deadline : 'N/A',
-            companyNames: clientServices.map(s => s.companyName).filter(Boolean)
+            companyNames: clientServices.map(s => s.companyName).filter(Boolean),
+            directorNames: uniqueDirectorNames,
+            nomineeDirectors: uniqueNomineeDirectors
         };
     }).sort((a, b) => b.createdAt - a.createdAt);
     
@@ -2019,8 +2068,9 @@ app.post('/api/ocr/save-corrected', (req, res) => {
     }
     
     saveDb(db);
-    res.json({ success: true, ocrItem });
 });
+
+app.delete('/api/requirements', (req, res) => {
     const db = getDb();
     const authHeader = req.headers['authorization'];
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

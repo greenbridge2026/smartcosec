@@ -257,7 +257,7 @@
                             </div>
                             <div class="relative w-60 shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                                <input type="text" id="dashboard-search-input" oninput="renderClients()" placeholder="Search clients, UEN..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
+                                <input type="text" id="dashboard-search-input" oninput="renderClients()" placeholder="Search clients, directors, UEN..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
                             </div>
                             <button onclick="confirmClearAllClients()" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-[11px] flex items-center gap-1.5 transition-all shadow-md active:scale-[0.98]">
                                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear All Clients
@@ -1047,7 +1047,7 @@
                                         </div>
                                         <div class="relative w-60 shrink-0">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                                            <input type="text" id="dashboard-search-input" oninput="renderClients()" placeholder="Search clients, UEN..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
+                                            <input type="text" id="dashboard-search-input" oninput="renderClients()" placeholder="Search clients, directors, UEN..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
                                         </div>
                                     </div>
                                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="clients-grid"></div>
@@ -1488,7 +1488,9 @@
                 const emailLower = (c.email || '').toLowerCase();
                 const matchesSearch = nameLower.includes(search) || 
                                      emailLower.includes(search) ||
-                                     (c.companyNames && c.companyNames.some(name => (name || '').toLowerCase().includes(search)));
+                                     (c.companyNames && c.companyNames.some(name => (name || '').toLowerCase().includes(search))) ||
+                                     (Array.isArray(c.directorNames) && c.directorNames.some(dir => (dir || '').toLowerCase().includes(search))) ||
+                                     (Array.isArray(c.nomineeDirectors) && c.nomineeDirectors.some(dir => (dir || '').toLowerCase().includes(search)));
                 return matchesFilter && matchesSearch;
             });
 
@@ -2318,7 +2320,7 @@
                 </div>
                 <div class="h-64 w-full"></div> <!-- Extra space for dropdown -->
             `;
-            lucide.createIcons();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
             
             try {
                 const res = await fetch('/api/applications');
@@ -2424,7 +2426,7 @@
                     return `<tr class="hover:bg-white/40 transition-colors">
                         <td class="p-4 font-semibold text-slate-800">${k.clientName}</td>
                         <td class="p-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${k.riskLevel === 'Low' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}">${k.riskLevel}</span></td>
-                        <td class="p-4 text-xs text-slate-500">${k.documents.length} Docs (${k.documents.filter(d => d.status === 'Verified').length} Verified)</td>
+                        <td class="p-4 text-xs text-slate-500">${(k.documents || []).length} Docs (${(k.documents || []).filter(d => d.status === 'Verified').length} Verified)</td>
                         <td class="p-4"><span class="status-badge ${statusProps.class}">${k.status}</span></td>
                         <td class="p-4"><button class="btn btn-primary py-1 px-3 text-xs" onclick="openClientProfile('${k.clientId}')">Review</button></td>
                     </tr>`;
