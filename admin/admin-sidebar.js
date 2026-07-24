@@ -97,6 +97,9 @@ function cleanupPageResources() {
         } catch (e) {}
     });
     activeWebSockets = [];
+
+    // 5. Clean up dashboard specific global references
+    delete window.switchDashboardModule;
 }
 
 function isLocalAdminLink(url) {
@@ -264,99 +267,103 @@ function updateActiveSidebarItem(url) {
     }
 }
 
-// Global openClientProfile getter/setter interceptor (defined read-only if not already)
-if (!Object.getOwnPropertyDescriptor(window, 'openClientProfile')) {
-    Object.defineProperty(window, 'openClientProfile', {
-        get: function() {
-            return function(id) {
-                window.navigateTo(`/admin/company-detail.html?clientId=${id}`);
-            };
-        },
-        set: function(val) {
-            // Prevent legacy page scripts from overwriting
-        },
-        configurable: true
-    });
-}
+
 
 // Global navigateTo router interceptor (defined read-only if not already)
-if (!Object.getOwnPropertyDescriptor(window, 'navigateTo')) {
-    Object.defineProperty(window, 'navigateTo', {
-        value: async function(url, pushState = true) {
-            cleanupPageResources();
+window.spaNavigate = async function(url, pushState = true) {
+    cleanupPageResources();
 
-            // Preserve scroll position of switcher
-            const switcher = document.getElementById('module-switcher');
-            const scrollPos = switcher ? switcher.scrollTop : 0;
+    // If it's a dashboard sub-module path and we have the switchDashboardModule handler:
+    if (!url.includes('.html') && window.switchDashboardModule) {
+        let module = 'clients';
+        if (url.includes('applications')) module = 'applications';
+        else if (url.includes('kyc')) module = 'kyc';
+        else if (url.includes('compliance')) module = 'compliance';
+        else if (url.includes('blogs')) module = 'blogs';
+        else if (url.includes('content')) module = 'content';
+        else if (url.includes('reports')) module = 'reports';
+        else if (url.includes('users')) module = 'users';
 
-            const mainContainer = document.querySelector('.main-container');
-            if (mainContainer) {
-                mainContainer.innerHTML = `
-                    <div class="animate-pulse space-y-6">
-                        <div class="flex justify-between items-end mb-6">
-                            <div class="space-y-2 w-full">
-                                <div class="h-8 bg-slate-200 rounded-xl w-1/4"></div>
-                                <div class="h-4 bg-slate-200 rounded-lg w-1/2"></div>
-                            </div>
-                        </div>
-                        <div class="bg-white border border-slate-100 p-6 rounded-2xl shadow-sm space-y-4">
-                            <div class="h-6 bg-slate-200 rounded-lg w-1/3 mb-4"></div>
-                            <div class="h-4 bg-slate-100 rounded w-full"></div>
-                            <div class="h-4 bg-slate-100 rounded w-5/6"></div>
-                            <div class="h-4 bg-slate-100 rounded w-4/5"></div>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div class="h-32 bg-slate-50 border border-slate-100 rounded-2xl"></div>
-                            <div class="h-32 bg-slate-50 border border-slate-100 rounded-2xl"></div>
-                            <div class="h-32 bg-slate-50 border border-slate-100 rounded-2xl"></div>
-                        </div>
+        if (pushState) {
+            history.pushState({ url }, '', url);
+        }
+        window.switchDashboardModule(module);
+        return;
+    }
+
+    // Preserve scroll position of switcher
+    const switcher = document.getElementById('module-switcher');
+    const scrollPos = switcher ? switcher.scrollTop : 0;
+
+    const mainContainer = document.querySelector('.main-container');
+    if (mainContainer) {
+        mainContainer.innerHTML = `
+            <div class="animate-pulse space-y-6">
+                <div class="flex justify-between items-end mb-6">
+                    <div class="space-y-2 w-full">
+                        <div class="h-8 bg-slate-200 rounded-xl w-1/4"></div>
+                        <div class="h-4 bg-slate-200 rounded-lg w-1/2"></div>
                     </div>
-                `;
+                </div>
+                <div class="bg-white border border-slate-100 p-6 rounded-2xl shadow-sm space-y-4">
+                    <div class="h-6 bg-slate-200 rounded-lg w-1/3 mb-4"></div>
+                    <div class="h-4 bg-slate-100 rounded w-full"></div>
+                    <div class="h-4 bg-slate-100 rounded w-5/6"></div>
+                    <div class="h-4 bg-slate-100 rounded w-4/5"></div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="h-32 bg-slate-50 border border-slate-100 rounded-2xl"></div>
+                    <div class="h-32 bg-slate-50 border border-slate-100 rounded-2xl"></div>
+                    <div class="h-32 bg-slate-50 border border-slate-100 rounded-2xl"></div>
+                </div>
+            </div>
+        `;
+    }
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const html = await response.text();
+
+        const parser = new DOMParser();
+        const newDoc = parser.parseFromString(html, 'text/html');
+
+        if (pushState) {
+            history.pushState({ url }, '', url);
+        }
+
+        const newMain = newDoc.querySelector('.main-container');
+        if (newMain && mainContainer) {
+            mainContainer.innerHTML = newMain.innerHTML;
+        }
+
+        if (newDoc.title) {
+            document.title = newDoc.title;
+        }
+
+        if (switcher) {
+            switcher.scrollTop = scrollPos;
+        }
+
+        updateActiveSidebarItem(url);
+        if (window._updateTopNavBackButton) window._updateTopNavBackButton();
+
+        const newScripts = newDoc.querySelectorAll('script');
+        newScripts.forEach(script => {
+            if (script.src && script.src.includes('admin-sidebar.js')) {
+                return;
             }
 
-            try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const html = await response.text();
-
-                const parser = new DOMParser();
-                const newDoc = parser.parseFromString(html, 'text/html');
-
-                if (pushState) {
-                    history.pushState({ url }, '', url);
-                }
-
-                const newMain = newDoc.querySelector('.main-container');
-                if (newMain && mainContainer) {
-                    mainContainer.innerHTML = newMain.innerHTML;
-                }
-
-                if (newDoc.title) {
-                    document.title = newDoc.title;
-                }
-
-                if (switcher) {
-                    switcher.scrollTop = scrollPos;
-                }
-
-                updateActiveSidebarItem(url);
-
-                const newScripts = newDoc.querySelectorAll('script');
-                newScripts.forEach(script => {
-                    if (script.src && script.src.includes('admin-sidebar.js')) {
-                        return;
-                    }
-
-                    const newScript = document.createElement('script');
-                    if (script.src) {
-                        newScript.src = script.src;
-                    } else {
-                        const scriptText = script.textContent;
-                        const funcMatches = Array.from(scriptText.matchAll(/function\s+([a-zA-Z0-9_$]+)\s*\(/g)).map(m => m[1]);
-                        const uniqueFuncs = [...new Set(funcMatches)];
-                        const exportsCode = uniqueFuncs.map(name => `window.${name} = ${name};`).join('\n');
-                        
-                        newScript.textContent = `
+            const newScript = document.createElement('script');
+            if (script.src) {
+                newScript.src = script.src;
+            } else {
+                const scriptText = script.textContent;
+                const funcMatches = Array.from(scriptText.matchAll(/function\s+([a-zA-Z0-9_$]+)\s*\(/g)).map(m => m[1]);
+                const uniqueFuncs = [...new Set(funcMatches)];
+                const exportsCode = uniqueFuncs.map(name => `window.${name} = ${name};`).join('\n');
+                
+                newScript.textContent = `
 (function() {
     try {
         ${scriptText}
@@ -365,35 +372,38 @@ if (!Object.getOwnPropertyDescriptor(window, 'navigateTo')) {
         console.error("Error executing page script:", e);
     }
 })();
-                        `;
-                    }
-                    if (script.type) {
-                        newScript.type = script.type;
-                    }
-                    document.body.appendChild(newScript);
-                });
-
-                if (window.lucide) {
-                    window.lucide.createIcons();
-                }
-
-            } catch (error) {
-                console.error("Failed to navigate to:", url, error);
-                if (mainContainer) {
-                    mainContainer.innerHTML = `
-                        <div class="p-6 text-center text-red-600 bg-red-50 border border-red-100 rounded-2xl">
-                            <h3 class="font-bold text-lg">Failed to load page</h3>
-                            <p class="text-sm mt-2">${error.message}</p>
-                            <button onclick="window.navigateTo('${url}')" class="mt-4 px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold">Retry</button>
-                        </div>
-                    `;
-                }
+                `;
             }
-        },
-        writable: false,
-        configurable: true
-    });
-}
+            if (script.type) {
+                newScript.type = script.type;
+            }
+            document.body.appendChild(newScript);
+        });
+
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+
+    } catch (error) {
+        console.error("Failed to navigate to:", url, error);
+        if (mainContainer) {
+            mainContainer.innerHTML = `
+                <div class="p-6 text-center text-red-600 bg-red-50 border border-red-100 rounded-2xl">
+                    <h3 class="font-bold text-lg">Failed to load page</h3>
+                    <p class="text-sm mt-2">${error.message}</p>
+                    <button onclick="window.navigateTo('${url}')" class="mt-4 px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold">Retry</button>
+                </div>
+            `;
+        }
+    }
+};
+
+// Always overwrite navigateTo on the window object so it refers to spaNavigate
+Object.defineProperty(window, 'navigateTo', {
+    value: window.spaNavigate,
+    configurable: true,
+    writable: false
+});
 
 window.addEventListener('popstate', (event) => {
     window.navigateTo(window.location.href, false);
@@ -1271,7 +1281,40 @@ document.addEventListener('DOMContentLoaded', () => {
         
         headerDiv.innerHTML = breadcrumbHtml;
         topNavContainer.appendChild(headerDiv);
-    }
+     }
+
+    // 5.5. Inject and manage global top-nav back button next to notification bell
+    window._updateTopNavBackButton = function() {
+        const navRight = document.querySelector('.top-nav > div.flex.items-center.justify-end');
+        if (!navRight) return;
+
+        let backBtn = document.getElementById('top-nav-back-btn');
+        if (!backBtn) {
+            backBtn = document.createElement('button');
+            backBtn.id = 'top-nav-back-btn';
+            backBtn.className = 'px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm';
+            backBtn.style.marginRight = '1.25rem';
+            backBtn.style.alignItems = 'center';
+            backBtn.style.display = 'none'; // hidden by default until checked
+            backBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                Back
+            `;
+            backBtn.onclick = function() {
+                if (window.navigateTo) {
+                    window.navigateTo('/admin/dashboard.html?view=clients');
+                } else {
+                    window.location.href = '/admin/dashboard.html?view=clients';
+                }
+            };
+            navRight.insertBefore(backBtn, navRight.firstChild);
+        }
+
+        const isDetailsPage = window.location.pathname.includes('company-detail.html') || window.location.search.includes('clientId=');
+        backBtn.style.display = isDetailsPage ? 'flex' : 'none';
+    };
+
+    window._updateTopNavBackButton();
 
     // 6. Inject notification bell into nav right section (if not already present)
     const navRight = document.querySelector('.top-nav > div.flex.items-center.justify-end');

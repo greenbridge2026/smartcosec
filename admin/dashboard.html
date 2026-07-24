@@ -380,9 +380,40 @@
             console.log('Dashboard Initializing...');
             safeCreateIcons();
             handleRouting();
+            
+            // Restore input and filter states immediately (synchronously) so they are ready before fetch
+            if (window.clientsListState) {
+                currentFilter = window.clientsListState.filter;
+                currentViewMode = window.clientsListState.viewMode;
+                
+                const searchInput = document.getElementById('dashboard-search-input');
+                if (searchInput) {
+                    searchInput.value = window.clientsListState.search;
+                }
+                
+                document.querySelectorAll('.filter-tab').forEach(tab => {
+                    tab.classList.toggle('active', tab.getAttribute('data-filter') === currentFilter);
+                });
+                
+                if (typeof setViewMode === 'function') {
+                    setViewMode(currentViewMode);
+                }
+            }
+
             await fetchDashboard();
             connectWebSocket();
             fetchNotifications();
+            
+            // Restore scroll positions after data is rendered
+            if (window.clientsListState) {
+                if (window.clientsListState.scrollTop) {
+                    const mainContainer = document.querySelector('.main-container');
+                    if (mainContainer) mainContainer.scrollTop = window.clientsListState.scrollTop;
+                }
+                if (window.clientsListState.windowScrollTop) {
+                    window.scrollTo(0, window.clientsListState.windowScrollTop);
+                }
+            }
             
             // Polling
             setInterval(() => {
@@ -454,26 +485,7 @@
             }, { offset: Number.NEGATIVE_INFINITY }).element;
         }
 
-        window.navigateTo = function(path) {
-            console.log('Navigating to:', path);
-            try {
-                history.pushState(null, null, path);
-            } catch(e) {
-                console.warn('URL update failed (local file mode):', e);
-            }
-            
-            // Extract module from path
-            let module = 'clients';
-            if (path.includes('applications')) module = 'applications';
-            else if (path.includes('kyc')) module = 'kyc';
-            else if (path.includes('compliance')) module = 'compliance';
-            else if (path.includes('blogs')) module = 'blogs';
-            else if (path.includes('content')) module = 'content';
-            else if (path.includes('reports')) module = 'reports';
-            else if (path.includes('users')) module = 'users';
-            
-            switchModule(module);
-        }
+        window.switchDashboardModule = switchModule;
 
         window.onpopstate = handleRouting;
 
@@ -1488,9 +1500,15 @@
                 const emailLower = (c.email || '').toLowerCase();
                 const matchesSearch = nameLower.includes(search) || 
                                      emailLower.includes(search) ||
+                                     (c.phone && c.phone.toLowerCase().includes(search)) ||
+                                     (c.uen && c.uen.toLowerCase().includes(search)) ||
+                                     (Array.isArray(c.uens) && c.uens.some(u => (u || '').toLowerCase().includes(search))) ||
                                      (c.companyNames && c.companyNames.some(name => (name || '').toLowerCase().includes(search))) ||
                                      (Array.isArray(c.directorNames) && c.directorNames.some(dir => (dir || '').toLowerCase().includes(search))) ||
-                                     (Array.isArray(c.nomineeDirectors) && c.nomineeDirectors.some(dir => (dir || '').toLowerCase().includes(search)));
+                                     (Array.isArray(c.nomineeDirectors) && c.nomineeDirectors.some(dir => (dir || '').toLowerCase().includes(search))) ||
+                                     (Array.isArray(c.shareholderNames) && c.shareholderNames.some(sh => (sh || '').toLowerCase().includes(search))) ||
+                                     (Array.isArray(c.corporateRepNames) && c.corporateRepNames.some(rep => (rep || '').toLowerCase().includes(search))) ||
+                                     (Array.isArray(c.contactNumbers) && c.contactNumbers.some(num => (num || '').toLowerCase().includes(search)));
                 return matchesFilter && matchesSearch;
             });
 
@@ -1702,7 +1720,21 @@
         }
 
         async function openClientProfile(id) {
-            window.location.href = `/admin/company-detail.html?clientId=${id}`;
+            const searchInput = document.getElementById('dashboard-search-input');
+            const mainContainer = document.querySelector('.main-container');
+            window.clientsListState = {
+                search: searchInput ? searchInput.value : '',
+                filter: currentFilter,
+                viewMode: currentViewMode,
+                scrollTop: mainContainer ? mainContainer.scrollTop : 0,
+                windowScrollTop: window.scrollY
+            };
+
+            if (window.navigateTo) {
+                window.navigateTo(`/admin/company-detail.html?clientId=${id}`);
+            } else {
+                window.location.href = `/admin/company-detail.html?clientId=${id}`;
+            }
         }
 
         function renderClientPanel(client, services) {
