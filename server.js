@@ -462,40 +462,96 @@ app.get('/api/dashboard', (req, res) => {
         
         const directorNames = [];
         const nomineeDirectors = [];
-        
-        // 1. Onboarding directors
-        if (onboarding && onboarding.step2DirectorDetails && onboarding.step2DirectorDetails.data && Array.isArray(onboarding.step2DirectorDetails.data.list)) {
-            onboarding.step2DirectorDetails.data.list.forEach(d => {
-                if (d && d.fullName) {
-                    directorNames.push(d.fullName);
-                }
-            });
-        }
-        
-        // 2. Services / Excel register directors
-        clientServices.forEach(s => {
-            if (s.details && s.details.excelData && Array.isArray(s.details.excelData.directors)) {
-                s.details.excelData.directors.forEach(d => {
-                    if (d && d.name) {
-                        directorNames.push(d.name);
-                        if (d.type === 'Nominee Director' || d.type === 'Nominee') {
-                            nomineeDirectors.push(d.name);
-                        }
+        const shareholderNames = [];
+        const corporateRepNames = [];
+        const uens = [];
+        const contactNumbers = [];
+
+        if (c.uen) uens.push(c.uen);
+        if (c.phone) contactNumbers.push(c.phone);
+
+        // 1. Onboarding
+        if (onboarding) {
+            if (onboarding.step2DirectorDetails && onboarding.step2DirectorDetails.data && Array.isArray(onboarding.step2DirectorDetails.data.list)) {
+                onboarding.step2DirectorDetails.data.list.forEach(d => {
+                    if (d) {
+                        if (d.fullName) directorNames.push(d.fullName);
+                        if (d.contactNumber) contactNumbers.push(d.contactNumber);
                     }
                 });
             }
-            if (s.details && Array.isArray(s.details.nomineeDirectors)) {
-                s.details.nomineeDirectors.forEach(name => {
-                    if (name) {
-                        directorNames.push(name);
-                        nomineeDirectors.push(name);
+            if (onboarding.step3IndividualShareholder && onboarding.step3IndividualShareholder.data && Array.isArray(onboarding.step3IndividualShareholder.data.list)) {
+                onboarding.step3IndividualShareholder.data.list.forEach(s => {
+                    if (s) {
+                        if (s.fullName) shareholderNames.push(s.fullName);
+                        if (s.contactNumber) contactNumbers.push(s.contactNumber);
                     }
                 });
+            }
+            if (onboarding.step4CorporateShareholder && onboarding.step4CorporateShareholder.data && Array.isArray(onboarding.step4CorporateShareholder.data.list)) {
+                onboarding.step4CorporateShareholder.data.list.forEach(s => {
+                    if (s) {
+                        if (s.companyName) shareholderNames.push(s.companyName);
+                        if (s.regNum) uens.push(s.regNum);
+                        if (s.contactNumber) contactNumbers.push(s.contactNumber);
+                    }
+                });
+            }
+            if (onboarding.step6CorporateRep && onboarding.step6CorporateRep.data && Array.isArray(onboarding.step6CorporateRep.data.list)) {
+                onboarding.step6CorporateRep.data.list.forEach(r => {
+                    if (r) {
+                        if (r.fullName) corporateRepNames.push(r.fullName);
+                        if (r.contactNumber) contactNumbers.push(r.contactNumber);
+                    }
+                });
+            }
+        }
+
+        // 2. Services / Excel
+        clientServices.forEach(s => {
+            if (s.details) {
+                if (s.details.uen) uens.push(s.details.uen);
+                if (s.details.excelData) {
+                    const ex = s.details.excelData;
+                    if (ex.uen) uens.push(ex.uen);
+                    if (Array.isArray(ex.directors)) {
+                        ex.directors.forEach(d => {
+                            if (d && d.name) {
+                                directorNames.push(d.name);
+                                if (d.type === 'Nominee Director' || d.type === 'Nominee') {
+                                    nomineeDirectors.push(d.name);
+                                }
+                            }
+                        });
+                    }
+                    if (Array.isArray(ex.members)) {
+                        ex.members.forEach(m => {
+                            if (m && m.name) shareholderNames.push(m.name);
+                        });
+                    }
+                    if (Array.isArray(ex.shareholders)) {
+                        ex.shareholders.forEach(sh => {
+                            if (sh && sh.name) shareholderNames.push(sh.name);
+                        });
+                    }
+                }
+                if (Array.isArray(s.details.nomineeDirectors)) {
+                    s.details.nomineeDirectors.forEach(name => {
+                        if (name) {
+                            directorNames.push(name);
+                            nomineeDirectors.push(name);
+                        }
+                    });
+                }
             }
         });
         
         const uniqueDirectorNames = [...new Set(directorNames)].filter(Boolean);
         const uniqueNomineeDirectors = [...new Set(nomineeDirectors)].filter(Boolean);
+        const uniqueShareholderNames = [...new Set(shareholderNames)].filter(Boolean);
+        const uniqueCorporateRepNames = [...new Set(corporateRepNames)].filter(Boolean);
+        const uniqueUens = [...new Set(uens)].filter(Boolean);
+        const uniqueContactNumbers = [...new Set(contactNumbers)].filter(Boolean);
         
         return {
             ...c,
@@ -507,7 +563,11 @@ app.get('/api/dashboard', (req, res) => {
             deadline: clientServices.length > 0 ? clientServices[0].deadline : 'N/A',
             companyNames: clientServices.map(s => s.companyName).filter(Boolean),
             directorNames: uniqueDirectorNames,
-            nomineeDirectors: uniqueNomineeDirectors
+            nomineeDirectors: uniqueNomineeDirectors,
+            shareholderNames: uniqueShareholderNames,
+            corporateRepNames: uniqueCorporateRepNames,
+            uens: uniqueUens,
+            contactNumbers: uniqueContactNumbers
         };
     }).sort((a, b) => b.createdAt - a.createdAt);
     
