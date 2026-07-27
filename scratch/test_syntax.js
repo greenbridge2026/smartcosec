@@ -1,1091 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Company Profile & Registers | Globalisor Admin</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script>
-        // Authentication Check
-        if (!localStorage.getItem('admin_auth')) {
-            window.location.href = '/admin/index.html';
-        } else {
-            try {
-                const auth = JSON.parse(localStorage.getItem('admin_auth'));
-                if (auth.role !== 'admin') window.location.href = '/admin/index.html';
-            } catch(e) {
-                window.location.href = '/admin/index.html';
-            }
-        }
+(function() {
+ try {
 
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'], outfit: ['Outfit', 'sans-serif'] },
-                    colors: { 
-                        slate: { 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 800: '#1e293b', 900: '#0f172a' },
-                        primary: '#0f172a', accent: '#3b82f6' 
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        body { 
-            font-family: 'Outfit', sans-serif;
-            background: #ffffff;
-            min-height: 100vh;
-            overflow-x: hidden; 
-        }
-        .top-nav { height: 60px; background: #ffffff; backdrop-filter: blur(20px); border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1.5rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
-        .main-container { padding: 2rem; max-width: 1600px; margin-left: 240px !important; margin-right: auto; }
-        .module-nav-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #64748b; transition: all 0.2s; cursor: pointer !important; border: none; background: transparent; white-space: nowrap; width: 100% !important; box-sizing: border-box !important; }
-        .module-nav-btn:hover { color: #0f172a; background: #ffffff; }
-        .module-nav-btn.active { color: #0f172a; background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-        
-        .top-nav > div:nth-child(2), #module-switcher {
-            position: fixed !important;
-            top: 60px !important;
-            left: 0 !important;
-            width: 240px !important;
-            height: calc(100vh - 60px) !important;
-            background: #ffffff !important;
-            backdrop-filter: blur(20px) !important;
-            border-right: 1px solid #e2e8f0 !important;
-            border-top: none !important;
-            border-left: none !important;
-            border-bottom: none !important;
-            border-radius: 0 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            padding: 1.5rem 1rem !important;
-            gap: 0.5rem !important;
-            align-items: stretch !important;
-            justify-content: flex-start !important;
-            z-index: 9998 !important;
-            box-shadow: none !important;
-        }
-
-        .submenu-container {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-            transition: all 0.3s ease;
-        }
-        .submenu-container.hidden {
-            display: none !important;
-        }
-        .submenu-arrow {
-            transition: transform 0.2s ease;
-        }
-        
-        .glass-card { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.02); }
-        .tab-btn.active { border-color: #3b82f6; color: #3b82f6; font-weight: 700; }
-    </style>
-    <script type="module" src="admin-sidebar.js"></script>
-</head>
-<body>
-
-    <!-- Top Navigation with module switcher interceptor -->
-    <nav class="top-nav">
-        <div class="flex items-center gap-4">
-            <div class="flex flex-col leading-none cursor-pointer" onclick="window.location.href='dashboard.html'">
-                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Admin</span>
-                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Portal</span>
-            </div>
-        </div>
-        <div id="module-switcher" class="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-white/80">
-            <button onclick="window.location.href='dashboard.html'" class="module-nav-btn" id="btn-clients">Clients</button>
-            <button onclick="window.location.href='applications.html'" class="module-nav-btn" id="btn-applications">Applications</button>
-            <button onclick="window.location.href='kyc.html'" class="module-nav-btn" id="btn-kyc">KYC Review</button>
-            <button onclick="window.location.href='compliance.html'" class="module-nav-btn" id="btn-compliance">Compliance</button>
-            <button onclick="window.location.href='reports.html'" class="module-nav-btn" id="btn-reports">Reports</button>
-            <button onclick="window.location.href='messages.html'" class="module-nav-btn" id="btn-messages">Messages</button>
-            <button onclick="window.location.href='content.html'" class="module-nav-btn" id="btn-content">Content</button>
-        </div>
-        <div class="flex items-center justify-end gap-3 relative">
-            <button onclick="document.getElementById('company-excel-input').click()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                Upload Client Register (Excel)
-            </button>
-            <input type="file" id="company-excel-input" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleCompanyExcelUpload(event)">
-            
-            <button onclick="window.location.href='dashboard.html'" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Back to Dashboard
-            </button>
-        </div>
-    </nav>
-
-    <!-- Main Container -->
-    <main class="main-container relative pb-32">
-        <!-- Profile Banner -->
-        <div id="company-banner" class="glass-card bg-white p-6 mb-6 relative overflow-visible flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-sm border border-slate-100">
-            <div class="flex items-center gap-5 w-full md:w-auto">
-                <div class="w-[84px] h-[84px] rounded-2xl bg-blue-600 text-white font-black text-[32px] flex items-center justify-center shadow-[0_8px_16px_rgba(37,99,235,0.2)]" id="company-initial">
-                    B
-                </div>
-                <div class="flex flex-col gap-1.5 ml-1">
-                    <h1 class="text-2xl font-extrabold text-slate-900 leading-tight" id="company-name">Loading Company...</h1>
-                    <div class="flex flex-wrap items-center gap-4 text-xs text-slate-500 font-medium">
-                        <span class="flex items-center gap-1.5" id="company-uen-badge">
-                            <i data-lucide="file-text" class="w-3.5 h-3.5"></i> UEN: Loading...
-                        </span>
-                        <span class="flex items-center gap-1.5" id="company-type-badge">
-                            <i data-lucide="layers" class="w-3.5 h-3.5"></i> Private Company Limited by shares
-                        </span>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="flex items-center gap-6 text-sm">
-                <div class="flex items-center gap-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-blue-600 shrink-0"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
-                    <div class="flex flex-col">
-                        <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-0.5">Incorporation Date</span>
-                        <span class="font-bold text-slate-800 text-[13px]" id="info-incorporation">—</span>
-                    </div>
-                </div>
-                <div class="w-px h-8 bg-slate-200"></div>
-                <div class="flex items-center gap-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-blue-600 shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    <div class="flex flex-col">
-                        <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-0.5">Company Age</span>
-                        <span class="font-bold text-slate-800 text-[13px]" id="info-age">—</span>
-                    </div>
-                </div>
-                <div class="w-px h-8 bg-slate-200"></div>
-                <div class="flex items-center gap-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-blue-600 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
-                    <div class="flex flex-col">
-                        <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-0.5">Jurisdiction</span>
-                        <span class="font-bold text-slate-800 text-[13px]" id="info-jurisdiction">—</span>
-                    </div>
-                </div>
-                <div class="flex items-center gap-3 ml-4 pl-4 border-l border-slate-200 relative">
-                    <span class="px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wide bg-emerald-50 text-emerald-600 flex items-center gap-1.5" id="company-status-badge">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none" class="w-4 h-4 text-emerald-500 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg> ACTIVE / APPROVED
-                    </span>
-                    
-                    <div class="relative">
-                        <button onclick="toggleActionsDropdown(event)" class="pl-2.5 pr-3 py-1.5 border border-slate-200 text-slate-900 bg-white hover:bg-slate-50 font-bold rounded-2xl text-[13px] flex items-center transition-all shadow-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none" class="w-4 h-4 text-blue-600 mr-2 shrink-0">
-                                <circle cx="12" cy="6" r="2"/>
-                                <circle cx="12" cy="12" r="2"/>
-                                <circle cx="12" cy="18" r="2"/>
-                            </svg>
-                            Actions
-                            <div class="w-px h-4 bg-slate-200/80 mx-3"></div>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-slate-600 shrink-0">
-                                <polyline points="6 9 12 15 18 9"/>
-                            </svg>
-                        </button>
-                        
-                        <!-- Actions Dropdown -->
-                        <div id="actions-dropdown" class="hidden absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl p-3 z-[999] text-xs text-slate-700 font-bold space-y-1">
-                            <div class="text-[10px] text-slate-400 uppercase tracking-wider px-2 py-1">Company Actions</div>
-                            <a href="#" onclick="openEditProfileModal(event)" class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-xl transition-colors text-blue-600">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                                <span>Edit Company Profile</span>
-                            </a>
-                            <a href="#" onclick="openUpdateAddressModal(event)" class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-xl transition-colors text-slate-700">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-                                <span>Update Registered Address</span>
-                            </a>
-                            <a href="#" onclick="viewOrgChart(event)" class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-xl transition-colors text-slate-700">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                <span>View Organization Chart</span>
-                            </a>
-                            <a href="#" onclick="deactivateCompany(event)" class="flex items-center gap-2 p-2 hover:bg-rose-50 text-rose-600 rounded-xl transition-colors">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" x2="12" y1="2" y2="12"/></svg>
-                                <span>Deactivate Company</span>
-                            </a>
-                            
-                            <div class="border-t border-slate-100 my-1"></div>
-                            <div class="text-[10px] text-slate-400 uppercase tracking-wider px-2 py-1">Document Actions</div>
-                            <a href="#" onclick="openUploadModal(event)" class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-xl transition-colors text-slate-700">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
-                                <span>Upload Document</span>
-                            </a>
-                            <a href="#" onclick="openUploadModal(event)" class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-xl transition-colors text-slate-700">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
-                                <span>Bulk Upload</span>
-                            </a>
-                            <a href="#" onclick="event.preventDefault(); switchTab('documents')" class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-xl transition-colors text-slate-700">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
-                                <span>Document Vault</span>
-                            </a>
-                            
-                            <div class="border-t border-slate-100 my-1"></div>
-                            <div class="text-[10px] text-slate-400 uppercase tracking-wider px-2 py-1">Other Actions</div>
-                            <a href="#" onclick="addNoteModal(event)" class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-xl transition-colors text-slate-700">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
-                                <span>Add Note</span>
-                            </a>
-                            <a href="#" onclick="downloadCompanyProfile(event)" class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-xl transition-colors text-slate-700">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                                <span>Download Company Profile</span>
-                            </a>
-                            <a href="#" onclick="exportCompanyData(event)" class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-xl transition-colors text-slate-700">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                                <span>Export Company Data</span>
-                            </a>
-                        </div>
-                    </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Navigation Tabs -->
-        <div class="flex border-b border-slate-200 mb-6 overflow-x-auto gap-6 bg-white px-2 rounded-t-xl">
-            <button onclick="switchTab('overview')" id="tab-btn-overview" class="tab-btn py-4 text-sm font-bold border-b-2 border-blue-600 text-blue-600 transition-all flex items-center gap-1.5">
-                <i data-lucide="info" class="w-4 h-4"></i> Overview
-            </button>
-            <button onclick="switchTab('directors')" id="tab-btn-directors" class="tab-btn py-4 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
-                <i data-lucide="users" class="w-4 h-4"></i> Directors
-            </button>
-            <button onclick="switchTab('secretaries')" id="tab-btn-secretaries" class="tab-btn py-4 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
-                <i data-lucide="user" class="w-4 h-4"></i> Secretaries
-            </button>
-            <button onclick="switchTab('members')" id="tab-btn-members" class="tab-btn py-4 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
-                <i data-lucide="pie-chart" class="w-4 h-4"></i> Shareholders
-            </button>
-            <button onclick="switchTab('controllers')" id="tab-btn-controllers" class="tab-btn py-4 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
-                <i data-lucide="shield-check" class="w-4 h-4"></i> UBOs & Controllers
-            </button>
-            <button onclick="switchTab('documents')" id="tab-btn-documents" class="tab-btn py-4 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
-                <i data-lucide="file" class="w-4 h-4"></i> Documents
-            </button>
-            <button onclick="switchTab('compliance')" id="tab-btn-compliance" class="tab-btn py-4 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
-                <i data-lucide="calendar-check" class="w-4 h-4"></i> Compliance
-            </button>
-            <button onclick="switchTab('activities')" id="tab-btn-activities" class="tab-btn py-4 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
-                <i data-lucide="activity" class="w-4 h-4"></i> Activities
-            </button>
-        </div>
-
-        <!-- Tab Contents -->
-        <div id="panel-overview" class="tab-panel hidden space-y-6">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Company General Info -->
-                <div class="glass-card bg-white p-6 lg:col-span-2 space-y-5 border border-slate-100 shadow-sm">
-                    <div class="flex justify-between items-center border-b border-slate-100 pb-4">
-                        <h3 class="font-bold text-slate-900 text-lg flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-blue-600">
-                                    <rect x="5" y="3" width="14" height="18" rx="2" />
-                                    <line x1="9" y1="9" x2="15" y2="9" />
-                                    <line x1="9" y1="14" x2="15" y2="14" />
-                                    <path d="M10 21v-4h4v4" />
-                                </svg>
-                            </div>
-                            Corporate Profile
-                        </h3>
-                        <button onclick="openEditProfileModal(event)" class="px-4 py-2 border border-blue-100 text-blue-600 hover:bg-blue-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-                            <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Edit Profile
-                        </button>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-                        <div>
-                            <span class="text-xs font-medium text-slate-400 mb-1 block">Company Name</span>
-                            <div class="font-bold text-slate-900" id="info-name">—</div>
-                        </div>
-                        <div>
-                            <span class="text-xs font-medium text-slate-400 mb-1 block">UEN</span>
-                            <div class="font-bold text-slate-900" id="info-uen">—</div>
-                        </div>
-                        <div>
-                            <span class="text-xs font-medium text-slate-400 mb-1 block">Company Type</span>
-                            <div class="font-bold text-slate-900" id="info-type">—</div>
-                        </div>
-                        <div>
-                            <span class="text-xs font-medium text-slate-400 mb-1 block">Country of Incorporation</span>
-                            <div class="font-bold text-slate-900" id="info-country">Singapore</div>
-                        </div>
-                        
-                        <div class="md:col-span-1 pr-4">
-                            <span class="text-xs font-medium text-slate-400 mb-1 block">Primary SSIC & Activity Description</span>
-                            <div class="font-bold text-slate-900 leading-relaxed" id="info-primary-activity">—</div>
-                        </div>
-                        <div class="md:col-span-1">
-                            <span class="text-xs font-medium text-slate-400 mb-1 block">Constitution</span>
-                            <a href="#" class="font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1.5 mt-1 transition-colors">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-slate-600"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
-                                Constitution.pdf 
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 ml-0.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
-                            </a>
-                        </div>
-                        
-                        <div class="md:col-span-1 pr-4">
-                            <span class="text-xs font-medium text-slate-400 mb-1 block">Secondary SSIC & Activity Description</span>
-                            <div class="font-bold text-slate-900 leading-relaxed" id="info-secondary-activity">—</div>
-                        </div>
-                        <div class="md:col-span-1">
-                            <span class="text-xs font-medium text-slate-400 mb-1 block">Company Status</span>
-                            <span class="px-2.5 py-1 rounded-md text-[11px] font-bold uppercase bg-emerald-50 text-emerald-600 inline-block mt-1 border border-emerald-100">
-                                Active
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Annual Return & Compliance Dates -->
-                <div class="glass-card bg-white p-6 space-y-5 border border-slate-100 shadow-sm flex flex-col">
-                    <div class="flex justify-between items-center border-b border-slate-100 pb-4">
-                        <h3 class="font-bold text-slate-900 text-lg flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-purple-600">
-                                    <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
-                                    <line x1="16" x2="16" y1="2" y2="6"/>
-                                    <line x1="8" x2="8" y1="2" y2="6"/>
-                                    <line x1="3" x2="21" y1="10" y2="10"/>
-                                </svg>
-                            </div>
-                            Compliance Timeline
-                        </h3>
-                        <button onclick="switchTab('compliance')" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-                            <i data-lucide="calendar" class="w-3.5 h-3.5"></i> View Calendar
-                        </button>
-                    </div>
-                    
-                    <div class="space-y-4 text-sm flex-grow relative pl-2 pt-2">
-                        <!-- Connecting Line -->
-                        <div class="absolute left-[27px] top-[40px] bottom-[40px] w-[2px] bg-slate-100 z-0"></div>
-                        
-                        <!-- Timeline Items -->
-                        <div class="flex items-start gap-4 relative z-10">
-                            <div class="w-10 h-10 rounded-full bg-emerald-400 text-white flex items-center justify-center shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none" class="w-5 h-5 text-white"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
-                            </div>
-                            <div class="flex-grow pb-4">
-                                <div class="flex justify-between items-start">
-                                    <span class="font-bold text-slate-800 text-[13px]">Financial Year End (FYE)</span>
-                                    <span class="font-bold text-slate-900 text-[13px]" id="info-fye">2026-12-31</span>
-                                </div>
-                                <div class="flex justify-between items-start mt-1">
-                                    <span class="text-slate-500 text-xs">Every year on 31 Dec</span>
-                                    <span class="text-emerald-500 text-xs font-medium">In 6 months</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="flex items-start gap-4 relative z-10">
-                            <div class="w-10 h-10 rounded-full bg-slate-50 text-slate-500 flex items-center justify-center shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-slate-600"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
-                            </div>
-                            <div class="flex-grow pb-4">
-                                <div class="flex justify-between items-start">
-                                    <span class="font-bold text-slate-800 text-[13px]">Last AGM Date</span>
-                                    <span class="font-bold text-slate-900 text-[13px]" id="info-agm">NA</span>
-                                </div>
-                                <div class="flex justify-between items-start mt-1">
-                                    <span class="text-slate-500 text-xs">Due within 6 months of FYE</span>
-                                    <span class="text-slate-400 text-xs font-medium">Not Held Yet</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="flex items-start gap-4 relative z-10">
-                            <div class="w-10 h-10 rounded-full bg-slate-50 text-slate-500 flex items-center justify-center shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-slate-600"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
-                            </div>
-                            <div class="flex-grow pb-4">
-                                <div class="flex justify-between items-start">
-                                    <span class="font-bold text-slate-800 text-[13px]">Date of Annual Return</span>
-                                    <span class="font-bold text-slate-900 text-[13px]" id="info-ar">NA</span>
-                                </div>
-                                <div class="flex justify-between items-start mt-1">
-                                    <span class="text-slate-500 text-xs">Due within 30 days of AGM</span>
-                                    <span class="text-slate-400 text-xs font-medium">Not Filed Yet</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="flex items-start gap-4 relative z-10">
-                            <div class="w-10 h-10 rounded-full bg-slate-50 text-slate-500 flex items-center justify-center shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-slate-600"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><polyline points="7 17 12 12 17 7"/></svg>
-                            </div>
-                            <div class="flex-grow pb-2">
-                                <div class="flex justify-between items-start">
-                                    <span class="font-bold text-slate-800 text-[13px]">XBRL Prepared</span>
-                                    <span class="font-bold text-slate-900 text-[13px]" id="info-xbrl">NA</span>
-                                </div>
-                                <div class="flex justify-between items-start mt-1">
-                                    <span class="text-slate-500 text-xs">Due within 7 months of FYE</span>
-                                    <span class="text-slate-400 text-xs font-medium">Not Prepared Yet</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="pt-4 border-t border-slate-100 text-center mt-auto">
-                        <a href="#" onclick="event.preventDefault(); switchTab('compliance')" class="font-bold text-blue-600 hover:text-blue-700 text-sm flex items-center justify-center gap-1.5 transition-colors">
-                            View All Compliance <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Registered Address -->
-                <div class="glass-card bg-white p-6 lg:col-span-3 space-y-4 border border-slate-100 shadow-sm">
-                    <div class="flex justify-between items-center pb-2">
-                        <h3 class="font-bold text-slate-900 text-lg flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-rose-500">
-                                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
-                                    <circle cx="12" cy="10" r="3"/>
-                                </svg>
-                            </div>
-                            Registered Office Address
-                        </h3>
-                        <button onclick="openUpdateAddressModal(event)" class="px-4 py-2 border border-blue-100 text-blue-600 hover:bg-blue-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-                            <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Update Address
-                        </button>
-                    </div>
-                    
-                    <div class="text-sm font-semibold text-slate-800 bg-slate-50/70 p-5 rounded-xl border border-slate-100 leading-relaxed" id="info-address">
-                        —
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="panel-directors" class="tab-panel hidden space-y-6">
-            <!-- Header Section -->
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
-                <div>
-                    <h3 class="font-bold text-slate-900 text-xl flex items-center gap-2" id="directors-header-title">
-                        Directors (3)
-                    </h3>
-                    <p class="text-slate-500 text-xs mt-1">Manage and review director information and documents</p>
-                </div>
-                <div class="flex items-center gap-3">
-                    <button onclick="window.openOrgChartModal()" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-                        <i data-lucide="network" class="w-3.5 h-3.5 text-blue-600"></i> View Org Chart
-                    </button>
-                    <button onclick="window.openAddDirectorModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
-                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Director
-                    </button>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-12 gap-6 mt-2">
-                <!-- Left Panel: Director Search & List -->
-                <div class="col-span-12 lg:col-span-4 space-y-4">
-                    <div class="flex gap-3">
-                        <div class="relative flex-grow">
-                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
-                            <input type="text" id="director-search-input" onkeyup="filterDirectorsList()" placeholder="Search director by name..." class="w-full pl-10 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium placeholder-slate-400">
-                        </div>
-                        <div class="relative">
-                            <select id="director-status-filter" onchange="filterDirectorsList()" class="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-700 cursor-pointer">
-                                <option value="all">All Status</option>
-                                <option value="Verified">Verified</option>
-                                <option value="Pending Review">Pending Review</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Directors List Container -->
-                    <div id="directors-list" class="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-                        <!-- Loaded dynamically -->
-                    </div>
-                </div>
-
-                <!-- Right Panel: Selected Director Details -->
-                <div class="col-span-12 lg:col-span-8 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col min-h-[550px]" id="director-details-panel">
-                    <!-- Loaded dynamically when a director is clicked -->
-                </div>
-            </div>
-        </div>
-
-        <div id="panel-secretaries" class="tab-panel hidden space-y-6">
-            <!-- Header Section -->
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
-                <div>
-                    <h3 class="font-bold text-slate-900 text-xl flex items-center gap-2" id="secretaries-header-title">
-                        Secretaries (2)
-                    </h3>
-                    <p class="text-slate-500 text-xs mt-1">Manage company secretaries and their details</p>
-                </div>
-                <div class="flex items-center gap-3">
-                    <button onclick="window.openAddSecretaryModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
-                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Secretary
-                    </button>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-12 gap-6 mt-2">
-                <!-- Left Panel: Secretary Search & List -->
-                <div class="col-span-12 lg:col-span-4 space-y-4">
-                    <div class="flex gap-3">
-                        <div class="relative flex-grow">
-                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
-                            <input type="text" id="secretary-search-input" onkeyup="filterSecretariesList()" placeholder="Search secretary by name..." class="w-full pl-10 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium placeholder-slate-400">
-                        </div>
-                        <div class="relative">
-                            <select id="secretary-status-filter" onchange="filterSecretariesList()" class="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-700 cursor-pointer">
-                                <option value="all">All Status</option>
-                                <option value="Active">Active</option>
-                                <option value="Resigned">Resigned</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Secretaries List Container -->
-                    <div id="secretaries-list" class="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-                        <!-- Loaded dynamically -->
-                    </div>
-                </div>
-
-                <!-- Right Panel: Selected Secretary Details -->
-                <div class="col-span-12 lg:col-span-8 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col min-h-[550px]" id="secretary-details-panel">
-                    <!-- Loaded dynamically when a secretary is clicked -->
-                </div>
-            </div>
-        </div>
-
-        <div id="panel-members" class="tab-panel hidden space-y-6">
-            <!-- Header Section -->
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
-                <div>
-                    <h3 class="font-bold text-slate-900 text-xl flex items-center gap-2" id="shareholders-header-title">
-                        Shareholders (4)
-                    </h3>
-                    <p class="text-slate-500 text-xs mt-1">View and manage shareholders and their shareholding details</p>
-                </div>
-                <div class="flex items-center gap-3">
-                    <button onclick="window.openAddShareholderModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
-                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Shareholder
-                    </button>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-12 gap-6 mt-2">
-                <!-- Left Panel: Shareholder Search & List -->
-                <div class="col-span-12 lg:col-span-4 space-y-4">
-                    <div class="flex gap-3">
-                        <div class="relative flex-grow">
-                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
-                            <input type="text" id="shareholder-search-input" onkeyup="filterShareholdersList()" placeholder="Search shareholder by name..." class="w-full pl-10 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium placeholder-slate-400">
-                        </div>
-                        <div class="relative">
-                            <select id="shareholder-type-filter" onchange="filterShareholdersList()" class="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-700 cursor-pointer">
-                                <option value="all">All Types</option>
-                                <option value="Individual">Individual</option>
-                                <option value="Corporate">Corporate</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Shareholders List Container -->
-                    <div id="shareholders-list" class="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-                        <!-- Loaded dynamically -->
-                    </div>
-                </div>
-
-                <!-- Right Panel: Selected Shareholder Details -->
-                <div class="col-span-12 lg:col-span-8 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col min-h-[550px]" id="shareholder-details-panel">
-                    <!-- Loaded dynamically -->
-                </div>
-            </div>
-        </div>
-
-        <div id="panel-controllers" class="tab-panel hidden space-y-6">
-            <!-- Header Section -->
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
-                <div>
-                    <h3 class="font-bold text-slate-900 text-xl flex items-center gap-2" id="ubos-header-title">
-                        UBOs & Controllers (3)
-                    </h3>
-                    <p class="text-slate-500 text-xs mt-1">View and manage Ultimate Beneficial Owners and Controllers</p>
-                </div>
-                <div class="flex items-center gap-3">
-                    <button onclick="window.openAddUboModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
-                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add UBO / Controller
-                    </button>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-12 gap-6 mt-2">
-                <!-- Left Panel: UBO Search & List -->
-                <div class="col-span-12 lg:col-span-4 space-y-4">
-                    <div class="flex gap-3">
-                        <div class="relative flex-grow">
-                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
-                            <input type="text" id="ubo-search-input" onkeyup="filterUbosList()" placeholder="Search by name..." class="w-full pl-10 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium placeholder-slate-400">
-                        </div>
-                        <div class="relative">
-                            <select id="ubo-status-filter" onchange="filterUbosList()" class="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-700 cursor-pointer">
-                                <option value="all">All Status</option>
-                                <option value="Active">Active</option>
-                                <option value="Inactive">Inactive</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- UBO List Container -->
-                    <div id="ubos-list" class="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-                        <!-- Loaded dynamically -->
-                    </div>
-                </div>
-
-                <!-- Right Panel: Selected UBO Details -->
-                <div class="col-span-12 lg:col-span-8 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col min-h-[550px]" id="ubo-details-panel">
-                    <!-- Loaded dynamically -->
-                </div>
-            </div>
-        </div>
-
-        <div id="panel-documents" class="tab-panel hidden space-y-6">
-            <div class="grid grid-cols-12 gap-6">
-                <!-- Left Sidebar: Folders & Filters -->
-                <div class="col-span-12 lg:col-span-3 space-y-6">
-                    <!-- Folders Card -->
-                    <div class="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm space-y-3">
-                        <h4 class="font-extrabold text-slate-800 text-xs uppercase tracking-wider mb-2">Folders</h4>
-                        <div class="space-y-1" id="doc-folders-list">
-                            <!-- Loaded dynamically -->
-                        </div>
-                    </div>
-
-                    <!-- Filters Card -->
-                    <div class="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm space-y-4 text-xs">
-                        <div class="flex justify-between items-center">
-                            <h4 class="font-extrabold text-slate-800 text-xs uppercase tracking-wider">Filters</h4>
-                            <button onclick="clearDocFilters()" class="text-blue-600 hover:text-blue-700 font-bold">Clear All</button>
-                        </div>
-                        <div>
-                            <label class="block font-bold text-slate-400 mb-1.5 uppercase text-[9px] tracking-wider">Document Type</label>
-                            <select id="doc-type-filter" onchange="renderDocTable()" class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer">
-                                <option value="all">All Types</option>
-                                <option value="Constitution">Constitution</option>
-                                <option value="NRIC/Passport">NRIC / Passport</option>
-                                <option value="Address Proof">Address Proof</option>
-                                <option value="Financials">Financial Statements</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block font-bold text-slate-400 mb-1.5 uppercase text-[9px] tracking-wider">Verification Status</label>
-                            <select id="doc-status-filter" onchange="renderDocTable()" class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer">
-                                <option value="all">All Status</option>
-                                <option value="Verified">Verified</option>
-                                <option value="Pending Review">Pending Review</option>
-                                <option value="Rejected">Rejected</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block font-bold text-slate-400 mb-1.5 uppercase text-[9px] tracking-wider">Uploaded By</label>
-                            <select id="doc-user-filter" onchange="renderDocTable()" class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer">
-                                <option value="all">All Users</option>
-                                <option value="Sarah Lee">Sarah Lee</option>
-                                <option value="Daniel Wong">Daniel Wong</option>
-                                <option value="Emily Chen">Emily Chen</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Right Content Area: Document search, view and preview -->
-                <div class="col-span-12 lg:col-span-9 space-y-4">
-                    <!-- Top Search & Sort Controls -->
-                    <div class="bg-white border border-slate-100 p-4 rounded-3xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div class="relative flex-grow max-w-md">
-                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
-                            <input type="text" id="doc-search-input" onkeyup="renderDocTable()" placeholder="Search documents..." class="w-full pl-10 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium placeholder-slate-400">
-                        </div>
-                        <div class="flex items-center gap-3 self-end md:self-auto">
-                            <select id="doc-sort-select" onchange="renderDocTable()" class="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-700 cursor-pointer">
-                                <option value="newest">Newest First</option>
-                                <option value="oldest">Oldest First</option>
-                            </select>
-                            <div class="flex items-center border border-slate-200 rounded-xl overflow-hidden">
-                                <button onclick="setDocLayout('list')" id="btn-doc-list-layout" class="p-2 bg-blue-50 text-blue-600 hover:bg-slate-50 transition" title="List View"><i data-lucide="list" class="w-4 h-4"></i></button>
-                                <button onclick="setDocLayout('grid')" id="btn-doc-grid-layout" class="p-2 bg-white text-slate-400 hover:bg-slate-50 transition" title="Grid View"><i data-lucide="layout-grid" class="w-4 h-4"></i></button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Main Files Container (Table / Grid) -->
-                    <div class="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm overflow-hidden flex flex-col gap-4">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left text-xs border-collapse" id="doc-table-view">
-                                <thead>
-                                    <tr class="border-b border-slate-100 text-slate-400 font-bold uppercase">
-                                        <th class="pb-3 w-8"><input type="checkbox" class="rounded border-slate-200"></th>
-                                        <th class="pb-3">Document Name</th>
-                                        <th class="pb-3">Folder / Type</th>
-                                        <th class="pb-3">Uploaded On</th>
-                                        <th class="pb-3">Status</th>
-                                        <th class="pb-3">Uploaded By</th>
-                                        <th class="pb-3 text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="doc-table-body" class="divide-y divide-slate-50 text-slate-700 font-medium">
-                                    <!-- Loaded dynamically -->
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- Grid View Container (Hidden by default) -->
-                        <div id="doc-grid-view" class="grid grid-cols-1 md:grid-cols-3 gap-4 hidden">
-                            <!-- Loaded dynamically -->
-                        </div>
-
-                        <!-- Document Details slide-in overlay -->
-                        <div id="doc-preview-card" class="border border-slate-100 rounded-3xl p-5 bg-slate-50/50 hidden mt-6 flex flex-col gap-6 relative">
-                            <!-- Clicked document details & actions -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="panel-compliance" class="tab-panel hidden space-y-6">
-            <!-- Compliance Overview Header -->
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
-                <div>
-                    <h3 class="font-bold text-slate-900 text-xl flex items-center gap-2">
-                        Compliance Overview
-                    </h3>
-                    <p class="text-slate-500 text-xs mt-1">Track statutory filing requirements and timelines</p>
-                </div>
-                <div class="flex items-center gap-3">
-                    <button onclick="switchTab('compliance')" class="px-4 py-2 border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-                        <i data-lucide="calendar" class="w-3.5 h-3.5 text-blue-600"></i> View Calendar
-                    </button>
-                </div>
-            </div>
-
-            <!-- Stats Row -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center gap-4">
-                    <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
-                        <i data-lucide="clipboard-list" class="w-5 h-5"></i>
-                    </div>
-                    <div>
-                        <h4 class="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Total Requirements</h4>
-                        <p class="font-black text-slate-800 text-lg mt-0.5" id="comp-stat-total">7</p>
-                    </div>
-                </div>
-                <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center gap-4">
-                    <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
-                        <i data-lucide="check-circle" class="w-5 h-5"></i>
-                    </div>
-                    <div>
-                        <h4 class="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Compliant</h4>
-                        <p class="font-black text-slate-800 text-lg mt-0.5" id="comp-stat-compliant">4 (57.1%)</p>
-                    </div>
-                </div>
-                <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center gap-4">
-                    <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
-                        <i data-lucide="clock" class="w-5 h-5"></i>
-                    </div>
-                    <div>
-                        <h4 class="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Due Soon</h4>
-                        <p class="font-black text-slate-800 text-lg mt-0.5" id="comp-stat-due">2 (28.6%)</p>
-                    </div>
-                </div>
-                <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center gap-4">
-                    <div class="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600 shrink-0">
-                        <i data-lucide="alert-triangle" class="w-5 h-5"></i>
-                    </div>
-                    <div>
-                        <h4 class="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Overdue</h4>
-                        <p class="font-black text-slate-800 text-lg mt-0.5" id="comp-stat-overdue">1 (14.3%)</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Two Column Table / Stats Panel -->
-            <div class="grid grid-cols-12 gap-6 mt-2">
-                <!-- Left: Requirements Table -->
-                <div class="col-span-12 lg:col-span-8 bg-white border border-slate-100 rounded-3xl p-5 shadow-sm space-y-4">
-                    <h4 class="font-extrabold text-slate-800 text-sm">Compliance Requirements</h4>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs border-collapse">
-                            <thead>
-                                <tr class="border-b border-slate-100 text-slate-400 font-bold uppercase">
-                                    <th class="pb-3">Requirement</th>
-                                    <th class="pb-3">Category</th>
-                                    <th class="pb-3">Frequency</th>
-                                    <th class="pb-3">Due Date</th>
-                                    <th class="pb-3">Status</th>
-                                    <th class="pb-3">Days to Due</th>
-                                    <th class="pb-3 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="compliance-table-body" class="divide-y divide-slate-50 text-slate-700 font-medium">
-                                <!-- Loaded dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Right: Upcoming list & Radial Chart -->
-                <div class="col-span-12 lg:col-span-4 space-y-6">
-                    <!-- Upcoming Card -->
-                    <div class="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm space-y-4 text-xs">
-                        <div class="flex justify-between items-center">
-                            <h4 class="font-extrabold text-slate-800 text-xs uppercase tracking-wider">Upcoming & Overdue</h4>
-                            <a href="#" class="text-blue-600 hover:text-blue-700 font-bold">View All</a>
-                        </div>
-                        <div id="compliance-upcoming-list" class="space-y-3">
-                            <!-- Loaded dynamically -->
-                        </div>
-                    </div>
-
-                    <!-- Compliance Score Radial Ring -->
-                    <div class="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm flex flex-col items-center text-center gap-4">
-                        <h4 class="font-extrabold text-slate-800 text-xs uppercase tracking-wider self-start">Compliance Score</h4>
-                        
-                        <!-- Simple stylized radial indicator -->
-                        <div class="relative w-32 h-32 flex items-center justify-center">
-                            <!-- Circular Progress SVG -->
-                            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                                <path class="text-slate-100" stroke-width="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                <path id="comp-radial-score-ring" class="text-emerald-500" stroke-dasharray="71, 100" stroke-width="3" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                            </svg>
-                            <div class="absolute flex flex-col items-center">
-                                <span class="font-black text-slate-800 text-2xl" id="comp-score-pct">71%</span>
-                                <span class="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Compliant</span>
-                            </div>
-                        </div>
-
-                        <!-- Details legend -->
-                        <div class="w-full grid grid-cols-3 gap-2 text-[9px] font-bold text-slate-400 mt-2">
-                            <div>
-                                <span class="block w-2.5 h-2.5 bg-emerald-500 rounded-full mx-auto mb-1"></span>
-                                <span class="text-slate-700">Compliant</span>
-                                <p class="text-slate-500 font-extrabold text-xs mt-0.5">4 (57%)</p>
-                            </div>
-                            <div>
-                                <span class="block w-2.5 h-2.5 bg-amber-500 rounded-full mx-auto mb-1"></span>
-                                <span class="text-slate-700">Due Soon</span>
-                                <p class="text-slate-500 font-extrabold text-xs mt-0.5">2 (29%)</p>
-                            </div>
-                            <div>
-                                <span class="block w-2.5 h-2.5 bg-rose-500 rounded-full mx-auto mb-1"></span>
-                                <span class="text-slate-700">Overdue</span>
-                                <p class="text-slate-500 font-extrabold text-xs mt-0.5">1 (14%)</p>
-                            </div>
-                        </div>
-
-                        <div class="w-full mt-2 p-3 bg-blue-50 border border-blue-100 rounded-2xl flex items-start gap-2.5 text-left text-[11px] font-bold text-blue-900 leading-normal">
-                            <i data-lucide="info" class="w-4 h-4 text-blue-600 shrink-0 mt-0.5"></i>
-                            <span>Keep your compliance up to date to avoid penalties and maintain good standing.</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="panel-activities" class="tab-panel hidden space-y-6">
-            <div class="grid grid-cols-12 gap-6">
-                <!-- Left Column: Activity Timeline -->
-                <div class="col-span-12 lg:col-span-8 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col gap-4">
-                    <div class="flex justify-between items-center gap-4">
-                        <h4 class="font-extrabold text-slate-800 text-sm">Activity Timeline</h4>
-                        <div class="flex items-center gap-3">
-                            <div class="relative w-64">
-                                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5"></i>
-                                <input type="text" id="activity-search-input" onkeyup="renderActivityTimeline()" placeholder="Search activities..." class="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium placeholder-slate-400">
-                            </div>
-                            <button onclick="alert('Filtering options')" class="px-3 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 flex items-center gap-1.5 transition-all">
-                                <i data-lucide="filter" class="w-3.5 h-3.5"></i> Filter
-                            </button>
-                        </div>
-                    </div>
-                    <p class="text-slate-400 text-xs leading-normal -mt-2">Track all activities and changes made in the company profile</p>
-
-                    <!-- Activity timeline vertical list -->
-                    <div class="relative border-l border-slate-200 ml-6 pl-8 space-y-6 mt-6 pb-4" id="activity-timeline-list">
-                        <!-- Loaded dynamically -->
-                    </div>
-                </div>
-
-                <!-- Right Column: Activity Summary & Filters -->
-                <div class="col-span-12 lg:col-span-4 space-y-6">
-                    <!-- Summary Card -->
-                    <div class="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm space-y-4 text-xs">
-                        <h4 class="font-extrabold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-2"><i data-lucide="activity" class="w-4 h-4 text-blue-600"></i> Activity Summary</h4>
-                        <div class="space-y-3 font-medium text-slate-700">
-                            <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                <span>Today</span>
-                                <span class="font-bold text-slate-900">3</span>
-                            </div>
-                            <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                <span>This Week</span>
-                                <span class="font-bold text-slate-900">12</span>
-                            </div>
-                            <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                <span>This Month</span>
-                                <span class="font-bold text-slate-900">32</span>
-                            </div>
-                            <div class="flex justify-between py-1 pt-2">
-                                <span class="font-bold text-slate-800">Total Activities</span>
-                                <span class="font-black text-slate-900">128</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Sidebar Filters Card -->
-                    <div class="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm space-y-4 text-xs">
-                        <div class="flex justify-between items-center">
-                            <h4 class="font-extrabold text-slate-800 text-xs uppercase tracking-wider">Filters</h4>
-                            <button onclick="clearActivityFilters()" class="text-blue-600 hover:text-blue-700 font-bold">Clear All</button>
-                        </div>
-                        <div>
-                            <label class="block font-bold text-slate-400 mb-1.5 uppercase text-[9px] tracking-wider">Activity Type</label>
-                            <select id="activity-type-filter" onchange="renderActivityTimeline()" class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer">
-                                <option value="all">All Types</option>
-                                <option value="Document Uploaded">Document Uploaded</option>
-                                <option value="Profile Updated">Profile Updated</option>
-                                <option value="Document Rejected">Document Rejected</option>
-                                <option value="Document Verified">Document Verified</option>
-                                <option value="Director Added">Director Added</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block font-bold text-slate-400 mb-1.5 uppercase text-[9px] tracking-wider">Performed By</label>
-                            <select id="activity-user-filter" onchange="renderActivityTimeline()" class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer">
-                                <option value="all">All Users</option>
-                                <option value="Sarah Lee">Sarah Lee</option>
-                                <option value="Daniel Wong">Daniel Wong</option>
-                                <option value="Emily Chen">Emily Chen</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block font-bold text-slate-400 mb-1.5 uppercase text-[9px] tracking-wider">Date Range</label>
-                            <div class="relative">
-                                <input type="text" id="activity-date-filter" placeholder="01 Jul 2026 - 12 Jul 2026" class="w-full px-3 py-2 border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-                                <i data-lucide="calendar" class="w-4 h-4 text-slate-400 absolute right-3.5 top-2.5"></i>
-                            </div>
-                        </div>
-
-                        <button onclick="alert('Exporting activities...')" class="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-md">
-                            <i data-lucide="download" class="w-4 h-4"></i> Export Activities
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Bottom Stats Bar -->
-        <div class="bg-white border border-slate-200 p-4 flex items-center justify-between shadow-sm mt-8 rounded-2xl w-full">
-            <div class="flex items-center gap-8 px-6 w-full max-w-[1600px] mx-auto overflow-x-auto">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-blue-500"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
-                    </div>
-                    <div>
-                        <div class="flex items-baseline gap-2">
-                            <span class="font-black text-slate-900 text-lg">24</span>
-                            <span class="text-xs font-bold text-slate-700">Documents</span>
-                        </div>
-                        <div class="flex gap-2 text-[10px] font-bold">
-                            <span class="text-emerald-500">18 Verified</span>
-                            <span class="text-amber-500">6 Pending</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="w-px h-8 bg-slate-200"></div>
-                
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-purple-500"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    </div>
-                    <div>
-                        <div class="flex items-baseline gap-2">
-                            <span class="font-black text-slate-900 text-lg">3</span>
-                            <span class="text-xs font-bold text-slate-700">Directors</span>
-                        </div>
-                        <div class="flex gap-2 text-[10px] font-bold">
-                            <span class="text-emerald-500">2 Active</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="w-px h-8 bg-slate-200"></div>
-                
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-orange-500"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                    </div>
-                    <div>
-                        <div class="flex items-baseline gap-2">
-                            <span class="font-black text-slate-900 text-lg">2</span>
-                            <span class="text-xs font-bold text-slate-700">Secretaries</span>
-                        </div>
-                        <div class="flex gap-2 text-[10px] font-bold">
-                            <span class="text-emerald-500">2 Active</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="w-px h-8 bg-slate-200"></div>
-                
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-emerald-500"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    </div>
-                    <div>
-                        <div class="flex items-baseline gap-2">
-                            <span class="font-black text-slate-900 text-lg">4</span>
-                            <span class="text-xs font-bold text-slate-700">Shareholders</span>
-                        </div>
-                        <div class="flex gap-2 text-[10px] font-bold">
-                            <span class="text-emerald-500">4 Active</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="w-px h-8 bg-slate-200"></div>
-                
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-indigo-500"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-                    </div>
-                    <div>
-                        <div class="flex items-baseline gap-2">
-                            <span class="font-black text-slate-900 text-lg">2</span>
-                            <span class="text-xs font-bold text-slate-700">UBOs/Controllers</span>
-                        </div>
-                        <div class="flex gap-2 text-[10px] font-bold">
-                            <span class="text-emerald-500">2 Active</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="w-px h-8 bg-slate-200"></div>
-                
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-rose-500"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
-                    </div>
-                    <div>
-                        <div class="flex items-baseline gap-2">
-                            <span class="font-black text-slate-900 text-lg">0</span>
-                            <span class="text-xs font-bold text-slate-700">Flags</span>
-                        </div>
-                        <div class="flex gap-2 text-[10px] font-bold">
-                            <span class="text-emerald-500">No Outstanding Flags</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-
-    </main>
-
-    <!-- Scripts -->
-    <script>
         let clientData = null;
         let activeTab = 'overview';
 
@@ -1107,8 +22,7 @@
             activeTab = tabId;
 
             if (tabId === 'documents') {
-                if (typeof renderDocFolders === 'function') renderDocFolders();
-                if (typeof renderDocTable === 'function') renderDocTable();
+                renderDocumentsTable();
             } else if (tabId === 'compliance') {
                 renderComplianceTable();
             } else if (tabId === 'activities') {
@@ -1843,8 +757,67 @@
 
         // Render dynamic tables
         function renderDocumentsTable() {
-            if (typeof renderDocFolders === 'function') renderDocFolders();
-            if (typeof renderDocTable === 'function') renderDocTable();
+            const panel = document.getElementById('panel-documents');
+            if (!panel) return;
+            
+            const service = clientData && clientData.services && clientData.services.length > 0 ? clientData.services[0] : null;
+            const details = service ? (service.details || {}) : {};
+            const docs = details.documents || [];
+            
+            if (docs.length === 0) {
+                panel.innerHTML = `
+                    <div class="glass-card p-6 bg-white border border-slate-100 shadow-sm text-center py-12 text-slate-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mx-auto text-slate-300 mb-4"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+                        <h3 class="font-bold text-slate-900 text-lg mb-1">Documents Repository</h3>
+                        <p class="text-sm mb-4">No documents uploaded yet.</p>
+                        <button onclick="openUploadModal(event)" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-blue-600/20">
+                            Upload Document
+                        </button>
+                    </div>
+                `;
+            } else {
+                panel.innerHTML = `
+                    <div class="glass-card p-6 bg-white border border-slate-100 shadow-sm">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-bold text-slate-900 text-lg flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-blue-600"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg> Register of Documents</h3>
+                            <button onclick="openUploadModal(event)" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-blue-600/20">
+                                Upload Document
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm">
+                                <thead>
+                                    <tr class="border-b border-slate-200 text-slate-400 font-bold text-xs uppercase">
+                                        <th class="pb-3 font-bold">Document Name</th>
+                                        <th class="pb-3 font-bold">Type</th>
+                                        <th class="pb-3 font-bold">File Name</th>
+                                        <th class="pb-3 font-bold">Uploaded At</th>
+                                        <th class="pb-3 font-bold">Status</th>
+                                        <th class="pb-3 font-bold">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-slate-700">
+                                    ${docs.map(doc => {
+                                        const dateStr = new Date(doc.uploadedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                                        return `
+                                            <tr class="hover:bg-slate-50/50 transition">
+                                                <td class="p-4 font-bold text-slate-900">${doc.name}</td>
+                                                <td class="p-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 uppercase">${doc.type}</span></td>
+                                                <td class="p-4 font-semibold text-xs text-blue-600 hover:underline cursor-pointer"><a href="#" onclick="event.preventDefault(); alert('Downloading ${doc.fileName}')">${doc.fileName}</a></td>
+                                                <td class="p-4 text-xs font-semibold text-slate-500">${dateStr}</td>
+                                                <td class="p-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase">${doc.status || 'Verified'}</span></td>
+                                                <td class="p-4 text-xs font-bold text-blue-600">
+                                                    <button onclick="alert('Downloading ${doc.fileName}')" class="hover:underline">Download</button>
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
         }
 
         function renderComplianceTable() {
@@ -1956,7 +929,7 @@
         // --- HIGH-FIDELITY INTERACTIVE DIRECTORS TAB LOGIC ---
         let directorsList = [];
         let selectedDirectorIndex = 0;
-        let activeDirectorTab = 'details';
+        let activeDirectorTab = 'documents';
 
         const docTypes = [
             "NRIC (Front & Back)",
@@ -2123,7 +1096,7 @@
 
                 <!-- Tabs Navigation -->
                 <div class="flex border-b border-slate-100 py-3 gap-6 overflow-x-auto shrink-0">
-                    ${['details', 'appointments', 'shareholdings', 'relatedEntities', 'activityLog'].map(tab => {
+                    ${['documents', 'details', 'appointments', 'shareholdings', 'relatedEntities', 'activityLog'].map(tab => {
                         const label = tab === 'activityLog' ? 'Activity Log' : tab === 'relatedEntities' ? 'Related Entities' : tab.charAt(0).toUpperCase() + tab.slice(1);
                         const isActive = tab === activeDirectorTab;
                         const tabClasses = isActive 
@@ -2385,40 +1358,19 @@
         };
 
         function getDirectorDocs(director) {
-            if (documentsList && documentsList.length > 0) {
-                const dirNameLower = (director.name || '').toLowerCase();
-                const nameWords = dirNameLower.split(/\s+/).filter(w => w.length >= 3);
-                
-                let dirDocs = documentsList.filter(d => {
-                    const t = (d.title || d.name || '').toLowerCase();
-                    const cat = (d.type || d.category || '').toLowerCase();
-                    return nameWords.some(w => t.includes(w)) || cat.includes('passport') || cat.includes('aml') || cat.includes('cdd') || cat.includes('nric') || cat.includes('fin');
-                });
-
-                if (dirDocs.length === 0) {
-                    dirDocs = documentsList.slice(0, 5);
-                }
-
-                if (dirDocs.length > 0) {
-                    return dirDocs.map(d => ({
-                        type: d.type || d.category || 'Director Document',
-                        fileName: d.name || d.title,
-                        uploadedOn: d.uploadedOn || '27 Jul 2026',
-                        status: d.status || 'Verified',
-                        viewUrl: d.viewUrl
-                    }));
-                }
-            }
-
             const isVerified = director.status === 'Verified';
             return docTypes.map((type, idx) => {
-                const matched = findBestGcsDocument(type) || (documentsList.length > idx ? documentsList[idx] : null);
-                const fileName = matched ? (matched.name || matched.title) : `${type.split(' ')[0].replace(/[^a-z0-9]/gi, '')}_${director.name.replace(/\s+/g, '')}.pdf`;
+                let docStatus = 'Verified';
+                if (!isVerified) {
+                    if (idx >= 5) docStatus = 'Pending Review';
+                }
+                const fileName = `${type.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '')}_${director.name.replace(/\s+/g, '')}.pdf`;
+                const uploadedOn = new Date(Date.now() - (14 - idx) * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
                 return {
                     type,
                     fileName,
-                    uploadedOn: matched ? (matched.uploadedOn || '27 Jul 2026') : '27 Jul 2026',
-                    status: matched ? (matched.status || 'Verified') : 'Verified'
+                    uploadedOn,
+                    status: docStatus
                 };
             });
         }
@@ -4471,56 +3423,34 @@
         let activeDocLayout = 'list';
         let selectedDocIndex = 0;
 
-        function findBestGcsDocument(requestedLabel) {
-            if (!requestedLabel || !documentsList || documentsList.length === 0) return null;
-            const cleanTarget = requestedLabel.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-            // 1. Exact / Substring match
-            let exact = documentsList.find(d => {
-                const titleStr = (d.title || d.name || d.originalPath || '').toLowerCase();
-                const cleanTitle = titleStr.replace(/[^a-z0-9]/g, '');
-                return cleanTitle.includes(cleanTarget) || cleanTarget.includes(cleanTitle);
-            });
-            if (exact) return exact;
-
-            // 2. Token overlap scoring
-            const targetLower = requestedLabel.toLowerCase();
-            let maxScore = 0;
-            let bestDoc = null;
-
-            for (const d of documentsList) {
-                const titleStr = (d.title || d.name || d.originalPath || '').toLowerCase();
-                const gcsWords = titleStr.replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(w => w.length >= 3 && w !== 'pdf');
-                const matched = gcsWords.filter(w => targetLower.includes(w));
-                const score = matched.length;
-                if (score > maxScore) {
-                    maxScore = score;
-                    bestDoc = d;
-                }
-            }
-
-            return maxScore > 0 ? bestDoc : documentsList[0];
-        }
-
         window.openDocumentFile = function(fileName) {
             if (!fileName) return;
-            const found = findBestGcsDocument(fileName);
+            const cleanTarget = fileName.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const found = documentsList.find(d => {
+                const nameStr = (d.name || d.title || d.originalPath || '').toLowerCase();
+                const cleanName = nameStr.replace(/[^a-z0-9]/g, '');
+                return cleanName.includes(cleanTarget) || cleanTarget.includes(cleanName);
+            });
 
-            const targetUrl = (found && found.viewUrl) ? found.viewUrl : (found && found.id ? 'http://localhost:8080/api/documents/' + found.id + '/view' : 'http://localhost:8080/api/documents/' + encodeURIComponent(fileName) + '/view');
-            const displayTitle = found ? (found.title || found.name || fileName) : fileName;
+            const targetUrl = (found && found.viewUrl) ? found.viewUrl : (found && found.id ? `http://localhost:8080/api/documents/${found.id}/view` : (documentsList.length > 0 && documentsList[0].viewUrl ? documentsList[0].viewUrl : null));
 
-            window.showPdfPreviewModal(displayTitle, targetUrl, found ? (found.type || found.folder) : 'Document');
+            window.showPdfPreviewModal(fileName, targetUrl, found ? (found.type || found.folder) : 'Document');
         };
 
         window.showPdfPreviewModal = function(title, pdfUrl, category) {
             const existingModal = document.getElementById('gcp-pdf-preview-modal-wrapper');
             if (existingModal) existingModal.remove();
 
-            const found = findBestGcsDocument(title);
-            const displayTitle = found ? (found.title || found.name || title) : title;
+            // Find matching document item
+            const cleanTarget = title ? title.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const found = documentsList.find(d => {
+                const nameStr = (d.name || d.title || d.originalPath || '').toLowerCase();
+                const cleanName = nameStr.replace(/[^a-z0-9]/g, '');
+                return cleanName.includes(cleanTarget) || cleanTarget.includes(cleanName);
+            });
 
             // Stream URL preference: found.viewUrl (GCP signed) > pdfUrl > backend stream endpoint
-            const previewUrl = (found && found.viewUrl) ? found.viewUrl : (pdfUrl || (found && found.id ? 'http://localhost:8080/api/documents/' + found.id + '/view' : 'http://localhost:8080/api/documents/' + encodeURIComponent(displayTitle) + '/view'));
+            const previewUrl = (found && found.viewUrl) ? found.viewUrl : (pdfUrl || (found && found.id ? `http://localhost:8080/api/documents/${found.id}/view` : null));
             const directSignedUrl = previewUrl || pdfUrl || '#';
 
             const isImage = title && /\.(jpg|jpeg|png|webp|svg)$/i.test(title);
@@ -4792,11 +3722,7 @@
                     <div onclick="window.openDocumentFile('${d.name}')" class="p-4 border rounded-2xl cursor-pointer hover:border-blue-500 hover:shadow-sm transition-all flex flex-col gap-3 bg-white ${idx === selectedDocIndex ? 'border-blue-600 bg-blue-50/10' : 'border-slate-100'}">
                         <div class="flex items-start justify-between">
                             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-blue-600 shrink-0"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                            <div class="flex items-center gap-1">
-                                <span class="px-2 py-0.5 rounded font-black text-[8px] uppercase tracking-wider ${statusColor}">${d.status}</span>
-                                <button onclick="event.stopPropagation(); window.openDocumentFile('${d.name}')" class="p-1 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Preview PDF Modal"><i data-lucide="eye" class="w-3.5 h-3.5"></i></button>
-                                <button onclick="event.stopPropagation(); window.downloadDocumentFile('${d.name}')" class="p-1 text-slate-400 hover:text-blue-600 rounded-lg transition" title="Download File"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
-                            </div>
+                            <span class="px-2 py-0.5 rounded font-black text-[8px] uppercase tracking-wider ${statusColor}">${d.status}</span>
                         </div>
                         <div>
                             <h5 class="font-bold text-slate-800 text-xs truncate" title="${d.name}">${d.name}</h5>
@@ -5478,6 +4404,34 @@
         } else {
             initializePage();
         }
-    </script>
-</body>
-</html>
+    
+window.switchTab = switchTab;
+window.loadCompanyDetails = loadCompanyDetails;
+window.renderPage = renderPage;
+window.updateFyeDisplay = updateFyeDisplay;
+window.addActivityLogEntry = addActivityLogEntry;
+window.renderDocumentsTable = renderDocumentsTable;
+window.renderComplianceTable = renderComplianceTable;
+window.renderActivitiesTable = renderActivitiesTable;
+window.initDirectorsData = initDirectorsData;
+window.renderDirectorTabContent = renderDirectorTabContent;
+window.getDirectorDocs = getDirectorDocs;
+window.initSecretariesData = initSecretariesData;
+window.renderSecretaryTabContent = renderSecretaryTabContent;
+window.initShareholdersData = initShareholdersData;
+window.renderShareholderTabContent = renderShareholderTabContent;
+window.initUbosData = initUbosData;
+window.renderUboTabContent = renderUboTabContent;
+window.initDocumentsData = initDocumentsData;
+window.renderDocFolders = renderDocFolders;
+window.initComplianceData = initComplianceData;
+window.initComplianceCounts = initComplianceCounts;
+window.renderComplianceUpcoming = renderComplianceUpcoming;
+window.initActivitiesData = initActivitiesData;
+window.initializePage = initializePage;
+window.handleCompanyExcelUpload = handleCompanyExcelUpload;
+window.parseExcelFile = parseExcelFile;
+ } catch (e) {
+ console.error(e);
+ }
+})();
