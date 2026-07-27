@@ -361,7 +361,7 @@ window.spaNavigate = async function(url, pushState = true) {
                 const scriptText = script.textContent;
                 const funcMatches = Array.from(scriptText.matchAll(/function\s+([a-zA-Z0-9_$]+)\s*\(/g)).map(m => m[1]);
                 const uniqueFuncs = [...new Set(funcMatches)];
-                const exportsCode = uniqueFuncs.map(name => `window.${name} = ${name};`).join('\n');
+                const exportsCode = uniqueFuncs.map(name => `try { if (typeof ${name} !== 'undefined') window.${name} = ${name}; } catch(e) {}`).join('\n');
                 
                 newScript.textContent = `
 (function() {
