@@ -1653,7 +1653,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isOpen) {
             win.classList.remove('pointer-events-none', 'translate-y-10', 'opacity-0');
             win.classList.add('translate-y-0', 'opacity-100');
-            window.showQuickChatContacts();
+            if (window.chatWidgetMode === 'team') {
+                window.showQuickChatContacts();
+            } else {
+                window.showBusinessAiAssistant();
+            }
             window.updateQuickChatUnreadBadge();
         } else {
             win.classList.add('pointer-events-none', 'translate-y-10', 'opacity-0');
@@ -1863,26 +1867,171 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e) {}
     };
 
+    window.chatWidgetMode = 'bi';
+    window.biMessagesHistory = [];
+
+    window.switchChatWidgetMode = function(mode) {
+        window.chatWidgetMode = mode;
+        const btnBi = document.getElementById('btn-mode-bi');
+        const btnTeam = document.getElementById('btn-mode-team');
+        if (mode === 'bi') {
+            if (btnBi) { btnBi.className = 'px-3 py-1 text-xs font-bold rounded-lg bg-blue-600 text-white transition-all shadow-sm'; }
+            if (btnTeam) { btnTeam.className = 'px-3 py-1 text-xs font-semibold rounded-lg text-slate-300 hover:text-white transition-all'; }
+            window.showBusinessAiAssistant();
+        } else {
+            if (btnTeam) { btnTeam.className = 'px-3 py-1 text-xs font-bold rounded-lg bg-blue-600 text-white transition-all shadow-sm'; }
+            if (btnBi) { btnBi.className = 'px-3 py-1 text-xs font-semibold rounded-lg text-slate-300 hover:text-white transition-all'; }
+            window.showQuickChatContacts();
+        }
+    };
+
+    window.showBusinessAiAssistant = function() {
+        const body = document.getElementById('quick-chat-body');
+        if (!body) return;
+
+        let chatHtml = '';
+        if (window.biMessagesHistory.length === 0) {
+            chatHtml = `
+                <div class="p-3.5 bg-blue-600 text-white rounded-2xl text-xs shadow-sm leading-relaxed">
+                    👋 <strong>Welcome to Globalisor Business Intelligence Assistant!</strong><br><br>
+                    Ask me any question about your registered companies, clients count, total documents, or compliance status.
+                </div>
+                <div class="space-y-1.5 pt-2">
+                    <div class="text-[10px] uppercase font-black text-slate-400">Quick Prompt Suggestions:</div>
+                    <button onclick="sendBiQuery('Totally how many client in system?')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
+                        📊 <span>Totally how many clients in system?</span>
+                    </button>
+                    <button onclick="sendBiQuery('How many total documents uploaded?')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
+                        📁 <span>How many total documents uploaded?</span>
+                    </button>
+                    <button onclick="sendBiQuery('Tell me about Abbey Holdings')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
+                        🏢 <span>Tell me about Abbey Holdings</span>
+                    </button>
+                    <button onclick="sendBiQuery('Tell me about 3B Trading')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
+                        🏢 <span>Tell me about 3B Trading</span>
+                    </button>
+                </div>
+            `;
+        } else {
+            chatHtml = window.biMessagesHistory.map(m => {
+                if (m.sender === 'user') {
+                    return `
+                        <div class="flex justify-end">
+                            <div class="bg-slate-900 text-white px-3.5 py-2 rounded-2xl text-xs font-semibold max-w-[85%] shadow-sm">
+                                ${m.text}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    const formatted = m.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                            .replace(/`([^`]+)`/g, '<code class="bg-slate-100 px-1 py-0.5 rounded text-blue-700 font-mono">$1</code>')
+                                            .replace(/\n/g, '<br>');
+                    return `
+                        <div class="flex justify-start">
+                            <div class="bg-white border border-slate-200 text-slate-800 p-3.5 rounded-2xl text-xs leading-relaxed max-w-[92%] shadow-sm">
+                                ${formatted}
+                            </div>
+                        </div>
+                    `;
+                }
+            }).join('');
+        }
+
+        body.innerHTML = `
+            <div class="p-4 flex-1 flex flex-col min-h-0 bg-slate-50/70">
+                <div id="bi-chat-container" class="flex-1 overflow-y-auto space-y-3 pr-1">
+                    ${chatHtml}
+                </div>
+                <form onsubmit="handleBiFormSubmit(event)" class="mt-3 flex items-center gap-2 pt-2 border-t border-slate-200/60 shrink-0">
+                    <input type="text" id="bi-chat-input" placeholder="Ask AI... (e.g. totally how many client in system?)" class="flex-1 px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                    <button type="submit" class="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-blue-600/20 flex items-center justify-center shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    </button>
+                </form>
+            </div>
+        `;
+
+        const container = document.getElementById('bi-chat-container');
+        if (container) container.scrollTop = container.scrollHeight;
+    };
+
+    window.sendBiQuery = async function(text) {
+        if (!text || !text.trim()) return;
+        const qText = text.trim();
+
+        window.biMessagesHistory.push({ sender: 'user', text: qText });
+        window.showBusinessAiAssistant();
+
+        const container = document.getElementById('bi-chat-container');
+        if (container) {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = 'bi-loading-indicator';
+            loadingDiv.className = 'flex justify-start';
+            loadingDiv.innerHTML = `
+                <div class="bg-white border border-slate-200 text-slate-500 p-3 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-sm">
+                    <span class="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
+                    Analyzing MongoDB database & metrics...
+                </div>
+            `;
+            container.appendChild(loadingDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        try {
+            const res = await fetch('/api/admin/intelligence/ask?q=' + encodeURIComponent(qText));
+            const data = await res.json();
+            const reply = data.reply || "Sorry, I couldn't query the database right now.";
+
+            const loadEl = document.getElementById('bi-loading-indicator');
+            if (loadEl) loadEl.remove();
+
+            window.biMessagesHistory.push({ sender: 'assistant', text: reply });
+            window.showBusinessAiAssistant();
+        } catch(err) {
+            console.error("BI Query error:", err);
+            const loadEl = document.getElementById('bi-loading-indicator');
+            if (loadEl) loadEl.remove();
+
+            window.biMessagesHistory.push({ sender: 'assistant', text: "⚠️ Error querying database. Please check your backend connection." });
+            window.showBusinessAiAssistant();
+        }
+    };
+
+    window.handleBiFormSubmit = function(event) {
+        if (event) event.preventDefault();
+        const input = document.getElementById('bi-chat-input');
+        if (!input || !input.value.trim()) return;
+        const val = input.value.trim();
+        input.value = '';
+        window.sendBiQuery(val);
+    };
+
     function initQuickChat() {
         if (!localStorage.getItem('admin_auth') && !localStorage.getItem('staff_auth')) return;
         if (document.getElementById('quick-chat-fab')) return;
         
         const quickChatDiv = document.createElement('div');
         quickChatDiv.innerHTML = `
-            <div id="quick-chat-fab" class="fixed bottom-6 right-6 z-[9999] bg-slate-900 text-white p-4 rounded-full shadow-2xl hover:scale-110 cursor-pointer transition-all flex items-center justify-center">
+            <div id="quick-chat-fab" class="fixed bottom-6 right-6 z-[9999] bg-blue-600 text-white p-4 rounded-full shadow-2xl hover:scale-110 cursor-pointer transition-all flex items-center justify-center ring-4 ring-blue-600/20">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 <span id="quick-chat-badge" class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 border border-white rounded-full text-[10px] font-bold text-white flex items-center justify-center hidden">0</span>
             </div>
-            <div id="quick-chat-window" class="fixed bottom-24 right-6 w-96 h-[500px] bg-white/90 backdrop-blur-xl border border-white/60 shadow-2xl rounded-2xl overflow-hidden flex flex-col z-[9999] transform translate-y-10 opacity-0 pointer-events-none transition-all duration-300">
-                <div class="p-4 bg-slate-900 text-white flex justify-between items-center shrink-0">
+            <div id="quick-chat-window" class="fixed bottom-24 right-6 w-[420px] h-[540px] bg-white/95 backdrop-blur-xl border border-white/60 shadow-2xl rounded-2xl overflow-hidden flex flex-col z-[9999] transform translate-y-10 opacity-0 pointer-events-none transition-all duration-300">
+                <div class="p-3.5 bg-slate-900 text-white flex justify-between items-center shrink-0">
                     <div class="flex items-center gap-2">
-                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span class="font-bold text-sm">Quick Team Chat</span>
+                        <div class="flex bg-slate-800 p-0.5 rounded-xl border border-slate-700">
+                            <button id="btn-mode-bi" onclick="switchChatWidgetMode('bi')" class="px-3 py-1 text-xs font-bold rounded-lg bg-blue-600 text-white transition-all shadow-sm">
+                                🤖 Business AI
+                            </button>
+                            <button id="btn-mode-team" onclick="switchChatWidgetMode('team')" class="px-3 py-1 text-xs font-semibold rounded-lg text-slate-300 hover:text-white transition-all">
+                                💬 Team Chat
+                            </button>
+                        </div>
                     </div>
-                    <button onclick="toggleQuickChat()" class="text-white/70 hover:text-white"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                    <button onclick="toggleQuickChat()" class="text-white/70 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                 </div>
                 <div id="quick-chat-body" class="flex-1 flex flex-col min-h-0 bg-slate-50/50">
-                    <!-- Contacts / Messages will render here -->
+                    <!-- Loaded dynamically -->
                 </div>
             </div>
         `;
@@ -1890,7 +2039,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         document.getElementById('quick-chat-fab').onclick = toggleQuickChat;
         
-        window.showQuickChatContacts();
+        window.showBusinessAiAssistant();
         window.updateQuickChatUnreadBadge();
         
         setInterval(window.updateQuickChatUnreadBadge, 5000);
