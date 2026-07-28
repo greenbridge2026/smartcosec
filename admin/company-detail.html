@@ -5064,7 +5064,7 @@
                             id: d.id,
                             name: d.title || d.originalPath || "Document.pdf",
                             type: d.category || 'Other',
-                            folder: d.suggestedModule || d.category || 'Misc',
+                            folder: d.category || d.suggestedModule || 'Misc',
                             size: d.fileSize ? (d.fileSize > 1024 * 1024 ? (d.fileSize / (1024 * 1024)).toFixed(1) + ' MB' : (d.fileSize / 1024).toFixed(0) + ' KB') : '1.2 MB',
                             uploadedOn: d.uploadDate || '26 Jul 2026',
                             uploadedBy: 'System Upload',
@@ -5088,12 +5088,6 @@
             const container = document.getElementById('doc-folders-list');
             if (!container) return;
 
-            const counts = {};
-            documentsList.forEach(d => {
-                const folderKey = d.folder || d.type || 'Other';
-                counts[folderKey] = (counts[folderKey] || 0) + 1;
-            });
-
             const taxonomyKeys = [
                 "KYC",
                 "Invoice",
@@ -5107,6 +5101,13 @@
                 "AGM AR",
                 "Allotment of Shares"
             ];
+
+            const counts = {};
+            documentsList.forEach(d => {
+                const folderRaw = (d.folder || d.type || 'Other').trim();
+                const matchedKey = taxonomyKeys.find(k => k.toLowerCase() === folderRaw.toLowerCase() || folderRaw.toLowerCase().startsWith(k.toLowerCase())) || folderRaw;
+                counts[matchedKey] = (counts[matchedKey] || 0) + 1;
+            });
 
             const folders = [
                 { name: "All Documents", count: documentsList.length },
@@ -5147,9 +5148,13 @@
 
             // Filter
             let filtered = documentsList.filter(d => {
-                const matchesFolder = activeDocFolder === 'All Documents' || d.folder === activeDocFolder;
-                const matchesSearch = d.name.toLowerCase().includes(searchVal) || d.type.toLowerCase().includes(searchVal);
-                const matchesType = typeFilter === 'all' || d.type.includes(typeFilter);
+                const folderStr = (d.folder || '').toLowerCase();
+                const typeStr = (d.type || '').toLowerCase();
+                const activeFolderStr = activeDocFolder.toLowerCase();
+
+                const matchesFolder = activeDocFolder === 'All Documents' || folderStr === activeFolderStr || folderStr.startsWith(activeFolderStr) || typeStr === activeFolderStr;
+                const matchesSearch = d.name.toLowerCase().includes(searchVal) || typeStr.includes(searchVal) || folderStr.includes(searchVal);
+                const matchesType = typeFilter === 'all' || typeStr.includes(typeFilter.toLowerCase()) || folderStr.includes(typeFilter.toLowerCase());
                 const matchesStatus = statusFilter === 'all' || d.status === statusFilter;
                 const matchesUser = userFilter === 'all' || d.uploadedBy === userFilter;
                 return matchesFolder && matchesSearch && matchesType && matchesStatus && matchesUser;
