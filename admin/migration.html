@@ -204,12 +204,71 @@
                             <input type="file" id="dir-input" webkitdirectory directory multiple class="hidden" onchange="handleDirectorySelect(event)">
                         </div>
 
-                        <!-- ZIP File Selector -->
-                        <div class="dropzone p-8 rounded-xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 transition border-2 border-dashed border-slate-300 hover:border-blue-500" onclick="document.getElementById('zip-input').click()">
-                            <i data-lucide="file-archive" class="w-10 h-10 text-slate-400 mb-3"></i>
-                            <span class="font-bold text-slate-800 text-sm">Select ZIP Archive File</span>
-                            <span class="text-xs text-slate-400 mt-1">Upload bulk imported ZIP folder archive</span>
-                            <input type="file" id="zip-input" accept=".zip" class="hidden" onchange="handleZipSelect(event)">
+                        <!-- Categorized Manual File Selector -->
+                        <div class="dropzone p-8 rounded-xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 transition border-2 border-dashed border-blue-400 bg-blue-50/20 hover:border-blue-600" onclick="scrollToCategorizedWorkspace()">
+                            <i data-lucide="layers" class="w-10 h-10 text-blue-600 mb-3"></i>
+                            <span class="font-bold text-slate-800 text-sm">Categorized Manual Document Upload</span>
+                            <span class="text-xs text-slate-500 mt-1">Upload files under customer categories (KYC, Invoice, AGM AR, etc.) directly to GCP Bucket & MongoDB</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CATEGORIZED MANUAL DOCUMENT UPLOADER WORKSPACE -->
+                <div id="categorized-upload-workspace" class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4">
+                        <div>
+                            <h3 class="text-lg font-bold font-outfit text-slate-900 flex items-center gap-2">
+                                <i data-lucide="layers" class="w-5 h-5 text-blue-600"></i>
+                                Categorized Document Uploader (GCP Bucket & Mongo Sync)
+                            </h3>
+                            <p class="text-slate-500 text-xs mt-0.5">Upload client files directly under 11 standardized categories. Automatically uploads to GCP Cloud Storage bucket and updates MongoDB metadata.</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button onclick="clearAllCategorizedFiles()" class="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 font-semibold text-xs hover:bg-slate-50 flex items-center gap-1.5" title="Clear selected local files">
+                                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 text-slate-400"></i> Clear Selection
+                            </button>
+                            <button onclick="purgeMongoDocumentRecords()" class="px-4 py-2 border border-rose-200 bg-rose-50/50 hover:bg-rose-100 text-rose-700 font-semibold text-xs rounded-xl flex items-center gap-1.5" title="Clear all document metadata from MongoDB database">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5 text-rose-600"></i> Purge Mongo Docs Data
+                            </button>
+                            <button onclick="executeCategorizedBatchUpload()" id="btn-categorized-upload" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20 flex items-center gap-2">
+                                <i data-lucide="upload" class="w-4 h-4"></i> Upload & Sync Documents
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Client Target & Tenant Info Bar -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50/70 p-4 rounded-xl border border-slate-200/80">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Select Active Client <span class="text-rose-500">*</span></label>
+                            <select id="cat-client-select" onchange="onCatClientDropdownSelected()" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:outline-none">
+                                <option value="">-- Choose DB Client --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Client ID</label>
+                            <div class="relative">
+                                <input type="text" id="cat-client-id" list="clients-datalist" onchange="onCatClientSelected()" placeholder="e.g. C-1001" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:outline-none">
+                                <datalist id="clients-datalist"></datalist>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Company Name</label>
+                            <input type="text" id="cat-company-name" placeholder="e.g. 3B Trading Pte Ltd" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tenant ID</label>
+                            <input type="text" id="cat-tenant-id" value="greenbridge" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:outline-none">
+                        </div>
+                    </div>
+
+                    <!-- 11 Customer Categories Grid -->
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Select Files per Category</h4>
+                            <span id="cat-total-summary" class="text-xs font-semibold text-slate-500">0 files attached across 0 categories</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="categories-upload-grid">
+                            <!-- Generated dynamically in JS -->
                         </div>
                     </div>
                 </div>
@@ -444,10 +503,319 @@ Please log in immediately to complete your activation.</textarea>
             safeCreateIcons();
         }
 
+        // ================= CATEGORIZED DOCUMENT UPLOADER STATE & LOGIC =================
+        const CUSTOMER_CATEGORIES = [
+            { key: 'KYC', name: 'KYC', module: 'KYC', icon: 'shield-check', desc: 'Passports, NRIC/FIN, Proof of Address' },
+            { key: 'Invoice', name: 'Invoice', module: 'Finance', icon: 'receipt', desc: 'Billing invoices, Receipts, Payment slips' },
+            { key: 'Permanent folder', name: 'Permanent folder', module: 'Company', icon: 'folder-archive', desc: 'Master company records, Constitution, Key registers' },
+            { key: 'Incorporation', name: 'Incorporation', module: 'Company', icon: 'building-2', desc: 'Cert of Incorporation, Form 45, Bizfile extract' },
+            { key: 'All Signed', name: 'All Signed', module: 'Compliance', icon: 'file-signature', desc: 'Executed agreements, Signed resolutions, Deeds' },
+            { key: 'Change of Address', name: 'Change of Address', module: 'Registered Office', icon: 'map-pin', desc: 'Registered address change notices & leases' },
+            { key: 'Change of Directors', name: 'Change of Directors', module: 'Director/Shareholder', icon: 'user-check', desc: 'Director appointments, Resignations, Consent forms' },
+            { key: 'Change of CS', name: 'Change of CS', module: 'Compliance', icon: 'briefcase', desc: 'Company Secretary appointment/resignation docs' },
+            { key: 'Change of Auditors', name: 'Change of Auditors', module: 'Compliance', icon: 'file-text', desc: 'Auditor appointment, Resignation, Consent letters' },
+            { key: 'AGM AR', name: 'AGM AR', module: 'Compliance', icon: 'calendar-check', desc: 'AGM Minutes, Annual Returns, Financial filings' },
+            { key: 'Allotment of Shares', name: 'Allotment of Shares', module: 'Director/Shareholder', icon: 'pie-chart', desc: 'Return of Allotment, Share Certificates, Transfers' }
+        ];
+
+        let selectedCategoryFilesMap = {}; // { catKey: [File, File] }
+        let clientOnboardingCache = [];
+
+        async function initCategorizedUploader() {
+            renderCategoryUploadCards();
+            fetchOnboardingClientsForDatalist();
+        }
+
+        function scrollToCategorizedWorkspace() {
+            const el = document.getElementById('categorized-upload-workspace');
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        async function fetchOnboardingClientsForDatalist() {
+            try {
+                let mergedClients = [];
+                
+                // 1. Try fetching real-time dashboard clients
+                const dashRes = await fetch('/api/dashboard').catch(() => null);
+                if (dashRes && dashRes.ok) {
+                    const dashData = await dashRes.json();
+                    if (dashData && dashData.clients) {
+                        mergedClients.push(...dashData.clients);
+                    }
+                }
+
+                // 2. Try fetching onboarding clients
+                const obRes = await fetch('/api/onboarding').catch(() => null);
+                if (obRes && obRes.ok) {
+                    const obData = await obRes.json();
+                    if (Array.isArray(obData)) {
+                        mergedClients.push(...obData);
+                    }
+                }
+
+                // Deduplicate by clientId / id
+                const clientMap = new Map();
+                for (const c of mergedClients) {
+                    const id = c.clientId || c.id || c.clientCode;
+                    if (!id) continue;
+                    if (!clientMap.has(id)) {
+                        clientMap.set(id, {
+                            id: id,
+                            clientId: id,
+                            clientName: c.clientName || c.name || c.contactPerson || 'Client',
+                            companyName: c.companyName || c.company || c.name || id
+                        });
+                    }
+                }
+
+                clientOnboardingCache = Array.from(clientMap.values());
+
+                const datalist = document.getElementById('clients-datalist');
+                const selectEl = document.getElementById('cat-client-select');
+
+                if (selectEl) {
+                    selectEl.innerHTML = `<option value="">-- Choose Active DB Client (${clientOnboardingCache.length}) --</option>` +
+                        clientOnboardingCache.map(c => `
+                            <option value="${c.id}">${c.companyName} (${c.id}) - ${c.clientName}</option>
+                        `).join('');
+                }
+
+                if (datalist && clientOnboardingCache) {
+                    datalist.innerHTML = clientOnboardingCache.map(c => `
+                        <option value="${c.id}">${c.companyName} (${c.clientName})</option>
+                    `).join('');
+                }
+            } catch (err) {
+                console.warn("Could not load client list for uploader datalist:", err);
+            }
+        }
+
+        function onCatClientDropdownSelected() {
+            const selectEl = document.getElementById('cat-client-select');
+            if (!selectEl) return;
+            const selectedId = selectEl.value;
+            if (!selectedId) return;
+
+            document.getElementById('cat-client-id').value = selectedId;
+            const matched = clientOnboardingCache.find(c => c.id === selectedId || c.clientId === selectedId);
+            if (matched) {
+                document.getElementById('cat-company-name').value = matched.companyName || matched.clientName || '';
+            }
+        }
+
+        function onCatClientSelected() {
+            const inputVal = document.getElementById('cat-client-id').value.trim();
+            if (!inputVal) return;
+            const matched = clientOnboardingCache.find(c => 
+                (c.clientId && c.clientId.toLowerCase() === inputVal.toLowerCase()) || 
+                (c.id && c.id.toLowerCase() === inputVal.toLowerCase()) ||
+                (c.companyName && c.companyName.toLowerCase().includes(inputVal.toLowerCase()))
+            );
+            if (matched) {
+                if (matched.companyName) document.getElementById('cat-company-name').value = matched.companyName;
+                const selectEl = document.getElementById('cat-client-select');
+                if (selectEl) selectEl.value = matched.id;
+            }
+        }
+
+        function renderCategoryUploadCards() {
+            const grid = document.getElementById('categories-upload-grid');
+            if (!grid) return;
+
+            grid.innerHTML = CUSTOMER_CATEGORIES.map(cat => {
+                const files = selectedCategoryFilesMap[cat.key] || [];
+                const hasFiles = files.length > 0;
+                return `
+                    <div class="border ${hasFiles ? 'border-blue-400 bg-blue-50/20' : 'border-slate-200 bg-white'} rounded-xl p-4 transition-all hover:border-blue-300 flex flex-col justify-between space-y-3">
+                        <div>
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-8 h-8 rounded-lg ${hasFiles ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'} flex items-center justify-center font-bold">
+                                        <i data-lucide="${cat.icon}" class="w-4 h-4"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="text-xs font-bold text-slate-900 leading-tight">${cat.name}</h5>
+                                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">${cat.module}</span>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${hasFiles ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}">
+                                    ${files.length} file${files.length === 1 ? '' : 's'}
+                                </span>
+                            </div>
+                            <p class="text-[11px] text-slate-400 mb-3">${cat.desc}</p>
+                            
+                            <!-- Attached Files List -->
+                            ${hasFiles ? `
+                                <div class="space-y-1.5 max-h-32 overflow-y-auto mb-3 pr-1">
+                                    ${files.map((f, idx) => `
+                                        <div class="flex justify-between items-center bg-white border border-slate-200/80 rounded-lg px-2.5 py-1 text-[11px] text-slate-700 font-medium shadow-xs">
+                                            <span class="truncate max-w-[170px]" title="${f.name}">${f.name}</span>
+                                            <div class="flex items-center gap-1">
+                                                <span class="text-[9px] text-slate-400 font-mono">${(f.size / 1024).toFixed(0)} KB</span>
+                                                <button onclick="removeCategoryFile('${cat.key}', ${idx})" class="p-0.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded">
+                                                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- Dropzone input button -->
+                        <div>
+                            <input type="file" id="cat-file-input-${cat.key.replace(/\s+/g, '_')}" multiple class="hidden" onchange="handleCategoryFilesSelected('${cat.key}', event)">
+                            <button type="button" onclick="document.getElementById('cat-file-input-${cat.key.replace(/\s+/g, '_')}').click()" class="w-full py-2 px-3 border border-dashed ${hasFiles ? 'border-blue-400 text-blue-700 bg-white hover:bg-blue-50' : 'border-slate-300 text-slate-600 bg-slate-50 hover:bg-slate-100'} rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors">
+                                <i data-lucide="plus" class="w-3.5 h-3.5"></i> ${hasFiles ? 'Add More Files' : 'Attach Files'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            safeCreateIcons();
+            updateCategorizedSummary();
+        }
+
+        function handleCategoryFilesSelected(catKey, event) {
+            const newFiles = Array.from(event.target.files);
+            if (!newFiles.length) return;
+
+            if (!selectedCategoryFilesMap[catKey]) {
+                selectedCategoryFilesMap[catKey] = [];
+            }
+            selectedCategoryFilesMap[catKey].push(...newFiles);
+            event.target.value = ''; // Reset file input
+            renderCategoryUploadCards();
+        }
+
+        function removeCategoryFile(catKey, fileIdx) {
+            if (selectedCategoryFilesMap[catKey]) {
+                selectedCategoryFilesMap[catKey].splice(fileIdx, 1);
+                if (selectedCategoryFilesMap[catKey].length === 0) {
+                    delete selectedCategoryFilesMap[catKey];
+                }
+            }
+            renderCategoryUploadCards();
+        }
+
+        function clearAllCategorizedFiles() {
+            selectedCategoryFilesMap = {};
+            renderCategoryUploadCards();
+        }
+
+        async function purgeMongoDocumentRecords() {
+            if (!confirm("Are you sure you want to delete ALL document metadata records from the MongoDB database? This will reset document records so you can re-upload cleanly.")) {
+                return;
+            }
+            try {
+                const res = await fetch('/api/documents/clear-all', { method: 'DELETE' });
+                if (res.ok) {
+                    const data = await res.json();
+                    alert(`Successfully cleared ${data.deletedCount || 0} document record(s) from MongoDB! Database is clean.`);
+                    fetchStatsAndActiveJobs();
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    alert("Failed to purge Mongo document data: " + (err.error || res.statusText));
+                }
+            } catch (e) {
+                console.error("Purge error:", e);
+                alert("Error purging MongoDB data: " + e.message);
+            }
+        }
+
+        function updateCategorizedSummary() {
+            let totalFiles = 0;
+            let totalCats = 0;
+            Object.keys(selectedCategoryFilesMap).forEach(k => {
+                if (selectedCategoryFilesMap[k] && selectedCategoryFilesMap[k].length > 0) {
+                    totalFiles += selectedCategoryFilesMap[k].length;
+                    totalCats++;
+                }
+            });
+            const summaryEl = document.getElementById('cat-total-summary');
+            if (summaryEl) {
+                summaryEl.innerText = `${totalFiles} file${totalFiles === 1 ? '' : 's'} attached across ${totalCats} categor${totalCats === 1 ? 'y' : 'ies'}`;
+            }
+        }
+
+        async function executeCategorizedBatchUpload() {
+            const clientId = document.getElementById('cat-client-id').value.trim();
+            const companyName = document.getElementById('cat-company-name').value.trim();
+            const tenantId = document.getElementById('cat-tenant-id').value.trim() || 'greenbridge';
+
+            if (!clientId) {
+                alert("Please enter or select a target Client ID first (e.g. C-1001 or C-101).");
+                document.getElementById('cat-client-id').focus();
+                return;
+            }
+
+            const categoriesWithFiles = Object.keys(selectedCategoryFilesMap).filter(k => selectedCategoryFilesMap[k] && selectedCategoryFilesMap[k].length > 0);
+            if (categoriesWithFiles.length === 0) {
+                alert("Please attach at least one file under any of the 11 categories before clicking Upload.");
+                return;
+            }
+
+            const uploadBtn = document.getElementById('btn-categorized-upload');
+            const originalBtnHtml = uploadBtn.innerHTML;
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = `<i data-lucide="refresh-cw" class="w-4 h-4 animate-spin"></i> Uploading to Bucket...`;
+            safeCreateIcons();
+
+            let totalUploaded = 0;
+            let errors = [];
+
+            try {
+                for (const catKey of categoriesWithFiles) {
+                    const files = selectedCategoryFilesMap[catKey];
+                    const formData = new FormData();
+                    formData.append('clientId', clientId);
+                    if (companyName) formData.append('companyName', companyName);
+                    formData.append('category', catKey);
+                    formData.append('tenantId', tenantId);
+
+                    for (const file of files) {
+                        formData.append('files', file);
+                    }
+
+                    const res = await fetch('/api/documents/upload-batch', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (res.ok) {
+                        const data = await res.json();
+                        totalUploaded += (data.uploadedCount || files.length);
+                    } else {
+                        const errData = await res.json().catch(() => ({}));
+                        errors.push(`${catKey}: ${errData.error || res.statusText}`);
+                    }
+                }
+
+                if (errors.length === 0) {
+                    alert(`Successfully uploaded ${totalUploaded} file(s) across ${categoriesWithFiles.length} categor(ies) to GCP Storage bucket & updated MongoDB records!`);
+                    clearAllCategorizedFiles();
+                    fetchStatsAndActiveJobs();
+                } else {
+                    alert(`Uploaded ${totalUploaded} file(s) with some issues:\n` + errors.join('\n'));
+                }
+            } catch (err) {
+                console.error("Batch upload error:", err);
+                alert("Upload error: " + err.message);
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = originalBtnHtml;
+                safeCreateIcons();
+            }
+        }
+
         async function init() {
             safeCreateIcons();
             fetchStatsAndActiveJobs();
             fetchSettings();
+            initCategorizedUploader();
             
             // Poll for background migration statuses
             setInterval(() => {
