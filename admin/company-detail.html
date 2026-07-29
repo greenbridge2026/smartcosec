@@ -419,7 +419,7 @@
                                 </div>
                                 <div class="flex justify-between items-start mt-1">
                                     <span class="text-slate-500 text-xs">Due within 7 months of FYE</span>
-                                    <span class="text-slate-400 text-xs font-medium">Not Prepared Yet</span>
+                                    <span class="text-slate-400 text-xs font-medium" id="info-xbrl-status"></span>
                                 </div>
                             </div>
                         </div>
@@ -587,13 +587,26 @@
         <div id="panel-members" class="tab-panel hidden space-y-6">
             <!-- Header Section -->
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
-                <div>
-                    <h3 class="font-bold text-slate-900 text-xl flex items-center gap-2" id="shareholders-header-title">
+                <div class="shrink-0">
+                    <h3 class="font-extrabold text-slate-900 text-xl" id="shareholders-header-title">
                         Shareholders (4)
                     </h3>
-                    <p class="text-slate-500 text-xs mt-1">View and manage shareholders and their shareholding details</p>
                 </div>
-                <div class="flex items-center gap-3">
+
+                <!-- Centered Outline Box: Total Shares & Currency Symbol -->
+                <div class="flex items-center justify-center gap-6 mx-auto my-1 md:my-0 px-6 py-2 bg-white border border-slate-200/80 rounded-2xl shadow-sm text-slate-700">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Total Shares:</span>
+                        <span class="font-extrabold text-slate-900 text-lg" id="shareholders-total-shares-val">—</span>
+                    </div>
+                    <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Currency:</span>
+                        <span class="font-extrabold text-slate-900 text-lg" id="shareholders-currency-val">$ USD</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 shrink-0">
                     <button onclick="window.openAddShareholderModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
                         <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Shareholder
                     </button>
@@ -705,7 +718,6 @@
                                 <th class="p-3 text-right">Deposit Amount</th>
                                 <th class="p-3 text-right">Amount Allotted</th>
                                 <th class="p-3">Cert No.</th>
-                                <th class="p-3">Notes</th>
                             </tr>
                         </thead>
                         <tbody id="allotments-table-body" class="divide-y divide-slate-100 font-medium text-slate-800">
@@ -1220,7 +1232,13 @@
                 updateFyeDisplay(excel.fye);
                 document.getElementById('info-agm').innerText = excel.lastAgmDate || "—";
                 document.getElementById('info-ar').innerText = excel.annualReturnDate || "—";
-                document.getElementById('info-xbrl').innerText = excel.xbrlPrepared || "—";
+                let xbrlVal = excel.xbrlPrepared || "—";
+                const upperXbrlExcel = (xbrlVal || '').toString().trim().toUpperCase();
+                if (upperXbrlExcel === 'NOT PREPARED YET' || upperXbrlExcel === 'NOT PREPARED' || upperXbrlExcel === 'N/A') {
+                    xbrlVal = 'NA';
+                }
+                document.getElementById('info-xbrl').innerText = xbrlVal;
+                updateXbrlStatus(xbrlVal);
 
             } else {
                 // Fallback to onboarding details layout
@@ -1238,8 +1256,13 @@
                 updateFyeDisplay(details.fye);
                 document.getElementById('info-agm').innerText = "—";
                 document.getElementById('info-ar').innerText = "—";
-                document.getElementById('info-xbrl').innerText = "—";
-
+                let xbrlVal = details.xbrlPrepared || "—";
+                const upperXbrlDetails = (xbrlVal || '').toString().trim().toUpperCase();
+                if (upperXbrlDetails === 'NOT PREPARED YET' || upperXbrlDetails === 'NOT PREPARED' || upperXbrlDetails === 'N/A') {
+                    xbrlVal = 'NA';
+                }
+                document.getElementById('info-xbrl').innerText = xbrlVal;
+                updateXbrlStatus(xbrlVal);
             }
 
             const excelDirectors = excel ? excel.directors : (details.directors || []);
@@ -1282,7 +1305,7 @@
             if (!body) return;
 
             if (!list || list.length === 0) {
-                body.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-slate-400 font-medium">No allotment records found</td></tr>`;
+                body.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-400 font-medium">No allotment records found</td></tr>`;
                 return;
             }
 
@@ -1297,7 +1320,6 @@
                     <td class="p-3 text-right font-mono">${item.depositAmount || '—'}</td>
                     <td class="p-3 text-right font-mono font-bold text-emerald-600">${item.allottedAmount || '—'}</td>
                     <td class="p-3 font-mono font-bold text-slate-700">${item.certNumber || '—'}</td>
-                    <td class="p-3 text-slate-500 italic">${item.notes || '—'}</td>
                 </tr>
             `).join('');
         }
@@ -1430,6 +1452,22 @@
             } catch (e) {
                 console.error("Error updating FYE display:", e);
                 fyeDateEl.innerText = fyeValue;
+            }
+        }
+
+        // Helper to update XBRL status display in Compliance Timeline
+        function updateXbrlStatus(xbrlVal) {
+            const statusEl = document.getElementById('info-xbrl-status');
+            if (!statusEl) return;
+            const val = (xbrlVal || '').toString().trim().toUpperCase();
+            if (!val || val === 'NA' || val === 'N/A' || val === 'NOT APPLICABLE' || val === '—' || val === '-' || val.includes('NOT PREPARED')) {
+                statusEl.innerText = '';
+            } else if (val === 'COMPLETED' || val === 'YES' || val === 'PREPARED') {
+                statusEl.innerText = 'Completed';
+                statusEl.className = 'text-emerald-500 text-xs font-medium';
+            } else {
+                statusEl.innerText = xbrlVal;
+                statusEl.className = 'text-slate-400 text-xs font-medium';
             }
         }
 
@@ -2050,7 +2088,11 @@
             const fye = excel.fye || details.fye || "—";
             const agm = excel.lastAgmDate || details.lastAgmDate || "—";
             const ar = excel.annualReturnDate || details.annualReturnDate || "—";
-            const xbrl = excel.xbrlPrepared || details.xbrlPrepared || "—";
+            let xbrl = excel.xbrlPrepared || details.xbrlPrepared || "—";
+            const upperXbrlTable = (xbrl || '').toString().trim().toUpperCase();
+            if (upperXbrlTable === 'NOT PREPARED YET' || upperXbrlTable === 'NOT PREPARED' || upperXbrlTable === 'N/A') {
+                xbrl = 'NA';
+            }
 
             panel.innerHTML = `
                 <div class="glass-card p-6 bg-white border border-slate-100 shadow-sm">
@@ -2088,7 +2130,7 @@
                                     <td class="p-4 font-bold text-slate-900">XBRL Prepared</td>
                                     <td class="p-4 font-semibold text-xs text-slate-600">${xbrl}</td>
                                     <td class="p-4 text-xs font-semibold text-slate-400">Due within 7 months of FYE</td>
-                                    <td class="p-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${xbrl !== "—" ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200'} uppercase">${xbrl !== "—" ? 'Completed' : 'Pending'}</span></td>
+                                    <td class="p-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${xbrl !== "—" && xbrl !== "NA" && xbrl !== "N/A" ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200'} uppercase">${xbrl !== "—" && xbrl !== "NA" && xbrl !== "N/A" ? 'Completed' : (xbrl === 'NA' || xbrl === 'N/A' ? 'N/A' : 'Pending')}</span></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -2206,6 +2248,12 @@
                     });
                 }
             }
+
+            directorsList.sort((a, b) => {
+                if (a.status === 'Verified' && b.status !== 'Verified') return -1;
+                if (a.status !== 'Verified' && b.status === 'Verified') return 1;
+                return 0;
+            });
         }
 
         window.renderDirectorsList = function() {
@@ -2215,8 +2263,19 @@
             const searchVal = document.getElementById('director-search-input').value.toLowerCase();
             const statusFilter = document.getElementById('director-status-filter').value;
 
-            // Update title count
-            document.getElementById('directors-header-title').innerText = `Directors (${directorsList.length})`;
+            // Sort directors list: Verified first
+            directorsList.sort((a, b) => {
+                if (a.status === 'Verified' && b.status !== 'Verified') return -1;
+                if (a.status !== 'Verified' && b.status === 'Verified') return 1;
+                return 0;
+            });
+
+            // Update title count with verified count only
+            const verifiedCount = directorsList.filter(d => d.status === 'Verified').length;
+            const headerTitleEl = document.getElementById('directors-header-title');
+            if (headerTitleEl) {
+                headerTitleEl.innerText = `Directors (${verifiedCount})`;
+            }
 
             listContainer.innerHTML = directorsList.map((d, idx) => {
                 const matchesSearch = d.name.toLowerCase().includes(searchVal) || d.email.toLowerCase().includes(searchVal);
@@ -2294,13 +2353,6 @@
                                 </span>
                             </div>
                             <p class="text-slate-500 text-xs font-bold mt-1">${director.title}</p>
-                            <p class="text-slate-400 text-[11px] font-semibold mt-2 flex items-center gap-4">
-                                <span><strong>NRIC:</strong> ${director.idNumber}</span>
-                                <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                <span><strong>Nationality:</strong> ${director.nationality}</span>
-                                <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                <span><strong>Appointed:</strong> ${director.appointmentDate}</span>
-                            </p>
                         </div>
                     </div>
                     <button onclick="window.openEditDirectorModal(${index})" class="px-3.5 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
@@ -2311,8 +2363,8 @@
 
                 <!-- Tabs Navigation -->
                 <div class="flex border-b border-slate-100 py-3 gap-6 overflow-x-auto shrink-0">
-                    ${['details', 'appointments', 'shareholdings', 'relatedEntities', 'activityLog'].map(tab => {
-                        const label = tab === 'activityLog' ? 'Activity Log' : tab === 'relatedEntities' ? 'Related Entities' : tab.charAt(0).toUpperCase() + tab.slice(1);
+                    ${['details', 'appointments', 'relatedEntities'].map(tab => {
+                        const label = tab === 'relatedEntities' ? 'Related Entities' : tab.charAt(0).toUpperCase() + tab.slice(1);
                         const isActive = tab === activeDirectorTab;
                         const tabClasses = isActive 
                             ? 'text-blue-600 border-blue-600 font-bold' 
@@ -2898,7 +2950,7 @@
                     const hasResigned = !!(s.resignationDate && String(s.resignationDate).trim() !== '' && String(s.resignationDate) !== '—');
                     secretariesList.push({
                         name: s.name || "Unknown Secretary",
-                        type: idx === 0 ? "Primary" : "Secondary",
+                        type: idx === 0 ? "Primary" : "Secretary",
                         acraNo: s.acraNo || "—",
                         email: s.email || `${(s.name || '').toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.')}@corporatesg.com`,
                         mobile: s.mobile || "+65 9123 4567",
@@ -2917,7 +2969,7 @@
                 });
             } else {
                 const dummyNames = ["Lim Shu Qing", "Tan Chin Yee"];
-                const dummyTypes = ["Primary", "Secondary"];
+                const dummyTypes = ["Primary", "Secretary"];
                 const dummyAcra = ["AC2021XXXX567", "AC2022XXXX890"];
                 const dummyIds = ["S1234567A", "S7654321B"];
                 const dummyEmails = ["shuqing.lim@corporatesg.com", "chinyee.tan@corporatesg.com"];
@@ -2982,7 +3034,7 @@
                                     <h4 class="font-bold text-slate-800 text-sm">${s.name}</h4>
                                     <span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-100 text-slate-600 border border-slate-200">${s.type}</span>
                                 </div>
-                                <p class="text-slate-400 text-[11px] font-medium mt-1">ACRA No.: ${s.acraNo}</p>
+                                ${(s.acraNo && s.acraNo !== '—' && s.acraNo !== '-') ? `<p class="text-slate-400 text-[11px] font-medium mt-1">ACRA No.: ${s.acraNo}</p>` : ''}
                                 <p class="text-slate-500 text-[11px] font-medium mt-0.5 truncate max-w-[170px]">${s.email}</p>
                                 <p class="text-slate-400 text-[10px] font-bold mt-2">Appointed on: ${s.appointmentDate}</p>
                             </div>
@@ -3026,8 +3078,7 @@
                                 </span>
                             </div>
                             <p class="text-slate-400 text-[11px] font-semibold mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-                                <span><strong>ACRA No.:</strong> ${secretary.acraNo}</span>
-                                <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                                ${(secretary.acraNo && secretary.acraNo !== '—' && secretary.acraNo !== '-') ? `<span><strong>ACRA No.:</strong> ${secretary.acraNo}</span><span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>` : ''}
                                 <span><strong>Appointed on:</strong> ${secretary.appointmentDate}</span>
                                 <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
                                 <span><strong>Resigned on:</strong> ${secretary.resignationDate}</span>
@@ -3042,7 +3093,7 @@
 
                 <!-- Tabs Navigation -->
                 <div class="flex border-b border-slate-100 py-3 gap-6 overflow-x-auto shrink-0">
-                    ${['overview', 'documents', 'appointments', 'history'].map(tab => {
+                    ${['overview', 'appointments'].map(tab => {
                         const label = tab.charAt(0).toUpperCase() + tab.slice(1);
                         const isActive = tab === activeSecretaryTab;
                         const tabClasses = isActive 
@@ -3119,13 +3170,10 @@
                         <div class="space-y-4 border border-slate-100 rounded-2xl p-5 bg-white shadow-sm">
                             <h4 class="font-extrabold text-slate-800 text-sm border-b border-slate-50 pb-2">Professional Details</h4>
                             <div class="space-y-3 text-xs">
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">ACRA No.</span>
-                                    <span class="font-bold text-slate-800">${secretary.acraNo}</span>
-                                </div>
+                                ${(secretary.acraNo && secretary.acraNo !== '—' && secretary.acraNo !== '-') ? `<div class="flex justify-between py-1 border-b border-slate-50/50"><span class="text-slate-400 font-bold">ACRA No.</span><span class="font-bold text-slate-800">${secretary.acraNo}</span></div>` : ''}
                                 <div class="flex justify-between py-1 border-b border-slate-50/50">
                                     <span class="text-slate-400 font-bold">Appointment Type</span>
-                                    <span class="font-bold text-slate-800">${secretary.type === 'Primary' ? 'Primary Company Secretary' : 'Secondary Company Secretary'}</span>
+                                    <span class="font-bold text-slate-800">${secretary.type === 'Primary' ? 'Primary Company Secretary' : 'Company Secretary'}</span>
                                 </div>
                                 <div class="flex justify-between py-1 border-b border-slate-50/50">
                                     <span class="text-slate-400 font-bold">Qualification</span>
@@ -3224,7 +3272,7 @@
                             <tbody class="divide-y divide-slate-50 text-slate-700 font-medium">
                                 <tr>
                                     <td class="p-3 font-bold text-slate-900">${document.getElementById('company-name').innerText}</td>
-                                    <td class="p-3">${secretary.type} Company Secretary</td>
+                                    <td class="p-3">${secretary.type === 'Primary' ? 'Primary Company Secretary' : 'Company Secretary'}</td>
                                     <td class="p-3">${secretary.appointmentDate}</td>
                                     <td class="p-3"><span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 text-[10px] font-bold">Active</span></td>
                                 </tr>
@@ -3290,7 +3338,7 @@
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Secretary Type</label>
                                     <select id="add-sec-type" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition cursor-pointer">
                                         <option value="Primary">Primary</option>
-                                        <option value="Secondary">Secondary</option>
+                                        <option value="Secretary">Secretary</option>
                                     </select>
                                 </div>
                                 <div>
@@ -3422,7 +3470,7 @@
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Secretary Type</label>
                                     <select id="edit-sec-type" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition cursor-pointer">
                                         <option value="Primary" ${s.type === 'Primary' ? 'selected' : ''}>Primary</option>
-                                        <option value="Secondary" ${s.type === 'Secondary' ? 'selected' : ''}>Secondary</option>
+                                        <option value="Secretary" ${s.type !== 'Primary' ? 'selected' : ''}>Secretary</option>
                                     </select>
                                 </div>
                                 <div>
@@ -3587,7 +3635,7 @@
                         percentage: dummyPcts[i].toFixed(2),
                         shareClass: "Ordinary Shares",
                         paidAmount: dummyShares[i],
-                        currency: "SGD",
+                        currency: "USD",
                         votingRights: dummyPcts[i].toFixed(2),
                         email: `${dummyNames[i].toLowerCase().replace(/\s+/g, '.')}@email.com`,
                         mobile: "+65 9123 4567",
@@ -3608,7 +3656,36 @@
             const searchVal = document.getElementById('shareholder-search-input').value.toLowerCase();
             const typeFilter = document.getElementById('shareholder-type-filter').value;
 
-            document.getElementById('shareholders-header-title').innerText = `Shareholders (${shareholdersList.length})`;
+            // Sort shareholders list: Active first
+            shareholdersList.sort((a, b) => {
+                if (a.status === 'Active' && b.status !== 'Active') return -1;
+                if (a.status !== 'Active' && b.status === 'Active') return 1;
+                return 0;
+            });
+
+            // Update title with Active Shareholders count only
+            const activeCount = shareholdersList.filter(s => s.status === 'Active').length;
+            const headerTitleEl = document.getElementById('shareholders-header-title');
+            if (headerTitleEl) {
+                headerTitleEl.innerText = `Shareholders (${activeCount})`;
+            }
+
+            // Update Total Shares and Currency at top level
+            const totalShares = shareholdersList.reduce((sum, s) => sum + (Number(s.sharesHeld) || 0), 0);
+            const mainCurrency = (shareholdersList.find(s => s.currency && s.currency !== '—') || {}).currency || 'USD';
+
+            const currencySymbolMap = { 'USD': '$ USD', 'SGD': 'S$ SGD', 'EUR': '€ EUR', 'GBP': '£ GBP', 'INR': '₹ INR' };
+            const formattedCurrency = currencySymbolMap[mainCurrency.toUpperCase()] || `$ ${mainCurrency}`;
+
+            const totalSharesEl = document.getElementById('shareholders-total-shares-val');
+            if (totalSharesEl) {
+                totalSharesEl.innerText = totalShares.toLocaleString();
+            }
+
+            const currencyEl = document.getElementById('shareholders-currency-val');
+            if (currencyEl) {
+                currencyEl.innerText = formattedCurrency;
+            }
 
             listContainer.innerHTML = shareholdersList.map((s, idx) => {
                 const matchesSearch = s.name.toLowerCase().includes(searchVal) || s.email.toLowerCase().includes(searchVal);
@@ -3692,7 +3769,7 @@
 
                 <!-- Tabs Navigation -->
                 <div class="flex border-b border-slate-100 py-3 gap-6 overflow-x-auto shrink-0">
-                    ${['overview', 'shareholding', 'personalDetails', 'documents', 'history'].map(tab => {
+                    ${['overview', 'shareholding', 'personalDetails'].map(tab => {
                         const label = tab === 'personalDetails' ? 'Personal Details' : tab.charAt(0).toUpperCase() + tab.slice(1);
                         const isActive = tab === activeShareholderTab;
                         const tabClasses = isActive 
@@ -3815,11 +3892,11 @@
                         </div>
                         <div>
                             <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Currency</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1">SGD</p>
+                            <p class="font-bold text-slate-800 text-sm mt-1">${shareholder.currency || 'USD'}</p>
                         </div>
                         <div>
                             <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Paid Amount</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1">SGD ${shareholder.paidAmount.toLocaleString()}.00</p>
+                            <p class="font-bold text-slate-800 text-sm mt-1">${shareholder.currency || 'USD'} ${Number(shareholder.paidAmount).toLocaleString()}.00</p>
                         </div>
                     </div>
                 `;
@@ -4265,7 +4342,7 @@
 
                 <!-- Tabs Navigation -->
                 <div class="flex border-b border-slate-100 py-3 gap-6 overflow-x-auto shrink-0">
-                    ${['overview', 'ownershipAndControl', 'documents', 'history'].map(tab => {
+                    ${['overview', 'ownershipAndControl'].map(tab => {
                         const label = tab === 'ownershipAndControl' ? 'Ownership & Control' : tab.charAt(0).toUpperCase() + tab.slice(1);
                         const isActive = tab === activeUboTab;
                         const tabClasses = isActive 
