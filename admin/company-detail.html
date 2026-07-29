@@ -3005,8 +3005,19 @@
             const searchVal = document.getElementById('secretary-search-input').value.toLowerCase();
             const statusFilter = document.getElementById('secretary-status-filter').value;
 
-            // Update title count
-            document.getElementById('secretaries-header-title').innerText = `Secretaries (${secretariesList.length})`;
+            // Sort secretaries list: Active first
+            secretariesList.sort((a, b) => {
+                if (a.status === 'Active' && b.status !== 'Active') return -1;
+                if (a.status !== 'Active' && b.status === 'Active') return 1;
+                return 0;
+            });
+
+            // Update title with Active Secretaries count only
+            const activeCount = secretariesList.filter(s => s.status === 'Active').length;
+            const headerTitleEl = document.getElementById('secretaries-header-title');
+            if (headerTitleEl) {
+                headerTitleEl.innerText = `Secretaries (${activeCount})`;
+            }
 
             listContainer.innerHTML = secretariesList.map((s, idx) => {
                 const matchesSearch = s.name.toLowerCase().includes(searchVal) || s.email.toLowerCase().includes(searchVal);
