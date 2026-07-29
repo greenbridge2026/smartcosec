@@ -3889,19 +3889,33 @@ async function handleAISend() {
     appendAIMessage('user', msg);
     input.value = '';
 
-    // Simulated AI Response
     const chatBody = document.getElementById('ai-chat-body');
     const typing = document.createElement('div');
+    typing.id = 'ai-typing-indicator';
     typing.className = 'flex gap-3 animate-pulse';
-    typing.innerHTML = '<div class="bg-white/60 p-4 rounded-2xl rounded-tl-none text-xs text-slate-400">AI is thinking...</div>';
+    typing.innerHTML = '<div class="bg-white/60 p-4 rounded-2xl rounded-tl-none text-xs text-slate-400 font-semibold">AI is analyzing database...</div>';
     chatBody.appendChild(typing);
     chatBody.scrollTop = chatBody.scrollHeight;
 
-    setTimeout(() => {
-        chatBody.removeChild(typing);
-        const response = generateAIResponse(msg);
-        appendAIMessage('bot', response);
-    }, 1500);
+    try {
+        const res = await fetch('/api/admin/intelligence/ask?q=' + encodeURIComponent(msg));
+        if (res.ok) {
+            const data = await res.json();
+            const typeEl = document.getElementById('ai-typing-indicator');
+            if (typeEl) typeEl.remove();
+            if (data && data.reply) {
+                appendAIMessage('bot', data.reply);
+                return;
+            }
+        }
+    } catch(err) {
+        console.error("Client AI query error:", err);
+    }
+
+    const typeEl = document.getElementById('ai-typing-indicator');
+    if (typeEl) typeEl.remove();
+    const response = generateAIResponse(msg);
+    appendAIMessage('bot', response);
 }
 
 function appendAIMessage(sender, text) {
