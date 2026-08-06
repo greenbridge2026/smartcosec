@@ -1166,17 +1166,46 @@
         }
 
         function formatDateDisplay(dateStr) {
-            if (!dateStr || dateStr === '—' || dateStr === 'NA' || dateStr === 'null') return '—';
+            if (!dateStr || dateStr === '—' || dateStr === 'NA' || dateStr === 'N/A' || dateStr === 'null' || dateStr === 'undefined') return '—';
             const str = String(dateStr).trim();
-            if (str.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                const [y, m, d] = str.split('-').map(Number);
-                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                return `${d} ${months[m - 1]} ${y}`;
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+            // Match YYYY-MM-DD (e.g. 2024-08-08 or 2024-08-08T00:00:00...)
+            const isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+            if (isoMatch) {
+                const y = parseInt(isoMatch[1], 10);
+                const m = parseInt(isoMatch[2], 10);
+                const d = parseInt(isoMatch[3], 10);
+                if (m >= 1 && m <= 12) {
+                    return `${d} ${months[m - 1]} ${y}`;
+                }
             }
+
+            // Match DD/MM/YYYY or DD-MM-YYYY (e.g. 08/08/2024)
+            const dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+            if (dmyMatch) {
+                const d = parseInt(dmyMatch[1], 10);
+                const m = parseInt(dmyMatch[2], 10);
+                const y = parseInt(dmyMatch[3], 10);
+                if (m >= 1 && m <= 12) {
+                    return `${d} ${months[m - 1]} ${y}`;
+                }
+            }
+
+            // Match "8 Aug 2024" or "08 Aug 2024" or "8-Aug-2024"
+            const textMatch = str.match(/^(\d{1,2})[\s\-\/]+([a-zA-Z]+)[\s\-\/,\.]+(\d{4})/);
+            if (textMatch) {
+                const d = parseInt(textMatch[1], 10);
+                const mStr = textMatch[2].substring(0, 3);
+                const y = parseInt(textMatch[3], 10);
+                const mCap = mStr.charAt(0).toUpperCase() + mStr.slice(1).toLowerCase();
+                return `${d} ${mCap} ${y}`;
+            }
+
+            // Fallback: use LOCAL Date components to avoid UTC shift
             const d = new Date(str);
             if (isNaN(d.getTime())) return str;
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            return `${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+            return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
         }
 
         async function loadCompanyDetails() {
@@ -1619,10 +1648,35 @@
             const fye = excel.fye || details.fye || "";
 
             const formatDateForInput = (dStr) => {
-                if (!dStr || dStr === "—") return "";
-                const d = new Date(dStr);
+                if (!dStr || dStr === "—" || dStr === "NA" || dStr === "null") return "";
+                const str = String(dStr).trim();
+                const isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+                if (isoMatch) {
+                    return `${isoMatch[1]}-${String(isoMatch[2]).padStart(2, '0')}-${String(isoMatch[3]).padStart(2, '0')}`;
+                }
+                const dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+                if (dmyMatch) {
+                    return `${dmyMatch[3]}-${String(dmyMatch[2]).padStart(2, '0')}-${String(dmyMatch[1]).padStart(2, '0')}`;
+                }
+                const monthMap = {
+                    jan:'01', feb:'02', mar:'03', apr:'04', may:'05', jun:'06',
+                    jul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12',
+                    january:'01', february:'02', march:'03', april:'04', june:'06',
+                    july:'07', august:'08', september:'09', october:'10', november:'11', december:'12'
+                };
+                const textMatch = str.match(/^(\d{1,2})[\s\-\/]+([a-zA-Z]+)[\s\-\/,\.]+(\d{4})/);
+                if (textMatch) {
+                    const d = String(textMatch[1]).padStart(2, '0');
+                    const m = monthMap[textMatch[2].toLowerCase()] || '01';
+                    const y = textMatch[3];
+                    return `${y}-${m}-${d}`;
+                }
+                const d = new Date(str);
                 if (isNaN(d.getTime())) return "";
-                return d.toISOString().split('T')[0];
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
             };
 
             const modalHtml = `
@@ -2882,8 +2936,7 @@
             
             const formatDate = (dateStr) => {
                 if (!dateStr) return '—';
-                const d = new Date(dateStr);
-                return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                return formatDateDisplay(dateStr);
             };
 
             const newDir = {
@@ -3540,8 +3593,7 @@
 
             const formatDate = (dateStr) => {
                 if (!dateStr) return '—';
-                const d = new Date(dateStr);
-                return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                return formatDateDisplay(dateStr);
             };
 
             const newSec = {
@@ -5900,7 +5952,7 @@
                         };
 
                         const formatDate = (val) => {
-                            if (!val) return '';
+                            if (!val || val === '—' || val === 'NA' || val === 'N/A' || val === 'null' || val === 'undefined') return '';
                             if (val instanceof Date) {
                                 const year = val.getFullYear();
                                 const month = String(val.getMonth() + 1).padStart(2, '0');
@@ -5908,14 +5960,32 @@
                                 return `${year}-${month}-${day}`;
                             }
                             const str = String(val).trim();
-                            if (str.match(/^\d{4}-\d{2}-\d{2}/)) {
-                                return str.substring(0, 10);
+                            const isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+                            if (isoMatch) {
+                                return `${isoMatch[1]}-${String(isoMatch[2]).padStart(2, '0')}-${String(isoMatch[3]).padStart(2, '0')}`;
+                            }
+                            const dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+                            if (dmyMatch) {
+                                return `${dmyMatch[3]}-${String(dmyMatch[2]).padStart(2, '0')}-${String(dmyMatch[1]).padStart(2, '0')}`;
+                            }
+                            const monthMap = {
+                                jan:'01', feb:'02', mar:'03', apr:'04', may:'05', jun:'06',
+                                jul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12',
+                                january:'01', february:'02', march:'03', april:'04', june:'06',
+                                july:'07', august:'08', september:'09', october:'10', november:'11', december:'12'
+                            };
+                            const textMatch = str.match(/^(\d{1,2})[\s\-\/]+([a-zA-Z]+)[\s\-\/,\.]+(\d{4})/);
+                            if (textMatch) {
+                                const d = String(textMatch[1]).padStart(2, '0');
+                                const m = monthMap[textMatch[2].toLowerCase()] || '01';
+                                const y = textMatch[3];
+                                return `${y}-${m}-${d}`;
                             }
                             const d = new Date(str);
                             if (!isNaN(d.getTime())) {
-                                const year = d.getUTCFullYear();
-                                const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-                                const day = String(d.getUTCDate()).padStart(2, '0');
+                                const year = d.getFullYear();
+                                const month = String(d.getMonth() + 1).padStart(2, '0');
+                                const day = String(d.getDate()).padStart(2, '0');
                                 return `${year}-${month}-${day}`;
                             }
                             return str;

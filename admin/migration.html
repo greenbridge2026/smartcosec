@@ -923,7 +923,7 @@ Please log in immediately to complete your activation.</textarea>
                         };
 
                         const formatDate = (val) => {
-                            if (!val) return '';
+                            if (!val || val === '—' || val === 'NA' || val === 'N/A' || val === 'null' || val === 'undefined') return '';
                             if (val instanceof Date) {
                                 const year = val.getFullYear();
                                 const month = String(val.getMonth() + 1).padStart(2, '0');
@@ -931,14 +931,32 @@ Please log in immediately to complete your activation.</textarea>
                                 return `${year}-${month}-${day}`;
                             }
                             const str = String(val).trim();
-                            if (str.match(/^\d{4}-\d{2}-\d{2}/)) {
-                                return str.substring(0, 10);
+                            const isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+                            if (isoMatch) {
+                                return `${isoMatch[1]}-${String(isoMatch[2]).padStart(2, '0')}-${String(isoMatch[3]).padStart(2, '0')}`;
+                            }
+                            const dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+                            if (dmyMatch) {
+                                return `${dmyMatch[3]}-${String(dmyMatch[2]).padStart(2, '0')}-${String(dmyMatch[1]).padStart(2, '0')}`;
+                            }
+                            const monthMap = {
+                                jan:'01', feb:'02', mar:'03', apr:'04', may:'05', jun:'06',
+                                jul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12',
+                                january:'01', february:'02', march:'03', april:'04', june:'06',
+                                july:'07', august:'08', september:'09', october:'10', november:'11', december:'12'
+                            };
+                            const textMatch = str.match(/^(\d{1,2})[\s\-\/]+([a-zA-Z]+)[\s\-\/,\.]+(\d{4})/);
+                            if (textMatch) {
+                                const d = String(textMatch[1]).padStart(2, '0');
+                                const m = monthMap[textMatch[2].toLowerCase()] || '01';
+                                const y = textMatch[3];
+                                return `${y}-${m}-${d}`;
                             }
                             const d = new Date(str);
                             if (!isNaN(d.getTime())) {
-                                const year = d.getUTCFullYear();
-                                const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-                                const day = String(d.getUTCDate()).padStart(2, '0');
+                                const year = d.getFullYear();
+                                const month = String(d.getMonth() + 1).padStart(2, '0');
+                                const day = String(d.getDate()).padStart(2, '0');
                                 return `${year}-${month}-${day}`;
                             }
                             return str;
