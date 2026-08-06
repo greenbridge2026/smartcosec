@@ -1326,37 +1326,56 @@ Please log in immediately to complete your activation.</textarea>
                             let headers = [];
                             rows.forEach(row => {
                                 if (!row || row.length === 0) return;
-                                const nameCell = String(row[2] || '').trim(); // Name of controller is at index 2
-                                if (String(row[1] || '').trim().toLowerCase().startsWith('date of entry') || String(row[2] || '').trim().toLowerCase().startsWith('name of controller')) {
-                                    headers = row.map(h => String(h || '').trim().toLowerCase());
-                                    return;
+                                const rowStr = row.map(c => String(c || '')).join(' ').toLowerCase();
+                                
+                                if (rowStr.includes('date of entry') || rowStr.includes('name of controller') || rowStr.includes('register of controllers')) {
+                                    if (rowStr.includes('name of controller') || rowStr.includes('date of entry')) {
+                                        headers = row.map(h => String(h || '').trim().toLowerCase());
+                                        return;
+                                    }
                                 }
-                                if (headers.length > 0 && nameCell && nameCell !== 'NONE' && !nameCell.toLowerCase().startsWith('register')) {
+
+                                if (headers.length > 0) {
                                     const controller = {};
                                     headers.forEach((header, idx) => {
                                         const val = row[idx];
                                         if (val === undefined || val === null) return;
-                                        if (header.includes('former') || header.includes('alias')) {
-                                            controller.formerName = String(val).trim();
+                                        const strVal = String(val).trim();
+                                        if (header.includes('name of controller') || (header.includes('controller') && !header.includes('register') && !header.includes('former') && !header.includes('alias'))) {
+                                            controller.name = strVal;
+                                        } else if (header.includes('former') || header.includes('alias')) {
+                                            controller.formerName = strVal;
                                         } else if (header.includes('expiry')) {
                                             controller.passportExpiry = formatDate(val);
                                         } else if (header.includes('id card') || header.includes('passport') || header.includes('nric') || header.includes('fin')) {
-                                            controller.idNumber = String(val).trim();
-                                        } else if (header.includes('name of controller')) {
-                                            controller.name = String(val).trim();
-                                        } else if (header.includes('date of entry')) {
+                                            controller.idNumber = strVal;
+                                        } else if (header.includes('date of entry') || header.includes('entered')) {
                                             controller.dateOfEntry = formatDate(val);
                                         } else if (header.includes('birth') || header.includes('dob')) {
                                             controller.dob = formatDate(val);
                                         } else if (header.includes('address')) {
-                                            controller.address = String(val).trim();
-                                        } else if (header.includes('remarks')) {
-                                            controller.remarks = String(val).trim();
+                                            controller.address = strVal;
+                                        } else if (header.includes('remarks') || header.includes('notes')) {
+                                            controller.remarks = strVal;
                                         } else if (header.includes('email')) {
-                                            controller.email = String(val).trim();
+                                            controller.email = strVal;
+                                        } else if (header.includes('mobile') || header.includes('phone')) {
+                                            controller.mobile = strVal;
+                                        } else if (header.includes('nationality')) {
+                                            controller.nationality = strVal;
                                         }
                                     });
-                                    if (controller.name) result.controllers.push(controller);
+
+                                    if (!controller.name && row[1]) {
+                                        const altName = String(row[1]).trim();
+                                        if (altName && altName.toUpperCase() !== 'NONE' && !altName.toLowerCase().startsWith('name of') && !altName.toLowerCase().startsWith('register')) {
+                                            controller.name = altName;
+                                        }
+                                    }
+
+                                    if (controller.name && controller.name.toUpperCase() !== 'NONE' && !controller.name.toLowerCase().startsWith('register') && !controller.name.toLowerCase().startsWith('name of') && !controller.name.toLowerCase().startsWith('s. no.')) {
+                                        result.controllers.push(controller);
+                                    }
                                 }
                             });
                         }
