@@ -937,6 +937,9 @@ Please log in immediately to complete your activation.</textarea>
                         const secretariesSheet = getSheet('Secretaries');
                         const membersSheet = getSheet('Members');
                         const controllersSheet = getSheet('Controllers');
+                        const transfersSheet = getSheet('Transfers');
+                        const auditorsSheet = getSheet('Auditors');
+                        const directorsShSheet = getSheet('Register of Directors Sh');
 
                         // Check if it's a tabular master spreadsheet (no standard client tabs)
                         if (!homeSheet && !directorsSheet && !secretariesSheet && !membersSheet && !controllersSheet) {
@@ -1010,7 +1013,10 @@ Please log in immediately to complete your activation.</textarea>
                             directors: [],
                             secretaries: [],
                             members: [],
-                            controllers: []
+                            controllers: [],
+                            transfers: [],
+                            auditors: [],
+                            directorsShareholdings: []
                         };
 
                         // 1. Home sheet
@@ -1240,13 +1246,75 @@ Please log in immediately to complete your activation.</textarea>
                                             controller.address = String(val).trim();
                                         } else if (header.includes('remarks')) {
                                             controller.remarks = String(val).trim();
-                                        } else if (header.includes('mobile')) {
-                                            controller.mobile = String(val).trim();
                                         } else if (header.includes('email')) {
                                             controller.email = String(val).trim();
                                         }
                                     });
                                     if (controller.name) result.controllers.push(controller);
+                                }
+                            });
+                        }
+
+                        // 6. Transfers sheet
+                        if (transfersSheet) {
+                            const rows = XLSX.utils.sheet_to_json(transfersSheet, { header: 1 });
+                            let currentShareClass = "Ordinary Shares";
+                            rows.forEach(row => {
+                                if (!row || row.length === 0) return;
+                                const c0 = String(row[0] || '').trim();
+                                if (c0.toLowerCase().startsWith('class of shares:')) {
+                                    currentShareClass = c0.replace(/class of shares:/i, '').trim();
+                                    return;
+                                }
+                                const transferDate = formatDate(row[0]);
+                                const transferorName = String(row[1] || '').trim();
+                                const transferorCert = String(row[2] || '').trim();
+                                const sharesTransferred = String(row[3] || '').trim();
+                                const transfereeInfo = String(row[4] || '').trim();
+                                const transfereeCert = String(row[5] || '').trim();
+                                const priceOrConsideration = String(row[6] || '').trim();
+
+                                if (transferDate && !transferDate.toLowerCase().includes('date of transfer') && !transferDate.toLowerCase().includes('register') && transferorName && transferorName.toUpperCase() !== 'NONE') {
+                                    let transfereeName = transfereeInfo;
+                                    let transfereeAddress = "";
+                                    if (transfereeInfo.includes("  ")) {
+                                        const parts = transfereeInfo.split("  ").map(p => p.trim()).filter(Boolean);
+                                        if (parts.length >= 2) {
+                                            transfereeName = parts[0];
+                                            transfereeAddress = parts.slice(1).join(" ");
+                                        }
+                                    }
+                                    result.transfers.push({
+                                        shareClass: currentShareClass,
+                                        transferDate: transferDate,
+                                        transferorName: transferorName,
+                                        transferorCertNo: transferorCert,
+                                        sharesTransferred: sharesTransferred,
+                                        transfereeInfo: transfereeInfo,
+                                        transfereeName: transfereeName,
+                                        transfereeAddress: transfereeAddress,
+                                        transfereeCertNo: transfereeCert,
+                                        priceOrConsideration: priceOrConsideration
+                                    });
+                                }
+                            });
+                        }
+
+                        // 7. Auditors sheet
+                        if (auditorsSheet) {
+                            const rows = XLSX.utils.sheet_to_json(auditorsSheet, { header: 1 });
+                            rows.forEach(row => {
+                                if (!row || row.length === 0) return;
+                                const firmName = String(row[0] || '').trim();
+                                if (firmName && !firmName.toLowerCase().includes('name of the firm') && !firmName.toLowerCase().includes('register') && firmName.toUpperCase() !== 'NONE') {
+                                    result.auditors.push({
+                                        firmName: firmName,
+                                        uen: String(row[1] || '').trim(),
+                                        address: String(row[2] || '').trim(),
+                                        appointmentDate: formatDate(row[3]),
+                                        resignationDate: formatDate(row[4]),
+                                        notes: String(row[5] || '').trim()
+                                    });
                                 }
                             });
                         }
