@@ -2296,7 +2296,8 @@
             directorsList = [];
             if (excelDirectors && excelDirectors.length > 0) {
                 excelDirectors.forEach((d, idx) => {
-                    const hasCeased = !!(d.cessationDate && String(d.cessationDate).trim() !== '' && String(d.cessationDate) !== '—');
+                    const cessationVal = d.cessationDate || d.resignationDate || d.dateOfResignation || d.dateOfCessation || "";
+                    const hasCeased = !!(cessationVal && String(cessationVal).trim() !== '' && String(cessationVal) !== '—' && String(cessationVal) !== 'NA');
                     directorsList.push({
                         name: d.name || "Unknown Director",
                         title: d.type || "Director",
@@ -2307,7 +2308,8 @@
                         nationality: d.nationality || "—",
                         address: d.address || "—",
                         appointmentDate: d.appointmentDate || "—",
-                        cessationDate: d.cessationDate || "—",
+                        cessationDate: cessationVal || "—",
+                        resignationDate: cessationVal || "—",
                         status: hasCeased ? "Resigned" : "Verified",
                         progress: 100
                     });
@@ -2584,6 +2586,10 @@
                         <div>
                             <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Appointment Date</span>
                             <p class="font-bold text-slate-800 text-sm mt-1">${director.appointmentDate}</p>
+                        </div>
+                        <div>
+                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Date of Cessation / Resignation</span>
+                            <p class="font-bold text-slate-800 text-sm mt-1 ${director.status === 'Resigned' ? 'text-amber-600 font-extrabold' : ''}">${director.cessationDate || director.resignationDate || '—'}</p>
                         </div>
                         <div>
                             <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Email Address</span>
@@ -5900,8 +5906,10 @@
                                                 director.address = String(val).trim();
                                             } else if (header.includes('appointment')) {
                                                 director.appointmentDate = formatDate(val);
-                                            } else if (header.includes('cessation')) {
-                                                director.cessationDate = formatDate(val);
+                                            } else if (header.includes('cessation') || header.includes('resignation')) {
+                                                const formatted = formatDate(val);
+                                                director.cessationDate = formatted;
+                                                director.resignationDate = formatted;
                                             } else if (header.includes('mobile')) {
                                                 director.mobile = String(val).trim();
                                             } else if (header.includes('email')) {
