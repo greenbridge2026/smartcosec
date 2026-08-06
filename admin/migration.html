@@ -1180,31 +1180,46 @@ Please log in immediately to complete your activation.</textarea>
                             });
                         }
 
-                        // 4. Members sheet
+                        // 4. Members sheet & Share Ledger
                         if (membersSheet) {
                             const rows = XLSX.utils.sheet_to_json(membersSheet, { header: 1 });
-                            let headers = [];
-                            let inRegister = false;
+                            let regHeaders = [];
+                            let ledgerHeaders = [];
+                            let currentMode = null;
+                            let ledgerCurrency = 'SGD';
+
+                            const memberMap = {};
+                            const memberOrder = [];
+
                             rows.forEach(row => {
                                 if (!row || row.length === 0) return;
-                                const rowStr = row.join(' ').toLowerCase();
-                                if (rowStr.includes('date entered as member')) {
-                                    inRegister = true;
-                                    headers = row.map(h => String(h || '').trim().toLowerCase());
+                                const rowStr = row.map(c => String(c || '')).join(' ').toLowerCase();
+
+                                if (rowStr.includes('date entered as member') || rowStr.includes('register of members')) {
+                                    currentMode = 'register';
+                                    regHeaders = row.map(h => String(h || '').trim().toLowerCase());
                                     return;
-                                } else if (rowStr.includes('share certificate') || rowStr.includes('ledger') || rowStr.includes('transactions')) {
-                                    inRegister = false;
+                                } else if (rowStr.includes('share ledger') || rowStr.includes('acquired / (transferred)') || rowStr.includes('share certificate number')) {
+                                    currentMode = 'ledger';
+                                    if (rowStr.includes('(usd)')) ledgerCurrency = 'USD';
+                                    else if (rowStr.includes('(sgd)')) ledgerCurrency = 'SGD';
+                                    else if (rowStr.includes('(eur)')) ledgerCurrency = 'EUR';
+                                    else if (rowStr.includes('(gbp)')) ledgerCurrency = 'GBP';
+                                    else if (rowStr.includes('(inr)')) ledgerCurrency = 'INR';
+                                    if (rowStr.includes('number of shares') || rowStr.includes('consideration')) {
+                                        ledgerHeaders = row.map(h => String(h || '').trim().toLowerCase());
+                                    }
                                     return;
                                 }
 
-                                if (inRegister && headers.length > 0) {
-                                    const firstCell = String(row[1] || '').trim(); // Name is at index 1
-                                    if (firstCell && firstCell !== 'NONE' && !firstCell.toLowerCase().startsWith('register') && !firstCell.toLowerCase().startsWith('s. no.')) {
+                                if (currentMode === 'register' && regHeaders.length > 0) {
+                                    const firstCell = String(row[1] || row[0] || '').trim();
+                                    if (firstCell && firstCell.toUpperCase() !== 'NONE' && !firstCell.toLowerCase().startsWith('register') && !firstCell.toLowerCase().startsWith('s. no.')) {
                                         const member = {};
-                                        headers.forEach((header, idx) => {
+                                        regHeaders.forEach((header, idx) => {
                                             const val = row[idx];
                                             if (val === undefined || val === null) return;
-                                            if (header.includes('name of member')) {
+                                            if (header.includes('name of member') || header.includes('member name')) {
                                                 member.name = String(val).trim();
                                             } else if (header.includes('nric') || header.includes('id card') || header.includes('passport') || header.includes('fin')) {
                                                 member.idNumber = String(val).trim();
@@ -1220,12 +1235,89 @@ Please log in immediately to complete your activation.</textarea>
                                                 member.email = String(val).trim();
                                             } else if (header.includes('mobile')) {
                                                 member.mobile = String(val).trim();
+                                            } else if (header.includes('number of shares') || header.includes('shares')) {
+                                                const num = parseFloat(String(val).replace(/,/g, ''));
+                                                if (!isNaN(num)) member.shares = num;
+                                            } else if (header.includes('consideration') || header.includes('paid amount') || header.includes('amount paid')) {
+                                                const num = parseFloat(String(val).replace(/,/g, ''));
+                                                if (!isNaN(num)) member.consideration = num;
+                                            } else if (header.includes('currency')) {
+                                                member.currency = String(val).trim();
+                                            } else if (header.includes('percentage') || header.includes('%')) {
+                                                member.percentage = String(val).trim();
                                             }
                                         });
-                                        if (member.name) result.members.push(member);
+
+                                        if (member.name && member.name.toLowerCase() !== 'total' && member.name.toLowerCase() !== 'total ordinary') {
+                                            const key = member.name.toLowerCase();
+                                            if (!memberMap[key]) {
+                                                member.shares = member.shares || 0;
+                                                member.consideration = member.consideration || 0;
+                                                member.currency = member.currency || ledgerCurrency;
+                                                memberMap[key] = member;
+                                                memberOrder.push(member);
+                                            } else {
+                                                Object.assign(memberMap[key], member);
+                                            }
+                                        }
+                                    }
+                                } else if (currentMode === 'ledger') {
+                                    if (rowStr.includes('number of shares') || rowStr.includes('consideration')) {
+                                        ledgerHeaders = row.map(h => String(h || '').trim().toLowerCase());
+                                        if (rowStr.includes('(usd)')) ledgerCurrency = 'USD';
+                                        else if (rowStr.includes('(sgd)')) ledgerCurrency = 'SGD';
+                                        else if (rowStr.includes('(eur)')) ledgerCurrency = 'EUR';
+                                        else if (rowStr.includes('(gbp)')) ledgerCurrency = 'GBP';
+                                        else if (rowStr.includes('(inr)')) ledgerCurrency = 'INR';
+                                        return;
+                                    }
+
+                                    let name = '';
+                                    let sharesVal = 0;
+                                    let consVal = 0;
+                                    let foundVal = false;
+
+                                    if (ledgerHeaders.length > 0) {
+                                        ledgerHeaders.forEach((header, idx) => {
+                                            const val = row[idx];
+                                            if (val === undefined || val === null) return;
+                                            if (header.includes('name of member') || header.includes('member')) {
+                                                name = String(val).trim();
+                                            } else if (header.includes('number of shares') || header.includes('shares')) {
+                                                const num = parseFloat(String(val).replace(/,/g, ''));
+                                                if (!isNaN(num)) { sharesVal = num; foundVal = true; }
+                                            } else if (header.includes('consideration')) {
+                                                const num = parseFloat(String(val).replace(/,/g, ''));
+                                                if (!isNaN(num)) { consVal = num; foundVal = true; }
+                                            }
+                                        });
+                                    } else {
+                                        name = String(row[1] || '').trim();
+                                        const numS = parseFloat(String(row[4] || '').replace(/,/g, ''));
+                                        const numC = parseFloat(String(row[5] || '').replace(/,/g, ''));
+                                        if (!isNaN(numS) || !isNaN(numC)) {
+                                            sharesVal = isNaN(numS) ? 0 : numS;
+                                            consVal = isNaN(numC) ? 0 : numC;
+                                            foundVal = true;
+                                        }
+                                    }
+
+                                    if (name && name.toLowerCase() !== 'total' && name.toLowerCase() !== 'total ordinary' && !name.toLowerCase().startsWith('s. no.') && foundVal) {
+                                        const key = name.toLowerCase();
+                                        if (!memberMap[key]) {
+                                            const mObj = { name, shares: sharesVal, consideration: consVal, currency: ledgerCurrency };
+                                            memberMap[key] = mObj;
+                                            memberOrder.push(mObj);
+                                        } else {
+                                            memberMap[key].shares = (memberMap[key].shares || 0) + sharesVal;
+                                            memberMap[key].consideration = (memberMap[key].consideration || 0) + consVal;
+                                            memberMap[key].currency = ledgerCurrency;
+                                        }
                                     }
                                 }
                             });
+
+                            result.members = memberOrder;
                         }
 
                         // 5. Controllers sheet
