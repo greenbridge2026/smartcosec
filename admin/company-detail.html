@@ -1154,6 +1154,12 @@
             } else if (tabId === 'activities') {
                 renderActivitiesTable();
             }
+        function formatDateDisplay(dateStr) {
+            if (!dateStr || dateStr === '—' || dateStr === 'NA' || dateStr === 'null') return '—';
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
         }
 
         async function loadCompanyDetails() {
@@ -1279,8 +1285,8 @@
                 document.getElementById('info-secondary-activity').innerText = excel.secondaryActivity || "—";
                 document.getElementById('info-address').innerText = excel.registeredOfficeAddress || "—";
                 updateFyeDisplay(excel.fye);
-                document.getElementById('info-agm').innerText = excel.lastAgmDate || "—";
-                document.getElementById('info-ar').innerText = excel.annualReturnDate || "—";
+                document.getElementById('info-agm').innerText = (excel.lastAgmDate && excel.lastAgmDate !== 'NA') ? formatDateDisplay(excel.lastAgmDate) : "—";
+                document.getElementById('info-ar').innerText = (excel.annualReturnDate && excel.annualReturnDate !== 'NA') ? formatDateDisplay(excel.annualReturnDate) : "—";
                 let xbrlVal = excel.xbrlPrepared || "—";
                 const upperXbrlExcel = (xbrlVal || '').toString().trim().toUpperCase();
                 if (upperXbrlExcel === 'NOT PREPARED YET' || upperXbrlExcel === 'NOT PREPARED' || upperXbrlExcel === 'N/A') {
@@ -5835,13 +5841,13 @@
                                         result.secondaryActivity = val;
                                     } else if (lower.includes('registered office') && !result.registeredOfficeAddress) {
                                         result.registeredOfficeAddress = val;
-                                    } else if (lower.includes('last agm date') && !result.lastAgmDate) {
-                                        result.lastAgmDate = val;
-                                    } else if ((lower.includes('fye of fs') || lower.includes('fye')) && !result.fye) {
+                                    } else if ((lower.includes('last agm') || lower.includes('date of agm') || lower.includes('agm date')) && (!result.lastAgmDate || result.lastAgmDate === 'NA')) {
+                                        result.lastAgmDate = formatDate(val);
+                                    } else if ((lower.includes('fye of fs') || lower.includes('fye')) && (!result.fye || result.fye === 'NA')) {
                                         result.fye = formatDate(val);
-                                    } else if (lower.includes('date of annual return') && !result.annualReturnDate) {
-                                        result.annualReturnDate = val;
-                                    } else if (lower.includes('xbrl prepared') && !result.xbrlPrepared) {
+                                    } else if ((lower.includes('annual return') || lower.includes('date of annual return')) && (!result.annualReturnDate || result.annualReturnDate === 'NA')) {
+                                        result.annualReturnDate = formatDate(val);
+                                    } else if (lower.includes('xbrl') && (!result.xbrlPrepared || result.xbrlPrepared === 'NA')) {
                                         result.xbrlPrepared = val;
                                     }
                                 }
