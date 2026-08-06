@@ -1347,7 +1347,32 @@
             renderSecretariesList();
             selectSecretary(0);
 
-            const excelMembers = excel ? excel.members : (details.members || []);
+            const extractMembersAndShareholders = (obj) => {
+                if (!obj) return [];
+                let list = [];
+                if (Array.isArray(obj.members)) list = list.concat(obj.members);
+                if (Array.isArray(obj.shareholders)) list = list.concat(obj.shareholders);
+                return list;
+            };
+
+            let rawMembersList = extractMembersAndShareholders(excel);
+            if (rawMembersList.length === 0) {
+                rawMembersList = extractMembersAndShareholders(details);
+            }
+
+            const mergedMembersMap = {};
+            const excelMembers = [];
+            rawMembersList.forEach(m => {
+                if (!m || !m.name) return;
+                const key = m.name.trim().toLowerCase();
+                if (!mergedMembersMap[key]) {
+                    mergedMembersMap[key] = { ...m };
+                    excelMembers.push(mergedMembersMap[key]);
+                } else {
+                    Object.assign(mergedMembersMap[key], m);
+                }
+            });
+
             initShareholdersData(excelMembers);
             renderShareholdersList();
             selectShareholder(0);
@@ -3755,20 +3780,45 @@
         function initShareholdersData(excelMembers) {
             shareholdersList = [];
             if (excelMembers && excelMembers.length > 0) {
+                // Calculate total active shares across active members first
+                let totalActiveSharesAcrossMembers = 0;
+                excelMembers.forEach(m => {
+                    const hasCeased = !!(m.dateCeased && String(m.dateCeased).trim() !== '' && String(m.dateCeased) !== '—');
+                    if (!hasCeased) {
+                        const s = (m.shares !== undefined && m.shares !== null && String(m.shares).trim() !== '') 
+                            ? parseFloat(String(m.shares).replace(/,/g, '')) 
+                            : 0;
+                        if (!isNaN(s)) totalActiveSharesAcrossMembers += s;
+                    }
+                });
+
                 excelMembers.forEach((m, idx) => {
                     const hasCeased = !!(m.dateCeased && String(m.dateCeased).trim() !== '' && String(m.dateCeased) !== '—');
-                    const sharesHeld = hasCeased ? 0 : (m.shares !== undefined && m.shares !== null ? (typeof m.shares === 'number' ? m.shares : parseFloat(m.shares)) : 500);
+                    
+                    const rawShares = (m.shares !== undefined && m.shares !== null && String(m.shares).trim() !== '')
+                        ? parseFloat(String(m.shares).replace(/,/g, ''))
+                        : null;
+                    
+                    const sharesHeld = hasCeased ? 0 : (rawShares !== null && !isNaN(rawShares) ? rawShares : 500);
                     
                     let pct = "0.00";
                     if (!hasCeased) {
                         if (m.percentage) {
                             pct = String(m.percentage).replace('%', '').trim();
+                        } else if (totalActiveSharesAcrossMembers > 0 && sharesHeld > 0) {
+                            pct = ((sharesHeld / totalActiveSharesAcrossMembers) * 100).toFixed(2);
                         } else if (sharesHeld > 0) {
-                            pct = "50.00";
+                            pct = "100.00";
                         }
                     }
 
-                    const paidAmount = hasCeased ? 0 : (m.consideration !== undefined && m.consideration !== null ? m.consideration : sharesHeld);
+                    const rawPaid = (m.consideration !== undefined && m.consideration !== null && String(m.consideration).trim() !== '')
+                        ? parseFloat(String(m.consideration).replace(/,/g, ''))
+                        : (m.paidAmount !== undefined && m.paidAmount !== null && String(m.paidAmount).trim() !== '')
+                            ? parseFloat(String(m.paidAmount).replace(/,/g, ''))
+                            : null;
+
+                    const paidAmount = hasCeased ? 0 : (rawPaid !== null && !isNaN(rawPaid) ? rawPaid : sharesHeld);
                     const status = hasCeased ? "Ceased / Cancelled" : "Active";
 
                     shareholdersList.push({
@@ -3781,7 +3831,7 @@
                         percentage: pct,
                         shareClass: m.shareClass || "Ordinary Shares",
                         paidAmount: paidAmount,
-                        currency: m.currency || "USD",
+                        currency: m.currency || "SGD",
                         votingRights: pct,
                         email: m.email || `${(m.name || '').toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.')}@email.com`,
                         mobile: m.mobile || "+65 9123 4567",
@@ -6147,30 +6197,46 @@
 
                         // 4. Members sheet
                         const membersSheet = getSheet('Members');
+                        // 4. Members sheet & Share Ledger
                         if (membersSheet) {
                             const rows = XLSX.utils.sheet_to_json(membersSheet, { header: 1 });
-                            let headers = [];
-                            let inRegister = false;
+                            let regHeaders = [];
+                            let ledgerHeaders = [];
+                            let currentMode = null;
+                            let ledgerCurrency = 'SGD';
+
+                            const memberMap = {};
+                            const memberOrder = [];
+
                             rows.forEach(row => {
                                 if (!row || row.length === 0) return;
-                                const rowStr = row.join(' ').toLowerCase();
-                                if (rowStr.includes('date entered as member')) {
-                                    inRegister = true;
-                                    headers = row.map(h => String(h || '').trim().toLowerCase());
+                                const rowStr = row.map(c => String(c || '')).join(' ').toLowerCase();
+
+                                if (rowStr.includes('date entered as member') || rowStr.includes('register of members')) {
+                                    currentMode = 'register';
+                                    regHeaders = row.map(h => String(h || '').trim().toLowerCase());
                                     return;
-                                } else if (rowStr.includes('share certificate') || rowStr.includes('ledger') || rowStr.includes('transactions')) {
-                                    inRegister = false;
+                                } else if (rowStr.includes('share ledger') || rowStr.includes('acquired / (transferred)') || rowStr.includes('share certificate number')) {
+                                    currentMode = 'ledger';
+                                    if (rowStr.includes('(usd)')) ledgerCurrency = 'USD';
+                                    else if (rowStr.includes('(sgd)')) ledgerCurrency = 'SGD';
+                                    else if (rowStr.includes('(eur)')) ledgerCurrency = 'EUR';
+                                    else if (rowStr.includes('(gbp)')) ledgerCurrency = 'GBP';
+                                    else if (rowStr.includes('(inr)')) ledgerCurrency = 'INR';
+                                    if (rowStr.includes('number of shares') || rowStr.includes('consideration')) {
+                                        ledgerHeaders = row.map(h => String(h || '').trim().toLowerCase());
+                                    }
                                     return;
                                 }
 
-                                if (inRegister && headers.length > 0) {
-                                    const firstCell = String(row[1] || '').trim();
-                                    if (firstCell && firstCell !== 'NONE' && !firstCell.toLowerCase().startsWith('register') && !firstCell.toLowerCase().startsWith('s. no.')) {
+                                if (currentMode === 'register' && regHeaders.length > 0) {
+                                    const firstCell = String(row[1] || row[0] || '').trim();
+                                    if (firstCell && firstCell.toUpperCase() !== 'NONE' && !firstCell.toLowerCase().startsWith('register') && !firstCell.toLowerCase().startsWith('s. no.')) {
                                         const member = {};
-                                        headers.forEach((header, idx) => {
+                                        regHeaders.forEach((header, idx) => {
                                             const val = row[idx];
                                             if (val === undefined || val === null) return;
-                                            if (header.includes('name of member')) {
+                                            if (header.includes('name of member') || header.includes('member name')) {
                                                 member.name = String(val).trim();
                                             } else if (header.includes('nric') || header.includes('id card') || header.includes('passport') || header.includes('fin')) {
                                                 member.idNumber = String(val).trim();
@@ -6186,12 +6252,89 @@
                                                 member.email = String(val).trim();
                                             } else if (header.includes('mobile')) {
                                                 member.mobile = String(val).trim();
+                                            } else if (header.includes('number of shares') || header.includes('shares')) {
+                                                const num = parseFloat(String(val).replace(/,/g, ''));
+                                                if (!isNaN(num)) member.shares = num;
+                                            } else if (header.includes('consideration') || header.includes('paid amount') || header.includes('amount paid')) {
+                                                const num = parseFloat(String(val).replace(/,/g, ''));
+                                                if (!isNaN(num)) member.consideration = num;
+                                            } else if (header.includes('currency')) {
+                                                member.currency = String(val).trim();
+                                            } else if (header.includes('percentage') || header.includes('%')) {
+                                                member.percentage = String(val).trim();
                                             }
                                         });
-                                        if (member.name) result.members.push(member);
+
+                                        if (member.name && member.name.toLowerCase() !== 'total' && member.name.toLowerCase() !== 'total ordinary') {
+                                            const key = member.name.toLowerCase();
+                                            if (!memberMap[key]) {
+                                                member.shares = member.shares || 0;
+                                                member.consideration = member.consideration || 0;
+                                                member.currency = member.currency || ledgerCurrency;
+                                                memberMap[key] = member;
+                                                memberOrder.push(member);
+                                            } else {
+                                                Object.assign(memberMap[key], member);
+                                            }
+                                        }
+                                    }
+                                } else if (currentMode === 'ledger') {
+                                    if (rowStr.includes('number of shares') || rowStr.includes('consideration')) {
+                                        ledgerHeaders = row.map(h => String(h || '').trim().toLowerCase());
+                                        if (rowStr.includes('(usd)')) ledgerCurrency = 'USD';
+                                        else if (rowStr.includes('(sgd)')) ledgerCurrency = 'SGD';
+                                        else if (rowStr.includes('(eur)')) ledgerCurrency = 'EUR';
+                                        else if (rowStr.includes('(gbp)')) ledgerCurrency = 'GBP';
+                                        else if (rowStr.includes('(inr)')) ledgerCurrency = 'INR';
+                                        return;
+                                    }
+
+                                    let name = '';
+                                    let sharesVal = 0;
+                                    let consVal = 0;
+                                    let foundVal = false;
+
+                                    if (ledgerHeaders.length > 0) {
+                                        ledgerHeaders.forEach((header, idx) => {
+                                            const val = row[idx];
+                                            if (val === undefined || val === null) return;
+                                            if (header.includes('name of member') || header.includes('member')) {
+                                                name = String(val).trim();
+                                            } else if (header.includes('number of shares') || header.includes('shares')) {
+                                                const num = parseFloat(String(val).replace(/,/g, ''));
+                                                if (!isNaN(num)) { sharesVal = num; foundVal = true; }
+                                            } else if (header.includes('consideration')) {
+                                                const num = parseFloat(String(val).replace(/,/g, ''));
+                                                if (!isNaN(num)) { consVal = num; foundVal = true; }
+                                            }
+                                        });
+                                    } else {
+                                        name = String(row[1] || '').trim();
+                                        const numS = parseFloat(String(row[4] || '').replace(/,/g, ''));
+                                        const numC = parseFloat(String(row[5] || '').replace(/,/g, ''));
+                                        if (!isNaN(numS) || !isNaN(numC)) {
+                                            sharesVal = isNaN(numS) ? 0 : numS;
+                                            consVal = isNaN(numC) ? 0 : numC;
+                                            foundVal = true;
+                                        }
+                                    }
+
+                                    if (name && name.toLowerCase() !== 'total' && name.toLowerCase() !== 'total ordinary' && !name.toLowerCase().startsWith('s. no.') && foundVal) {
+                                        const key = name.toLowerCase();
+                                        if (!memberMap[key]) {
+                                            const mObj = { name, shares: sharesVal, consideration: consVal, currency: ledgerCurrency };
+                                            memberMap[key] = mObj;
+                                            memberOrder.push(mObj);
+                                        } else {
+                                            memberMap[key].shares = (memberMap[key].shares || 0) + sharesVal;
+                                            memberMap[key].consideration = (memberMap[key].consideration || 0) + consVal;
+                                            memberMap[key].currency = ledgerCurrency;
+                                        }
                                     }
                                 }
                             });
+
+                            result.members = memberOrder;
                         }
 
                         // 5. Controllers sheet
