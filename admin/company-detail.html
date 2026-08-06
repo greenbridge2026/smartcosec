@@ -521,6 +521,8 @@
                 </div>
             </div>
 
+
+
             <div class="grid grid-cols-12 gap-6 mt-2">
                 <!-- Left Panel: Director Search & List -->
                 <div class="col-span-12 lg:col-span-4 space-y-4">
@@ -531,8 +533,10 @@
                         </div>
                         <div class="relative">
                             <select id="director-status-filter" onchange="filterDirectorsList()" class="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-700 cursor-pointer">
-                                <option value="all">All Status</option>
+                                <option value="all">All Directors</option>
+                                <option value="Nominee Director">Nominee Directors</option>
                                 <option value="Verified">Verified</option>
+                                <option value="Resigned">Resigned</option>
                                 <option value="Pending Review">Pending Review</option>
                             </select>
                         </div>
@@ -606,11 +610,16 @@
                     </h3>
                 </div>
 
-                <!-- Centered Outline Box: Total Shares & Currency Symbol -->
+                <!-- Centered Outline Box: Total Shares, Total Value & Currency Symbol -->
                 <div class="flex items-center justify-center gap-6 mx-auto my-1 md:my-0 px-6 py-2 bg-white border border-slate-200/80 rounded-2xl shadow-sm text-slate-700">
                     <div class="flex items-center gap-2">
                         <span class="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Total Shares:</span>
                         <span class="font-extrabold text-slate-900 text-lg" id="shareholders-total-shares-val">—</span>
+                    </div>
+                    <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Total Share Value:</span>
+                        <span class="font-extrabold text-blue-600 text-lg" id="shareholders-total-value-val">—</span>
                     </div>
                     <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
                     <div class="flex items-center gap-2">
@@ -1158,10 +1167,16 @@
 
         function formatDateDisplay(dateStr) {
             if (!dateStr || dateStr === '—' || dateStr === 'NA' || dateStr === 'null') return '—';
-            const d = new Date(dateStr);
-            if (isNaN(d.getTime())) return dateStr;
+            const str = String(dateStr).trim();
+            if (str.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                const [y, m, d] = str.split('-').map(Number);
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                return `${d} ${months[m - 1]} ${y}`;
+            }
+            const d = new Date(str);
+            if (isNaN(d.getTime())) return str;
             const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+            return `${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
         }
 
         async function loadCompanyDetails() {
@@ -2298,9 +2313,12 @@
                 excelDirectors.forEach((d, idx) => {
                     const cessationVal = d.cessationDate || d.resignationDate || d.dateOfResignation || d.dateOfCessation || "";
                     const hasCeased = !!(cessationVal && String(cessationVal).trim() !== '' && String(cessationVal) !== '—' && String(cessationVal) !== 'NA');
+                    const isNominee = d.isNominee || (d.type && d.type.toLowerCase().includes('nominee'));
+
                     directorsList.push({
                         name: d.name || "Unknown Director",
-                        title: d.type || "Director",
+                        title: isNominee ? "Nominee Director" : (d.type || "Director"),
+                        isNominee: isNominee,
                         email: d.email || `${(d.name || '').toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.')}@globalisor-client.com`,
                         mobile: d.phone || d.mobile || "+65 9123 4567",
                         idNumber: d.idNumber || "—",
@@ -2328,6 +2346,7 @@
                     directorsList.push({
                         name: dummyNames[i],
                         title: dummyTitles[i],
+                        isNominee: false,
                         email: dummyEmails[i],
                         mobile: "+65 9876 5432",
                         idNumber: dummyIds[i],
@@ -2341,12 +2360,22 @@
                 }
             }
 
+            // Sort: Nominee Directors first at the top level
             directorsList.sort((a, b) => {
+                if (a.isNominee && !b.isNominee) return -1;
+                if (!a.isNominee && b.isNominee) return 1;
                 if (a.status === 'Verified' && b.status !== 'Verified') return -1;
                 if (a.status !== 'Verified' && b.status === 'Verified') return 1;
                 return 0;
             });
         }
+
+        window.selectNomineeDirector = function() {
+            const idx = directorsList.findIndex(d => d.isNominee);
+            if (idx !== -1) {
+                selectDirector(idx);
+            }
+        };
 
         window.renderDirectorsList = function() {
             const listContainer = document.getElementById('directors-list');
@@ -2355,44 +2384,53 @@
             const searchVal = document.getElementById('director-search-input').value.toLowerCase();
             const statusFilter = document.getElementById('director-status-filter').value;
 
-            // Sort directors list: Verified first
+            // Sort: Nominee Directors at the very top
             directorsList.sort((a, b) => {
+                if (a.isNominee && !b.isNominee) return -1;
+                if (!a.isNominee && b.isNominee) return 1;
                 if (a.status === 'Verified' && b.status !== 'Verified') return -1;
                 if (a.status !== 'Verified' && b.status === 'Verified') return 1;
                 return 0;
             });
 
-            // Update title count with verified count only
+            // Update title count
             const verifiedCount = directorsList.filter(d => d.status === 'Verified').length;
             const headerTitleEl = document.getElementById('directors-header-title');
             if (headerTitleEl) {
-                headerTitleEl.innerText = `Directors (${verifiedCount})`;
+                headerTitleEl.innerText = `Directors (${directorsList.length})`;
             }
 
             listContainer.innerHTML = directorsList.map((d, idx) => {
                 const matchesSearch = d.name.toLowerCase().includes(searchVal) || d.email.toLowerCase().includes(searchVal);
-                const matchesFilter = statusFilter === 'all' || d.status === statusFilter;
+                const matchesFilter = statusFilter === 'all' 
+                    || d.status === statusFilter 
+                    || (statusFilter === 'Nominee Director' && d.isNominee);
 
                 if (!matchesSearch || !matchesFilter) return '';
 
                 const isActive = idx === selectedDirectorIndex;
                 const activeClasses = isActive 
-                    ? 'border-blue-600 bg-blue-50/40 shadow-sm' 
-                    : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50/30';
+                    ? (d.isNominee ? 'border-purple-600 bg-purple-50/50 shadow-sm' : 'border-blue-600 bg-blue-50/40 shadow-sm')
+                    : (d.isNominee ? 'border-purple-200 bg-purple-50/20 hover:bg-purple-50/40' : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50/30');
 
                 const progressColor = d.progress >= 90 ? 'bg-emerald-500' : 'bg-amber-500';
-                const statusColor = d.status === 'Verified' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-amber-600 bg-amber-50 border-amber-100';
+                const statusColor = d.isNominee 
+                    ? 'text-purple-700 bg-purple-100 border-purple-200' 
+                    : (d.status === 'Verified' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-amber-600 bg-amber-50 border-amber-100');
 
+                const avatarColor = d.isNominee ? 'bg-purple-600 text-white shadow-md' : 'bg-blue-100 text-blue-600';
                 const initials = d.name.split(' ').map(n => n.charAt(0)).join('').substring(0, 2).toUpperCase();
+
+                const nomineePill = d.isNominee ? `<span class="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-purple-700 bg-purple-100 rounded-md border border-purple-200 ml-1.5 inline-block">Nominee</span>` : '';
 
                 return `
                     <div onclick="selectDirector(${idx})" class="p-4 border rounded-2xl cursor-pointer transition-all flex items-start justify-between gap-3 relative ${activeClasses}">
                         <div class="flex items-start gap-3">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-blue-100 text-blue-600 shrink-0">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${avatarColor} shrink-0">
                                 ${initials}
                             </div>
                             <div class="flex-grow">
-                                <h4 class="font-bold text-slate-800 text-sm">${d.name}</h4>
+                                <h4 class="font-bold text-slate-800 text-sm flex items-center flex-wrap">${d.name} ${nomineePill}</h4>
                                 <p class="text-slate-400 text-[11px] font-medium mt-0.5">${d.title}</p>
                                 <p class="text-slate-500 text-[11px] font-medium mt-1 truncate max-w-[170px]">${d.email}</p>
                                 
@@ -2587,10 +2625,12 @@
                             <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Appointment Date</span>
                             <p class="font-bold text-slate-800 text-sm mt-1">${director.appointmentDate}</p>
                         </div>
+                        ${(director.status === 'Resigned' || (director.cessationDate && director.cessationDate !== '—' && director.cessationDate !== 'NA') || (director.resignationDate && director.resignationDate !== '—' && director.resignationDate !== 'NA')) ? `
                         <div>
                             <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Date of Cessation / Resignation</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1 ${director.status === 'Resigned' ? 'text-amber-600 font-extrabold' : ''}">${director.cessationDate || director.resignationDate || '—'}</p>
+                            <p class="font-bold text-amber-600 font-extrabold text-sm mt-1">${formatDateDisplay(director.cessationDate || director.resignationDate)}</p>
                         </div>
+                        ` : ''}
                         <div>
                             <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Email Address</span>
                             <p class="font-bold text-blue-600 text-sm mt-1">${director.email}</p>
@@ -3686,6 +3726,32 @@
         let selectedShareholderIndex = 0;
         let activeShareholderTab = 'overview';
 
+        window.getShareholderTransferHistory = function(shareholderName) {
+            if (!shareholderName) return [];
+            const nameLower = shareholderName.trim().toLowerCase();
+            const service = (clientData && clientData.services && clientData.services.length > 0) ? clientData.services[0] : null;
+            const details = service ? (service.details || {}) : {};
+            const excel = details.excelData || {};
+            const allTransfers = excel.transfers || [];
+
+            return allTransfers.filter(t => {
+                const transferor = String(t.transferorName || '').trim().toLowerCase();
+                const transferee = String(t.transfereeName || t.transfereeInfo || '').trim().toLowerCase();
+                return (transferor && (transferor.includes(nameLower) || nameLower.includes(transferor))) ||
+                       (transferee && (transferee.includes(nameLower) || nameLower.includes(transferee)));
+            }).map(t => {
+                const transferor = String(t.transferorName || '').trim();
+                const transferee = String(t.transfereeName || t.transfereeInfo || '').trim();
+                const isSender = transferor.toLowerCase().includes(nameLower) || nameLower.includes(transferor.toLowerCase());
+                return {
+                    ...t,
+                    isSender: isSender,
+                    direction: isSender ? 'Outgoing' : 'Incoming',
+                    otherParty: isSender ? (transferee || 'Transferee') : (transferor || 'Transferor')
+                };
+            });
+        };
+
         function initShareholdersData(excelMembers) {
             shareholdersList = [];
             if (excelMembers && excelMembers.length > 0) {
@@ -3777,16 +3843,24 @@
                 headerTitleEl.innerText = `Shareholders (${activeCount})`;
             }
 
-            // Update Total Shares and Currency at top level
+            // Update Total Shares, Total Value and Currency at top level
             const totalShares = shareholdersList.reduce((sum, s) => sum + (Number(s.sharesHeld) || 0), 0);
+            const totalValue = shareholdersList.reduce((sum, s) => sum + (Number(s.paidAmount) || 0), 0);
             const mainCurrency = (shareholdersList.find(s => s.currency && s.currency !== '—') || {}).currency || 'USD';
 
             const currencySymbolMap = { 'USD': '$ USD', 'SGD': 'S$ SGD', 'EUR': '€ EUR', 'GBP': '£ GBP', 'INR': '₹ INR' };
+            const currencyPrefixMap = { 'USD': '$', 'SGD': 'S$', 'EUR': '€', 'GBP': '£', 'INR': '₹' };
             const formattedCurrency = currencySymbolMap[mainCurrency.toUpperCase()] || `$ ${mainCurrency}`;
+            const currPrefix = currencyPrefixMap[mainCurrency.toUpperCase()] || '$';
 
             const totalSharesEl = document.getElementById('shareholders-total-shares-val');
             if (totalSharesEl) {
                 totalSharesEl.innerText = totalShares.toLocaleString();
+            }
+
+            const totalValueEl = document.getElementById('shareholders-total-value-val');
+            if (totalValueEl) {
+                totalValueEl.innerText = `${currPrefix}${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             }
 
             const currencyEl = document.getElementById('shareholders-currency-val');
@@ -3876,8 +3950,14 @@
 
                 <!-- Tabs Navigation -->
                 <div class="flex border-b border-slate-100 py-3 gap-6 overflow-x-auto shrink-0">
-                    ${['overview', 'shareholding', 'personalDetails'].map(tab => {
-                        const label = tab === 'personalDetails' ? 'Personal Details' : tab.charAt(0).toUpperCase() + tab.slice(1);
+                    ${['overview', 'shareholding', 'transfers', 'personalDetails'].map(tab => {
+                        const labelMap = {
+                            'overview': 'Overview',
+                            'shareholding': 'Shareholding',
+                            'transfers': '1-to-1 Transfers',
+                            'personalDetails': 'Personal Details'
+                        };
+                        const label = labelMap[tab] || tab.charAt(0).toUpperCase() + tab.slice(1);
                         const isActive = tab === activeShareholderTab;
                         const tabClasses = isActive 
                             ? 'text-blue-600 border-blue-600 font-bold' 
@@ -3911,7 +3991,42 @@
             const shareholder = shareholdersList[selectedShareholderIndex];
             if (!shareholder) return;
 
+            const userTransfers = getShareholderTransferHistory(shareholder.name);
+
             if (activeShareholderTab === 'overview') {
+                let historyTimelineHtml = '';
+                if (userTransfers && userTransfers.length > 0) {
+                    historyTimelineHtml = userTransfers.map(t => {
+                        const badgeColor = t.isSender ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                        const dirText = t.isSender ? `Transferred ${Number(t.sharesTransferred).toLocaleString()} shares to ${t.otherParty}` : `Received ${Number(t.sharesTransferred).toLocaleString()} shares from ${t.otherParty}`;
+                        const certInfo = (t.transferorCertNo || t.transfereeCertNo) ? ` (Cert #${t.transferorCertNo || '—'} → Cert #${t.transfereeCertNo || '—'})` : '';
+                        return `
+                            <div class="relative">
+                                <div class="absolute -left-[21px] top-1 w-2 h-2 rounded-full ${t.isSender ? 'bg-amber-500' : 'bg-emerald-500'} border border-white"></div>
+                                <div class="flex flex-col gap-0.5">
+                                    <span class="font-bold text-slate-800 text-[11px]">
+                                        ${formatDateDisplay(t.transferDate)} 
+                                        <span class="px-1.5 py-0.5 rounded text-[8px] font-black border uppercase tracking-wider ${badgeColor} ml-1">${t.direction}</span>
+                                    </span>
+                                    <span class="text-[10px] text-slate-700 font-bold">${dirText}</span>
+                                    <span class="text-[9px] text-slate-400 font-medium">${t.shareClass || 'Ordinary Shares'}${certInfo} ${t.priceOrConsideration ? '• Price: ' + t.priceOrConsideration : ''}</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    historyTimelineHtml = `
+                        <div class="relative">
+                            <div class="absolute -left-[21px] top-1 w-2 h-2 rounded-full bg-emerald-500 border border-white"></div>
+                            <div class="flex flex-col gap-0.5">
+                                <span class="font-bold text-slate-800 text-[11px]">${shareholder.addedDate || '—'} <span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 ml-1">Current</span></span>
+                                <span class="text-[10px] text-slate-500 font-medium">Holds ${Number(shareholder.sharesHeld).toLocaleString()} shares</span>
+                                <span class="text-[9px] text-slate-400 font-medium">Initial allotment / incorporation member</span>
+                            </div>
+                        </div>
+                    `;
+                }
+
                 container.innerHTML = `
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <!-- Shareholding Summary -->
@@ -3941,28 +4056,16 @@
                             </div>
                         </div>
 
-                        <!-- Shareholding History -->
+                        <!-- 1-to-1 Share Transfer History -->
                         <div class="space-y-4 border border-slate-100 rounded-2xl p-5 bg-white shadow-sm text-xs">
-                            <h4 class="font-extrabold text-slate-800 text-sm border-b border-slate-50 pb-2">Shareholding History</h4>
-                            <div class="relative border-l border-slate-200 ml-2 pl-4 space-y-4">
-                                <div class="relative">
-                                    <div class="absolute -left-[21px] top-1 w-2 h-2 rounded-full bg-emerald-500 border border-white"></div>
-                                    <div class="flex flex-col gap-0.5">
-                                        <span class="font-bold text-slate-800 text-[11px]">${shareholder.addedDate} <span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 ml-1">Current</span></span>
-                                        <span class="text-[10px] text-slate-500 font-medium">Acquired ${shareholder.sharesHeld.toLocaleString()} shares</span>
-                                        <span class="text-[9px] text-slate-400 font-medium">Initial allotment</span>
-                                    </div>
-                                </div>
-                                <div class="relative">
-                                    <div class="absolute -left-[21px] top-1 w-2 h-2 rounded-full bg-blue-500 border border-white"></div>
-                                    <div class="flex flex-col gap-0.5">
-                                        <span class="font-bold text-slate-800 text-[11px]">${shareholder.addedDate}</span>
-                                        <span class="text-[10px] text-slate-500 font-medium">Shareholder added</span>
-                                        <span class="text-[9px] text-slate-400 font-medium">Added as shareholder during incorporation</span>
-                                    </div>
-                                </div>
+                            <div class="flex items-center justify-between border-b border-slate-50 pb-2">
+                                <h4 class="font-extrabold text-slate-800 text-sm">1-to-1 Transfer History</h4>
+                                <span class="px-2 py-0.5 rounded text-[9px] font-bold bg-purple-50 text-purple-700 border border-purple-100">${userTransfers.length} Transfer(s)</span>
                             </div>
-                            <button onclick="alert('Viewing full history...')" class="text-blue-600 hover:text-blue-700 font-bold text-xs flex items-center gap-1 mt-2">View Full History <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button>
+                            <div class="relative border-l border-slate-200 ml-2 pl-4 space-y-4 max-h-[220px] overflow-y-auto pr-1">
+                                ${historyTimelineHtml}
+                            </div>
+                            <button onclick="switchShareholderTab('transfers')" class="text-blue-600 hover:text-blue-700 font-bold text-xs flex items-center gap-1 mt-2 cursor-pointer">View 1-to-1 Transfer Ledger <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
                         </div>
 
                         <!-- Contact Details -->
@@ -3985,6 +4088,76 @@
                         </div>
                     </div>
                 `;
+            } else if (activeShareholderTab === 'transfers') {
+                if (userTransfers.length > 0) {
+                    container.innerHTML = `
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h4 class="font-extrabold text-slate-800 text-sm">1-to-1 Share Transfer Ledger</h4>
+                                <p class="text-slate-400 text-xs mt-0.5">Specific transfer transactions involving ${shareholder.name}</p>
+                            </div>
+                            <span class="px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold">${userTransfers.length} Transfer Record(s)</span>
+                        </div>
+
+                        <div class="space-y-4">
+                            ${userTransfers.map(t => {
+                                const isSender = t.isSender;
+                                const badgeClass = isSender ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                                const actionTitle = isSender ? 'Shares Transferred (Outgoing)' : 'Shares Received (Incoming)';
+                                return `
+                                    <div class="p-5 border border-slate-200 rounded-2xl bg-white shadow-sm hover:border-blue-400 transition-all space-y-4">
+                                        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                                            <div class="flex items-center gap-2">
+                                                <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${badgeClass}">
+                                                    ${actionTitle}
+                                                </span>
+                                                <span class="text-slate-400 text-xs font-bold">• ${formatDateDisplay(t.transferDate)}</span>
+                                            </div>
+                                            <span class="font-black text-slate-900 text-sm">${t.shareClass || 'Ordinary Shares'}</span>
+                                        </div>
+
+                                        <!-- 1-to-1 Visual Transfer Flow Card -->
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center bg-slate-50/70 p-4 rounded-xl border border-slate-100 text-xs">
+                                            <!-- Transferor (Sender) -->
+                                            <div class="p-3 bg-white border ${isSender ? 'border-amber-300 ring-2 ring-amber-500/10' : 'border-slate-200'} rounded-xl shadow-2xs">
+                                                <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Transferor (Sender)</span>
+                                                <h5 class="font-extrabold text-slate-900 text-sm mt-0.5">${t.transferorName || '—'}</h5>
+                                                <p class="text-slate-500 text-[11px] font-medium mt-1">Cert #: <strong class="text-slate-800">${t.transferorCertNo || '—'}</strong></p>
+                                            </div>
+
+                                            <!-- Transfer Flow Arrow & Volume -->
+                                            <div class="flex flex-col items-center justify-center text-center py-2">
+                                                <span class="font-black text-blue-600 text-sm">${Number(t.sharesTransferred).toLocaleString()} Shares</span>
+                                                <div class="flex items-center gap-1.5 my-1 w-full justify-center">
+                                                    <div class="h-0.5 bg-blue-300 flex-grow max-w-[60px]"></div>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-blue-600"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                                                </div>
+                                                <span class="text-slate-500 text-[10px] font-bold">Consideration: ${t.priceOrConsideration || '$1.00'}</span>
+                                            </div>
+
+                                            <!-- Transferee (Recipient) -->
+                                            <div class="p-3 bg-white border ${!isSender ? 'border-emerald-300 ring-2 ring-emerald-500/10' : 'border-slate-200'} rounded-xl shadow-2xs">
+                                                <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Transferee (Recipient)</span>
+                                                <h5 class="font-extrabold text-slate-900 text-sm mt-0.5">${t.transfereeName || t.transfereeInfo || '—'}</h5>
+                                                <p class="text-slate-500 text-[11px] font-medium mt-1">Cert #: <strong class="text-slate-800">${t.transfereeCertNo || '—'}</strong></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = `
+                        <div class="p-8 text-center bg-slate-50/50 border border-slate-100 rounded-2xl">
+                            <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                            </div>
+                            <h4 class="font-extrabold text-slate-800 text-sm">No 1-to-1 Share Transfers Recorded</h4>
+                            <p class="text-slate-400 text-xs mt-1">No secondary share transfers recorded for ${shareholder.name}.</p>
+                        </div>
+                    `;
+                }
             } else if (activeShareholderTab === 'shareholding') {
                 container.innerHTML = `
                     <h4 class="font-extrabold text-slate-800 text-sm mb-4">Capital Shareholdings</h4>
@@ -5783,13 +5956,25 @@
                         };
 
                         const formatDate = (val) => {
+                            if (!val) return '';
                             if (val instanceof Date) {
-                                return val.toISOString().split('T')[0];
+                                const year = val.getFullYear();
+                                const month = String(val.getMonth() + 1).padStart(2, '0');
+                                const day = String(val.getDate()).padStart(2, '0');
+                                return `${year}-${month}-${day}`;
                             }
-                            if (val && typeof val === 'string') {
-                                return val.trim();
+                            const str = String(val).trim();
+                            if (str.match(/^\d{4}-\d{2}-\d{2}/)) {
+                                return str.substring(0, 10);
                             }
-                            return val ? String(val).trim() : '';
+                            const d = new Date(str);
+                            if (!isNaN(d.getTime())) {
+                                const year = d.getUTCFullYear();
+                                const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+                                const day = String(d.getUTCDate()).padStart(2, '0');
+                                return `${year}-${month}-${day}`;
+                            }
+                            return str;
                         };
 
                         // 1. Home sheet
