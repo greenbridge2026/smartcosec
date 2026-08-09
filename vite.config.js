@@ -62,6 +62,7 @@ export default defineConfig(({ mode }) => {
           adminOcrReview: resolve(__dirname, 'admin/ocr-review.html'),
           adminMigration: resolve(__dirname, 'admin/migration.html'),
           adminCompanyDetail: resolve(__dirname, 'admin/company-detail.html'),
+          adminDocumentViewer: resolve(__dirname, 'admin/document-viewer.html'),
           pricing: resolve(__dirname, 'pricing.html'),
           onboarding: resolve(__dirname, 'onboarding.html'),
           signin: resolve(__dirname, 'signin.html'),
