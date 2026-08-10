@@ -109,12 +109,6 @@
             <button onclick="window.location.href='content.html'" class="module-nav-btn" id="btn-content">Content</button>
         </div>
         <div class="flex items-center justify-end gap-3 relative">
-            <button onclick="document.getElementById('company-excel-input').click()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                Upload Client Register (Excel)
-            </button>
-            <input type="file" id="company-excel-input" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleCompanyExcelUpload(event)">
-            
             <button onclick="window.location.href='dashboard.html'" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Back to Dashboard
             </button>
@@ -255,11 +249,17 @@
             <button onclick="switchTab('overview')" id="tab-btn-overview" class="tab-btn py-4 text-sm font-bold border-b-2 border-blue-600 text-blue-600 transition-all flex items-center gap-1.5">
                 <i data-lucide="info" class="w-4 h-4"></i> Overview
             </button>
+            <button onclick="switchTab('aml')" id="tab-btn-aml" class="tab-btn py-4 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
+                <i data-lucide="shield" class="w-4 h-4"></i> AML
+            </button>
             <button onclick="switchTab('directors')" id="tab-btn-directors" class="tab-btn py-4 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
                 <i data-lucide="users" class="w-4 h-4"></i> Directors
             </button>
             <button onclick="switchTab('secretaries')" id="tab-btn-secretaries" class="tab-btn py-4 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
                 <i data-lucide="user" class="w-4 h-4"></i> Secretaries
+            </button>
+            <button onclick="switchTab('auditors')" id="tab-btn-auditors" class="tab-btn py-4 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
+                <i data-lucide="award" class="w-4 h-4"></i> Auditors
             </button>
             <button onclick="switchTab('members')" id="tab-btn-members" class="tab-btn py-4 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
                 <i data-lucide="pie-chart" class="w-4 h-4"></i> Shareholders
@@ -269,6 +269,9 @@
             </button>
             <button onclick="switchTab('allotments')" id="tab-btn-allotments" class="tab-btn py-4 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
                 <i data-lucide="layers" class="w-4 h-4"></i> Allotments
+            </button>
+            <button onclick="switchTab('rons')" id="tab-btn-rons" class="tab-btn py-4 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
+                <i data-lucide="user-check" class="w-4 h-4"></i> RONS
             </button>
             <button onclick="switchTab('transfers')" id="tab-btn-transfers" class="tab-btn py-4 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
                 <i data-lucide="arrow-right-left" class="w-4 h-4"></i> Transfers
@@ -534,8 +537,9 @@
                         <div class="relative">
                             <select id="director-status-filter" onchange="filterDirectorsList()" class="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-700 cursor-pointer">
                                 <option value="all">All Directors</option>
+                                <option value="active">Active Directors</option>
+                                <option value="active-nominee">Active Nominee Directors</option>
                                 <option value="Nominee Director">Nominee Directors</option>
-                                <option value="Verified">Verified</option>
                                 <option value="Resigned">Resigned</option>
                                 <option value="Pending Review">Pending Review</option>
                             </select>
@@ -638,17 +642,26 @@
             <div class="grid grid-cols-12 gap-6 mt-2">
                 <!-- Left Panel: Shareholder Search & List -->
                 <div class="col-span-12 lg:col-span-4 space-y-4">
-                    <div class="flex gap-3">
-                        <div class="relative flex-grow">
+                    <div class="flex flex-col gap-2">
+                        <div class="relative w-full">
                             <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
                             <input type="text" id="shareholder-search-input" onkeyup="filterShareholdersList()" placeholder="Search shareholder by name..." class="w-full pl-10 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium placeholder-slate-400">
                         </div>
-                        <div class="relative">
-                            <select id="shareholder-type-filter" onchange="filterShareholdersList()" class="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-700 cursor-pointer">
-                                <option value="all">All Types</option>
-                                <option value="Individual">Individual</option>
-                                <option value="Corporate">Corporate</option>
-                            </select>
+                        <div class="flex gap-2">
+                            <div class="relative flex-grow">
+                                <select id="shareholder-type-filter" onchange="filterShareholdersList()" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-700 cursor-pointer">
+                                    <option value="all">All Types</option>
+                                    <option value="Individual">Individual</option>
+                                    <option value="Corporate">Corporate</option>
+                                </select>
+                            </div>
+                            <div class="relative flex-grow">
+                                <select id="shareholder-class-filter" onchange="filterShareholdersList()" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-700 cursor-pointer">
+                                    <option value="all">All Shares</option>
+                                    <option value="ordinary">Ordinary Shares</option>
+                                    <option value="preference">Preference Shares</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -1128,6 +1141,140 @@
             </div>
         </div>
 
+        <!-- AML Tab Panel -->
+        <div id="panel-aml" class="tab-panel hidden space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
+                <div>
+                    <h3 class="font-bold text-slate-900 text-xl flex items-center gap-2">
+                        <i data-lucide="shield" class="w-5 h-5 text-blue-600"></i> Anti-Money Laundering & CDD Register
+                    </h3>
+                    <p class="text-slate-500 text-xs mt-1">Screen compliance records, risk statuses, and verification checklists.</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="window.addAmlIndividualPrompt()" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                        <i data-lucide="plus" class="w-3.5 h-3.5 text-blue-600"></i> Add Individual
+                    </button>
+                    <button onclick="window.saveCompanyDetailsBackend()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
+                        <i data-lucide="save" class="w-3.5 h-3.5"></i> Save AML Checks
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+                <!-- Search & Filters -->
+                <div class="flex justify-between items-center gap-4 mb-4">
+                    <div class="relative w-64">
+                        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+                        <input type="text" id="aml-search-input" onkeyup="window.renderAmlTable()" placeholder="Search by name..." class="w-full pl-10 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium placeholder-slate-400">
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto border border-slate-100 rounded-2xl">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-50/70 border-b border-slate-100 text-slate-400 font-bold uppercase select-none">
+                                <th class="p-4">Name</th>
+                                <th class="p-4 text-center">AML 1</th>
+                                <th class="p-4 text-center">AML 2</th>
+                                <th class="p-4 text-center">AML 3</th>
+                                <th class="p-4 text-center">CDD</th>
+                                <th class="p-4 text-center">CDD 2</th>
+                                <th class="p-4 text-center">CDD 3</th>
+                                <th class="p-4 text-center">Google Search</th>
+                                <th class="p-4 text-center">Bank Statement</th>
+                                <th class="p-4 text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="aml-table-body" class="divide-y divide-slate-100 font-sans text-slate-700 font-medium">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Auditors Tab Panel -->
+        <div id="panel-auditors" class="tab-panel hidden space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
+                <div>
+                    <h3 class="font-bold text-slate-900 text-xl flex items-center gap-2" id="auditors-header-title">
+                        Auditors (0)
+                    </h3>
+                    <p class="text-slate-500 text-xs mt-1">Manage and view company auditor appointments and history.</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="window.openAddAuditorModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Auditor
+                    </button>
+                    <button onclick="window.saveCompanyDetailsBackend()" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                        <i data-lucide="save" class="w-3.5 h-3.5 text-blue-600"></i> Save Auditors
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-12 gap-6 mt-2">
+                <!-- Left Panel: Auditor Search & List -->
+                <div class="col-span-12 lg:col-span-4 space-y-4">
+                    <div class="flex gap-3">
+                        <div class="relative flex-grow">
+                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+                            <input type="text" id="auditor-search-input" onkeyup="window.filterAuditorsList()" placeholder="Search auditor by firm name..." class="w-full pl-10 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium placeholder-slate-400">
+                        </div>
+                    </div>
+                    <!-- Auditors List Container -->
+                    <div id="auditors-list" class="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+
+                <!-- Right Panel: Selected Auditor Details -->
+                <div class="col-span-12 lg:col-span-8 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col min-h-[550px]" id="auditor-details-panel">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+        </div>
+
+        <!-- RONS Tab Panel -->
+        <div id="panel-rons" class="tab-panel hidden space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
+                <div>
+                    <h3 class="font-bold text-slate-900 text-xl flex items-center gap-2" id="rons-header-title">
+                        Register of Nominee Shareholders (RONS)
+                    </h3>
+                    <p class="text-slate-500 text-xs mt-1">Declare and track nominee shareholders and their nominators according to ACRA requirements.</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="window.openAddRonsModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Nominee
+                    </button>
+                    <button onclick="window.saveCompanyDetailsBackend()" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                        <i data-lucide="save" class="w-3.5 h-3.5 text-blue-600"></i> Save RONS
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-12 gap-6 mt-2">
+                <!-- Left Panel: Nominee Search & List -->
+                <div class="col-span-12 lg:col-span-4 space-y-4">
+                    <div class="flex gap-3">
+                        <div class="relative flex-grow">
+                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+                            <input type="text" id="rons-search-input" onkeyup="window.filterRonsList()" placeholder="Search by nominee name..." class="w-full pl-10 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium placeholder-slate-400">
+                        </div>
+                    </div>
+                    <!-- RONS List Container -->
+                    <div id="rons-list" class="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+
+                <!-- Right Panel: Selected RONS Details -->
+                <div class="col-span-12 lg:col-span-8 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col min-h-[550px]" id="rons-details-panel">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+        </div>
+
         <!-- Bottom Stats Bar removed -->
 
 
@@ -1402,7 +1549,10 @@
                 }
             });
 
-            initShareholdersData(excelMembers);
+            const excelAllotments = excel ? (excel.allotments || []) : [];
+            const excelTransfers = excel ? (excel.transfers || []) : [];
+
+            initShareholdersData(excelMembers, excelAllotments, excelTransfers);
             renderShareholdersList();
             selectShareholder(0);
 
@@ -1411,10 +1561,7 @@
             renderUbosList();
             selectUbo(0);
 
-            const excelAllotments = excel ? (excel.allotments || []) : [];
             renderAllotmentsTable(excelAllotments);
-
-            const excelTransfers = excel ? (excel.transfers || []) : [];
             renderTransfersTable(excelTransfers);
 
             const excelTransactions = excel ? (excel.summaryOfTransactions || []) : [];
@@ -1423,6 +1570,23 @@
             initDocumentsData();
             initComplianceData();
             initActivitiesData();
+
+            // AML Tab Init
+            const savedAml = excel ? (excel.amlData || []) : (details.amlData || []);
+            initAmlData(savedAml, excelDirectors, excelSecretaries);
+            renderAmlTable();
+
+            // Auditors Tab Init
+            const excelAuditors = excel ? (excel.auditors || []) : (details.auditors || []);
+            initAuditorsData(excelAuditors);
+            renderAuditorsList();
+            if (auditorsList.length > 0) selectAuditor(0);
+
+            // RONS Tab Init
+            const excelRons = excel ? (excel.rons || []) : (details.rons || []);
+            initRonsData(excelRons);
+            renderRonsList();
+            if (ronsList.length > 0) selectRons(0);
 
             if (window.lucide) window.lucide.createIcons();
         }
@@ -1438,7 +1602,21 @@
                 return;
             }
 
-            body.innerHTML = list.map(item => `
+            let totalSharesApplied = 0;
+            let totalDepositAmount = 0;
+            let totalAmountAllotted = 0;
+
+            list.forEach(item => {
+                const sa = parseFloat(String(item.sharesApplied || item.shares || '0').replace(/[^0-9.]/g, '')) || 0;
+                const da = parseFloat(String(item.depositAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                const aa = parseFloat(String(item.allottedAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+
+                totalSharesApplied += sa;
+                totalDepositAmount += da;
+                totalAmountAllotted += aa;
+            });
+
+            const rowsHtml = list.map(item => `
                 <tr class="hover:bg-slate-50 transition-colors">
                     <td class="p-3 font-semibold text-slate-900">${item.applicationDate || '—'}</td>
                     <td class="p-3 font-semibold text-slate-900">${item.allotmentDate || '—'}</td>
@@ -1451,6 +1629,25 @@
                     <td class="p-3 font-mono font-bold text-slate-700">${item.certNumber || '—'}</td>
                 </tr>
             `).join('');
+
+            const formatNum = (num) => {
+                if (num === 0) return '—';
+                return num.toLocaleString();
+            };
+
+            const footerHtml = `
+                <tr class="bg-slate-50 border-t-2 border-slate-200 font-extrabold text-slate-900 select-none">
+                    <td class="p-3" colspan="3">TOTAL</td>
+                    <td class="p-3"></td>
+                    <td class="p-3 text-right font-mono text-sm text-blue-700">${formatNum(totalSharesApplied)}</td>
+                    <td class="p-3 text-slate-600"></td>
+                    <td class="p-3 text-right font-mono text-sm">${formatNum(totalDepositAmount)}</td>
+                    <td class="p-3 text-right font-mono text-sm text-emerald-700">${formatNum(totalAmountAllotted)}</td>
+                    <td class="p-3"></td>
+                </tr>
+            `;
+
+            body.innerHTML = rowsHtml + footerHtml;
         }
 
         function renderTransfersTable(list) {
@@ -2371,6 +2568,857 @@
             `;
         }
 
+        // --- AML, AUDITORS, AND RONS REGISTER LOGIC ---
+        let amlList = [];
+        let auditorsList = [];
+        let selectedAuditorIndex = 0;
+        let ronsList = [];
+        let selectedRonsIndex = 0;
+
+        function initAmlData(savedAml, directors, secretaries) {
+            amlList = [];
+            const names = new Set();
+            if (directors && Array.isArray(directors)) {
+                directors.forEach(d => { if (d.name) names.add(d.name.trim()); });
+            }
+            if (secretaries && Array.isArray(secretaries)) {
+                secretaries.forEach(s => { if (s.name) names.add(s.name.trim()); });
+            }
+
+            names.forEach(name => {
+                const saved = savedAml ? savedAml.find(a => a.name.toLowerCase() === name.toLowerCase()) : null;
+                amlList.push({
+                    name: name,
+                    aml1: saved ? (saved.aml1 || '') : '',
+                    aml2: saved ? (saved.aml2 || '') : '',
+                    aml3: saved ? (saved.aml3 || '') : '',
+                    cdd: saved ? (saved.cdd || '') : '',
+                    cdd2: saved ? (saved.cdd2 || '') : '',
+                    cdd3: saved ? (saved.cdd3 || '') : '',
+                    googleSearch: saved ? (saved.googleSearch || '') : '',
+                    bankStatement: saved ? (saved.bankStatement || '') : ''
+                });
+            });
+
+            if (savedAml && Array.isArray(savedAml)) {
+                savedAml.forEach(saved => {
+                    const exists = amlList.some(a => a.name.toLowerCase() === saved.name.toLowerCase());
+                    if (!exists) {
+                        amlList.push({
+                            name: saved.name,
+                            aml1: saved.aml1 || '',
+                            aml2: saved.aml2 || '',
+                            aml3: saved.aml3 || '',
+                            cdd: saved.cdd || '',
+                            cdd2: saved.cdd2 || '',
+                            cdd3: saved.cdd3 || '',
+                            googleSearch: saved.googleSearch || '',
+                            bankStatement: saved.bankStatement || ''
+                        });
+                    }
+                });
+            }
+        }
+
+        window.renderAmlTable = function() {
+            const body = document.getElementById('aml-table-body');
+            if (!body) return;
+
+            const searchVal = document.getElementById('aml-search-input').value.toLowerCase();
+            const filtered = amlList.filter(a => a.name.toLowerCase().includes(searchVal));
+
+            if (filtered.length === 0) {
+                body.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="p-8 text-center text-slate-400 font-bold">No AML records found.</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            body.innerHTML = filtered.map((a, idx) => {
+                const realIndex = amlList.findIndex(item => item.name === a.name);
+                return `
+                    <tr class="hover:bg-slate-50/40 transition-colors">
+                        <td class="p-4 font-bold text-slate-800 align-middle">${a.name}</td>
+                        <td class="p-2 align-middle">
+                            <input type="text" value="${a.aml1 || ''}" oninput="window.updateAmlField(${realIndex}, 'aml1', this.value)" class="w-full bg-slate-100/80 hover:bg-slate-200/50 focus:bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-2.5 py-1.5 text-slate-900 text-[11px] font-bold outline-none transition-all placeholder-slate-500 focus:ring-4 focus:ring-blue-500/15 shadow-sm" placeholder="-">
+                        </td>
+                        <td class="p-2 align-middle">
+                            <input type="text" value="${a.aml2 || ''}" oninput="window.updateAmlField(${realIndex}, 'aml2', this.value)" class="w-full bg-slate-100/80 hover:bg-slate-200/50 focus:bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-2.5 py-1.5 text-slate-900 text-[11px] font-bold outline-none transition-all placeholder-slate-500 focus:ring-4 focus:ring-blue-500/15 shadow-sm" placeholder="-">
+                        </td>
+                        <td class="p-2 align-middle">
+                            <input type="text" value="${a.aml3 || ''}" oninput="window.updateAmlField(${realIndex}, 'aml3', this.value)" class="w-full bg-slate-100/80 hover:bg-slate-200/50 focus:bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-2.5 py-1.5 text-slate-900 text-[11px] font-bold outline-none transition-all placeholder-slate-500 focus:ring-4 focus:ring-blue-500/15 shadow-sm" placeholder="-">
+                        </td>
+                        <td class="p-2 align-middle">
+                            <input type="text" value="${a.cdd || ''}" oninput="window.updateAmlField(${realIndex}, 'cdd', this.value)" class="w-full bg-slate-100/80 hover:bg-slate-200/50 focus:bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-2.5 py-1.5 text-slate-900 text-[11px] font-bold outline-none transition-all placeholder-slate-500 focus:ring-4 focus:ring-blue-500/15 shadow-sm" placeholder="-">
+                        </td>
+                        <td class="p-2 align-middle">
+                            <input type="text" value="${a.cdd2 || ''}" oninput="window.updateAmlField(${realIndex}, 'cdd2', this.value)" class="w-full bg-slate-100/80 hover:bg-slate-200/50 focus:bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-2.5 py-1.5 text-slate-900 text-[11px] font-bold outline-none transition-all placeholder-slate-500 focus:ring-4 focus:ring-blue-500/15 shadow-sm" placeholder="-">
+                        </td>
+                        <td class="p-2 align-middle">
+                            <input type="text" value="${a.cdd3 || ''}" oninput="window.updateAmlField(${realIndex}, 'cdd3', this.value)" class="w-full bg-slate-100/80 hover:bg-slate-200/50 focus:bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-2.5 py-1.5 text-slate-900 text-[11px] font-bold outline-none transition-all placeholder-slate-500 focus:ring-4 focus:ring-blue-500/15 shadow-sm" placeholder="-">
+                        </td>
+                        <td class="p-2 align-middle">
+                            <input type="text" value="${a.googleSearch || ''}" oninput="window.updateAmlField(${realIndex}, 'googleSearch', this.value)" class="w-full bg-slate-100/80 hover:bg-slate-200/50 focus:bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-2.5 py-1.5 text-slate-900 text-[11px] font-bold outline-none transition-all placeholder-slate-500 focus:ring-4 focus:ring-blue-500/15 shadow-sm" placeholder="-">
+                        </td>
+                        <td class="p-2 align-middle">
+                            <input type="text" value="${a.bankStatement || ''}" oninput="window.updateAmlField(${realIndex}, 'bankStatement', this.value)" class="w-full bg-slate-100/80 hover:bg-slate-200/50 focus:bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-2.5 py-1.5 text-slate-900 text-[11px] font-bold outline-none transition-all placeholder-slate-500 focus:ring-4 focus:ring-blue-500/15 shadow-sm" placeholder="-">
+                        </td>
+                        <td class="p-2 text-center align-middle">
+                            <button onclick="window.deleteAmlIndividual(${realIndex})" class="p-1 text-slate-400 hover:text-rose-600 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/></svg>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        };
+
+        window.updateAmlField = function(index, field, value) {
+            if (amlList[index]) {
+                amlList[index][field] = value;
+            }
+        };
+
+        window.addAmlIndividualPrompt = function() {
+            const name = prompt("Enter full name of the individual to add to AML Register:");
+            if (name && name.trim() !== '') {
+                const exists = amlList.some(a => a.name.toLowerCase() === name.trim().toLowerCase());
+                if (exists) {
+                    alert("This individual is already on the register.");
+                    return;
+                }
+                amlList.push({
+                    name: name.trim(),
+                    aml1: '',
+                    aml2: '',
+                    aml3: '',
+                    cdd: '',
+                    cdd2: '',
+                    cdd3: '',
+                    googleSearch: '',
+                    bankStatement: ''
+                });
+                window.renderAmlTable();
+            }
+        };
+
+        window.deleteAmlIndividual = function(index) {
+            if (confirm(`Remove ${amlList[index].name} from AML register?`)) {
+                amlList.splice(index, 1);
+                window.renderAmlTable();
+            }
+        };
+
+        // --- AUDITORS LOGIC ---
+        function initAuditorsData(excelAuditors) {
+            auditorsList = [];
+            if (excelAuditors && Array.isArray(excelAuditors)) {
+                excelAuditors.forEach(a => {
+                    auditorsList.push({
+                        firmName: a.firmName || "Unknown Firm",
+                        uen: a.uen || "",
+                        address: a.address || "",
+                        appointmentDate: a.appointmentDate || "",
+                        resignationDate: a.resignationDate || "",
+                        notes: a.notes || ""
+                    });
+                });
+            }
+            updateAuditorsHeader();
+        }
+
+        function updateAuditorsHeader() {
+            const header = document.getElementById('auditors-header-title');
+            if (header) {
+                header.innerText = `Auditors (${auditorsList.length})`;
+            }
+        }
+
+        window.filterAuditorsList = function() {
+            window.renderAuditorsList();
+        };
+
+        window.renderAuditorsList = function() {
+            const container = document.getElementById('auditors-list');
+            if (!container) return;
+
+            const search = document.getElementById('auditor-search-input').value.toLowerCase();
+            const filtered = auditorsList.filter(a => a.firmName.toLowerCase().includes(search));
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="p-6 text-center text-slate-400 border border-dashed border-slate-200 rounded-2xl">
+                        No auditors found.
+                    </div>
+                `;
+                document.getElementById('auditor-details-panel').innerHTML = `
+                    <div class="flex-grow flex flex-col items-center justify-center text-center p-8 text-slate-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-300 mb-3"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        <p class="font-bold text-sm">No Auditor Selected</p>
+                        <p class="text-xs mt-1">Select an auditor or add a new appointment</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map((a, idx) => {
+                const realIndex = auditorsList.findIndex(item => item.firmName === a.firmName);
+                const isSelected = realIndex === selectedAuditorIndex;
+                const activeClasses = isSelected ? 'border-blue-500 bg-blue-50/10 shadow-sm' : 'border-slate-100 bg-white hover:border-slate-200';
+                
+                return `
+                    <div onclick="window.selectAuditor(${realIndex})" class="p-4 border rounded-2xl cursor-pointer transition-all flex items-start gap-3 ${activeClasses}">
+                        <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="font-bold text-slate-800 text-[13px] leading-snug">${a.firmName}</div>
+                            <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">UEN: ${a.uen || '—'}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        };
+
+        window.selectAuditor = function(index) {
+            selectedAuditorIndex = index;
+            window.renderAuditorsList();
+
+            const auditor = auditorsList[index];
+            const panel = document.getElementById('auditor-details-panel');
+            if (!panel || !auditor) return;
+
+            const appDate = auditor.appointmentDate ? formatDateDisplay(auditor.appointmentDate) : '—';
+            const resDate = auditor.resignationDate ? formatDateDisplay(auditor.resignationDate) : '—';
+
+            panel.innerHTML = `
+                <div class="flex justify-between items-start border-b border-slate-100 pb-4 mb-6">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg">
+                            A
+                        </div>
+                        <div>
+                            <h4 class="font-extrabold text-slate-900 text-lg leading-tight">${auditor.firmName}</h4>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 mt-1.5 inline-block uppercase">
+                                ${auditor.resignationDate ? 'Resigned' : 'Active Auditor'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="window.openEditAuditorModal(${index})" class="px-3.5 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg> Edit
+                        </button>
+                        <button onclick="window.deleteAuditor(${index})" class="px-3.5 py-2 border border-rose-100 text-rose-600 hover:bg-rose-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/></svg> Delete
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm flex-grow">
+                    <div class="space-y-4">
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">Name of the Firm</span>
+                            <div class="font-extrabold text-slate-800 text-[13px]">${auditor.firmName}</div>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">Identification No.</span>
+                            <div class="font-extrabold text-slate-800 text-[13px]">${auditor.uen || '—'}</div>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">Address</span>
+                            <div class="font-extrabold text-slate-800 text-[13px] leading-relaxed">${auditor.address || '—'}</div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">Date of Appointment</span>
+                            <div class="font-extrabold text-slate-800 text-[13px]">${appDate}</div>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">Date of Resignation</span>
+                            <div class="font-extrabold text-slate-800 text-[13px]">${resDate}</div>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">Notes</span>
+                            <div class="font-extrabold text-slate-800 text-[13px] leading-relaxed">${auditor.notes || '—'}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        window.deleteAuditor = function(index) {
+            if (confirm(`Remove auditor "${auditorsList[index].firmName}"?`)) {
+                auditorsList.splice(index, 1);
+                selectedAuditorIndex = Math.max(0, index - 1);
+                updateAuditorsHeader();
+                window.renderAuditorsList();
+                if (auditorsList.length > 0) window.selectAuditor(selectedAuditorIndex);
+            }
+        };
+
+        window.openAddAuditorModal = function() {
+            const modal = document.createElement('div');
+            modal.id = 'auditor-modal-wrapper';
+            modal.className = 'fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-3xl p-6 shadow-2xl w-full max-w-lg space-y-6 font-sans text-xs">
+                    <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+                        <h4 class="font-black text-slate-900 text-base">Add New Auditor Appointment</h4>
+                        <button onclick="document.getElementById('auditor-modal-wrapper').remove()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block font-bold text-slate-500 mb-1.5">Name of the Firm *</label>
+                            <input type="text" id="m-audit-name" placeholder="e.g. KPMG LLP" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-500 mb-1.5">Identification No.</label>
+                            <input type="text" id="m-audit-uen" placeholder="e.g. T08LL0001A" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-500 mb-1.5">Address</label>
+                            <input type="text" id="m-audit-address" placeholder="Registered office address" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1.5">Date of Appointment</label>
+                                <input type="date" id="m-audit-appdate" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1.5">Date of Resignation</label>
+                                <input type="date" id="m-audit-resdate" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-500 mb-1.5">Notes</label>
+                            <textarea id="m-audit-notes" rows="2" placeholder="Any additional notes..." class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                        <button onclick="document.getElementById('auditor-modal-wrapper').remove()" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl">Cancel</button>
+                        <button onclick="window.saveAddAuditor()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md">Add Auditor</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        };
+
+        window.saveAddAuditor = function() {
+            const name = document.getElementById('m-audit-name').value.trim();
+            if (!name) {
+                alert("Firm Name is required.");
+                return;
+            }
+            auditorsList.push({
+                firmName: name,
+                uen: document.getElementById('m-audit-uen').value.trim(),
+                address: document.getElementById('m-audit-address').value.trim(),
+                appointmentDate: document.getElementById('m-audit-appdate').value,
+                resignationDate: document.getElementById('m-audit-resdate').value,
+                notes: document.getElementById('m-audit-notes').value.trim()
+            });
+            document.getElementById('auditor-modal-wrapper').remove();
+            selectedAuditorIndex = auditorsList.length - 1;
+            updateAuditorsHeader();
+            window.renderAuditorsList();
+            window.selectAuditor(selectedAuditorIndex);
+        };
+
+        window.openEditAuditorModal = function(index) {
+            const a = auditorsList[index];
+            if (!a) return;
+
+            const modal = document.createElement('div');
+            modal.id = 'auditor-modal-wrapper';
+            modal.className = 'fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-3xl p-6 shadow-2xl w-full max-w-lg space-y-6 font-sans text-xs">
+                    <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+                        <h4 class="font-black text-slate-900 text-base">Edit Auditor Appointment</h4>
+                        <button onclick="document.getElementById('auditor-modal-wrapper').remove()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block font-bold text-slate-500 mb-1.5">Name of the Firm *</label>
+                            <input type="text" id="m-audit-name" value="${a.firmName}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-500 mb-1.5">Identification No.</label>
+                            <input type="text" id="m-audit-uen" value="${a.uen}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-500 mb-1.5">Address</label>
+                            <input type="text" id="m-audit-address" value="${a.address}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1.5">Date of Appointment</label>
+                                <input type="date" id="m-audit-appdate" value="${a.appointmentDate}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1.5">Date of Resignation</label>
+                                <input type="date" id="m-audit-resdate" value="${a.resignationDate}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-500 mb-1.5">Notes</label>
+                            <textarea id="m-audit-notes" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">${a.notes}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                        <button onclick="document.getElementById('auditor-modal-wrapper').remove()" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl">Cancel</button>
+                        <button onclick="window.saveEditAuditor(${index})" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md">Save Changes</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        };
+
+        window.saveEditAuditor = function(index) {
+            const name = document.getElementById('m-audit-name').value.trim();
+            if (!name) {
+                alert("Firm Name is required.");
+                return;
+            }
+            auditorsList[index] = {
+                firmName: name,
+                uen: document.getElementById('m-audit-uen').value.trim(),
+                address: document.getElementById('m-audit-address').value.trim(),
+                appointmentDate: document.getElementById('m-audit-appdate').value,
+                resignationDate: document.getElementById('m-audit-resdate').value,
+                notes: document.getElementById('m-audit-notes').value.trim()
+            };
+            document.getElementById('auditor-modal-wrapper').remove();
+            window.renderAuditorsList();
+            window.selectAuditor(index);
+        };
+
+        // --- RONS LOGIC ---
+        function initRonsData(excelRons) {
+            ronsList = [];
+            if (excelRons && Array.isArray(excelRons)) {
+                excelRons.forEach(r => {
+                    ronsList.push({
+                        dateOfEntry: r.dateOfEntry || "",
+                        nomineeName: r.nomineeName || "Unknown Nominee",
+                        nominatorName: r.nominatorName || "",
+                        nominatorAliases: r.nominatorAliases || "",
+                        nominatorIdNumber: r.nominatorIdNumber || "",
+                        nominatorNationality: r.nominatorNationality || "",
+                        nominatorDob: r.nominatorDob || "",
+                        nominatorAddress: r.nominatorAddress || "",
+                        nominatorNotes: r.nominatorNotes || r.notes || ""
+                    });
+                });
+            }
+            updateRonsHeader();
+        }
+
+        function updateRonsHeader() {
+            const header = document.getElementById('rons-header-title');
+            if (header) {
+                header.innerText = `Register of Nominee Shareholders (${ronsList.length})`;
+            }
+        }
+
+        window.filterRonsList = function() {
+            window.renderRonsList();
+        };
+
+        window.renderRonsList = function() {
+            const container = document.getElementById('rons-list');
+            if (!container) return;
+
+            const search = document.getElementById('rons-search-input').value.toLowerCase();
+            const filtered = ronsList.filter(r => r.nomineeName.toLowerCase().includes(search));
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="p-6 text-center text-slate-400 border border-dashed border-slate-200 rounded-2xl">
+                        No nominee shareholders declared.
+                    </div>
+                `;
+                document.getElementById('rons-details-panel').innerHTML = `
+                    <div class="flex-grow flex flex-col items-center justify-center text-center p-8 text-slate-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-300 mb-3"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        <p class="font-bold text-sm">No Nominee Selected</p>
+                        <p class="text-xs mt-1">Select a nominee or declare a new nominee shareholder</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map((r, idx) => {
+                const realIndex = ronsList.findIndex(item => item.nomineeName === r.nomineeName);
+                const isSelected = realIndex === selectedRonsIndex;
+                const activeClasses = isSelected ? 'border-blue-500 bg-blue-50/10 shadow-sm' : 'border-slate-100 bg-white hover:border-slate-200';
+                
+                return `
+                    <div onclick="window.selectRons(${realIndex})" class="p-4 border rounded-2xl cursor-pointer transition-all flex items-start gap-3 ${activeClasses}">
+                        <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="font-bold text-slate-800 text-[13px] leading-snug">${r.nomineeName}</div>
+                            <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">Nominator: ${r.nominatorName || '—'}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        };
+
+        window.selectRons = function(index) {
+            selectedRonsIndex = index;
+            window.renderRonsList();
+
+            const rons = ronsList[index];
+            const panel = document.getElementById('rons-details-panel');
+            if (!panel || !rons) return;
+
+            const entryDate = rons.dateOfEntry ? formatDateDisplay(rons.dateOfEntry) : '—';
+            const nomDob = rons.nominatorDob ? formatDateDisplay(rons.nominatorDob) : '—';
+
+            panel.innerHTML = `
+                <div class="flex justify-between items-start border-b border-slate-100 pb-4 mb-6">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-lg">
+                            R
+                        </div>
+                        <div>
+                            <h4 class="font-extrabold text-slate-900 text-lg leading-tight">${rons.nomineeName}</h4>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-600 border border-teal-100 mt-1.5 inline-block uppercase">
+                                Nominee Shareholder
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="window.openEditRonsModal(${index})" class="px-3.5 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg> Edit
+                        </button>
+                        <button onclick="window.deleteRons(${index})" class="px-3.5 py-2 border border-rose-100 text-rose-600 hover:bg-rose-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/></svg> Delete
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm flex-grow">
+                    <div class="space-y-4">
+                        <div class="border-b border-slate-100 pb-2">
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Nominee Info</span>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 mb-1 block">Date of Entry</span>
+                            <div class="font-extrabold text-slate-800 text-[13px]">${entryDate}</div>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 mb-1 block">Nominee Shareholder Name</span>
+                            <div class="font-extrabold text-slate-800 text-[13px]">${rons.nomineeName}</div>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 mb-1 block">Remarks / Notes</span>
+                            <div class="font-extrabold text-slate-800 text-[13px] leading-relaxed">${rons.nominatorNotes || '—'}</div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="border-b border-slate-100 pb-2">
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Nominator Info</span>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 mb-1 block">Nominator Name</span>
+                            <div class="font-extrabold text-slate-800 text-[13px]">${rons.nominatorName || '—'}</div>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 mb-1 block">Former Name / Aliases</span>
+                            <div class="font-extrabold text-slate-800 text-[13px]">${rons.nominatorAliases || '—'}</div>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 mb-1 block">NRIC / Passport / Fin No. *</span>
+                            <div class="font-extrabold text-slate-800 text-[13px]">${rons.nominatorIdNumber || '—'}</div>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 mb-1 block">Nationality</span>
+                            <div class="font-extrabold text-slate-800 text-[13px]">${rons.nominatorNationality || '—'}</div>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 mb-1 block">Date of Birth</span>
+                            <div class="font-extrabold text-slate-800 text-[13px]">${nomDob}</div>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 mb-1 block">Address **</span>
+                            <div class="font-extrabold text-slate-800 text-[13px] leading-relaxed">${rons.nominatorAddress || '—'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 border-t border-slate-100 pt-4 text-[10px] text-slate-400 space-y-1 select-none leading-relaxed font-sans">
+                    <p class="font-medium flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span> * Please ensure that a copy of ID proof is collected and filed</p>
+                    <p class="font-medium flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span> ** Please ensure that a copy of latest address proof is collected and filed</p>
+                </div>
+            `;
+        };
+
+        window.deleteRons = function(index) {
+            if (confirm(`Remove nominee entry for "${ronsList[index].nomineeName}"?`)) {
+                ronsList.splice(index, 1);
+                selectedRonsIndex = Math.max(0, index - 1);
+                updateRonsHeader();
+                window.renderRonsList();
+                if (ronsList.length > 0) window.selectRons(selectedRonsIndex);
+            }
+        };
+
+        window.openAddRonsModal = function() {
+            const modal = document.createElement('div');
+            modal.id = 'rons-modal-wrapper';
+            modal.className = 'fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-3xl p-6 shadow-2xl w-full max-w-2xl space-y-6 font-sans text-xs">
+                    <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+                        <h4 class="font-black text-slate-900 text-base">Declare Nominee Shareholder (RONS)</h4>
+                        <button onclick="document.getElementById('rons-modal-wrapper').remove()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-6">
+                        <!-- Nominee Column -->
+                        <div class="space-y-4">
+                            <div class="border-b border-slate-100 pb-2">
+                                <span class="font-bold text-slate-700">Nominee Shareholder Information</span>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1.5">Date of Entry</label>
+                                <input type="date" id="m-rons-entrydate" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1.5">Nominee Name *</label>
+                                <input type="text" id="m-rons-name" placeholder="Nominee's full name" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1.5">Remarks / Notes</label>
+                                <textarea id="m-rons-notes" rows="3" placeholder="Remarks or additional details..." class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- BO/Nominator Column -->
+                        <div class="space-y-4">
+                            <div class="border-b border-slate-100 pb-2">
+                                <span class="font-bold text-slate-700">Nominator Information</span>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1.5">Nominator Name *</label>
+                                <input type="text" id="m-rons-boname" placeholder="Nominator's full name" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1.5">Former Name / Aliases</label>
+                                <input type="text" id="m-rons-aliases" placeholder="Former name or aliases" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1.5">NRIC / Passport / Fin No. *</label>
+                                <input type="text" id="m-rons-boid" placeholder="ID Number" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block font-bold text-slate-500 mb-1.5">Nationality</label>
+                                    <input type="text" id="m-rons-nat" placeholder="Nationality" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                                </div>
+                                <div>
+                                    <label class="block font-bold text-slate-500 mb-1.5">Date of Birth</label>
+                                    <input type="date" id="m-rons-dob" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1.5">Address **</label>
+                                <input type="text" id="m-rons-boaddr" placeholder="Registered address" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                        <button onclick="document.getElementById('rons-modal-wrapper').remove()" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl">Cancel</button>
+                        <button onclick="window.saveAddRons()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md">Add Nominee</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        };
+
+        window.saveAddRons = function() {
+            const nomineeName = document.getElementById('m-rons-name').value.trim();
+            const nominatorName = document.getElementById('m-rons-boname').value.trim();
+            if (!nomineeName || !nominatorName) {
+                alert("Both Nominee Name and Nominator Name are required.");
+                return;
+            }
+            ronsList.push({
+                dateOfEntry: document.getElementById('m-rons-entrydate').value,
+                nomineeName: nomineeName,
+                nominatorName: nominatorName,
+                nominatorAliases: document.getElementById('m-rons-aliases').value.trim(),
+                nominatorIdNumber: document.getElementById('m-rons-boid').value.trim(),
+                nominatorNationality: document.getElementById('m-rons-nat').value.trim(),
+                nominatorDob: document.getElementById('m-rons-dob').value,
+                nominatorAddress: document.getElementById('m-rons-boaddr').value.trim(),
+                nominatorNotes: document.getElementById('m-rons-notes').value.trim()
+            });
+            document.getElementById('rons-modal-wrapper').remove();
+            selectedRonsIndex = ronsList.length - 1;
+            updateRonsHeader();
+            window.renderRonsList();
+            window.selectRons(selectedRonsIndex);
+        };
+
+        window.openEditRonsModal = function(index) {
+            const r = ronsList[index];
+            if (!r) return;
+
+            const modal = document.createElement('div');
+            modal.id = 'rons-modal-wrapper';
+            modal.className = 'fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-3xl p-6 shadow-2xl w-full max-w-2xl space-y-6 font-sans text-xs">
+                    <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+                        <h4 class="font-black text-slate-900 text-base">Edit Nominee Shareholder (RONS)</h4>
+                        <button onclick="document.getElementById('rons-modal-wrapper').remove()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-6">
+                        <!-- Nominee Column -->
+                        <div class="space-y-4">
+                            <div class="border-b border-slate-100 pb-2">
+                                <span class="font-bold text-slate-700">Nominee Shareholder Information</span>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1.5">Date of Entry</label>
+                                <input type="date" id="m-rons-entrydate" value="${r.dateOfEntry || ''}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1.5">Nominee Name *</label>
+                                <input type="text" id="m-rons-name" value="${r.nomineeName}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1.5">Remarks / Notes</label>
+                                <textarea id="m-rons-notes" rows="3" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">${r.nominatorNotes || ''}</textarea>
+                            </div>
+                        </div>
+
+                        <!-- BO/Nominator Column -->
+                        <div class="space-y-4">
+                            <div class="border-b border-slate-100 pb-2">
+                                <span class="font-bold text-slate-700">Nominator Information</span>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1.5">Nominator Name *</label>
+                                <input type="text" id="m-rons-boname" value="${r.nominatorName}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1.5">Former Name / Aliases</label>
+                                <input type="text" id="m-rons-aliases" value="${r.nominatorAliases || ''}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1.5">NRIC / Passport / Fin No. *</label>
+                                <input type="text" id="m-rons-boid" value="${r.nominatorIdNumber || ''}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block font-bold text-slate-500 mb-1.5">Nationality</label>
+                                    <input type="text" id="m-rons-nat" value="${r.nominatorNationality || ''}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                                </div>
+                                <div>
+                                    <label class="block font-bold text-slate-500 mb-1.5">Date of Birth</label>
+                                    <input type="date" id="m-rons-dob" value="${r.nominatorDob || ''}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1.5">Address **</label>
+                                <input type="text" id="m-rons-boaddr" value="${r.nominatorAddress || ''}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                        <button onclick="document.getElementById('rons-modal-wrapper').remove()" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl">Cancel</button>
+                        <button onclick="window.saveEditRons(${index})" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md">Save Changes</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        };
+
+        window.saveEditRons = function(index) {
+            const nomineeName = document.getElementById('m-rons-name').value.trim();
+            const nominatorName = document.getElementById('m-rons-boname').value.trim();
+            if (!nomineeName || !nominatorName) {
+                alert("Both Nominee Name and Nominator Name are required.");
+                return;
+            }
+            ronsList[index] = {
+                dateOfEntry: document.getElementById('m-rons-entrydate').value,
+                nomineeName: nomineeName,
+                nominatorName: nominatorName,
+                nominatorAliases: document.getElementById('m-rons-aliases').value.trim(),
+                nominatorIdNumber: document.getElementById('m-rons-boid').value.trim(),
+                nominatorNationality: document.getElementById('m-rons-nat').value.trim(),
+                nominatorDob: document.getElementById('m-rons-dob').value,
+                nominatorAddress: document.getElementById('m-rons-boaddr').value.trim(),
+                nominatorNotes: document.getElementById('m-rons-notes').value.trim()
+            };
+            document.getElementById('rons-modal-wrapper').remove();
+            window.renderRonsList();
+            window.selectRons(index);
+        };
+
+        // --- BACKEND SAVE HELPER ---
+        window.saveCompanyDetailsBackend = async function() {
+            try {
+                const service = clientData.services && clientData.services.length > 0 ? clientData.services[0] : null;
+                if (!service) return;
+                
+                const details = service.details || {};
+                if (!details.excelData) details.excelData = {};
+                
+                details.excelData.amlData = amlList;
+                details.excelData.auditors = auditorsList;
+                details.excelData.rons = ronsList;
+                
+                const token = localStorage.getItem('token') || JSON.parse(localStorage.getItem('admin_auth') || '{}').token;
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                };
+                
+                const res = await fetch(`/api/services/${service.serviceId}`, {
+                    method: 'PATCH',
+                    headers: headers,
+                    body: JSON.stringify({ details: details })
+                });
+                
+                if (res.ok) {
+                    showToast("Register changes saved to backend successfully!", "success");
+                } else {
+                    alert("Failed to save changes to backend: " + res.statusText);
+                }
+            } catch(e) {
+                console.error("Error saving registers:", e);
+                alert("Error saving registers: " + e.message);
+            }
+        };
+
         // --- HIGH-FIDELITY INTERACTIVE DIRECTORS TAB LOGIC ---
         let directorsList = [];
         let selectedDirectorIndex = 0;
@@ -2455,13 +3503,23 @@
                 headerTitleEl.innerText = `Directors (${directorsList.length})`;
             }
 
-            listContainer.innerHTML = directorsList.map((d, idx) => {
-                const matchesSearch = d.name.toLowerCase().includes(searchVal) || d.email.toLowerCase().includes(searchVal);
-                const matchesFilter = statusFilter === 'all' 
-                    || d.status === statusFilter 
-                    || (statusFilter === 'Nominee Director' && d.isNominee);
-
-                if (!matchesSearch || !matchesFilter) return '';
+             listContainer.innerHTML = directorsList.map((d, idx) => {
+                 const matchesSearch = d.name.toLowerCase().includes(searchVal) || d.email.toLowerCase().includes(searchVal);
+                 
+                 let matchesFilter = false;
+                 if (statusFilter === 'all') {
+                     matchesFilter = true;
+                 } else if (statusFilter === 'active') {
+                     matchesFilter = d.status !== 'Resigned';
+                 } else if (statusFilter === 'active-nominee') {
+                     matchesFilter = d.isNominee && d.status !== 'Resigned';
+                 } else if (statusFilter === 'Nominee Director') {
+                     matchesFilter = d.isNominee;
+                 } else {
+                     matchesFilter = d.status === statusFilter;
+                 }
+ 
+                 if (!matchesSearch || !matchesFilter) return '';
 
                 const isActive = idx === selectedDirectorIndex;
                 const activeClasses = isActive 
@@ -3779,127 +4837,201 @@
             });
         };
 
-        function initShareholdersData(excelMembers) {
-            shareholdersList = [];
-            if (excelMembers && excelMembers.length > 0) {
-                // Calculate total active shares across active members first
-                let totalActiveSharesAcrossMembers = 0;
-                excelMembers.forEach(m => {
-                    const hasCeased = !!(m.dateCeased && String(m.dateCeased).trim() !== '' && String(m.dateCeased) !== '—');
-                    if (!hasCeased) {
-                        const s = (m.shares !== undefined && m.shares !== null && String(m.shares).trim() !== '') 
-                            ? parseFloat(String(m.shares).replace(/,/g, '')) 
-                            : 0;
-                        if (!isNaN(s)) totalActiveSharesAcrossMembers += s;
-                    }
-                });
+        function calculateSharesForName(name, allotments, transfers) {
+            const normalizedName = String(name || '').trim().toLowerCase();
+            let ordinaryShares = 0;
+            let preferenceShares = 0;
 
-                excelMembers.forEach((m, idx) => {
-                    const hasCeased = !!(m.dateCeased && String(m.dateCeased).trim() !== '' && String(m.dateCeased) !== '—');
-                    
-                    const rawShares = (m.shares !== undefined && m.shares !== null && String(m.shares).trim() !== '')
-                        ? parseFloat(String(m.shares).replace(/,/g, ''))
-                        : null;
-                    
-                    const sharesHeld = hasCeased ? 0 : (rawShares !== null && !isNaN(rawShares) ? rawShares : 500);
-                    
-                    let pct = "0.00";
-                    if (!hasCeased) {
-                        if (m.percentage) {
-                            pct = String(m.percentage).replace('%', '').trim();
-                        } else if (totalActiveSharesAcrossMembers > 0 && sharesHeld > 0) {
-                            pct = ((sharesHeld / totalActiveSharesAcrossMembers) * 100).toFixed(2);
-                        } else if (sharesHeld > 0) {
-                            pct = "100.00";
+            // 1. Process Allotments
+            if (allotments && Array.isArray(allotments)) {
+                allotments.forEach(item => {
+                    const applicant = String(item.applicantName || '').trim().toLowerCase();
+                    if (applicant === normalizedName) {
+                        const shares = parseFloat(String(item.sharesApplied || item.shares || '0').replace(/[^0-9.]/g, '')) || 0;
+                        const shareClass = String(item.shareClass || 'ordinary').toLowerCase();
+                        if (shareClass.includes('pref')) {
+                            preferenceShares += shares;
+                        } else {
+                            ordinaryShares += shares;
                         }
                     }
-
-                    const rawPaid = (m.consideration !== undefined && m.consideration !== null && String(m.consideration).trim() !== '')
-                        ? parseFloat(String(m.consideration).replace(/,/g, ''))
-                        : (m.paidAmount !== undefined && m.paidAmount !== null && String(m.paidAmount).trim() !== '')
-                            ? parseFloat(String(m.paidAmount).replace(/,/g, ''))
-                            : null;
-
-                    const paidAmount = hasCeased ? 0 : (rawPaid !== null && !isNaN(rawPaid) ? rawPaid : sharesHeld);
-                    const status = hasCeased ? "Ceased / Cancelled" : "Active";
-
-                    shareholdersList.push({
-                        name: m.name || "Unknown Shareholder",
-                        type: m.type || ((m.idNumber && (m.idNumber.length > 9 || m.idNumber.startsWith('20'))) ? "Corporate" : "Individual"),
-                        id: `SHR-000${idx + 1}`,
-                        addedDate: m.dateEntered || "2016-01-26",
-                        dateCeased: m.dateCeased || "",
-                        sharesHeld: sharesHeld,
-                        percentage: pct,
-                        shareClass: m.shareClass || "Ordinary Shares",
-                        paidAmount: paidAmount,
-                        currency: m.currency || "SGD",
-                        votingRights: pct,
-                        email: m.email || `${(m.name || '').toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.')}@email.com`,
-                        mobile: m.mobile || "+65 9123 4567",
-                        address: m.address || "—",
-                        idNumber: m.idNumber || "—",
-                        nationality: m.nationality || "—",
-                        dob: m.dob || "—",
-                        status: status
-                    });
                 });
-            } else {
-                shareholdersList = [];
             }
+
+            // 2. Process Transfers
+            if (transfers && Array.isArray(transfers)) {
+                transfers.forEach(item => {
+                    const transferor = String(item.transferorName || '').trim().toLowerCase();
+                    const transferee = String(item.transfereeName || item.transfereeInfo || '').trim().toLowerCase();
+                    const shares = parseFloat(String(item.sharesTransferred || '0').replace(/[^0-9.]/g, '')) || 0;
+                    const shareClass = String(item.shareClass || 'ordinary').toLowerCase();
+
+                    // If they are the transferor, subtract shares
+                    if (transferor === normalizedName) {
+                        if (shareClass.includes('pref')) {
+                            preferenceShares -= shares;
+                        } else {
+                            ordinaryShares -= shares;
+                        }
+                    }
+                    // If they are the transferee, add shares
+                    if (transferee === normalizedName) {
+                        if (shareClass.includes('pref')) {
+                            preferenceShares += shares;
+                        } else {
+                            ordinaryShares += shares;
+                        }
+                    }
+                });
+            }
+
+            return {
+                ordinary: ordinaryShares,
+                preference: preferenceShares,
+                total: ordinaryShares + preferenceShares
+            };
         }
 
-        window.renderShareholdersList = function() {
-            const listContainer = document.getElementById('shareholders-list');
-            if (!listContainer) return;
+        function initShareholdersData(excelMembers, allotments = [], transfers = []) {
+            shareholdersList = [];
+            
+            let members = excelMembers || [];
+            if (members.length === 0 && allotments.length > 0) {
+                const uniqueNames = [];
+                allotments.forEach(a => {
+                    const name = String(a.applicantName || '').trim();
+                    if (name && !uniqueNames.includes(name)) {
+                        uniqueNames.push(name);
+                    }
+                });
+                members = uniqueNames.map(name => ({ name: name }));
+            }
 
-            const searchVal = document.getElementById('shareholder-search-input').value.toLowerCase();
-            const typeFilter = document.getElementById('shareholder-type-filter').value;
+            // Calculate total active shares across active members first
+            let totalActiveOrdinaryAcrossMembers = 0;
+            let totalActivePreferenceAcrossMembers = 0;
+            
+            const memberCalculatedShares = [];
 
-            // Sort shareholders list: Active first
-            shareholdersList.sort((a, b) => {
-                if (a.status === 'Active' && b.status !== 'Active') return -1;
-                if (a.status !== 'Active' && b.status === 'Active') return 1;
-                return 0;
+            members.forEach((m, idx) => {
+                const sharesInfo = calculateSharesForName(m.name, allotments, transfers);
+                memberCalculatedShares.push(sharesInfo);
+                
+                const hasCeased = !!(m.dateCeased && String(m.dateCeased).trim() !== '' && String(m.dateCeased) !== '—');
+                if (!hasCeased) {
+                    totalActiveOrdinaryAcrossMembers += sharesInfo.ordinary;
+                    totalActivePreferenceAcrossMembers += sharesInfo.preference;
+                }
             });
 
-            // Update title with Active Shareholders count only
-            const activeCount = shareholdersList.filter(s => s.status === 'Active').length;
-            const headerTitleEl = document.getElementById('shareholders-header-title');
-            if (headerTitleEl) {
-                headerTitleEl.innerText = `Shareholders (${activeCount})`;
-            }
+            const totalActiveSharesAcrossMembers = totalActiveOrdinaryAcrossMembers + totalActivePreferenceAcrossMembers;
 
-            // Update Total Shares, Total Value and Currency at top level
-            const totalShares = shareholdersList.reduce((sum, s) => sum + (Number(s.sharesHeld) || 0), 0);
-            const totalValue = shareholdersList.reduce((sum, s) => sum + (Number(s.paidAmount) || 0), 0);
-            const mainCurrency = (shareholdersList.find(s => s.currency && s.currency !== '—') || {}).currency || 'USD';
+            members.forEach((m, idx) => {
+                const hasCeased = !!(m.dateCeased && String(m.dateCeased).trim() !== '' && String(m.dateCeased) !== '—');
+                const sharesInfo = memberCalculatedShares[idx];
+                
+                const sharesHeld = hasCeased ? 0 : sharesInfo.total;
+                
+                let pct = "0.00";
+                if (!hasCeased && totalActiveSharesAcrossMembers > 0 && sharesHeld > 0) {
+                    pct = ((sharesHeld / totalActiveSharesAcrossMembers) * 100).toFixed(2);
+                }
 
-            const currencySymbolMap = { 'USD': '$ USD', 'SGD': 'S$ SGD', 'EUR': '€ EUR', 'GBP': '£ GBP', 'INR': '₹ INR' };
-            const currencyPrefixMap = { 'USD': '$', 'SGD': 'S$', 'EUR': '€', 'GBP': '£', 'INR': '₹' };
-            const formattedCurrency = currencySymbolMap[mainCurrency.toUpperCase()] || `$ ${mainCurrency}`;
-            const currPrefix = currencyPrefixMap[mainCurrency.toUpperCase()] || '$';
+                const rawPaid = (m.consideration !== undefined && m.consideration !== null && String(m.consideration).trim() !== '')
+                    ? parseFloat(String(m.consideration).replace(/,/g, ''))
+                    : (m.paidAmount !== undefined && m.paidAmount !== null && String(m.paidAmount).trim() !== '')
+                        ? parseFloat(String(m.paidAmount).replace(/,/g, ''))
+                        : null;
 
-            const totalSharesEl = document.getElementById('shareholders-total-shares-val');
-            if (totalSharesEl) {
-                totalSharesEl.innerText = totalShares.toLocaleString();
-            }
+                const paidAmount = hasCeased ? 0 : (rawPaid !== null && !isNaN(rawPaid) ? rawPaid : sharesHeld);
+                const status = (hasCeased || sharesHeld === 0) ? "Ceased / Cancelled" : "Active";
 
-            const totalValueEl = document.getElementById('shareholders-total-value-val');
-            if (totalValueEl) {
-                totalValueEl.innerText = `${currPrefix}${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            }
+                shareholdersList.push({
+                    name: m.name || "Unknown Shareholder",
+                    type: m.type || ((m.idNumber && (m.idNumber.length > 9 || m.idNumber.startsWith('20'))) ? "Corporate" : "Individual"),
+                    id: `SHR-000${idx + 1}`,
+                    addedDate: m.dateEntered || "2016-01-26",
+                    dateCeased: m.dateCeased || "",
+                    sharesHeld: sharesHeld,
+                    ordinaryShares: sharesInfo.ordinary,
+                    preferenceShares: sharesInfo.preference,
+                    percentage: pct,
+                    shareClass: m.shareClass || "Ordinary Shares",
+                    paidAmount: paidAmount,
+                    currency: m.currency || "SGD",
+                    votingRights: pct,
+                    email: m.email || `${(m.name || '').toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.')}@email.com`,
+                    mobile: m.mobile || "+65 9123 4567",
+                    address: m.address || "—",
+                    idNumber: m.idNumber || "—",
+                    nationality: m.nationality || "—",
+                    dob: m.dob || "—",
+                    status: status
+                });
+            });
+        }
 
-            const currencyEl = document.getElementById('shareholders-currency-val');
-            if (currencyEl) {
-                currencyEl.innerText = formattedCurrency;
-            }
-
-            listContainer.innerHTML = shareholdersList.map((s, idx) => {
-                const matchesSearch = s.name.toLowerCase().includes(searchVal) || s.email.toLowerCase().includes(searchVal);
-                const matchesFilter = typeFilter === 'all' || s.type === typeFilter;
-
-                if (!matchesSearch || !matchesFilter) return '';
+         window.renderShareholdersList = function() {
+             const listContainer = document.getElementById('shareholders-list');
+             if (!listContainer) return;
+ 
+             const searchVal = document.getElementById('shareholder-search-input') ? document.getElementById('shareholder-search-input').value.toLowerCase() : '';
+             const typeFilter = document.getElementById('shareholder-type-filter') ? document.getElementById('shareholder-type-filter').value : 'all';
+             const classFilter = document.getElementById('shareholder-class-filter') ? document.getElementById('shareholder-class-filter').value : 'all';
+ 
+             // Sort shareholders list: Active first
+             shareholdersList.sort((a, b) => {
+                 if (a.status === 'Active' && b.status !== 'Active') return -1;
+                 if (a.status !== 'Active' && b.status === 'Active') return 1;
+                 return 0;
+             });
+ 
+             // Update title with Active Shareholders count only
+             const activeCount = shareholdersList.filter(s => s.status === 'Active').length;
+             const headerTitleEl = document.getElementById('shareholders-header-title');
+             if (headerTitleEl) {
+                 headerTitleEl.innerText = `Shareholders (${activeCount})`;
+             }
+ 
+             // Update Total Shares, Total Value and Currency at top level
+             const totalShares = shareholdersList.reduce((sum, s) => sum + (Number(s.sharesHeld) || 0), 0);
+             const totalOrdShares = shareholdersList.reduce((sum, s) => sum + (s.status === 'Active' ? (s.ordinaryShares || 0) : 0), 0);
+             const totalPrefShares = shareholdersList.reduce((sum, s) => sum + (s.status === 'Active' ? (s.preferenceShares || 0) : 0), 0);
+             const totalValue = shareholdersList.reduce((sum, s) => sum + (Number(s.paidAmount) || 0), 0);
+             const mainCurrency = (shareholdersList.find(s => s.currency && s.currency !== '—') || {}).currency || 'USD';
+ 
+             const currencySymbolMap = { 'USD': '$ USD', 'SGD': 'S$ SGD', 'EUR': '€ EUR', 'GBP': '£ GBP', 'INR': '₹ INR' };
+             const currencyPrefixMap = { 'USD': '$', 'SGD': 'S$', 'EUR': '€', 'GBP': '£', 'INR': '₹' };
+             const formattedCurrency = currencySymbolMap[mainCurrency.toUpperCase()] || `$ ${mainCurrency}`;
+             const currPrefix = currencyPrefixMap[mainCurrency.toUpperCase()] || '$';
+ 
+             const totalSharesEl = document.getElementById('shareholders-total-shares-val');
+             if (totalSharesEl) {
+                 totalSharesEl.innerText = `${totalShares.toLocaleString()} (Ord: ${totalOrdShares.toLocaleString()} | Pref: ${totalPrefShares.toLocaleString()})`;
+             }
+ 
+             const totalValueEl = document.getElementById('shareholders-total-value-val');
+             if (totalValueEl) {
+                 totalValueEl.innerText = `${currPrefix}${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+             }
+ 
+             const currencyEl = document.getElementById('shareholders-currency-val');
+             if (currencyEl) {
+                 currencyEl.innerText = formattedCurrency;
+             }
+ 
+             listContainer.innerHTML = shareholdersList.map((s, idx) => {
+                 const matchesSearch = s.name.toLowerCase().includes(searchVal) || s.email.toLowerCase().includes(searchVal);
+                 const matchesType = typeFilter === 'all' || s.type === typeFilter;
+                 
+                 let matchesClass = true;
+                 if (classFilter === 'ordinary') {
+                     matchesClass = (s.ordinaryShares > 0);
+                 } else if (classFilter === 'preference') {
+                     matchesClass = (s.preferenceShares > 0);
+                 }
+ 
+                 if (!matchesSearch || !matchesType || !matchesClass) return '';
 
                 const isActive = idx === selectedShareholderIndex;
                 const activeClasses = isActive 
@@ -3914,6 +5046,17 @@
                     ? `<span class="px-1.5 py-0.5 rounded text-[8px] font-bold border uppercase tracking-wider bg-rose-50 text-rose-600 border-rose-100">${s.status}</span>`
                     : '';
 
+                let holdingDesc = '';
+                if (s.ordinaryShares > 0 && s.preferenceShares > 0) {
+                    holdingDesc = `Ord: ${s.ordinaryShares.toLocaleString()} | Pref: ${s.preferenceShares.toLocaleString()}`;
+                } else if (s.ordinaryShares > 0) {
+                    holdingDesc = `Ordinary: ${s.ordinaryShares.toLocaleString()}`;
+                } else if (s.preferenceShares > 0) {
+                    holdingDesc = `Preference: ${s.preferenceShares.toLocaleString()}`;
+                } else {
+                    holdingDesc = `${s.sharesHeld.toLocaleString()} shares`;
+                }
+
                 return `
                     <div onclick="selectShareholder(${idx})" class="p-4 border rounded-2xl cursor-pointer transition-all flex items-start justify-between gap-3 relative ${activeClasses}">
                         <div class="flex items-start gap-3">
@@ -3926,7 +5069,7 @@
                                     <span class="px-1.5 py-0.5 rounded text-[8px] font-bold border uppercase tracking-wider ${typeColor}">${s.type}</span>
                                     ${statusTag}
                                 </div>
-                                <p class="text-slate-400 text-[11px] font-medium mt-1">Shareholding: ${s.sharesHeld.toLocaleString()} shares</p>
+                                <p class="text-slate-400 text-[11px] font-medium mt-1">Shareholding: ${holdingDesc}</p>
                                 <p class="text-slate-500 text-[11px] font-medium mt-0.5">${s.percentage}%</p>
                             </div>
                         </div>
@@ -4061,16 +5204,20 @@
                             <h4 class="font-extrabold text-slate-800 text-sm border-b border-slate-50 pb-2">Shareholding Summary</h4>
                             <div class="space-y-3 font-medium text-slate-700">
                                 <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Shares Held</span>
+                                    <span class="text-slate-400 font-bold">Total Shares Held</span>
                                     <span class="font-bold text-slate-900">${shareholder.sharesHeld.toLocaleString()}</span>
+                                </div>
+                                <div class="flex justify-between py-1 border-b border-slate-50/50">
+                                    <span class="text-slate-400 font-bold">Ordinary Shares</span>
+                                    <span class="font-bold text-slate-900">${(shareholder.ordinaryShares || 0).toLocaleString()}</span>
+                                </div>
+                                <div class="flex justify-between py-1 border-b border-slate-50/50">
+                                    <span class="text-slate-400 font-bold">Preference Shares</span>
+                                    <span class="font-bold text-slate-900">${(shareholder.preferenceShares || 0).toLocaleString()}</span>
                                 </div>
                                 <div class="flex justify-between py-1 border-b border-slate-50/50">
                                     <span class="text-slate-400 font-bold">Percentage</span>
                                     <span class="font-bold text-slate-900">${shareholder.percentage}%</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Share Class</span>
-                                    <span class="font-bold text-slate-900">${shareholder.shareClass}</span>
                                 </div>
                                 <div class="flex justify-between py-1 border-b border-slate-50/50">
                                     <span class="text-slate-400 font-bold">Paid Amount</span>
@@ -4190,12 +5337,20 @@
                     <h4 class="font-extrabold text-slate-800 text-sm mb-4">Capital Shareholdings</h4>
                     <div class="grid grid-cols-2 gap-6 bg-slate-50/50 p-6 rounded-2xl border border-slate-100 text-xs">
                         <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Number of Shares</span>
+                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Shares Held</span>
                             <p class="font-bold text-slate-800 text-sm mt-1">${shareholder.sharesHeld.toLocaleString()}</p>
                         </div>
                         <div>
                             <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Share Percentage</span>
                             <p class="font-bold text-slate-800 text-sm mt-1">${shareholder.percentage}%</p>
+                        </div>
+                        <div>
+                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Ordinary Shares</span>
+                            <p class="font-bold text-slate-800 text-sm mt-1">${(shareholder.ordinaryShares || 0).toLocaleString()}</p>
+                        </div>
+                        <div>
+                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Preference Shares</span>
+                            <p class="font-bold text-slate-800 text-sm mt-1">${(shareholder.preferenceShares || 0).toLocaleString()}</p>
                         </div>
                         <div>
                             <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Currency</span>
@@ -4567,7 +5722,7 @@
                                     <span class="px-1.5 py-0.5 rounded text-[8px] font-bold border uppercase tracking-wider ${roleColor}">${u.role}</span>
                                 </div>
                                 <p class="text-slate-400 text-[11px] font-medium mt-1">${u.nationality}</p>
-                                <p class="text-slate-500 text-[11px] font-medium mt-0.5">Ownership: ${u.ownershipPct}% - Via: ${u.interestNature.split(' ')[0]}</p>
+                                <p class="text-slate-500 text-[11px] font-medium mt-0.5">Via: ${u.interestNature.split(' ')[0]}</p>
                             </div>
                         </div>
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-slate-400 self-center"><polyline points="9 18 15 12 9 6"/></svg>
@@ -4603,8 +5758,6 @@
                                 <span><strong>ID Type:</strong> ${ubo.idType}</span>
                                 <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
                                 <span><strong>ID No.:</strong> ${ubo.idNumber}</span>
-                                <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                <span><strong>Ownership:</strong> ${ubo.ownershipPct}%</span>
                                 <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
                                 <span><strong>Via:</strong> ${ubo.interestNature.split(' ')[0]}</span>
                             </p>
@@ -4696,10 +5849,6 @@
                             <div class="space-y-3 font-medium text-slate-700">
                                 <h4 class="font-extrabold text-slate-800 text-sm border-b border-slate-50 pb-2">Ownership & Control</h4>
                                 <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Ownership Percentage</span>
-                                    <span class="font-bold text-slate-800">${ubo.ownershipPct}%</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
                                     <span class="text-slate-400 font-bold">Nature of Interest</span>
                                     <span class="font-bold text-slate-800">${ubo.interestNature}</span>
                                 </div>
@@ -4763,14 +5912,10 @@
             } else if (activeUboTab === 'ownershipAndControl') {
                 container.innerHTML = `
                     <h4 class="font-extrabold text-slate-800 text-sm mb-4">Ownership & Control Details</h4>
-                    <div class="grid grid-cols-2 gap-6 bg-slate-50/50 p-6 rounded-2xl border border-slate-100 text-xs">
+                    <div class="grid grid-cols-1 gap-6 bg-slate-50/50 p-6 rounded-2xl border border-slate-100 text-xs">
                         <div>
                             <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Interest Nature</span>
                             <p class="font-bold text-slate-800 text-sm mt-1">${ubo.interestNature}</p>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Ownership Percentage</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1">${ubo.ownershipPct}%</p>
                         </div>
                     </div>
                 `;
@@ -5943,7 +7088,8 @@
                             auditors: [],
                             directorsShareholdings: [],
                             charges: [],
-                            rons: []
+                            rons: [],
+                            amlData: []
                         };
 
                         const getSheet = (name) => {
@@ -6518,6 +7664,102 @@
                                         propertyCharged: String(row[6] || '').trim(),
                                         dischargeDate: formatDate(row[7])
                                     });
+                                }
+                            });
+                        }
+
+                        // 11. RONS sheet
+                        const ronsSheet = getSheet('Register of Nominee Shareholders') || getSheet('Rons') || getSheet('RONS');
+                        if (ronsSheet) {
+                            const rows = XLSX.utils.sheet_to_json(ronsSheet, { header: 1 });
+                            rows.forEach((row, idx) => {
+                                if (idx < 8 || !row || row.length === 0) return;
+                                const nomineeName = String(row[2] || '').trim();
+                                const nominatorName = String(row[4] || '').trim();
+                                if (nomineeName || nominatorName) {
+                                    if (nomineeName.toLowerCase().includes('name of') || nomineeName.toLowerCase().includes('register') || nomineeName.toLowerCase().startsWith('s. no.')) return;
+                                    result.rons.push({
+                                        dateOfEntry: formatDate(row[1]) || String(row[1] || '').trim(),
+                                        nomineeName: nomineeName,
+                                        nomineeNotes: String(row[3] || '').trim(),
+                                        nominatorName: nominatorName,
+                                        nominatorAliases: String(row[5] || '').trim(),
+                                        nominatorIdNumber: String(row[6] || '').trim(),
+                                        nominatorNationality: String(row[7] || '').trim(),
+                                        nominatorDob: formatDate(row[8]) || String(row[8] || '').trim(),
+                                        nominatorAddress: String(row[9] || '').trim(),
+                                        notes: String(row[3] || '').trim() // fallback
+                                    });
+                                }
+                            });
+                        }
+
+                        // 12. AML sheet
+                        const amlSheet = getSheet('AML') || getSheet('Register of AML') || getSheet('AML Register');
+                        if (amlSheet) {
+                            const rows = XLSX.utils.sheet_to_json(amlSheet, { header: 1 });
+                            let amlHeaders = [];
+                            rows.forEach((row, idx) => {
+                                if (!row || row.length === 0) return;
+                                
+                                const rowStr = row.map(c => String(c || '').trim().toLowerCase()).join(' ');
+                                if (rowStr.includes('aml1') || rowStr.includes('cdd') || rowStr.includes('google search')) {
+                                    amlHeaders = row.map(c => String(c || '').trim().toLowerCase());
+                                    return;
+                                }
+
+                                if (amlHeaders.length > 0) {
+                                    const nameVal = String(row[0] || '').trim();
+                                    if (nameVal && !nameVal.toLowerCase().includes('name') && !nameVal.toLowerCase().includes('register') && nameVal.toUpperCase() !== 'NONE') {
+                                        const record = { name: nameVal };
+                                        amlHeaders.forEach((header, colIdx) => {
+                                            if (colIdx === 0) return;
+                                            const rawVal = row[colIdx];
+                                            let val = '';
+                                            if (rawVal !== undefined && rawVal !== null) {
+                                                const formatted = formatDate(rawVal);
+                                                val = (formatted === '') ? String(rawVal).trim() : formatted;
+                                            }
+                                            if (header.includes('aml1')) record.aml1 = val || '';
+                                            else if (header.includes('aml2')) record.aml2 = val || '';
+                                            else if (header.includes('aml3')) record.aml3 = val || '';
+                                            else if (header.includes('cdd2') || header === 'cdd 2') record.cdd2 = val || '';
+                                            else if (header.includes('cdd3') || header === 'cdd 3') record.cdd3 = val || '';
+                                            else if (header.includes('cdd')) record.cdd = val || '';
+                                            else if (header.includes('google')) record.googleSearch = val || '';
+                                            else if (header.includes('bank')) record.bankStatement = val || '';
+                                        });
+                                        record.aml1 = record.aml1 || '';
+                                        record.aml2 = record.aml2 || '';
+                                        record.aml3 = record.aml3 || '';
+                                        record.cdd = record.cdd || '';
+                                        record.cdd2 = record.cdd2 || '';
+                                        record.cdd3 = record.cdd3 || '';
+                                        record.googleSearch = record.googleSearch || '';
+                                        record.bankStatement = record.bankStatement || '';
+                                        result.amlData.push(record);
+                                    }
+                                } else {
+                                    const nameVal = String(row[0] || '').trim();
+                                    if (nameVal && idx > 5 && !nameVal.toLowerCase().includes('name') && !nameVal.toLowerCase().includes('register') && nameVal.toUpperCase() !== 'NONE') {
+                                        const getVal = (colIdx) => {
+                                            const rawVal = row[colIdx];
+                                            if (rawVal === undefined || rawVal === null) return '';
+                                            const formatted = formatDate(rawVal);
+                                            return (formatted === '') ? String(rawVal).trim() : formatted;
+                                        };
+                                        result.amlData.push({
+                                            name: nameVal,
+                                            aml1: getVal(1),
+                                            aml2: getVal(2),
+                                            aml3: getVal(3),
+                                            cdd: getVal(4),
+                                            cdd2: getVal(5),
+                                            cdd3: getVal(6),
+                                            googleSearch: getVal(7),
+                                            bankStatement: getVal(8)
+                                        });
+                                    }
                                 }
                             });
                         }
