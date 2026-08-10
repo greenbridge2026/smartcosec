@@ -3922,9 +3922,18 @@ function appendAIMessage(sender, text) {
     const chatBody = document.getElementById('ai-chat-body');
     const div = document.createElement('div');
     div.className = `flex gap-3 ${sender === 'user' ? 'flex-row-reverse' : ''}`;
+    
+    let formatted = text || '';
+    if (sender !== 'user') {
+        formatted = formatted.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-md transition no-underline my-1.5">$1 ↗</a>')
+                             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                             .replace(/`([^`]+)`/g, '<code class="bg-slate-100 px-1 py-0.5 rounded text-blue-700 font-mono text-xs">$1</code>')
+                             .replace(/\n/g, '<br>');
+    }
+
     div.innerHTML = `
-        <div class="${sender === 'user' ? 'bg-blue-600 text-white shadow-blue-200' : 'bg-white/60 text-slate-700 border border-white/60'} p-4 rounded-2xl ${sender === 'user' ? 'rounded-tr-none' : 'rounded-tl-none'} text-sm shadow-sm" style="white-space: pre-line;">
-            ${text}
+        <div class="${sender === 'user' ? 'bg-blue-600 text-white shadow-blue-200' : 'bg-white/90 text-slate-800 border border-white/60'} p-4 rounded-2xl ${sender === 'user' ? 'rounded-tr-none' : 'rounded-tl-none'} text-xs leading-relaxed shadow-sm">
+            ${formatted}
         </div>
     `;
     chatBody.appendChild(div);
