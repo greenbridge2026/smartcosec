@@ -272,10 +272,9 @@ function updateActiveSidebarItem(url) {
 
 // Global navigateTo router interceptor (defined read-only if not already)
 window.spaNavigate = async function(url, pushState = true) {
-    cleanupPageResources();
-
     // If it's a dashboard sub-module path and we have the switchDashboardModule handler:
     if (!url.includes('.html') && window.switchDashboardModule) {
+        cleanupPageResources();
         let module = 'clients';
         if (url.includes('applications')) module = 'applications';
         else if (url.includes('kyc')) module = 'kyc';
@@ -292,111 +291,8 @@ window.spaNavigate = async function(url, pushState = true) {
         return;
     }
 
-    // Preserve scroll position of switcher
-    const switcher = document.getElementById('module-switcher');
-    const scrollPos = switcher ? switcher.scrollTop : 0;
-
-    const mainContainer = document.querySelector('.main-container');
-    if (mainContainer) {
-        mainContainer.innerHTML = `
-            <div class="animate-pulse space-y-6">
-                <div class="flex justify-between items-end mb-6">
-                    <div class="space-y-2 w-full">
-                        <div class="h-8 bg-slate-200 rounded-xl w-1/4"></div>
-                        <div class="h-4 bg-slate-200 rounded-lg w-1/2"></div>
-                    </div>
-                </div>
-                <div class="bg-white border border-slate-100 p-6 rounded-2xl shadow-sm space-y-4">
-                    <div class="h-6 bg-slate-200 rounded-lg w-1/3 mb-4"></div>
-                    <div class="h-4 bg-slate-100 rounded w-full"></div>
-                    <div class="h-4 bg-slate-100 rounded w-5/6"></div>
-                    <div class="h-4 bg-slate-100 rounded w-4/5"></div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="h-32 bg-slate-50 border border-slate-100 rounded-2xl"></div>
-                    <div class="h-32 bg-slate-50 border border-slate-100 rounded-2xl"></div>
-                    <div class="h-32 bg-slate-50 border border-slate-100 rounded-2xl"></div>
-                </div>
-            </div>
-        `;
-    }
-
-    try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const html = await response.text();
-
-        const parser = new DOMParser();
-        const newDoc = parser.parseFromString(html, 'text/html');
-
-        if (pushState) {
-            history.pushState({ url }, '', url);
-        }
-
-        const newMain = newDoc.querySelector('.main-container');
-        if (newMain && mainContainer) {
-            mainContainer.innerHTML = newMain.innerHTML;
-        }
-
-        if (newDoc.title) {
-            document.title = newDoc.title;
-        }
-
-        if (switcher) {
-            switcher.scrollTop = scrollPos;
-        }
-
-        updateActiveSidebarItem(url);
-        if (window._updateTopNavBackButton) window._updateTopNavBackButton();
-
-        const newScripts = newDoc.querySelectorAll('script');
-        newScripts.forEach(script => {
-            if (script.src && script.src.includes('admin-sidebar.js')) {
-                return;
-            }
-
-            const newScript = document.createElement('script');
-            if (script.src) {
-                newScript.src = script.src;
-            } else {
-                const scriptText = script.textContent;
-                const funcMatches = Array.from(scriptText.matchAll(/function\s+([a-zA-Z0-9_$]+)\s*\(/g)).map(m => m[1]);
-                const uniqueFuncs = [...new Set(funcMatches)];
-                const exportsCode = uniqueFuncs.map(name => `try { if (typeof ${name} !== 'undefined') window.${name} = ${name}; } catch(e) {}`).join('\n');
-                
-                newScript.textContent = `
-(function() {
-    try {
-        ${scriptText}
-        ${exportsCode}
-    } catch (e) {
-        console.error("Error executing page script:", e);
-    }
-})();
-                `;
-            }
-            if (script.type) {
-                newScript.type = script.type;
-            }
-            document.body.appendChild(newScript);
-        });
-
-        if (typeof window.lucide !== 'undefined' && window.lucide && typeof window.lucide.createIcons === 'function') {
-            window.lucide.createIcons();
-        }
-
-    } catch (error) {
-        console.error("Failed to navigate to:", url, error);
-        if (mainContainer) {
-            mainContainer.innerHTML = `
-                <div class="p-6 text-center text-red-600 bg-red-50 border border-red-100 rounded-2xl">
-                    <h3 class="font-bold text-lg">Failed to load page</h3>
-                    <p class="text-sm mt-2">${error.message}</p>
-                    <button onclick="window.navigateTo('${url}')" class="mt-4 px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold">Retry</button>
-                </div>
-            `;
-        }
-    }
+    // Direct redirection to target page
+    window.location.href = url;
 };
 
 // Always overwrite navigateTo on the window object so it refers to spaNavigate
