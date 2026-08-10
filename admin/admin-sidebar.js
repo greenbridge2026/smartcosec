@@ -1800,11 +1800,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="space-y-1.5 pt-2">
                     <div class="text-[10px] uppercase font-black text-slate-400">Quick Prompt Suggestions:</div>
-                    <button onclick="sendBiQuery('give me a document of appointment of nominee director for Abbey Holdings')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
-                        📄 <span>Appointment of Nominee Director for Abbey Holdings</span>
+                    <button onclick="sendBiQuery('give me document of nominee director')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
+                        📄 <span>give me document of nominee director</span>
                     </button>
-                    <button onclick="sendBiQuery('give me a document of appointment of nominee director for 3B Trading')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
-                        📄 <span>Appointment of Nominee Director for 3B Trading</span>
+                    <button onclick="sendBiQuery('give me document of director')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
+                        👔 <span>give me document of director</span>
+                    </button>
+                    <button onclick="sendBiQuery('give me document of change of address')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
+                        📍 <span>give me document of change of address</span>
                     </button>
                     <button onclick="sendBiQuery('Totally how many client in system?')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
                         📊 <span>Totally how many clients in system?</span>
@@ -1832,10 +1835,26 @@ document.addEventListener('DOMContentLoaded', () => {
                                             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                                             .replace(/`([^`]+)`/g, '<code class="bg-slate-100 px-1 py-0.5 rounded text-blue-700 font-mono">$1</code>')
                                             .replace(/\n/g, '<br>');
+                    
+                    let optionsHtml = '';
+                    if (m.options && Array.isArray(m.options) && m.options.length > 0) {
+                        const compEscaped = (m.companyName || window.biLastReferencedCompany || '').replace(/'/g, "\\'");
+                        optionsHtml = `
+                            <div class="flex flex-wrap gap-2 mt-3 pt-2.5 border-t border-slate-200/80">
+                                ${m.options.map(opt => `
+                                    <button onclick="sendBiQuery('${opt}', '${compEscaped}')" class="px-3 py-1.5 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold text-xs rounded-xl border border-blue-200/80 transition shadow-xs flex items-center gap-1.5 cursor-pointer">
+                                        ${opt.toLowerCase().includes('nominee') ? '🏛️' : '👔'} ${opt}
+                                    </button>
+                                `).join('')}
+                            </div>
+                        `;
+                    }
+
                     return `
                         <div class="flex justify-start">
                             <div class="bg-white border border-slate-200 text-slate-800 p-3.5 rounded-2xl text-xs leading-relaxed max-w-[92%] shadow-sm">
                                 ${formatted}
+                                ${optionsHtml}
                             </div>
                         </div>
                     `;
@@ -1849,7 +1868,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${chatHtml}
                 </div>
                 <form onsubmit="handleBiFormSubmit(event)" class="mt-3 flex items-center gap-2 pt-2 border-t border-slate-200/60 shrink-0">
-                    <input type="text" id="bi-chat-input" placeholder="Ask AI... (e.g. totally how many client in system?)" class="flex-1 px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                    <input type="text" id="bi-chat-input" placeholder="Ask AI... (e.g. give me document of nominee director 3B Trading)" class="flex-1 px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
                     <button type="submit" class="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-blue-600/20 flex items-center justify-center shrink-0">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                     </button>
@@ -1861,9 +1880,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (container) container.scrollTop = container.scrollHeight;
     };
 
-    window.sendBiQuery = async function(text) {
+    window.sendBiQuery = async function(text, companyHint) {
         if (!text || !text.trim()) return;
         const qText = text.trim();
+        const activeCompany = companyHint || window.biLastReferencedCompany || '';
 
         window.biMessagesHistory.push({ sender: 'user', text: qText });
         window.showBusinessAiAssistant();
@@ -1884,14 +1904,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const res = await fetch('/api/admin/intelligence/ask?q=' + encodeURIComponent(qText));
+            let url = '/api/admin/intelligence/ask?q=' + encodeURIComponent(qText);
+            if (activeCompany) {
+                url += '&company=' + encodeURIComponent(activeCompany);
+            }
+            const res = await fetch(url);
             const data = await res.json();
             const reply = data.reply || "Sorry, I couldn't query the database right now.";
+
+            if (data.companyName) {
+                window.biLastReferencedCompany = data.companyName;
+            }
 
             const loadEl = document.getElementById('bi-loading-indicator');
             if (loadEl) loadEl.remove();
 
-            window.biMessagesHistory.push({ sender: 'assistant', text: reply });
+            window.biMessagesHistory.push({
+                sender: 'assistant',
+                text: reply,
+                options: data.options,
+                type: data.type,
+                companyName: data.companyName || activeCompany
+            });
             window.showBusinessAiAssistant();
         } catch(err) {
             console.error("BI Query error:", err);
@@ -1909,7 +1943,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!input || !input.value.trim()) return;
         const val = input.value.trim();
         input.value = '';
-        window.sendBiQuery(val);
+        window.sendBiQuery(val, window.biLastReferencedCompany);
     };
 
     function initQuickChat() {
