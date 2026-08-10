@@ -111,6 +111,7 @@ function isLocalAdminLink(url) {
     }
     if (urlStr.includes('://')) return false;
     const path = urlStr.split('?')[0].split('#')[0];
+    if (path.includes('document-viewer')) return false;
     return (path.endsWith('.html') || !path.includes('.')) && !path.includes('/auth.html');
 }
 
@@ -380,7 +381,7 @@ window.spaNavigate = async function(url, pushState = true) {
             document.body.appendChild(newScript);
         });
 
-        if (window.lucide) {
+        if (typeof window.lucide !== 'undefined' && window.lucide && typeof window.lucide.createIcons === 'function') {
             window.lucide.createIcons();
         }
 
@@ -411,10 +412,15 @@ window.addEventListener('popstate', (event) => {
 
 document.addEventListener('click', (event) => {
     const anchor = event.target.closest('a');
-    if (anchor && isLocalAdminLink(anchor.href)) {
-        event.preventDefault();
-        window.navigateTo(anchor.href);
-        return;
+    if (anchor) {
+        if (anchor.target === '_blank' || anchor.getAttribute('target') === '_blank' || anchor.hasAttribute('download')) {
+            return;
+        }
+        if (isLocalAdminLink(anchor.href)) {
+            event.preventDefault();
+            window.navigateTo(anchor.href);
+            return;
+        }
     }
 
     const clickable = event.target.closest('[onclick]');
@@ -1898,6 +1904,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="space-y-1.5 pt-2">
                     <div class="text-[10px] uppercase font-black text-slate-400">Quick Prompt Suggestions:</div>
+                    <button onclick="sendBiQuery('give me a document of appointment of nominee director for Abbey Holdings')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
+                        📄 <span>Appointment of Nominee Director for Abbey Holdings</span>
+                    </button>
+                    <button onclick="sendBiQuery('give me a document of appointment of nominee director for 3B Trading')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
+                        📄 <span>Appointment of Nominee Director for 3B Trading</span>
+                    </button>
                     <button onclick="sendBiQuery('Totally how many client in system?')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
                         📊 <span>Totally how many clients in system?</span>
                     </button>
@@ -1906,9 +1918,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </button>
                     <button onclick="sendBiQuery('Tell me about Abbey Holdings')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
                         🏢 <span>Tell me about Abbey Holdings</span>
-                    </button>
-                    <button onclick="sendBiQuery('Tell me about 3B Trading')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
-                        🏢 <span>Tell me about 3B Trading</span>
                     </button>
                 </div>
             `;
@@ -1923,7 +1932,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     `;
                 } else {
-                    const formatted = m.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    const formatted = m.text.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-md transition no-underline my-1.5">$1 ↗</a>')
+                                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                                             .replace(/`([^`]+)`/g, '<code class="bg-slate-100 px-1 py-0.5 rounded text-blue-700 font-mono">$1</code>')
                                             .replace(/\n/g, '<br>');
                     return `
