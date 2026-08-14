@@ -1771,6 +1771,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.chatWidgetMode = 'bi';
     window.biMessagesHistory = [];
+    window.biThreads = [];
+    window.biActiveThreadId = localStorage.getItem('globalisor_bi_thread_id') || null;
+    window.biActiveCompany = localStorage.getItem('globalisor_bi_company') || null;
+    window.biShowThreadsView = false;
 
     window.switchChatWidgetMode = function(mode) {
         window.chatWidgetMode = mode;
@@ -1787,36 +1791,234 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    window.loadBiThreads = async function(targetThreadId) {
+        try {
+            const res = await fetch('/api/admin/intelligence/threads?userId=admin');
+            if (res.ok) {
+                const threads = await res.json();
+                window.biThreads = Array.isArray(threads) ? threads : [];
+                
+                let selected = null;
+                if (targetThreadId) {
+                    selected = window.biThreads.find(t => t.id === targetThreadId);
+                }
+                if (!selected && window.biActiveThreadId) {
+                    selected = window.biThreads.find(t => t.id === window.biActiveThreadId);
+                }
+                if (!selected && window.biThreads.length > 0) {
+                    selected = window.biThreads[0];
+                }
+
+                if (selected) {
+                    window.biActiveThreadId = selected.id;
+                    localStorage.setItem('globalisor_bi_thread_id', selected.id);
+                    window.biActiveCompany = selected.activeCompany || null;
+                    if (selected.activeCompany) {
+                        localStorage.setItem('globalisor_bi_company', selected.activeCompany);
+                    } else {
+                        localStorage.removeItem('globalisor_bi_company');
+                    }
+                    window.biMessagesHistory = Array.isArray(selected.messages) ? selected.messages : [];
+                } else {
+                    window.biActiveThreadId = null;
+                    window.biMessagesHistory = [];
+                }
+            }
+        } catch(e) {
+            console.warn('[BI Threads] Failed to load threads from backend:', e);
+        }
+        window.showBusinessAiAssistant();
+    };
+
+    window.createNewBiThread = async function() {
+        try {
+            const res = await fetch('/api/admin/intelligence/threads', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: 'admin', title: 'New Conversation' })
+            });
+            if (res.ok) {
+                const newThread = await res.json();
+                window.biActiveThreadId = newThread.id;
+                localStorage.setItem('globalisor_bi_thread_id', newThread.id);
+                window.biActiveCompany = null;
+                localStorage.removeItem('globalisor_bi_company');
+                window.biMessagesHistory = [];
+                window.biShowThreadsView = false;
+                await window.loadBiThreads(newThread.id);
+                return;
+            }
+        } catch(e) {
+            console.error('[BI Threads] Error creating thread:', e);
+        }
+        // Fallback
+        window.biActiveThreadId = 'th_' + Date.now();
+        localStorage.setItem('globalisor_bi_thread_id', window.biActiveThreadId);
+        window.biActiveCompany = null;
+        localStorage.removeItem('globalisor_bi_company');
+        window.biMessagesHistory = [];
+        window.biShowThreadsView = false;
+        window.showBusinessAiAssistant();
+    };
+
+    window.switchBiThread = async function(threadId) {
+        window.biActiveThreadId = threadId;
+        localStorage.setItem('globalisor_bi_thread_id', threadId);
+        window.biShowThreadsView = false;
+        await window.loadBiThreads(threadId);
+    };
+
+    window.deleteBiThread = async function(e, threadId) {
+        if (e) e.stopPropagation();
+        if (!confirm('Are you sure you want to delete this conversation thread?')) return;
+        try {
+            await fetch('/api/admin/intelligence/threads/' + encodeURIComponent(threadId), { method: 'DELETE' });
+            if (window.biActiveThreadId === threadId) {
+                window.biActiveThreadId = null;
+                localStorage.removeItem('globalisor_bi_thread_id');
+            }
+            await window.loadBiThreads();
+        } catch(err) {
+            console.error('Error deleting thread:', err);
+        }
+    };
+
+    window.clearBiActiveCompany = async function(e) {
+        if (e) e.stopPropagation();
+        window.biActiveCompany = null;
+        localStorage.removeItem('globalisor_bi_company');
+        if (window.biActiveThreadId) {
+            try {
+                await fetch('/api/admin/intelligence/threads/' + encodeURIComponent(window.biActiveThreadId) + '/context', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ company: '', uen: '' })
+                });
+            } catch(err) {}
+        }
+        window.showBusinessAiAssistant();
+    };
+
+    window.toggleBiThreadsView = function() {
+        window.biShowThreadsView = !window.biShowThreadsView;
+        window.showBusinessAiAssistant();
+    };
+
     window.showBusinessAiAssistant = function() {
         const body = document.getElementById('quick-chat-body');
         if (!body) return;
 
+        // 1. Thread selection banner & Context Pill
+        const currentThread = window.biThreads.find(t => t.id === window.biActiveThreadId);
+        const threadTitle = currentThread ? currentThread.title : 'Active Thread';
+        const displayComp = window.biActiveCompany ? window.biActiveCompany.replace('PTE. LTD.', '').replace('PTE LTD', '').trim() : '';
+
+        const contextBadgeHtml = window.biActiveCompany ? `
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg text-[11px] font-bold shadow-2xs max-w-[210px]" title="Active Context: ${window.biActiveCompany}">
+                <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse shrink-0"></span>
+                <span class="truncate">${displayComp}</span>
+                <button onclick="clearBiActiveCompany(event)" class="text-blue-400 hover:text-red-500 ml-0.5 font-black text-xs transition" title="Clear entity context">✕</button>
+            </div>
+        ` : `
+            <div class="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 border border-slate-200 text-slate-500 rounded-lg text-[11px] font-medium" title="No entity locked. Ask about any client or select a suggestion.">
+                <span>🌐</span>
+                <span>All Clients</span>
+            </div>
+        `;
+
+        const threadControlsHtml = `
+            <div class="px-3.5 py-2 bg-white border-b border-slate-200/80 flex items-center justify-between gap-2 shrink-0">
+                <div class="flex items-center gap-1.5 min-w-0">
+                    ${contextBadgeHtml}
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                    <button onclick="toggleBiThreadsView()" class="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 text-slate-700 rounded-lg text-[11px] font-bold transition flex items-center gap-1 shadow-2xs" title="View all conversation threads">
+                        <span>🧵</span>
+                        <span class="max-w-[80px] truncate">${threadTitle}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <button onclick="createNewBiThread()" class="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-bold transition shadow-xs flex items-center gap-1" title="Start a fresh chat thread">
+                        <span>+ New</span>
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // 2. Render Threads View or Chat View
+        if (window.biShowThreadsView) {
+            const threadListHtml = window.biThreads.length === 0 ? `
+                <div class="text-center p-6 text-xs text-slate-400 font-semibold">No saved threads yet. Start a new conversation!</div>
+            ` : window.biThreads.map(t => {
+                const isActive = t.id === window.biActiveThreadId;
+                const msgCount = Array.isArray(t.messages) ? t.messages.length : 0;
+                const compTag = t.activeCompany ? `<span class="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold truncate max-w-[120px]">${t.activeCompany.replace('PTE. LTD.', '').trim()}</span>` : '';
+                return `
+                    <div onclick="switchBiThread('${t.id}')" class="p-3 rounded-xl border ${isActive ? 'bg-blue-50/80 border-blue-300 ring-1 ring-blue-400/30' : 'bg-white border-slate-200 hover:border-blue-300 hover:bg-slate-50/80'} cursor-pointer transition shadow-2xs flex items-center justify-between gap-2 group">
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-1.5 mb-1">
+                                <span class="text-xs font-bold text-slate-800 truncate">${t.title || 'Conversation'}</span>
+                                ${compTag}
+                            </div>
+                            <div class="text-[10px] text-slate-400 font-medium flex items-center gap-2">
+                                <span>💬 ${msgCount} messages</span>
+                                <span>•</span>
+                                <span>${t.updatedAt ? new Date(t.updatedAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Just now'}</span>
+                            </div>
+                        </div>
+                        <button onclick="deleteBiThread(event, '${t.id}')" class="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete thread">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+
+            body.innerHTML = `
+                <div class="flex-1 flex flex-col min-h-0 bg-slate-50">
+                    <div class="p-3 bg-white border-b border-slate-200 flex items-center justify-between">
+                        <div class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                            <span>🧵 Conversation Threads (${window.biThreads.length})</span>
+                        </div>
+                        <button onclick="toggleBiThreadsView()" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition">← Back to Chat</button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto p-3 space-y-2">
+                        ${threadListHtml}
+                    </div>
+                    <div class="p-3 bg-white border-t border-slate-200 shrink-0">
+                        <button onclick="createNewBiThread()" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center justify-center gap-1.5">
+                            <span>+ Start Fresh Thread</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        // 3. Normal Chat View
         let chatHtml = '';
         if (window.biMessagesHistory.length === 0) {
+            const contextTip = window.biActiveCompany ? `Currently focused on <strong>${window.biActiveCompany}</strong>. Subsequent questions will automatically use this company.` : `Ask any question about your clients or documents. Once a company is mentioned, it will be remembered for all follow-up questions!`;
+            
             chatHtml = `
-                <div class="p-3.5 bg-blue-600 text-white rounded-2xl text-xs shadow-sm leading-relaxed">
-                    👋 <strong>Welcome to Globalisor Business Intelligence Assistant!</strong><br><br>
-                    Ask me any question about your registered companies, clients count, total documents, or compliance status.
+                <div class="p-3.5 bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl text-xs shadow-md leading-relaxed">
+                    👋 <strong>Globalisor Thread-Aware AI Assistant</strong><br><br>
+                    ${contextTip}
                 </div>
                 <div class="space-y-1.5 pt-2">
-                    <div class="text-[10px] uppercase font-black text-slate-400">Quick Prompt Suggestions:</div>
-                    <button onclick="sendBiQuery('give me document of nominee director')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
+                    <div class="text-[10px] uppercase font-black text-slate-400">Suggested Prompts:</div>
+                    <button onclick="sendBiQuery('give me document of nominee director')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-2xs flex items-center gap-2">
                         📄 <span>give me document of nominee director</span>
                     </button>
-                    <button onclick="sendBiQuery('give me document of director')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
+                    <button onclick="sendBiQuery('give me document of director')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-2xs flex items-center gap-2">
                         👔 <span>give me document of director</span>
                     </button>
-                    <button onclick="sendBiQuery('give me document of change of address')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
+                    <button onclick="sendBiQuery('give me document of change of address')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-2xs flex items-center gap-2">
                         📍 <span>give me document of change of address</span>
                     </button>
-                    <button onclick="sendBiQuery('Totally how many client in system?')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
-                        📊 <span>Totally how many clients in system?</span>
-                    </button>
-                    <button onclick="sendBiQuery('How many total documents uploaded?')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
-                        📁 <span>How many total documents uploaded?</span>
-                    </button>
-                    <button onclick="sendBiQuery('Tell me about Abbey Holdings')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-sm flex items-center gap-2">
+                    <button onclick="sendBiQuery('Tell me about Abbey Holdings')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-2xs flex items-center gap-2">
                         🏢 <span>Tell me about Abbey Holdings</span>
+                    </button>
+                    <button onclick="sendBiQuery('Who is the current director?')" class="w-full text-left p-2.5 bg-white border border-slate-200 hover:border-blue-500 rounded-xl font-bold text-xs text-slate-700 hover:text-blue-600 transition shadow-2xs flex items-center gap-2">
+                        👨‍💼 <span>Who is the current director? (uses thread context)</span>
                     </button>
                 </div>
             `;
@@ -1825,24 +2027,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (m.sender === 'user') {
                     return `
                         <div class="flex justify-end">
-                            <div class="bg-slate-900 text-white px-3.5 py-2 rounded-2xl text-xs font-semibold max-w-[85%] shadow-sm">
+                            <div class="bg-slate-900 text-white px-3.5 py-2 rounded-2xl rounded-tr-xs text-xs font-semibold max-w-[85%] shadow-sm">
                                 ${m.text}
                             </div>
                         </div>
                     `;
                 } else {
-                    const formatted = m.text.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-md transition no-underline my-1.5">$1 ↗</a>')
-                                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                                            .replace(/`([^`]+)`/g, '<code class="bg-slate-100 px-1 py-0.5 rounded text-blue-700 font-mono">$1</code>')
-                                            .replace(/\n/g, '<br>');
-                    
+                    const formatted = (m.text || '').replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-md transition no-underline my-1.5">$1 ↗</a>')
+                                                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                                    .replace(/`([^`]+)`/g, '<code class="bg-slate-100 px-1 py-0.5 rounded text-blue-700 font-mono font-bold">$1</code>')
+                                                    .replace(/\n/g, '<br>');
+
+                    // 1. Options Buttons
                     let optionsHtml = '';
                     if (m.options && Array.isArray(m.options) && m.options.length > 0) {
-                        const compEscaped = (m.companyName || window.biLastReferencedCompany || '').replace(/'/g, "\\'");
+                        const compEscaped = (m.companyName || window.biActiveCompany || '').replace(/'/g, "\\'");
                         optionsHtml = `
                             <div class="flex flex-wrap gap-2 mt-3 pt-2.5 border-t border-slate-200/80">
                                 ${m.options.map(opt => `
-                                    <button onclick="sendBiQuery('${opt}', '${compEscaped}')" class="px-3 py-1.5 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold text-xs rounded-xl border border-blue-200/80 transition shadow-xs flex items-center gap-1.5 cursor-pointer">
+                                    <button onclick="sendBiQuery('${opt}', '${compEscaped}')" class="px-3 py-1.5 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold text-xs rounded-xl border border-blue-200/80 transition shadow-2xs flex items-center gap-1.5 cursor-pointer">
                                         ${opt.toLowerCase().includes('nominee') ? '🏛️' : '👔'} ${opt}
                                     </button>
                                 `).join('')}
@@ -1850,10 +2053,43 @@ document.addEventListener('DOMContentLoaded', () => {
                         `;
                     }
 
+                    // 2. Document Card (Preserved & Enhanced)
+                    let docCardHtml = '';
+                    if (m.docId || m.viewUrl) {
+                        const docViewerUrl = m.viewUrl || `/admin/document-viewer.html?docId=${m.docId}&type=${m.type || 'nominee_director'}`;
+                        const docDownloadUrl = m.downloadUrl || `/api/admin/intelligence/document/${m.docId}/download`;
+                        const docTitle = m.type === 'change_of_address_document' ? 'Change of Registered Office Address Resolution' :
+                                        (m.type === 'director_appointment_document' ? 'Director Appointment Package (2 Documents)' : 'Nominee Director Package (3 Documents)');
+                        
+                        docCardHtml = `
+                            <div class="mt-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50/80 border border-blue-200 rounded-xl space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <div class="text-[11px] font-extrabold text-blue-900 flex items-center gap-1.5">
+                                        <span>📑</span>
+                                        <span>${docTitle}</span>
+                                    </div>
+                                    <span class="px-1.5 py-0.5 bg-blue-600 text-white font-black text-[9px] rounded-md uppercase">Ready</span>
+                                </div>
+                                <div class="text-[11px] text-slate-600 font-medium">
+                                    Generated for <strong>${m.companyName || window.biActiveCompany || 'Selected Client'}</strong>
+                                </div>
+                                <div class="flex items-center gap-2 pt-1">
+                                    <a href="${docViewerUrl}" target="_blank" class="flex-1 text-center px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-sm transition no-underline flex items-center justify-center gap-1">
+                                        <span>📄 Open in Editor</span>
+                                    </a>
+                                    <a href="${docDownloadUrl}" class="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 rounded-lg font-bold text-xs transition no-underline flex items-center justify-center gap-1 shadow-2xs" title="Download .DOCX file">
+                                        <span>⬇️ .DOCX</span>
+                                    </a>
+                                </div>
+                            </div>
+                        `;
+                    }
+
                     return `
                         <div class="flex justify-start">
-                            <div class="bg-white border border-slate-200 text-slate-800 p-3.5 rounded-2xl text-xs leading-relaxed max-w-[92%] shadow-sm">
+                            <div class="bg-white border border-slate-200 text-slate-800 p-3.5 rounded-2xl rounded-tl-xs text-xs leading-relaxed max-w-[92%] shadow-sm">
                                 ${formatted}
+                                ${docCardHtml}
                                 ${optionsHtml}
                             </div>
                         </div>
@@ -1863,12 +2099,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         body.innerHTML = `
-            <div class="p-4 flex-1 flex flex-col min-h-0 bg-slate-50/70">
-                <div id="bi-chat-container" class="flex-1 overflow-y-auto space-y-3 pr-1">
+            <div class="flex-1 flex flex-col min-h-0 bg-slate-50/70">
+                ${threadControlsHtml}
+                <div id="bi-chat-container" class="flex-1 overflow-y-auto p-4 space-y-3 pr-2">
                     ${chatHtml}
                 </div>
-                <form onsubmit="handleBiFormSubmit(event)" class="mt-3 flex items-center gap-2 pt-2 border-t border-slate-200/60 shrink-0">
-                    <input type="text" id="bi-chat-input" placeholder="Ask AI... (e.g. give me document of nominee director 3B Trading)" class="flex-1 px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                <form onsubmit="handleBiFormSubmit(event)" class="p-3 bg-white border-t border-slate-200/80 flex items-center gap-2 shrink-0">
+                    <input type="text" id="bi-chat-input" placeholder="${window.biActiveCompany ? `Ask about ${displayComp}... (e.g. who is the secretary?)` : 'Ask AI... (e.g. Tell me about Abbey Holdings)'}" class="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white shadow-2xs transition">
                     <button type="submit" class="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-blue-600/20 flex items-center justify-center shrink-0">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                     </button>
@@ -1883,7 +2120,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.sendBiQuery = async function(text, companyHint) {
         if (!text || !text.trim()) return;
         const qText = text.trim();
-        const activeCompany = companyHint || window.biLastReferencedCompany || '';
+        const activeCompany = companyHint || window.biActiveCompany || '';
+        const threadId = window.biActiveThreadId || '';
 
         window.biMessagesHistory.push({ sender: 'user', text: qText });
         window.showBusinessAiAssistant();
@@ -1894,9 +2132,9 @@ document.addEventListener('DOMContentLoaded', () => {
             loadingDiv.id = 'bi-loading-indicator';
             loadingDiv.className = 'flex justify-start';
             loadingDiv.innerHTML = `
-                <div class="bg-white border border-slate-200 text-slate-500 p-3 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-sm">
+                <div class="bg-white border border-slate-200 text-slate-500 p-3 rounded-2xl rounded-tl-xs text-xs font-bold flex items-center gap-2 shadow-sm">
                     <span class="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
-                    Analyzing MongoDB database & metrics...
+                    ${activeCompany ? `Reasoning for <strong>${activeCompany}</strong>...` : 'Analyzing database & resolving context...'}
                 </div>
             `;
             container.appendChild(loadingDiv);
@@ -1908,12 +2146,22 @@ document.addEventListener('DOMContentLoaded', () => {
             if (activeCompany) {
                 url += '&company=' + encodeURIComponent(activeCompany);
             }
+            if (threadId) {
+                url += '&threadId=' + encodeURIComponent(threadId);
+            }
+
             const res = await fetch(url);
             const data = await res.json();
-            const reply = data.reply || "Sorry, I couldn't query the database right now.";
+            const reply = data.reply || "Sorry, I couldn't process this query right now.";
 
-            if (data.companyName) {
-                window.biLastReferencedCompany = data.companyName;
+            if (data.threadId) {
+                window.biActiveThreadId = data.threadId;
+                localStorage.setItem('globalisor_bi_thread_id', data.threadId);
+            }
+
+            if (data.activeCompany || data.companyName) {
+                window.biActiveCompany = data.activeCompany || data.companyName;
+                localStorage.setItem('globalisor_bi_company', window.biActiveCompany);
             }
 
             const loadEl = document.getElementById('bi-loading-indicator');
@@ -1924,9 +2172,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 text: reply,
                 options: data.options,
                 type: data.type,
-                companyName: data.companyName || activeCompany
+                companyName: data.companyName || window.biActiveCompany,
+                docId: data.docId,
+                viewUrl: data.viewUrl,
+                downloadUrl: data.downloadUrl,
+                docCount: data.docCount
             });
+
             window.showBusinessAiAssistant();
+
+            // Refresh thread list in background
+            try {
+                const tRes = await fetch('/api/admin/intelligence/threads?userId=admin');
+                if (tRes.ok) {
+                    window.biThreads = await tRes.json();
+                }
+            } catch(e) {}
+
         } catch(err) {
             console.error("BI Query error:", err);
             const loadEl = document.getElementById('bi-loading-indicator');
@@ -1943,7 +2205,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!input || !input.value.trim()) return;
         const val = input.value.trim();
         input.value = '';
-        window.sendBiQuery(val, window.biLastReferencedCompany);
+        window.sendBiQuery(val, window.biActiveCompany);
     };
 
     function initQuickChat() {
@@ -1956,7 +2218,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 <span id="quick-chat-badge" class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 border border-white rounded-full text-[10px] font-bold text-white flex items-center justify-center hidden">0</span>
             </div>
-            <div id="quick-chat-window" class="fixed bottom-24 right-6 w-[420px] h-[540px] bg-white/95 backdrop-blur-xl border border-white/60 shadow-2xl rounded-2xl overflow-hidden flex flex-col z-[9999] transform translate-y-10 opacity-0 pointer-events-none transition-all duration-300">
+            <div id="quick-chat-window" class="fixed bottom-24 right-6 w-[420px] h-[560px] bg-white/95 backdrop-blur-xl border border-white/60 shadow-2xl rounded-2xl overflow-hidden flex flex-col z-[9999] transform translate-y-10 opacity-0 pointer-events-none transition-all duration-300">
                 <div class="p-3.5 bg-slate-900 text-white flex justify-between items-center shrink-0">
                     <div class="flex items-center gap-2">
                         <div class="flex bg-slate-800 p-0.5 rounded-xl border border-slate-700">
@@ -1979,7 +2241,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         document.getElementById('quick-chat-fab').onclick = toggleQuickChat;
         
-        window.showBusinessAiAssistant();
+        // Initial thread load
+        window.loadBiThreads();
         window.updateQuickChatUnreadBadge();
         
         setInterval(window.updateQuickChatUnreadBadge, 5000);
