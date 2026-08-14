@@ -3898,12 +3898,23 @@ async function handleAISend() {
     chatBody.scrollTop = chatBody.scrollHeight;
 
     try {
-        const res = await fetch('/api/admin/intelligence/ask?q=' + encodeURIComponent(msg));
+        if (!state.clientAiThreadId) {
+            state.clientAiThreadId = localStorage.getItem('globalisor_client_ai_thread_id') || ('th_client_' + Date.now());
+            localStorage.setItem('globalisor_client_ai_thread_id', state.clientAiThreadId);
+        }
+        let url = '/api/admin/intelligence/ask?q=' + encodeURIComponent(msg) + '&threadId=' + encodeURIComponent(state.clientAiThreadId);
+        if (state.clientAiCompany) {
+            url += '&company=' + encodeURIComponent(state.clientAiCompany);
+        }
+        const res = await fetch(url);
         if (res.ok) {
             const data = await res.json();
             const typeEl = document.getElementById('ai-typing-indicator');
             if (typeEl) typeEl.remove();
             if (data && data.reply) {
+                if (data.activeCompany || data.companyName) {
+                    state.clientAiCompany = data.activeCompany || data.companyName;
+                }
                 appendAIMessage('bot', data.reply);
                 return;
             }
