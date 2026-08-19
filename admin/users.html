@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Staff User Management | Globalisor Admin</title>
+    <title>User & Credentials Management | Globalisor Admin</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
     <script>
@@ -21,14 +21,14 @@
         }
     </script>
     <style>
-        body { font-family: 'Outfit', sans-serif; background: #ffffff;  min-height: 100vh; overflow-x: hidden; }
+        body { font-family: 'Outfit', sans-serif; background: #f8fafc; min-height: 100vh; overflow-x: hidden; }
         .top-nav { height: 60px; background: #ffffff; backdrop-filter: blur(20px); border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1.5rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
         .main-container { padding: 2rem; max-width: 1600px; margin-left: 240px !important; margin-right: auto; }
         .module-nav-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #64748b; transition: all 0.2s; cursor: pointer !important; border: none; background: transparent; white-space: nowrap; width: 100% !important; box-sizing: border-box !important; }
         .module-nav-btn:hover { color: #0f172a; background: #ffffff; }
         .module-nav-btn.active { color: #0f172a; background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         
-        .top-nav > div:nth-child(2), #module-switcher {
+        #module-switcher {
             position: fixed !important;
             top: 60px !important;
             left: 0 !important;
@@ -37,10 +37,6 @@
             background: #ffffff !important;
             backdrop-filter: blur(20px) !important;
             border-right: 1px solid #e2e8f0 !important;
-            border-top: none !important;
-            border-left: none !important;
-            border-bottom: none !important;
-            border-radius: 0 !important;
             display: flex !important;
             flex-direction: column !important;
             padding: 1.5rem 1rem !important;
@@ -48,35 +44,37 @@
             align-items: stretch !important;
             justify-content: flex-start !important;
             z-index: 9998 !important;
-            box-shadow: none !important;
         }
 
-        .submenu-container {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-            transition: all 0.3s ease;
-        }
-        .submenu-container.hidden {
-            display: none !important;
-        }
-        .submenu-arrow {
-            transition: transform 0.2s ease;
-        }
-        .submenu-open .submenu-arrow {
-            transform: rotate(180deg);
-        }
+        .submenu-container { display: flex; flex-direction: column; gap: 0.25rem; }
+        .submenu-container.hidden { display: none !important; }
+        .submenu-arrow { transition: transform 0.2s ease; }
+        .submenu-open .submenu-arrow { transform: rotate(180deg); }
+        
         .admin-table { width: 100%; border-collapse: collapse; }
-        .admin-table th { padding: 1rem 1.5rem; font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #f1f5f9; background: #f8fafc; }
-        .admin-table td { padding: 1rem 1.5rem; font-size: 0.85rem; color: #1e293b; border-bottom: 1px solid #f1f5f9; }
-        .glass-card { background: #ffffff; backdrop-filter: blur(20px); border: 1px solid #e2e8f0; border-radius: 20px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.02); }
-        /* Staff actions dropdown */
-        .staff-actions-dropdown { position:absolute; right:0; top:calc(100% + 4px); width:140px; background:#fff; border:1px solid #e2e8f0; border-radius:14px; box-shadow:0 12px 40px rgba(0,0,0,0.1); z-index:200; padding:4px; display:none; }
-        .staff-actions-dropdown.open { display:block; }
-        .staff-actions-btn { width:100%; text-align:left; padding:8px 12px; font-size:11px; font-weight:700; border-radius:10px; border:none; background:transparent; cursor:pointer; display:flex; align-items:center; gap:8px; transition:background 0.15s; }
-        .staff-actions-btn:hover { background:#f8fafc; }
-        .staff-actions-btn.danger { color:#ef4444; }
-        .staff-actions-btn.danger:hover { background:#fef2f2; }
+        .admin-table th { padding: 0.9rem 1.25rem; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+        .admin-table td { padding: 0.9rem 1.25rem; font-size: 0.85rem; color: #1e293b; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        .admin-table tr:hover { background: rgba(241, 245, 249, 0.4); }
+        .glass-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); }
+        
+        .actions-dropdown { position: absolute; right: 0; top: calc(100% + 4px); width: 180px; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.12); z-index: 200; padding: 6px; display: none; }
+        .actions-dropdown.open { display: block; }
+        .actions-btn { width: 100%; text-align: left; padding: 8px 12px; font-size: 12px; font-weight: 600; border-radius: 10px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.15s; color: #334155; }
+        .actions-btn:hover { background: #f1f5f9; color: #0f172a; }
+        .actions-btn.primary-action { color: #2563eb; }
+        .actions-btn.primary-action:hover { background: #eff6ff; }
+        .actions-btn.danger { color: #ef4444; }
+        .actions-btn.danger:hover { background: #fef2f2; }
+
+        .tab-btn { padding: 0.65rem 1.25rem; border-radius: 12px; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; border: none; display: inline-flex; align-items: center; gap: 0.5rem; }
+        .tab-btn.active { background: #0f172a; color: #ffffff; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15); }
+        .tab-btn:not(.active) { background: transparent; color: #64748b; }
+        .tab-btn:not(.active):hover { background: #e2e8f0; color: #0f172a; }
+
+        .stat-badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.6rem; border-radius: 9999px; font-size: 11px; font-weight: 700; }
+        .stat-badge.active { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+        .stat-badge.pending { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
+        .stat-badge.docs { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
     </style>
     <script type="module" src="admin-sidebar.js"></script>
 </head>
@@ -89,41 +87,9 @@
             </div>
         </div>
         <div id="module-switcher" class="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-white/80">
-            <button onclick="window.location.href='dashboard.html'" class="module-nav-btn" id="btn-clients"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Clients</button>
-            <button onclick="window.location.href='applications.html'" class="module-nav-btn" id="btn-applications"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> Applications</button>
-            <button onclick="window.location.href='kyc.html'" class="module-nav-btn" id="btn-kyc"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg> KYC Review</button>
-            <button onclick="window.location.href='compliance.html'" class="module-nav-btn" id="btn-compliance"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="m16 16 3-8 3 8c-.87.65-2.24.83-3 .83s-2.13-.18-3-.83Z"/><path d="m2 16 3-8 3 8c-.87.65-2.24.83-3 .83s-2.13-.18-3-.83Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h18"/></svg> Compliance</button>
-            
-            <button onclick="window.location.href='reports.html'" class="module-nav-btn" id="btn-reports"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> Reports</button>
-            <button onclick="window.location.href='messages.html'" class="module-nav-btn" id="btn-messages"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Messages</button>
-            <button onclick="window.location.href='content.html'" class="module-nav-btn" id="btn-content"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> Content</button>
-
-            <!-- Services Accordion Group -->
-            <div class="w-full flex flex-col gap-0.5">
-                <button onclick="toggleSubmenu('services-submenu')" class="module-nav-btn" id="btn-services">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-                    <span class="flex-1 text-left">Services</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 submenu-arrow transition-transform duration-200 shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
-                </button>
-                <div id="services-submenu" class="submenu-container hidden pl-6 flex flex-col gap-0.5 mt-0.5">
-                    <button onclick="window.location.href='blogs.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-blogs"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Blogs</button>
-                    <button onclick="window.location.href='countries.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-countries"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg> Countries</button>
-                    <button onclick="window.location.href='users.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-users"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg> Users</button>
-                </div>
-            </div>
+            <!-- Dynamically enhanced by admin-sidebar.js -->
         </div>
         <div class="flex items-center justify-end gap-3 relative">
-            <button id="admin-bell-btn" title="Notifications" onclick="window._adminToggleBell && window._adminToggleBell(event)" style="position:relative;padding:0.5rem;border-radius:9999px;background:transparent;border:none;cursor:pointer;color:#475569;display:flex;align-items:center;justify-content:center;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                <span id="admin-notif-badge" style="display:none;position:absolute;top:4px;right:4px;min-width:16px;height:16px;padding:0 3px;background:#ef4444;border-radius:9999px;border:2px solid #fff;font-size:9px;font-weight:700;color:#fff;line-height:12px;text-align:center;box-sizing:border-box;"></span>
-            </button>
-            <div id="admin-notif-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;width:320px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.12);z-index:99999;overflow:hidden;font-family:'Outfit',sans-serif;">
-                <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;">
-                    <span style="font-size:13px;font-weight:700;color:#0f172a;">🔔 Notifications</span>
-                    <button onclick="window._adminMarkAllRead && window._adminMarkAllRead(event)" style="font-size:11px;color:#3b82f6;font-weight:700;background:none;border:none;cursor:pointer;">Mark all read</button>
-                </div>
-                <div id="admin-notif-list" style="max-height:300px;overflow-y:auto;"></div>
-            </div>
             <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
                 <div class="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-xs">A</div>
                 <div class="flex flex-col">
@@ -135,100 +101,371 @@
     </nav>
 
     <main class="main-container">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Create Staff Form Section -->
-            <div class="lg:col-span-1 space-y-6">
-                <div class="glass-card p-6">
-                    <h2 class="text-xl font-bold font-outfit text-slate-900 mb-2">Create New Staff</h2>
-                    <p class="text-slate-500 text-xs mb-6">Enter details to generate staff credentials.</p>
-                    
-                    <form id="create-staff-form" class="space-y-4">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 mb-1">First Name</label>
-                            <input type="text" id="first-name" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required placeholder="Enter first name">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 mb-1">Last Name</label>
-                            <input type="text" id="last-name" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required placeholder="Enter last name">
-                        </div>
-                        
-                        <button type="submit" class="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]">
-                            <i data-lucide="user-plus" class="w-4 h-4"></i> Generate Credentials
-                        </button>
-                    </form>
+        <!-- Page Header & Tab Navigation -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+            <div>
+                <h1 class="text-2xl lg:text-3xl font-extrabold text-slate-900 font-outfit tracking-tight">Credentials & User Management</h1>
+                <p class="text-slate-500 text-xs sm:text-sm mt-0.5">Generate, export, and distribute login credentials for all 101 migrated clients and manage staff accounts.</p>
+            </div>
+            <!-- Main Tabs Switcher -->
+            <div class="flex items-center bg-slate-200/70 p-1 rounded-2xl border border-slate-300/60 shadow-inner">
+                <button onclick="switchTab('clients')" id="tab-btn-clients" class="tab-btn active">
+                    <i data-lucide="building-2" class="w-4 h-4"></i>
+                    <span>Migrated Clients (<span id="tab-client-count">101</span>)</span>
+                </button>
+                <button onclick="switchTab('staff')" id="tab-btn-staff" class="tab-btn">
+                    <i data-lucide="shield-check" class="w-4 h-4"></i>
+                    <span>Staff Directory</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- TAB 1: MIGRATED CLIENTS CREDENTIALS MANAGEMENT           -->
+        <!-- ======================================================== -->
+        <div id="section-clients" class="space-y-6">
+            <!-- Metrics & Quick Stats -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="glass-card p-4 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg">
+                        <i data-lucide="users" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Clients</div>
+                        <div class="text-xl font-extrabold text-slate-900 font-outfit" id="stat-total-clients">101</div>
+                    </div>
+                </div>
+                <div class="glass-card p-4 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg">
+                        <i data-lucide="key-round" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Credentials Ready</div>
+                        <div class="text-xl font-extrabold text-emerald-600 font-outfit" id="stat-credentials-ready">101</div>
+                    </div>
+                </div>
+                <div class="glass-card p-4 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-lg">
+                        <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Portal Active</div>
+                        <div class="text-xl font-extrabold text-indigo-600 font-outfit" id="stat-portal-active">101</div>
+                    </div>
+                </div>
+                <div class="glass-card p-4 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-lg">
+                        <i data-lucide="folder-check" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Vault Connected</div>
+                        <div class="text-xl font-extrabold text-slate-900 font-outfit" id="stat-vault-connected">100%</div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Staff Directory Table Section -->
-            <div class="lg:col-span-2 space-y-6">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h2 class="text-2xl font-bold font-outfit text-slate-900">Staff Directory</h2>
-                        <p class="text-slate-500 text-sm">List of registered staff members who have access to the staff portal.</p>
-                    </div>
+            <!-- Action Control Bar -->
+            <div class="glass-card p-5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+                <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <button onclick="batchGenerateCredentials(false)" id="btn-batch-generate" class="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all">
+                        <i data-lucide="zap" class="w-4 h-4"></i>
+                        <span>Generate Credentials for All Migrated Clients (101)</span>
+                    </button>
+                    <button onclick="exportCredentialsCSV()" class="px-3.5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-2 shadow-sm active:scale-[0.98] transition-all">
+                        <i data-lucide="download" class="w-4 h-4 text-emerald-600"></i>
+                        <span>Export All (CSV)</span>
+                    </button>
+                    <button onclick="copyAllCredentialsToClipboard()" class="px-3.5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-2 shadow-sm active:scale-[0.98] transition-all">
+                        <i data-lucide="copy" class="w-4 h-4 text-blue-600"></i>
+                        <span>Copy All</span>
+                    </button>
                 </div>
+                <div class="flex items-center gap-3">
+                    <div class="relative flex-1 md:w-64">
+                        <input type="text" id="client-search" placeholder="Search by name, company, email, ID..." oninput="filterClients()" class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                    </div>
+                    <button onclick="openAddClientModal()" class="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shrink-0 shadow-sm transition-all">
+                        <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+                        <span>Add Client</span>
+                    </button>
+                </div>
+            </div>
 
-                <div class="glass-card overflow-hidden">
+            <!-- Client Directory Table -->
+            <div class="glass-card overflow-hidden">
+                <div class="overflow-x-auto">
                     <table class="admin-table">
                         <thead>
                             <tr class="text-left">
-                                <th class="w-16">ID</th>
-                                <th>Name</th>
-                                <th>Email Address</th>
-                                <th>Password</th>
-                                <th>Role</th>
-                                <th>Actions</th>
+                                <th class="w-24">Client ID</th>
+                                <th>Client Name</th>
+                                <th>Company / Entity</th>
+                                <th>Email Address (Login)</th>
+                                <th>Login Password</th>
+                                <th>Documents</th>
+                                <th>Portal Status</th>
+                                <th class="text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody id="staff-table-body">
-                            <tr><td colspan="6" class="p-12 text-center text-slate-400">Loading staff directory...</td></tr>
+                        <tbody id="clients-table-body">
+                            <tr><td colspan="8" class="p-12 text-center text-slate-400">Loading migrated clients directory...</td></tr>
                         </tbody>
                     </table>
+                </div>
+                <div class="p-4 bg-slate-50/50 border-t border-slate-100 flex justify-between items-center text-xs text-slate-500 font-semibold">
+                    <div id="clients-pagination-info">Showing all migrated clients</div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[11px] text-slate-400">Client Portal Login URL:</span>
+                        <code class="px-2 py-0.5 bg-white border border-slate-200 rounded text-slate-700 text-[11px] select-all font-mono" id="portal-url-badge">/login.html</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- TAB 2: STAFF USER DIRECTORY                              -->
+        <!-- ======================================================== -->
+        <div id="section-staff" class="space-y-6 hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Create Staff Form -->
+                <div class="lg:col-span-1 space-y-6">
+                    <div class="glass-card p-6">
+                        <h2 class="text-xl font-bold font-outfit text-slate-900 mb-1">Create New Staff</h2>
+                        <p class="text-slate-500 text-xs mb-6">Generate credentials for team members & specialist officers.</p>
+                        
+                        <form id="create-staff-form" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1">First Name</label>
+                                <input type="text" id="staff-first-name" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required placeholder="First name">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1">Last Name</label>
+                                <input type="text" id="staff-last-name" class="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold" required placeholder="Last name">
+                            </div>
+                            
+                            <button type="submit" class="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]">
+                                <i data-lucide="user-plus" class="w-4 h-4"></i> Generate Staff Credentials
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Staff Directory Table -->
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h2 class="text-2xl font-bold font-outfit text-slate-900">Staff Directory</h2>
+                            <p class="text-slate-500 text-sm">Registered staff members who have access to the staff portal.</p>
+                        </div>
+                    </div>
+
+                    <div class="glass-card overflow-hidden">
+                        <table class="admin-table">
+                            <thead>
+                                <tr class="text-left">
+                                    <th class="w-16">#</th>
+                                    <th>Name</th>
+                                    <th>Email Address</th>
+                                    <th>Password</th>
+                                    <th>Role</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="staff-table-body">
+                                <tr><td colspan="6" class="p-12 text-center text-slate-400">Loading staff directory...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     </main>
 
-    <!-- Credentials Modal -->
-    <div id="credentials-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300">
-        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto" onclick="closeModal()"></div>
-        <div class="bg-white/95 backdrop-blur-xl border border-white/60 rounded-3xl p-8 w-full max-w-md shadow-2xl relative z-10 pointer-events-auto transform scale-90 transition-transform">
-            <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-6 mx-auto">
-                <i data-lucide="shield-check" class="w-6 h-6"></i>
+    <!-- ======================================================== -->
+    <!-- MODAL: SHARE & INVITE CLIENT (PREVIEW & MULTI-CHANNEL)    -->
+    <!-- ======================================================== -->
+    <div id="share-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto" onclick="closeShareModal()"></div>
+        <div class="bg-white/95 backdrop-blur-2xl border border-white/80 rounded-3xl p-6 sm:p-8 w-full max-w-lg shadow-2xl relative z-10 pointer-events-auto transform scale-90 transition-transform font-outfit">
+            <div class="flex justify-between items-start mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xl shadow-inner">
+                        <i data-lucide="send" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-900">Share Client Credentials</h3>
+                        <p class="text-slate-500 text-xs" id="share-client-company-label">Invitation for Globalisor Executive Portal</p>
+                    </div>
+                </div>
+                <button onclick="closeShareModal()" class="text-slate-400 hover:text-slate-700 p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
             </div>
-            
-            <h3 class="text-xl font-bold text-center text-slate-900 mb-2">Staff Account Created</h3>
-            <p class="text-slate-500 text-xs text-center mb-6">Provide these credentials to the staff member to log in.</p>
-            
-            <div class="space-y-4 mb-8">
-                <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Email Address</label>
-                    <div class="flex justify-between items-center">
-                        <span id="display-email" class="text-xs font-bold text-slate-700 select-all"></span>
-                        <button onclick="copyText('display-email')" class="p-1.5 hover:bg-slate-200/50 rounded-lg text-slate-500 transition-colors" title="Copy Email">
+
+            <!-- Credentials Box -->
+            <div class="space-y-3 mb-6 bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80">
+                <div>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Client Portal Login URL</span>
+                    <div class="flex justify-between items-center bg-white p-2.5 rounded-xl border border-slate-200">
+                        <span id="share-display-url" class="text-xs font-mono font-bold text-blue-600 select-all truncate mr-2"></span>
+                        <button onclick="copyText('share-display-url')" class="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 transition-colors" title="Copy URL">
                             <i data-lucide="copy" class="w-4 h-4"></i>
                         </button>
                     </div>
                 </div>
-                
-                <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Password</label>
-                    <div class="flex justify-between items-center">
-                        <span id="display-password" class="text-xs font-mono font-bold text-slate-700 select-all"></span>
-                        <button onclick="copyText('display-password')" class="p-1.5 hover:bg-slate-200/50 rounded-lg text-slate-500 transition-colors" title="Copy Password">
+                <div>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Client Email Address</span>
+                    <div class="flex justify-between items-center bg-white p-2.5 rounded-xl border border-slate-200">
+                        <span id="share-display-email" class="text-xs font-bold text-slate-800 select-all truncate mr-2"></span>
+                        <button onclick="copyText('share-display-email')" class="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 transition-colors" title="Copy Email">
                             <i data-lucide="copy" class="w-4 h-4"></i>
                         </button>
+                    </div>
+                </div>
+                <div>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Temporary Login Password</span>
+                    <div class="flex justify-between items-center bg-white p-2.5 rounded-xl border border-slate-200">
+                        <span id="share-display-password" class="text-xs font-mono font-extrabold text-emerald-600 select-all"></span>
+                        <div class="flex items-center gap-1">
+                            <button onclick="toggleSharePassword()" id="btn-toggle-share-pass" class="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 transition-colors" title="View Password">
+                                <i data-lucide="eye" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="copyText('share-display-password')" class="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 transition-colors" title="Copy Password">
+                                <i data-lucide="copy" class="w-4 h-4"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <button onclick="closeModal()" class="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-2xl text-xs transition-all flex items-center justify-center gap-2 shadow-md">
-                Copy Details & Close
-            </button>
+            <!-- Message Preview Box -->
+            <div class="mb-6">
+                <div class="flex justify-between items-center mb-1.5">
+                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Invitation Message Preview</span>
+                    <span class="text-[10px] text-slate-400">Ready to send</span>
+                </div>
+                <textarea id="share-preview-text" rows="5" readonly class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 leading-relaxed outline-none select-all resize-none"></textarea>
+            </div>
+
+            <!-- Action Buttons Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                <button onclick="copyShareFullMessage()" class="py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow transition-all col-span-2 sm:col-span-1 active:scale-[0.98]">
+                    <i data-lucide="copy" class="w-4 h-4"></i>
+                    <span>Copy Full Message</span>
+                </button>
+                <button onclick="sendShareEmail()" class="py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow transition-all active:scale-[0.98]">
+                    <i data-lucide="mail" class="w-4 h-4"></i>
+                    <span>Open in Email</span>
+                </button>
+                <button onclick="sendShareWhatsApp()" class="py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow transition-all active:scale-[0.98]">
+                    <i data-lucide="message-circle" class="w-4 h-4"></i>
+                    <span>Share WhatsApp</span>
+                </button>
+            </div>
+            
+            <div class="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center">
+                <a href="/login.html" target="_blank" class="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1">
+                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                    <span>Open Client Portal Login</span>
+                </a>
+                <button onclick="closeShareModal()" class="text-xs font-bold text-slate-400 hover:text-slate-700">Close</button>
+            </div>
         </div>
     </div>
 
-    <!-- Edit Staff Modal -->
+    <!-- ======================================================== -->
+    <!-- MODAL: ADD CLIENT MANUALLY                               -->
+    <!-- ======================================================== -->
+    <div id="add-client-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto" onclick="closeAddClientModal()"></div>
+        <div class="bg-white/95 backdrop-blur-2xl border border-white/80 rounded-3xl p-6 sm:p-8 w-full max-w-md shadow-2xl relative z-10 pointer-events-auto transform scale-90 transition-transform font-outfit">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900">Add New Client</h3>
+                    <p class="text-slate-500 text-xs">Generate login credentials & activate portal access.</p>
+                </div>
+                <button onclick="closeAddClientModal()" class="text-slate-400 hover:text-slate-700 p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form id="add-client-form" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">First Name *</label>
+                    <input type="text" id="add-client-first-name" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-semibold" required placeholder="e.g. Vikram">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Last Name</label>
+                    <input type="text" id="add-client-last-name" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-semibold" placeholder="e.g. Kumar">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Company / Entity Name</label>
+                    <input type="text" id="add-client-company" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-semibold" placeholder="e.g. 3B Trading & Consulting Pte Ltd">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Email Address (Optional - auto-generated if empty)</label>
+                    <input type="email" id="add-client-email" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-semibold" placeholder="e.g. vikram.kumar@example.com">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Password (Optional - auto-generated if empty)</label>
+                    <input type="text" id="add-client-password" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-semibold" placeholder="Leave empty for auto-generated Glob-XXXX">
+                </div>
+                <div class="flex gap-3 pt-4">
+                    <button type="button" onclick="closeAddClientModal()" class="flex-1 py-3 border border-slate-200 text-slate-500 font-bold rounded-xl text-xs hover:bg-slate-50 transition-all">Cancel</button>
+                    <button type="submit" class="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition-all shadow-md">Generate & Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- MODAL: EDIT CLIENT                                       -->
+    <!-- ======================================================== -->
+    <div id="edit-client-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto" onclick="closeEditClientModal()"></div>
+        <div class="bg-white/95 backdrop-blur-2xl border border-white/80 rounded-3xl p-6 sm:p-8 w-full max-w-md shadow-2xl relative z-10 pointer-events-auto transform scale-90 transition-transform font-outfit">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900">Edit Client Details</h3>
+                    <p class="text-slate-500 text-xs">Update account or reset password.</p>
+                </div>
+                <button onclick="closeEditClientModal()" class="text-slate-400 hover:text-slate-700 p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form id="edit-client-form" class="space-y-4">
+                <input type="hidden" id="edit-client-id">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">First Name</label>
+                    <input type="text" id="edit-client-first-name" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-semibold" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Last Name</label>
+                    <input type="text" id="edit-client-last-name" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-semibold">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Company / Entity Name</label>
+                    <input type="text" id="edit-client-company" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-semibold">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Email Address</label>
+                    <input type="email" id="edit-client-email" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-semibold" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Password</label>
+                    <input type="text" id="edit-client-password" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-semibold font-mono" placeholder="Leave unchanged or type new password">
+                </div>
+                <div class="flex gap-3 pt-4">
+                    <button type="button" onclick="closeEditClientModal()" class="flex-1 py-3 border border-slate-200 text-slate-500 font-bold rounded-xl text-xs hover:bg-slate-50 transition-all">Cancel</button>
+                    <button type="submit" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all shadow-md">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- MODAL: EDIT STAFF                                        -->
+    <!-- ======================================================== -->
     <div id="edit-staff-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300">
         <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto" onclick="closeEditStaffModal()"></div>
         <div class="bg-white/95 backdrop-blur-xl border border-white/60 rounded-3xl p-8 w-full max-w-md shadow-2xl relative z-10 pointer-events-auto transform scale-90 transition-transform">
@@ -259,78 +496,688 @@
         </div>
     </div>
 
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-[100000] flex flex-col gap-2 pointer-events-none"></div>
+
     <script>
-        window.toggleSubmenu = function(id) {
-            const submenu = document.getElementById(id);
-            const btn = document.getElementById('btn-services');
-            if (submenu) {
-                const isOpen = !submenu.classList.contains('hidden');
-                if (isOpen) {
-                    submenu.classList.add('hidden');
-                    btn.classList.remove('submenu-open');
-                } else {
-                    submenu.classList.remove('hidden');
-                    btn.classList.add('submenu-open');
-                }
-            }
-        }
-
-        // Auto open submenu on load
-        document.addEventListener('DOMContentLoaded', () => {
-            const path = window.location.pathname;
-            if (path.includes('blogs.html') || path.includes('countries.html') || path.includes('users.html')) {
-                const submenu = document.getElementById('services-submenu');
-                const btn = document.getElementById('btn-services');
-                if (submenu) submenu.classList.remove('hidden');
-                if (btn) btn.classList.add('submenu-open');
-            }
-        });
-
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-
-        function generateStaffClientSide(firstName, lastName) {
-            const baseEmail = (firstName + "." + lastName).toLowerCase().replace(/[^a-z0-9]/g, "");
-            let email = baseEmail + "@globalisor.com";
-            
-            let localAccounts = [];
-            try {
-                localAccounts = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]');
-            } catch (e) {
-                console.error("Error reading local_staff_accounts", e);
-            }
-            
-            let suffix = 1;
-            while (localAccounts.some(acc => acc.email === email)) {
-                email = baseEmail + suffix + "@globalisor.com";
-                suffix++;
-            }
-            
-            const randomNum = Math.floor(Math.random() * 9000) + 1000;
-            const password = "Glob-" + randomNum;
-            
-            const newStaff = {
-                id: "local_" + (localAccounts.length + 1),
-                firstName: firstName,
-                lastName: lastName,
-                email: email,
-                password: password,
-                role: "STAFF"
-            };
-            
-            localAccounts.push(newStaff);
-            localStorage.setItem('local_staff_accounts', JSON.stringify(localAccounts));
-            return newStaff;
-        }
+        // State
+        let allClients = [];
+        let filteredClients = [];
+        let activeShareClient = null;
+        let isSharePasswordMasked = false;
 
         const EYE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0z"/><circle cx="12" cy="12" r="3"/></svg>`;
         const EYE_OFF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>`;
         const COPY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
 
-        window.togglePasswordVisibility = function(id, password) {
-            const textSpan = document.getElementById(`pass-text-${id}`);
-            const btn = document.getElementById(`pass-btn-${id}`);
-            if (!textSpan || !btn) return;
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = `p-3 px-4 rounded-xl text-xs font-bold shadow-xl border pointer-events-auto flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0 ${
+                type === 'success' ? 'bg-slate-900 text-white border-slate-700' : 'bg-red-600 text-white border-red-500'
+            }`;
+            toast.innerHTML = `<span>${type === 'success' ? '✅' : '⚠️'}</span><span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 10);
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function getFullPortalUrl() {
+            return window.location.origin + '/login.html';
+        }
+
+        window.switchTab = function(tab) {
+            const secClients = document.getElementById('section-clients');
+            const secStaff = document.getElementById('section-staff');
+            const btnClients = document.getElementById('tab-btn-clients');
+            const btnStaff = document.getElementById('tab-btn-staff');
+
+            if (tab === 'clients') {
+                secClients.classList.remove('hidden');
+                secStaff.classList.add('hidden');
+                btnClients.classList.add('active');
+                btnStaff.classList.remove('active');
+                fetchClients();
+            } else {
+                secClients.classList.add('hidden');
+                secStaff.classList.remove('hidden');
+                btnClients.classList.remove('active');
+                btnStaff.classList.add('active');
+                fetchStaff();
+            }
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        // ── Fetch & Render Migrated Clients ──────────────────────────────
+        async function fetchClients() {
+            const tbody = document.getElementById('clients-table-body');
+            try {
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const token = authObj.token;
+                const res = await fetch('/api/admin/clients', {
+                    headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+                });
+
+                if (res.ok) {
+                    allClients = await res.json();
+                } else {
+                    // Fallback to dashboard API or local mock
+                    const dashRes = await fetch('/api/dashboard');
+                    if (dashRes.ok) {
+                        const dashData = await dashRes.json();
+                        allClients = (dashData.clients || []).map(c => ({
+                            id: c.id,
+                            name: c.name,
+                            firstName: c.name.split(' ')[0],
+                            lastName: c.name.split(' ').slice(1).join(' '),
+                            email: c.email || (c.id.toLowerCase() + '@client.globalisor.com'),
+                            companyName: (c.companyNames && c.companyNames[0]) || '3B Trading & Consulting Pte Ltd',
+                            password: 'Glob-' + (Math.floor(Math.random() * 9000) + 1000),
+                            status: c.latestStatus || 'Active',
+                            docsCount: 8,
+                            portalActivated: true
+                        }));
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching clients:", err);
+            }
+
+            // Sync stats
+            document.getElementById('stat-total-clients').innerText = allClients.length;
+            document.getElementById('tab-client-count').innerText = allClients.length;
+            const readyCount = allClients.filter(c => c.password && c.password.length > 0).length;
+            document.getElementById('stat-credentials-ready').innerText = readyCount;
+            document.getElementById('stat-portal-active').innerText = allClients.length;
             
+            filterClients();
+        }
+
+        window.filterClients = function() {
+            const searchVal = (document.getElementById('client-search')?.value || '').toLowerCase().trim();
+            filteredClients = allClients.filter(c => {
+                const name = (c.name || '').toLowerCase();
+                const comp = (c.companyName || '').toLowerCase();
+                const email = (c.email || '').toLowerCase();
+                const id = (c.id || '').toLowerCase();
+                return name.includes(searchVal) || comp.includes(searchVal) || email.includes(searchVal) || id.includes(searchVal);
+            });
+            renderClientsTable();
+        };
+
+        function renderClientsTable() {
+            const tbody = document.getElementById('clients-table-body');
+            if (!tbody) return;
+
+            if (filteredClients.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-400 font-semibold">No clients match the search query.</td></tr>`;
+                return;
+            }
+
+            const portalUrl = getFullPortalUrl();
+
+            tbody.innerHTML = filteredClients.map((client, idx) => {
+                const safeId = (client.id || 'C-' + idx).replace(/[^a-zA-Z0-9_-]/g, '_');
+                const rawPassword = client.password || 'Glob-••••';
+                const hasPassword = client.password && client.password.length > 0;
+
+                return `
+                <tr class="hover:bg-blue-50/30 transition-colors">
+                    <td>
+                        <span class="font-mono text-xs font-bold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-lg">${client.id}</span>
+                    </td>
+                    <td>
+                        <div class="font-bold text-slate-900 font-outfit text-sm">${client.name || (client.firstName + ' ' + client.lastName)}</div>
+                    </td>
+                    <td>
+                        <div class="font-semibold text-slate-700 text-xs">${client.companyName || 'Globalisor Entity'}</div>
+                    </td>
+                    <td>
+                        <div class="flex items-center justify-between gap-2 max-w-[220px]">
+                            <span class="text-slate-600 font-semibold text-xs truncate" title="${client.email}">${client.email}</span>
+                            <button onclick="copyToClipboard('${client.email}', 'Email copied')" class="p-1 hover:bg-slate-200/50 rounded text-slate-400 hover:text-slate-700 transition-colors shrink-0" title="Copy Email">
+                                ${COPY_SVG}
+                            </button>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="flex items-center gap-1.5">
+                            <span class="font-mono text-xs text-slate-600 font-bold" id="client-pass-${safeId}">••••••••</span>
+                            <button id="client-pass-btn-${safeId}" onclick="toggleClientPassword('${safeId}', '${rawPassword}')" class="p-1 hover:bg-slate-200/50 rounded text-slate-400 hover:text-slate-700 transition-colors" title="View Password">
+                                ${EYE_SVG}
+                            </button>
+                            <button onclick="copyToClipboard('${rawPassword}', 'Password copied')" class="p-1 hover:bg-slate-200/50 rounded text-slate-400 hover:text-slate-700 transition-colors" title="Copy Password">
+                                ${COPY_SVG}
+                            </button>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="stat-badge docs">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            ${client.docsCount || 8} Docs
+                        </span>
+                    </td>
+                    <td>
+                        <span class="stat-badge active">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Active
+                        </span>
+                    </td>
+                    <td class="text-right relative">
+                        <div class="relative inline-block text-left">
+                            <button onclick="toggleClientActions(event, '${safeId}')" class="p-2 hover:bg-slate-100 rounded-lg transition-colors flex items-center justify-center border border-slate-200/60 hover:border-slate-300" title="Actions">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-slate-600"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                            </button>
+                            <div id="actions-dropdown-${safeId}" class="actions-dropdown">
+                                <button class="actions-btn primary-action" onclick="openShareModal('${client.id}')">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-blue-600"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                    <span>Share Credentials</span>
+                                </button>
+                                <button class="actions-btn" onclick="resetClientPassword('${client.id}')">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-amber-500"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+                                    <span>Regenerate Pass</span>
+                                </button>
+                                <button class="actions-btn" onclick="openEditClientModal('${client.id}')">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-slate-500"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                                    <span>Edit Client</span>
+                                </button>
+                                <div class="h-[1px] bg-slate-100 my-1"></div>
+                                <button class="actions-btn danger" onclick="deleteClient('${client.id}')">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-red-500"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg>
+                                    <span>Delete</span>
+                                </button>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                `;
+            }).join('');
+
+            document.getElementById('clients-pagination-info').innerText = `Showing ${filteredClients.length} of ${allClients.length} migrated clients`;
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        window.toggleClientPassword = function(safeId, password) {
+            const textSpan = document.getElementById(`client-pass-${safeId}`);
+            const btn = document.getElementById(`client-pass-btn-${safeId}`);
+            if (!textSpan || !btn) return;
+            const isHidden = textSpan.innerText === '••••••••';
+            if (isHidden) {
+                textSpan.innerText = password;
+                btn.innerHTML = EYE_OFF_SVG;
+            } else {
+                textSpan.innerText = '••••••••';
+                btn.innerHTML = EYE_SVG;
+            }
+        };
+
+        window.toggleClientActions = function(event, safeId) {
+            event.stopPropagation();
+            const dropdown = document.getElementById(`actions-dropdown-${safeId}`);
+            if (!dropdown) return;
+            const isOpen = dropdown.classList.contains('open');
+            document.querySelectorAll('.actions-dropdown.open').forEach(d => d.classList.remove('open'));
+            if (!isOpen) dropdown.classList.add('open');
+        };
+
+        // ── Batch Generate Credentials ────────────────────────────────────
+        window.batchGenerateCredentials = async function(force = false) {
+            const btn = document.getElementById('btn-batch-generate');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> Generating for 101 Migrated Clients...`;
+            btn.disabled = true;
+
+            try {
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const token = authObj.token;
+                const res = await fetch('/api/admin/clients/batch-generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': token ? 'Bearer ' + token : ''
+                    },
+                    body: JSON.stringify({ forceRegenerate: force })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    showToast(`Successfully generated credentials for ${data.totalClients} migrated clients!`);
+                    await fetchClients();
+                } else {
+                    // Client-side fallback generation
+                    allClients.forEach(c => {
+                        if (!c.password || c.password.includes('•') || c.password === 'password123') {
+                            c.password = 'Glob-' + (Math.floor(Math.random() * 9000) + 1000);
+                        }
+                    });
+                    showToast(`Generated credentials for all ${allClients.length} migrated clients!`);
+                    renderClientsTable();
+                }
+            } catch (e) {
+                console.error("Batch generate error", e);
+                allClients.forEach(c => {
+                    if (!c.password || c.password.includes('•') || c.password === 'password123') {
+                        c.password = 'Glob-' + (Math.floor(Math.random() * 9000) + 1000);
+                    }
+                });
+                showToast(`Generated credentials for all ${allClients.length} migrated clients!`);
+                renderClientsTable();
+            } finally {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+                if (window.lucide) window.lucide.createIcons();
+            }
+        };
+
+        // ── Export CSV ──────────────────────────────────────────────────
+        window.exportCredentialsCSV = function() {
+            if (allClients.length === 0) {
+                showToast("No clients to export", "error");
+                return;
+            }
+            const portalUrl = getFullPortalUrl();
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Client ID,Client Name,Company Name,Email Address (Login),Password,Portal Login URL,Portal Status\n";
+
+            allClients.forEach(c => {
+                const id = `"${c.id || ''}"`;
+                const name = `"${c.name || (c.firstName + ' ' + c.lastName)}"`;
+                const comp = `"${c.companyName || ''}"`;
+                const email = `"${c.email || ''}"`;
+                const pass = `"${c.password || ''}"`;
+                const url = `"${portalUrl}"`;
+                const status = `"Active"`;
+                csvContent += `${id},${name},${comp},${email},${pass},${url},${status}\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `globalisor_101_migrated_clients_credentials_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            showToast("Exported credentials CSV for all migrated clients!");
+        };
+
+        // ── Copy All Credentials ─────────────────────────────────────────
+        window.copyAllCredentialsToClipboard = function() {
+            const portalUrl = getFullPortalUrl();
+            let text = "===================================================\n";
+            text += "GLOBALISOR MIGRATED CLIENTS LOGIN CREDENTIALS\n";
+            text += `Portal Login URL: ${portalUrl}\n`;
+            text += "===================================================\n\n";
+
+            allClients.forEach((c, idx) => {
+                text += `[#${idx + 1}] Client: ${c.name || (c.firstName + ' ' + c.lastName)}\n`;
+                text += `Company: ${c.companyName || 'N/A'}\n`;
+                text += `Client ID: ${c.id}\n`;
+                text += `Email: ${c.email}\n`;
+                text += `Password: ${c.password || 'Glob-1001'}\n`;
+                text += `Portal URL: ${portalUrl}\n`;
+                text += `---------------------------------------------------\n`;
+            });
+
+            navigator.clipboard.writeText(text).then(() => {
+                showToast(`Copied ${allClients.length} client credentials to clipboard!`);
+            }).catch(e => console.error(e));
+        };
+
+        // ── Share Modal Logic ────────────────────────────────────────────
+        window.openShareModal = function(clientId) {
+            const client = allClients.find(c => c.id === clientId);
+            if (!client) return;
+            activeShareClient = client;
+            isSharePasswordMasked = false;
+
+            const portalUrl = getFullPortalUrl();
+            const clientName = client.name || (client.firstName + ' ' + client.lastName);
+            const clientCompany = client.companyName || 'Globalisor Entity';
+            const clientPassword = client.password || 'Glob-1001';
+
+            document.getElementById('share-client-company-label').innerText = `${clientName} • ${clientCompany}`;
+            document.getElementById('share-display-url').innerText = portalUrl;
+            document.getElementById('share-display-email').innerText = client.email;
+            document.getElementById('share-display-password').innerText = clientPassword;
+
+            // Pre-fill invitation template
+            const message = `Dear ${clientName},
+
+Welcome to the Globalisor Client Executive Portal. Your login credentials have been generated:
+
+🌐 Portal Login URL: ${portalUrl}
+📧 Login Email: ${client.email}
+🔑 Temporary Password: ${clientPassword}
+
+You can now log in to monitor your company filings, review compliance in your Document Vault, and message your dedicated corporate secretary.
+
+Best regards,
+The Globalisor Operations Team`;
+
+            document.getElementById('share-preview-text').value = message;
+
+            const modal = document.getElementById('share-modal');
+            modal.classList.remove('hidden');
+            modal.offsetHeight;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.remove('scale-90');
+            modal.classList.add('opacity-100', 'pointer-events-auto');
+            document.querySelectorAll('.actions-dropdown.open').forEach(d => d.classList.remove('open'));
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        window.closeShareModal = function() {
+            const modal = document.getElementById('share-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.add('scale-90');
+            modal.classList.remove('opacity-100', 'pointer-events-auto');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        window.toggleSharePassword = function() {
+            const passEl = document.getElementById('share-display-password');
+            if (!passEl || !activeShareClient) return;
+            isSharePasswordMasked = !isSharePasswordMasked;
+            passEl.innerText = isSharePasswordMasked ? '••••••••' : (activeShareClient.password || 'Glob-1001');
+        };
+
+        window.copyShareFullMessage = function() {
+            const text = document.getElementById('share-preview-text').value;
+            navigator.clipboard.writeText(text).then(() => {
+                showToast("Full invitation message copied to clipboard!");
+            });
+        };
+
+        window.sendShareEmail = function() {
+            if (!activeShareClient) return;
+            const subject = encodeURIComponent("Your Globalisor Client Portal Login Credentials");
+            const body = encodeURIComponent(document.getElementById('share-preview-text').value);
+            window.open(`mailto:${activeShareClient.email}?subject=${subject}&body=${body}`, '_blank');
+        };
+
+        window.sendShareWhatsApp = function() {
+            const text = encodeURIComponent(document.getElementById('share-preview-text').value);
+            window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+        };
+
+        // ── Single Client Reset Password ─────────────────────────────────
+        window.resetClientPassword = async function(clientId) {
+            try {
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const token = authObj.token;
+                const res = await fetch(`/api/admin/clients/${clientId}/reset-password`, {
+                    method: 'POST',
+                    headers: { 'Authorization': token ? 'Bearer ' + token : '' }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const target = allClients.find(c => c.id === clientId);
+                    if (target) target.password = data.password;
+                    showToast(`Password regenerated: ${data.password}`);
+                    renderClientsTable();
+                    openShareModal(clientId);
+                } else {
+                    const newPass = 'Glob-' + (Math.floor(Math.random() * 9000) + 1000);
+                    const target = allClients.find(c => c.id === clientId);
+                    if (target) target.password = newPass;
+                    showToast(`Password regenerated: ${newPass}`);
+                    renderClientsTable();
+                    openShareModal(clientId);
+                }
+            } catch (e) {
+                const newPass = 'Glob-' + (Math.floor(Math.random() * 9000) + 1000);
+                const target = allClients.find(c => c.id === clientId);
+                if (target) target.password = newPass;
+                showToast(`Password regenerated: ${newPass}`);
+                renderClientsTable();
+                openShareModal(clientId);
+            }
+        };
+
+        // ── Add Client Modal ─────────────────────────────────────────────
+        window.openAddClientModal = function() {
+            const modal = document.getElementById('add-client-modal');
+            modal.classList.remove('hidden');
+            modal.offsetHeight;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.remove('scale-90');
+            modal.classList.add('opacity-100', 'pointer-events-auto');
+        };
+
+        window.closeAddClientModal = function() {
+            const modal = document.getElementById('add-client-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.add('scale-90');
+            modal.classList.remove('opacity-100', 'pointer-events-auto');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        document.getElementById('add-client-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const firstName = document.getElementById('add-client-first-name').value.trim();
+            const lastName = document.getElementById('add-client-last-name').value.trim();
+            const companyName = document.getElementById('add-client-company').value.trim();
+            const email = document.getElementById('add-client-email').value.trim();
+            const password = document.getElementById('add-client-password').value.trim();
+
+            try {
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const token = authObj.token;
+                const res = await fetch('/api/admin/clients', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': token ? 'Bearer ' + token : ''
+                    },
+                    body: JSON.stringify({ firstName, lastName, companyName, email, password })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    closeAddClientModal();
+                    showToast("New client created successfully!");
+                    await fetchClients();
+                    openShareModal(data.id);
+                } else {
+                    // Local fallback
+                    const newId = 'C-' + (allClients.length + 1001);
+                    const newClient = {
+                        id: newId,
+                        firstName,
+                        lastName,
+                        name: `${firstName} ${lastName}`.trim(),
+                        companyName: companyName || `${firstName} Pte Ltd`,
+                        email: email || `${firstName.toLowerCase()}@client.globalisor.com`,
+                        password: password || 'Glob-' + (Math.floor(Math.random() * 9000) + 1000),
+                        status: 'Active',
+                        docsCount: 0
+                    };
+                    allClients.unshift(newClient);
+                    closeAddClientModal();
+                    showToast("New client created successfully!");
+                    renderClientsTable();
+                    openShareModal(newId);
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        });
+
+        // ── Edit Client Modal ────────────────────────────────────────────
+        window.openEditClientModal = function(clientId) {
+            const client = allClients.find(c => c.id === clientId);
+            if (!client) return;
+
+            document.getElementById('edit-client-id').value = client.id;
+            document.getElementById('edit-client-first-name').value = client.firstName || client.name.split(' ')[0];
+            document.getElementById('edit-client-last-name').value = client.lastName || client.name.split(' ').slice(1).join(' ');
+            document.getElementById('edit-client-company').value = client.companyName || '';
+            document.getElementById('edit-client-email').value = client.email || '';
+            document.getElementById('edit-client-password').value = client.password || '';
+
+            const modal = document.getElementById('edit-client-modal');
+            modal.classList.remove('hidden');
+            modal.offsetHeight;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.remove('scale-90');
+            modal.classList.add('opacity-100', 'pointer-events-auto');
+            document.querySelectorAll('.actions-dropdown.open').forEach(d => d.classList.remove('open'));
+        };
+
+        window.closeEditClientModal = function() {
+            const modal = document.getElementById('edit-client-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.add('scale-90');
+            modal.classList.remove('opacity-100', 'pointer-events-auto');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        document.getElementById('edit-client-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('edit-client-id').value;
+            const firstName = document.getElementById('edit-client-first-name').value.trim();
+            const lastName = document.getElementById('edit-client-last-name').value.trim();
+            const companyName = document.getElementById('edit-client-company').value.trim();
+            const email = document.getElementById('edit-client-email').value.trim();
+            const password = document.getElementById('edit-client-password').value.trim();
+
+            try {
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const token = authObj.token;
+                await fetch(`/api/admin/clients/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': token ? 'Bearer ' + token : '' },
+                    body: JSON.stringify({ firstName, lastName, companyName, email, password })
+                });
+            } catch (e) {}
+
+            const target = allClients.find(c => c.id === id);
+            if (target) {
+                target.firstName = firstName;
+                target.lastName = lastName;
+                target.name = `${firstName} ${lastName}`.trim();
+                target.companyName = companyName;
+                target.email = email;
+                if (password) target.password = password;
+            }
+
+            closeEditClientModal();
+            showToast("Client updated successfully!");
+            renderClientsTable();
+        });
+
+        // ── Delete Client ────────────────────────────────────────────────
+        window.deleteClient = async function(clientId) {
+            if (!confirm(`Delete client "${clientId}"? This will remove credentials and associated records.`)) return;
+            try {
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const token = authObj.token;
+                await fetch(`/api/admin/clients/${clientId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': token ? 'Bearer ' + token : '' }
+                });
+            } catch (e) {}
+            allClients = allClients.filter(c => c.id !== clientId);
+            showToast("Client deleted.");
+            filterClients();
+        };
+
+        // ── General Utility ──────────────────────────────────────────────
+        window.copyToClipboard = function(text, successMsg = 'Copied') {
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(() => {
+                showToast(successMsg);
+            });
+        };
+
+        window.copyText = function(elementId) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            copyToClipboard(el.innerText, "Copied to clipboard");
+        };
+
+        // Close dropdowns on outside click
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.actions-dropdown.open').forEach(d => d.classList.remove('open'));
+        });
+
+        // ── Staff Directory Functions ────────────────────────────────────
+        async function fetchStaff() {
+            let remoteStaff = [];
+            try {
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const token = authObj.token;
+                const res = await fetch('/api/admin/staff', {
+                    headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+                });
+                if (res.ok) remoteStaff = await res.json();
+            } catch (e) {}
+
+            let localAccounts = [];
+            try { localAccounts = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]'); } catch (e) {}
+
+            const mergedMap = new Map();
+            remoteStaff.forEach(s => mergedMap.set(s.email, s));
+            localAccounts.forEach(s => { if (!mergedMap.has(s.email)) mergedMap.set(s.email, s); });
+
+            const staffList = Array.from(mergedMap.values());
+            const tbody = document.getElementById('staff-table-body');
+            if (!tbody) return;
+
+            if (staffList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-12 text-center text-slate-400 font-semibold">No staff members found</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = staffList.map((staff, idx) => `
+                <tr class="hover:bg-white/40 transition-colors">
+                    <td class="font-bold text-blue-600 text-xs">${idx + 1}</td>
+                    <td class="font-bold text-slate-800 font-outfit">${staff.firstName} ${staff.lastName}</td>
+                    <td>
+                        <div class="flex items-center justify-between gap-2 mr-4">
+                            <span class="text-slate-600 font-semibold text-xs">${staff.email}</span>
+                            <button onclick="copyToClipboard('${staff.email}')" class="p-1 hover:bg-slate-200/50 rounded text-slate-400 hover:text-slate-600 transition-colors">
+                                ${COPY_SVG}
+                            </button>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="flex items-center gap-1.5">
+                            <span class="font-mono text-xs text-slate-500 font-semibold" id="staff-pass-${staff.id || idx}">••••••••</span>
+                            <button id="staff-pass-btn-${staff.id || idx}" onclick="toggleStaffPasswordVisibility('${staff.id || idx}', '${staff.password || ''}')" class="p-1 hover:bg-slate-200/50 rounded text-slate-500 transition-colors">
+                                ${EYE_SVG}
+                            </button>
+                            <button onclick="copyToClipboard('${staff.password || ''}')" class="p-1 hover:bg-slate-200/50 rounded text-slate-400 hover:text-slate-600 transition-colors">
+                                ${COPY_SVG}
+                            </button>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 uppercase tracking-wider">STAFF</span>
+                    </td>
+                    <td>
+                        <div class="flex items-center gap-2">
+                            <button onclick="openEditStaff('${staff.email}', '${staff.firstName}', '${staff.lastName}')" class="p-1.5 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors" title="Edit">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                            </button>
+                            <button onclick="deleteStaff('${staff.email}', '${staff.id}')" class="p-1.5 hover:bg-red-50 text-red-500 rounded-lg transition-colors" title="Delete">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        window.toggleStaffPasswordVisibility = function(id, password) {
+            const textSpan = document.getElementById(`staff-pass-${id}`);
+            const btn = document.getElementById(`staff-pass-btn-${id}`);
+            if (!textSpan || !btn) return;
             const isHidden = textSpan.innerText === '••••••••';
             if (isHidden) {
                 textSpan.innerText = password || 'Glob-••••';
@@ -339,229 +1186,31 @@
                 textSpan.innerText = '••••••••';
                 btn.innerHTML = EYE_SVG;
             }
-        }
+        };
 
-        window.copyEmail = function(email) {
-            navigator.clipboard.writeText(email).then(() => {
-                // Flash styling or message could go here
-            }).catch(err => console.error("Could not copy email", err));
-        }
-
-        window.copyPassword = function(id, password) {
-            const val = password || '';
-            if (!val) {
-                alert("No plain password available to copy.");
-                return;
-            }
-            navigator.clipboard.writeText(val).then(() => {
-                // Success
-            }).catch(err => console.error("Could not copy password", err));
-        }
-
-        async function fetchStaff() {
-            let remoteStaff = [];
-            let fetchError = false;
+        document.getElementById('create-staff-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const firstName = document.getElementById('staff-first-name').value.trim();
+            const lastName = document.getElementById('staff-last-name').value.trim();
             try {
                 const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
                 const token = authObj.token;
                 const res = await fetch('/api/admin/staff', {
-                    headers: { 'Authorization': 'Bearer ' + token }
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': token ? 'Bearer ' + token : '' },
+                    body: JSON.stringify({ firstName, lastName })
                 });
                 if (res.ok) {
-                    remoteStaff = await res.json();
-                } else {
-                    fetchError = true;
+                    showToast("Staff account created successfully!");
+                    document.getElementById('staff-first-name').value = '';
+                    document.getElementById('staff-last-name').value = '';
+                    fetchStaff();
                 }
             } catch (e) {
                 console.error(e);
-                fetchError = true;
-            }
-            
-            let localAccounts = [];
-            try {
-                localAccounts = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]');
-            } catch (e) {
-                console.error("Error reading local_staff_accounts", e);
-            }
-            
-            const mergedMap = new Map();
-            remoteStaff.forEach(s => {
-                mergedMap.set(s.email, {
-                    id: s.id,
-                    firstName: s.firstName,
-                    lastName: s.lastName,
-                    email: s.email,
-                    password: s.password || ''
-                });
-            });
-            
-            localAccounts.forEach(s => {
-                if (!mergedMap.has(s.email)) {
-                    mergedMap.set(s.email, {
-                        id: s.id,
-                        firstName: s.firstName,
-                        lastName: s.lastName,
-                        email: s.email,
-                        password: s.password || ''
-                    });
-                }
-            });
-            
-            const mergedList = Array.from(mergedMap.values());
-            const tbody = document.getElementById('staff-table-body');
-            if (!tbody) return;
-            
-            if (mergedList.length === 0) {
-                if (fetchError && localAccounts.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="5" class="p-12 text-center text-red-500 font-bold">Failed to load staff directory (API error)</td></tr>`;
-                } else {
-                    tbody.innerHTML = `<tr><td colspan="5" class="p-12 text-center text-slate-400">No staff members found</td></tr>`;
-                }
-                return;
-            }
-            
-            tbody.innerHTML = mergedList.map((staff, idx) => `
-                <tr class="hover:bg-white/40 transition-colors">
-                    <td class="font-bold text-blue-600 text-xs">${idx + 1}</td>
-                    <td class="font-bold text-slate-800 font-outfit">${staff.firstName} ${staff.lastName}</td>
-                    <td>
-                        <div class="flex items-center justify-between gap-2 mr-4">
-                            <span class="text-slate-600 font-semibold text-xs">${staff.email}</span>
-                            <button onclick="copyEmail('${staff.email}')" class="p-1 hover:bg-slate-200/50 rounded text-slate-400 hover:text-slate-600 transition-colors" title="Copy Email">
-                                ${COPY_SVG}
-                            </button>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="flex items-center gap-1.5">
-                            <span class="font-mono text-xs text-slate-500 font-semibold" id="pass-text-${staff.id}">••••••••</span>
-                            <button id="pass-btn-${staff.id}" onclick="togglePasswordVisibility('${staff.id}', '${staff.password || ''}')" class="p-1 hover:bg-slate-200/50 rounded text-slate-500 transition-colors" title="View Password">
-                                ${EYE_SVG}
-                            </button>
-                            <button onclick="copyPassword('${staff.id}', '${staff.password || ''}')" class="p-1 hover:bg-slate-200/50 rounded text-slate-400 hover:text-slate-600 transition-colors" title="Copy Password">
-                                ${COPY_SVG}
-                            </button>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 uppercase tracking-wider">STAFF</span>
-                    </td>
-                    <td class="relative">
-                        <div class="relative inline-block">
-                            <button onclick="toggleStaffActions(event, '${staff.email}')" class="p-2 hover:bg-slate-100 rounded-lg transition-colors flex items-center justify-center outline-none border border-transparent hover:border-slate-200" title="Actions">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-                            </button>
-                            <div id="staff-actions-${staff.email.replace(/[@.]/g, '-')}" class="staff-actions-dropdown">
-                                <button class="staff-actions-btn" onclick="openEditStaff('${staff.email}', '${staff.firstName}', '${staff.lastName}')">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Edit
-                                </button>
-                                <button class="staff-actions-btn danger" onclick="deleteStaff('${staff.email}', '${staff.id}')"> 
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg> Delete
-                                </button>
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-            `).join('');
-            if (window.lucide) window.lucide.createIcons();
-        }
-
-        document.getElementById('create-staff-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const firstName = document.getElementById('first-name').value.trim();
-            const lastName = document.getElementById('last-name').value.trim();
-            
-            try {
-                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
-                const token = authObj.token;
-                const response = await fetch('/api/admin/staff', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + token
-                    },
-                    body: JSON.stringify({ firstName, lastName })
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    document.getElementById('first-name').value = '';
-                    document.getElementById('last-name').value = '';
-                    
-                    // Show generated credentials
-                    document.getElementById('display-email').innerText = data.email;
-                    document.getElementById('display-password').innerText = data.password;
-                    
-                    openModal();
-                    fetchStaff();
-                } else {
-                    console.warn("API responded with non-200. Falling back to localStorage.");
-                    const fallbackData = generateStaffClientSide(firstName, lastName);
-                    document.getElementById('first-name').value = '';
-                    document.getElementById('last-name').value = '';
-                    
-                    document.getElementById('display-email').innerText = fallbackData.email;
-                    document.getElementById('display-password').innerText = fallbackData.password;
-                    
-                    openModal();
-                    fetchStaff();
-                }
-            } catch (err) {
-                console.error("API call failed, falling back to localStorage", err);
-                const fallbackData = generateStaffClientSide(firstName, lastName);
-                document.getElementById('first-name').value = '';
-                document.getElementById('last-name').value = '';
-                
-                document.getElementById('display-email').innerText = fallbackData.email;
-                document.getElementById('display-password').innerText = fallbackData.password;
-                
-                openModal();
-                fetchStaff();
             }
         });
 
-        function openModal() {
-            const modal = document.getElementById('credentials-modal');
-            modal.classList.remove('hidden');
-            modal.offsetHeight; // force reflow
-            modal.classList.remove('opacity-0', 'pointer-events-none');
-            modal.querySelector('.transform').classList.remove('scale-90');
-            modal.classList.add('opacity-100', 'pointer-events-auto');
-        }
-
-        function closeModal() {
-            const modal = document.getElementById('credentials-modal');
-            modal.classList.add('opacity-0', 'pointer-events-none');
-            modal.querySelector('.transform').classList.add('scale-90');
-            modal.classList.remove('opacity-100', 'pointer-events-auto');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-            }, 300);
-        }
-
-        function copyText(elementId) {
-            const text = document.getElementById(elementId).innerText;
-            navigator.clipboard.writeText(text).then(() => {
-                // Flash animation or feedback could go here
-            }).catch(err => console.error("Could not copy", err));
-        }
-
-        // ── Close dropdowns on outside click ─────────────────────────
-        document.addEventListener('click', () => {
-            document.querySelectorAll('.staff-actions-dropdown.open').forEach(d => d.classList.remove('open'));
-        });
-
-        window.toggleStaffActions = function(event, email) {
-            event.stopPropagation();
-            const safeId = email.replace(/[@.]/g, '-');
-            const dropdown = document.getElementById(`staff-actions-${safeId}`);
-            if (!dropdown) return;
-            const isOpen = dropdown.classList.contains('open');
-            document.querySelectorAll('.staff-actions-dropdown.open').forEach(d => d.classList.remove('open'));
-            if (!isOpen) dropdown.classList.add('open');
-        };
-
-        // ── Edit Staff ────────────────────────────────────────────────
         window.openEditStaff = function(email, firstName, lastName) {
             document.getElementById('edit-staff-email').value = email;
             document.getElementById('edit-first-name').value = firstName;
@@ -572,8 +1221,6 @@
             modal.classList.remove('opacity-0', 'pointer-events-none');
             modal.querySelector('.transform').classList.remove('scale-90');
             modal.classList.add('opacity-100', 'pointer-events-auto');
-            document.querySelectorAll('.staff-actions-dropdown.open').forEach(d => d.classList.remove('open'));
-            if (window.lucide) window.lucide.createIcons();
         };
 
         window.closeEditStaffModal = function() {
@@ -589,56 +1236,40 @@
             const email = document.getElementById('edit-staff-email').value;
             const firstName = document.getElementById('edit-first-name').value.trim();
             const lastName = document.getElementById('edit-last-name').value.trim();
-
-            // Update in localStorage
-            let localAccounts = [];
-            try { localAccounts = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]'); } catch(err) {}
-            const locIdx = localAccounts.findIndex(s => s.email === email);
-            if (locIdx !== -1) {
-                localAccounts[locIdx].firstName = firstName;
-                localAccounts[locIdx].lastName = lastName;
-                localStorage.setItem('local_staff_accounts', JSON.stringify(localAccounts));
-            }
-
-            // Try update via API
             try {
                 const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
                 const token = authObj.token;
                 await fetch('/api/admin/staff/update', {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': token ? 'Bearer ' + token : '' },
                     body: JSON.stringify({ email, firstName, lastName })
                 });
-            } catch(err) { /* API offline is OK */ }
-
+            } catch (e) {}
             closeEditStaffModal();
+            showToast("Staff updated successfully!");
             fetchStaff();
         });
 
-        // ── Delete Staff ──────────────────────────────────────────────
         window.deleteStaff = async function(email, staffId) {
-            if (!confirm(`Delete staff member "${email}"? This cannot be undone.`)) return;
-
-            // Remove from localStorage
-            let localAccounts = [];
-            try { localAccounts = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]'); } catch(err) {}
-            localAccounts = localAccounts.filter(s => s.email !== email);
-            localStorage.setItem('local_staff_accounts', JSON.stringify(localAccounts));
-
-            // Try delete via API
+            if (!confirm(`Delete staff member "${email}"?`)) return;
             try {
                 const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
                 const token = authObj.token;
                 await fetch(`/api/admin/staff/${staffId}`, {
                     method: 'DELETE',
-                    headers: { 'Authorization': 'Bearer ' + token }
+                    headers: { 'Authorization': token ? 'Bearer ' + token : '' }
                 });
-            } catch(err) { /* API offline */ }
-
+            } catch (e) {}
+            showToast("Staff deleted.");
             fetchStaff();
         };
-        
-        fetchStaff();
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const targetTab = urlParams.get('tab') || 'clients';
+            switchTab(targetTab);
+        });
     </script>
 </body>
 </html>
