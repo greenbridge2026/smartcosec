@@ -344,27 +344,26 @@
                         localStorage.setItem('admin_auth', JSON.stringify({ role: 'admin', email: email, name: name, id: data.id, token: data.token }));
                         window.location.href = '/admin/dashboard.html';
                     } else {
-                        localStorage.setItem('client_auth', JSON.stringify({ role: 'client', email: email, name: name, id: data.id }));
-                        // If user came via 'Start a New Company', go straight to pricing
+                        localStorage.setItem('client_auth', JSON.stringify({ role: 'client', email: email, name: name, id: data.id, token: data.token }));
                         const postAuthRedirect = localStorage.getItem('post_auth_redirect');
                         if (postAuthRedirect) {
                             localStorage.removeItem('post_auth_redirect');
                             window.location.href = postAuthRedirect;
                         } else {
                             try {
-                                const reqRes = await fetch('/api/requirements', { headers: { 'Authorization': 'Bearer ' + data.token } });
-                                if (reqRes.ok) {
-                                    const reqData = await reqRes.json();
-                                    if (reqData.status === 'approved') {
-                                        window.location.href = '/client/portal.html';
+                                const statusRes = await fetch('/api/onboarding/client/' + data.id + '/status');
+                                if (statusRes.ok) {
+                                    const statusData = await statusRes.json();
+                                    if (statusData.portalActivated) {
+                                        window.location.href = '/client/portal.html?tab=home';
                                     } else {
-                                        window.location.href = '/requirements.html';
+                                        window.location.href = '/client/portal.html';
                                     }
                                 } else {
-                                    window.location.href = '/requirements.html';
+                                    window.location.href = '/client/portal.html';
                                 }
                             } catch (e) {
-                                window.location.href = '/requirements.html';
+                                window.location.href = '/client/portal.html';
                             }
                         }
                     }

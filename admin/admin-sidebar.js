@@ -233,7 +233,7 @@ function updateActiveSidebarItem(url) {
                 'nav-content': 'Content',
                 'nav-blogs': 'Blogs',
                 'nav-countries': 'Countries',
-                'nav-users': 'Users',
+                'nav-users': 'Credentials & Users',
                 'nav-packages': 'Requirements Page Manager',
                 'nav-ssic': 'SSIC Codes Manager',
                 'nav-onboarding-manager': 'Onboarding Manager',
@@ -956,9 +956,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
                             <span>Countries</span>
                         </a>
-                        <a href="users.html" class="submenu-item" id="nav-users" data-tooltip="Users">
+                        <a href="users.html" class="submenu-item" id="nav-users" data-tooltip="Credentials & Users">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
-                            <span>Users</span>
+                            <span>Credentials & Users</span>
                         </a>
                         <a href="packages.html" class="submenu-item" id="nav-packages" data-tooltip="Requirements Page Manager">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-8M16 2v5M8 2v5M3 11h18"/></svg>
