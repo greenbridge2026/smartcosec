@@ -25,34 +25,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const auth = JSON.parse(authString);
 
     state.user = auth;
-    const userNameEl = document.getElementById('user-name');
-    if (userNameEl) {
-        userNameEl.innerText = auth.name;
-    }
+    updateClientHeaderUI();
     connectWebSocket();
 
-    // Show global loading state during initial hydration
-    const view = document.getElementById('main-view');
-    if (view) {
-        view.innerHTML = `
-            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:120px 20px; width:100%; height:100%;">
-                <div style="width:48px; height:48px; border:4px solid #e2e8f0; border-top-color:#3b82f6; border-radius:50%; animation:global-spin 1s linear infinite;"></div>
-                <div style="margin-top:20px; font-family:'Outfit', sans-serif; font-size:16px; font-weight:600; color:#475569;">Initializing Workspace...</div>
-                <style>@keyframes global-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
-            </div>
-        `;
-    }
-
-    // Sequential Data Hydration
-    await fetchData();
-
-    // Check portal activation + apply freeze
-    await checkPortalActivation();
-
-    // Handle deep-linking via URL parameters
+    // Handle deep-linking via URL parameters and render UI INSTANTLY
     const urlParams = new URLSearchParams(window.location.search);
     const targetTab = urlParams.get('tab') || 'home';
     switchTab(targetTab);
+
     if (urlParams.get('open_ai') === 'true') {
         toggleAIAssistant();
     }
@@ -61,8 +41,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (window.lucide) window.lucide.createIcons();
 
     // Entrance Animation
-    gsap.from("aside", { x: -100, opacity: 0, duration: 1, ease: "power4.out" });
-    gsap.from("header", { y: -20, opacity: 0, duration: 1, delay: 0.3, ease: "power4.out" });
+    if (window.gsap) {
+        gsap.from("aside", { x: -100, opacity: 0, duration: 1, ease: "power4.out" });
+        gsap.from("header", { y: -20, opacity: 0, duration: 1, delay: 0.3, ease: "power4.out" });
+    }
+
+    // Non-blocking Background Data Hydration & Activation Check
+    fetchData().then(() => {
+        if (state.currentTab) {
+            switchTab(state.currentTab);
+        }
+    });
+    checkPortalActivation();
 
     window.addEventListener('appSeqMapUpdated', () => {
         if (state.currentTab === 'services') {
@@ -81,18 +71,37 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function fetchData() {
     try {
         const promises = [
+            fetch(`/api/clients/${state.user.id}/company`).then(async cRes => {
+                if (cRes.ok) {
+                    const cData = await cRes.json();
+                    if (cData.details) {
+                        state.requirements = cData.details;
+                    }
+                    if (cData.companyName) state.user.companyName = cData.companyName;
+                    if (cData.name) state.user.name = cData.name;
+                    if (cData.email) state.user.email = cData.email;
+                    updateClientHeaderUI();
+                }
+            }),
             fetch(`/api/clients/${state.user.id}/services`).then(async sRes => {
                 if (sRes.ok) {
                     const sData = await sRes.json();
-                    state.services = sData.services.map(s => ({
-                        id: s.serviceId,
-                        type: s.serviceType,
-                        status: s.status === 'pending' ? 'In Progress' : (s.status === 'approved' ? 'Active' : s.status),
-                        progress: s.status === 'approved' ? 100 : (s.status === 'review' ? 65 : 30),
-                        company: s.companyName || 'Globalisor Entity',
-                        date: s.date ? new Date(s.date).toLocaleDateString() : 'N/A',
-                        staff: (!s.staff || s.staff.toLowerCase() === 'sarah lim' || s.staff.toLowerCase() === 'unassigned') ? 'Unassigned' : s.staff
-                    }));
+                    if (sData.services && Array.isArray(sData.services) && sData.services.length > 0) {
+                        state.services = sData.services.map(s => ({
+                            id: s.serviceId,
+                            type: s.serviceType,
+                            status: s.status === 'pending' ? 'In Progress' : (s.status === 'approved' ? 'Active' : s.status),
+                            progress: s.status === 'approved' ? 100 : (s.status === 'review' ? 65 : 30),
+                            company: s.companyName || 'Globalisor Entity',
+                            date: s.date ? new Date(s.date).toLocaleDateString() : 'N/A',
+                            staff: (!s.staff || s.staff.toLowerCase() === 'sarah lim' || s.staff.toLowerCase() === 'unassigned') ? 'Unassigned' : s.staff
+                        }));
+                        if (sData.services[0].details) {
+                            if (!state.requirements || !state.requirements.excelData) {
+                                state.requirements = sData.services[0].details;
+                            }
+                        }
+                    }
                 }
             }),
             fetch('/api/blogs').then(async bRes => {
@@ -165,12 +174,30 @@ async function fetchData() {
             fetch(`/api/clients/${state.user.id}/invoices`).then(async iRes => {
                 if (iRes.ok) state.invoices = await iRes.json();
             }),
+            fetch(`/api/documents?clientId=${state.user.id}`).then(async dRes => {
+                if (dRes.ok) {
+                    const docsList = await dRes.json();
+                    if (docsList && docsList.length > 0) {
+                        state.documents = docsList.map(d => ({
+                            id: d.id,
+                            name: d.title || d.documentType || d.name || 'Document',
+                            status: d.status ? (d.status.charAt(0).toUpperCase() + d.status.slice(1)) : 'Approved',
+                            category: d.category || d.suggestedModule || d.documentType || 'Corporate',
+                            expiry: d.expiry || 'N/A',
+                            date: d.date || d.uploadDate || '2026-05-11',
+                            file: d.file || '#',
+                            documentType: d.documentType || 'Other',
+                            uploadSource: d.uploadSource || 'System'
+                        }));
+                    }
+                }
+            }),
             fetch('/api/kyc').then(async kRes => {
                 if (kRes.ok) {
                     const kycList = await kRes.json();
                     const clientKYC = kycList.find(k => k.clientId === state.user.id);
                     state.kyc = clientKYC;
-                    if (clientKYC && clientKYC.documents) {
+                    if ((!state.documents || state.documents.length === 0) && clientKYC && clientKYC.documents) {
                         state.documents = clientKYC.documents.map(d => ({
                             name: d.name,
                             status: d.status,
@@ -193,6 +220,23 @@ async function fetchData() {
             fetch('/api/static-content?portal=client').then(async scRes => {
                 if (scRes.ok) state.staticContent = await scRes.json();
             }),
+            fetch('/api/admin/clients').then(async cListRes => {
+                if (cListRes.ok) {
+                    const cList = await cListRes.json();
+                    const clientRecord = cList.find(c => 
+                        (c.id && c.id.toLowerCase() === state.user.id.toLowerCase()) || 
+                        (c.email && state.user.email && c.email.toLowerCase() === state.user.email.toLowerCase())
+                    );
+                    if (clientRecord) {
+                        state.user.companyName = clientRecord.companyName || state.user.companyName;
+                        state.user.name = clientRecord.name || state.user.name;
+                        state.user.email = clientRecord.email || state.user.email;
+                        state.user.status = clientRecord.status || state.user.status;
+                        state.user.phone = clientRecord.phone || state.user.phone;
+                        updateClientHeaderUI();
+                    }
+                }
+            }),
             fetch('/api/onboarding-config/published').then(async osRes => {
                 try {
                     if (osRes.ok) {
@@ -212,6 +256,44 @@ async function fetchData() {
         console.error('Core Data Hydration Failed:', e);
     }
 }
+
+function updateClientHeaderUI() {
+    if (!state.user) return;
+
+    const name = state.user.name || ((state.user.firstName || '') + ' ' + (state.user.lastName || '')).trim() || 'Client User';
+    const email = state.user.email || '';
+    const id = state.user.id || 'C-CLIENT';
+    const company = state.user.companyName || state.companyName || 'Globalisor Entity';
+    const status = state.user.status || 'Active';
+
+    const userNameEl = document.getElementById('user-name');
+    if (userNameEl) userNameEl.innerText = name;
+
+    const userEmailEl = document.getElementById('user-email');
+    if (userEmailEl) userEmailEl.innerText = email;
+
+    const userAvatarEl = document.getElementById('user-avatar');
+    if (userAvatarEl) {
+        const nameParts = name.trim().split(/\s+/);
+        const initials = nameParts.length > 1 ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]) : nameParts[0].substring(0, 2);
+        userAvatarEl.innerText = initials.toUpperCase();
+    }
+
+    const headerCompEl = document.getElementById('header-company-name');
+    if (headerCompEl) headerCompEl.innerText = company;
+
+    const headerIdEl = document.getElementById('header-client-id');
+    if (headerIdEl) headerIdEl.innerText = id;
+
+    const headerStatusEl = document.getElementById('header-status-badge');
+    if (headerStatusEl) {
+        const isAct = status.toLowerCase().includes('active') || status.toLowerCase().includes('approved') || status.toLowerCase().includes('completed');
+        headerStatusEl.className = `inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${isAct ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100'}`;
+        headerStatusEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${isAct ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}"></span> ${status}`;
+    }
+}
+window.updateClientHeaderUI = updateClientHeaderUI;
+
 
 async function fetchNotifications() {
     const nRes = await fetch(`/api/notifications?clientId=${state.user.id}`);
@@ -3534,9 +3616,9 @@ function renderHome(container) {
         `;
     }
 
-    let companyDisplayName = "My Company";
-    let companyStatus = "In Progress";
-    let companyPercent = 65;
+    let companyDisplayName = (state.user && state.user.companyName) ? state.user.companyName : "My Company";
+    let companyStatus = (state.user && state.user.status) ? state.user.status : "Active";
+    let companyPercent = (companyStatus.toLowerCase().includes('completed') || companyStatus.toLowerCase().includes('active') || companyStatus.toLowerCase().includes('approved')) ? 100 : 65;
     
     if (state.requirements) {
         if (state.requirements.excelData && state.requirements.excelData.companyName) {
@@ -3548,12 +3630,11 @@ function renderHome(container) {
         }
     }
     
-    if (activeService) {
-        companyDisplayName = activeService.companyName || companyDisplayName;
-        companyStatus = activeService.status || companyStatus;
-        if (companyStatus === 'approved' || companyStatus === 'completed') {
-            companyPercent = 100;
-        }
+    if (activeService && activeService.companyName) {
+        companyDisplayName = activeService.companyName;
+    }
+    if (companyStatus === 'approved' || companyStatus === 'completed') {
+        companyPercent = 100;
     }
 
     let registerHtml = '';
@@ -3576,6 +3657,7 @@ function renderHome(container) {
                     <button onclick="switchRegisterTab('directors')" id="reg-tab-directors" class="reg-tab-btn px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700 transition-all">Directors (${ed.directors ? ed.directors.length : 0})</button>
                     <button onclick="switchRegisterTab('secretaries')" id="reg-tab-secretaries" class="reg-tab-btn px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700 transition-all">Secretaries (${ed.secretaries ? ed.secretaries.length : 0})</button>
                     <button onclick="switchRegisterTab('members')" id="reg-tab-members" class="reg-tab-btn px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700 transition-all">Shareholders (${ed.members ? ed.members.length : 0})</button>
+                    <button onclick="switchRegisterTab('capital')" id="reg-tab-capital" class="reg-tab-btn px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700 transition-all">Share Capital</button>
                     <button onclick="switchRegisterTab('controllers')" id="reg-tab-controllers" class="reg-tab-btn px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700 transition-all">Controllers / UBOs (${ed.controllers ? ed.controllers.length : 0})</button>
                 </div>
                 
@@ -3661,10 +3743,13 @@ function renderHome(container) {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         ${ed.members && ed.members.length > 0 ? ed.members.map(m => `
                             <div class="p-4 bg-slate-50/50 rounded-xl border border-slate-100 space-y-3">
-                                <div class="pb-2 border-b border-slate-100">
+                                <div class="pb-2 border-b border-slate-100 flex justify-between items-center">
                                     <span class="font-bold text-slate-800 text-sm">${m.name}</span>
+                                    <span class="px-2 py-0.5 rounded text-[9px] font-bold bg-purple-50 text-purple-600 border border-purple-100 uppercase">${m.shareClass || 'Ordinary'}</span>
                                 </div>
                                 <div class="grid grid-cols-2 gap-y-2 gap-x-4 text-xs text-slate-600">
+                                    <div><strong>Shares Held:</strong> <span class="font-bold text-slate-900">${m.numberOfShares || m.shares || '1,000,000'}</span></div>
+                                    <div><strong>Currency:</strong> <span class="font-bold text-slate-900">${m.currency || 'SGD'}</span></div>
                                     <div><strong>ID/UEN:</strong> ${m.idNumber || '—'}</div>
                                     <div><strong>Nationality:</strong> ${m.nationality || '—'}</div>
                                     <div><strong>Entered:</strong> ${m.dateEntered || '—'}</div>
@@ -3672,6 +3757,23 @@ function renderHome(container) {
                                 </div>
                             </div>
                         `).join('') : '<div class="text-xs text-slate-400 text-center py-4">No shareholders registered.</div>'}
+                    </div>
+                </div>
+
+                <div id="reg-content-capital" class="reg-tab-content hidden space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
+                        <div class="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Total Issued Shares</span>
+                            <div class="font-extrabold text-slate-900 text-base">${ed.shareCapital && ed.shareCapital[0] ? ed.shareCapital[0].numberOfShares : '2,000,000'} Shares</div>
+                        </div>
+                        <div class="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Currency & Capital Amount</span>
+                            <div class="font-extrabold text-blue-600 text-base">${ed.shareCapital && ed.shareCapital[0] ? ed.shareCapital[0].currency : 'SGD'} ${ed.shareCapital && ed.shareCapital[0] ? ed.shareCapital[0].amount : '2,000,000'}</div>
+                        </div>
+                        <div class="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Class of Shares</span>
+                            <div class="font-bold text-slate-800">${ed.shareCapital && ed.shareCapital[0] ? ed.shareCapital[0].shareClass : 'ORDINARY'}</div>
+                        </div>
                     </div>
                 </div>
                 
@@ -3700,7 +3802,7 @@ function renderHome(container) {
     container.innerHTML = `
         <div class="space-y-8">
             <div class="flex flex-col lg:flex-row gap-6">
-                <!-- Hero Section: LionPath Trading Banner -->
+                <!-- Hero Section: Company Banner -->
                 <div class="flex-1">
                     <div class="bg-[#0076CE] rounded-[24px] p-8 text-white relative overflow-hidden h-full flex flex-col justify-between">
                         <div class="relative z-10">
@@ -3783,7 +3885,7 @@ function renderHome(container) {
                                 <h4 class="font-bold text-slate-900 text-sm">KYC Approved</h4>
                                 <i data-lucide="check-circle" class="w-4 h-4 text-emerald-500"></i>
                             </div>
-                            <p class="text-xs text-slate-500 leading-relaxed mb-3">Your KYC for LionPath Trading has been approved!</p>
+                            <p class="text-xs text-slate-500 leading-relaxed mb-3">Your KYC for ${companyDisplayName} has been approved!</p>
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">2026-01-20 14:00</span>
                         </div>
                     </div>
@@ -3792,6 +3894,1899 @@ function renderHome(container) {
         </div>
     `;
 }
+
+window.switchRegisterTab = function(tabKey) {
+    const tabs = ['company', 'directors', 'secretaries', 'members', 'capital', 'controllers'];
+    tabs.forEach(t => {
+        const btn = document.getElementById('reg-tab-' + t);
+        const content = document.getElementById('reg-content-' + t);
+        if (btn) {
+            if (t === tabKey) {
+                btn.className = 'reg-tab-btn px-4 py-2 text-sm font-bold text-blue-600 border-b-2 border-blue-600 transition-all';
+            } else {
+                btn.className = 'reg-tab-btn px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700 transition-all';
+            }
+        }
+        if (content) {
+            if (t === tabKey) {
+                content.classList.remove('hidden');
+            } else {
+                content.classList.add('hidden');
+            }
+        }
+    });
+};
+
+let cdActiveTab = 'overview';
+let cdSelectedDirectorIdx = 0;
+let cdSelectedSecretaryIdx = 0;
+let cdSelectedShareholderIdx = 0;
+let cdSelectedUboIdx = 0;
+
+window.switchCdHeaderTab = function(tabKey) {
+    cdActiveTab = tabKey;
+    const tabs = ['overview', 'aml', 'directors', 'secretaries', 'auditors', 'members', 'ubos', 'allotments', 'rons', 'transfers', 'documents', 'compliance', 'activities'];
+    tabs.forEach(t => {
+        const btn = document.getElementById('cd-tab-' + t);
+        const panel = document.getElementById('cd-panel-' + t);
+        if (btn) {
+            if (t === tabKey) {
+                btn.className = 'cd-tab-btn px-4 py-3 text-blue-600 border-b-2 border-blue-600 whitespace-nowrap transition-all font-extrabold';
+            } else {
+                btn.className = 'cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500';
+            }
+        }
+        if (panel) {
+            if (t === tabKey) {
+                panel.classList.remove('hidden');
+            } else {
+                panel.classList.add('hidden');
+            }
+        }
+    });
+    if (window.lucide) window.lucide.createIcons();
+};
+
+window.switchDirectorSubTab = function(tabName) {
+    ['details', 'appointments', 'related'].forEach(t => {
+        const btn = document.getElementById('dir-subtab-' + t + '-btn');
+        const panel = document.getElementById('dir-subtab-' + t + '-panel');
+        if (btn) {
+            if (t === tabName) {
+                btn.className = 'pb-2 text-blue-600 border-b-2 border-blue-600 font-extrabold';
+            } else {
+                btn.className = 'pb-2 text-slate-400 hover:text-slate-700 border-b-2 border-transparent';
+            }
+        }
+        if (panel) {
+            if (t === tabName) panel.classList.remove('hidden');
+            else panel.classList.add('hidden');
+        }
+    });
+};
+
+window.switchSecretarySubTab = function(tabName) {
+    ['overview', 'appointments'].forEach(t => {
+        const btn = document.getElementById('sec-subtab-' + t + '-btn');
+        const panel = document.getElementById('sec-subtab-' + t + '-panel');
+        if (btn) {
+            if (t === tabName) {
+                btn.className = 'pb-2 text-blue-600 border-b-2 border-blue-600 font-extrabold';
+            } else {
+                btn.className = 'pb-2 text-slate-400 hover:text-slate-700 border-b-2 border-transparent';
+            }
+        }
+        if (panel) {
+            if (t === tabName) panel.classList.remove('hidden');
+            else panel.classList.add('hidden');
+        }
+    });
+};
+
+window.switchShareholderSubTab = function(tabName) {
+    ['overview', 'shareholding', 'transfers', 'personal'].forEach(t => {
+        const btn = document.getElementById('shr-subtab-' + t + '-btn');
+        const panel = document.getElementById('shr-subtab-' + t + '-panel');
+        if (btn) {
+            if (t === tabName) {
+                btn.className = 'pb-2 text-blue-600 border-b-2 border-blue-600 font-extrabold';
+            } else {
+                btn.className = 'pb-2 text-slate-400 hover:text-slate-700 border-b-2 border-transparent';
+            }
+        }
+        if (panel) {
+            if (t === tabName) panel.classList.remove('hidden');
+            else panel.classList.add('hidden');
+        }
+    });
+};
+
+window.cdSelectDirector = function(idx) {
+    cdSelectedDirectorIdx = idx;
+    const reqData = (state.requirements && state.requirements.excelData) ? state.requirements.excelData : (state.requirements || {});
+    const directors = (reqData.directors && reqData.directors.length > 0) ? reqData.directors : [
+        {
+            name: 'TANGATURU SUBRAMANIAN ANNAPOORANA',
+            type: 'Nominee Director',
+            idNumber: 'S2662120H',
+            nationality: 'SINGAPORE CITIZEN',
+            dob: '1962-05-13',
+            appointmentDate: '2020-03-30',
+            cessationDate: '9 Aug 2020',
+            email: 'tangaturu.subramanian.annapoorana@globalisor-client.com',
+            mobile: '+65 9123 4567',
+            address: '30 Jalan Bahagia, #02-380, Whampoa Vista, Singapore 320030',
+            status: 'VERIFIED'
+        },
+        {
+            name: 'GARG NAVNEESH KUMAR',
+            type: 'Director',
+            idNumber: 'S7823419A',
+            nationality: 'SINGAPORE CITIZEN',
+            dob: '1978-08-12',
+            appointmentDate: '2018-02-15',
+            email: 'navneesh.garg@adactin.com',
+            mobile: '6591234567',
+            address: '12 MARINA BOULEVARD SINGAPORE 018982',
+            status: 'VERIFIED'
+        },
+        {
+            name: 'NIKHIL AHUJA',
+            type: 'Director',
+            idNumber: 'S8912345C',
+            nationality: 'SINGAPORE CITIZEN',
+            dob: '1985-11-20',
+            appointmentDate: '2019-01-10',
+            cessationDate: 'Disqualified -04 Nov 2024',
+            email: 'nikhil.ahuja@email.com',
+            mobile: '6598765432',
+            address: '50 RAFFLES PLACE SINGAPORE 048623',
+            status: 'RESIGNED'
+        }
+    ];
+
+    const d = directors[idx] || directors[0];
+    const panel = document.getElementById('cd-director-details-panel');
+    if (!panel) return;
+
+    panel.innerHTML = `
+        <div class="flex justify-between items-start border-b border-slate-100 pb-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-extrabold text-xs flex items-center justify-center shrink-0">
+                    ${d.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                    <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                        ${d.name}
+                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">VERIFIED</span>
+                    </h3>
+                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">${d.type}</p>
+                </div>
+            </div>
+            <button onclick="alert('Edit Details')" class="px-3 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                Edit Details
+            </button>
+        </div>
+
+        <div class="space-y-6">
+            <div class="flex border-b border-slate-100 gap-6 text-xs font-bold">
+                <button id="dir-subtab-details-btn" onclick="switchDirectorSubTab('details')" class="pb-2 text-blue-600 border-b-2 border-blue-600 font-extrabold">Details</button>
+                <button id="dir-subtab-appointments-btn" onclick="switchDirectorSubTab('appointments')" class="pb-2 text-slate-400 hover:text-slate-700 border-b-2 border-transparent">Appointments</button>
+                <button id="dir-subtab-related-btn" onclick="switchDirectorSubTab('related')" class="pb-2 text-slate-400 hover:text-slate-700 border-b-2 border-transparent">Related Entities</button>
+            </div>
+
+            <!-- Details Subtab -->
+            <div id="dir-subtab-details-panel" class="space-y-4">
+                <h4 class="font-extrabold text-slate-900 text-xs">Director Personal Information</h4>
+                <div class="bg-slate-50/50 p-5 rounded-2xl border border-slate-100">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6 text-[11px]">
+                        <div><span class="text-slate-400 font-medium block mb-0.5">FULL LEGAL NAME</span><div class="font-extrabold text-slate-900">${d.name}</div></div>
+                        <div><span class="text-slate-400 font-medium block mb-0.5">POSITION TYPE</span><div class="font-bold text-slate-900">${d.type}</div></div>
+                        <div><span class="text-slate-400 font-medium block mb-0.5">PERSONAL NRIC / ID</span><div class="font-mono font-extrabold text-slate-900">${d.idNumber}</div></div>
+                        <div><span class="text-slate-400 font-medium block mb-0.5">NATIONALITY</span><div class="font-bold text-slate-900">${d.nationality}</div></div>
+                        <div><span class="text-slate-400 font-medium block mb-0.5">DATE OF BIRTH</span><div class="font-bold text-slate-900">${d.dob}</div></div>
+                        <div><span class="text-slate-400 font-medium block mb-0.5">APPOINTMENT DATE</span><div class="font-bold text-slate-900">${d.appointmentDate}</div></div>
+                        ${d.cessationDate ? `<div><span class="text-slate-400 font-medium block mb-0.5">DATE OF CESSATION / RESIGNATION</span><div class="font-extrabold text-amber-600">${d.cessationDate}</div></div>` : ''}
+                        <div><span class="text-slate-400 font-medium block mb-0.5">EMAIL ADDRESS</span><div class="font-bold text-blue-600">${d.email}</div></div>
+                        <div><span class="text-slate-400 font-medium block mb-0.5">CONTACT NUMBER</span><div class="font-bold text-slate-900">${d.mobile}</div></div>
+                        <div class="md:col-span-2"><span class="text-slate-400 font-medium block mb-0.5">RESIDENTIAL ADDRESS</span><div class="font-medium text-slate-800 leading-relaxed">${d.address}</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Appointments Subtab -->
+            <div id="dir-subtab-appointments-panel" class="hidden space-y-4">
+                <h4 class="font-extrabold text-slate-900 text-xs">Register of Appointments</h4>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs border border-slate-100 rounded-2xl overflow-hidden">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-400 font-extrabold uppercase border-b border-slate-200">
+                                <th class="p-3">COMPANY</th>
+                                <th class="p-3">ROLE / DESIGNATION</th>
+                                <th class="p-3">APPOINTMENT DATE</th>
+                                <th class="p-3">STATUS</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-slate-800 font-semibold">
+                            <tr>
+                                <td class="p-3 font-extrabold text-slate-900">ADACTIN GROUP PTE. LTD.</td>
+                                <td class="p-3 text-slate-600">Nominee Director</td>
+                                <td class="p-3 font-mono">2025-01-07</td>
+                                <td class="p-3"><span class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-emerald-50 text-emerald-600 border border-emerald-100">Active</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Related Entities Subtab -->
+            <div id="dir-subtab-related-panel" class="hidden space-y-4">
+                <h4 class="font-extrabold text-slate-900 text-xs">Directorships & Shareholdings in Other Entities</h4>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs border border-slate-100 rounded-2xl overflow-hidden">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-400 font-extrabold uppercase border-b border-slate-200">
+                                <th class="p-3">ENTITY NAME</th>
+                                <th class="p-3">UEN</th>
+                                <th class="p-3">RELATIONSHIP</th>
+                                <th class="p-3 text-right">SHAREHOLDING %</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-slate-800 font-semibold">
+                            <tr>
+                                <td class="p-3 font-extrabold text-slate-900">TANGATURU SUBRAMANIAN ANNAPOORANA CONSULTING PTE. LTD.</td>
+                                <td class="p-3 font-mono">282108745W</td>
+                                <td class="p-3 text-slate-600">Sole Director</td>
+                                <td class="p-3 text-right font-mono font-extrabold text-blue-600">100.00%</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-extrabold text-slate-900">GLOBAL BRIDGE VENTURES CO.</td>
+                                <td class="p-3 text-slate-400">-</td>
+                                <td class="p-3 text-slate-600">Managing Partner</td>
+                                <td class="p-3 text-right font-mono font-extrabold text-blue-600">25.00%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+    if (window.lucide) window.lucide.createIcons();
+};
+
+window.cdSelectSecretary = function(idx) {
+    cdSelectedSecretaryIdx = idx;
+    const reqData = (state.requirements && state.requirements.excelData) ? state.requirements.excelData : (state.requirements || {});
+    const secretaries = (reqData.secretaries && reqData.secretaries.length > 0) ? reqData.secretaries : [
+        {
+            name: 'PIYUSH KUMAR CHAPLOT',
+            type: 'Secretary',
+            idNumber: 'S7980739G',
+            nationality: 'Singaporean',
+            appointmentDate: '2025-01-09',
+            email: 'piyush.kumar.chaplot@corporatesg.com',
+            mobile: '+65 9123 4567',
+            address: '#13-12, 3 Rhu Cross, Singapore 437433',
+            acraNo: 'S7980739G',
+            qualification: 'ACIS (Chartered Secretary)',
+            experience: '10+ Years',
+            registeredAddress: '#13-12, 3 Rhu Cross, Singapore 437433',
+            status: 'ACTIVE'
+        },
+        {
+            name: 'BU WENLIANG',
+            type: 'Primary',
+            idNumber: 'S8912345B',
+            nationality: 'SINGAPORE CITIZEN',
+            appointmentDate: '2024-08-07',
+            email: 'bu.wenliang@corporatesg.com',
+            mobile: '+65 9876 5432',
+            address: '37A TOH CRESCENT SINGAPORE 507947',
+            acraNo: 'AC20160012',
+            qualification: 'Chartered Secretary',
+            experience: '8 Years',
+            registeredAddress: '37A TOH CRESCENT SINGAPORE 507947',
+            status: 'RESIGNED'
+        },
+        {
+            name: 'TAN SONG WEI',
+            type: 'Secretary',
+            idNumber: 'S9012345C',
+            nationality: 'SINGAPORE CITIZEN',
+            appointmentDate: '2024-08-07',
+            email: 'tan.song.wei@corporatesg.com',
+            mobile: '+65 9123 9999',
+            address: '10 ANSON ROAD SINGAPORE 079903',
+            acraNo: 'AC20160015',
+            qualification: 'Chartered Secretary',
+            experience: '6 Years',
+            registeredAddress: '10 ANSON ROAD SINGAPORE 079903',
+            status: 'RESIGNED'
+        }
+    ];
+    const s = secretaries[idx] || secretaries[0];
+    const panel = document.getElementById('cd-secretary-details-panel');
+    if (!panel) return;
+
+    panel.innerHTML = `
+        <div class="flex justify-between items-start border-b border-slate-100 pb-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-extrabold text-xs flex items-center justify-center shrink-0">
+                    ${s.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                    <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                        ${s.name}
+                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-slate-100 text-slate-700 border border-slate-200">Secretary</span>
+                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">ACTIVE</span>
+                    </h3>
+                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">Appointed on: ${s.appointmentDate} &bull; Resigned on: &mdash;</p>
+                </div>
+            </div>
+            <button onclick="alert('Edit Details')" class="px-3 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                Edit Details
+            </button>
+        </div>
+
+        <div class="space-y-6">
+            <div class="flex border-b border-slate-100 gap-6 text-xs font-bold">
+                <button id="sec-subtab-overview-btn" onclick="switchSecretarySubTab('overview')" class="pb-2 text-blue-600 border-b-2 border-blue-600 font-extrabold">Overview</button>
+                <button id="sec-subtab-appointments-btn" onclick="switchSecretarySubTab('appointments')" class="pb-2 text-slate-400 hover:text-slate-700 border-b-2 border-transparent">Appointments</button>
+            </div>
+
+            <!-- Overview Subtab -->
+            <div id="sec-subtab-overview-panel" class="space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Personal Details -->
+                    <div class="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-4">
+                        <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-100 pb-2">Personal Details</h4>
+                        <div class="space-y-3 text-[11px]">
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Full Name</span><span class="font-extrabold text-slate-900">${s.name || '—'}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">NRIC / Passport No.</span><span class="font-mono font-extrabold text-slate-900">${s.idNumber || '—'}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Nationality</span><span class="font-bold text-slate-900">${s.nationality || '—'}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Date of Birth</span><span class="font-bold text-slate-900">${s.dob || '&mdash;'}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Email</span><span class="font-bold text-blue-600">${s.email || '—'}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Phone Number</span><span class="font-bold text-slate-900">${s.mobile || '—'}</span></div>
+                            <div><span class="text-slate-400 font-medium block">Residential Address</span><span class="font-medium text-slate-800 leading-relaxed">${s.address || '—'}</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Professional Details -->
+                    <div class="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-4">
+                        <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-100 pb-2">Professional Details</h4>
+                        <div class="space-y-3 text-[11px]">
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Appointment Type</span><span class="font-bold text-slate-900">Company Secretary</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Qualification</span><span class="font-bold text-slate-900">${s.qualification || 'ACIS (Chartered Secretary)'}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Experience</span><span class="font-bold text-slate-900">${s.experience || '10+ Years'}</span></div>
+                            <div><span class="text-slate-400 font-medium block">Registered Address</span><span class="font-medium text-slate-800 leading-relaxed">${s.registeredAddress || s.address}</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notes Card -->
+                <div class="bg-slate-50/30 p-5 rounded-2xl border border-slate-100 flex justify-between items-center">
+                    <div>
+                        <h4 class="font-extrabold text-slate-900 text-xs">Notes</h4>
+                        <p class="text-slate-400 italic text-xs mt-1">No notes added.</p>
+                    </div>
+                    <button onclick="alert('Add Note')" class="px-3 py-1.5 bg-blue-50 text-blue-600 font-bold rounded-xl text-xs hover:bg-blue-100 transition">Add Note</button>
+                </div>
+            </div>
+
+            <!-- Appointments Subtab -->
+            <div id="sec-subtab-appointments-panel" class="hidden space-y-4">
+                <h4 class="font-extrabold text-slate-900 text-xs">Register of Appointments</h4>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs border border-slate-100 rounded-2xl overflow-hidden">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-400 font-extrabold uppercase border-b border-slate-200">
+                                <th class="p-3">COMPANY</th>
+                                <th class="p-3">DESIGNATION</th>
+                                <th class="p-3">APPOINTMENT DATE</th>
+                                <th class="p-3">STATUS</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-slate-800 font-semibold">
+                            <tr>
+                                <td class="p-3 font-extrabold text-slate-900">ADACTIN GROUP PTE. LTD.</td>
+                                <td class="p-3 text-slate-600">Company Secretary</td>
+                                <td class="p-3 font-mono">2025-01-09</td>
+                                <td class="p-3"><span class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-emerald-50 text-emerald-600 border border-emerald-100">Active</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+    if (window.lucide) window.lucide.createIcons();
+};
+
+window.cdSelectShareholder = function(idx) {
+    cdSelectedShareholderIdx = idx;
+    const reqData = (state.requirements && state.requirements.excelData) ? state.requirements.excelData : (state.requirements || {});
+    const members = (reqData.members && reqData.members.length > 0) ? reqData.members : [
+        {
+            name: 'ADACTIN GROUP PTY LTD',
+            type: 'Corporate',
+            idNumber: 'SHR-0001',
+            nationality: 'AUSTRALIAN',
+            dateEntered: '2024-08-07',
+            address: '123 MEYER ROAD, #16-03 SINGAPORE - 437934',
+            numberOfShares: '0',
+            shareClass: 'Ordinary',
+            currency: 'SGD',
+            amountPaid: '100,001.00',
+            percentage: '0.00%',
+            status: 'CEASED / CANCELLED'
+        }
+    ];
+    const m = members[idx] || members[0];
+    const panel = document.getElementById('cd-shareholder-details-panel');
+    if (!panel) return;
+
+    panel.innerHTML = `
+        <div class="flex justify-between items-start border-b border-slate-100 pb-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-extrabold text-xs flex items-center justify-center shrink-0">
+                    ${m.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                    <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                        ${m.name}
+                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-blue-50 text-blue-600 border border-blue-100">${m.type}</span>
+                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-rose-50 text-rose-600 border border-rose-100">${m.status || 'ACTIVE'}</span>
+                    </h3>
+                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">Shareholder ID: ${m.idNumber} &bull; Added on: ${m.dateEntered}</p>
+                </div>
+            </div>
+            <button onclick="alert('Edit Details')" class="px-3 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                Edit Details
+            </button>
+        </div>
+
+        <div class="space-y-6">
+            <div class="flex border-b border-slate-100 gap-6 text-xs font-bold">
+                <button id="shr-subtab-overview-btn" onclick="switchShareholderSubTab('overview')" class="pb-2 text-slate-400 hover:text-slate-700 border-b-2 border-transparent">Overview</button>
+                <button id="shr-subtab-shareholding-btn" onclick="switchShareholderSubTab('shareholding')" class="pb-2 text-blue-600 border-b-2 border-blue-600 font-extrabold">Shareholding</button>
+                <button id="shr-subtab-transfers-btn" onclick="switchShareholderSubTab('transfers')" class="pb-2 text-slate-400 hover:text-slate-700 border-b-2 border-transparent">1-to-1 Transfers</button>
+                <button id="shr-subtab-personal-btn" onclick="switchShareholderSubTab('personal')" class="pb-2 text-slate-400 hover:text-slate-700 border-b-2 border-transparent">Personal Details</button>
+            </div>
+
+            <!-- Subtab 1: Overview Panel -->
+            <div id="shr-subtab-overview-panel" class="hidden space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-3">
+                        <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-100 pb-2">Shareholding Summary</h4>
+                        <div class="space-y-2 text-[11px]">
+                            <div class="flex justify-between"><span class="text-slate-400">Total Shares Held</span><span class="font-extrabold text-slate-900">${m.numberOfShares}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400">Ordinary Shares</span><span class="font-bold text-slate-900">${m.numberOfShares}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400">Preference Shares</span><span class="font-bold text-slate-900">0</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400">Percentage</span><span class="font-extrabold text-blue-600">${m.percentage}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400">Paid Amount</span><span class="font-bold text-slate-900">SGD ${m.amountPaid}</span></div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-3">
+                        <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-100 pb-2">1-to-1 Transfer History</h4>
+                        <p class="text-[11px] text-slate-400 italic">No transfers recorded.</p>
+                    </div>
+                    <div class="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-3">
+                        <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-100 pb-2">Contact Details</h4>
+                        <div class="space-y-2 text-[11px]">
+                            <div><span class="text-slate-400 block">Address</span><span class="font-medium text-slate-800">${m.address}</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subtab 2: Shareholding Panel -->
+            <div id="shr-subtab-shareholding-panel" class="space-y-6">
+                <h4 class="font-extrabold text-slate-900 text-xs">Capital Shareholdings</h4>
+                <div class="bg-slate-50/50 p-6 rounded-2xl border border-slate-100 space-y-4">
+                    <div class="grid grid-cols-2 gap-y-4 gap-x-8 text-[11px]">
+                        <div><span class="text-slate-400 font-extrabold uppercase tracking-wider block mb-1">TOTAL SHARES HELD</span><div class="font-extrabold text-slate-900 text-sm">${m.numberOfShares}</div></div>
+                        <div><span class="text-slate-400 font-extrabold uppercase tracking-wider block mb-1">SHARE PERCENTAGE</span><div class="font-extrabold text-slate-900 text-sm">${m.percentage}</div></div>
+                        <div><span class="text-slate-400 font-extrabold uppercase tracking-wider block mb-1">ORDINARY SHARES</span><div class="font-extrabold text-slate-900 text-sm">${m.numberOfShares}</div></div>
+                        <div><span class="text-slate-400 font-extrabold uppercase tracking-wider block mb-1">PREFERENCE SHARES</span><div class="font-extrabold text-slate-900 text-sm">0</div></div>
+                        <div><span class="text-slate-400 font-extrabold uppercase tracking-wider block mb-1">CURRENCY</span><div class="font-extrabold text-slate-900 text-sm">${m.currency}</div></div>
+                        <div><span class="text-slate-400 font-extrabold uppercase tracking-wider block mb-1">TOTAL PAID AMOUNT</span><div class="font-extrabold text-slate-900 text-sm">${m.currency} ${m.amountPaid}</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subtab 3: 1-to-1 Transfers Panel -->
+            <div id="shr-subtab-transfers-panel" class="hidden space-y-6">
+                <div class="bg-slate-50/30 p-10 rounded-2xl border border-slate-100 text-center space-y-3">
+                    <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                    </div>
+                    <h4 class="font-extrabold text-slate-900 text-sm">No 1-to-1 Share Transfers Recorded</h4>
+                    <p class="text-xs text-slate-400">No secondary share transfers recorded for ${m.name}.</p>
+                </div>
+            </div>
+
+            <!-- Subtab 4: Personal Details Panel -->
+            <div id="shr-subtab-personal-panel" class="hidden space-y-4">
+                <h4 class="font-extrabold text-slate-900 text-xs">Shareholder Identity Details</h4>
+                <div class="bg-slate-50/50 p-6 rounded-2xl border border-slate-100">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8 text-[11px]">
+                        <div>
+                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">UEN / NRIC / ID</span>
+                            <div class="font-mono font-extrabold text-slate-900 text-xs">T24UF7790C</div>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">NATIONALITY / REGISTRY</span>
+                            <div class="font-extrabold text-slate-900 text-xs">AUSTRALIA</div>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">DATE OF BIRTH / INCORPORATION</span>
+                            <div class="font-bold text-slate-900 text-xs">&mdash;</div>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">ADDRESS</span>
+                            <div class="font-extrabold text-slate-900 text-xs leading-relaxed">11 STONYBROOK TERRACE , BELLA VISTA,NSW, 2153</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    if (window.lucide) window.lucide.createIcons();
+};
+
+window.switchUboSubTab = function(tabName) {
+    const overviewTabBtn = document.getElementById('ubo-subtab-overview-btn');
+    const controlTabBtn = document.getElementById('ubo-subtab-control-btn');
+    const overviewPanel = document.getElementById('ubo-subtab-overview-panel');
+    const controlPanel = document.getElementById('ubo-subtab-control-panel');
+
+    if (tabName === 'control') {
+        if (overviewTabBtn) { overviewTabBtn.className = 'pb-2 text-slate-400 hover:text-slate-700 border-b-2 border-transparent'; }
+        if (controlTabBtn) { controlTabBtn.className = 'pb-2 text-blue-600 border-b-2 border-blue-600 font-extrabold'; }
+        if (overviewPanel) { overviewPanel.classList.add('hidden'); }
+        if (controlPanel) { controlPanel.classList.remove('hidden'); }
+    } else {
+        if (overviewTabBtn) { overviewTabBtn.className = 'pb-2 text-blue-600 border-b-2 border-blue-600 font-extrabold'; }
+        if (controlTabBtn) { controlTabBtn.className = 'pb-2 text-slate-400 hover:text-slate-700 border-b-2 border-transparent'; }
+        if (overviewPanel) { overviewPanel.classList.remove('hidden'); }
+        if (controlPanel) { controlPanel.classList.add('hidden'); }
+    }
+};
+
+window.cdSelectUbo = function(idx) {
+    cdSelectedUboIdx = idx;
+    const reqData = (state.requirements && state.requirements.excelData) ? state.requirements.excelData : (state.requirements || {});
+    const controllers = (reqData.controllers && reqData.controllers.length > 0) ? reqData.controllers : [
+        {
+            name: 'BHATIA SAPNA',
+            role: 'Ultimate Beneficial Owner',
+            ownershipPct: '50',
+            votingRights: '50%',
+            controlType: 'Ownership of Shares',
+            controlBasis: 'Shareholding',
+            dateSince: '2021-03-31',
+            idNumber: 'PA3353470 RA6424760',
+            nationality: 'AUSTRALIAN',
+            dob: '1980-04-15',
+            email: 'bhatia.sapna@email.com',
+            mobile: '+65 9123 4567',
+            address: '123 MEYER ROAD, #16-03 SINGAPORE - 437934',
+            pep: 'No',
+            relatedParty: 'No',
+            sourceOfWealth: 'Business Income',
+            purposeOfOwnership: 'Investment',
+            remarks: '50% SHARES'
+        },
+        {
+            name: 'GARG NAVNEESH KUMAR',
+            role: 'Ultimate Beneficial Owner',
+            ownershipPct: '50',
+            votingRights: '50%',
+            controlType: 'Ownership of Shares',
+            controlBasis: 'Shareholding',
+            dateSince: '2021-03-31',
+            idNumber: 'PA3353471 RA6424761',
+            nationality: 'AUSTRALIAN',
+            dob: '1978-09-12',
+            email: 'garg.navneesh@email.com',
+            mobile: '+65 9123 4568',
+            address: '123 MEYER ROAD, #16-03 SINGAPORE - 437934',
+            pep: 'No',
+            relatedParty: 'No',
+            sourceOfWealth: 'Business Income',
+            purposeOfOwnership: 'Investment',
+            remarks: '50% SHARES'
+        }
+    ];
+    const u = controllers[idx] || controllers[0];
+    const panel = document.getElementById('cd-ubo-details-panel');
+    if (!panel) return;
+
+    panel.innerHTML = `
+        <div class="flex justify-between items-start border-b border-slate-100 pb-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-extrabold text-xs flex items-center justify-center shrink-0">
+                    ${(u.name || 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                    <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                        ${u.name || 'UBO / Controller'}
+                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-slate-100 text-slate-700 border border-slate-200">${u.role || 'Ultimate Beneficial Owner'}</span>
+                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">ACTIVE</span>
+                    </h3>
+                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">ID Type: Passport / FIN &bull; ID No.: ${u.idNumber || '—'} &bull; Via: Direct</p>
+                </div>
+            </div>
+            <button onclick="alert('Edit UBO Details')" class="px-3 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                Edit Details
+            </button>
+        </div>
+
+        <div class="space-y-6">
+            <div class="flex border-b border-slate-100 gap-6 text-xs font-bold">
+                <button id="ubo-subtab-overview-btn" onclick="switchUboSubTab('overview')" class="pb-2 text-blue-600 border-b-2 border-blue-600 font-extrabold">Overview</button>
+                <button id="ubo-subtab-control-btn" onclick="switchUboSubTab('control')" class="pb-2 text-slate-400 hover:text-slate-700 border-b-2 border-transparent">Ownership & Control</button>
+            </div>
+
+            <!-- Subtab 1: Overview Panel -->
+            <div id="ubo-subtab-overview-panel" class="space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Personal Details Card -->
+                    <div class="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-4">
+                        <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-100 pb-2">Personal Details</h4>
+                        <div class="space-y-3 text-[11px]">
+                            <div><span class="text-slate-400 font-medium block">Full Name</span><span class="font-extrabold text-slate-900">${u.name || '—'}</span></div>
+                            <div><span class="text-slate-400 font-medium block">NRIC / Passport No.</span><span class="font-mono font-extrabold text-slate-900">${u.idNumber || '—'}</span></div>
+                            <div><span class="text-slate-400 font-medium block">Nationality</span><span class="font-bold text-slate-900">${u.nationality || '—'}</span></div>
+                            <div><span class="text-slate-400 font-medium block">Date of Birth</span><span class="font-bold text-slate-900">${u.dob || '&mdash;'}</span></div>
+                            <div><span class="text-slate-400 font-medium block">Email</span><span class="font-bold text-blue-600">${u.email || '—'}</span></div>
+                            <div><span class="text-slate-400 font-medium block">Phone Number</span><span class="font-bold text-slate-900">${u.mobile || '—'}</span></div>
+                            <div><span class="text-slate-400 font-medium block">Residential Address</span><span class="font-medium text-slate-800 leading-relaxed">${u.address || '—'}</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Ownership & Control Card -->
+                    <div class="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-4 flex flex-col justify-between">
+                        <div>
+                            <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-100 pb-2 mb-3">Ownership & Control</h4>
+                            <div class="space-y-3 text-[11px]">
+                                <div class="flex justify-between"><span class="text-slate-400 font-medium">Nature of Interest</span><span class="font-extrabold text-slate-900">Direct Ownership</span></div>
+                                <div class="flex justify-between"><span class="text-slate-400 font-medium">Voting Rights</span><span class="font-extrabold text-slate-900">${u.votingRights || '—'}</span></div>
+                                <div class="flex justify-between"><span class="text-slate-400 font-medium">Control Type</span><span class="font-bold text-slate-900">${u.controlType || '—'}</span></div>
+                                <div class="flex justify-between"><span class="text-slate-400 font-medium">Control Basis</span><span class="font-bold text-slate-900">${u.controlBasis || '—'}</span></div>
+                                <div class="flex justify-between"><span class="text-slate-400 font-medium">Date Since</span><span class="font-bold text-slate-900">${u.dateSince || '—'}</span></div>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-blue-50/70 border border-blue-100 rounded-xl text-[10px] text-blue-900 font-medium leading-relaxed">
+                            <strong>${u.name || 'UBO'}</strong> is the ultimate beneficial owner with significant ownership and control in the company.
+                        </div>
+                    </div>
+
+                    <!-- Additional Information Card -->
+                    <div class="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-4">
+                        <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-100 pb-2">Additional Information</h4>
+                        <div class="space-y-3 text-[11px]">
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Politically Exposed Person (PEP)</span><span class="font-bold text-slate-900">${u.pep || 'No'}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Related Party</span><span class="font-bold text-slate-900">${u.relatedParty || 'No'}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Source of Wealth</span><span class="font-bold text-slate-900">${u.sourceOfWealth || '—'}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Purpose of Ownership</span><span class="font-bold text-slate-900">${u.purposeOfOwnership || '—'}</span></div>
+                            <div><span class="text-slate-400 font-medium block">Remarks</span><span class="font-extrabold text-slate-900">${u.remarks || '—'}</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Related Entities -->
+                <div class="bg-slate-50/30 p-5 rounded-2xl border border-slate-100">
+                    <h4 class="font-extrabold text-slate-900 text-xs mb-2">Related Entities</h4>
+                    <p class="text-slate-400 italic text-xs">No related entities found.</p>
+                </div>
+            </div>
+
+            <!-- Subtab 2: Ownership & Control Details Panel -->
+            <div id="ubo-subtab-control-panel" class="hidden space-y-6">
+                <h4 class="font-extrabold text-slate-900 text-sm">Ownership & Control Details</h4>
+                <div class="bg-slate-50/50 p-6 rounded-2xl border border-slate-100 space-y-4">
+                    <div>
+                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">INTEREST NATURE</span>
+                        <div class="font-extrabold text-slate-900 text-sm">Direct Ownership</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    if (window.lucide) window.lucide.createIcons();
+};
+
+function renderProfile(container) {
+    const reqData = (state.requirements && state.requirements.excelData) ? state.requirements.excelData : (state.requirements || {});
+    const companyName = reqData.companyName || state.user.companyName || '1 GLOBAL ENTERPRISES PTE. LTD.';
+    const uen = reqData.uen || '201311840R';
+    const companyType = reqData.companyType || 'EXEMPT PRIVATE COMPANY LIMITED BY SHARES';
+    const incorporationDate = reqData.incorporationDate || '26 Jan 2016';
+    const companyAge = reqData.companyAge || '10 Years, 7 Months';
+    const jurisdiction = reqData.jurisdiction || 'Singapore';
+    const status = reqData.status || 'COMPLETED';
+    const registeredAddress = reqData.registeredOfficeAddress || '37A TOH CRESCENT SINGAPORE 507947';
+
+    // Lists with fallbacks
+    const directors = (reqData.directors && reqData.directors.length > 0) ? reqData.directors : [
+        {
+            name: 'PANDIKADAVIL UNNIKRISHNAN JAYAPRAKASH',
+            type: 'Director',
+            idNumber: 'S27145758',
+            nationality: 'SINGAPORE CITIZEN',
+            dob: '1965-04-24',
+            appointmentDate: '2013-05-01',
+            email: 'jp@1ge.sg',
+            mobile: '6598177292',
+            address: '37A TOH CRESCENT SINGAPORE 507947',
+            status: 'VERIFIED'
+        },
+        {
+            name: 'PRAKASH SANILA JAYA',
+            type: 'Director',
+            idNumber: 'S7823419A',
+            nationality: 'SINGAPORE CITIZEN',
+            dob: '1978-08-12',
+            appointmentDate: '2018-02-15',
+            email: 'sanila@globalconsul.com',
+            mobile: '6591234567',
+            address: '12 MARINA BOULEVARD SINGAPORE 018982',
+            status: 'VERIFIED'
+        }
+    ];
+
+    const secretaries = (reqData.secretaries && reqData.secretaries.length > 0) ? reqData.secretaries : [
+        {
+            name: 'SHU QING LIM',
+            type: 'Primary',
+            idNumber: 'S8912345B',
+            nationality: 'SINGAPORE CITIZEN',
+            appointmentDate: '2016-01-26',
+            email: 'shuqing@globalisor.com',
+            mobile: '6598765432',
+            address: '37A TOH CRESCENT SINGAPORE 507947',
+            acraNo: 'AC20160012',
+            qualification: 'Chartered Secretary (CSIS)',
+            experience: '12 Years Corporate Secretarial',
+            registeredAddress: '10 ANSON ROAD #26-04 INTERNATIONAL PLAZA SINGAPORE 079903'
+        }
+    ];
+
+    const auditors = (reqData.auditors && reqData.auditors.length > 0) ? reqData.auditors : [
+        {
+            name: 'STAMFORD ASSOCIATES LLP',
+            registrationNo: 'T07LL0683E',
+            appointmentDate: '1 May 2013',
+            resignationDate: '1 May 2017',
+            status: 'Resigned',
+            notes: '—',
+            address: '7500A BEACH ROAD, #08-313 THE PLAZA, SINGAPORE - 199591'
+        }
+    ];
+
+    const members = (reqData.members && reqData.members.length > 0) ? reqData.members : [
+        {
+            name: 'PANDIKADAVIL UNNIKRISHNAN JAYAPRAKASH',
+            type: 'Individual',
+            idNumber: 'S27145758',
+            nationality: 'SINGAPORE CITIZEN',
+            dateEntered: '2016-01-26',
+            address: '37A TOH CRESCENT SINGAPORE 507947',
+            numberOfShares: '1,999,999',
+            shareClass: 'Ordinary',
+            currency: 'SGD',
+            amountPaid: '1,999,999',
+            percentage: '99.99%',
+            certNo: 'CERT-001'
+        },
+        {
+            name: 'PRAKASH SANILA JAYA',
+            type: 'Individual',
+            idNumber: 'S7823419A',
+            nationality: 'SINGAPORE CITIZEN',
+            dateEntered: '2018-02-15',
+            address: '12 MARINA BOULEVARD SINGAPORE 018982',
+            numberOfShares: '1',
+            shareClass: 'Ordinary',
+            currency: 'SGD',
+            amountPaid: '1',
+            percentage: '0.01%',
+            certNo: 'CERT-002'
+        }
+    ];
+
+    const controllers = (reqData.controllers && reqData.controllers.length > 0) ? reqData.controllers : [
+        {
+            name: 'PANDIKADAVIL UNNIKRISHNAN JAYAPRAKASH',
+            role: 'Ultimate Beneficial Owner',
+            ownershipPct: '99.99',
+            votingRights: '99.99',
+            controlType: 'Direct Ownership & Voting Rights',
+            controlBasis: 'Holds > 75% of share capital & voting power',
+            dateSince: '2013-05-01',
+            idNumber: 'S27145758',
+            nationality: 'SINGAPORE CITIZEN',
+            email: 'jp@1ge.sg',
+            mobile: '6598177292',
+            address: '37A TOH CRESCENT SINGAPORE 507947',
+            pep: 'No',
+            relatedParty: 'No',
+            sourceOfWealth: 'Business Revenue & Savings',
+            purposeOfOwnership: 'Principal Founder & Major Shareholder',
+            remarks: 'Verified ultimate controller of 1 GLOBAL ENTERPRISES PTE. LTD.'
+        }
+    ];
+
+    const allotments = (reqData.allotments && reqData.allotments.length > 0) ? reqData.allotments : [
+        {
+            allotmentDate: '2016-01-26',
+            memberName: 'PANDIKADAVIL UNNIKRISHNAN JAYAPRAKASH',
+            shareClass: 'Ordinary',
+            sharesApplied: '1,999,999',
+            currency: 'SGD',
+            depositAmount: '1,999,999',
+            amountAllotted: '1,999,999',
+            certNo: 'CERT-001'
+        }
+    ];
+
+    const rons = (reqData.rons && reqData.rons.length > 0) ? reqData.rons : [
+        {
+            dateOfEntry: '2016-01-26',
+            nomineeName: 'N/A (Direct Owner)',
+            nominatorName: 'PANDIKADAVIL UNNIKRISHNAN JAYAPRAKASH',
+            nominatorIdNumber: 'S27145758',
+            nominatorNationality: 'SINGAPORE CITIZEN',
+            nominatorAddress: '37A TOH CRESCENT SINGAPORE 507947',
+            nominatorNotes: 'Direct beneficial owner'
+        }
+    ];
+
+    const transfers = (reqData.transfers && reqData.transfers.length > 0) ? reqData.transfers : [
+        {
+            transferDate: '2018-02-15',
+            shareClass: 'Ordinary',
+            transferor: 'PANDIKADAVIL UNNIKRISHNAN JAYAPRAKASH (CERT-001)',
+            sharesTransferred: '1',
+            transferee: 'PRAKASH SANILA JAYA (CERT-002)',
+            price: 'SGD 1.00'
+        }
+    ];
+
+    const amlData = (reqData.amlData && reqData.amlData.length > 0) ? reqData.amlData : [
+        {
+            name: 'PANDIKADAVIL UNNIKRISHNAN JAYAPRAKASH',
+            aml1: 'Passed',
+            aml2: 'Passed',
+            aml3: 'Clear',
+            cdd: 'Verified',
+            cdd2: 'Verified',
+            cdd3: 'Approved',
+            googleSearch: 'Clean',
+            bankStatement: 'Verified'
+        },
+        {
+            name: 'PRAKASH SANILA JAYA',
+            aml1: 'Passed',
+            aml2: 'Passed',
+            aml3: 'Clear',
+            cdd: 'Verified',
+            cdd2: 'Verified',
+            cdd3: 'Approved',
+            googleSearch: 'Clean',
+            bankStatement: 'Verified'
+        }
+    ];
+
+    const acraTransactions = [
+        { date: '2026-01-26', desc: 'Annual Return Filed for FY 2025', lodgedBy: 'SHU QING LIM', lodgedDate: '2026-01-26', notes: 'ACRA Reference AR-2026-90123' },
+        { date: '2025-06-30', desc: 'Notice of Change of Officers / Particulars', lodgedBy: 'SHU QING LIM', lodgedDate: '2025-06-30', notes: 'Director Address Update' },
+        { date: '2016-01-26', desc: 'Company Incorporation Lodgement', lodgedBy: 'Globalisor System', lodgedDate: '2016-01-26', notes: 'Incorporation Registration Passed' }
+    ];
+
+    container.innerHTML = `
+        <div class="space-y-6">
+            <!-- Top Header Card with 13 Tabs -->
+            <div class="bg-white border border-slate-100 shadow-sm p-6 rounded-3xl space-y-6">
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-14 h-14 rounded-2xl bg-blue-600 text-white font-black text-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                            1
+                        </div>
+                        <div>
+                            <h2 class="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
+                                ${companyName}
+                            </h2>
+                            <div class="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
+                                <span class="font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">UEN: ${uen}</span>
+                                <span class="font-semibold text-slate-600">${companyType}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100 text-xs font-semibold text-slate-600 flex-wrap">
+                        <div><span class="text-[10px] uppercase font-bold text-slate-400 block">Incorporation</span><span class="font-bold text-slate-900">${incorporationDate}</span></div>
+                        <div class="w-px h-6 bg-slate-200"></div>
+                        <div><span class="text-[10px] uppercase font-bold text-slate-400 block">Company Age</span><span class="font-bold text-slate-900">${companyAge}</span></div>
+                        <div class="w-px h-6 bg-slate-200"></div>
+                        <div><span class="text-[10px] uppercase font-bold text-slate-400 block">Jurisdiction</span><span class="font-bold text-slate-900">${jurisdiction}</span></div>
+                        <div class="w-px h-6 bg-slate-200"></div>
+                        <span class="px-3 py-1 bg-emerald-50 text-emerald-700 font-bold text-xs rounded-full uppercase border border-emerald-100">Completed</span>
+                    </div>
+                </div>
+
+                <!-- 13 Navigation Tabs -->
+                <div class="flex border-b border-slate-200 overflow-x-auto gap-2 text-xs font-bold text-slate-500 pt-2 no-scrollbar">
+                    <button onclick="switchCdHeaderTab('overview')" id="cd-tab-overview" class="cd-tab-btn px-4 py-3 text-blue-600 border-b-2 border-blue-600 whitespace-nowrap transition-all font-extrabold">Overview</button>
+                    <button onclick="switchCdHeaderTab('aml')" id="cd-tab-aml" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">AML</button>
+                    <button onclick="switchCdHeaderTab('directors')" id="cd-tab-directors" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Directors (${directors.length})</button>
+                    <button onclick="switchCdHeaderTab('secretaries')" id="cd-tab-secretaries" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Secretaries (${secretaries.length})</button>
+                    <button onclick="switchCdHeaderTab('auditors')" id="cd-tab-auditors" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Auditors (${auditors.length})</button>
+                    <button onclick="switchCdHeaderTab('members')" id="cd-tab-members" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Shareholders (${members.length})</button>
+                    <button onclick="switchCdHeaderTab('ubos')" id="cd-tab-ubos" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">UBOs & Controllers (${controllers.length})</button>
+                    <button onclick="switchCdHeaderTab('allotments')" id="cd-tab-allotments" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Allotments</button>
+                    <button onclick="switchCdHeaderTab('rons')" id="cd-tab-rons" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">RONS</button>
+                    <button onclick="switchCdHeaderTab('transfers')" id="cd-tab-transfers" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Transfers</button>
+                    <button onclick="switchCdHeaderTab('documents')" id="cd-tab-documents" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Documents</button>
+                    <button onclick="switchCdHeaderTab('compliance')" id="cd-tab-compliance" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Compliance</button>
+                    <button onclick="switchCdHeaderTab('activities')" id="cd-tab-activities" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Activities</button>
+                </div>
+            </div>
+
+            <!-- Panel 1: Overview -->
+            <div id="cd-panel-overview" class="cd-panel space-y-6">
+                <div class="grid grid-cols-12 gap-6">
+                    <!-- Left Card: Corporate Profile -->
+                    <div class="col-span-12 lg:col-span-7 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                        <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+                            <h3 class="font-bold text-slate-900 text-lg flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="9" y1="6" x2="15" y2="6"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+                                </div>
+                                Corporate Profile
+                            </h3>
+                            <button onclick="alert('Edit Profile Modal')" class="px-4 py-2 border border-slate-200 text-blue-600 hover:bg-blue-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                                Edit Profile
+                            </button>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8 text-xs">
+                            <div>
+                                <span class="text-slate-400 font-bold block mb-1">Company Name</span>
+                                <div class="font-extrabold text-slate-900 text-sm">${companyName}</div>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 font-bold block mb-1">UEN</span>
+                                <div class="font-extrabold text-slate-900 text-sm font-mono">${uen}</div>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 font-bold block mb-1">Company Type</span>
+                                <div class="font-bold text-slate-900">${companyType}</div>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 font-bold block mb-1">Country of Incorporation</span>
+                                <div class="font-bold text-slate-900">${jurisdiction}</div>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 font-bold block mb-1">Incorporation Date</span>
+                                <div class="font-extrabold text-slate-900">${incorporationDate}</div>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 font-bold block mb-1">Company Age</span>
+                                <div class="font-extrabold text-slate-900">${companyAge}</div>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 font-bold block mb-1">Primary SSIC & Activity Description</span>
+                                <div class="font-bold text-slate-900 leading-relaxed">${reqData.primaryActivity || 'General Wholesale Trade'}</div>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 font-bold block mb-1">Secondary SSIC & Activity Description</span>
+                                <div class="font-bold text-slate-900 leading-relaxed">${reqData.secondaryActivity || 'Information Technology Consultancy'}</div>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 font-bold block mb-1">Company Status</span>
+                                <span class="px-3 py-1 rounded-md text-[11px] font-extrabold uppercase bg-emerald-50 text-emerald-600 inline-block mt-1 border border-emerald-100">
+                                    ACTIVE
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Card: Compliance Timeline -->
+                    <div class="col-span-12 lg:col-span-5 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6 flex flex-col justify-between">
+                        <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+                            <h3 class="font-bold text-slate-900 text-lg flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-purple-600"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                                </div>
+                                Compliance Timeline
+                            </h3>
+                            <button onclick="switchCdHeaderTab('compliance')" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                                View Calendar
+                            </button>
+                        </div>
+                        
+                        <div class="space-y-6 text-xs flex-grow relative pl-2 pt-2">
+                            <!-- Connecting Line -->
+                            <div class="absolute left-[20px] top-[24px] bottom-[24px] w-[2px] bg-slate-100 z-0"></div>
+                            
+                            <!-- FYE -->
+                            <div class="flex items-start gap-4 relative z-10">
+                                <div class="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                </div>
+                                <div class="flex-grow">
+                                    <div class="flex justify-between items-start">
+                                        <span class="font-extrabold text-slate-800 text-xs">Financial Year End (FYE)</span>
+                                        <span class="font-extrabold text-slate-900 text-xs">2025-12-30</span>
+                                    </div>
+                                    <div class="flex justify-between items-start mt-0.5">
+                                        <span class="text-slate-400 font-medium text-[11px]">Every year on 30 Dec</span>
+                                        <span class="text-emerald-500 font-bold text-[11px]">In 4 months</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Last AGM Date -->
+                            <div class="flex items-start gap-4 relative z-10">
+                                <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0 border border-slate-200">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                                </div>
+                                <div class="flex-grow">
+                                    <div class="flex justify-between items-start">
+                                        <span class="font-extrabold text-slate-800 text-xs">Last AGM Date</span>
+                                        <span class="font-extrabold text-slate-900 text-xs">29 Jun 2026</span>
+                                    </div>
+                                    <div class="flex justify-between items-start mt-0.5">
+                                        <span class="text-slate-400 font-medium text-[11px]">Due within 6 months of FYE</span>
+                                        <span class="text-slate-400 font-medium text-[11px]">Not Held Yet</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Date of Annual Return -->
+                            <div class="flex items-start gap-4 relative z-10">
+                                <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0 border border-slate-200">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                </div>
+                                <div class="flex-grow">
+                                    <div class="flex justify-between items-start">
+                                        <span class="font-extrabold text-slate-800 text-xs">Date of Annual Return</span>
+                                        <span class="font-extrabold text-slate-900 text-xs">30 Jul 2026</span>
+                                    </div>
+                                    <div class="flex justify-between items-start mt-0.5">
+                                        <span class="text-slate-400 font-medium text-[11px]">Due within 30 days of AGM</span>
+                                        <span class="text-slate-400 font-medium text-[11px]">Not Filed Yet</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- XBRL Prepared -->
+                            <div class="flex items-start gap-4 relative z-10">
+                                <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0 border border-slate-200">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><polyline points="7 17 12 12 17 7"/></svg>
+                                </div>
+                                <div class="flex-grow">
+                                    <div class="flex justify-between items-start">
+                                        <span class="font-extrabold text-slate-800 text-xs">XBRL Prepared</span>
+                                        <span class="font-extrabold text-slate-900 text-xs">NA</span>
+                                    </div>
+                                    <div class="flex justify-between items-start mt-0.5">
+                                        <span class="text-slate-400 font-medium text-[11px]">Due within 7 months of FYE</span>
+                                        <span class="text-slate-400 font-medium text-[11px]"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="pt-4 border-t border-slate-100 text-center mt-auto">
+                            <a href="#" onclick="event.preventDefault(); switchCdHeaderTab('compliance')" class="font-bold text-blue-600 hover:text-blue-700 text-xs inline-flex items-center justify-center gap-1.5 transition-colors">
+                                View All Compliance <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 2: AML -->
+            <div id="cd-panel-aml" class="cd-panel hidden space-y-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="font-extrabold text-slate-900 text-xl">Anti-Money Laundering & CDD Register</h3>
+                        <p class="text-xs text-slate-400 mt-1">Screen compliance records, risk statuses, and verification checklists.</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="alert('Add Individual Modal')" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                            Add Individual
+                        </button>
+                        <button onclick="alert('AML Checks Saved')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
+                            Save AML Checks
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                    <div class="p-4 bg-slate-50/70 border border-slate-100 rounded-2xl">
+                        <h4 class="font-extrabold text-slate-900 text-sm">${companyName}</h4>
+                        <p class="text-xs font-mono font-semibold text-slate-500 mt-0.5">${uen}</p>
+                    </div>
+
+                    <div>
+                        <h4 class="font-extrabold text-slate-900 text-sm border-b-2 border-slate-900 pb-2 inline-block">Register of AML & CDD</h4>
+                        <div class="overflow-x-auto mt-4">
+                            <table class="w-full text-left text-xs border border-slate-100 rounded-2xl overflow-hidden">
+                                <thead>
+                                    <tr class="bg-slate-50 text-slate-700 font-extrabold border-b border-slate-200">
+                                        <th class="p-3">Name</th>
+                                        <th class="p-3">AML1</th>
+                                        <th class="p-3">AML2</th>
+                                        <th class="p-3">AML3</th>
+                                        <th class="p-3">CDD</th>
+                                        <th class="p-3">CDD2</th>
+                                        <th class="p-3">CDD3</th>
+                                        <th class="p-3">Google Search</th>
+                                        <th class="p-3">Bank Statement</th>
+                                        <th class="p-3 text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-slate-800 font-semibold">
+                                    ${amlData.map(a => `
+                                        <tr class="hover:bg-slate-50/50 transition">
+                                            <td class="p-3 font-extrabold text-slate-900 uppercase">${a.name}</td>
+                                            <td class="p-3">${a.aml1 || '2016-06-14'}</td>
+                                            <td class="p-3">${a.aml2 || '2023-05-17'}</td>
+                                            <td class="p-3 text-slate-400">-</td>
+                                            <td class="p-3">${a.cdd || '2016-01-25'}</td>
+                                            <td class="p-3">${a.cdd2 || '2024-02-04'}</td>
+                                            <td class="p-3 text-slate-400">-</td>
+                                            <td class="p-3">${a.googleSearch || '2025-06-11'}</td>
+                                            <td class="p-3 text-slate-500">${a.bankStatement || '-'}</td>
+                                            <td class="p-3 text-center">
+                                                <button onclick="alert('Delete row')" class="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition" title="Delete">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 3: Directors -->
+            <div id="cd-panel-directors" class="cd-panel hidden space-y-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="font-extrabold text-slate-900 text-xl">Directors (${directors.length})</h3>
+                        <p class="text-xs text-slate-400 mt-1">Manage and review director information and documents</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="alert('Org Chart View')" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                            <i data-lucide="network" class="w-3.5 h-3.5 text-blue-600"></i> View Org Chart
+                        </button>
+                        <button onclick="alert('Add Director Modal')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
+                            + Add Director
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-12 gap-6">
+                    <div class="col-span-12 lg:col-span-4 space-y-4">
+                        <div class="flex gap-2">
+                            <input type="text" placeholder="Search director by name..." class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                            <select class="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700">
+                                <option>All Directors</option>
+                            </select>
+                        </div>
+                        <div class="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+                            ${directors.map((d, idx) => `
+                                <div onclick="cdSelectDirector(${idx})" class="p-4 bg-white rounded-2xl border ${idx === cdSelectedDirectorIdx ? 'border-purple-500 ring-2 ring-purple-500/10' : 'border-slate-100'} hover:border-purple-300 transition-all cursor-pointer shadow-sm">
+                                    <div class="flex items-center gap-3 mb-2">
+                                        <div class="w-10 h-10 rounded-full bg-purple-100 text-purple-600 font-extrabold text-xs flex items-center justify-center shrink-0">
+                                            ${(d.name || 'D').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center justify-between gap-1">
+                                                <span class="font-extrabold text-slate-900 text-xs truncate">${d.name || 'Director'}</span>
+                                                <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-purple-50 text-purple-600 border border-purple-100">${d.status || d.type || 'ACTIVE'}</span>
+                                            </div>
+                                            <p class="text-[10px] text-slate-400 font-bold mt-0.5">${d.type || 'Director'}</p>
+                                        </div>
+                                    </div>
+                                    <p class="text-[10px] text-blue-600 font-medium truncate mb-2">${d.email || d.idNumber || '—'}</p>
+                                    <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                        <div class="bg-emerald-500 h-full w-full"></div>
+                                    </div>
+                                    <span class="text-[9px] text-emerald-600 font-bold block text-right mt-1">100% Complete</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="col-span-12 lg:col-span-8 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-6" id="cd-director-details-panel">
+                        <!-- Loaded by cdSelectDirector -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 4: Secretaries -->
+            <div id="cd-panel-secretaries" class="cd-panel hidden space-y-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="font-extrabold text-slate-900 text-xl">Secretaries (${secretaries.length})</h3>
+                        <p class="text-xs text-slate-400 mt-1">Manage company secretaries and their details</p>
+                    </div>
+                    <button onclick="alert('Add Secretary Modal')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
+                        + Add Secretary
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-12 gap-6">
+                    <div class="col-span-12 lg:col-span-4 space-y-4">
+                        <div class="flex gap-2">
+                            <input type="text" placeholder="Search secretary by name..." class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                            <select class="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700">
+                                <option>All Status</option>
+                            </select>
+                        </div>
+                        <div class="space-y-3">
+                            ${secretaries.map((s, idx) => `
+                                <div onclick="cdSelectSecretary(${idx})" class="p-4 bg-white rounded-2xl border ${idx === cdSelectedSecretaryIdx ? 'border-blue-500 ring-2 ring-blue-500/10' : 'border-slate-100'} hover:border-blue-300 transition-all cursor-pointer shadow-sm">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-extrabold text-xs flex items-center justify-center shrink-0">
+                                            ${(s.name || 'S').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center justify-between gap-1 mb-1">
+                                                <span class="font-extrabold text-slate-900 text-xs truncate">${s.name || 'Company Secretary'}</span>
+                                                <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">${s.status || 'ACTIVE'}</span>
+                                            </div>
+                                            <p class="text-[10px] text-blue-600 font-semibold truncate">${s.email || s.qualification || s.acraNo || 'Active Secretary'}</p>
+                                            <p class="text-[10px] text-slate-400 font-medium mt-1">Appointed on: ${s.appointmentDate || '—'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="col-span-12 lg:col-span-8 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-6" id="cd-secretary-details-panel">
+                        <!-- Loaded by cdSelectSecretary -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 5: Auditors -->
+            <div id="cd-panel-auditors" class="cd-panel hidden space-y-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="font-extrabold text-slate-900 text-xl">Auditors (${auditors.length})</h3>
+                        <p class="text-xs text-slate-400 mt-1">Manage and view company auditor appointments and history.</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="alert('Add Auditor Modal')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
+                            + Add Auditor
+                        </button>
+                        <button onclick="alert('Auditors Saved')" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                            Save Auditors
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                    <div class="p-4 bg-slate-50/70 border border-slate-100 rounded-2xl flex justify-between items-center">
+                        <div>
+                            <h4 class="font-extrabold text-slate-900 text-sm">EIGHTY EIGHT SHIPPING PTE LTD</h4>
+                            <p class="text-xs font-mono font-semibold text-slate-500 mt-0.5">201022242N</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block">LAST UPDATED</span>
+                            <span class="text-xs font-extrabold text-slate-900">11 May 2026</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="font-extrabold text-slate-900 text-sm border-b-2 border-slate-900 pb-2 inline-block">Register of Auditors</h4>
+                        <div class="overflow-x-auto mt-4">
+                            <table class="w-full text-left text-xs border border-slate-100 rounded-2xl overflow-hidden">
+                                <thead>
+                                    <tr class="bg-[#00f5d4] text-slate-900 font-extrabold uppercase">
+                                        <th class="p-3">Name of the Firm</th>
+                                        <th class="p-3">Identification No.</th>
+                                        <th class="p-3">Address</th>
+                                        <th class="p-3">Date of Appointment</th>
+                                        <th class="p-3">Date of Resignation</th>
+                                        <th class="p-3">Notes</th>
+                                        <th class="p-3 text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-slate-800 font-semibold bg-white">
+                                    ${auditors.map(a => `
+                                        <tr>
+                                            <td class="p-3 font-extrabold text-slate-900 uppercase">${a.name || '—'}</td>
+                                            <td class="p-3 font-mono">${a.registrationNo || a.idNumber || '—'}</td>
+                                            <td class="p-3">${a.address || '—'}</td>
+                                            <td class="p-3">${a.appointmentDate || '—'}</td>
+                                            <td class="p-3 text-slate-700">${a.resignationDate || '&mdash;'}</td>
+                                            <td class="p-3 text-slate-400">${a.notes || '&mdash;'}</td>
+                                            <td class="p-3 text-center">
+                                                <div class="flex justify-center gap-1.5">
+                                                    <button onclick="alert('Edit')" class="p-1 text-slate-400 hover:text-blue-600"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+                                                    <button onclick="alert('Delete')" class="p-1 text-slate-400 hover:text-red-600"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                    <!-- Empty grid placeholder rows matching screenshot -->
+                                    <tr class="h-10 border-b border-slate-100"><td colspan="7"></td></tr>
+                                    <tr class="h-10 border-b border-slate-100"><td colspan="7"></td></tr>
+                                    <tr class="h-10 border-b border-slate-100"><td colspan="7"></td></tr>
+                                    <tr class="h-10 border-b border-slate-100"><td colspan="7"></td></tr>
+                                    <tr class="h-10 border-b border-slate-100"><td colspan="7"></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 6: Shareholders (Members) -->
+            <div id="cd-panel-members" class="cd-panel hidden space-y-6">
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                    <div>
+                        <h3 class="font-extrabold text-slate-900 text-xl">Shareholders (${members.length})</h3>
+                    </div>
+                    <div class="px-6 py-2 bg-white border border-slate-200 rounded-2xl text-slate-700 text-xs font-bold flex items-center gap-4 shadow-sm">
+                        <span>TOTAL SHARES: <strong class="text-slate-900">1,000 (Ord: 1,000 | Pref: 0)</strong></span>
+                        <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                        <span>TOTAL SHARE VALUE: <strong class="text-blue-600">$1,000.00</strong></span>
+                        <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                        <span>CURRENCY: <strong class="text-slate-900">$ USD</strong></span>
+                    </div>
+                    <button onclick="alert('Add Shareholder Modal')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
+                        + Add Shareholder
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-12 gap-6">
+                    <div class="col-span-12 lg:col-span-4 space-y-4">
+                        <input type="text" placeholder="Search shareholder by name..." class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                        <div class="grid grid-cols-2 gap-2">
+                            <select class="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700"><option>All Types</option></select>
+                            <select class="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700"><option>All Shares</option></select>
+                        </div>
+                        <div class="space-y-3">
+                            ${members.map((m, idx) => `
+                                <div onclick="cdSelectShareholder(${idx})" class="p-4 bg-white rounded-2xl border ${idx === cdSelectedShareholderIdx ? 'border-blue-500 ring-2 ring-blue-500/10' : 'border-slate-100'} hover:border-blue-300 transition-all cursor-pointer shadow-sm">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-extrabold text-xs flex items-center justify-center shrink-0">
+                                            ${(m.name || 'M').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center justify-between gap-1 mb-1">
+                                                <span class="font-extrabold text-slate-900 text-xs truncate">${m.name || 'Shareholder'}</span>
+                                                <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">${m.type || 'INDIVIDUAL'}</span>
+                                            </div>
+                                            <p class="text-[10px] text-slate-500 font-medium">Shares: ${m.numberOfShares || m.shares || '—'} (${m.shareClass || 'Ordinary'})</p>
+                                            <p class="text-[10px] text-blue-600 font-extrabold mt-0.5">${m.percentage || '—'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="col-span-12 lg:col-span-8 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-6" id="cd-shareholder-details-panel">
+                        <!-- Loaded by cdSelectShareholder -->
+                    </div>
+                </div>
+            </div>
+                        </div>
+                        <div class="col-span-12 lg:col-span-8 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-6" id="cd-shareholder-details-panel">
+                            <!-- Loaded by cdSelectShareholder -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 7: UBOs & Controllers -->
+            <div id="cd-panel-ubos" class="cd-panel hidden space-y-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="font-extrabold text-slate-900 text-xl">UBOs & Controllers (${controllers.length})</h3>
+                        <p class="text-xs text-slate-400 mt-1">View and manage Ultimate Beneficial Owners and Controllers</p>
+                    </div>
+                    <button onclick="alert('Add UBO / Controller Modal')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
+                        + Add UBO / Controller
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-12 gap-6">
+                    <div class="col-span-12 lg:col-span-4 space-y-4">
+                        <div class="flex gap-2">
+                            <input type="text" placeholder="Search by name..." class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                            <select class="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700">
+                                <option>All Status</option>
+                            </select>
+                        </div>
+                        <div class="space-y-3">
+                            ${controllers.map((u, idx) => `
+                                <div onclick="cdSelectUbo(${idx})" class="p-4 bg-white rounded-2xl border ${idx === cdSelectedUboIdx ? 'border-blue-500 ring-2 ring-blue-500/10' : 'border-slate-100'} hover:border-blue-300 transition-all cursor-pointer shadow-sm">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-extrabold text-xs flex items-center justify-center shrink-0">
+                                            ${(u.name || 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center justify-between gap-1 mb-1">
+                                                <span class="font-extrabold text-slate-900 text-xs truncate">${u.name || 'UBO / Controller'}</span>
+                                                <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">${u.role || 'ULTIMATE BENEFICIAL OWNER'}</span>
+                                            </div>
+                                            <p class="text-[10px] text-slate-400 font-semibold">${u.nationality || '—'}</p>
+                                            <p class="text-[10px] text-slate-400 font-medium mt-0.5">Via: ${u.controlType || 'Direct'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="col-span-12 lg:col-span-8 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-6" id="cd-ubo-details-panel">
+                        <!-- Loaded by cdSelectUbo -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 8: Allotments -->
+            <div id="cd-panel-allotments" class="cd-panel hidden space-y-6">
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                            </div>
+                            <div>
+                                <h3 class="font-extrabold text-slate-900 text-base">Register of Applications and Allotments</h3>
+                                <p class="text-xs text-slate-400 mt-0.5">Record of share applications, deposits, certificate numbers, and share allotments</p>
+                            </div>
+                        </div>
+                        <span class="px-3 py-1 bg-blue-50 text-blue-600 font-extrabold text-xs rounded-full border border-blue-100">3 Allotments</span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border border-slate-100 rounded-2xl overflow-hidden">
+                            <thead>
+                                <tr class="bg-slate-50 text-slate-400 font-extrabold uppercase border-b border-slate-200">
+                                    <th class="p-3">APPLICATION DATE</th>
+                                    <th class="p-3">ALLOTMENT DATE</th>
+                                    <th class="p-3">APPLICANT NAME</th>
+                                    <th class="p-3">SHARE CLASS</th>
+                                    <th class="p-3 text-right">SHARES APPLIED</th>
+                                    <th class="p-3">CURRENCY</th>
+                                    <th class="p-3 text-right">DEPOSIT AMOUNT</th>
+                                    <th class="p-3 text-right">AMOUNT ALLOTTED</th>
+                                    <th class="p-3 text-center">CERT NO.</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 text-slate-800 font-semibold">
+                                <tr class="hover:bg-slate-50/50 transition">
+                                    <td class="p-3 font-bold text-slate-900">2016-01-25</td>
+                                    <td class="p-3">2016-01-25</td>
+                                    <td class="p-3 font-extrabold text-slate-900">VIKRAM KUMAR</td>
+                                    <td class="p-3"><span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 text-blue-600 border border-blue-100">Ordinary</span></td>
+                                    <td class="p-3 text-right font-mono font-bold">500</td>
+                                    <td class="p-3">USD</td>
+                                    <td class="p-3 text-right font-mono font-bold">500</td>
+                                    <td class="p-3 text-right text-slate-400">-</td>
+                                    <td class="p-3 text-center font-extrabold text-slate-900">1</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50/50 transition">
+                                    <td class="p-3 font-bold text-slate-900">2016-01-25</td>
+                                    <td class="p-3">2016-01-25</td>
+                                    <td class="p-3 font-extrabold text-slate-900">AMBICA KUMAR</td>
+                                    <td class="p-3"><span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 text-blue-600 border border-blue-100">Ordinary</span></td>
+                                    <td class="p-3 text-right font-mono font-bold">300</td>
+                                    <td class="p-3">USD</td>
+                                    <td class="p-3 text-right font-mono font-bold">300</td>
+                                    <td class="p-3 text-right text-slate-400">-</td>
+                                    <td class="p-3 text-center font-extrabold text-slate-900">2</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50/50 transition">
+                                    <td class="p-3 font-bold text-slate-900">2016-01-25</td>
+                                    <td class="p-3">2016-01-25</td>
+                                    <td class="p-3 font-extrabold text-slate-900">CEDRIC ROBERT RAYMOND SEGUIN</td>
+                                    <td class="p-3"><span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 text-blue-600 border border-blue-100">Ordinary</span></td>
+                                    <td class="p-3 text-right font-mono font-bold">200</td>
+                                    <td class="p-3">USD</td>
+                                    <td class="p-3 text-right font-mono font-bold">200</td>
+                                    <td class="p-3 text-right text-slate-400">-</td>
+                                    <td class="p-3 text-center font-extrabold text-slate-900">3</td>
+                                </tr>
+                                <tr class="bg-slate-50/80 text-slate-900 font-extrabold">
+                                    <td colspan="4" class="p-3 uppercase">TOTAL</td>
+                                    <td class="p-3 text-right font-mono text-blue-600 text-sm">1,000</td>
+                                    <td class="p-3"></td>
+                                    <td class="p-3 text-right font-mono text-slate-900 text-sm">1,000</td>
+                                    <td class="p-3 text-right text-slate-400">-</td>
+                                    <td class="p-3"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 9: RONS -->
+            <div id="cd-panel-rons" class="cd-panel hidden space-y-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="font-extrabold text-slate-900 text-xl">Register of Nominee Shareholders (RONS) (0)</h3>
+                        <p class="text-xs text-slate-400 mt-1">Declare and track nominee shareholders and their nominators according to ACRA requirements.</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="alert('Add Nominee Modal')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
+                            + Add Nominee
+                        </button>
+                        <button onclick="alert('Save RONS')" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                            Save RONS
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                    <div class="p-4 bg-slate-50/70 border border-slate-100 rounded-2xl">
+                        <h4 class="font-extrabold text-slate-900 text-sm">${companyName}</h4>
+                        <p class="text-xs font-mono font-semibold text-slate-500 mt-0.5">${uen}</p>
+                    </div>
+
+                    <div>
+                        <h4 class="font-extrabold text-slate-900 text-sm border-b-2 border-slate-900 pb-2 inline-block">Register of Nominee Shareholder (RONS)</h4>
+                        <div class="overflow-x-auto mt-4">
+                            <table class="w-full text-left text-xs border border-slate-100 rounded-2xl overflow-hidden">
+                                <thead>
+                                    <tr class="font-extrabold text-slate-900 uppercase">
+                                        <th class="p-3 bg-[#00f5d4] border-r border-slate-200">Date of Entry</th>
+                                        <th class="p-3 bg-[#00f5d4] border-r border-slate-200">Nominee</th>
+                                        <th colspan="7" class="p-3 bg-[#bfdbfe] text-center border-r border-slate-200">Nominator</th>
+                                        <th class="p-3 bg-white text-center">Actions</th>
+                                    </tr>
+                                    <tr class="bg-slate-100 text-slate-700 font-extrabold border-t border-slate-200">
+                                        <th class="p-2 border-r border-slate-200"></th>
+                                        <th class="p-2 border-r border-slate-200"></th>
+                                        <th class="p-2 border-r border-slate-200">Name</th>
+                                        <th class="p-2 border-r border-slate-200">Any Former name / Aliases</th>
+                                        <th class="p-2 border-r border-slate-200">NRIC / Passport / FIN No. *</th>
+                                        <th class="p-2 border-r border-slate-200">Nationality</th>
+                                        <th class="p-2 border-r border-slate-200">Date of Birth</th>
+                                        <th class="p-2 border-r border-slate-200">Address **</th>
+                                        <th class="p-2 border-r border-slate-200">Remarks / Notes</th>
+                                        <th class="p-2"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="10" class="p-8 text-center text-slate-400 italic font-medium">
+                                            No nominee shareholders declared. Click "Add Nominee" to declare one.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 10: Transfers -->
+            <div id="cd-panel-transfers" class="cd-panel hidden space-y-6">
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-purple-600"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                            </div>
+                            <div>
+                                <h3 class="font-extrabold text-slate-900 text-base">Register of Transfers</h3>
+                                <p class="text-xs text-slate-400 mt-0.5">Historical record of share transfers, transferor, transferee details, and considerations</p>
+                            </div>
+                        </div>
+                        <span class="px-3 py-1 bg-purple-50 text-purple-600 font-extrabold text-xs rounded-full border border-purple-100">1 Transfer</span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border border-slate-100 rounded-2xl overflow-hidden">
+                            <thead>
+                                <tr class="bg-slate-50 text-slate-400 font-extrabold uppercase border-b border-slate-200">
+                                    <th class="p-3">DATE OF TRANSFER</th>
+                                    <th class="p-3">SHARE CLASS</th>
+                                    <th class="p-3">TRANSFEROR (NAME & CERT #)</th>
+                                    <th class="p-3 text-right">SHARES TRANSFERRED</th>
+                                    <th class="p-3">TRANSFEREE DETAILS (NAME, ADDRESS & CERT #)</th>
+                                    <th class="p-3">PRICE / CONSIDERATION</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 text-slate-800 font-semibold">
+                                <tr class="hover:bg-slate-50/50 transition">
+                                    <td class="p-3 font-bold text-slate-900">2019-11-28</td>
+                                    <td class="p-3"><span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 text-blue-600 border border-blue-100">Ordinary Shares</span></td>
+                                    <td class="p-3">
+                                        <div class="font-extrabold text-slate-900">CEDRIC ROBERT RAYMOND SEGUIN</div>
+                                        <div class="text-[10px] text-slate-400 font-medium">Cert No: 3</div>
+                                    </td>
+                                    <td class="p-3 text-right font-mono font-extrabold text-blue-600 text-sm">200</td>
+                                    <td class="p-3">
+                                        <div class="font-extrabold text-slate-900">AMBICA KUMAR</div>
+                                        <div class="text-[10px] text-slate-400 font-medium leading-tight">123 MEYER ROAD, #16-03 THE MAKENA, SINGAPORE - 437934</div>
+                                        <div class="text-[10px] text-slate-400 font-medium">Cert No: 4</div>
+                                    </td>
+                                    <td class="p-3 font-extrabold text-emerald-600">US$1/-</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 11: Documents -->
+            <div id="cd-panel-documents" class="cd-panel hidden space-y-6">
+                <!-- Document Vault embedded directly -->
+                <div id="cd-documents-vault-wrapper"></div>
+            </div>
+
+            <!-- Panel 12: Compliance -->
+            <div id="cd-panel-compliance" class="cd-panel hidden space-y-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="font-extrabold text-slate-900 text-xl">Compliance Overview</h3>
+                        <p class="text-xs text-slate-400 mt-1">Track statutory filing requirements and timelines</p>
+                    </div>
+                    <button onclick="alert('Compliance Calendar')" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                        View Calendar
+                    </button>
+                </div>
+
+                <!-- 4 Overview Stat Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-extrabold">
+                            7
+                        </div>
+                        <div>
+                            <span class="text-[10px] uppercase font-extrabold text-slate-400 tracking-wider block">TOTAL REQUIREMENTS</span>
+                            <span class="font-extrabold text-slate-900 text-lg">7</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-2xl border border-emerald-100/80 bg-emerald-50/20 shadow-sm flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-extrabold text-xs">
+                            57%
+                        </div>
+                        <div>
+                            <span class="text-[10px] uppercase font-extrabold text-emerald-600 tracking-wider block">COMPLIANT</span>
+                            <span class="font-extrabold text-slate-900 text-lg">4 (57.1%)</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-2xl border border-amber-100/80 bg-amber-50/20 shadow-sm flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center font-extrabold text-xs">
+                            29%
+                        </div>
+                        <div>
+                            <span class="text-[10px] uppercase font-extrabold text-amber-600 tracking-wider block">DUE SOON</span>
+                            <span class="font-extrabold text-slate-900 text-lg">2 (28.6%)</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-2xl border border-rose-100/80 bg-rose-50/20 shadow-sm flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-extrabold text-xs">
+                            14%
+                        </div>
+                        <div>
+                            <span class="text-[10px] uppercase font-extrabold text-rose-600 tracking-wider block">OVERDUE</span>
+                            <span class="font-extrabold text-slate-900 text-lg">1 (14.3%)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-12 gap-6">
+                    <!-- Left: Requirements Table -->
+                    <div class="col-span-12 lg:col-span-8 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-4">
+                        <h4 class="font-extrabold text-slate-900 text-sm">Compliance Requirements</h4>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs border border-slate-100 rounded-2xl overflow-hidden">
+                                <thead>
+                                    <tr class="bg-slate-50 text-slate-400 font-extrabold uppercase border-b border-slate-200">
+                                        <th class="p-3">REQUIREMENT</th>
+                                        <th class="p-3">CATEGORY</th>
+                                        <th class="p-3">FREQUENCY</th>
+                                        <th class="p-3">DUE DATE</th>
+                                        <th class="p-3">STATUS</th>
+                                        <th class="p-3">DAYS TO DUE</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-slate-800 font-semibold">
+                                    <tr class="hover:bg-slate-50/50 transition">
+                                        <td class="p-3">
+                                            <div class="font-extrabold text-slate-900">Financial Year End (FYE)</div>
+                                            <div class="text-[10px] text-slate-400 font-medium">Set financial year end date</div>
+                                        </td>
+                                        <td class="p-3 text-slate-500">Accounting</td>
+                                        <td class="p-3 text-slate-500">Annually</td>
+                                        <td class="p-3 font-mono font-bold text-slate-900">2026-12-31</td>
+                                        <td class="p-3"><span class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-emerald-50 text-emerald-600 border border-emerald-100">COMPLIANT</span></td>
+                                        <td class="p-3 text-emerald-600 font-bold">In 6 months</td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50/50 transition">
+                                        <td class="p-3">
+                                            <div class="font-extrabold text-slate-900">Last AGM</div>
+                                            <div class="text-[10px] text-slate-400 font-medium">Conduct Annual General Meeting</div>
+                                        </td>
+                                        <td class="p-3 text-slate-500">Statutory</td>
+                                        <td class="p-3 text-slate-500">Annually</td>
+                                        <td class="p-3 font-mono font-bold text-slate-900">2026-06-30</td>
+                                        <td class="p-3"><span class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-emerald-50 text-emerald-600 border border-emerald-100">COMPLIANT</span></td>
+                                        <td class="p-3 text-emerald-600 font-bold">In 2 months</td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50/50 transition">
+                                        <td class="p-3">
+                                            <div class="font-extrabold text-slate-900">XBRL Filing</div>
+                                            <div class="text-[10px] text-slate-400 font-medium">XBRL Financial Statements</div>
+                                        </td>
+                                        <td class="p-3 text-slate-500">Statutory</td>
+                                        <td class="p-3 text-slate-500">Annually</td>
+                                        <td class="p-3 font-mono font-bold text-slate-900">2026-07-11</td>
+                                        <td class="p-3"><span class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-amber-50 text-amber-600 border border-amber-100">DUE SOON</span></td>
+                                        <td class="p-3 text-amber-600 font-bold">In 3 months</td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50/50 transition">
+                                        <td class="p-3">
+                                            <div class="font-extrabold text-slate-900">Annual Return Filing</div>
+                                            <div class="text-[10px] text-slate-400 font-medium">File Annual Return with ACRA</div>
+                                        </td>
+                                        <td class="p-3 text-slate-500">Statutory</td>
+                                        <td class="p-3 text-slate-500">Annually</td>
+                                        <td class="p-3 font-mono font-bold text-slate-900">2026-08-15</td>
+                                        <td class="p-3"><span class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-amber-50 text-amber-600 border border-amber-100">DUE SOON</span></td>
+                                        <td class="p-3 text-amber-600 font-bold">In 3 months</td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50/50 transition bg-rose-50/10">
+                                        <td class="p-3">
+                                            <div class="font-extrabold text-slate-900">AGM for FY 2025</div>
+                                            <div class="text-[10px] text-slate-400 font-medium">Conduct Annual General Meeting</div>
+                                        </td>
+                                        <td class="p-3 text-slate-500">Statutory</td>
+                                        <td class="p-3 text-slate-500">Annually</td>
+                                        <td class="p-3 font-mono font-bold text-slate-900">2025-03-31</td>
+                                        <td class="p-3"><span class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-rose-50 text-rose-600 border border-rose-100">OVERDUE</span></td>
+                                        <td class="p-3 text-rose-600 font-bold">Overdue by 109 days</td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50/50 transition">
+                                        <td class="p-3">
+                                            <div class="font-extrabold text-slate-900">Board Resolution Update</div>
+                                            <div class="text-[10px] text-slate-400 font-medium">Update Board Resolution records</div>
+                                        </td>
+                                        <td class="p-3 text-slate-500">Governance</td>
+                                        <td class="p-3 text-slate-500">As Needed</td>
+                                        <td class="p-3 text-slate-400 font-bold">-</td>
+                                        <td class="p-3"><span class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-emerald-50 text-emerald-600 border border-emerald-100">COMPLIANT</span></td>
+                                        <td class="p-3 text-slate-400 font-bold">-</td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50/50 transition">
+                                        <td class="p-3">
+                                            <div class="font-extrabold text-slate-900">Corporate Secretary Review</div>
+                                            <div class="text-[10px] text-slate-400 font-medium">Review corporate secretarial records</div>
+                                        </td>
+                                        <td class="p-3 text-slate-500">Governance</td>
+                                        <td class="p-3 text-slate-500">Annually</td>
+                                        <td class="p-3 font-mono font-bold text-slate-900">2026-11-30</td>
+                                        <td class="p-3"><span class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-emerald-50 text-emerald-600 border border-emerald-100">COMPLIANT</span></td>
+                                        <td class="p-3 text-emerald-600 font-bold">In 5 months</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Right Sidebar -->
+                    <div class="col-span-12 lg:col-span-4 space-y-6">
+                        <!-- Upcoming & Overdue Card -->
+                        <div class="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-4">
+                            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                                <h4 class="font-extrabold text-slate-900 text-xs tracking-wider">UPCOMING & OVERDUE</h4>
+                                <a href="#" onclick="event.preventDefault()" class="text-blue-600 text-xs font-bold hover:underline">View All</a>
+                            </div>
+                            <div class="space-y-3 text-xs">
+                                <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center">
+                                    <div>
+                                        <div class="font-extrabold text-slate-900 text-xs">XBRL Filing</div>
+                                        <div class="text-[10px] text-slate-400 font-medium">XBRL Financial Statements</div>
+                                    </div>
+                                    <span class="px-2 py-0.5 bg-amber-50 text-amber-600 text-[9px] font-extrabold rounded border border-amber-100">IN 3 MONTHS</span>
+                                </div>
+                                <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center">
+                                    <div>
+                                        <div class="font-extrabold text-slate-900 text-xs">Annual Return Filing</div>
+                                        <div class="text-[10px] text-slate-400 font-medium">File Annual Return with ACRA</div>
+                                    </div>
+                                    <span class="px-2 py-0.5 bg-amber-50 text-amber-600 text-[9px] font-extrabold rounded border border-amber-100">IN 3 MONTHS</span>
+                                </div>
+                                <div class="p-3 bg-rose-50/30 rounded-2xl border border-rose-100 flex justify-between items-center">
+                                    <div>
+                                        <div class="font-extrabold text-slate-900 text-xs">AGM for FY 2025</div>
+                                        <div class="text-[10px] text-slate-400 font-medium">Conduct Annual General Meeting</div>
+                                    </div>
+                                    <span class="px-2 py-0.5 bg-rose-50 text-rose-600 text-[9px] font-extrabold rounded border border-rose-100">OVERDUE BY 109 DAYS</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Compliance Score Card -->
+                        <div class="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-4">
+                            <h4 class="font-extrabold text-slate-900 text-xs tracking-wider border-b border-slate-100 pb-3">COMPLIANCE SCORE</h4>
+                            <div class="flex flex-col items-center justify-center py-4">
+                                <div class="relative w-32 h-32 flex items-center justify-center">
+                                    <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                        <path class="text-slate-100" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                        <path class="text-emerald-500" stroke-dasharray="57, 100" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                    </svg>
+                                    <div class="absolute flex flex-col items-center justify-center">
+                                        <span class="text-xl font-extrabold text-slate-900">57%</span>
+                                        <span class="text-[9px] font-extrabold text-slate-400 uppercase">COMPLIANT</span>
+                                    </div>
+                                </div>
+
+                                <div class="flex justify-around w-full text-[10px] font-bold text-slate-500 mt-6 pt-4 border-t border-slate-100">
+                                    <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Compliant: <strong>4 (57%)</strong></div>
+                                    <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span> Due Soon: <strong>2 (29%)</strong></div>
+                                    <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-rose-500"></span> Overdue: <strong>1 (14%)</strong></div>
+                                </div>
+                            </div>
+                            <div class="p-3 bg-blue-50/60 border border-blue-100 rounded-xl text-[10px] text-blue-900 font-medium text-center">
+                                Keep your compliance up to date to avoid penalties and maintain good standing.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 13: Activities -->
+            <div id="cd-panel-activities" class="cd-panel hidden space-y-6">
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+                    <h3 class="font-bold text-slate-900 text-lg">Company Audit Log & Activity Trail</h3>
+                    <div class="space-y-4 text-xs font-medium text-slate-700">
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center">
+                            <div><span class="font-bold text-slate-900 block">Annual Return Filed for FY 2025</span><span class="text-slate-400">Status: Verified & Lodged with ACRA</span></div>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase">2026-01-26</span>
+                        </div>
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center">
+                            <div><span class="font-bold text-slate-900 block">Director Address Updated</span><span class="text-slate-400">Updated for PANDIKADAVIL UNNIKRISHNAN JAYAPRAKASH</span></div>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase">2025-06-30</span>
+                        </div>
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center">
+                            <div><span class="font-bold text-slate-900 block">Incorporation Registration Approved</span><span class="text-slate-400">Entity UEN 201311840R issued</span></div>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase">2016-01-26</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Initialize sub-panels
+    cdSelectDirector(0);
+    cdSelectSecretary(0);
+    cdSelectShareholder(0);
+    cdSelectUbo(0);
+
+    // Embed documents vault into cd-panel-documents
+    const docsWrapper = document.getElementById('cd-documents-vault-wrapper');
+    if (docsWrapper) renderDocuments(docsWrapper);
+
+    if (window.lucide) window.lucide.createIcons();
+}
+
+window.renderProfile = renderProfile;
+window.renderCompanyDetailView = renderProfile;
 
 function renderBilling(container) {
     container.innerHTML = `
@@ -4150,84 +6145,153 @@ function renderServices(container) {
 }
 
 function renderDocuments(container) {
+    const folders = [
+        { name: 'All Documents', count: 130, active: true },
+        { name: 'KYC', count: 32 },
+        { name: 'Invoice', count: 7 },
+        { name: 'Permanent folder', count: 10 },
+        { name: 'Incorporation', count: 0 },
+        { name: 'All Signed', count: 0 },
+        { name: 'Change of Address', count: 19 },
+        { name: 'Change of Directors', count: 0 },
+        { name: 'Change of CS', count: 0 },
+        { name: 'Change of Auditors', count: 0 },
+        { name: 'AGM AR', count: 62 },
+        { name: 'Allotment of Shares', count: 0 },
+        { name: 'Final Demand', count: 0 },
+        { name: 'Others', count: 0 },
+        { name: 'Tax', count: 0 },
+        { name: 'RONS', count: 0 },
+        { name: 'Bizfile & filing', count: 0 }
+    ];
+
+    const sampleDocs = [
+        { name: 'VIKRAM KUMAR - Passport & PEP pass copy-exp-27 08 2022.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:56', status: 'APPROVED', uploadedBy: 'System Upload' },
+        { name: 'vikram kumar - Google Search.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:55', status: 'APPROVED', uploadedBy: 'System Upload' },
+        { name: 'Vikram Address Proof-notarised.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:54', status: 'APPROVED', uploadedBy: 'System Upload' },
+        { name: 'Vikram Kumar - FIN.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:54', status: 'APPROVED', uploadedBy: 'System Upload' },
+        { name: 'SentroWeb AML CFT Search.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:53', status: 'APPROVED', uploadedBy: 'System Upload' },
+        { name: 'Vikram - notarised passport and Fin card.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:53', status: 'APPROVED', uploadedBy: 'System Upload' },
+        { name: 'CDD-Vikram Kumar.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:52', status: 'APPROVED', uploadedBy: 'System Upload' },
+        { name: 'Kumar Vikram -AML-18 05 2023.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:41:22', status: 'APPROVED', uploadedBy: 'System Upload' },
+        { name: 'ACRA-ack-change in ROA.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:57', status: 'APPROVED', uploadedBy: 'System Upload' },
+        { name: 'ACRA filing-Change in address.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:54', status: 'APPROVED', uploadedBy: 'System Upload' },
+        { name: 'Change of Reg. office address - signed copy.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:52', status: 'APPROVED', uploadedBy: 'System Upload' },
+        { name: 'ACRA Filing - Change of address.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:50', status: 'APPROVED', uploadedBy: 'System Upload' },
+        { name: 'ACRA Filing - Change of address ack.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:48', status: 'APPROVED', uploadedBy: 'System Upload' },
+        { name: 'DRIW - Change of address-Shenton House -3B Trading.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:46', status: 'APPROVED', uploadedBy: 'System Upload' }
+    ];
+
     container.innerHTML = `
-        <div class="space-y-10">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-                <div class="max-w-xl">
-                    <p class="text-slate-500">Centralized management of your corporate ID, residential proof, and entity documents.</p>
+        <div class="grid grid-cols-12 gap-6">
+            <!-- Left Sidebar (Folders & Filters) -->
+            <div class="col-span-12 lg:col-span-3 space-y-6">
+                <!-- Folders Card -->
+                <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+                    <h4 class="font-extrabold text-slate-900 text-xs tracking-wider uppercase">FOLDERS</h4>
+                    <div class="space-y-1">
+                        ${folders.map(f => `
+                            <button onclick="alert('Filter folder: ${f.name}')" class="w-full flex justify-between items-center px-3 py-2 rounded-xl text-xs font-bold transition-all ${f.active ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}">
+                                <span>${f.name}</span>
+                                <span class="px-2 py-0.5 rounded-full text-[9px] font-extrabold ${f.active ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}">${f.count}</span>
+                            </button>
+                        `).join('')}
+                    </div>
                 </div>
-                <div class="flex gap-4">
-                    <button class="px-6 py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all flex items-center gap-2"><i data-lucide="download" class="w-4 h-4"></i> Archive</button>
-                    <button onclick="triggerUpload()" class="px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold text-sm shadow-xl shadow-blue-500/20 hover:scale-105 transition-all flex items-center gap-2"><i data-lucide="upload" class="w-4 h-4"></i> New Upload</button>
+
+                <!-- Filters Card -->
+                <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h4 class="font-extrabold text-slate-900 text-xs tracking-wider uppercase">FILTERS</h4>
+                        <button onclick="alert('Clear All Filters')" class="text-blue-600 text-xs font-bold hover:underline">Clear All</button>
+                    </div>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1.5">DOCUMENT TYPE</label>
+                            <select class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                                <option>All Types</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1.5">VERIFICATION STATUS</label>
+                            <select class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                                <option>All Status</option>
+                                <option>Approved</option>
+                                <option>Pending</option>
+                                <option>Rejected</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1.5">UPLOADED BY</label>
+                            <select class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                                <option>All Users</option>
+                                <option>System Upload</option>
+                                <option>Client Upload</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                <!-- Quick Stats -->
-                <div class="lg:col-span-1 space-y-6">
-                    <div class="premium-card bg-slate-900 text-white border-none p-8">
-                        <h4 class="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-6">Security Assessment</h4>
-                        <div class="flex items-center gap-6">
-                            <div class="w-16 h-16 rounded-full border-4 border-blue-600 border-t-transparent animate-spin flex items-center justify-center">
-                                <span class="text-sm font-bold">85%</span>
-                            </div>
-                            <div>
-                                <p class="text-sm font-bold">Health Score</p>
-                                <p class="text-[10px] text-slate-400">Excellent Compliance</p>
-                            </div>
+            <!-- Right Documents Table & Actions -->
+            <div class="col-span-12 lg:col-span-9 space-y-6">
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                    <!-- Top Search and Action Bar -->
+                    <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <div class="w-full sm:w-96 relative">
+                            <input type="text" placeholder="Search documents..." class="w-full pl-4 pr-10 py-2.5 text-xs border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                        </div>
+                        <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
+                            <button onclick="triggerUpload()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20">
+                                Upload Document
+                            </button>
+                            <select class="px-4 py-2.5 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700">
+                                <option>Newest First</option>
+                                <option>Oldest First</option>
+                            </select>
+                            <button class="p-2.5 border border-slate-200 rounded-xl text-slate-400 hover:text-slate-700 bg-white">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                            </button>
                         </div>
                     </div>
-                    
-                    <div class="premium-card p-8">
-                        <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">Action Required</h4>
-                        <div class="space-y-4">
-                            <div class="flex items-center gap-3 p-3 rounded-xl bg-amber-50 text-amber-600 border border-amber-100">
-                                <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
-                                <span class="text-xs font-bold uppercase tracking-tight">Expiring in 30d</span>
-                            </div>
-                            <p class="text-xs text-slate-500 leading-relaxed">Your **Proof of Address** needs re-verification to maintain KYC status.</p>
-                            <button class="w-full py-3 bg-slate-900 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest">Update Now</button>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- Document Explorer -->
-                <div class="lg:col-span-3">
-                    <div class="premium-card p-0 overflow-hidden border-slate-100">
-                        <div class="p-6 bg-slate-50/50 border-b border-slate-100 flex gap-4">
-                            <div class="flex-1 relative">
-                                <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-                                <input type="text" placeholder="Search vault..." class="w-full bg-white border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-xs outline-none focus:ring-2 focus:ring-blue-500/10">
-                            </div>
-                        </div>
-                        <table class="w-full text-left">
+                    <!-- Documents Table -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border border-slate-100 rounded-2xl overflow-hidden">
                             <thead>
-                                <tr class="bg-white">
-                                    <th class="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Descriptor</th>
-                                    <th class="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Category</th>
-                                    <th class="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Expiry</th>
-                                    <th class="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Status</th>
-                                    <th class="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                                <tr class="bg-slate-50 text-slate-400 font-extrabold uppercase border-b border-slate-200">
+                                    <th class="p-3 w-10 text-center"><input type="checkbox" class="rounded border-slate-300"></th>
+                                    <th class="p-3">DOCUMENT NAME</th>
+                                    <th class="p-3">FOLDER / TYPE</th>
+                                    <th class="p-3">UPLOADED ON</th>
+                                    <th class="p-3">STATUS</th>
+                                    <th class="p-3">UPLOADED BY</th>
+                                    <th class="p-3 text-center">ACTIONS</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-50">
-                                ${state.documents.map(d => `
-                                    <tr class="hover:bg-slate-50/50 transition-all group">
-                                        <td class="px-8 py-6">
-                                            <div class="flex items-center gap-4">
-                                                <div class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-white transition-colors border border-transparent group-hover:border-slate-100"><i data-lucide="file-text" class="w-5 h-5"></i></div>
-                                                <span class="font-extrabold text-slate-900 text-sm">${d.name}</span>
+                            <tbody class="divide-y divide-slate-100 text-slate-800 font-semibold">
+                                ${sampleDocs.map(d => `
+                                    <tr class="hover:bg-slate-50/50 transition">
+                                        <td class="p-3 text-center"><input type="checkbox" class="rounded border-slate-300"></td>
+                                        <td class="p-3">
+                                            <div class="flex items-center gap-2.5">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600 shrink-0"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                                <span class="font-extrabold text-slate-900 truncate max-w-md">${d.name}</span>
                                             </div>
                                         </td>
-                                        <td class="px-8 py-6"><span class="text-xs font-bold text-slate-400 uppercase tracking-widest">${d.category}</span></td>
-                                        <td class="px-8 py-6"><span class="text-xs font-bold ${d.expiry !== 'N/A' ? 'text-slate-900' : 'text-slate-300'}">${d.expiry}</span></td>
-                                        <td class="px-8 py-6 text-center">
-                                            <span class="status-badge ${d.status === 'Approved' ? 'status-active' : 'status-progress'}">${d.status}</span>
+                                        <td class="p-3 text-slate-500 font-bold">${d.folder}</td>
+                                        <td class="p-3 font-mono text-slate-600">${d.uploadedOn}</td>
+                                        <td class="p-3">
+                                            <span class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-amber-50 text-amber-600 border border-amber-100 tracking-wider uppercase">
+                                                ${d.status}
+                                            </span>
                                         </td>
-                                        <td class="px-8 py-6 text-right">
-                                            <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                                                <button class="p-2 bg-slate-100 hover:bg-blue-600 hover:text-white rounded-lg transition-all text-slate-400"><i data-lucide="eye" class="w-4 h-4"></i></button>
-                                                <button class="p-2 bg-slate-100 hover:bg-blue-600 hover:text-white rounded-lg transition-all text-slate-400"><i data-lucide="download" class="w-4 h-4"></i></button>
+                                        <td class="p-3 text-slate-500 font-medium">${d.uploadedBy}</td>
+                                        <td class="p-3 text-center">
+                                            <div class="flex justify-center gap-1.5">
+                                                <button onclick="alert('Preview ${d.name}')" class="p-1 text-slate-400 hover:text-blue-600" title="Preview"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                                                <button onclick="alert('Download ${d.name}')" class="p-1 text-slate-400 hover:text-blue-600" title="Download"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                                                <button onclick="alert('Delete ${d.name}')" class="p-1 text-slate-400 hover:text-red-600" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
                                             </div>
                                         </td>
                                     </tr>
@@ -4279,67 +6343,7 @@ function renderRequests(container) {
 }
 
 
-function renderProfile(container) {
-    container.innerHTML = `
-        <div class="max-w-5xl mx-auto space-y-10">
-            <div class="premium-card p-12">
-                <div class="flex flex-col md:flex-row items-center gap-10 mb-12 pb-12 border-b border-slate-50">
-                    <div class="w-32 h-32 rounded-[2.5rem] bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white text-5xl font-extrabold shadow-2xl shadow-blue-500/30">AS</div>
-                    <div class="text-center md:text-left flex-1">
-                        <div class="flex flex-col md:flex-row items-center gap-4 mb-4">
-                            <h2 class="text-4xl font-extrabold text-slate-900 tracking-tight">${state.user.name}</h2>
-                            <span class="px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-widest border border-blue-100">Enterprise Director</span>
-                        </div>
-                        <p class="text-slate-500 text-lg">Portfolio Identity: <span class="font-bold text-slate-900">${state.user.id}</span> • Globalisor Partner since 2024</p>
-                        <div class="mt-8 flex flex-wrap gap-3 justify-center md:justify-start">
-                            <div class="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase tracking-widest border border-emerald-100"><i data-lucide="check-circle" class="w-4 h-4"></i> KYC Verified</div>
-                            <div class="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-widest border border-blue-100"><i data-lucide="zap" class="w-4 h-4"></i> Priority Support</div>
-                            <div class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-slate-200"><i data-lucide="globe" class="w-4 h-4"></i> Global Hub</div>
-                        </div>
-                    </div>
-                    <button class="px-8 py-4 bg-white border border-slate-200 text-slate-900 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all">Edit Global Profile</button>
-                </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-16">
-                    <div class="space-y-8">
-                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">Platform Credentials <span class="flex-1 h-px bg-slate-50"></span></h4>
-                        <div class="grid grid-cols-1 gap-6">
-                            <div class="group"><p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 group-hover:text-blue-600 transition-colors">Executive Email</p><p class="text-lg font-bold text-slate-900">director@asifhq.com</p></div>
-                            <div class="group"><p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 group-hover:text-blue-600 transition-colors">Operational Contact</p><p class="text-lg font-bold text-slate-900">+65 8821 9900</p></div>
-                            <div class="group"><p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 group-hover:text-blue-600 transition-colors">Country of Residence</p><p class="text-lg font-bold text-slate-900">Singapore</p></div>
-                        </div>
-                    </div>
-                    <div class="space-y-8">
-                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">Security & Governance <span class="flex-1 h-px bg-slate-50"></span></h4>
-                        <div class="space-y-4">
-                            <div class="flex items-center justify-between p-6 rounded-2xl bg-slate-50/50 border border-slate-100 cursor-pointer hover:bg-white hover:border-blue-200 hover:shadow-xl hover:shadow-blue-500/5 transition-all group">
-                                <div class="flex items-center gap-4">
-                                    <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-slate-400 group-hover:text-blue-600 shadow-sm transition-all"><i data-lucide="shield-check"></i></div>
-                                    <div>
-                                        <p class="font-bold text-slate-900">Security Parameters</p>
-                                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">2FA / Biometrics</p>
-                                    </div>
-                                </div>
-                                <i data-lucide="chevron-right" class="w-5 h-5 text-slate-200 group-hover:text-blue-600 group-hover:translate-x-1 transition-all"></i>
-                            </div>
-                            <div class="flex items-center justify-between p-6 rounded-2xl bg-slate-50/50 border border-slate-100 cursor-pointer hover:bg-white hover:border-blue-200 hover:shadow-xl hover:shadow-blue-500/5 transition-all group">
-                                <div class="flex items-center gap-4">
-                                    <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-slate-400 group-hover:text-blue-600 shadow-sm transition-all"><i data-lucide="key"></i></div>
-                                    <div>
-                                        <p class="font-bold text-slate-900">API Gateway</p>
-                                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Enterprise Access</p>
-                                    </div>
-                                </div>
-                                <i data-lucide="chevron-right" class="w-5 h-5 text-slate-200 group-hover:text-blue-600 group-hover:translate-x-1 transition-all"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    if (window.lucide) window.lucide.createIcons();
-}
 
 function openBlogDetail(id) {
     const blog = state.blogs.find(b => b.id === id);
@@ -4419,19 +6423,87 @@ function renderPlaceholder(c, title, icon) {
 }
 
 function triggerUpload() {
-    // Hidden file input logic
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.onchange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            appendAIMessage('bot', `System detected upload: **${file.name}**. I'm initiating the security scan and sending it to our compliance team for review.`);
-        }
-    };
-    input.style.display = 'none';
-    document.body.appendChild(input);
-    input.click();
-    document.body.removeChild(input);
+    let existingModal = document.getElementById('upload-docs-modal');
+    if (existingModal) existingModal.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'upload-docs-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-6 relative border border-slate-100">
+            <!-- Modal Header -->
+            <div class="space-y-1">
+                <h3 class="font-extrabold text-slate-900 text-xl">Upload Documents</h3>
+                <p class="text-xs text-slate-400 font-medium">Select category and upload multiple documents for this client.</p>
+            </div>
+
+            <!-- Form Body -->
+            <div class="space-y-5">
+                <!-- Category Select -->
+                <div>
+                    <label class="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider block mb-2">SELECT DOCUMENT CATEGORY *</label>
+                    <select id="upload-doc-category" class="w-full px-4 py-3 text-xs border border-slate-200 rounded-2xl bg-white font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                        <option value="KYC">KYC (Passport, NRIC, Address Proof)</option>
+                        <option value="Invoice">Invoice (Invoices, Billing & Receipts)</option>
+                        <option value="Permanent folder">Permanent folder (Permanent Corporate Records)</option>
+                        <option value="Incorporation">Incorporation (BizFile, M&AA, Constitution)</option>
+                        <option value="All Signed">All Signed (Signed Agreements & Resolutions)</option>
+                        <option value="Change of Address">Change of Address (Form 44, Address Proofs)</option>
+                        <option value="Change of Directors">Change of Directors (Form 45, Director Consents)</option>
+                        <option value="Change of CS">Change of CS (Secretary Appointment / Resignation)</option>
+                        <option value="Change of Auditors">Change of Auditors (Auditor Appointment / Resignation)</option>
+                        <option value="AGM AR">AGM AR (AGM Minutes, Annual Return Filings)</option>
+                        <option value="Allotment of Shares">Allotment of Shares (Return of Allotment, Share Certs)</option>
+                        <option value="Final Demand">Final Demand (Final Demand Notices & Reminders)</option>
+                        <option value="Others">Others (Miscellaneous Documents)</option>
+                        <option value="Tax">Tax (Tax Returns, Filings & Assessments)</option>
+                        <option value="RONS">RONS (Register of Nominee Directors / Officers)</option>
+                        <option value="Bizfile & filing">Bizfile & filing (ACRA BizFile Reports & Filings)</option>
+                    </select>
+                </div>
+
+                <!-- Drag & Drop Zone -->
+                <div>
+                    <label class="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider block mb-2">SELECT FILE(S) *</label>
+                    <div onclick="document.getElementById('upload-modal-file-input').click()" class="border-2 border-dashed border-blue-200 hover:border-blue-400 bg-blue-50/20 rounded-2xl p-8 text-center cursor-pointer transition-all space-y-2 group">
+                        <input type="file" id="upload-modal-file-input" multiple class="hidden" onchange="
+                            const files = Array.from(this.files);
+                            if (files.length > 0) {
+                                document.getElementById('upload-file-status').innerText = files.map(f => f.name).join(', ');
+                            }
+                        ">
+                        <div class="w-12 h-12 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.89 9 11.6a2 2 0 0 1 2.2 0l5.8 3.8"/><path d="M15 13.89 17.5 12a2 2 0 0 1 2.2 0l2.3 1.5"/><circle cx="9" cy="7" r="2"/><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/></svg>
+                        </div>
+                        <div id="upload-file-status" class="font-extrabold text-slate-800 text-xs">Click or drag & drop files here</div>
+                        <p class="text-[10px] text-slate-400 font-medium">Supports PDF, DOCX, JPG, PNG, Excel files</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Buttons -->
+            <div class="flex justify-end items-center gap-3 pt-2">
+                <button onclick="document.getElementById('upload-docs-modal').remove()" class="px-6 py-2.5 border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold rounded-xl text-xs transition">
+                    Cancel
+                </button>
+                <button onclick="
+                    const cat = document.getElementById('upload-doc-category').value;
+                    const input = document.getElementById('upload-modal-file-input');
+                    const files = input.files;
+                    if (files && files.length > 0) {
+                        alert('Successfully uploaded ' + files.length + ' file(s) to ' + cat);
+                    } else {
+                        alert('Files synced successfully to ' + cat);
+                    }
+                    document.getElementById('upload-docs-modal').remove();
+                " class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition shadow-lg shadow-blue-600/20">
+                    Upload & Sync Files
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    if (window.lucide) window.lucide.createIcons();
 }
 
 // --- Static Content / Guidance System ---

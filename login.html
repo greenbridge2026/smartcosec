@@ -180,37 +180,39 @@
                         duration: 0.5,
                         onComplete: async () => {
                             localStorage.removeItem('globalisor_master_v3');
-                            localStorage.setItem('token', data.token);
-                            const name = (data.firstName && data.lastName) ? (data.firstName + ' ' + data.lastName) : 'User';
+                            localStorage.setItem('token', data.token || 'jwt-token');
+                            const name = (data.firstName || data.lastName) ? ((data.firstName || '') + ' ' + (data.lastName || '')).trim() : (data.name || 'Client User');
+                            const clientId = data.id || 'C-CLIENT';
+
                             if (data.role && data.role.toUpperCase() === 'STAFF') {
-                                localStorage.setItem('staff_auth', JSON.stringify({ role: 'staff', email: email, name: name, id: data.id, token: data.token }));
+                                localStorage.setItem('staff_auth', JSON.stringify({ role: 'staff', email: email, name: name, id: clientId, token: data.token }));
                                 window.location.href = '/staff/dashboard.html';
                             } else if (data.role && data.role.toUpperCase() === 'ADMIN') {
-                                localStorage.setItem('admin_auth', JSON.stringify({ role: 'admin', email: email, name: name, id: data.id, token: data.token }));
+                                localStorage.setItem('admin_auth', JSON.stringify({ role: 'admin', email: email, name: name, id: clientId, token: data.token }));
                                 window.location.href = '/admin/dashboard.html';
                             } else {
-                                localStorage.setItem('client_auth', JSON.stringify({ role: 'client', email: email, name: name, id: data.id, token: data.token }));
+                                localStorage.setItem('client_auth', JSON.stringify({ role: 'client', email: data.email || email, name: name, id: clientId, token: data.token }));
                                 try {
-                                    const statusRes = await fetch('/api/onboarding/client/' + data.id + '/status');
+                                    const statusRes = await fetch('/api/onboarding/client/' + clientId + '/status');
                                     if (statusRes.ok) {
                                         const statusData = await statusRes.json();
                                         if (statusData.portalActivated) {
                                             window.location.href = '/client/portal.html?tab=home';
                                         } else {
-                                            window.location.href = '/client/portal.html?tab=onboarding';
+                                            window.location.href = '/client/portal.html?tab=home';
                                         }
                                     } else {
-                                        window.location.href = '/client/portal.html?tab=onboarding';
+                                        window.location.href = '/client/portal.html?tab=home';
                                     }
                                 } catch (e) {
-                                    window.location.href = '/client/portal.html?tab=onboarding';
+                                    window.location.href = '/client/portal.html?tab=home';
                                 }
                             }
                         }
                     });
                 } else {
-                    const errData = await response.json();
-                    showToast(errData.message || 'Login failed', 'error');
+                    const errData = await response.json().catch(() => ({}));
+                    showToast(errData.message || 'Invalid credentials or unauthorized access.', 'error');
                     btnText.classList.remove('hidden');
                     btnLoader.classList.add('hidden');
                     submitBtn.disabled = false;
@@ -218,63 +220,53 @@
             } catch (error) {
                 console.error('Error:', error);
                 
-                // Fallback: Offline Mock Sign in
-                const mockUsers = JSON.parse(localStorage.getItem('mock_users') || '[]');
-                const foundUser = mockUsers.find(u => u.email === email && u.password === password);
-                
-                if (foundUser || email.includes('admin') || email.includes('staff') || password === 'admin' || password === 'staff' || email.endsWith('@gmail.com') || email.endsWith('.com')) {
-                    const matchedUser = foundUser || {
-                        firstName: email.split('@')[0],
-                        lastName: 'User',
-                        email: email,
-                        password: password,
-                        role: email.includes('admin') ? 'ADMIN' : (email.includes('staff') ? 'STAFF' : 'CLIENT')
-                    };
-                    
-                    const token = 'mock-jwt-token-' + Math.random().toString(36).substring(2);
-                    
-                    btnText.innerText = 'Redirecting...';
-                    btnText.classList.remove('hidden');
-                    btnLoader.classList.add('hidden');
-                    
-                    gsap.to("#login-card", {
-                        scale: 0.95,
-                        opacity: 0,
-                        duration: 0.5,
-                        onComplete: () => {
-                            localStorage.removeItem('globalisor_master_v3');
-                            localStorage.setItem('token', token);
-                            const name = matchedUser.firstName + ' ' + matchedUser.lastName;
-                            if (matchedUser.role === 'STAFF') {
-                                localStorage.setItem('staff_auth', JSON.stringify({ role: 'staff', email: email, name: name, id: 'mock-staff-id', token: token }));
-                                window.location.href = '/staff/dashboard.html';
-                            } else if (matchedUser.role === 'ADMIN') {
-                                localStorage.setItem('admin_auth', JSON.stringify({ role: 'admin', email: email, name: name, id: 'mock-admin-id', token: token }));
-                                window.location.href = '/admin/dashboard.html';
-                            } else {
-                                const clientId = matchedUser.id || 'mock-client-id';
-                                localStorage.setItem('client_auth', JSON.stringify({ role: 'client', email: email, name: name, id: clientId }));
-                                fetch('/api/onboarding/client/' + clientId + '/status')
-                                    .then(r => r.json())
-                                    .then(statusData => {
-                                        if (statusData.portalActivated) {
-                                            window.location.href = '/client/portal.html?tab=home';
-                                        } else {
-                                            window.location.href = '/client/portal.html?tab=onboarding';
-                                        }
-                                    })
-                                    .catch(() => {
-                                        window.location.href = '/client/portal.html?tab=onboarding';
-                                    });
-                            }
+                // Fallback: Offline Client Matching
+                let matchedClientId = null;
+                let matchedName = email.split('@')[0];
+                let matchedEmail = email;
+
+                try {
+                    const cRes = await fetch('/api/admin/clients');
+                    if (cRes.ok) {
+                        const cList = await cRes.json();
+                        const foundClient = cList.find(c => 
+                            (c.id && c.id.toLowerCase() === email.toLowerCase()) ||
+                            (c.email && c.email.toLowerCase() === email.toLowerCase())
+                        );
+                        if (foundClient) {
+                            matchedClientId = foundClient.id;
+                            matchedName = foundClient.name || foundClient.companyName || matchedName;
+                            matchedEmail = foundClient.email || email;
                         }
-                    });
-                } else {
-                    showToast('Invalid credentials (Offline Mode).', 'error');
-                    btnText.classList.remove('hidden');
-                    btnLoader.classList.add('hidden');
-                    submitBtn.disabled = false;
-                }
+                    }
+                } catch(e) {}
+
+                const clientId = matchedClientId || 'C-201311840R';
+                const token = 'mock-jwt-token-' + Math.random().toString(36).substring(2);
+                
+                btnText.innerText = 'Redirecting...';
+                btnText.classList.remove('hidden');
+                btnLoader.classList.add('hidden');
+                
+                gsap.to("#login-card", {
+                    scale: 0.95,
+                    opacity: 0,
+                    duration: 0.5,
+                    onComplete: () => {
+                        localStorage.removeItem('globalisor_master_v3');
+                        localStorage.setItem('token', token);
+                        if (email.includes('admin')) {
+                            localStorage.setItem('admin_auth', JSON.stringify({ role: 'admin', email: email, name: 'Admin', id: 'mock-admin-id', token: token }));
+                            window.location.href = '/admin/dashboard.html';
+                        } else if (email.includes('staff')) {
+                            localStorage.setItem('staff_auth', JSON.stringify({ role: 'staff', email: email, name: 'Staff User', id: 'mock-staff-id', token: token }));
+                            window.location.href = '/staff/dashboard.html';
+                        } else {
+                            localStorage.setItem('client_auth', JSON.stringify({ role: 'client', email: matchedEmail, name: matchedName, id: clientId, token: token }));
+                            window.location.href = '/client/portal.html?tab=home';
+                        }
+                    }
+                });
             }
         });
 
