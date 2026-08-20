@@ -115,9 +115,15 @@
 
     <main class="main-container">
         <div class="space-y-6">
-            <div>
-                <h2 class="text-3xl font-extrabold font-outfit text-slate-900 tracking-tight">Compliance Tracking</h2>
-                <p class="text-slate-500 text-xs mt-1">Monitor mandatory annual filings, AML background statuses, deadlines, and corporate requirements.</p>
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-3xl font-extrabold font-outfit text-slate-900 tracking-tight">Compliance & Statutory Tracking</h2>
+                    <p class="text-slate-500 text-xs mt-1">Monitor mandatory annual filings, AML background statuses, deadlines, and corporate requirements.</p>
+                </div>
+                <div class="flex items-center gap-2 bg-slate-200/60 p-1 rounded-xl">
+                    <button onclick="switchAdminCompTab('kyc')" id="tab-btn-kyc" class="px-4 py-2 rounded-lg text-xs font-bold transition-all bg-white text-slate-900 shadow-sm">AML & KYC Review</button>
+                    <button onclick="switchAdminCompTab('calendar')" id="tab-btn-calendar" class="px-4 py-2 rounded-lg text-xs font-bold transition-all text-slate-600 hover:text-slate-900">Calendar Manager</button>
+                </div>
             </div>
 
             <!-- Metric Cards -->
@@ -197,8 +203,132 @@
                     </tbody>
                 </table>
             </div>
+
+            <!-- Admin Compliance Calendar Section -->
+            <div id="admin-calendar-section" class="hidden space-y-6">
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900">Client Statutory & Compliance Events</h3>
+                        <p class="text-xs text-slate-400">Manage, assign, publish, and track statutory deadlines for clients.</p>
+                    </div>
+                    <button onclick="openAdminCreateTaskModal()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Assign Statutory Task
+                    </button>
+                </div>
+
+                <div class="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Client / Company</th>
+                                <th>Compliance Event</th>
+                                <th>Category</th>
+                                <th>Due Date</th>
+                                <th>Assigned Officer</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-calendar-table-body">
+                            <tr><td colspan="7" class="p-12 text-center text-slate-400">Loading statutory calendar tasks...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </main>
+
+    <!-- Admin Create/Edit Task Modal -->
+    <div id="admin-task-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-[10000] p-4 font-outfit">
+        <div class="bg-white rounded-3xl p-8 w-full max-w-xl shadow-2xl relative border border-slate-100 space-y-5">
+            <button onclick="closeAdminTaskModal()" class="absolute top-5 right-5 p-2 hover:bg-slate-100 text-slate-400 hover:text-slate-900 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+            
+            <div class="flex items-center gap-3 border-b border-slate-100 pb-4">
+                <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"><i data-lucide="calendar" class="w-5 h-5"></i></div>
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900" id="task-modal-title">Assign Compliance Task</h3>
+                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Statutory Deadline & Assignment</p>
+                </div>
+            </div>
+
+            <form id="admin-task-form" onsubmit="handleAdminSaveTask(event)" class="space-y-4 text-xs">
+                <input type="hidden" id="task-edit-id" value="">
+                
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Select Client / Company</label>
+                    <select id="task-client-id" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-semibold focus:outline-none">
+                        <option value="all">All Clients (Global Template)</option>
+                        <!-- Options populated dynamically -->
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Compliance Event Name</label>
+                    <input type="text" id="task-name" required placeholder="e.g. Annual Return Filing (ACRA)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-medium focus:outline-none">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Compliance Category</label>
+                        <select id="task-category" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-semibold focus:outline-none">
+                            <option value="Statutory Filing">Statutory Filing</option>
+                            <option value="Taxation">Taxation</option>
+                            <option value="Payroll & CPF">Payroll & CPF</option>
+                            <option value="Corporate Governance">Corporate Governance</option>
+                            <option value="Immigration & HR">Immigration & HR</option>
+                            <option value="Corporate Services">Corporate Services</option>
+                            <option value="Custom Task">Custom Task</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Due Date</label>
+                        <input type="date" id="task-due-date" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-medium focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Assigned Globalisor Officer</label>
+                        <select id="task-officer" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-semibold focus:outline-none">
+                            <option value="Sarah Tan (Corporate Secretary)">Sarah Tan (Corporate Secretary)</option>
+                            <option value="David Lee (Tax Specialist)">David Lee (Tax Specialist)</option>
+                            <option value="Rachel Wong (HR & Payroll Manager)">Rachel Wong (HR & Payroll Manager)</option>
+                            <option value="Unassigned">Unassigned</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Status</label>
+                        <select id="task-status" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-semibold focus:outline-none">
+                            <option value="upcoming">Upcoming</option>
+                            <option value="pending">Pending</option>
+                            <option value="completed">Completed</option>
+                            <option value="overdue">Overdue</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Description</label>
+                    <textarea id="task-description" rows="2" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-medium focus:outline-none" placeholder="Provide overview of statutory deadline..."></textarea>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Required Client Action</label>
+                    <textarea id="task-action" rows="2" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-medium focus:outline-none" placeholder="Steps required by client..."></textarea>
+                </div>
+
+                <div class="flex items-center gap-2 pt-2">
+                    <input type="checkbox" id="task-published" checked class="w-4 h-4 text-blue-600 rounded">
+                    <label for="task-published" class="font-bold text-slate-700 text-xs">Publish to Client Portal immediately</label>
+                </div>
+
+                <div class="flex gap-4 pt-4 border-t border-slate-100">
+                    <button type="button" onclick="closeAdminTaskModal()" class="flex-1 py-3 border border-slate-200 rounded-2xl text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all">Cancel</button>
+                    <button type="submit" class="flex-1 py-3 bg-blue-600 text-white rounded-2xl font-bold text-xs hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20">Save Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Review Override Modal -->
     <div id="compliance-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-[10000] p-4">
@@ -490,6 +620,176 @@
                 setTimeout(connectWebSocket, 5000);
             };
         }
+
+        // --- Admin Compliance Calendar Functions ---
+        let adminCalendarTasks = [];
+
+        window.switchAdminCompTab = function(tabName) {
+            const kycBtn = document.getElementById('tab-btn-kyc');
+            const calBtn = document.getElementById('tab-btn-calendar');
+            const kycSec = document.querySelector('.main-container > .space-y-6 > .grid'); // metric cards
+            const kycSearch = document.querySelector('.main-container > .space-y-6 > .bg-white.p-4');
+            const kycTable = document.querySelector('.main-container > .space-y-6 > .bg-white.border');
+            const calSec = document.getElementById('admin-calendar-section');
+
+            if (tabName === 'calendar') {
+                kycBtn.className = "px-4 py-2 rounded-lg text-xs font-bold transition-all text-slate-600 hover:text-slate-900";
+                calBtn.className = "px-4 py-2 rounded-lg text-xs font-bold transition-all bg-white text-slate-900 shadow-sm";
+                
+                if (kycSec) kycSec.classList.add('hidden');
+                if (kycSearch) kycSearch.classList.add('hidden');
+                if (kycTable) kycTable.classList.add('hidden');
+                if (calSec) calSec.classList.remove('hidden');
+
+                loadAdminCalendarTasks();
+            } else {
+                calBtn.className = "px-4 py-2 rounded-lg text-xs font-bold transition-all text-slate-600 hover:text-slate-900";
+                kycBtn.className = "px-4 py-2 rounded-lg text-xs font-bold transition-all bg-white text-slate-900 shadow-sm";
+                
+                if (kycSec) kycSec.classList.remove('hidden');
+                if (kycSearch) kycSearch.classList.remove('hidden');
+                if (kycTable) kycTable.classList.remove('hidden');
+                if (calSec) calSec.classList.add('hidden');
+            }
+        };
+
+        async function loadAdminCalendarTasks() {
+            try {
+                const res = await fetch('/api/compliance-events');
+                if (res.ok) {
+                    adminCalendarTasks = await res.json();
+                }
+            } catch (e) {
+                console.warn("API fetch error, using local fallback", e);
+            }
+
+            if (!adminCalendarTasks || adminCalendarTasks.length === 0) {
+                const stored = localStorage.getItem('globalisor_compliance_events_current') || localStorage.getItem('globalisor_compliance_events_all');
+                if (stored) {
+                    try { adminCalendarTasks = JSON.parse(stored); } catch(err) {}
+                }
+            }
+
+            renderAdminCalendarTable();
+        }
+
+        function renderAdminCalendarTable() {
+            const tbody = document.getElementById('admin-calendar-table-body');
+            if (!tbody) return;
+
+            if (adminCalendarTasks.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-400">No statutory tasks recorded. Click "Assign Statutory Task" to create one.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = adminCalendarTasks.map(t => `
+                <tr class="hover:bg-slate-50/50 transition-colors">
+                    <td class="font-bold text-slate-800">${t.companyName || 'All Clients'}</td>
+                    <td class="font-bold text-slate-900">${t.title}</td>
+                    <td><span class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">${t.category || 'Statutory'}</span></td>
+                    <td class="font-mono font-bold text-xs ${new Date(t.dueDate) < new Date() && t.status !== 'completed' ? 'text-red-600' : 'text-slate-700'}">${t.dueDate || '—'}</td>
+                    <td class="text-xs font-medium text-slate-600">${t.assignedOfficer || 'Unassigned'}</td>
+                    <td><span class="px-2.5 py-1 rounded-lg border text-[9px] font-bold tracking-wider ${t.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}">${(t.status || 'upcoming').toUpperCase()}</span></td>
+                    <td class="flex items-center gap-2">
+                        <button onclick="openAdminEditTaskModal('${t.id}')" class="px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl text-xs font-bold hover:bg-blue-100 transition-all">Edit</button>
+                        <button onclick="deleteAdminTask('${t.id}')" class="px-3 py-1.5 bg-red-50 text-red-600 border border-red-100 rounded-xl text-xs font-bold hover:bg-red-100 transition-all">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        window.openAdminCreateTaskModal = function() {
+            document.getElementById('task-modal-title').innerText = 'Assign Statutory Task';
+            document.getElementById('task-edit-id').value = '';
+            document.getElementById('task-name').value = '';
+            document.getElementById('task-due-date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('task-description').value = '';
+            document.getElementById('task-action').value = '';
+            document.getElementById('admin-task-modal').classList.remove('hidden');
+        };
+
+        window.openAdminEditTaskModal = function(taskId) {
+            const task = adminCalendarTasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            document.getElementById('task-modal-title').innerText = 'Edit Statutory Task';
+            document.getElementById('task-edit-id').value = task.id;
+            document.getElementById('task-name').value = task.title || '';
+            document.getElementById('task-category').value = task.category || 'Statutory Filing';
+            document.getElementById('task-due-date').value = task.dueDate || '';
+            document.getElementById('task-officer').value = task.assignedOfficer || 'Unassigned';
+            document.getElementById('task-status').value = task.status || 'upcoming';
+            document.getElementById('task-description').value = task.description || '';
+            document.getElementById('task-action').value = task.requiredAction || '';
+            document.getElementById('task-published').checked = task.published !== false;
+
+            document.getElementById('admin-task-modal').classList.remove('hidden');
+        };
+
+        window.closeAdminTaskModal = function() {
+            document.getElementById('admin-task-modal').classList.add('hidden');
+        };
+
+        window.handleAdminSaveTask = async function(e) {
+            e.preventDefault();
+            const editId = document.getElementById('task-edit-id').value;
+
+            const payload = {
+                id: editId || ('STAT-CUSTOM-' + Date.now()),
+                clientId: document.getElementById('task-client-id').value,
+                companyName: 'Singapore Client Entity',
+                title: document.getElementById('task-name').value,
+                category: document.getElementById('task-category').value,
+                dueDate: document.getElementById('task-due-date').value,
+                assignedOfficer: document.getElementById('task-officer').value,
+                status: document.getElementById('task-status').value,
+                description: document.getElementById('task-description').value,
+                requiredAction: document.getElementById('task-action').value,
+                published: document.getElementById('task-published').checked
+            };
+
+            try {
+                const method = editId ? 'PUT' : 'POST';
+                const url = editId ? `/api/compliance-events/${editId}` : '/api/compliance-events';
+                await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } catch (err) {
+                console.warn("Backend API save error, updating local storage", err);
+            }
+
+            // Sync with local storage
+            const clientId = payload.clientId || 'current';
+            let stored = JSON.parse(localStorage.getItem(`globalisor_compliance_events_${clientId}`) || '[]');
+            if (editId) {
+                const idx = stored.findIndex(t => t.id === editId);
+                if (idx !== -1) stored[idx] = payload;
+                else stored.push(payload);
+            } else {
+                stored.push(payload);
+            }
+            localStorage.setItem(`globalisor_compliance_events_${clientId}`, JSON.stringify(stored));
+            localStorage.setItem(`globalisor_compliance_events_current`, JSON.stringify(stored));
+
+            closeAdminTaskModal();
+            loadAdminCalendarTasks();
+        };
+
+        window.deleteAdminTask = async function(taskId) {
+            if (!confirm("Are you sure you want to delete this statutory task?")) return;
+
+            try {
+                await fetch(`/api/compliance-events/${taskId}`, { method: 'DELETE' });
+            } catch (e) {}
+
+            adminCalendarTasks = adminCalendarTasks.filter(t => t.id !== taskId);
+            localStorage.setItem('globalisor_compliance_events_current', JSON.stringify(adminCalendarTasks));
+            renderAdminCalendarTable();
+        };
     </script>
 </body>
 </html>

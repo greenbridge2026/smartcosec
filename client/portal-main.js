@@ -28,9 +28,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateClientHeaderUI();
     connectWebSocket();
 
-    // Handle deep-linking via URL parameters and render UI INSTANTLY
+    // Handle deep-linking via URL parameters / localStorage and render UI INSTANTLY
     const urlParams = new URLSearchParams(window.location.search);
-    const targetTab = urlParams.get('tab') || 'home';
+    const targetTab = urlParams.get('tab') || localStorage.getItem('portal_active_tab') || 'home';
     switchTab(targetTab);
 
     if (urlParams.get('open_ai') === 'true') {
@@ -422,6 +422,12 @@ function switchTab(tab) {
     }
 
     state.currentTab = tab;
+    localStorage.setItem('portal_active_tab', tab);
+    try {
+        const url = new URL(window.location);
+        url.searchParams.set('tab', tab);
+        window.history.replaceState({}, '', url);
+    } catch (e) {}
 
     // Sync Navigation UI
     document.querySelectorAll('.nav-btn, .nav-mobile-btn, .module-nav-btn').forEach(btn => {
@@ -437,6 +443,7 @@ function switchTab(tab) {
     // Section Routing
     switch (tab) {
         case 'home': title.innerText = 'Client Dashboard'; renderHome(view); break;
+        case 'calendar': title.innerText = 'Compliance Calendar'; renderComplianceCalendar(view); break;
         case 'onboarding': title.innerText = 'Onboarding Journey'; renderOnboarding(view); break;
         case 'services': title.innerText = 'Active Workflows'; renderServices(view); break;
         case 'updates': title.innerText = ''; renderUpdates(view); break;
@@ -3850,22 +3857,72 @@ function renderHome(container) {
             <!-- Quick Action Grid -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <!-- Card 2 -->
-                <div class="premium-card bg-white border-none shadow-sm group hover:scale-[1.02] cursor-pointer" onclick="switchTab('services')">
-                    <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-6"><i data-lucide="map-pin" class="w-6 h-6"></i></div>
-                    <h4 class="font-bold text-slate-900 mb-4">Track Application</h4>
+                <div class="premium-card bg-white border-none shadow-sm group hover:scale-[1.02] cursor-pointer" onclick="switchTab('onboarding')">
+                    <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-6"><i data-lucide="clipboard-list" class="w-6 h-6"></i></div>
+                    <h4 class="font-bold text-slate-900 mb-4">Onboarding Details</h4>
                     <span class="text-xs font-bold text-purple-600 flex items-center gap-2">Open <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></span>
                 </div>
                 <!-- Card 3 -->
-                <div class="premium-card bg-white border-none shadow-sm group hover:scale-[1.02] cursor-pointer" onclick="switchTab('documents')">
-                    <div class="w-12 h-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center mb-6"><i data-lucide="upload" class="w-6 h-6"></i></div>
-                    <h4 class="font-bold text-slate-900 mb-4">Upload Documents</h4>
+                <div class="premium-card bg-white border-none shadow-sm group hover:scale-[1.02] cursor-pointer" onclick="switchTab('profile')">
+                    <div class="w-12 h-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center mb-6"><i data-lucide="building" class="w-6 h-6"></i></div>
+                    <h4 class="font-bold text-slate-900 mb-4">Company Details</h4>
                     <span class="text-xs font-bold text-orange-600 flex items-center gap-2">Open <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></span>
                 </div>
                 <!-- Card 4 -->
-                <div class="premium-card bg-white border-none shadow-sm group hover:scale-[1.02] cursor-pointer" onclick="switchTab('messages')">
-                    <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-6"><i data-lucide="shield" class="w-6 h-6"></i></div>
+                <div class="premium-card bg-white border-none shadow-sm group hover:scale-[1.02] cursor-pointer" onclick="window.location.href='messages.html'">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-6"><i data-lucide="message-square" class="w-6 h-6"></i></div>
                     <h4 class="font-bold text-slate-900 mb-4">Messages</h4>
                     <span class="text-xs font-bold text-emerald-600 flex items-center gap-2">Open <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></span>
+            </div>
+
+            <!-- Upcoming Statutory Compliance Deadlines Widget -->
+            <div class="premium-card bg-white border-none shadow-sm p-6 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="calendar" class="w-5 h-5 text-blue-600"></i>
+                        <h3 class="font-bold text-slate-900 text-base">Upcoming Statutory Deadlines</h3>
+                    </div>
+                    <button onclick="switchTab('calendar')" class="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1">
+                        View Full Calendar <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+                <div class="space-y-3">
+                    <div onclick="switchTab('calendar'); setTimeout(() => openComplianceEventModal('STAT-PAY-AUG26'), 100);" class="p-3 bg-amber-50/60 border border-amber-100 rounded-xl flex items-center justify-between cursor-pointer hover:bg-amber-100/50 hover:scale-[1.01] transition-all group">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                                <i data-lucide="credit-card" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-slate-900 text-xs group-hover:text-blue-600 transition-colors">August Payroll Due Date</h4>
+                                <span class="text-[10px] text-slate-400 font-bold uppercase">Payroll & CPF • Due 2026-08-31</span>
+                            </div>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200 shadow-sm">Due in 10 days</span>
+                    </div>
+                    <div onclick="switchTab('calendar'); setTimeout(() => openComplianceEventModal('STAT-EP-REN26'), 100);" class="p-3 bg-blue-50/60 border border-blue-100 rounded-xl flex items-center justify-between cursor-pointer hover:bg-blue-100/50 hover:scale-[1.01] transition-all group">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                                <i data-lucide="user-check" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-slate-900 text-xs group-hover:text-blue-600 transition-colors">Employment Pass (EP) Renewal</h4>
+                                <span class="text-[10px] text-slate-400 font-bold uppercase">Immigration & HR • Due 2026-09-05</span>
+                            </div>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 border border-blue-200 shadow-sm">Due in 15 days</span>
+                    </div>
+                    <div onclick="switchTab('calendar'); setTimeout(() => openComplianceEventModal('STAT-CPF-SEP26'), 100);" class="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between cursor-pointer hover:bg-slate-100 hover:scale-[1.01] transition-all group">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                                <i data-lucide="credit-card" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-slate-900 text-xs group-hover:text-blue-600 transition-colors">CPF Monthly Contribution Submission</h4>
+                                <span class="text-[10px] text-slate-400 font-bold uppercase">Payroll & CPF • Due 2026-09-14</span>
+                            </div>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">Due in 24 days</span>
+                    </div>
                 </div>
             </div>
 
@@ -4049,18 +4106,30 @@ window.cdSelectDirector = function(idx) {
     const panel = document.getElementById('cd-director-details-panel');
     if (!panel) return;
 
+    const dName = d.name || d.fullName || d.directorName || 'Director';
+    const dType = d.type || d.position || d.role || 'Director';
+    const dStatus = (d.status || (d.cessationDate ? 'RESIGNED' : 'VERIFIED')).toUpperCase();
+    const dId = d.idNumber || d.idNo || d.nric || d.passport || d.id || '—';
+    const dNat = d.nationality || '—';
+    const dDob = d.dob || d.dateOfBirth || '—';
+    const dAppDate = d.appointmentDate || d.dateAppointed || d.entryDate || '—';
+    const dCessDate = d.cessationDate || d.dateCeased || null;
+    const dEmail = d.email || '—';
+    const dMobile = d.mobile || d.phone || d.contactNo || '—';
+    const dAddress = d.address || d.residentialAddress || '—';
+
     panel.innerHTML = `
         <div class="flex justify-between items-start border-b border-slate-100 pb-4">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-extrabold text-xs flex items-center justify-center shrink-0">
-                    ${d.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                    ${dName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
                 </div>
                 <div>
                     <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
-                        ${d.name}
-                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">VERIFIED</span>
+                        ${dName}
+                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">${dStatus}</span>
                     </h3>
-                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">${d.type}</p>
+                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">${dType}</p>
                 </div>
             </div>
             <button onclick="alert('Edit Details')" class="px-3 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
@@ -4080,16 +4149,16 @@ window.cdSelectDirector = function(idx) {
                 <h4 class="font-extrabold text-slate-900 text-xs">Director Personal Information</h4>
                 <div class="bg-slate-50/50 p-5 rounded-2xl border border-slate-100">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6 text-[11px]">
-                        <div><span class="text-slate-400 font-medium block mb-0.5">FULL LEGAL NAME</span><div class="font-extrabold text-slate-900">${d.name}</div></div>
-                        <div><span class="text-slate-400 font-medium block mb-0.5">POSITION TYPE</span><div class="font-bold text-slate-900">${d.type}</div></div>
-                        <div><span class="text-slate-400 font-medium block mb-0.5">PERSONAL NRIC / ID</span><div class="font-mono font-extrabold text-slate-900">${d.idNumber}</div></div>
-                        <div><span class="text-slate-400 font-medium block mb-0.5">NATIONALITY</span><div class="font-bold text-slate-900">${d.nationality}</div></div>
-                        <div><span class="text-slate-400 font-medium block mb-0.5">DATE OF BIRTH</span><div class="font-bold text-slate-900">${d.dob}</div></div>
-                        <div><span class="text-slate-400 font-medium block mb-0.5">APPOINTMENT DATE</span><div class="font-bold text-slate-900">${d.appointmentDate}</div></div>
-                        ${d.cessationDate ? `<div><span class="text-slate-400 font-medium block mb-0.5">DATE OF CESSATION / RESIGNATION</span><div class="font-extrabold text-amber-600">${d.cessationDate}</div></div>` : ''}
-                        <div><span class="text-slate-400 font-medium block mb-0.5">EMAIL ADDRESS</span><div class="font-bold text-blue-600">${d.email}</div></div>
-                        <div><span class="text-slate-400 font-medium block mb-0.5">CONTACT NUMBER</span><div class="font-bold text-slate-900">${d.mobile}</div></div>
-                        <div class="md:col-span-2"><span class="text-slate-400 font-medium block mb-0.5">RESIDENTIAL ADDRESS</span><div class="font-medium text-slate-800 leading-relaxed">${d.address}</div></div>
+                        <div><span class="text-slate-400 font-medium block mb-0.5">FULL LEGAL NAME</span><div class="font-extrabold text-slate-900">${dName}</div></div>
+                        <div><span class="text-slate-400 font-medium block mb-0.5">POSITION TYPE</span><div class="font-bold text-slate-900">${dType}</div></div>
+                        <div><span class="text-slate-400 font-medium block mb-0.5">PERSONAL NRIC / ID</span><div class="font-mono font-extrabold text-slate-900">${dId}</div></div>
+                        <div><span class="text-slate-400 font-medium block mb-0.5">NATIONALITY</span><div class="font-bold text-slate-900">${dNat}</div></div>
+                        <div><span class="text-slate-400 font-medium block mb-0.5">DATE OF BIRTH</span><div class="font-bold text-slate-900">${dDob}</div></div>
+                        <div><span class="text-slate-400 font-medium block mb-0.5">APPOINTMENT DATE</span><div class="font-bold text-slate-900">${dAppDate}</div></div>
+                        ${dCessDate ? `<div><span class="text-slate-400 font-medium block mb-0.5">DATE OF CESSATION / RESIGNATION</span><div class="font-extrabold text-amber-600">${dCessDate}</div></div>` : ''}
+                        <div><span class="text-slate-400 font-medium block mb-0.5">EMAIL ADDRESS</span><div class="font-bold text-blue-600">${dEmail}</div></div>
+                        <div><span class="text-slate-400 font-medium block mb-0.5">CONTACT NUMBER</span><div class="font-bold text-slate-900">${dMobile}</div></div>
+                        <div class="md:col-span-2"><span class="text-slate-400 font-medium block mb-0.5">RESIDENTIAL ADDRESS</span><div class="font-medium text-slate-800 leading-relaxed">${dAddress}</div></div>
                     </div>
                 </div>
             </div>
@@ -4208,19 +4277,31 @@ window.cdSelectSecretary = function(idx) {
     const panel = document.getElementById('cd-secretary-details-panel');
     if (!panel) return;
 
+    const sName = s.name || s.fullName || s.secretaryName || 'Secretary';
+    const sType = s.type || s.position || s.role || 'Company Secretary';
+    const sStatus = (s.status || 'ACTIVE').toUpperCase();
+    const sId = s.idNumber || s.idNo || s.nric || s.passport || s.id || '—';
+    const sNat = s.nationality || '—';
+    const sDob = s.dob || s.dateOfBirth || '—';
+    const sAppDate = s.appointmentDate || s.dateAppointed || '—';
+    const sEmail = s.email || '—';
+    const sMobile = s.mobile || s.phone || '—';
+    const sAddress = s.address || s.residentialAddress || '—';
+    const sRegAddress = s.registeredAddress || sAddress;
+
     panel.innerHTML = `
         <div class="flex justify-between items-start border-b border-slate-100 pb-4">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-extrabold text-xs flex items-center justify-center shrink-0">
-                    ${s.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                    ${sName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
                 </div>
                 <div>
                     <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
-                        ${s.name}
-                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-slate-100 text-slate-700 border border-slate-200">Secretary</span>
-                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">ACTIVE</span>
+                        ${sName}
+                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-slate-100 text-slate-700 border border-slate-200">${sType}</span>
+                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">${sStatus}</span>
                     </h3>
-                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">Appointed on: ${s.appointmentDate} &bull; Resigned on: &mdash;</p>
+                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">Appointed on: ${sAppDate} &bull; Resigned on: &mdash;</p>
                 </div>
             </div>
             <button onclick="alert('Edit Details')" class="px-3 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
@@ -4325,19 +4406,54 @@ window.cdSelectShareholder = function(idx) {
     const panel = document.getElementById('cd-shareholder-details-panel');
     if (!panel) return;
 
+    const mName = m.name || m.memberName || m.shareholderName || m.fullName || 'Shareholder';
+    const mType = (m.type || m.memberType || m.entityType || 'Individual').toUpperCase();
+    const mStatus = (m.status || (m.dateCeased ? 'CEASED / CANCELLED' : 'ACTIVE')).toUpperCase();
+    const mId = m.idNumber || m.idNo || m.uen || m.nric || m.passport || m.id || '—';
+    const mDate = m.dateEntered || m.dateAppointed || m.entryDate || '—';
+    const mAddress = m.address || m.registeredAddress || '—';
+    const mShares = (m.numberOfShares !== undefined && m.numberOfShares !== null && String(m.numberOfShares).trim() !== '' && String(m.numberOfShares) !== 'undefined')
+        ? m.numberOfShares
+        : ((m.shares !== undefined && m.shares !== null && String(m.shares).trim() !== '' && String(m.shares) !== 'undefined')
+            ? m.shares
+            : ((m.sharesHeld !== undefined && m.sharesHeld !== null && String(m.sharesHeld).trim() !== '' && String(m.sharesHeld) !== 'undefined')
+                ? m.sharesHeld
+                : '—'));
+    const mOrdShares = (m.ordinaryShares !== undefined && m.ordinaryShares !== null && String(m.ordinaryShares).trim() !== '' && String(m.ordinaryShares) !== 'undefined')
+        ? m.ordinaryShares
+        : mShares;
+    const mPrefShares = (m.preferenceShares !== undefined && m.preferenceShares !== null && String(m.preferenceShares).trim() !== '' && String(m.preferenceShares) !== 'undefined')
+        ? m.preferenceShares
+        : '0';
+    const mPct = (m.percentage !== undefined && m.percentage !== null && String(m.percentage).trim() !== '' && String(m.percentage) !== 'undefined')
+        ? (String(m.percentage).includes('%') ? m.percentage : `${m.percentage}%`)
+        : ((m.sharePercentage !== undefined && m.sharePercentage !== null && String(m.sharePercentage).trim() !== '' && String(m.sharePercentage) !== 'undefined')
+            ? (String(m.sharePercentage).includes('%') ? m.sharePercentage : `${m.sharePercentage}%`)
+            : '—');
+    const mCurr = (m.currency && String(m.currency) !== 'undefined' && String(m.currency).trim() !== '') ? m.currency : 'USD';
+    const mPaid = (m.amountPaid !== undefined && m.amountPaid !== null && String(m.amountPaid).trim() !== '' && String(m.amountPaid) !== 'undefined')
+        ? m.amountPaid
+        : ((m.paidAmount !== undefined && m.paidAmount !== null && String(m.paidAmount).trim() !== '' && String(m.paidAmount) !== 'undefined')
+            ? m.paidAmount
+            : ((m.totalPaid !== undefined && m.totalPaid !== null && String(m.totalPaid).trim() !== '' && String(m.totalPaid) !== 'undefined')
+                ? m.totalPaid
+                : ((m.consideration !== undefined && m.consideration !== null && String(m.consideration).trim() !== '' && String(m.consideration) !== 'undefined')
+                    ? m.consideration
+                    : '—')));
+
     panel.innerHTML = `
         <div class="flex justify-between items-start border-b border-slate-100 pb-4">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-extrabold text-xs flex items-center justify-center shrink-0">
-                    ${m.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                    ${mName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
                 </div>
                 <div>
                     <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
-                        ${m.name}
-                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-blue-50 text-blue-600 border border-blue-100">${m.type}</span>
-                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-rose-50 text-rose-600 border border-rose-100">${m.status || 'ACTIVE'}</span>
+                        ${mName}
+                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-blue-50 text-blue-600 border border-blue-100">${mType}</span>
+                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">${mStatus}</span>
                     </h3>
-                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">Shareholder ID: ${m.idNumber} &bull; Added on: ${m.dateEntered}</p>
+                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">Shareholder ID: ${mId} &bull; Added on: ${mDate}</p>
                 </div>
             </div>
             <button onclick="alert('Edit Details')" class="px-3 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
@@ -4359,11 +4475,11 @@ window.cdSelectShareholder = function(idx) {
                     <div class="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-3">
                         <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-100 pb-2">Shareholding Summary</h4>
                         <div class="space-y-2 text-[11px]">
-                            <div class="flex justify-between"><span class="text-slate-400">Total Shares Held</span><span class="font-extrabold text-slate-900">${m.numberOfShares}</span></div>
-                            <div class="flex justify-between"><span class="text-slate-400">Ordinary Shares</span><span class="font-bold text-slate-900">${m.numberOfShares}</span></div>
-                            <div class="flex justify-between"><span class="text-slate-400">Preference Shares</span><span class="font-bold text-slate-900">0</span></div>
-                            <div class="flex justify-between"><span class="text-slate-400">Percentage</span><span class="font-extrabold text-blue-600">${m.percentage}</span></div>
-                            <div class="flex justify-between"><span class="text-slate-400">Paid Amount</span><span class="font-bold text-slate-900">SGD ${m.amountPaid}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400">Total Shares Held</span><span class="font-extrabold text-slate-900">${mShares}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400">Ordinary Shares</span><span class="font-bold text-slate-900">${mOrdShares}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400">Preference Shares</span><span class="font-bold text-slate-900">${mPrefShares}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400">Percentage</span><span class="font-extrabold text-blue-600">${mPct}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400">Paid Amount</span><span class="font-bold text-slate-900">${mCurr} ${mPaid}</span></div>
                         </div>
                     </div>
                     <div class="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-3">
@@ -4373,7 +4489,7 @@ window.cdSelectShareholder = function(idx) {
                     <div class="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-3">
                         <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-100 pb-2">Contact Details</h4>
                         <div class="space-y-2 text-[11px]">
-                            <div><span class="text-slate-400 block">Address</span><span class="font-medium text-slate-800">${m.address}</span></div>
+                            <div><span class="text-slate-400 block">Address</span><span class="font-medium text-slate-800">${mAddress}</span></div>
                         </div>
                     </div>
                 </div>
@@ -4384,12 +4500,12 @@ window.cdSelectShareholder = function(idx) {
                 <h4 class="font-extrabold text-slate-900 text-xs">Capital Shareholdings</h4>
                 <div class="bg-slate-50/50 p-6 rounded-2xl border border-slate-100 space-y-4">
                     <div class="grid grid-cols-2 gap-y-4 gap-x-8 text-[11px]">
-                        <div><span class="text-slate-400 font-extrabold uppercase tracking-wider block mb-1">TOTAL SHARES HELD</span><div class="font-extrabold text-slate-900 text-sm">${m.numberOfShares}</div></div>
-                        <div><span class="text-slate-400 font-extrabold uppercase tracking-wider block mb-1">SHARE PERCENTAGE</span><div class="font-extrabold text-slate-900 text-sm">${m.percentage}</div></div>
-                        <div><span class="text-slate-400 font-extrabold uppercase tracking-wider block mb-1">ORDINARY SHARES</span><div class="font-extrabold text-slate-900 text-sm">${m.numberOfShares}</div></div>
-                        <div><span class="text-slate-400 font-extrabold uppercase tracking-wider block mb-1">PREFERENCE SHARES</span><div class="font-extrabold text-slate-900 text-sm">0</div></div>
-                        <div><span class="text-slate-400 font-extrabold uppercase tracking-wider block mb-1">CURRENCY</span><div class="font-extrabold text-slate-900 text-sm">${m.currency}</div></div>
-                        <div><span class="text-slate-400 font-extrabold uppercase tracking-wider block mb-1">TOTAL PAID AMOUNT</span><div class="font-extrabold text-slate-900 text-sm">${m.currency} ${m.amountPaid}</div></div>
+                        <div><span class="text-slate-400 font-extrabold uppercase tracking-wider block mb-1">TOTAL SHARES HELD</span><div class="font-extrabold text-slate-900 text-sm">${mShares}</div></div>
+                        <div><span class="text-slate-400 font-extrabold uppercase tracking-wider block mb-1">SHARE PERCENTAGE</span><div class="font-extrabold text-slate-900 text-sm">${mPct}</div></div>
+                        <div><span class="text-slate-400 font-extrabold uppercase tracking-wider block mb-1">ORDINARY SHARES</span><div class="font-extrabold text-slate-900 text-sm">${mOrdShares}</div></div>
+                        <div><span class="text-slate-400 font-extrabold uppercase tracking-wider block mb-1">PREFERENCE SHARES</span><div class="font-extrabold text-slate-900 text-sm">${mPrefShares}</div></div>
+                        <div><span class="text-slate-400 font-extrabold uppercase tracking-wider block mb-1">CURRENCY</span><div class="font-extrabold text-slate-900 text-sm">${mCurr}</div></div>
+                        <div><span class="text-slate-400 font-extrabold uppercase tracking-wider block mb-1">TOTAL PAID AMOUNT</span><div class="font-extrabold text-slate-900 text-sm">${mCurr} ${mPaid}</div></div>
                     </div>
                 </div>
             </div>
@@ -4502,19 +4618,29 @@ window.cdSelectUbo = function(idx) {
     const panel = document.getElementById('cd-ubo-details-panel');
     if (!panel) return;
 
+    const uName = u.name || u.fullName || u.controllerName || 'UBO / Controller';
+    const uRole = u.role || u.position || 'Ultimate Beneficial Owner';
+    const uStatus = (u.status || 'ACTIVE').toUpperCase();
+    const uId = u.idNumber || u.idNo || u.nric || u.passport || u.id || '—';
+    const uNat = u.nationality || '—';
+    const uDob = u.dob || u.dateOfBirth || '—';
+    const uEmail = u.email || '—';
+    const uMobile = u.mobile || u.phone || '—';
+    const uAddress = u.address || u.residentialAddress || '—';
+
     panel.innerHTML = `
         <div class="flex justify-between items-start border-b border-slate-100 pb-4">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-extrabold text-xs flex items-center justify-center shrink-0">
-                    ${(u.name || 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                    ${uName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
                 </div>
                 <div>
                     <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
-                        ${u.name || 'UBO / Controller'}
-                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-slate-100 text-slate-700 border border-slate-200">${u.role || 'Ultimate Beneficial Owner'}</span>
-                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">ACTIVE</span>
+                        ${uName}
+                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-slate-100 text-slate-700 border border-slate-200">${uRole}</span>
+                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">${uStatus}</span>
                     </h3>
-                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">ID Type: Passport / FIN &bull; ID No.: ${u.idNumber || '—'} &bull; Via: Direct</p>
+                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">ID Type: Passport / FIN &bull; ID No.: ${uId} &bull; Via: Direct</p>
                 </div>
             </div>
             <button onclick="alert('Edit UBO Details')" class="px-3 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
@@ -11126,3 +11252,1027 @@ function renderMultiItemStepHtml(stepKey, isReadOnly) {
 
 window.renderMultiItemStepHtml = renderMultiItemStepHtml;
 window.obRemoveRonsNominee = obRemoveRonsNominee;
+
+// =========================================================================
+// COMPLIANCE CALENDAR MODULE (Client Portal)
+// =========================================================================
+
+window.calendarState = {
+    currentView: 'calendar', // 'calendar', 'monthly', 'weekly', 'list'
+    currentYear: 2026,
+    currentMonth: 7, // August (0-indexed, 7 = August)
+    selectedCategory: 'all',
+    selectedStatus: 'all',
+    selectedYear: 'all',
+    selectedMonth: 'all',
+    searchQuery: '',
+    events: [],
+    loaded: false
+};
+
+function generateDefaultStatutoryEvents(clientId) {
+    const currentYear = 2026;
+    const company = (state && state.user && state.user.companyName) ? state.user.companyName : "Singapore Operating Entity";
+    
+    return [
+        {
+            id: 'STAT-FYE-' + currentYear,
+            clientId: clientId || 'current',
+            companyName: company,
+            title: 'Financial Year End (FYE)',
+            category: 'Statutory Filing',
+            dueDate: `${currentYear}-12-31`,
+            dueTimestamp: new Date(currentYear, 11, 31).getTime(),
+            status: 'upcoming',
+            recurring: true,
+            recurringFrequency: 'annual',
+            description: 'Official Financial Year End (FYE) date for accounting and statutory reporting period.',
+            requiredAction: 'Close books of accounts, compile general ledger, prepare management accounts and financial statements.',
+            assignedOfficer: 'Sarah Tan (Corporate Secretary)',
+            published: true
+        },
+        {
+            id: 'STAT-ECI-' + currentYear,
+            clientId: clientId || 'current',
+            companyName: company,
+            title: 'Estimated Chargeable Income (ECI)',
+            category: 'Taxation',
+            dueDate: `${currentYear}-03-31`,
+            dueTimestamp: new Date(currentYear, 2, 31).getTime(),
+            status: 'completed',
+            completionDate: `${currentYear}-03-24`,
+            completedBy: 'David Lee (Tax Specialist)',
+            recurring: true,
+            recurringFrequency: 'annual',
+            description: 'Estimate of taxable income for IRAS due within 3 months from Financial Year End.',
+            requiredAction: 'File ECI declaration with IRAS via myTax Portal or notify IRAS if exempt under ECI waiver rules.',
+            assignedOfficer: 'David Lee (Tax Specialist)',
+            published: true
+        },
+        {
+            id: 'STAT-AGM-' + currentYear,
+            clientId: clientId || 'current',
+            companyName: company,
+            title: 'Annual General Meeting (AGM)',
+            category: 'Corporate Governance',
+            dueDate: `${currentYear}-06-30`,
+            dueTimestamp: new Date(currentYear, 5, 30).getTime(),
+            status: 'completed',
+            completionDate: `${currentYear}-06-25`,
+            completedBy: 'Sarah Tan (Corporate Secretary)',
+            recurring: true,
+            recurringFrequency: 'annual',
+            description: 'Mandatory annual meeting of shareholders to lay financial statements due within 6 months of FYE.',
+            requiredAction: 'Draft AGM notices, shareholder resolutions, approve audited/unaudited accounts, re-elect directors.',
+            assignedOfficer: 'Sarah Tan (Corporate Secretary)',
+            published: true
+        },
+        {
+            id: 'STAT-ACRA-AR-' + currentYear,
+            clientId: clientId || 'current',
+            companyName: company,
+            title: 'Annual Return Filing (ACRA)',
+            category: 'Statutory Filing',
+            dueDate: `${currentYear}-07-31`,
+            dueTimestamp: new Date(currentYear, 6, 31).getTime(),
+            status: 'completed',
+            completionDate: `${currentYear}-07-29`,
+            completedBy: 'Sarah Tan (Corporate Secretary)',
+            recurring: true,
+            recurringFrequency: 'annual',
+            description: 'Filing of company annual return on ACRA BizFile+ due within 7 months of FYE.',
+            requiredAction: 'Submit Annual Return on ACRA BizFile+, pay annual return fee, update register of controllers and officers.',
+            assignedOfficer: 'Sarah Tan (Corporate Secretary)',
+            published: true
+        },
+        {
+            id: 'STAT-TAX-FORM-CS-' + currentYear,
+            clientId: clientId || 'current',
+            companyName: company,
+            title: 'Corporate Income Tax Filing (Form C / C-S)',
+            category: 'Taxation',
+            dueDate: `${currentYear}-11-30`,
+            dueTimestamp: new Date(currentYear, 10, 30).getTime(),
+            status: 'upcoming',
+            recurring: true,
+            recurringFrequency: 'annual',
+            description: 'Final Corporate Income Tax return filing (Form C-S / Form C) with IRAS.',
+            requiredAction: 'Submit Form C-S/C with tax computations, audited/unaudited accounts via myTax Portal by Nov 30 (or Dec 15 e-filing).',
+            assignedOfficer: 'David Lee (Tax Specialist)',
+            published: true
+        },
+        {
+            id: 'STAT-GST-Q3-' + currentYear,
+            clientId: clientId || 'current',
+            companyName: company,
+            title: 'GST Quarterly Return & Payment (Q3)',
+            category: 'Taxation',
+            dueDate: `${currentYear}-10-31`,
+            dueTimestamp: new Date(currentYear, 9, 31).getTime(),
+            status: 'upcoming',
+            recurring: true,
+            recurringFrequency: 'quarterly',
+            description: 'Quarterly Goods & Services Tax (GST F5) return submission for Q3 (Jul-Sep).',
+            requiredAction: 'Reconcile output and input GST, submit GST F5 online via myTax Portal and remit tax payable.',
+            assignedOfficer: 'David Lee (Tax Specialist)',
+            published: true
+        },
+        {
+            id: 'STAT-CPF-SEP-' + currentYear,
+            clientId: clientId || 'current',
+            companyName: company,
+            title: 'CPF Monthly Contribution Submission (Aug/Sep)',
+            category: 'Payroll & CPF',
+            dueDate: `${currentYear}-09-14`,
+            dueTimestamp: new Date(currentYear, 8, 14).getTime(),
+            status: 'upcoming',
+            recurring: true,
+            recurringFrequency: 'monthly',
+            description: 'Mandatory Central Provident Fund (CPF) monthly contribution payment for employees.',
+            requiredAction: 'Calculate monthly CPF contributions, submit CPF EZPay file online and complete Direct Debit / FAST payment by 14th.',
+            assignedOfficer: 'Rachel Wong (HR & Payroll Manager)',
+            published: true
+        },
+        {
+            id: 'STAT-PAYROLL-AUG-' + currentYear,
+            clientId: clientId || 'current',
+            companyName: company,
+            title: 'August Payroll Due Date',
+            category: 'Payroll & CPF',
+            dueDate: `${currentYear}-08-31`,
+            dueTimestamp: new Date(currentYear, 7, 31).getTime(),
+            status: 'upcoming',
+            recurring: true,
+            recurringFrequency: 'monthly',
+            description: 'Monthly salary disbursement and payslip distribution under MOM Employment Act.',
+            requiredAction: 'Disburse employee salaries via GIRO/FAST bank transfer, issue itemised payslips within 3 days of payment.',
+            assignedOfficer: 'Rachel Wong (HR & Payroll Manager)',
+            published: true
+        },
+        {
+            id: 'STAT-REGOFFICE-' + currentYear,
+            clientId: clientId || 'current',
+            companyName: company,
+            title: 'Registered Office Address Renewal',
+            category: 'Corporate Services',
+            dueDate: `${currentYear}-10-15`,
+            dueTimestamp: new Date(currentYear, 9, 15).getTime(),
+            status: 'upcoming',
+            recurring: true,
+            recurringFrequency: 'annual',
+            description: 'Annual renewal of Globalisor Registered Office Address and Secretarial Mail Forwarding.',
+            requiredAction: 'Confirm office agreement renewal with Globalisor, verify registered address status on ACRA.',
+            assignedOfficer: 'Sarah Tan (Corporate Secretary)',
+            published: true
+        },
+        {
+            id: 'STAT-NOMINEE-DIR-' + currentYear,
+            clientId: clientId || 'current',
+            companyName: company,
+            title: 'Nominee Director Service Renewal',
+            category: 'Corporate Governance',
+            dueDate: `${currentYear}-11-15`,
+            dueTimestamp: new Date(currentYear, 10, 15).getTime(),
+            status: 'upcoming',
+            recurring: true,
+            recurringFrequency: 'annual',
+            description: 'Annual renewal of Nominee Director service and security deposit verification.',
+            requiredAction: 'Complete annual compliance questionnaire, renew Nominee Director agreement and indemnity bond.',
+            assignedOfficer: 'Sarah Tan (Corporate Secretary)',
+            published: true
+        },
+        {
+            id: 'STAT-EP-RENEWAL-' + currentYear,
+            clientId: clientId || 'current',
+            companyName: company,
+            title: 'Employment Pass (EP) / Work Pass Renewal',
+            category: 'Immigration & HR',
+            dueDate: `${currentYear}-09-05`,
+            dueTimestamp: new Date(currentYear, 8, 5).getTime(),
+            status: 'upcoming',
+            recurring: true,
+            recurringFrequency: 'annual',
+            description: 'MOM Employment Pass renewal for Managing Director (due 60 days before pass expiry).',
+            requiredAction: 'Submit EP renewal application on MOM myMOM portal with updated salary & financial documentation.',
+            assignedOfficer: 'Rachel Wong (HR & Payroll Manager)',
+            published: true
+        },
+        {
+            id: 'STAT-BIZFILE-UPDATE-' + currentYear,
+            clientId: clientId || 'current',
+            companyName: company,
+            title: 'ACRA BizFile+ Information Audit & Verification',
+            category: 'Statutory Filing',
+            dueDate: `${currentYear}-09-20`,
+            dueTimestamp: new Date(currentYear, 8, 20).getTime(),
+            status: 'upcoming',
+            recurring: false,
+            description: 'Annual check of company officers, shareholders, registers, and principal activities on ACRA BizFile+.',
+            requiredAction: 'Verify officer addresses, controllers register (RORC), and SSIC primary/secondary business codes.',
+            assignedOfficer: 'Sarah Tan (Corporate Secretary)',
+            published: true
+        }
+    ];
+}
+
+function calculateCountdownBadge(dueDateStr, status) {
+    if (status === 'completed') {
+        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm"><svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg> Completed</span>`;
+    }
+    
+    if (!dueDateStr) return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">Pending</span>`;
+    
+    const today = new Date(2026, 7, 21); // Aug 21, 2026
+    today.setHours(0, 0, 0, 0);
+    
+    const parts = dueDateStr.split('-');
+    const due = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    due.setHours(0, 0, 0, 0);
+    
+    const diffTime = due.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+        const daysOverdue = Math.abs(diffDays);
+        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-red-100 text-red-700 border border-red-300 animate-pulse shadow-sm"><svg class="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg> Overdue by ${daysOverdue} ${daysOverdue === 1 ? 'day' : 'days'}</span>`;
+    } else if (diffDays === 0) {
+        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-amber-100 text-amber-800 border border-amber-300 shadow-sm"><svg class="w-3.5 h-3.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Due Today</span>`;
+    } else if (diffDays <= 7) {
+        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 shadow-sm"><svg class="w-3.5 h-3.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Due in ${diffDays} ${diffDays === 1 ? 'day' : 'days'}</span>`;
+    } else if (diffDays <= 30) {
+        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-sm"><svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Due in ${diffDays} days</span>`;
+    } else {
+        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">Due in ${diffDays} days</span>`;
+    }
+}
+
+function getCategoryIconHtml(category) {
+    switch (category) {
+        case 'Statutory Filing': return `<svg class="w-3.5 h-3.5 shrink-0 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`;
+        case 'Taxation': return `<svg class="w-3.5 h-3.5 shrink-0 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>`;
+        case 'Payroll & CPF': return `<svg class="w-3.5 h-3.5 shrink-0 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>`;
+        case 'Corporate Governance': return `<svg class="w-3.5 h-3.5 shrink-0 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>`;
+        case 'Immigration & HR': return `<svg class="w-3.5 h-3.5 shrink-0 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 012-2h2a2 2 0 012 2v1m-6 0h6"/></svg>`;
+        case 'Corporate Services': return `<svg class="w-3.5 h-3.5 shrink-0 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>`;
+        default: return `<svg class="w-3.5 h-3.5 shrink-0 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>`;
+    }
+}
+window.getCategoryIconHtml = getCategoryIconHtml;
+
+function getCategoryBadge(category) {
+    const cats = {
+        'Statutory Filing': 'bg-purple-50 text-purple-700 border-purple-200',
+        'Taxation': 'bg-blue-50 text-blue-700 border-blue-200',
+        'Payroll & CPF': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        'Corporate Governance': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+        'Immigration & HR': 'bg-amber-50 text-amber-700 border-amber-200',
+        'Corporate Services': 'bg-sky-50 text-sky-700 border-sky-200'
+    };
+    const cls = cats[category] || 'bg-slate-50 text-slate-700 border-slate-200';
+    const icon = getCategoryIconHtml(category);
+    return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold border ${cls}">${icon} <span>${category || 'Compliance'}</span></span>`;
+}
+
+function exportComplianceCalendarToICS() {
+    const events = calendarState.events;
+    if (!events || events.length === 0) return;
+
+    let icsContent = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Globalisor//Singapore Statutory Compliance Calendar//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH"
+    ];
+
+    events.forEach(e => {
+        if (!e.dueDate) return;
+        const dt = e.dueDate.replace(/-/g, '');
+        icsContent.push("BEGIN:VEVENT");
+        icsContent.push(`UID:${e.id}@globalisor.com`);
+        icsContent.push(`DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`);
+        icsContent.push(`DTSTART;VALUE=DATE:${dt}`);
+        icsContent.push(`DTEND;VALUE=DATE:${dt}`);
+        icsContent.push(`SUMMARY:Globalisor Compliance: ${e.title}`);
+        icsContent.push(`DESCRIPTION:${(e.description || '').replace(/\n/g, ' ')} Required Action: ${(e.requiredAction || '').replace(/\n/g, ' ')}`);
+        icsContent.push(`CATEGORIES:${e.category || 'Compliance'}`);
+        icsContent.push("END:VEVENT");
+    });
+
+    icsContent.push("END:VCALENDAR");
+
+    const blob = new Blob([icsContent.join("\r\n")], { type: 'text/calendar;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.setAttribute('download', 'Globalisor_Singapore_Compliance_Calendar_2026.ics');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+window.exportComplianceCalendarToICS = exportComplianceCalendarToICS;
+
+async function fetchComplianceEvents() {
+    let events = [];
+    const clientId = (state && state.user && state.user.id) ? state.user.id : 'current';
+    try {
+        const res = await fetch(`/api/compliance-events/client/${clientId}`);
+        if (res.ok) {
+            events = await res.json();
+        }
+    } catch (e) {
+        console.warn("Failed to fetch compliance events from backend API, using local statutory cache", e);
+    }
+    
+    // Check local storage override cache
+    const stored = localStorage.getItem(`globalisor_compliance_events_${clientId}`);
+    if (stored) {
+        try {
+            const localEvents = JSON.parse(stored);
+            if (Array.isArray(localEvents) && localEvents.length > 0) {
+                events = localEvents;
+            }
+        } catch (e) {}
+    }
+    
+    if (!events || events.length === 0) {
+        events = generateDefaultStatutoryEvents(clientId);
+        localStorage.setItem(`globalisor_compliance_events_${clientId}`, JSON.stringify(events));
+    }
+    
+    calendarState.events = events;
+    calendarState.loaded = true;
+    return events;
+}
+
+async function renderComplianceCalendar(container) {
+    if (!calendarState.loaded) {
+        await fetchComplianceEvents();
+    }
+    
+    const events = calendarState.events;
+    
+    // Calculate metrics & health score
+    const totalCount = events.length;
+    const completedCount = events.filter(e => e.status === 'completed').length;
+    const healthPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 100;
+    
+    const today = new Date(2026, 7, 21);
+    today.setHours(0, 0, 0, 0);
+    
+    let dueSoonCount = 0;
+    let overdueCount = 0;
+    
+    events.forEach(e => {
+        if (e.status === 'completed' || !e.dueDate) return;
+        const parts = e.dueDate.split('-');
+        const due = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        due.setHours(0, 0, 0, 0);
+        const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays < 0) {
+            overdueCount++;
+        } else if (diffDays <= 30) {
+            dueSoonCount++;
+        }
+    });
+
+    // Render Premium Main Container Header & Controls
+    container.innerHTML = `
+        <div class="space-y-8 font-outfit">
+            <!-- Premium Dark Gradient Hero Header -->
+            <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-8 rounded-[28px] shadow-2xl relative overflow-hidden flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-6 border border-white/10">
+                <div class="relative z-10 space-y-3 max-w-xl">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-[10px] font-bold uppercase tracking-widest backdrop-blur-md">
+                        <span class="w-2 h-2 rounded-full bg-blue-400 animate-ping"></span> Singapore ACRA & IRAS Statutory Monitor
+                    </div>
+                    <h2 class="text-3xl font-black tracking-tight text-white">Singapore Compliance Calendar</h2>
+                    <p class="text-slate-300 text-xs leading-relaxed">
+                        Complete statutory timeline tracking for ACRA filings, IRAS Corporate Tax, GST returns, monthly CPF, payroll due dates, and secretarial renewals.
+                    </p>
+                </div>
+
+                <!-- Compliance Health Gauge Card -->
+                <div class="relative z-10 bg-white/10 backdrop-blur-xl border border-white/20 p-5 rounded-2xl flex items-center gap-5 min-w-[280px]">
+                    <div class="relative w-16 h-16 shrink-0 flex items-center justify-center">
+                        <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                            <path class="text-white/20" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                            <path class="text-emerald-400" stroke-dasharray="${healthPercent}, 100" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                        </svg>
+                        <span class="absolute font-black text-sm text-white">${healthPercent}%</span>
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Compliance Health</div>
+                        <div class="text-sm font-extrabold text-emerald-400 mt-0.5">${completedCount} of ${totalCount} Filings On Track</div>
+                        <div class="text-[10px] text-slate-400 mt-1">Standing: Excellent</div>
+                    </div>
+                </div>
+
+                <!-- Export & Sync Actions -->
+                <div class="relative z-10 flex flex-col sm:flex-row lg:flex-col gap-2 shrink-0">
+                    <button onclick="exportComplianceCalendarToICS()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2">
+                        <i data-lucide="download" class="w-4 h-4"></i> Export to iCal / Google Calendar
+                    </button>
+                    <button onclick="window.print()" class="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition-all flex items-center justify-center gap-2">
+                        <i data-lucide="printer" class="w-4 h-4"></i> Print Schedule
+                    </button>
+                </div>
+            </div>
+
+            <!-- Top Hero Metrics Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
+                    <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                        <i data-lucide="layers" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Filings Tracked</div>
+                        <div class="text-2xl font-black text-slate-900 mt-0.5">${totalCount}</div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
+                    <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                        <i data-lucide="clock" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Due Next 30 Days</div>
+                        <div class="text-2xl font-black text-amber-600 mt-0.5">${dueSoonCount}</div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
+                    <div class="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                        <i data-lucide="alert-circle" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Overdue Tasks</div>
+                        <div class="text-2xl font-black text-red-600 mt-0.5">${overdueCount}</div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                        <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Completed Filings</div>
+                        <div class="text-2xl font-black text-emerald-600 mt-0.5">${completedCount}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View Switcher & Toolbar Controls -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                    <!-- Views Switcher Segmented Control -->
+                    <div class="flex items-center gap-1.5 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/50">
+                        <button onclick="setComplianceCalendarView('calendar')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${calendarState.currentView === 'calendar' ? 'bg-white text-blue-600 shadow-md shadow-blue-500/5 ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-900'}">
+                            <i data-lucide="calendar" class="w-4 h-4"></i> Calendar View
+                        </button>
+                        <button onclick="setComplianceCalendarView('monthly')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${calendarState.currentView === 'monthly' ? 'bg-white text-blue-600 shadow-md shadow-blue-500/5 ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-900'}">
+                            <i data-lucide="layout-grid" class="w-4 h-4"></i> Monthly View
+                        </button>
+                        <button onclick="setComplianceCalendarView('weekly')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${calendarState.currentView === 'weekly' ? 'bg-white text-blue-600 shadow-md shadow-blue-500/5 ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-900'}">
+                            <i data-lucide="columns" class="w-4 h-4"></i> Weekly Schedule
+                        </button>
+                        <button onclick="setComplianceCalendarView('list')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${calendarState.currentView === 'list' ? 'bg-white text-blue-600 shadow-md shadow-blue-500/5 ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-900'}">
+                            <i data-lucide="list" class="w-4 h-4"></i> Datatable List
+                        </button>
+                    </div>
+
+                    <!-- Search Input -->
+                    <div class="relative flex-1 max-w-sm">
+                        <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" id="calendar-search-input" value="${calendarState.searchQuery}" oninput="updateCalendarSearch(this.value)" placeholder="Filter by task name or category..." class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/10">
+                    </div>
+                </div>
+
+                <!-- Filters Row -->
+                <div class="flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div>
+                            <span class="text-slate-400 font-bold uppercase text-[10px] mr-1.5">Category:</span>
+                            <select onchange="updateCalendarFilter('category', this.value)" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none text-slate-700">
+                                <option value="all" ${calendarState.selectedCategory === 'all' ? 'selected' : ''}>All Categories</option>
+                                <option value="Statutory Filing" ${calendarState.selectedCategory === 'Statutory Filing' ? 'selected' : ''}>Statutory Filing</option>
+                                <option value="Taxation" ${calendarState.selectedCategory === 'Taxation' ? 'selected' : ''}>Taxation</option>
+                                <option value="Payroll & CPF" ${calendarState.selectedCategory === 'Payroll & CPF' ? 'selected' : ''}>Payroll & CPF</option>
+                                <option value="Corporate Governance" ${calendarState.selectedCategory === 'Corporate Governance' ? 'selected' : ''}>Corporate Governance</option>
+                                <option value="Immigration & HR" ${calendarState.selectedCategory === 'Immigration & HR' ? 'selected' : ''}>Immigration & HR</option>
+                                <option value="Corporate Services" ${calendarState.selectedCategory === 'Corporate Services' ? 'selected' : ''}>Corporate Services</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <span class="text-slate-400 font-bold uppercase text-[10px] mr-1.5">Status:</span>
+                            <select onchange="updateCalendarFilter('status', this.value)" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none text-slate-700">
+                                <option value="all" ${calendarState.selectedStatus === 'all' ? 'selected' : ''}>All Statuses</option>
+                                <option value="upcoming" ${calendarState.selectedStatus === 'upcoming' ? 'selected' : ''}>Upcoming</option>
+                                <option value="pending" ${calendarState.selectedStatus === 'pending' ? 'selected' : ''}>Pending</option>
+                                <option value="completed" ${calendarState.selectedStatus === 'completed' ? 'selected' : ''}>Completed</option>
+                                <option value="overdue" ${calendarState.selectedStatus === 'overdue' ? 'selected' : ''}>Overdue</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <span class="text-slate-400 font-bold uppercase text-[10px] mr-1.5">Year:</span>
+                            <select onchange="updateCalendarFilter('year', this.value)" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none text-slate-700">
+                                <option value="all" ${calendarState.selectedYear === 'all' ? 'selected' : ''}>All Years</option>
+                                <option value="2025" ${calendarState.selectedYear === '2025' ? 'selected' : ''}>2025</option>
+                                <option value="2026" ${calendarState.selectedYear === '2026' ? 'selected' : ''}>2026</option>
+                                <option value="2027" ${calendarState.selectedYear === '2027' ? 'selected' : ''}>2027</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button onclick="resetCalendarFilters()" class="text-[11px] font-bold text-blue-600 hover:underline">Reset All Filters</button>
+                </div>
+            </div>
+
+            <!-- View Render Area -->
+            <div id="compliance-calendar-view-container">
+                <!-- Dynamically rendered by current view renderer -->
+            </div>
+        </div>
+    `;
+
+    renderCurrentCalendarView();
+    if (window.lucide) window.lucide.createIcons();
+}
+
+function getFilteredCalendarEvents() {
+    let filtered = [...calendarState.events];
+
+    if (calendarState.selectedCategory !== 'all') {
+        filtered = filtered.filter(e => e.category === calendarState.selectedCategory);
+    }
+    if (calendarState.selectedStatus !== 'all') {
+        filtered = filtered.filter(e => e.status === calendarState.selectedStatus);
+    }
+    if (calendarState.selectedYear !== 'all') {
+        filtered = filtered.filter(e => e.dueDate && e.dueDate.startsWith(calendarState.selectedYear));
+    }
+    if (calendarState.searchQuery.trim() !== '') {
+        const q = calendarState.searchQuery.toLowerCase();
+        filtered = filtered.filter(e => 
+            (e.title && e.title.toLowerCase().includes(q)) || 
+            (e.description && e.description.toLowerCase().includes(q)) ||
+            (e.category && e.category.toLowerCase().includes(q))
+        );
+    }
+
+    return filtered;
+}
+
+function renderCurrentCalendarView() {
+    const container = document.getElementById('compliance-calendar-view-container');
+    if (!container) return;
+
+    const filtered = getFilteredCalendarEvents();
+
+    if (calendarState.currentView === 'calendar') {
+        renderCalendarGrid(container, filtered);
+    } else if (calendarState.currentView === 'monthly') {
+        renderMonthlyCardView(container, filtered);
+    } else if (calendarState.currentView === 'weekly') {
+        renderWeeklyScheduleView(container, filtered);
+    } else {
+        renderListViewTable(container, filtered);
+    }
+    if (window.lucide) window.lucide.createIcons();
+}
+
+function setComplianceCalendarView(viewName) {
+    calendarState.currentView = viewName;
+    renderComplianceCalendar(document.getElementById('main-view'));
+}
+
+function updateCalendarFilter(filterType, value) {
+    if (filterType === 'category') calendarState.selectedCategory = value;
+    if (filterType === 'status') calendarState.selectedStatus = value;
+    if (filterType === 'year') calendarState.selectedYear = value;
+    renderCurrentCalendarView();
+}
+
+function updateCalendarSearch(val) {
+    calendarState.searchQuery = val;
+    renderCurrentCalendarView();
+}
+
+function resetCalendarFilters() {
+    calendarState.selectedCategory = 'all';
+    calendarState.selectedStatus = 'all';
+    calendarState.selectedYear = 'all';
+    calendarState.searchQuery = '';
+    renderComplianceCalendar(document.getElementById('main-view'));
+}
+
+// -------------------------------------------------------------------------
+// VIEW 1: FULL MONTHLY CALENDAR GRID
+// -------------------------------------------------------------------------
+function renderCalendarGrid(container, events) {
+    const year = calendarState.currentYear;
+    const month = calendarState.currentMonth;
+    
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    // Group events by day
+    const eventsByDay = {};
+    events.forEach(e => {
+        if (!e.dueDate) return;
+        const [eY, eM, eD] = e.dueDate.split('-').map(Number);
+        if (eY === year && (eM - 1) === month) {
+            if (!eventsByDay[eD]) eventsByDay[eD] = [];
+            eventsByDay[eD].push(e);
+        }
+    });
+
+    let gridHtml = '';
+    
+    // Blank padding cells for start of month
+    for (let i = 0; i < firstDay; i++) {
+        gridHtml += `<div class="bg-slate-50/50 min-h-[120px] p-2 border border-slate-100 rounded-xl opacity-40"></div>`;
+    }
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dayEvents = eventsByDay[day] || [];
+        const isToday = (year === 2026 && month === 7 && day === 21); // Aug 21, 2026
+        
+        let dayBadges = dayEvents.map(e => {
+            let bgCls = 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100';
+            if (e.status === 'completed') bgCls = 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100';
+            else if (e.category === 'Taxation') bgCls = 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100';
+            else if (e.category === 'Payroll & CPF') bgCls = 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100';
+            
+            const iconHtml = getCategoryIconHtml(e.category);
+
+            return `
+                <div onclick="event.stopPropagation(); openComplianceEventModal('${e.id}')" class="flex items-center gap-1 p-1.5 rounded-lg text-[10px] font-bold border ${bgCls} cursor-pointer hover:scale-105 transition-all truncate shadow-sm" title="${e.title} - Click to view details">
+                    ${iconHtml}
+                    <span class="truncate">${e.title}</span>
+                </div>
+            `;
+        }).join('');
+
+        gridHtml += `
+            <div class="bg-white min-h-[120px] p-2.5 border border-slate-100 rounded-xl flex flex-col justify-between hover:border-blue-300 transition-all ${isToday ? 'ring-2 ring-blue-500 bg-blue-50/20' : ''}">
+                <div class="flex justify-between items-center mb-1.5">
+                    <span class="text-xs font-extrabold ${isToday ? 'w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md' : 'text-slate-800'}">${day}</span>
+                    ${dayEvents.length > 0 ? `<span class="text-[9px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">${dayEvents.length}</span>` : ''}
+                </div>
+                <div class="space-y-1.5 flex-1 overflow-y-auto max-h-[85px] pr-0.5">
+                    ${dayBadges}
+                </div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = `
+        <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
+            <!-- Calendar Navigation Header -->
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <h3 class="text-xl font-extrabold text-slate-900">${monthNames[month]} ${year}</h3>
+                    <button onclick="calendarJumpToday()" class="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition-all">Today</button>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="prevCalendarMonth()" class="p-2 border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-600 transition-all"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+                    <button onclick="nextCalendarMonth()" class="p-2 border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-600 transition-all"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                </div>
+            </div>
+
+            <!-- Days of Week Banner -->
+            <div class="grid grid-cols-7 gap-3 text-center text-xs font-bold text-slate-400 uppercase tracking-wider">
+                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+            </div>
+
+            <!-- Calendar Days Grid -->
+            <div class="grid grid-cols-7 gap-3">
+                ${gridHtml}
+            </div>
+        </div>
+    `;
+}
+
+function prevCalendarMonth() {
+    if (calendarState.currentMonth === 0) {
+        calendarState.currentMonth = 11;
+        calendarState.currentYear--;
+    } else {
+        calendarState.currentMonth--;
+    }
+    renderCurrentCalendarView();
+}
+
+function nextCalendarMonth() {
+    if (calendarState.currentMonth === 11) {
+        calendarState.currentMonth = 0;
+        calendarState.currentYear++;
+    } else {
+        calendarState.currentMonth++;
+    }
+    renderCurrentCalendarView();
+}
+
+function calendarJumpToday() {
+    calendarState.currentYear = 2026;
+    calendarState.currentMonth = 7;
+    renderCurrentCalendarView();
+}
+
+// -------------------------------------------------------------------------
+// VIEW 2: MONTHLY CARDS VIEW
+// -------------------------------------------------------------------------
+function renderMonthlyCardView(container, events) {
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    
+    // Group events by month
+    const grouped = {};
+    events.forEach(e => {
+        if (!e.dueDate) return;
+        const [mY, mM] = e.dueDate.split('-');
+        const monthKey = `${mY}-${mM}`;
+        if (!grouped[monthKey]) grouped[monthKey] = [];
+        grouped[monthKey].push(e);
+    });
+
+    const sortedKeys = Object.keys(grouped).sort();
+
+    if (sortedKeys.length === 0) {
+        container.innerHTML = `<div class="bg-white p-12 text-center rounded-2xl border border-slate-100 text-slate-400">No compliance events match your current filter.</div>`;
+        return;
+    }
+
+    const html = sortedKeys.map(key => {
+        const [y, m] = key.split('-').map(Number);
+        const mEvents = grouped[key];
+        
+        const cardHtml = mEvents.map(e => `
+            <div onclick="openComplianceEventModal('${e.id}')" class="p-4 bg-slate-50/70 border border-slate-100 hover:border-blue-200 rounded-xl space-y-3 cursor-pointer hover:shadow-md transition-all">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h4 class="font-bold text-slate-900 text-sm">${e.title}</h4>
+                        <div class="mt-1">${getCategoryBadge(e.category)}</div>
+                    </div>
+                    <div>${calculateCountdownBadge(e.dueDate, e.status)}</div>
+                </div>
+                <p class="text-xs text-slate-500 line-clamp-2">${e.description || 'Statutory filing deadline.'}</p>
+                <div class="flex items-center justify-between text-xs text-slate-400 border-t border-slate-200/60 pt-2">
+                    <span>Due: <strong>${e.dueDate}</strong></span>
+                    <span>Officer: <strong class="text-slate-700">${e.assignedOfficer || 'Unassigned'}</strong></span>
+                </div>
+            </div>
+        `).join('');
+
+        return `
+            <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 class="text-lg font-black text-slate-900">${monthNames[m - 1]} ${y}</h3>
+                    <span class="text-xs font-bold text-slate-400">${mEvents.length} ${mEvents.length === 1 ? 'Task' : 'Tasks'}</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    ${cardHtml}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `<div class="space-y-6">${html}</div>`;
+}
+
+// -------------------------------------------------------------------------
+// VIEW 3: WEEKLY SCHEDULE VIEW
+// -------------------------------------------------------------------------
+function renderWeeklyScheduleView(container, events) {
+    const days = [
+        { date: '2026-08-17', dayName: 'Monday', dayNum: '17' },
+        { date: '2026-08-18', dayName: 'Tuesday', dayNum: '18' },
+        { date: '2026-08-19', dayName: 'Wednesday', dayNum: '19' },
+        { date: '2026-08-20', dayName: 'Thursday', dayNum: '20' },
+        { date: '2026-08-21', dayName: 'Friday (Today)', dayNum: '21', isToday: true },
+        { date: '2026-08-22', dayName: 'Saturday', dayNum: '22' },
+        { date: '2026-08-23', dayName: 'Sunday', dayNum: '23' }
+    ];
+
+    const weekHtml = days.map(d => {
+        const dayEvents = events.filter(e => e.dueDate === d.date);
+        
+        const items = dayEvents.length > 0 ? dayEvents.map(e => `
+            <div onclick="openComplianceEventModal('${e.id}')" class="p-3 bg-white border border-slate-200 rounded-xl space-y-2 cursor-pointer hover:border-blue-400 transition-all shadow-sm">
+                <span class="font-bold text-xs text-slate-900 block truncate">${e.title}</span>
+                <div>${getCategoryBadge(e.category)}</div>
+                <div class="mt-1">${calculateCountdownBadge(e.dueDate, e.status)}</div>
+            </div>
+        `).join('') : `<div class="text-[11px] text-slate-400 text-center py-6">No deadlines</div>`;
+
+        return `
+            <div class="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 space-y-3 ${d.isToday ? 'ring-2 ring-blue-500 bg-blue-50/30' : ''}">
+                <div class="text-center pb-2 border-b border-slate-200/60">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">${d.dayName}</span>
+                    <span class="text-lg font-black ${d.isToday ? 'text-blue-600' : 'text-slate-800'}">Aug ${d.dayNum}</span>
+                </div>
+                <div class="space-y-2">
+                    ${items}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-black text-slate-900">Weekly Statutory Timeline (Aug 17 – Aug 23, 2026)</h3>
+                <span class="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">Current Week</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-7 gap-3">
+                ${weekHtml}
+            </div>
+        </div>
+    `;
+}
+
+// -------------------------------------------------------------------------
+// VIEW 4: LIST TABLE VIEW
+// -------------------------------------------------------------------------
+function renderListViewTable(container, events) {
+    if (events.length === 0) {
+        container.innerHTML = `<div class="bg-white p-12 text-center rounded-2xl border border-slate-100 text-slate-400">No compliance items found.</div>`;
+        return;
+    }
+
+    const rows = events.map(e => `
+        <tr onclick="openComplianceEventModal('${e.id}')" class="hover:bg-blue-50/40 cursor-pointer transition-colors group">
+            <td class="px-6 py-4">
+                <div class="font-bold text-slate-900 text-sm group-hover:text-blue-600 transition-colors flex items-center gap-2">
+                    ${getCategoryIconHtml(e.category)}
+                    <span>${e.title}</span>
+                </div>
+                <div class="text-xs text-slate-400 mt-0.5 line-clamp-1">${e.description || 'Statutory requirement'}</div>
+            </td>
+            <td class="px-6 py-4">${getCategoryBadge(e.category)}</td>
+            <td class="px-6 py-4 font-mono font-bold text-xs text-slate-700">${e.dueDate || '—'}</td>
+            <td class="px-6 py-4">${calculateCountdownBadge(e.dueDate, e.status)}</td>
+            <td class="px-6 py-4 text-xs font-medium text-slate-600">${e.assignedOfficer || 'Globalisor Team'}</td>
+            <td class="px-6 py-4 text-right">
+                <button onclick="event.stopPropagation(); openComplianceEventModal('${e.id}')" class="px-3.5 py-1.5 bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white rounded-xl text-xs font-bold transition-all shadow-sm">
+                    View Details
+                </button>
+            </td>
+        </tr>
+    `).join('');
+
+    container.innerHTML = `
+        <div class="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        <th class="px-6 py-3.5">Compliance Event</th>
+                        <th class="px-6 py-3.5">Category</th>
+                        <th class="px-6 py-3.5">Due Date</th>
+                        <th class="px-6 py-3.5">Countdown & Status</th>
+                        <th class="px-6 py-3.5">Assigned Officer</th>
+                        <th class="px-6 py-3.5 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-xs">
+                    ${rows}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+// -------------------------------------------------------------------------
+// COMPLIANCE EVENT MODAL & COMPLETION ACTION
+// -------------------------------------------------------------------------
+window.openComplianceEventModal = function(eventId) {
+    const evt = calendarState.events.find(e => e.id === eventId);
+    if (!evt) return;
+
+    const modalContainer = document.getElementById('modal-container');
+    const modalContent = document.getElementById('modal-content');
+    if (!modalContainer || !modalContent) return;
+
+    modalContent.innerHTML = `
+        <div class="space-y-6 font-outfit relative">
+            <button onclick="closeGlobalModal()" class="absolute -top-2 -right-2 p-2 text-slate-400 hover:text-slate-900 rounded-full hover:bg-slate-100 transition-colors">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+
+            <div class="flex items-start gap-4 border-b border-slate-100 pb-5">
+                <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                    <i data-lucide="calendar" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-extrabold text-slate-900">${evt.title}</h3>
+                    <div class="flex items-center gap-2 mt-1">
+                        ${getCategoryBadge(evt.category)}
+                        <span class="text-xs text-slate-400">Singapore Entity Statutory Deadline</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs">
+                <div>
+                    <span class="text-slate-400 font-bold uppercase tracking-wider block">Due Date</span>
+                    <span class="font-extrabold text-slate-900 text-sm mt-0.5 block">${evt.dueDate || '—'}</span>
+                </div>
+                <div>
+                    <span class="text-slate-400 font-bold uppercase tracking-wider block">Live Countdown Status</span>
+                    <div class="mt-1">${calculateCountdownBadge(evt.dueDate, evt.status)}</div>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Requirement Overview</h4>
+                <p class="text-xs text-slate-600 leading-relaxed">${evt.description || 'Statutory filing requirements under Singapore ACRA and IRAS regulations.'}</p>
+            </div>
+
+            <div class="space-y-2">
+                <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Required Client Action</h4>
+                <div class="p-4 bg-blue-50/60 border border-blue-100 rounded-2xl text-xs text-blue-900 leading-relaxed flex items-start gap-3">
+                    <i data-lucide="check-square" class="w-5 h-5 text-blue-600 shrink-0 mt-0.5"></i>
+                    <div>${evt.requiredAction || 'Complete documentation and verify filings with assigned secretarial officer.'}</div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center">
+                        ${(evt.assignedOfficer || 'ST').charAt(0)}
+                    </div>
+                    <div>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Assigned Officer</span>
+                        <span class="text-xs font-bold text-slate-800">${evt.assignedOfficer || 'Sarah Tan (Corporate Secretary)'}</span>
+                    </div>
+                </div>
+
+                <button onclick="window.location.href='messages.html'" class="px-3.5 py-1.5 border border-blue-200 text-blue-600 hover:bg-blue-50 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5">
+                    <i data-lucide="message-square" class="w-3.5 h-3.5"></i> Message Officer
+                </button>
+            </div>
+
+            ${evt.status === 'completed' ? `
+                <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 font-bold flex items-center gap-2">
+                    <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i> Completed on ${evt.completionDate || '2026-07-29'} by ${evt.completedBy || 'Client Officer'}
+                </div>
+            ` : ''}
+
+            <div class="flex gap-3 pt-4 border-t border-slate-100">
+                <button onclick="closeGlobalModal()" class="flex-1 py-3 border border-slate-200 rounded-xl text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all">Close</button>
+                ${evt.status !== 'completed' ? `
+                    <button onclick="completeComplianceEvent('${evt.id}')" class="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold text-xs hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-2">
+                        <i data-lucide="check" class="w-4 h-4"></i> Mark as Completed
+                    </button>
+                ` : ''}
+            </div>
+        </div>
+    `;
+
+    modalContainer.classList.remove('opacity-0', 'pointer-events-none');
+    modalContainer.classList.add('opacity-100');
+    modalContent.classList.remove('scale-95');
+    modalContent.classList.add('scale-100');
+    if (window.lucide) window.lucide.createIcons();
+};
+
+window.closeGlobalModal = function() {
+    const modalContainer = document.getElementById('modal-container');
+    const modalContent = document.getElementById('modal-content');
+    if (!modalContainer || !modalContent) return;
+    modalContainer.classList.add('opacity-0', 'pointer-events-none');
+    modalContainer.classList.remove('opacity-100');
+    modalContent.classList.add('scale-95');
+    modalContent.classList.remove('scale-100');
+};
+
+window.completeComplianceEvent = async function(eventId) {
+    const evt = calendarState.events.find(e => e.id === eventId);
+    if (!evt) return;
+
+    evt.status = 'completed';
+    evt.completionDate = new Date().toISOString().split('T')[0];
+    evt.completedBy = (state && state.user && state.user.name) ? state.user.name : 'Client User';
+
+    // Call Backend API
+    try {
+        await fetch(`/api/compliance-events/${eventId}/complete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ completedBy: evt.completedBy })
+        });
+    } catch (e) {
+        console.warn("Backend update error, saving to local cache", e);
+    }
+
+    const clientId = (state && state.user && state.user.id) ? state.user.id : 'current';
+    localStorage.setItem(`globalisor_compliance_events_${clientId}`, JSON.stringify(calendarState.events));
+
+    closeGlobalModal();
+    renderCurrentCalendarView();
+};
+
+window.renderComplianceCalendar = renderComplianceCalendar;
+
