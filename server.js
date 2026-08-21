@@ -593,6 +593,35 @@ app.get('/api/clients/:id/services', (req, res) => {
     res.json({ client, services: clientServices });
 });
 
+// GET /api/clients/:id/company → get company details & register data for client
+app.get('/api/clients/:id/company', (req, res) => {
+    const db = getDb();
+    const id = req.params.id;
+    let client = (db.clients || []).find(c => c.clientId === id || c.id === id || c.email === id);
+    if (!client && db.credentials) {
+        const cred = db.credentials.find(cr => cr.clientId === id || cr.id === id);
+        if (cred) {
+            client = (db.clients || []).find(c => c.clientId === cred.clientId || c.email === cred.email);
+        }
+    }
+    if (!client && db.clients && db.clients.length > 0) {
+        client = db.clients[0];
+    }
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+    
+    let details = client.details || client.excelData;
+    if (!details && db.excelDataMap && db.excelDataMap[client.clientId]) {
+        details = db.excelDataMap[client.clientId];
+    }
+    
+    res.json({
+        companyName: client.companyName || client.company || client.name,
+        name: client.name,
+        email: client.email,
+        details: details || {}
+    });
+});
+
 // PATCH /api/services/:id → update status of a service
 app.patch('/api/services/:id', (req, res) => {
     const db = getDb();
