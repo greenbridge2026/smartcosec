@@ -169,6 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'home': `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-400 group-hover:text-slate-900 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
         'profile': `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-400 group-hover:text-slate-900 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M9 16h1"/><path d="M14 8h1"/><path d="M14 12h1"/><path d="M14 16h1"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/></svg>`,
         'compliance': `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-400 group-hover:text-slate-900 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>`,
+        'messages': `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-400 group-hover:text-slate-900 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
         'documents': `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-400 group-hover:text-slate-900 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
         'directors': `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-400 group-hover:text-slate-900 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
         'reports': `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-400 group-hover:text-slate-900 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
@@ -183,6 +184,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const getLinkHtml = (tabId, icon, label, badgeCount) => {
         const svgIcon = SIDEBAR_SVGS[tabId] || '';
         const badgeHtml = badgeCount ? `<span class="ml-auto px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-600 text-white leading-none">${badgeCount}</span>` : '';
+        if (tabId === 'messages') {
+            return `<a href="messages.html" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 hover:text-slate-900 transition-colors group font-semibold text-sm text-slate-600" id="nav-messages" title="${label}">
+                ${svgIcon} <span class="sidebar-text">${label}</span> ${badgeHtml}
+            </a>`;
+        }
         if (isMessagesPage) {
             return `<a href="portal.html?tab=${tabId}" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 hover:text-slate-900 transition-colors group font-semibold text-sm text-slate-600" id="nav-${tabId}" title="${label}">
                 ${svgIcon} <span class="sidebar-text">${label}</span> ${badgeHtml}
@@ -198,6 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ${getLinkHtml('home', 'home', 'Dashboard')}
         ${getLinkHtml('profile', 'profile', 'Company Profile')}
         ${getLinkHtml('compliance', 'compliance', 'Compliance')}
+        ${getLinkHtml('messages', 'messages', 'Messages & Chat')}
     `;
     if (isNewClient) {
         sidebarNavLinks += getLinkHtml('onboarding', 'onboarding', 'Onboarding');
@@ -464,7 +471,11 @@ document.addEventListener('DOMContentLoaded', () => {
             window._clientRenderNotifications();
         }
         window._clientCloseBell();
-        if (link && link !== 'undefined' && link !== '') window.location.href = link;
+        if (link && link !== 'undefined' && link !== '' && link !== '#') {
+            window.location.href = link;
+        } else {
+            window.location.href = 'messages.html';
+        }
     };
 
     window._clientFetchNotifications = async function() {
