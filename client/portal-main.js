@@ -440,19 +440,31 @@ function switchTab(tab) {
     const view = document.getElementById('main-view');
     const title = document.getElementById('page-title');
 
+    // Hide onboarding tab if existing client
+    const isNewClient = localStorage.getItem('is_new_client') === 'true' || 
+                        localStorage.getItem('globalisor_is_new_client') === 'true' || 
+                        new URLSearchParams(window.location.search).get('is_new') === 'true' || 
+                        new URLSearchParams(window.location.search).get('tab') === 'onboarding';
+
+    const obNavBtn = document.getElementById('nav-onboarding');
+    if (obNavBtn) {
+        obNavBtn.style.display = isNewClient ? '' : 'none';
+    }
+
     // Section Routing
     switch (tab) {
         case 'home': title.innerText = 'Client Dashboard'; renderHome(view); break;
-        case 'calendar': title.innerText = 'Compliance Calendar'; renderComplianceCalendar(view); break;
+        case 'profile':
+        case 'company': title.innerText = 'Company Profile'; renderProfile(view, 'overview'); break;
+        case 'compliance': title.innerText = 'Statutory Compliance Calendar'; renderComplianceCalendar(view); break;
+        case 'documents': title.innerText = 'Company Documents'; renderDocuments(view); break;
+        case 'directors': title.innerText = 'Directors & Shareholders Particulars'; renderDirectorsView(view); break;
+        case 'tasks': title.innerText = 'Active Tasks & Workflows'; renderServices(view); break;
+        case 'billing': title.innerText = 'Billing & Invoices'; renderBilling(view); break;
+        case 'blogs': title.innerText = 'Corporate Regulatory Blogs & Insights'; renderBlogsView(view); break;
+        case 'settings': title.innerText = 'Account Settings'; renderClientSettings(view); break;
         case 'onboarding': title.innerText = 'Onboarding Journey'; renderOnboarding(view); break;
-        case 'services': title.innerText = 'Active Workflows'; renderServices(view); break;
-        case 'updates': title.innerText = ''; renderUpdates(view); break;
-        case 'documents': title.innerText = 'Compliance Vault'; renderDocuments(view); break;
-        case 'requests': title.innerText = 'Service Marketplace'; renderRequests(view); break;
-        case 'billing': title.innerText = 'Financial Operations'; renderBilling(view); break;
-        case 'guidance': title.innerText = 'Platform Guidance'; renderGuidance(view); break;
-        case 'messages': title.innerText = 'Support Desk'; renderMessages(view); break;
-        case 'profile': title.innerText = 'Executive Profile'; renderProfile(view); break;
+        default: title.innerText = 'Client Dashboard'; renderHome(view); break;
     }
 
     // Hide title element if empty to save space
@@ -3544,7 +3556,468 @@ async function obSubmitAllForVerification() {
     }
 }
 
+window.updateClientHeaderUI = function() {
+    const reqData = (state && state.requirements && state.requirements.excelData) ? state.requirements.excelData : ((state && state.requirements) || {});
+    const companyName = reqData.companyName || (state && state.user && state.user.companyName) || '3B Trading & Consulting Pte. Ltd.';
+    const uen = reqData.uen || (state && state.user && state.user.uen) || '201602068C';
+
+    const headerName = document.getElementById('header-company-name');
+    if (headerName) headerName.innerText = companyName;
+
+    const sidebarName = document.getElementById('sidebar-company-name');
+    if (sidebarName) sidebarName.innerText = companyName;
+
+    const sidebarUen = document.getElementById('sidebar-company-uen');
+    if (sidebarUen) sidebarUen.innerText = `UEN: ${uen}`;
+
+    const sidebarBottomName = document.getElementById('sidebar-bottom-company-name');
+    if (sidebarBottomName) sidebarBottomName.innerText = companyName;
+};
+
 function renderHome(container) {
+    if (window.updateClientHeaderUI) window.updateClientHeaderUI();
+
+    const reqData = (state && state.requirements && state.requirements.excelData) ? state.requirements.excelData : ((state && state.requirements) || {});
+    const companyName = reqData.companyName || (state && state.user && state.user.companyName) || '3B Trading & Consulting Pte. Ltd.';
+    const uen = reqData.uen || (state && state.user && state.user.uen) || '201602068C';
+    const companyType = reqData.companyType || 'Exempt Private Company limited by shares';
+    const incorporationDate = reqData.incorporationDate || '26 Jan 2016';
+    const registeredOfficeAddress = reqData.registeredOfficeAddress || '10 Anson Road #26-04 International Plaza, Singapore 079903';
+    const primaryActivity = reqData.primaryActivity || 'General Wholesale Trade (46900)';
+    const fye = reqData.fye || '2026-12-31';
+
+    container.innerHTML = `
+        <div class="space-y-8 w-full">
+            
+            <!-- Company Welcome Banner -->
+            <div class="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 p-8 rounded-3xl text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border border-slate-800">
+                <div class="space-y-2 z-10">
+                    <div class="flex items-center gap-2 text-xs font-bold text-blue-400 uppercase tracking-widest">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        Client Entity Console • Singapore Jurisdiction
+                    </div>
+                    <h2 class="text-3xl font-extrabold tracking-tight">${companyName}</h2>
+                    <p class="text-slate-300 text-xs font-medium flex items-center gap-3 flex-wrap">
+                        <span class="px-2.5 py-0.5 rounded-md bg-white/10 text-white font-mono font-bold">UEN: ${uen}</span>
+                        <span>${companyType}</span>
+                        <span>•</span>
+                        <span>Incorporated ${incorporationDate}</span>
+                    </p>
+                </div>
+                <div class="z-10 flex items-center gap-3 shrink-0">
+                    <button onclick="switchTab('profile')" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-all shadow-lg shadow-blue-600/30 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M9 16h1"/><path d="M14 8h1"/><path d="M14 12h1"/><path d="M14 16h1"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/></svg>
+                        Company Profile
+                    </button>
+                    <button onclick="switchTab('compliance')" class="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl transition-all border border-white/20 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+                        Compliance Calendar
+                    </button>
+                </div>
+                <div class="absolute -right-10 -bottom-10 w-60 h-60 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            </div>
+
+            <!-- Top Summary KPI Cards (4 Cards Grid) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <!-- KPI 1: Compliance Health -->
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-3 hover:shadow-md transition-all">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">COMPLIANCE HEALTH</span>
+                        <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        </div>
+                    </div>
+                    <div class="flex items-baseline justify-between">
+                        <span class="text-3xl font-black text-slate-900">92%</span>
+                        <span class="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">GOOD STANDING</span>
+                    </div>
+                    <p class="text-xs text-slate-400 font-medium">12 of 13 Statutory filings fully compliant with ACRA & IRAS</p>
+                </div>
+
+                <!-- KPI 2: Upcoming Deadlines -->
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-3 hover:shadow-md transition-all">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">UPCOMING DEADLINES</span>
+                        <div class="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        </div>
+                    </div>
+                    <div class="flex items-baseline justify-between">
+                        <span class="text-3xl font-black text-slate-900">2 Items</span>
+                        <span class="text-[10px] font-extrabold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">DUE SOON</span>
+                    </div>
+                    <p class="text-xs text-slate-400 font-medium">Annual Return Filing & XBRL Statements due in 3 months</p>
+                </div>
+
+                <!-- KPI 3: Overdue Items -->
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-3 hover:shadow-md transition-all">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">OVERDUE ITEMS</span>
+                        <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        </div>
+                    </div>
+                    <div class="flex items-baseline justify-between">
+                        <span class="text-3xl font-black text-slate-900">0 Items</span>
+                        <span class="text-[10px] font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">ALL CLEAR</span>
+                    </div>
+                    <p class="text-xs text-slate-400 font-medium">Zero penalty warnings or overdue statutory items</p>
+                </div>
+
+                <!-- KPI 4: Pending Tasks -->
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-3 hover:shadow-md transition-all">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">PENDING TASKS</span>
+                        <div class="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+                        </div>
+                    </div>
+                    <div class="flex items-baseline justify-between">
+                        <span class="text-3xl font-black text-slate-900">3 Active</span>
+                        <span class="text-[10px] font-extrabold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">ACTION REQUIRED</span>
+                    </div>
+                    <p class="text-xs text-slate-400 font-medium">Director KYC re-verification & address confirmation pending</p>
+                </div>
+            </div>
+
+            <!-- Row 2: Company Snapshot & Compliance Overview Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Left: Company Snapshot Card -->
+                <div class="lg:col-span-6 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6 flex flex-col justify-between">
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M9 16h1"/><path d="M14 8h1"/><path d="M14 12h1"/><path d="M14 16h1"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/></svg>
+                                </div>
+                                <div>
+                                    <h3 class="font-extrabold text-slate-900 text-base">Company Snapshot</h3>
+                                    <p class="text-xs text-slate-400">Verified ACRA Particulars & Corporate Record</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 bg-emerald-50 text-emerald-600 font-extrabold text-[10px] rounded-full uppercase border border-emerald-100">ACTIVE ENTITY</span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 text-xs">
+                            <div class="p-3.5 bg-slate-50/70 rounded-2xl border border-slate-100">
+                                <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Company Name</span>
+                                <span class="font-extrabold text-slate-900 block truncate">${companyName}</span>
+                            </div>
+                            <div class="p-3.5 bg-slate-50/70 rounded-2xl border border-slate-100">
+                                <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">UEN (Entity Number)</span>
+                                <span class="font-mono font-extrabold text-slate-900 block">${uen}</span>
+                            </div>
+                            <div class="p-3.5 bg-slate-50/70 rounded-2xl border border-slate-100">
+                                <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Incorporation Date</span>
+                                <span class="font-extrabold text-slate-900 block">${incorporationDate}</span>
+                            </div>
+                            <div class="p-3.5 bg-slate-50/70 rounded-2xl border border-slate-100">
+                                <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Company Type</span>
+                                <span class="font-bold text-slate-900 block truncate">${companyType}</span>
+                            </div>
+                            <div class="p-3.5 bg-slate-50/70 rounded-2xl border border-slate-100 col-span-2">
+                                <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Registered Office Address</span>
+                                <span class="font-semibold text-slate-800 block">${registeredOfficeAddress}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="switchTab('profile')" class="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-md">
+                        View Full Company Profile & Particulars →
+                    </button>
+                </div>
+
+                <!-- Right: Compliance Overview Card -->
+                <div class="lg:col-span-6 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+                            </div>
+                            <div>
+                                <h3 class="font-extrabold text-slate-900 text-base">Compliance Overview</h3>
+                                <p class="text-xs text-slate-400">Statutory Filing Timelines & Tracker</p>
+                            </div>
+                        </div>
+                        <button onclick="switchTab('compliance')" class="text-xs font-bold text-blue-600 hover:underline">View Calendar</button>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-xs font-bold">
+                            <span class="text-slate-700">Filing Compliance Progress</span>
+                            <span class="text-emerald-600 font-extrabold">92% Complete</span>
+                        </div>
+                        <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-emerald-500 rounded-full" style="width: 92%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Deadlines List -->
+                    <div class="space-y-3 text-xs">
+                        <div class="flex items-center justify-between p-3.5 bg-slate-50/70 rounded-2xl border border-slate-100">
+                            <div class="flex items-center gap-3">
+                                <div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                                <div>
+                                    <span class="font-extrabold text-slate-900 block">Financial Year End (FYE)</span>
+                                    <span class="text-[10px] text-slate-400">Set financial year end date</span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="font-mono font-bold text-slate-700 block">${fye}</span>
+                                <span class="text-[9px] font-extrabold text-emerald-600 uppercase">COMPLIANT</span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between p-3.5 bg-slate-50/70 rounded-2xl border border-slate-100">
+                            <div class="flex items-center gap-3">
+                                <div class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></div>
+                                <div>
+                                    <span class="font-extrabold text-slate-900 block">Annual Return Filing (ACRA)</span>
+                                    <span class="text-[10px] text-slate-400">File Annual Return with ACRA</span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="font-mono font-bold text-slate-700 block">2026-07-11</span>
+                                <span class="text-[9px] font-extrabold text-amber-600 uppercase">DUE SOON (3 MOS)</span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between p-3.5 bg-slate-50/70 rounded-2xl border border-slate-100">
+                            <div class="flex items-center gap-3">
+                                <div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                                <div>
+                                    <span class="font-extrabold text-slate-900 block">Corporate Tax Form C-S (IRAS)</span>
+                                    <span class="text-[10px] text-slate-400">Annual tax computation filing</span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="font-mono font-bold text-slate-700 block">2026-11-30</span>
+                                <span class="text-[9px] font-extrabold text-emerald-600 uppercase">UP TO DATE</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 3: Tasks Assigned & Document Expiry Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Left: Tasks Assigned to You -->
+                <div class="lg:col-span-6 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><polyline points="9 11 12 14 22 4"/></svg>
+                            </div>
+                            <div>
+                                <h3 class="font-extrabold text-slate-900 text-base">Tasks Assigned to You</h3>
+                                <p class="text-xs text-slate-400">Action items requiring director signature or consent</p>
+                            </div>
+                        </div>
+                        <button onclick="switchTab('tasks')" class="text-xs font-bold text-blue-600 hover:underline">View All Tasks</button>
+                    </div>
+
+                    <div class="space-y-3 text-xs">
+                        <div class="p-4 bg-slate-50/70 rounded-2xl border border-slate-100 flex items-center justify-between gap-3">
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-red-50 text-red-600 border border-red-100">URGENT</span>
+                                    <span class="font-extrabold text-slate-900">Sign AGM Written Resolutions FY2025</span>
+                                </div>
+                                <p class="text-slate-400 text-[11px]">Director approval for annual general meeting minutes</p>
+                            </div>
+                            <button onclick="switchTab('tasks')" class="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl text-[11px] hover:bg-blue-700 transition-all shrink-0">Sign Now</button>
+                        </div>
+
+                        <div class="p-4 bg-slate-50/70 rounded-2xl border border-slate-100 flex items-center justify-between gap-3">
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-amber-50 text-amber-600 border border-amber-100">HIGH</span>
+                                    <span class="font-extrabold text-slate-900">Annual KYC Director Re-Screening</span>
+                                </div>
+                                <p class="text-slate-400 text-[11px]">Confirm identity verification particulars for Vikram Kumar</p>
+                            </div>
+                            <button onclick="switchTab('tasks')" class="px-4 py-2 bg-slate-900 text-white font-bold rounded-xl text-[11px] hover:bg-slate-800 transition-all shrink-0">Review</button>
+                        </div>
+
+                        <div class="p-4 bg-slate-50/70 rounded-2xl border border-slate-100 flex items-center justify-between gap-3">
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-blue-50 text-blue-600 border border-blue-100">MEDIUM</span>
+                                    <span class="font-extrabold text-slate-900">Confirm Registered Address Confirmation</span>
+                                </div>
+                                <p class="text-slate-400 text-[11px]">Verify office lease document for 10 Anson Road</p>
+                            </div>
+                            <button onclick="switchTab('tasks')" class="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-[11px] hover:bg-slate-200 transition-all shrink-0">Confirm</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Document Expiry Tracker -->
+                <div class="lg:col-span-6 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                            </div>
+                            <div>
+                                <h3 class="font-extrabold text-slate-900 text-base">Document Expiry Tracker</h3>
+                                <p class="text-xs text-slate-400">Passport, NRIC/FIN, BizFile & EP status</p>
+                            </div>
+                        </div>
+                        <button onclick="switchTab('documents')" class="text-xs font-bold text-blue-600 hover:underline">Document Vault</button>
+                    </div>
+
+                    <div class="space-y-3 text-xs">
+                        <div class="flex items-center justify-between p-3.5 bg-slate-50/70 rounded-2xl border border-slate-100">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-[10px]">PDF</div>
+                                <div>
+                                    <span class="font-extrabold text-slate-900 block">Director Passport (VIKRAM KUMAR)</span>
+                                    <span class="text-[10px] text-slate-400">Expires 27 Aug 2027</span>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 rounded-full text-[9px] font-extrabold bg-emerald-50 text-emerald-600 border border-emerald-100">VALID</span>
+                        </div>
+
+                        <div class="flex items-center justify-between p-3.5 bg-slate-50/70 rounded-2xl border border-slate-100">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-[10px]">BIZ</div>
+                                <div>
+                                    <span class="font-extrabold text-slate-900 block">ACRA BizFile Summary Report</span>
+                                    <span class="text-[10px] text-slate-400">Updated 26 Jan 2026</span>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 rounded-full text-[9px] font-extrabold bg-emerald-50 text-emerald-600 border border-emerald-100">UP TO DATE</span>
+                        </div>
+
+                        <div class="flex items-center justify-between p-3.5 bg-slate-50/70 rounded-2xl border border-slate-100">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-[10px]">M&A</div>
+                                <div>
+                                    <span class="font-extrabold text-slate-900 block">Company Constitution & M&A</span>
+                                    <span class="text-[10px] text-slate-400">Official Lodgement Copy</span>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 rounded-full text-[9px] font-extrabold bg-blue-50 text-blue-600 border border-blue-100">VERIFIED</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 4: Recent Activity Timeline & Reports Quick Launcher -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Left: Recent Activity Timeline -->
+                <div class="lg:col-span-7 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                            </div>
+                            <div>
+                                <h3 class="font-extrabold text-slate-900 text-base">Recent Activity Stream</h3>
+                                <p class="text-xs text-slate-400">Document uploads, compliance & admin actions</p>
+                            </div>
+                        </div>
+                        <span class="text-[10px] font-extrabold text-slate-400 uppercase">REALTIME UPDATES</span>
+                    </div>
+
+                    <div class="space-y-4 text-xs relative pl-6 border-l-2 border-slate-100">
+                        <div class="relative space-y-1">
+                            <div class="absolute -left-[31px] top-0 w-3.5 h-3.5 rounded-full bg-blue-600 border-2 border-white ring-4 ring-blue-50"></div>
+                            <span class="font-extrabold text-slate-900 block">Document Uploaded: ACRA-ack-change in ROA.pdf</span>
+                            <p class="text-slate-400 text-[11px]">System Upload • 2 hours ago</p>
+                        </div>
+                        <div class="relative space-y-1">
+                            <div class="absolute -left-[31px] top-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white ring-4 ring-emerald-50"></div>
+                            <span class="font-extrabold text-slate-900 block">Annual Return FY2025 Filing Confirmed</span>
+                            <p class="text-slate-400 text-[11px]">Corporate Secretarial Module • Yesterday at 14:30</p>
+                        </div>
+                        <div class="relative space-y-1">
+                            <div class="absolute -left-[31px] top-0 w-3.5 h-3.5 rounded-full bg-purple-500 border-2 border-white ring-4 ring-purple-50"></div>
+                            <span class="font-extrabold text-slate-900 block">Director KYC & PEP Clearance Approved</span>
+                            <p class="text-slate-400 text-[11px]">Identity Screening Module • 3 days ago</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Reports & Insights Quick Launcher -->
+                <div class="lg:col-span-5 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                    <div class="border-b border-slate-100 pb-4">
+                        <h3 class="font-extrabold text-slate-900 text-base">Quick Module Launchers</h3>
+                        <p class="text-xs text-slate-400">Access corporate records, compliance & registers</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 text-xs">
+                        <button onclick="switchTab('compliance')" class="p-4 bg-slate-50/70 hover:bg-blue-50/60 border border-slate-100 hover:border-blue-200 rounded-2xl text-left space-y-2 transition-all group">
+                            <div class="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+                            </div>
+                            <span class="font-extrabold text-slate-900 block group-hover:text-blue-600 transition-colors">Compliance Calendar</span>
+                        </button>
+
+                        <button onclick="switchTab('documents')" class="p-4 bg-slate-50/70 hover:bg-emerald-50/60 border border-slate-100 hover:border-emerald-200 rounded-2xl text-left space-y-2 transition-all group">
+                            <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                            </div>
+                            <span class="font-extrabold text-slate-900 block group-hover:text-emerald-600 transition-colors">Document Vault</span>
+                        </button>
+
+                        <button onclick="switchTab('directors')" class="p-4 bg-slate-50/70 hover:bg-purple-50/60 border border-slate-100 hover:border-purple-200 rounded-2xl text-left space-y-2 transition-all group">
+                            <div class="w-8 h-8 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                            </div>
+                            <span class="font-extrabold text-slate-900 block group-hover:text-purple-600 transition-colors">Director Register</span>
+                        </button>
+
+                        <button onclick="switchTab('profile')" class="p-4 bg-slate-50/70 hover:bg-amber-50/60 border border-slate-100 hover:border-amber-200 rounded-2xl text-left space-y-2 transition-all group">
+                            <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M9 16h1"/><path d="M14 8h1"/><path d="M14 12h1"/><path d="M14 16h1"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/></svg>
+                            </div>
+                            <span class="font-extrabold text-slate-900 block group-hover:text-amber-600 transition-colors">Company Profile</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 5: AI Assistant Quick Prompts Widget Card -->
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 rounded-3xl text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="animate-pulse text-blue-200"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                        <h3 class="font-extrabold text-lg">Globalisor Operational AI Assistant</h3>
+                    </div>
+                    <p class="text-xs text-blue-100 max-w-xl">Ask any question about your company's ACRA filing timelines, missing director documents, tax rules, or corporate compliance status.</p>
+                </div>
+                <div class="flex flex-wrap gap-2 text-xs font-bold text-slate-900">
+                    <button onclick="triggerQuickAIPrompt('Check Company Health Status')" class="px-3.5 py-2 bg-white hover:bg-blue-50 rounded-xl transition-all shadow-sm">
+                        🩺 Check Company Health
+                    </button>
+                    <button onclick="triggerQuickAIPrompt('What documents are missing?')" class="px-3.5 py-2 bg-white hover:bg-blue-50 rounded-xl transition-all shadow-sm">
+                        📄 Missing Documents
+                    </button>
+                    <button onclick="triggerQuickAIPrompt('List upcoming statutory deadlines')" class="px-3.5 py-2 bg-white hover:bg-blue-50 rounded-xl transition-all shadow-sm">
+                        📅 Upcoming Deadlines
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    `;
+
+    if (window.lucide) window.lucide.createIcons();
+}
+
+window.renderHome = renderHome;
+window.triggerQuickAIPrompt = function(promptText) {
+    if (window.toggleAIAssistant) window.toggleAIAssistant();
+    setTimeout(() => {
+        const chatInput = document.getElementById('ai-chat-input');
+        if (chatInput) {
+            chatInput.value = promptText;
+            if (window.sendAIChatMessage) window.sendAIChatMessage();
+        }
+    }, 300);
     const activeService = state.services[0];
     const staffName = activeService ? (activeService.staff || 'Unassigned') : 'Unassigned';
     const staffInitial = staffName.charAt(0).toUpperCase();
@@ -3988,9 +4461,9 @@ window.switchCdHeaderTab = function(tabKey) {
         const panel = document.getElementById('cd-panel-' + t);
         if (btn) {
             if (t === tabKey) {
-                btn.className = 'cd-tab-btn px-4 py-3 text-blue-600 border-b-2 border-blue-600 whitespace-nowrap transition-all font-extrabold';
+                btn.className = 'cd-tab-btn px-2 lg:px-3 py-2.5 text-blue-600 border-b-2 border-blue-600 whitespace-nowrap transition-all font-extrabold text-[11px] lg:text-xs';
             } else {
-                btn.className = 'cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500';
+                btn.className = 'cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500 text-[11px] lg:text-xs';
             }
         }
         if (panel) {
@@ -4723,11 +5196,11 @@ window.cdSelectUbo = function(idx) {
     if (window.lucide) window.lucide.createIcons();
 };
 
-function renderProfile(container) {
+function renderProfile(container, initialSubTab = 'overview') {
     const reqData = (state.requirements && state.requirements.excelData) ? state.requirements.excelData : (state.requirements || {});
-    const companyName = reqData.companyName || state.user.companyName || '1 GLOBAL ENTERPRISES PTE. LTD.';
-    const uen = reqData.uen || '201311840R';
-    const companyType = reqData.companyType || 'EXEMPT PRIVATE COMPANY LIMITED BY SHARES';
+    const companyName = reqData.companyName || (state.user && state.user.companyName) || '3B Trading & Consulting Pte. Ltd.';
+    const uen = reqData.uen || '201602068C';
+    const companyType = reqData.companyType || 'Exempt Private Company limited by shares';
     const incorporationDate = reqData.incorporationDate || '26 Jan 2016';
     const companyAge = reqData.companyAge || '10 Years, 7 Months';
     const jurisdiction = reqData.jurisdiction || 'Singapore';
@@ -4942,20 +5415,17 @@ function renderProfile(container) {
                 </div>
 
                 <!-- 13 Navigation Tabs -->
-                <div class="flex border-b border-slate-200 overflow-x-auto gap-2 text-xs font-bold text-slate-500 pt-2 no-scrollbar">
-                    <button onclick="switchCdHeaderTab('overview')" id="cd-tab-overview" class="cd-tab-btn px-4 py-3 text-blue-600 border-b-2 border-blue-600 whitespace-nowrap transition-all font-extrabold">Overview</button>
-                    <button onclick="switchCdHeaderTab('aml')" id="cd-tab-aml" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">AML</button>
-                    <button onclick="switchCdHeaderTab('directors')" id="cd-tab-directors" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Directors (${directors.length})</button>
-                    <button onclick="switchCdHeaderTab('secretaries')" id="cd-tab-secretaries" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Secretaries (${secretaries.length})</button>
-                    <button onclick="switchCdHeaderTab('auditors')" id="cd-tab-auditors" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Auditors (${auditors.length})</button>
-                    <button onclick="switchCdHeaderTab('members')" id="cd-tab-members" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Shareholders (${members.length})</button>
-                    <button onclick="switchCdHeaderTab('ubos')" id="cd-tab-ubos" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">UBOs & Controllers (${controllers.length})</button>
-                    <button onclick="switchCdHeaderTab('allotments')" id="cd-tab-allotments" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Allotments</button>
-                    <button onclick="switchCdHeaderTab('rons')" id="cd-tab-rons" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">RONS</button>
-                    <button onclick="switchCdHeaderTab('transfers')" id="cd-tab-transfers" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Transfers</button>
-                    <button onclick="switchCdHeaderTab('documents')" id="cd-tab-documents" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Documents</button>
-                    <button onclick="switchCdHeaderTab('compliance')" id="cd-tab-compliance" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Compliance</button>
-                    <button onclick="switchCdHeaderTab('activities')" id="cd-tab-activities" class="cd-tab-btn px-4 py-3 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Activities</button>
+                <div class="flex border-b border-slate-200 overflow-x-auto gap-0.5 text-[11px] lg:text-xs font-bold text-slate-500 pt-2 no-scrollbar justify-between">
+                    <button onclick="switchCdHeaderTab('overview')" id="cd-tab-overview" class="cd-tab-btn px-2 lg:px-3 py-2.5 text-blue-600 border-b-2 border-blue-600 whitespace-nowrap transition-all font-extrabold">Overview</button>
+                    <button onclick="switchCdHeaderTab('aml')" id="cd-tab-aml" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">AML</button>
+                    <button onclick="switchCdHeaderTab('secretaries')" id="cd-tab-secretaries" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Secretaries (${secretaries.length})</button>
+                    <button onclick="switchCdHeaderTab('auditors')" id="cd-tab-auditors" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Auditors (${auditors.length})</button>
+                    <button onclick="switchCdHeaderTab('ubos')" id="cd-tab-ubos" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">UBOs & Controllers (${controllers.length})</button>
+                    <button onclick="switchCdHeaderTab('allotments')" id="cd-tab-allotments" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Allotments</button>
+                    <button onclick="switchCdHeaderTab('rons')" id="cd-tab-rons" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">RONS</button>
+                    <button onclick="switchCdHeaderTab('transfers')" id="cd-tab-transfers" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Transfers</button>
+                    <button onclick="switchCdHeaderTab('compliance')" id="cd-tab-compliance" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Compliance</button>
+                    <button onclick="switchCdHeaderTab('activities')" id="cd-tab-activities" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Activities</button>
                 </div>
             </div>
 
@@ -5908,6 +6378,10 @@ function renderProfile(container) {
     const docsWrapper = document.getElementById('cd-documents-vault-wrapper');
     if (docsWrapper) renderDocuments(docsWrapper);
 
+    if (initialSubTab && initialSubTab !== 'overview' && typeof window.switchCdHeaderTab === 'function') {
+        window.switchCdHeaderTab(initialSubTab);
+    }
+
     if (window.lucide) window.lucide.createIcons();
 }
 
@@ -6270,42 +6744,276 @@ function renderServices(container) {
     if (window.lucide) window.lucide.createIcons();
 }
 
+function renderDirectorsView(container) {
+    const reqData = (state.requirements && state.requirements.excelData) ? state.requirements.excelData : (state.requirements || {});
+    const directors = (reqData.directors && reqData.directors.length > 0) ? reqData.directors : [
+        {
+            name: 'PANDIKADAVIL UNNIKRISHNAN JAYAPRAKASH',
+            type: 'Director',
+            idNumber: 'S27145758',
+            nationality: 'SINGAPORE CITIZEN',
+            dob: '1965-04-24',
+            appointmentDate: '2013-05-01',
+            email: 'jp@1ge.sg',
+            mobile: '6598177292',
+            address: '37A TOH CRESCENT SINGAPORE 507947',
+            status: 'VERIFIED'
+        },
+        {
+            name: 'PRAKASH SANILA JAYA',
+            type: 'Director',
+            idNumber: 'S7823419A',
+            nationality: 'SINGAPORE CITIZEN',
+            dob: '1978-08-12',
+            appointmentDate: '2018-02-15',
+            email: 'sanila@globalconsul.com',
+            mobile: '6591234567',
+            address: '12 MARINA BOULEVARD SINGAPORE 018982',
+            status: 'VERIFIED'
+        }
+    ];
+
+    container.innerHTML = `
+        <div class="space-y-6">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h3 class="font-extrabold text-slate-900 text-xl">Company Directors Particulars (${directors.length})</h3>
+                    <p class="text-xs text-slate-400 mt-1">Manage and review director particulars, identification details and appointment records</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="alert('Org Chart View')" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
+                        <i data-lucide="network" class="w-3.5 h-3.5 text-blue-600"></i> View Org Chart
+                    </button>
+                    <button onclick="alert('Add Director Modal')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
+                        + Add Director
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-12 gap-6">
+                <div class="col-span-12 lg:col-span-4 space-y-4">
+                    <div class="flex gap-2">
+                        <input type="text" placeholder="Search director by name..." class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                        <select class="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700">
+                            <option>All Directors</option>
+                        </select>
+                    </div>
+                    <div class="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+                        ${directors.map((d, idx) => `
+                            <div onclick="cdSelectDirector(${idx})" class="p-4 bg-white rounded-2xl border ${idx === cdSelectedDirectorIdx ? 'border-purple-500 ring-2 ring-purple-500/10' : 'border-slate-100'} hover:border-purple-300 transition-all cursor-pointer shadow-sm">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <div class="w-10 h-10 rounded-full bg-purple-100 text-purple-600 font-extrabold text-xs flex items-center justify-center shrink-0">
+                                        ${(d.name || 'D').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center justify-between gap-1">
+                                            <span class="font-extrabold text-slate-900 text-xs truncate">${d.name || 'Director'}</span>
+                                            <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-purple-50 text-purple-600 border border-purple-100">${d.status || d.type || 'ACTIVE'}</span>
+                                        </div>
+                                        <p class="text-[10px] text-slate-400 font-bold mt-0.5">${d.type || 'Director'}</p>
+                                    </div>
+                                </div>
+                                <p class="text-[10px] text-blue-600 font-medium truncate mb-2">${d.email || d.idNumber || '—'}</p>
+                                <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                    <div class="bg-emerald-500 h-full w-full"></div>
+                                </div>
+                                <span class="text-[9px] text-emerald-600 font-bold block text-right mt-1">100% Complete</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="col-span-12 lg:col-span-8 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-6" id="cd-director-details-panel">
+                    <!-- Loaded by cdSelectDirector -->
+                </div>
+            </div>
+        </div>
+    `;
+
+    cdSelectDirector(0);
+    if (window.lucide) window.lucide.createIcons();
+}
+window.renderDirectorsView = renderDirectorsView;
+
+window._clientSampleDocs = [
+    { name: 'VIKRAM KUMAR - Passport & PEP pass copy-exp-27 08 2022.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:56', status: 'APPROVED', uploadedBy: 'System Upload' },
+    { name: 'vikram kumar - Google Search.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:55', status: 'APPROVED', uploadedBy: 'System Upload' },
+    { name: 'Vikram Address Proof-notarised.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:54', status: 'APPROVED', uploadedBy: 'System Upload' },
+    { name: 'Vikram Kumar - FIN.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:54', status: 'APPROVED', uploadedBy: 'System Upload' },
+    { name: 'SentroWeb AML CFT Search.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:53', status: 'APPROVED', uploadedBy: 'System Upload' },
+    { name: 'Vikram - notarised passport and Fin card.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:53', status: 'APPROVED', uploadedBy: 'System Upload' },
+    { name: 'CDD-Vikram Kumar.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:52', status: 'APPROVED', uploadedBy: 'System Upload' },
+    { name: 'Kumar Vikram -AML-18 05 2023.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:41:22', status: 'APPROVED', uploadedBy: 'System Upload' },
+    { name: 'ACRA-ack-change in ROA.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:57', status: 'APPROVED', uploadedBy: 'System Upload' },
+    { name: 'ACRA filing-Change in address.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:54', status: 'APPROVED', uploadedBy: 'System Upload' },
+    { name: 'Change of Reg. office address - signed copy.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:52', status: 'APPROVED', uploadedBy: 'System Upload' },
+    { name: 'ACRA Filing - Change of address.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:50', status: 'APPROVED', uploadedBy: 'System Upload' },
+    { name: 'ACRA Filing - Change of address ack.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:48', status: 'APPROVED', uploadedBy: 'System Upload' },
+    { name: 'DRIW - Change of address-Shenton House -3B Trading.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:46', status: 'APPROVED', uploadedBy: 'System Upload' },
+    { name: 'Company Incorporation Certificate.pdf', folder: 'Incorporation', uploadedOn: '2026-01-26 09:00:00', status: 'APPROVED', uploadedBy: 'System Upload' },
+    { name: 'Bizfile Summary Report.pdf', folder: 'Bizfile & filing', uploadedOn: '2026-01-26 09:05:00', status: 'APPROVED', uploadedBy: 'System Upload' },
+    { name: 'Annual Return FY 2025 - Signed.pdf', folder: 'AGM AR', uploadedOn: '2026-01-26 10:00:00', status: 'APPROVED', uploadedBy: 'System Upload' },
+    { name: 'Tax Computation FY 2025.pdf', folder: 'Tax', uploadedOn: '2026-03-15 14:20:00', status: 'APPROVED', uploadedBy: 'System Upload' },
+    { name: 'Register of Controllers (RONS).pdf', folder: 'RONS', uploadedOn: '2026-01-26 09:30:00', status: 'APPROVED', uploadedBy: 'System Upload' }
+];
+
+window._activeDocFolder = 'All Documents';
+window._docSearchQuery = '';
+
+window.filterDocumentFolder = function(folderName) {
+    window._activeDocFolder = folderName;
+    document.querySelectorAll('.doc-folder-btn').forEach(btn => {
+        const isCurrent = btn.getAttribute('data-folder') === folderName;
+        if (isCurrent) {
+            btn.className = 'doc-folder-btn w-full flex justify-between items-center px-3 py-2 rounded-xl text-xs font-bold transition-all bg-blue-50 text-blue-600';
+            const badge = btn.querySelector('.doc-badge');
+            if (badge) badge.className = 'doc-badge px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-blue-100 text-blue-600';
+        } else {
+            btn.className = 'doc-folder-btn w-full flex justify-between items-center px-3 py-2 rounded-xl text-xs font-bold transition-all text-slate-600 hover:bg-slate-50';
+            const badge = btn.querySelector('.doc-badge');
+            if (badge) badge.className = 'doc-badge px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-slate-100 text-slate-400';
+        }
+    });
+    window.renderFilteredDocsTable();
+};
+
+window.renderFilteredDocsTable = function() {
+    const tbody = document.getElementById('docs-table-body');
+    if (!tbody) return;
+
+    let filtered = window._clientSampleDocs || [];
+    if (window._activeDocFolder && window._activeDocFolder !== 'All Documents') {
+        filtered = filtered.filter(d => d.folder.toLowerCase() === window._activeDocFolder.toLowerCase());
+    }
+
+    if (window._docSearchQuery) {
+        const q = window._docSearchQuery.toLowerCase();
+        filtered = filtered.filter(d => d.name.toLowerCase().includes(q) || d.folder.toLowerCase().includes(q) || d.uploadedBy.toLowerCase().includes(q));
+    }
+
+    const countEl = document.getElementById('doc-filtered-count');
+    if (countEl) countEl.innerText = `${filtered.length} items`;
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="py-16 px-4 text-center">
+                    <div class="py-12 flex flex-col items-center justify-center gap-3">
+                        <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        </div>
+                        <span class="font-extrabold text-slate-700 text-sm">No documents found</span>
+                        <span class="text-xs text-slate-400 max-w-sm leading-relaxed">There are currently no uploaded document files in folder "<strong>${window._activeDocFolder}</strong>".</span>
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(d => `
+        <tr class="hover:bg-slate-50/50 transition">
+            <td class="p-3 text-center"><input type="checkbox" class="rounded border-slate-300"></td>
+            <td class="p-3">
+                <div class="flex items-center gap-2.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600 shrink-0"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <span class="font-extrabold text-slate-900 truncate max-w-md">${d.name}</span>
+                </div>
+            </td>
+            <td class="p-3 text-slate-500 font-bold">${d.folder}</td>
+            <td class="p-3 font-mono text-slate-600">${d.uploadedOn}</td>
+            <td class="p-3">
+                <span class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-emerald-50 text-emerald-600 border border-emerald-100 tracking-wider uppercase">
+                    ${d.status}
+                </span>
+            </td>
+            <td class="p-3 text-slate-500 font-medium">${d.uploadedBy}</td>
+            <td class="p-3 text-center">
+                <div class="flex justify-center gap-1.5">
+                    <button onclick="previewClientDocument('${d.name}')" class="p-1 text-slate-400 hover:text-blue-600" title="Preview"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                    <button onclick="downloadClientDocument('${d.name}')" class="p-1 text-slate-400 hover:text-blue-600" title="Download"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                    <button onclick="deleteClientDocument('${d.name}')" class="p-1 text-slate-400 hover:text-red-600" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+};
+
+window.searchClientDocs = function(val) {
+    window._docSearchQuery = val || '';
+    window.renderFilteredDocsTable();
+};
+
+window.resetDocumentFilters = function() {
+    window._activeDocFolder = 'All Documents';
+    window._docSearchQuery = '';
+    const input = document.getElementById('doc-search-input');
+    if (input) input.value = '';
+    window.filterDocumentFolder('All Documents');
+};
+
+window.previewClientDocument = function(name) {
+    const modal = document.getElementById('modal-container');
+    const content = document.getElementById('modal-content');
+    if (modal && content) {
+        content.innerHTML = `
+            <div class="space-y-6">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+                    <h3 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                        📄 Document Preview
+                    </h3>
+                    <button onclick="document.getElementById('modal-container').classList.add('opacity-0','pointer-events-none')" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors">
+                        ✕
+                    </button>
+                </div>
+                <div class="p-8 bg-slate-50 border border-slate-200 rounded-2xl text-center space-y-4">
+                    <div class="w-16 h-16 rounded-2xl bg-blue-100 text-blue-600 font-bold flex items-center justify-center mx-auto text-xl">PDF</div>
+                    <div class="font-extrabold text-slate-900 text-sm">${name}</div>
+                    <p class="text-xs text-slate-500">Verified & Approved Document Record in Globalisor Vault</p>
+                    <div class="pt-4 flex justify-center gap-3">
+                        <button onclick="downloadClientDocument('${name}')" class="px-5 py-2.5 bg-blue-600 text-white font-bold text-xs rounded-xl hover:bg-blue-700 transition-all shadow-md shadow-blue-500/20">Download Original PDF</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        modal.classList.remove('opacity-0', 'pointer-events-none');
+    }
+};
+
+window.downloadClientDocument = function(name) {
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#0f172a;color:#fff;padding:12px 18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.25);z-index:99999;font-family:Outfit,sans-serif;font-size:12px;';
+    toast.innerHTML = `<div style="font-weight:700;">📥 Downloading ${name}...</div>`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2500);
+};
+
+window.deleteClientDocument = function(name) {
+    if (confirm(`Are you sure you want to delete "${name}"?`)) {
+        window._clientSampleDocs = window._clientSampleDocs.filter(d => d.name !== name);
+        window.renderFilteredDocsTable();
+    }
+};
+
 function renderDocuments(container) {
     const folders = [
-        { name: 'All Documents', count: 130, active: true },
-        { name: 'KYC', count: 32 },
-        { name: 'Invoice', count: 7 },
-        { name: 'Permanent folder', count: 10 },
-        { name: 'Incorporation', count: 0 },
+        { name: 'All Documents', count: window._clientSampleDocs.length, active: true },
+        { name: 'KYC', count: window._clientSampleDocs.filter(d=>d.folder==='KYC').length },
+        { name: 'Invoice', count: window._clientSampleDocs.filter(d=>d.folder==='Invoice').length },
+        { name: 'Permanent folder', count: window._clientSampleDocs.filter(d=>d.folder==='Permanent folder').length },
+        { name: 'Incorporation', count: window._clientSampleDocs.filter(d=>d.folder==='Incorporation').length },
         { name: 'All Signed', count: 0 },
-        { name: 'Change of Address', count: 19 },
+        { name: 'Change of Address', count: window._clientSampleDocs.filter(d=>d.folder==='Change of Address').length },
         { name: 'Change of Directors', count: 0 },
         { name: 'Change of CS', count: 0 },
         { name: 'Change of Auditors', count: 0 },
-        { name: 'AGM AR', count: 62 },
+        { name: 'AGM AR', count: window._clientSampleDocs.filter(d=>d.folder==='AGM AR').length },
         { name: 'Allotment of Shares', count: 0 },
         { name: 'Final Demand', count: 0 },
         { name: 'Others', count: 0 },
-        { name: 'Tax', count: 0 },
-        { name: 'RONS', count: 0 },
-        { name: 'Bizfile & filing', count: 0 }
-    ];
-
-    const sampleDocs = [
-        { name: 'VIKRAM KUMAR - Passport & PEP pass copy-exp-27 08 2022.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:56', status: 'APPROVED', uploadedBy: 'System Upload' },
-        { name: 'vikram kumar - Google Search.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:55', status: 'APPROVED', uploadedBy: 'System Upload' },
-        { name: 'Vikram Address Proof-notarised.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:54', status: 'APPROVED', uploadedBy: 'System Upload' },
-        { name: 'Vikram Kumar - FIN.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:54', status: 'APPROVED', uploadedBy: 'System Upload' },
-        { name: 'SentroWeb AML CFT Search.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:53', status: 'APPROVED', uploadedBy: 'System Upload' },
-        { name: 'Vikram - notarised passport and Fin card.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:53', status: 'APPROVED', uploadedBy: 'System Upload' },
-        { name: 'CDD-Vikram Kumar.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:52', status: 'APPROVED', uploadedBy: 'System Upload' },
-        { name: 'Kumar Vikram -AML-18 05 2023.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:41:22', status: 'APPROVED', uploadedBy: 'System Upload' },
-        { name: 'ACRA-ack-change in ROA.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:57', status: 'APPROVED', uploadedBy: 'System Upload' },
-        { name: 'ACRA filing-Change in address.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:54', status: 'APPROVED', uploadedBy: 'System Upload' },
-        { name: 'Change of Reg. office address - signed copy.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:52', status: 'APPROVED', uploadedBy: 'System Upload' },
-        { name: 'ACRA Filing - Change of address.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:50', status: 'APPROVED', uploadedBy: 'System Upload' },
-        { name: 'ACRA Filing - Change of address ack.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:48', status: 'APPROVED', uploadedBy: 'System Upload' },
-        { name: 'DRIW - Change of address-Shenton House -3B Trading.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:46', status: 'APPROVED', uploadedBy: 'System Upload' }
+        { name: 'Tax', count: window._clientSampleDocs.filter(d=>d.folder==='Tax').length },
+        { name: 'RONS', count: window._clientSampleDocs.filter(d=>d.folder==='RONS').length },
+        { name: 'Bizfile & filing', count: window._clientSampleDocs.filter(d=>d.folder==='Bizfile & filing').length }
     ];
 
     container.innerHTML = `
@@ -6316,12 +7024,15 @@ function renderDocuments(container) {
                 <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-4">
                     <h4 class="font-extrabold text-slate-900 text-xs tracking-wider uppercase">FOLDERS</h4>
                     <div class="space-y-1">
-                        ${folders.map(f => `
-                            <button onclick="alert('Filter folder: ${f.name}')" class="w-full flex justify-between items-center px-3 py-2 rounded-xl text-xs font-bold transition-all ${f.active ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}">
-                                <span>${f.name}</span>
-                                <span class="px-2 py-0.5 rounded-full text-[9px] font-extrabold ${f.active ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}">${f.count}</span>
-                            </button>
-                        `).join('')}
+                        ${folders.map(f => {
+                            const isAct = f.name === window._activeDocFolder;
+                            return `
+                                <button onclick="filterDocumentFolder('${f.name}')" data-folder="${f.name}" class="doc-folder-btn w-full flex justify-between items-center px-3 py-2 rounded-xl text-xs font-bold transition-all ${isAct ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}">
+                                    <span>${f.name}</span>
+                                    <span class="doc-badge px-2 py-0.5 rounded-full text-[9px] font-extrabold ${isAct ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}">${f.count}</span>
+                                </button>
+                            `;
+                        }).join('')}
                     </div>
                 </div>
 
@@ -6329,13 +7040,16 @@ function renderDocuments(container) {
                 <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-4">
                     <div class="flex justify-between items-center">
                         <h4 class="font-extrabold text-slate-900 text-xs tracking-wider uppercase">FILTERS</h4>
-                        <button onclick="alert('Clear All Filters')" class="text-blue-600 text-xs font-bold hover:underline">Clear All</button>
+                        <button onclick="resetDocumentFilters()" class="text-blue-600 text-xs font-bold hover:underline">Clear All</button>
                     </div>
                     <div class="space-y-3">
                         <div>
                             <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1.5">DOCUMENT TYPE</label>
-                            <select class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-                                <option>All Types</option>
+                            <select onchange="window.searchClientDocs(this.value)" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                                <option value="">All Types</option>
+                                <option value="KYC">KYC</option>
+                                <option value="Change of Address">Change of Address</option>
+                                <option value="Incorporation">Incorporation</option>
                             </select>
                         </div>
                         <div>
@@ -6347,36 +7061,22 @@ function renderDocuments(container) {
                                 <option>Rejected</option>
                             </select>
                         </div>
-                        <div>
-                            <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1.5">UPLOADED BY</label>
-                            <select class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-                                <option>All Users</option>
-                                <option>System Upload</option>
-                                <option>Client Upload</option>
-                            </select>
-                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Right Documents Table & Actions -->
             <div class="col-span-12 lg:col-span-9 space-y-6">
-                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6 min-h-[640px] flex flex-col">
                     <!-- Top Search and Action Bar -->
                     <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div class="w-full sm:w-96 relative">
-                            <input type="text" placeholder="Search documents..." class="w-full pl-4 pr-10 py-2.5 text-xs border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                            <input type="text" id="doc-search-input" oninput="searchClientDocs(this.value)" placeholder="Search documents..." class="w-full pl-4 pr-10 py-2.5 text-xs border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20">
                         </div>
                         <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
-                            <button onclick="triggerUpload()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20">
+                            <span id="doc-filtered-count" class="text-xs font-bold text-slate-400"></span>
+                            <button onclick="alert('Upload Modal')" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20">
                                 Upload Document
-                            </button>
-                            <select class="px-4 py-2.5 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700">
-                                <option>Newest First</option>
-                                <option>Oldest First</option>
-                            </select>
-                            <button class="p-2.5 border border-slate-200 rounded-xl text-slate-400 hover:text-slate-700 bg-white">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                             </button>
                         </div>
                     </div>
@@ -6395,33 +7095,7 @@ function renderDocuments(container) {
                                     <th class="p-3 text-center">ACTIONS</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-100 text-slate-800 font-semibold">
-                                ${sampleDocs.map(d => `
-                                    <tr class="hover:bg-slate-50/50 transition">
-                                        <td class="p-3 text-center"><input type="checkbox" class="rounded border-slate-300"></td>
-                                        <td class="p-3">
-                                            <div class="flex items-center gap-2.5">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600 shrink-0"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                                <span class="font-extrabold text-slate-900 truncate max-w-md">${d.name}</span>
-                                            </div>
-                                        </td>
-                                        <td class="p-3 text-slate-500 font-bold">${d.folder}</td>
-                                        <td class="p-3 font-mono text-slate-600">${d.uploadedOn}</td>
-                                        <td class="p-3">
-                                            <span class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-amber-50 text-amber-600 border border-amber-100 tracking-wider uppercase">
-                                                ${d.status}
-                                            </span>
-                                        </td>
-                                        <td class="p-3 text-slate-500 font-medium">${d.uploadedBy}</td>
-                                        <td class="p-3 text-center">
-                                            <div class="flex justify-center gap-1.5">
-                                                <button onclick="alert('Preview ${d.name}')" class="p-1 text-slate-400 hover:text-blue-600" title="Preview"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
-                                                <button onclick="alert('Download ${d.name}')" class="p-1 text-slate-400 hover:text-blue-600" title="Download"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
-                                                <button onclick="alert('Delete ${d.name}')" class="p-1 text-slate-400 hover:text-red-600" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                `).join('')}
+                            <tbody id="docs-table-body" class="divide-y divide-slate-100 text-slate-800 font-semibold">
                             </tbody>
                         </table>
                     </div>
@@ -6429,6 +7103,8 @@ function renderDocuments(container) {
             </div>
         </div>
     `;
+
+    window.renderFilteredDocsTable();
     if (window.lucide) window.lucide.createIcons();
 }
 
@@ -6472,54 +7148,64 @@ function renderRequests(container) {
 
 
 function openBlogDetail(id) {
-    const blog = state.blogs.find(b => b.id === id);
+    const blog = (state.blogs || []).find(b => b.id === id);
     if (!blog) return;
 
     const modal = document.getElementById('modal-container');
     const content = document.getElementById('modal-content');
 
-    const displayTitle = blog.publishedTitle || blog.title;
+    const displayTitle = blog.publishedTitle || blog.title || 'Advisory Update';
     const displayExcerpt = blog.publishedExcerpt || blog.description || blog.excerpt || '';
     const displayCoverImage = blog.publishedCoverImage || blog.coverImage || '';
     const displayContent = blog.publishedContent || blog.content || displayExcerpt;
 
     content.innerHTML = `
-        <div class="max-h-[90vh] overflow-y-auto custom-scroll">
+        <div class="relative max-h-[90vh] overflow-y-auto custom-scroll">
+            <!-- Absolute Top Right Close Button (X) -->
+            <button onclick="closeModal()" class="absolute top-4 right-4 z-50 w-10 h-10 rounded-full bg-slate-900/10 hover:bg-slate-900 hover:text-white text-slate-800 flex items-center justify-center font-bold text-lg transition-all shadow-sm border border-slate-200" title="Close (Esc)">
+                ✕
+            </button>
+
             ${displayCoverImage ? `
-            <div class="relative h-96">
+            <div class="relative h-72 rounded-t-[28px] overflow-hidden">
                 <img src="${displayCoverImage}" class="w-full h-full object-cover">
                 <div class="absolute inset-0 bg-gradient-to-t from-white via-white/40 to-transparent"></div>
-                <button onclick="closeModal()" class="absolute top-8 right-8 p-3 bg-white/20 backdrop-blur-md rounded-2xl text-white hover:bg-white hover:text-slate-900 transition-all border border-white/30"><i data-lucide="x" class="w-6 h-6"></i></button>
             </div>
-            ` : `
-            <div class="p-6 flex justify-end">
-                <button onclick="closeModal()" class="p-2.5 bg-slate-100 hover:bg-slate-200 rounded-2xl text-slate-800 transition-all"><i data-lucide="x" class="w-5 h-5"></i></button>
-            </div>
-            `}
-            <div class="${displayCoverImage ? 'p-12 -mt-32 relative z-10' : 'p-12 pt-4'}">
-                <div class="premium-card border-none shadow-2xl p-12">
-                    <div class="flex flex-wrap gap-3 mb-8">
-                        <span class="px-4 py-1.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-widest border border-blue-100">${blog.category || 'Blogs'}</span>
-                        <span class="px-4 py-1.5 rounded-full bg-slate-50 text-slate-500 text-[10px] font-bold uppercase tracking-widest border border-slate-100">${new Date(blog.createdAt || blog.date).toLocaleDateString('en-SG', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+            ` : ''}
+
+            <div class="${displayCoverImage ? 'p-8 -mt-20 relative z-10' : 'p-8 pt-6'}">
+                <div class="bg-white rounded-2xl border border-slate-100 p-8 shadow-sm space-y-6">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <span class="px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-[10px] font-extrabold uppercase tracking-widest border border-blue-100">${blog.category || 'Compliance'}</span>
+                        <span class="px-3 py-1 rounded-full bg-slate-50 text-slate-500 text-[10px] font-extrabold uppercase tracking-widest border border-slate-100">${new Date(blog.createdAt || blog.date || Date.now()).toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
                     </div>
-                    <h2 class="text-4xl font-extrabold text-slate-900 mb-8 tracking-tight">${displayTitle}</h2>
-                    <div class="prose prose-slate max-w-none text-slate-600 leading-[1.8] text-lg space-y-6">
-                        <p class="font-bold text-slate-900 text-xl leading-relaxed">${displayExcerpt}</p>
-                        <div class="h-px bg-slate-100 my-10"></div>
-                        <div class="whitespace-pre-wrap">${displayContent}</div>
+
+                    <h2 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-snug">${displayTitle}</h2>
+
+                    <div class="space-y-4 text-slate-600 leading-relaxed text-sm">
+                        ${displayExcerpt ? `<p class="font-extrabold text-slate-900 text-base leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">${displayExcerpt}</p>` : ''}
+                        <div class="h-px bg-slate-100 my-4"></div>
+                        <div class="whitespace-pre-wrap text-slate-700 font-medium">${displayContent}</div>
                     </div>
+
                     ${blog.documentUrl ? `
-                        <div class="mt-12 p-8 bg-slate-50 rounded-[2rem] border border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-6">
-                            <div class="flex items-center gap-6">
-                                <div class="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-xl shadow-blue-500/5"><i data-lucide="file-text" class="w-8 h-8"></i></div>
+                        <div class="mt-8 p-6 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm border border-slate-100"><i data-lucide="file-text" class="w-6 h-6"></i></div>
                                 <div>
-                                    <h4 class="font-extrabold text-slate-900">Regulatory Framework</h4>
-                                    <p class="text-sm text-slate-500">Official Government Assessment (PDF)</p>
+                                    <h4 class="font-extrabold text-slate-900 text-sm">Regulatory Framework</h4>
+                                    <p class="text-xs text-slate-500">Official Government Assessment (PDF)</p>
                                 </div>
                             </div>
-                            <a href="${blog.documentUrl}" target="_blank" class="px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold text-sm hover:scale-105 transition-all flex items-center gap-3">Download Assessment <i data-lucide="download" class="w-4 h-4"></i></a>
+                            <a href="${blog.documentUrl}" target="_blank" class="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold text-xs hover:bg-slate-800 transition-all flex items-center gap-2">Download Assessment <i data-lucide="download" class="w-4 h-4"></i></a>
                         </div>
                     ` : ''}
+
+                    <div class="pt-4 border-t border-slate-100 flex justify-end">
+                        <button onclick="closeModal()" class="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs rounded-xl transition-all">
+                            Close Advisory
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -6532,9 +7218,16 @@ function openBlogDetail(id) {
 
 function closeModal() {
     const modal = document.getElementById('modal-container');
-    modal.classList.add('pointer-events-none', 'opacity-0');
-    modal.querySelector('#modal-content').classList.add('scale-95');
+    if (modal) {
+        modal.classList.add('pointer-events-none', 'opacity-0');
+        const content = modal.querySelector('#modal-content');
+        if (content) content.classList.add('scale-95');
+    }
 }
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+});
 
 function renderPlaceholder(c, title, icon) {
     c.innerHTML = `
@@ -12275,4 +12968,264 @@ window.completeComplianceEvent = async function(eventId) {
 };
 
 window.renderComplianceCalendar = renderComplianceCalendar;
+
+function renderClientSettings(container) {
+    const user = (state && state.user) ? state.user : {};
+    const authObj = JSON.parse(localStorage.getItem('client_auth') || '{}');
+    const name = user.name || authObj.name || ((user.firstName || '') + ' ' + (user.lastName || '')).trim() || '3B Trading & Consulting User';
+    const email = user.email || authObj.email || 'client@globalisor.com';
+
+    container.innerHTML = `
+        <div class="w-full space-y-6">
+            <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 rounded-2xl bg-blue-600 text-white font-extrabold text-lg flex items-center justify-center shadow-lg shadow-blue-500/20 uppercase">
+                        ${name.split(' ').map(w => w[0]).join('').slice(0, 2)}
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-extrabold text-slate-900 leading-tight">${name}</h2>
+                        <p class="text-xs text-slate-500 font-medium mt-0.5">${email} • Primary Account Credentials</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 bg-emerald-50 text-emerald-600 font-extrabold text-[10px] rounded-full uppercase border border-emerald-100">
+                    ACTIVE PORTAL LOGIN
+                </span>
+            </div>
+
+            <!-- Change Password Only Card -->
+            <div class="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                <div class="border-b border-slate-100 pb-4 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="font-extrabold text-slate-900 text-base">Change Account Password</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Update your login password for Globalisor Client Executive Portal</p>
+                    </div>
+                </div>
+
+                <form onsubmit="event.preventDefault(); saveClientPassword();" class="space-y-4 text-xs">
+                    <div>
+                        <label class="font-bold text-slate-700 block mb-1.5">Current Password</label>
+                        <input type="password" id="setting-current-password" placeholder="Enter current password" class="w-full px-4 py-3 border border-slate-200 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+                    </div>
+
+                    <div>
+                        <label class="font-bold text-slate-700 block mb-1.5">New Password</label>
+                        <input type="password" id="setting-new-password" placeholder="Enter new password (min. 6 characters)" class="w-full px-4 py-3 border border-slate-200 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+                    </div>
+
+                    <div>
+                        <label class="font-bold text-slate-700 block mb-1.5">Confirm New Password</label>
+                        <input type="password" id="setting-confirm-password" placeholder="Re-enter new password to confirm" class="w-full px-4 py-3 border border-slate-200 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+                    </div>
+
+                    <div id="password-error-msg" class="text-red-500 text-xs font-bold hidden"></div>
+                    <div id="password-success-msg" class="text-emerald-600 text-xs font-bold hidden"></div>
+
+                    <div class="pt-2">
+                        <button type="submit" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl text-xs transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                            Update Password Credentials
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Need Help Support Card -->
+            <div class="bg-blue-50/70 border border-blue-100/80 p-6 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div class="space-y-1">
+                    <h4 class="font-extrabold text-slate-900 text-sm">Need help?</h4>
+                    <p class="text-xs text-slate-500 leading-relaxed">Our dedicated corporate secretarial & support team is here to help you.</p>
+                </div>
+                <a href="mailto:support@globalisor.com" class="px-5 py-2.5 bg-white border border-blue-200 text-blue-600 rounded-xl font-bold text-xs flex items-center gap-2 hover:bg-blue-50 transition-all shadow-sm shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                    Contact Support →
+                </a>
+            </div>
+        </div>
+    `;
+
+    if (window.lucide) window.lucide.createIcons();
+}
+
+window.renderClientSettings = renderClientSettings;
+
+window.saveClientPassword = async function() {
+    const currentPassEl = document.getElementById('setting-current-password');
+    const newPassEl = document.getElementById('setting-new-password');
+    const confirmPassEl = document.getElementById('setting-confirm-password');
+    const errEl = document.getElementById('password-error-msg');
+    const succEl = document.getElementById('password-success-msg');
+
+    if (errEl) errEl.classList.add('hidden');
+    if (succEl) succEl.classList.add('hidden');
+
+    const newPass = newPassEl ? newPassEl.value.trim() : '';
+    const confirmPass = confirmPassEl ? confirmPassEl.value.trim() : '';
+
+    if (!newPass) {
+        if (errEl) { errEl.innerText = 'Please enter a new password.'; errEl.classList.remove('hidden'); }
+        return;
+    }
+
+    if (newPass.length < 6) {
+        if (errEl) { errEl.innerText = 'New password must be at least 6 characters long.'; errEl.classList.remove('hidden'); }
+        return;
+    }
+
+    if (newPass !== confirmPass) {
+        if (errEl) { errEl.innerText = 'New password and confirmation password do not match.'; errEl.classList.remove('hidden'); }
+        return;
+    }
+
+    const authObj = JSON.parse(localStorage.getItem('client_auth') || '{}');
+    const userEmail = (state && state.user && state.user.email) || authObj.email || 'client@globalisor.com';
+    const clientId = authObj.id || authObj.userId || 'C-101';
+
+    try {
+        await fetch('/api/client/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: userEmail, clientId: clientId, newPassword: newPass })
+        });
+    } catch(e) {}
+
+    try {
+        const passMap = JSON.parse(localStorage.getItem('globalisor_client_passwords') || '{}');
+        passMap[userEmail] = newPass;
+        passMap[clientId] = newPass;
+        localStorage.setItem('globalisor_client_passwords', JSON.stringify(passMap));
+
+        authObj.password = newPass;
+        localStorage.setItem('client_auth', JSON.stringify(authObj));
+        if (state && state.user) state.user.password = newPass;
+    } catch(e) {}
+
+    if (currentPassEl) currentPassEl.value = '';
+    if (newPassEl) newPassEl.value = '';
+    if (confirmPassEl) confirmPassEl.value = '';
+
+    if (succEl) {
+        succEl.innerText = '✅ Password updated successfully! Changed credentials are synchronized with Admin Services.';
+        succEl.classList.remove('hidden');
+    }
+
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#0f172a;color:#fff;padding:12px 18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.25);z-index:99999;font-family:Outfit,sans-serif;font-size:12px;';
+    toast.innerHTML = `<div style="font-weight:700;">✅ Password Changed Successfully!</div><div style="opacity:0.8;font-size:10px;margin-top:2px;">Credentials updated in Admin Services > Credentials & Users</div>`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+};
+
+async function renderBlogsView(container) {
+    try {
+        const res = await fetch('/api/blogs');
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+                state.blogs = data;
+            }
+        }
+    } catch(e) {}
+
+    if (!state.blogs || state.blogs.length === 0) {
+        try {
+            const cached = localStorage.getItem('admin_blogs');
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                if (Array.isArray(parsed) && parsed.length > 0) state.blogs = parsed;
+            }
+        } catch(e) {}
+    }
+
+    const rawList = state.blogs || [];
+
+    // Filter out dummy/test entries (e.g. titles/excerpts like "Hi", "Hi - Tax notification", "TAX", "Vietnam Tax")
+    const blogsList = rawList.filter(b => {
+        if (!b) return false;
+        const title = (b.publishedTitle || b.title || '').trim().toLowerCase();
+        const excerpt = (b.publishedExcerpt || b.description || b.excerpt || '').trim().toLowerCase();
+        if (title === 'hi' || title === 'vietnam tax' || title === 'tax' || title === 'test') return false;
+        if (excerpt === 'hi' || excerpt === 'tax' || excerpt.startsWith('hi - tax') || excerpt === 'test') return false;
+        if (title.length < 4 && excerpt.length < 5) return false;
+        return true;
+    });
+
+    if (blogsList.length === 0) {
+        container.innerHTML = `
+            <div class="bg-white p-12 rounded-3xl border border-slate-100 text-center space-y-4">
+                <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto text-xl font-bold">📰</div>
+                <h3 class="text-lg font-extrabold text-slate-900">No Corporate Blogs Available</h3>
+                <p class="text-xs text-slate-500 max-w-md mx-auto">Admin uploaded corporate blogs, tax advisories, and Singapore regulatory updates will appear here automatically.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const sortedBlogs = [...blogsList].sort((a, b) => {
+        const tA = new Date(a.createdAt || a.date || a.updatedAt || 0).getTime();
+        const tB = new Date(b.createdAt || b.date || b.updatedAt || 0).getTime();
+        return tB - tA;
+    });
+
+    container.innerHTML = `
+        <div class="space-y-8 w-full">
+            <div class="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 p-8 rounded-3xl text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border border-slate-800">
+                <div class="space-y-2">
+                    <div class="flex items-center gap-2 text-xs font-bold text-blue-400 uppercase tracking-widest">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        Corporate Insights & Regulatory Feed
+                    </div>
+                    <h2 class="text-2xl font-extrabold tracking-tight">Singapore Business & Advisory Blogs</h2>
+                    <p class="text-slate-300 text-xs font-medium">Real-time updates published directly by Globalisor Compliance Officers & Corporate Secretaries</p>
+                </div>
+                <span class="px-4 py-2 bg-white/10 rounded-xl text-xs font-bold border border-white/20 shrink-0">
+                    ${sortedBlogs.length} Articles Published
+                </span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                ${sortedBlogs.map(blog => {
+                    const displayTitle = blog.publishedTitle || blog.title || 'Untitled Advisory';
+                    const displayExcerpt = blog.publishedExcerpt || blog.description || blog.excerpt || 'Corporate regulatory update for Singapore entities.';
+                    const displayCoverImage = blog.publishedCoverImage || blog.coverImage || '';
+                    const dateStr = new Date(blog.createdAt || blog.date || Date.now()).toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' });
+                    const category = blog.category || 'Compliance';
+
+                    return `
+                        <div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-all flex flex-col justify-between cursor-pointer group" onclick="openBlogDetail('${blog.id}')">
+                            <div>
+                                ${displayCoverImage ? `
+                                <div class="h-44 bg-slate-100 relative overflow-hidden">
+                                    <img src="${displayCoverImage}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="${displayTitle}">
+                                    <div class="absolute top-3 left-3">
+                                        <span class="px-2.5 py-1 rounded-lg bg-slate-900/80 backdrop-blur-md text-[10px] font-extrabold text-white uppercase tracking-wider">${category}</span>
+                                    </div>
+                                </div>
+                                ` : ''}
+                                <div class="p-6 space-y-3">
+                                    <div class="flex items-center gap-2 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                                        ${!displayCoverImage ? `<span class="px-2 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100">${category}</span>` : ''}
+                                        <span>${dateStr}</span>
+                                    </div>
+                                    <h3 class="font-extrabold text-slate-900 text-base leading-snug group-hover:text-blue-600 transition-colors line-clamp-2">${displayTitle}</h3>
+                                    <p class="text-xs text-slate-500 line-clamp-3 leading-relaxed">${displayExcerpt}</p>
+                                </div>
+                            </div>
+                            <div class="p-6 pt-0 flex items-center justify-between border-t border-slate-50 mt-4 text-xs font-bold text-blue-600 group-hover:text-blue-700">
+                                <span>Read Full Advisory</span>
+                                <span class="group-hover:translate-x-1 transition-transform">→</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
+
+    if (window.lucide) window.lucide.createIcons();
+}
+window.renderBlogsView = renderBlogsView;
+
 

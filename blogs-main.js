@@ -61,8 +61,17 @@ async function initBlogsPage() {
         }
     }
 
-    // Filter only published blogs
-    allBlogs = allBlogs.filter(b => b.published || b.status === 'published');
+    // Filter only published blogs and exclude test/placeholder titles
+    allBlogs = allBlogs.filter(b => {
+        if (!b) return false;
+        if (!b.published && b.status !== 'published') return false;
+        const title = (b.publishedTitle || b.title || '').trim().toLowerCase();
+        const excerpt = (b.publishedExcerpt || b.description || b.excerpt || '').trim().toLowerCase();
+        if (title === 'hi' || title === 'vietnam tax' || title === 'tax' || title === 'test') return false;
+        if (excerpt === 'hi' || excerpt === 'tax' || excerpt.startsWith('hi - tax') || excerpt === 'test') return false;
+        if (title.length < 4 && excerpt.length < 5) return false;
+        return true;
+    });
 
     // Sort blogs descending by lastModified activity time
     const getBlogTime = (b) => {
