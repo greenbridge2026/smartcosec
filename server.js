@@ -3027,6 +3027,67 @@ app.delete('/api/messages/groups/:id/members/:userId', (req, res) => {
     }
 });
 
+// --- CLIENT PASSWORD & CREDENTIALS ENDPOINTS ---
+app.post('/api/client/change-password', (req, res) => {
+    const db = getDb();
+    const { email, clientId, newPassword } = req.body;
+    if (!newPassword || newPassword.trim().length === 0) {
+        return res.status(400).json({ error: 'Password cannot be empty' });
+    }
+
+    const cleanPass = newPassword.trim();
+    let updated = false;
+
+    if (db.users && Array.isArray(db.users)) {
+        const user = db.users.find(u => 
+            (email && u.email && u.email.toLowerCase() === email.toLowerCase()) || 
+            (clientId && (u.id === clientId || u.clientId === clientId))
+        );
+        if (user) {
+            user.password = cleanPass;
+            updated = true;
+        }
+    }
+
+    if (db.clients && Array.isArray(db.clients)) {
+        const client = db.clients.find(c => 
+            (email && c.email && c.email.toLowerCase() === email.toLowerCase()) || 
+            (clientId && (c.id === clientId || c.clientId === clientId))
+        );
+        if (client) {
+            client.password = cleanPass;
+            updated = true;
+        }
+    }
+
+    saveDb(db);
+    res.json({ success: true, message: 'Password updated successfully', password: cleanPass });
+});
+
+app.get('/api/admin/clients', (req, res) => {
+    const db = getDb();
+    const users = (db.users || []).filter(u => u.role === 'CLIENT' || u.role === 'USER' || !u.role);
+    const clients = (db.clients || []);
+    
+    const clientList = users.map(u => {
+        const matchClient = clients.find(c => c.id === u.id || (c.email && u.email && c.email.toLowerCase() === u.email.toLowerCase())) || {};
+        return {
+            id: u.id || matchClient.id || 'C-101',
+            name: (u.firstName + ' ' + (u.lastName || '')).trim() || u.name || matchClient.name || 'Client User',
+            firstName: u.firstName || (u.name ? u.name.split(' ')[0] : 'Client'),
+            lastName: u.lastName || (u.name ? u.name.split(' ').slice(1).join(' ') : 'User'),
+            email: u.email || matchClient.email || 'client@globalisor.com',
+            companyName: u.companyName || matchClient.companyName || '3B Trading & Consulting Pte. Ltd.',
+            password: u.password || matchClient.password || 'password123',
+            status: u.status || matchClient.status || 'Active',
+            docsCount: 8,
+            portalActivated: true
+        };
+    });
+
+    res.json(clientList);
+});
+
 app.get(/^\/admin(\/.*)?$/, (req, res) => {
     res.sendFile(path.join(__dirname, 'admin', 'dashboard.html'));
 });

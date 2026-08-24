@@ -583,6 +583,18 @@
                         }));
                     }
                 }
+
+                // Overlay any updated password from localStorage client password sync
+                try {
+                    const localPassMap = JSON.parse(localStorage.getItem('globalisor_client_passwords') || '{}');
+                    allClients = allClients.map(c => {
+                        const updatedPass = localPassMap[c.email] || localPassMap[c.id];
+                        if (updatedPass) {
+                            return { ...c, password: updatedPass };
+                        }
+                        return c;
+                    });
+                } catch(e) {}
             } catch (err) {
                 console.error("Error fetching clients:", err);
             }
