@@ -1341,6 +1341,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!notif.readBy.includes(adminId)) {
                     notif.readBy.push(adminId);
                 }
+                if (notif.type === 'CHANGE_OF_ADDRESS_REQUEST' || link === 'chat_request') {
+                    window._adminRenderNotifications();
+                    window.openAddressChangeRequestInChat(notif.relatedId || '', notif.message || '', notif.title || '');
+                    return;
+                }
                 if (!link || link === 'undefined' || link === '') {
                     if (notif.type === 'message') {
                         link = 'messages.html';
@@ -1356,9 +1361,50 @@ document.addEventListener('DOMContentLoaded', () => {
             window._adminRenderNotifications();
         }
         window._adminCloseBell();
-        if (link && link !== 'undefined' && link !== '') {
+        if (link && link !== 'undefined' && link !== '' && link !== 'chat_request') {
             window.location.href = link;
         }
+    };
+
+    window.openQuickChatWindow = function() {
+        const win = document.getElementById('quick-chat-window');
+        if (!win) return;
+        win.classList.remove('pointer-events-none', 'translate-y-10', 'opacity-0');
+        win.classList.add('translate-y-0', 'opacity-100');
+    };
+
+    window.openAddressChangeRequestInChat = function(docId, notifMsg, notifTitle) {
+        window._adminCloseBell();
+        window.chatWidgetMode = 'bi';
+        window.openQuickChatWindow();
+
+        const viewUrl = `/admin/document-viewer.html?docId=${encodeURIComponent(docId)}&type=change_of_address`;
+        const downloadUrl = `/api/admin/intelligence/document/${encodeURIComponent(docId)}/download?type=change_of_address`;
+
+        const formattedMsg = (notifMsg || 'Client submitted a request for registered address change.')
+            .replace(/\n/g, '<br>');
+
+        const chatText = `📍 **${notifTitle || 'Change of Registered Office Address Request'}**\n\n${formattedMsg}\n\n---\n📄 **Statutory DRIW Resolution Prepared:**\nClick below to open the draft resolution document in a **new tab** for review or download:`;
+
+        const requestMsg = {
+            id: 'msg_' + Date.now(),
+            sender: 'bot',
+            text: chatText,
+            docId: docId,
+            type: 'change_of_address_document',
+            viewUrl: viewUrl,
+            downloadUrl: downloadUrl
+        };
+
+        if (!window.biMessagesHistory) window.biMessagesHistory = [];
+        
+        const exists = window.biMessagesHistory.some(m => m.docId === docId && m.type === 'change_of_address_document');
+        if (!exists) {
+            window.biMessagesHistory.push(requestMsg);
+        }
+
+        window.biShowThreadsView = false;
+        window.showBusinessAiAssistant();
     };
 
     window._adminFetchUnreadMessagesCount = async function() {
@@ -1403,11 +1449,20 @@ document.addEventListener('DOMContentLoaded', () => {
     window._adminFetchNotifications = async function() {
         try {
             const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
-            const adminId = auth.id || auth.userId || 'staff-admin';
-            const res = await fetch(`/api/notifications?clientId=${adminId}`);
+            const adminId = auth.id || auth.userId || 'admin';
+            const res = await fetch(`/api/notifications?clientId=${encodeURIComponent(adminId)}`);
             if (res.ok) {
                 const data = await res.json();
-                window._adminNotifications = Array.isArray(data) ? data : (data.notifications || []);
+                const fetched = Array.isArray(data) ? data : (data.notifications || []);
+                const existing = window._adminNotifications || [];
+                const mergedMap = new Map();
+                fetched.forEach(n => mergedMap.set(n.id, n));
+                existing.forEach(n => {
+                    if (!mergedMap.has(n.id)) {
+                        mergedMap.set(n.id, n);
+                    }
+                });
+                window._adminNotifications = Array.from(mergedMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
                 window._adminRenderNotifications();
             }
         } catch(e) { /* silently fail */ }
@@ -1498,7 +1553,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.appendChild(toast);
         setTimeout(() => {
             if (toast.parentNode) toast.remove();
-        }, 5000);
+        }, 15000);
     };
 
     // --- Quick Chat Popup Injector ---

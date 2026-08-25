@@ -7182,14 +7182,40 @@ function toggleAIAssistant() {
     }
 }
 
-async function handleAISend() {
+async function handleAISend(overrideText) {
     const input = document.getElementById('ai-input');
-    const msg = input.value.trim();
+    const msg = (overrideText !== undefined ? overrideText : input.value).trim();
     if (!msg) return;
 
     appendAIMessage('user', msg);
-    input.value = '';
+    if (overrideText === undefined) {
+        input.value = '';
+    }
 
+    // 1. Check if user typed cancel during an active flow
+    if (state.clientChatFlow && state.clientChatFlow.active) {
+        const cleanLower = msg.toLowerCase();
+        if (cleanLower === 'cancel' || cleanLower === 'stop' || cleanLower === 'exit' || cleanLower === 'cancel request') {
+            state.clientChatFlow = null;
+            appendAIMessage('bot', '❌ Request cancelled. How else can I assist you today?');
+            return;
+        }
+
+        // Process step in active flow
+        if (state.clientChatFlow.flowName === 'CHANGE_OF_ADDRESS') {
+            await processChangeOfAddressStep(msg);
+            return;
+        }
+    }
+
+    // 2. Check if user wants to initiate Change of Registered Address flow
+    const m = msg.toLowerCase();
+    if (m.includes('change address') || m.includes('change of address') || m.includes('update address') || m.includes('registered address') || m.includes('relocate office')) {
+        startChangeOfAddressFlow();
+        return;
+    }
+
+    // 3. Fallback to standard intelligence endpoint query
     const chatBody = document.getElementById('ai-chat-body');
     const typing = document.createElement('div');
     typing.id = 'ai-typing-indicator';
@@ -7203,10 +7229,20 @@ async function handleAISend() {
             state.clientAiThreadId = localStorage.getItem('globalisor_client_ai_thread_id') || ('th_client_' + Date.now());
             localStorage.setItem('globalisor_client_ai_thread_id', state.clientAiThreadId);
         }
-        let url = '/api/admin/intelligence/ask?q=' + encodeURIComponent(msg) + '&threadId=' + encodeURIComponent(state.clientAiThreadId);
-        if (state.clientAiCompany) {
-            url += '&company=' + encodeURIComponent(state.clientAiCompany);
-        }
+        
+        const activeCompany = (state.user && state.user.companyName) ||
+            (state.requirements && state.requirements.excelData && state.requirements.excelData.companyName) ||
+            state.clientAiCompany ||
+            '3B Trading & Consulting Pte. Ltd.';
+        state.clientAiCompany = activeCompany;
+
+        const userEmail = (state.user && state.user.email) ? state.user.email : 'contact@3btradingconsultingpteltd.com';
+
+        let url = '/api/admin/intelligence/ask?q=' + encodeURIComponent(msg) +
+            '&threadId=' + encodeURIComponent(state.clientAiThreadId) +
+            '&company=' + encodeURIComponent(activeCompany) +
+            '&userId=' + encodeURIComponent(userEmail);
+
         const res = await fetch(url);
         if (res.ok) {
             const data = await res.json();
@@ -7230,26 +7266,301 @@ async function handleAISend() {
     appendAIMessage('bot', response);
 }
 
-function appendAIMessage(sender, text) {
+// --- Guided Workflow State Machine for Client Portal Chat Agent ---
+
+window.handleAIQuickAction = function(actionKey) {
+    if (actionKey === 'change_address') {
+        startChangeOfAddressFlow();
+    } else if (actionKey === 'compliance') {
+        appendAIMessage('user', 'Check Compliance Status');
+        appendAIMessage('bot', generateAIResponse('compliance'));
+    }
+};
+
+function startChangeOfAddressFlow() {
+    state.clientChatFlow = {
+        active: true,
+        flowName: 'CHANGE_OF_ADDRESS',
+        step: 1,
+        data: {
+            newAddress: '',
+            effectiveDate: '',
+            officeHours: '',
+            addressProofDoc: '',
+            awaitingCustomDate: false,
+            awaitingCustomHours: false
+        }
+    };
+
+    const promptText = `📍 **Change of Registered Office Address Request**
+
+I will guide you step-by-step through updating your company's registered address with ACRA.
+
+---
+**Step 1 of 4: New Address**
+Please enter your **New Registered Office Address** (including Street Name, Unit #, and Postal Code):`;
+
+    const options = [
+        { label: '❌ Cancel Request', action: "handleAIFlowChoice('cancel')" }
+    ];
+
+    appendAIMessageWithOptions('bot', promptText, options);
+}
+
+async function processChangeOfAddressStep(msg) {
+    const flow = state.clientChatFlow;
+    if (!flow) return;
+
+    // Step 1: New Address Input
+    if (flow.step === 1) {
+        flow.data.newAddress = msg;
+        flow.step = 2;
+
+        const promptText = `✅ **New Registered Address Recorded:**
+\`${flow.data.newAddress}\`
+
+---
+**Step 2 of 4: Effective Date of Address**
+1. Do you have a preferred effective date for the change of registered office address?`;
+
+        const options = [
+            { label: '📅 Yes - Enter Effective Date', action: "handleAIFlowChoice('step2_yes')" },
+            { label: '📄 No - Date of Resolution', action: "handleAIFlowChoice('step2_no')" },
+            { label: '❌ Cancel Request', action: "handleAIFlowChoice('cancel')" }
+        ];
+
+        appendAIMessageWithOptions('bot', promptText, options);
+        return;
+    }
+
+    // Step 2: Custom Effective Date Input
+    if (flow.step === 2 && flow.data.awaitingCustomDate) {
+        flow.data.effectiveDate = msg;
+        flow.data.awaitingCustomDate = false;
+        flow.step = 3;
+        await promptStep3OfficeHours();
+        return;
+    }
+
+    // Step 3: Custom Office Hours Input
+    if (flow.step === 3 && flow.data.awaitingCustomHours) {
+        flow.data.officeHours = msg;
+        flow.data.awaitingCustomHours = false;
+        flow.step = 4;
+        await promptStep4AddressProof();
+        return;
+    }
+
+    // Step 4: Address Proof Document Confirmation or Text Upload
+    if (flow.step === 4) {
+        flow.data.addressProofDoc = msg;
+        await finalizeChangeOfAddressFlow();
+    }
+}
+
+async function promptStep3OfficeHours() {
+    const flow = state.clientChatFlow;
+    const promptText = `✅ **Effective Date:** \`${flow.data.effectiveDate}\`
+
+---
+**Step 3 of 4: Registered Office Hours**
+Any change in Registered office hours and days?`;
+
+    const options = [
+        { label: '🕒 Yes - Specify Days & Hours', action: "handleAIFlowChoice('step3_yes')" },
+        { label: '🏢 No - No Change', action: "handleAIFlowChoice('step3_no')" },
+        { label: '❌ Cancel Request', action: "handleAIFlowChoice('cancel')" }
+    ];
+
+    appendAIMessageWithOptions('bot', promptText, options);
+}
+
+async function promptStep4AddressProof() {
+    const flow = state.clientChatFlow;
+    const promptText = `✅ **Registered Office Hours:** \`${flow.data.officeHours}\`
+
+---
+**Step 4 of 4: Upload Address Proof**
+Please upload your address proof document. Accepted documents:
+1. **Tenancy agreement / lease agreement**
+2. **Recent utility bill / property-related document**
+3. **Letter from the landlord/property owner** confirming the company can use the address`;
+
+    const customContentHtml = `
+        <div class="mt-3 p-3 bg-blue-50/80 border border-blue-200 rounded-xl space-y-2">
+            <p class="text-[11px] font-semibold text-blue-900">Attach or drag your proof document below:</p>
+            <button onclick="triggerAIChatFileUpload()" class="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-2 shadow-sm transition">
+                <span>📎</span> Attach Address Proof Document
+            </button>
+            <p class="text-[10px] text-slate-500 text-center">Formats: PDF, PNG, JPG, DOCX (Max 15MB)</p>
+        </div>
+    `;
+
+    const options = [
+        { label: '❌ Cancel Request', action: "handleAIFlowChoice('cancel')" }
+    ];
+
+    appendAIMessageWithOptions('bot', promptText, options, customContentHtml);
+}
+
+window.handleAIFlowChoice = async function(choiceKey) {
+    const flow = state.clientChatFlow;
+    if (!flow || !flow.active) return;
+
+    if (choiceKey === 'cancel') {
+        state.clientChatFlow = null;
+        appendAIMessage('user', 'Cancel Request');
+        appendAIMessage('bot', '❌ Request cancelled. Let me know if you need anything else!');
+        return;
+    }
+
+    if (choiceKey === 'step2_yes') {
+        appendAIMessage('user', 'Yes - Enter Effective Date');
+        flow.data.awaitingCustomDate = true;
+        appendAIMessage('bot', 'Please enter your preferred effective date for the address change (e.g. `2026-09-01` or `1st September 2026`):');
+        return;
+    }
+
+    if (choiceKey === 'step2_no') {
+        appendAIMessage('user', 'No - Date of Resolution');
+        flow.data.effectiveDate = 'Date of Resolution';
+        flow.step = 3;
+        await promptStep3OfficeHours();
+        return;
+    }
+
+    if (choiceKey === 'step3_yes') {
+        appendAIMessage('user', 'Yes - Specify Days & Hours');
+        flow.data.awaitingCustomHours = true;
+        appendAIMessage('bot', 'Please enter your company operating days and hours (e.g. `Mon-Fri, 9:00 AM - 5:00 PM`):');
+        return;
+    }
+
+    if (choiceKey === 'step3_no') {
+        appendAIMessage('user', 'No - No Change');
+        flow.data.officeHours = 'No change (Standard Business Hours)';
+        flow.step = 4;
+        await promptStep4AddressProof();
+        return;
+    }
+};
+
+window.triggerAIChatFileUpload = function() {
+    const fileInput = document.getElementById('ai-file-input');
+    if (fileInput) fileInput.click();
+};
+
+window.handleAIChatFileUpload = async function(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    appendAIMessage('user', `📎 Attached File: ${file.name}`);
+    if (state.clientChatFlow && state.clientChatFlow.flowName === 'CHANGE_OF_ADDRESS' && state.clientChatFlow.step === 4) {
+        state.clientChatFlow.data.addressProofDoc = file.name;
+        await finalizeChangeOfAddressFlow();
+    }
+};
+
+async function finalizeChangeOfAddressFlow() {
+    const flow = state.clientChatFlow;
+    if (!flow) return;
+
+    const data = flow.data;
+    const chatBody = document.getElementById('ai-chat-body');
+    const typing = document.createElement('div');
+    typing.id = 'ai-typing-indicator';
+    typing.className = 'flex gap-3 animate-pulse';
+    typing.innerHTML = '<div class="bg-white/60 p-4 rounded-2xl rounded-tl-none text-xs text-slate-400 font-semibold">Sending request notification to Admin team...</div>';
+    chatBody.appendChild(typing);
+    chatBody.scrollTop = chatBody.scrollHeight;
+
+    let resData = null;
+    try {
+        const clientCompany = (state.user && state.user.companyName) ||
+            (state.requirements && state.requirements.excelData && state.requirements.excelData.companyName) ||
+            state.clientAiCompany ||
+            '3B Trading & Consulting Pte. Ltd.';
+
+        const payload = {
+            userId: (state.user && state.user.email) ? state.user.email : 'contact@3btradingconsultingpteltd.com',
+            companyName: clientCompany,
+            newAddress: data.newAddress,
+            effectiveDate: data.effectiveDate,
+            officeHours: data.officeHours,
+            addressProofDoc: data.addressProofDoc
+        };
+
+        const res = await fetch('/api/admin/intelligence/submit-address-change', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            resData = await res.json();
+        }
+    } catch(err) {
+        console.error("Error submitting address change request:", err);
+    }
+
+    const typeEl = document.getElementById('ai-typing-indicator');
+    if (typeEl) typeEl.remove();
+
+    const completionText = `🎉 **Change of Registered Office Address Request Submitted!**
+
+Your request and address proof document have been sent to our Corporate Secretarial Admin team.
+
+---
+**Summary of Submitted Request:**
+• **New Address:** \`${data.newAddress}\`
+• **Effective Date:** \`${data.effectiveDate}\`
+• **Registered Office Hours:** \`${data.officeHours}\`
+• **Address Proof:** \`${data.addressProofDoc || 'Attached File'}\`
+• **Status:** \`Submitted to Admin (Pending Review & Draft Generation)\`
+
+---
+🔔 **Next Steps:**
+Our Corporate Secretarial Admin team has received a high-priority notification. An officer will review your submitted details, generate the official draft DRIW resolution document, and send it directly to you here in the chat once prepared!`;
+
+    appendAIMessage('bot', completionText);
+    state.clientChatFlow = null;
+}
+
+function appendAIMessageWithOptions(sender, text, options = [], customHtml = '') {
     const chatBody = document.getElementById('ai-chat-body');
     const div = document.createElement('div');
     div.className = `flex gap-3 ${sender === 'user' ? 'flex-row-reverse' : ''}`;
     
-    let formatted = text || '';
-    if (sender !== 'user') {
-        formatted = formatted.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-md transition no-underline my-1.5">$1 ↗</a>')
-                             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                             .replace(/`([^`]+)`/g, '<code class="bg-slate-100 px-1 py-0.5 rounded text-blue-700 font-mono text-xs">$1</code>')
-                             .replace(/\n/g, '<br>');
+    let formatted = (text || '')
+        .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-md transition no-underline my-1.5">$1 ↗</a>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code class="bg-slate-100 px-1.5 py-0.5 rounded text-blue-700 font-mono text-xs">$1</code>')
+        .replace(/\n/g, '<br>');
+
+    let optionsHtml = '';
+    if (options && options.length > 0) {
+        optionsHtml = `<div class="flex flex-wrap gap-2 pt-3 border-t border-slate-100 mt-3">
+            ${options.map(opt => `
+                <button onclick="${opt.action}" class="px-3 py-1.5 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition shadow-2xs">
+                    ${opt.label}
+                </button>
+            `).join('')}
+        </div>`;
     }
 
     div.innerHTML = `
-        <div class="${sender === 'user' ? 'bg-blue-600 text-white shadow-blue-200' : 'bg-white/90 text-slate-800 border border-white/60'} p-4 rounded-2xl ${sender === 'user' ? 'rounded-tr-none' : 'rounded-tl-none'} text-xs leading-relaxed shadow-sm">
-            ${formatted}
+        <div class="${sender === 'user' ? 'bg-blue-600 text-white shadow-blue-200' : 'bg-white/90 text-slate-800 border border-white/60'} p-4 rounded-2xl ${sender === 'user' ? 'rounded-tr-none' : 'rounded-tl-none'} text-xs leading-relaxed shadow-sm space-y-2">
+            <div>${formatted}</div>
+            ${customHtml}
+            ${optionsHtml}
         </div>
     `;
     chatBody.appendChild(div);
     chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+function appendAIMessage(sender, text) {
+    appendAIMessageWithOptions(sender, text, []);
 }
 
 function generateAIResponse(msg) {
@@ -7296,9 +7607,7 @@ You can allocate share percentages for individual or corporate shareholders in S
     }
 
     if (m.includes('address') || m.includes('registered address')) {
-        return `Your company must have a physical registered address in Singapore. We provide a premium registered address at **Globalisor Address** which is selected by default in your incorporation package. 
-
-You can review or change this in the Onboarding Journey.`;
+        return `Your company must have a physical registered address in Singapore. You can request a **Change of Registered Office Address** directly here with me by typing "Change Address" or clicking **Change Registered Address** below.`;
     }
 
     if (m.includes('document') || m.includes('upload')) {
@@ -7315,6 +7624,7 @@ You can review or change this in the Onboarding Journey.`;
 
     return "That's a great question about Singapore business operations. I'll need a moment to verify the latest ACRA guidelines, or I can connect you with a human expert in the Support Desk.";
 }
+
 
 // --- Legacy Function Wrappers (Kept for compatibility) ---
 
