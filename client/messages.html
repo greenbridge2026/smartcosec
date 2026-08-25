@@ -3,56 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enterprise Workspace | Globalisor Client</title>
+    <title>Messages & Chat | Globalisor Client</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'], outfit: ['Outfit', 'sans-serif'] }
+        if (typeof tailwind !== 'undefined') {
+            tailwind.config = {
+                theme: {
+                    extend: {
+                        fontFamily: { sans: ['Inter', 'sans-serif'], outfit: ['Outfit', 'sans-serif'] }
+                    }
                 }
             }
         }
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <link rel="stylesheet" href="portal-style.css">
     <style>
-        body { 
-            font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #f8fafc;
-            min-height: 100vh;
-            overflow-x: hidden; 
-        }
-        .top-nav { height: 60px; background: #ffffff; backdrop-filter: blur(20px); border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1.5rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
-        .main-container { padding: 1.5rem; max-width: 1800px; margin-left: 240px !important; margin-right: auto; }
-        .module-nav-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #64748b; transition: all 0.2s; cursor: pointer !important; border: none; background: transparent; white-space: nowrap; width: 100% !important; box-sizing: border-box !important; }
-        .module-nav-btn:hover { color: #0f172a; background: #ffffff; }
-        .module-nav-btn.active { color: #0f172a; background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-        
-        .top-nav > div:nth-child(2), #module-switcher {
-            position: fixed !important;
-            top: 60px !important;
-            left: 0 !important;
-            width: 240px !important;
-            height: calc(100vh - 60px) !important;
-            background: #ffffff !important;
-            backdrop-filter: blur(20px) !important;
-            border-right: 1px solid #e2e8f0 !important;
-            border-top: none !important;
-            border-left: none !important;
-            border-bottom: none !important;
-            border-radius: 0 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            padding: 1.5rem 1rem !important;
-            gap: 0.5rem !important;
-            align-items: stretch !important;
-            justify-content: flex-start !important;
-            z-index: 9998 !important;
-            box-shadow: none !important;
-        }
         .ws-filter-btn.active {
             background: #eff6ff !important;
             color: #1d4ed8 !important;
@@ -68,47 +37,52 @@
         }
     </style>
     <script src="/messages-enhancements.js"></script>
+    <script type="module" src="client-sidebar.js"></script>
     <script>
         const authString = localStorage.getItem('client_auth');
         if (!authString) {
             window.location.href = '/login.html';
-        } else {
-            (async function() {
-                try {
-                    const token = localStorage.getItem('token');
-                    const reqRes = await fetch('/api/requirements', { headers: { 'Authorization': 'Bearer ' + token } });
-                    if (reqRes.ok) {
-                        const reqData = await reqRes.json();
-                        if (reqData.status !== 'approved') {
-                            window.location.href = '/requirements.html';
-                        }
-                    } else {
-                        window.location.href = '/requirements.html';
-                    }
-                } catch (e) {
-                    window.location.href = '/requirements.html';
-                }
-            })();
         }
         const auth = authString ? JSON.parse(authString) : null;
     </script>
 </head>
 <body>
     <nav class="top-nav">
-        <div class="flex items-center gap-4">
-            <div class="flex flex-col leading-none cursor-pointer" onclick="window.location.href='portal.html'">
-                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Client</span>
-                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Portal</span>
+        <!-- Logo & Client Company Context Header -->
+        <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='portal.html?tab=home'" title="Go to Dashboard">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-extrabold text-base shadow-lg shadow-blue-500/20">
+                G
+            </div>
+            <div class="flex flex-col leading-tight">
+                <span id="header-company-name" class="font-outfit font-extrabold text-slate-900 text-sm tracking-tight truncate max-w-[180px] sm:max-w-[260px] lg:max-w-[320px]">Globalisor Entity</span>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                    <span id="header-client-id" class="font-mono text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded">C-CLIENT</span>
+                    <span id="header-status-badge" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Active
+                    </span>
+                </div>
             </div>
         </div>
-        <div id="module-switcher" class="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-white/80">
-            <button onclick="window.location.href='portal.html?tab=home'" class="module-nav-btn" id="nav-home"><i data-lucide="layout-grid" class="w-4 h-4 shrink-0"></i> Dashboard</button>
-            <button onclick="window.location.href='portal.html?tab=billing'" class="module-nav-btn" id="nav-billing"><i data-lucide="credit-card" class="w-4 h-4 shrink-0"></i> Billing</button>
-            <button onclick="window.location.href='portal.html?tab=updates'" class="module-nav-btn" id="nav-updates"><i data-lucide="zap" class="w-4 h-4 shrink-0"></i> Blogs</button>
-            <button onclick="window.location.href='messages.html'" class="module-nav-btn active" id="nav-messages"><i data-lucide="message-square" class="w-4 h-4 shrink-0"></i> Messages</button>
+
+        <!-- Module Navigation Tabs -->
+        <div id="module-switcher" class="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-white/80 shadow-sm overflow-x-auto">
+            <button onclick="window.location.href='portal.html?tab=home'" class="module-nav-btn" id="nav-home"><i data-lucide="home" class="w-4 h-4"></i> <span>Dashboard</span></button>
+            <button onclick="window.location.href='portal.html?tab=profile'" class="module-nav-btn" id="nav-profile"><i data-lucide="building" class="w-4 h-4"></i> <span>Company Profile</span></button>
+            <button onclick="window.location.href='portal.html?tab=compliance'" class="module-nav-btn" id="nav-compliance"><i data-lucide="shield-check" class="w-4 h-4"></i> <span>Compliance</span></button>
+            <button onclick="window.location.href='messages.html'" class="module-nav-btn active" id="nav-messages"><i data-lucide="message-square" class="w-4 h-4"></i> <span>Messages & Chat</span></button>
+            <button onclick="window.location.href='portal.html?tab=onboarding'" class="module-nav-btn" id="nav-onboarding"><i data-lucide="clipboard-list" class="w-4 h-4"></i> <span>Onboarding</span></button>
+            <button onclick="window.location.href='portal.html?tab=documents'" class="module-nav-btn" id="nav-documents"><i data-lucide="file-text" class="w-4 h-4"></i> <span>Documents</span></button>
+            <button onclick="window.location.href='portal.html?tab=directors'" class="module-nav-btn" id="nav-directors"><i data-lucide="users" class="w-4 h-4"></i> <span>Directors & Shareholders</span></button>
+            <button onclick="window.location.href='portal.html?tab=tasks'" class="module-nav-btn" id="nav-tasks"><i data-lucide="check-square" class="w-4 h-4"></i> <span>Tasks</span></button>
+            <button onclick="window.location.href='portal.html?tab=billing'" class="module-nav-btn" id="nav-billing"><i data-lucide="credit-card" class="w-4 h-4"></i> <span>Billing & Invoices</span></button>
+            <button onclick="window.location.href='portal.html?tab=blogs'" class="module-nav-btn" id="nav-blogs"><i data-lucide="rss" class="w-4 h-4"></i> <span>Blogs</span></button>
+            <button onclick="window.location.href='portal.html?tab=settings'" class="module-nav-btn" id="nav-settings"><i data-lucide="settings" class="w-4 h-4"></i> <span>Settings</span></button>
         </div>
+
+        <!-- Right Utilities & User Profile -->
         <div class="flex items-center justify-end gap-3 relative">
-            <div id="client-presence-selector" class="relative mr-4">
+            <div id="client-presence-selector" class="relative mr-2">
                 <button onclick="togglePresenceMenu()" class="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors">
                     <span id="current-presence-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
                     <span id="current-presence-text">Online</span>
@@ -124,7 +98,7 @@
                 <i data-lucide="bell" class="w-5 h-5"></i>
                 <span id="notif-badge" class="absolute top-1 right-1 min-w-[16px] h-4 px-1 bg-red-500 rounded-full border-2 border-white text-[9px] font-bold text-white flex items-center justify-center hidden" style="line-height:12px;"></span>
             </button>
-            <div id="notif-dropdown" class="absolute top-14 right-0 w-80 bg-white rounded-2xl border border-slate-100 shadow-2xl overflow-hidden hidden z-50 transition-all duration-200 transform origin-top-right scale-95 opacity-0">
+            <div id="notif-dropdown" class="absolute top-14 right-24 w-80 bg-white rounded-2xl border border-slate-100 shadow-2xl overflow-hidden hidden z-50 transition-all duration-200 transform origin-top-right scale-95 opacity-0">
                 <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                     <span class="text-xs font-bold text-slate-900 font-outfit">Notifications Center</span>
                     <button onclick="markAllNotificationsAsRead(event)" class="text-[10px] text-blue-600 font-bold hover:underline border-0 bg-transparent cursor-pointer">Mark all read</button>
@@ -134,9 +108,10 @@
                 </div>
             </div>
             <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
-                <div class="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-xs" id="user-avatar-text">MA</div>
-                <div class="flex flex-col">
-                    <div class="text-xs font-semibold text-slate-800" id="user-name">Client User</div>
+                <div id="user-avatar-text" class="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-slate-200 uppercase">CL</div>
+                <div class="hidden sm:flex flex-col">
+                    <span id="user-name" class="text-xs font-extrabold text-slate-900 leading-none mb-1">Client User</span>
+                    <span id="user-email" class="text-[10px] text-slate-400 font-semibold leading-none mb-1 truncate max-w-[150px]">client@globalisor.com</span>
                     <button onclick="localStorage.removeItem('client_auth'); localStorage.removeItem('token'); window.location.href='/login.html'" class="text-[10px] text-red-500 font-bold hover:underline text-left leading-none border-0 bg-transparent cursor-pointer">Sign Out</button>
                 </div>
             </div>
@@ -425,7 +400,7 @@
                                 realUserId: staffUser.id,
                                 name: staffUser.name,
                                 role: 'staff',
-                                companyName: staffUser.email,
+                                companyName: getDisplayCompanyName(staffUser),
                                 applicationId: 'Assigned Specialist',
                                 lastMessage: 'Direct specialist channel',
                                 lastMessageTime: 0,
@@ -459,7 +434,7 @@
                             realUserId: u.id,
                             name: u.name,
                             role: u.role.toLowerCase(),
-                            companyName: u.email || 'Staff/Admin Contact',
+                            companyName: getDisplayCompanyName(u),
                             applicationId: 'Internal Specialist',
                             lastMessage: 'No messages yet - Click to start conversation',
                             lastMessageTime: 0,
@@ -1916,10 +1891,30 @@
             }
         }
 
-        // --- Utility JSON parsers ---
+        // --- Utility JSON & String parsers ---
+        function getDisplayCompanyName(u) {
+            if (!u) return 'Registered Contact';
+            if (u.companyName && u.companyName.trim() && !u.companyName.includes('+') && !u.companyName.includes('=')) {
+                return u.companyName;
+            }
+            if (u.email && u.email.includes('@') && !u.email.includes('+') && !u.email.includes('=')) {
+                return u.email;
+            }
+            const roleUpper = (u.role || '').toUpperCase();
+            if (roleUpper === 'ADMIN') return 'Globalisor Support Team';
+            if (roleUpper === 'STAFF') return (u.department ? u.department + ' Staff' : 'Globalisor Staff');
+            return 'Client Portal User';
+        }
+
         function parseMessageText(text) {
-            if (text && text.startsWith('{') && text.endsWith('}')) {
-                try { return JSON.parse(text); } catch(e){}
+            if (!text) return { text: '', reactions: {}, attachments: [] };
+            if (typeof text === 'object') return text;
+            const str = String(text).trim();
+            if (str.startsWith('{') && str.endsWith('}')) {
+                try {
+                    const parsed = JSON.parse(str);
+                    if (parsed && typeof parsed.text !== 'undefined') return parsed;
+                } catch(e){}
             }
             return { text: text, reactions: {}, attachments: [] };
         }
@@ -2075,7 +2070,17 @@
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('user-name').innerText = myName;
-            document.getElementById('user-avatar-text').innerText = myName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2) || 'MA';
+            const initials = myName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2) || 'CL';
+            document.getElementById('user-avatar-text').innerText = initials;
+            
+            const userEmailEl = document.getElementById('user-email');
+            if (userEmailEl && auth && auth.email) userEmailEl.innerText = auth.email;
+            
+            const compNameEl = document.getElementById('header-company-name');
+            if (compNameEl && auth && (auth.companyName || auth.name)) compNameEl.innerText = auth.companyName || auth.name;
+
+            const clientIdEl = document.getElementById('header-client-id');
+            if (clientIdEl && auth && auth.id) clientIdEl.innerText = auth.id;
             
             await fetchApplications();
             await fetchUsers();

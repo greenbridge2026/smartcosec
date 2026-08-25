@@ -170,9 +170,15 @@
                 <div class="col-span-3 bg-white border border-slate-200/80 rounded-3xl overflow-hidden flex flex-col shadow-sm">
                     <!-- Search & Filter Area -->
                     <div class="p-3 border-b border-slate-100 bg-slate-50/30 flex flex-col gap-2 shrink-0">
-                        <div class="relative">
-                            <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                            <input type="text" id="chat-search" oninput="handleSearch(this.value)" placeholder="Search workspace..." class="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/10">
+                        <div class="flex items-center gap-2">
+                            <div class="relative flex-1">
+                                <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                <input type="text" id="chat-search" oninput="handleSearch(this.value)" placeholder="Search conversations..." class="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/10">
+                            </div>
+                            <button onclick="openNewChatModal()" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 transition-all shadow-sm cursor-pointer border-0" title="Start new conversation with client">
+                                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                                <span>New</span>
+                            </button>
                         </div>
                         <div class="flex gap-2 justify-between">
                             <select id="filter-role" onchange="handleRoleFilter(this.value)" class="text-[10px] font-bold text-slate-500 bg-white border border-slate-200 rounded px-1.5 py-1 focus:outline-none">
@@ -384,9 +390,9 @@
                         id: c.clientId,
                         name: c.clientName,
                         role: 'client',
-                        companyName: clientApp ? clientApp.business : 'Individual client',
+                        companyName: clientApp ? clientApp.business : (clientUser ? getDisplayCompanyName(clientUser) : 'Individual client'),
                         applicationId: clientApp ? clientApp.id : 'N/A',
-                        lastMessage: c.lastMessage,
+                        lastMessage: parseMessageTextOnly(c.lastMessage),
                         lastMessageTime: c.lastMessageTime,
                         unreadCount: c.unreadCount,
                         isOnline: c.isOnline,
@@ -423,7 +429,7 @@
                         memberIds: g.memberIds
                     });
                 });
-                // 3. Map all staff, admin, and client contacts (Direct Messages)
+                // 3. Map staff & admin internal team contacts + manually selected new chat contacts
                 allUsersList.forEach(u => {
                     if (u.id === myId) return;
                     
@@ -435,31 +441,38 @@
                     if (!exists) {
                         const userNotes = localStorage.getItem(`notes_${myId}_${chatId}`) || '';
                         const hasDraft = localStorage.getItem(`draft_${myId}_${chatId}`);
-                        const onlineStatus = presenceStatusMap[u.id] || 'offline';
+                        const isManuallyStarted = activeNewChatContacts.has(u.id) || activeNewChatContacts.has(chatId);
                         
-                        list.push({
-                            id: chatId,
-                            realUserId: u.id,
-                            name: u.name,
-                            role: isClient ? 'client' : u.role.toLowerCase(),
-                            companyName: u.email || 'Registered Contact',
-                            applicationId: isClient ? 'Client Portal' : 'Internal Portal',
-                            lastMessage: 'No messages yet - Click to start conversation',
-                            lastMessageTime: 0,
-                            unreadCount: 0,
-                            isOnline: onlineStatus === 'online',
-                            presenceStatus: onlineStatus,
-                            lastSeen: null,
-                            priority: 'Normal',
-                            notes: userNotes,
-                            hasDraft: !!hasDraft,
-                            isGroup: false
-                        });
+                        // Show in list ONLY if it is an internal staff/admin contact OR if client was manually picked / has drafts/notes
+                        if (!isClient || isManuallyStarted || hasDraft || userNotes) {
+                            const onlineStatus = presenceStatusMap[u.id] || 'offline';
+                            
+                            list.push({
+                                id: chatId,
+                                realUserId: u.id,
+                                name: u.name,
+                                role: isClient ? 'client' : u.role.toLowerCase(),
+                                companyName: getDisplayCompanyName(u),
+                                applicationId: isClient ? 'Client Portal' : 'Internal Portal',
+                                lastMessage: 'No messages yet - Click to start conversation',
+                                lastMessageTime: 0,
+                                unreadCount: 0,
+                                isOnline: onlineStatus === 'online',
+                                presenceStatus: onlineStatus,
+                                lastSeen: null,
+                                priority: 'Normal',
+                                notes: userNotes,
+                                hasDraft: !!hasDraft,
+                                isGroup: false
+                            });
+                        }
                     }
                 });
 
-                // Fetch latest messages from DB for channels and DMs to populate last message metadata accurately
-                for (let item of list) {
+                // Fetch latest messages in parallel only for items requiring metadata updates
+                await Promise.all(list.map(async (item) => {
+                    // Skip redundant network call if conversation metadata is already loaded from backend
+                    if (item.lastMessageTime && item.lastMessageTime > 0) return;
                     try {
                         const msgRes = await fetch(`/api/messages?clientId=${item.id}`);
                         if (msgRes.ok) {
@@ -478,7 +491,7 @@
                             }
                         }
                     } catch(e){}
-                }
+                }));
 
                 // --- Apply Workspace Filters ---
                 const archivedList = JSON.parse(localStorage.getItem('archived_' + myId) || '[]');
@@ -2044,10 +2057,30 @@
             }
         }
 
-        // --- Utility JSON parsers ---
+        // --- Utility JSON & String parsers ---
+        function getDisplayCompanyName(u) {
+            if (!u) return 'Registered Contact';
+            if (u.companyName && u.companyName.trim() && !u.companyName.includes('+') && !u.companyName.includes('=')) {
+                return u.companyName;
+            }
+            if (u.email && u.email.includes('@') && !u.email.includes('+') && !u.email.includes('=')) {
+                return u.email;
+            }
+            const roleUpper = (u.role || '').toUpperCase();
+            if (roleUpper === 'ADMIN') return 'Globalisor Support Team';
+            if (roleUpper === 'STAFF') return (u.department ? u.department + ' Staff' : 'Globalisor Staff');
+            return 'Client Portal User';
+        }
+
         function parseMessageText(text) {
-            if (text && text.startsWith('{') && text.endsWith('}')) {
-                try { return JSON.parse(text); } catch(e){}
+            if (!text) return { text: '', reactions: {}, attachments: [] };
+            if (typeof text === 'object') return text;
+            const str = String(text).trim();
+            if (str.startsWith('{') && str.endsWith('}')) {
+                try {
+                    const parsed = JSON.parse(str);
+                    if (parsed && typeof parsed.text !== 'undefined') return parsed;
+                } catch(e){}
             }
             return { text: text, reactions: {}, attachments: [] };
         }
@@ -2147,19 +2180,16 @@
 
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', async () => {
-            await fetchApplications();
-            await fetchUsers();
-            await fetchDocuments();
+            await Promise.all([fetchApplications(), fetchUsers(), fetchDocuments()]);
             connectWebSocket();
             refreshWorkspace();
             window.Calling.init('admin');
 
             // Set up polling fallback for safety
             setInterval(async () => {
-                await fetchApplications();
-                await fetchDocuments();
+                await Promise.all([fetchApplications(), fetchDocuments()]);
                 refreshWorkspace();
-            }, 6000);
+            }, 10000);
         });
     </script>
 </body>
@@ -2385,4 +2415,110 @@
     document.getElementById('create-group-modal').addEventListener('click', function(e) {
         if (e.target === this) closeCreateGroupModal();
     });
+
+    let activeNewChatContacts = new Set();
+
+    window.openNewChatModal = function() {
+        const modal = document.getElementById('new-chat-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            const searchInput = document.getElementById('new-chat-search');
+            if (searchInput) searchInput.value = '';
+            renderNewChatModalContacts('');
+        }
+    };
+
+    window.closeNewChatModal = function() {
+        const modal = document.getElementById('new-chat-modal');
+        if (modal) modal.classList.add('hidden');
+    };
+
+    window.filterNewChatModalContacts = function(query) {
+        renderNewChatModalContacts(query);
+    };
+
+    window.renderNewChatModalContacts = function(query) {
+        const container = document.getElementById('new-chat-modal-list');
+        if (!container) return;
+        
+        const q = (query || '').toLowerCase().trim();
+        const filtered = allUsersList.filter(u => {
+            if (u.id === myId) return false;
+            if (!q) return true;
+            return (u.name || '').toLowerCase().includes(q) ||
+                   (u.companyName || '').toLowerCase().includes(q) ||
+                   (u.email || '').toLowerCase().includes(q) ||
+                   (u.id || '').toLowerCase().includes(q);
+        });
+
+        if (filtered.length === 0) {
+            container.innerHTML = `<div class="p-8 text-center text-slate-400 text-xs">No matching contacts found</div>`;
+            return;
+        }
+
+        container.innerHTML = filtered.map(u => {
+            const isClient = u.role === 'CLIENT' || u.role === 'USER';
+            const roleLabel = isClient ? 'Client' : (u.role || 'Staff');
+            const roleBadge = isClient ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-purple-50 text-purple-600 border-purple-100';
+            const subtext = getDisplayCompanyName(u);
+
+            return `
+                <div onclick="selectNewChatContact('${u.id}', '${u.name.replace(/'/g, "\\'")}', '${u.role}')" 
+                    class="p-3 hover:bg-blue-50/50 rounded-2xl cursor-pointer transition-all flex items-center justify-between group">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-10 h-10 rounded-xl bg-slate-900 text-white font-extrabold text-xs flex items-center justify-center shrink-0 uppercase">
+                            ${(u.name || 'C').slice(0, 2)}
+                        </div>
+                        <div class="min-w-0">
+                            <div class="font-extrabold text-slate-800 text-xs truncate flex items-center gap-2">
+                                <span>${u.name}</span>
+                                <span class="text-[9px] px-1.5 py-0.2 rounded-md border font-bold uppercase tracking-wider ${roleBadge}">${roleLabel}</span>
+                            </div>
+                            <div class="text-[10px] text-slate-400 truncate mt-0.5">${subtext}</div>
+                        </div>
+                    </div>
+                    <button class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shrink-0 border-0 cursor-pointer">
+                        Start Chat
+                    </button>
+                </div>
+            `;
+        }).join('');
+        if (window.lucide) window.lucide.createIcons();
+    };
+
+    window.selectNewChatContact = function(userId, userName, userRole) {
+        activeNewChatContacts.add(userId);
+        closeNewChatModal();
+        fetchConversations().then(() => {
+            const isClient = userRole === 'CLIENT' || userRole === 'USER';
+            const chatId = isClient ? userId : getOneToOneChatId(myId, userId);
+            handleSelectConversation(chatId, userName, false);
+        });
+    };
+
+    document.getElementById('new-chat-modal')?.addEventListener('click', function(e) {
+        if (e.target === this) closeNewChatModal();
+    });
 </script>
+
+<!-- New Direct Message Modal -->
+<div id="new-chat-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center hidden z-[99999]">
+    <div class="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl border border-slate-100 flex flex-col gap-4 max-h-[85vh] font-outfit">
+        <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+            <div>
+                <h3 class="font-extrabold text-slate-900 text-base">Start New Conversation</h3>
+                <p class="text-xs text-slate-400 mt-0.5">Select a client or team member to initiate a direct message</p>
+            </div>
+            <button onclick="closeNewChatModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-all border-0 cursor-pointer">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+        <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input type="text" id="new-chat-search" oninput="filterNewChatModalContacts(this.value)" placeholder="Search client name, company, email, or ID..." class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/10">
+        </div>
+        <div id="new-chat-modal-list" class="flex-1 overflow-y-auto max-h-[350px] divide-y divide-slate-50">
+            <!-- Rendered by JS -->
+        </div>
+    </div>
+</div>

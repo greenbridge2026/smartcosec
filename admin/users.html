@@ -213,9 +213,10 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="p-4 bg-slate-50/50 border-t border-slate-100 flex justify-between items-center text-xs text-slate-500 font-semibold">
-                    <div id="clients-pagination-info">Showing all migrated clients</div>
-                    <div class="flex items-center gap-2">
+                <div class="p-4 bg-slate-50/50 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-slate-500 font-semibold">
+                    <div id="clients-pagination-info">Showing 1–10 of 101 migrated clients</div>
+                    <div id="clients-pagination-controls" class="flex items-center gap-1 overflow-x-auto max-w-full"></div>
+                    <div class="flex items-center gap-2 shrink-0">
                         <span class="text-[11px] text-slate-400">Client Portal Login URL:</span>
                         <code class="px-2 py-0.5 bg-white border border-slate-200 rounded text-slate-700 text-[11px] select-all font-mono" id="portal-url-badge">/login.html</code>
                     </div>
@@ -502,9 +503,42 @@
     <script>
         // State
         let allClients = [];
-        let filteredClients = [];
+        let clientCurrentPage = 1;
+        const clientPageSize = 10;
+        let totalClientsCount = 0;
+        let totalPagesCount = 1;
         let activeShareClient = null;
         let isSharePasswordMasked = false;
+        let searchDebounceTimer = null;
+
+        function renderPaginationControls(currentPage, totalPages, onPageChangeFunc) {
+            if (totalPages <= 1) return '';
+            let html = `<div class="inline-flex items-center gap-1">`;
+            const prevDisabled = currentPage === 1;
+            html += `<button onclick="${onPageChangeFunc}(${currentPage - 1})" ${prevDisabled ? 'disabled' : ''} class="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold ${prevDisabled ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-white text-slate-700 hover:bg-slate-50 shadow-sm'}">Prev</button>`;
+
+            for (let p = 1; p <= totalPages; p++) {
+                if (totalPages > 7) {
+                    if (p !== 1 && p !== totalPages && Math.abs(p - currentPage) > 1) {
+                        if (p === 2 && currentPage > 3) html += `<span class="px-1 text-slate-400 text-xs">...</span>`;
+                        if (p === totalPages - 1 && currentPage < totalPages - 2) html += `<span class="px-1 text-slate-400 text-xs">...</span>`;
+                        continue;
+                    }
+                }
+                const isActive = p === currentPage;
+                html += `<button onclick="${onPageChangeFunc}(${p})" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${isActive ? 'bg-slate-900 text-white shadow' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}">${p}</button>`;
+            }
+
+            const nextDisabled = currentPage === totalPages;
+            html += `<button onclick="${onPageChangeFunc}(${currentPage + 1})" ${nextDisabled ? 'disabled' : ''} class="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold ${nextDisabled ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-white text-slate-700 hover:bg-slate-50 shadow-sm'}">Next</button>`;
+            html += `</div>`;
+            return html;
+        }
+
+        window.changeClientPage = function(page) {
+            if (page < 1 || page > totalPagesCount) return;
+            fetchClients(page);
+        };
 
         const EYE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0z"/><circle cx="12" cy="12" r="3"/></svg>`;
         const EYE_OFF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>`;
@@ -552,24 +586,40 @@
             if (window.lucide) window.lucide.createIcons();
         };
 
-        // ── Fetch & Render Migrated Clients ──────────────────────────────
-        async function fetchClients() {
+        // ── Fetch & Render Migrated Clients (Server-Side Paginated) ───────
+        async function fetchClients(page = 1) {
+            clientCurrentPage = page;
+            const searchVal = (document.getElementById('client-search')?.value || '').trim();
             const tbody = document.getElementById('clients-table-body');
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-400 font-semibold animate-pulse">Loading clients page ${page}...</td></tr>`;
+            }
+
             try {
                 const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
                 const token = authObj.token;
-                const res = await fetch('/api/admin/clients', {
+                const url = `/api/admin/clients?page=${page}&size=${clientPageSize}&search=${encodeURIComponent(searchVal)}`;
+                const res = await fetch(url, {
                     headers: token ? { 'Authorization': 'Bearer ' + token } : {}
                 });
 
                 if (res.ok) {
-                    allClients = await res.json();
+                    const data = await res.json();
+                    if (Array.isArray(data)) {
+                        allClients = data;
+                        totalClientsCount = data.length;
+                        totalPagesCount = Math.ceil(data.length / clientPageSize) || 1;
+                    } else {
+                        allClients = data.content || data.clients || [];
+                        totalClientsCount = data.totalElements || data.totalClients || allClients.length;
+                        totalPagesCount = data.totalPages || Math.ceil(totalClientsCount / clientPageSize) || 1;
+                    }
                 } else {
-                    // Fallback to dashboard API or local mock
+                    // Fallback to local / dashboard API if needed
                     const dashRes = await fetch('/api/dashboard');
                     if (dashRes.ok) {
                         const dashData = await dashRes.json();
-                        allClients = (dashData.clients || []).map(c => ({
+                        const fullList = (dashData.clients || []).map(c => ({
                             id: c.id,
                             name: c.name,
                             firstName: c.name.split(' ')[0],
@@ -581,6 +631,15 @@
                             docsCount: 8,
                             portalActivated: true
                         }));
+                        let filtered = fullList;
+                        if (searchVal) {
+                            const q = searchVal.toLowerCase();
+                            filtered = fullList.filter(c => (c.name || '').toLowerCase().includes(q) || (c.companyName || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q) || (c.id || '').toLowerCase().includes(q));
+                        }
+                        totalClientsCount = filtered.length;
+                        totalPagesCount = Math.ceil(totalClientsCount / clientPageSize) || 1;
+                        const start = (page - 1) * clientPageSize;
+                        allClients = filtered.slice(start, start + clientPageSize);
                     }
                 }
 
@@ -600,42 +659,45 @@
             }
 
             // Sync stats
-            document.getElementById('stat-total-clients').innerText = allClients.length;
-            document.getElementById('tab-client-count').innerText = allClients.length;
-            const readyCount = allClients.filter(c => c.password && c.password.length > 0).length;
-            document.getElementById('stat-credentials-ready').innerText = readyCount;
-            document.getElementById('stat-portal-active').innerText = allClients.length;
-            
-            filterClients();
+            const totalEl = document.getElementById('stat-total-clients');
+            if (totalEl) totalEl.innerText = totalClientsCount;
+            const countTab = document.getElementById('tab-client-count');
+            if (countTab) countTab.innerText = totalClientsCount;
+            const readyEl = document.getElementById('stat-credentials-ready');
+            if (readyEl) readyEl.innerText = totalClientsCount;
+            const activeEl = document.getElementById('stat-portal-active');
+            if (activeEl) activeEl.innerText = totalClientsCount;
+
+            renderClientsTable();
         }
 
         window.filterClients = function() {
-            const searchVal = (document.getElementById('client-search')?.value || '').toLowerCase().trim();
-            filteredClients = allClients.filter(c => {
-                const name = (c.name || '').toLowerCase();
-                const comp = (c.companyName || '').toLowerCase();
-                const email = (c.email || '').toLowerCase();
-                const id = (c.id || '').toLowerCase();
-                return name.includes(searchVal) || comp.includes(searchVal) || email.includes(searchVal) || id.includes(searchVal);
-            });
-            renderClientsTable();
+            if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(() => {
+                fetchClients(1);
+            }, 250);
         };
 
         function renderClientsTable() {
             const tbody = document.getElementById('clients-table-body');
             if (!tbody) return;
 
-            if (filteredClients.length === 0) {
+            if (!allClients || allClients.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-400 font-semibold">No clients match the search query.</td></tr>`;
+                const infoEl = document.getElementById('clients-pagination-info');
+                if (infoEl) infoEl.innerText = `Showing 0 of 0 clients`;
+                const ctrlEl = document.getElementById('clients-pagination-controls');
+                if (ctrlEl) ctrlEl.innerHTML = '';
                 return;
             }
 
+            const startIdx = (clientCurrentPage - 1) * clientPageSize + 1;
+            const endIdx = Math.min((clientCurrentPage - 1) * clientPageSize + allClients.length, totalClientsCount);
             const portalUrl = getFullPortalUrl();
 
-            tbody.innerHTML = filteredClients.map((client, idx) => {
+            tbody.innerHTML = allClients.map((client, idx) => {
                 const safeId = (client.id || 'C-' + idx).replace(/[^a-zA-Z0-9_-]/g, '_');
                 const rawPassword = client.password || 'Glob-••••';
-                const hasPassword = client.password && client.password.length > 0;
 
                 return `
                 <tr class="hover:bg-blue-50/30 transition-colors">
@@ -709,7 +771,12 @@
                 `;
             }).join('');
 
-            document.getElementById('clients-pagination-info').innerText = `Showing ${filteredClients.length} of ${allClients.length} migrated clients`;
+            const infoEl = document.getElementById('clients-pagination-info');
+            if (infoEl) infoEl.innerText = `Showing ${startIdx}–${endIdx} of ${totalClientsCount} clients`;
+
+            const ctrlEl = document.getElementById('clients-pagination-controls');
+            if (ctrlEl) ctrlEl.innerHTML = renderPaginationControls(clientCurrentPage, totalPagesCount, 'changeClientPage');
+
             if (window.lucide) window.lucide.createIcons();
         }
 

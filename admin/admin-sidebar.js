@@ -134,8 +134,6 @@ function updateActiveSidebarItem(url) {
         if (path.includes('dashboard.html')) {
             if (search.includes('view=clients') || search.includes('tab=clients')) {
                 activeId = 'nav-clients';
-                activeCatId = 'cat-operations';
-                activeSubId = 'sub-operations';
             } else {
                 activeId = 'nav-dashboard';
             }
@@ -157,12 +155,10 @@ function updateActiveSidebarItem(url) {
             activeSubId = 'sub-operations';
         } else if (path.includes('messages.html')) {
             activeId = 'nav-messages';
-            activeCatId = 'cat-communication';
-            activeSubId = 'sub-communication';
         } else if (path.includes('content.html')) {
             activeId = 'nav-content';
-            activeCatId = 'cat-communication';
-            activeSubId = 'sub-communication';
+            activeCatId = 'cat-services';
+            activeSubId = 'sub-services';
         } else if (path.includes('blogs.html')) {
             activeId = 'nav-blogs';
             activeCatId = 'cat-services';
@@ -245,7 +241,6 @@ function updateActiveSidebarItem(url) {
             
             const categoryNames = {
                 'cat-operations': 'Operations',
-                'cat-communication': 'Communication',
                 'cat-services': 'Services',
                 'cat-documents': 'Documents',
                 'cat-analytics': 'Analytics',
@@ -871,6 +866,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="10" rx="1"/><rect width="7" height="5" x="3" y="14" rx="1"/></svg>
                 <span>Dashboard</span>
             </a>
+
+            <!-- Clients (Direct Link) -->
+            <a href="dashboard.html?view=clients" class="direct-link-btn" id="nav-clients" data-tooltip="Clients">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span>Clients</span>
+            </a>
+
+            <!-- Messages (Direct Link) -->
+            <a href="messages.html" class="direct-link-btn" id="nav-messages" data-tooltip="Messages">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <span>Messages</span>
+            </a>
             
             <div class="h-[1px] bg-slate-200/60 my-1 shrink-0"></div>
             
@@ -885,10 +892,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 </button>
                 <div id="sub-operations" class="submenu-wrapper">
                     <div class="submenu-content">
-                        <a href="dashboard.html?view=clients" class="submenu-item" id="nav-clients" data-tooltip="Clients">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                            <span>Clients</span>
-                        </a>
                         <a href="applications.html" class="submenu-item" id="nav-applications" data-tooltip="Applications">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
                             <span>Applications</span>
@@ -905,35 +908,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="m16 16 3-8 3 8c-.87.65-2.24.83-3 .83s-2.13-.18-3-.83Z"/><path d="m2 16 3-8 3 8c-.87.65-2.24.83-3 .83s-2.13-.18-3-.83Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h18"/></svg>
                             <span>Compliance</span>
                         </a>
-                        <a href="ocr-review.html" class="submenu-item" id="nav-ocr-review" data-tooltip="OCR Document Review">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                            <span>OCR Review ⚡</span>
-                        </a>
                     </div>
 
-                </div>
-            </div>
-            
-            <!-- Communication Accordion -->
-            <div class="category-group">
-                <button class="category-btn" id="cat-communication" onclick="window.toggleSubmenu('sub-communication', 'cat-communication')" data-tooltip="Communication">
-                    <span class="flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                        <span>Communication</span>
-                    </span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
-                </button>
-                <div id="sub-communication" class="submenu-wrapper">
-                    <div class="submenu-content">
-                        <a href="messages.html" class="submenu-item" id="nav-messages" data-tooltip="Messages">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                            <span>Messages</span>
-                        </a>
-                        <a href="content.html" class="submenu-item" id="nav-content" data-tooltip="Content">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                            <span>Content</span>
-                        </a>
-                    </div>
                 </div>
             </div>
             
@@ -948,6 +924,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 </button>
                 <div id="sub-services" class="submenu-wrapper">
                     <div class="submenu-content">
+                        <a href="content.html" class="submenu-item" id="nav-content" data-tooltip="Content">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                            <span>Content</span>
+                        </a>
                         <a href="blogs.html" class="submenu-item" id="nav-blogs" data-tooltip="Blogs">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
                             <span>Blogs</span>
@@ -1049,8 +1029,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (path.includes('dashboard.html')) {
         if (search.includes('view=clients') || search.includes('tab=clients')) {
             activeId = 'nav-clients';
-            activeCatId = 'cat-operations';
-            activeSubId = 'sub-operations';
         } else {
             activeId = 'nav-dashboard';
         }
@@ -1072,12 +1050,10 @@ document.addEventListener('DOMContentLoaded', () => {
         activeSubId = 'sub-operations';
     } else if (path.includes('messages.html')) {
         activeId = 'nav-messages';
-        activeCatId = 'cat-communication';
-        activeSubId = 'sub-communication';
     } else if (path.includes('content.html')) {
         activeId = 'nav-content';
-        activeCatId = 'cat-communication';
-        activeSubId = 'sub-communication';
+        activeCatId = 'cat-services';
+        activeSubId = 'sub-services';
     } else if (path.includes('blogs.html')) {
         activeId = 'nav-blogs';
         activeCatId = 'cat-services';
@@ -1164,7 +1140,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const categoryNames = {
             'cat-operations': 'Operations',
-            'cat-communication': 'Communication',
             'cat-services': 'Services',
             'cat-documents': 'Documents',
             'cat-analytics': 'Analytics',
