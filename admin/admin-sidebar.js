@@ -877,6 +877,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <a href="messages.html" class="direct-link-btn" id="nav-messages" data-tooltip="Messages">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 <span>Messages</span>
+                <span id="admin-messages-unread-badge" class="ml-auto px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-600 text-white leading-none hidden">0</span>
             </a>
             
             <div class="h-[1px] bg-slate-200/60 my-1 shrink-0"></div>
@@ -1298,6 +1299,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 badge.style.display = 'none';
             }
         }
+        if (typeof window._adminFetchUnreadMessagesCount === 'function') {
+            window._adminFetchUnreadMessagesCount();
+        }
         if (notifs.length === 0) {
             list.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px;">No notifications yet</div>';
             return;
@@ -1357,6 +1361,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    window._adminFetchUnreadMessagesCount = async function() {
+        try {
+            const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
+            const adminId = auth.id || auth.userId || 'staff-admin';
+
+            let count = 0;
+            const res = await fetch('/api/messages/conversations');
+            if (res.ok) {
+                const convs = await res.json();
+                if (Array.isArray(convs)) {
+                    convs.forEach(c => {
+                        count += (c.unreadCount || 0);
+                    });
+                }
+            }
+
+            if (window._adminNotifications && Array.isArray(window._adminNotifications)) {
+                const notifMsgUnread = window._adminNotifications.filter(n =>
+                    n.type === 'message' && (!n.readBy || !n.readBy.includes(adminId))
+                ).length;
+                if (notifMsgUnread > count) {
+                    count = notifMsgUnread;
+                }
+            }
+
+            const badge = document.getElementById('admin-messages-unread-badge');
+            if (badge) {
+                if (count > 0) {
+                    badge.textContent = count > 99 ? '99+' : count;
+                    badge.classList.remove('hidden');
+                    badge.style.display = 'inline-flex';
+                } else {
+                    badge.classList.add('hidden');
+                    badge.style.display = 'none';
+                }
+            }
+        } catch(e) {}
+    };
+
     window._adminFetchNotifications = async function() {
         try {
             const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
@@ -1368,12 +1411,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 window._adminRenderNotifications();
             }
         } catch(e) { /* silently fail */ }
+        window._adminFetchUnreadMessagesCount();
     };
 
     // Initial fetch + poll every 10s
     window._adminFetchNotifications();
+    window._adminFetchUnreadMessagesCount();
     if (!window._adminNotifInterval) {
-        window._adminNotifInterval = setInterval(window._adminFetchNotifications, 10000);
+        window._adminNotifInterval = setInterval(() => {
+            window._adminFetchNotifications();
+            window._adminFetchUnreadMessagesCount();
+        }, 10000);
     }
 
     // WebSocket listener for real-time notifications
@@ -1392,7 +1440,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ws.onmessage = function(evt) {
                 try {
                     const msg = JSON.parse(evt.data);
-                    if (msg.type === 'notification' || msg.type === 'new_notification') {
+                    if (msg.type === 'notification' || msg.type === 'new_notification' || msg.type === 'new_message' || msg.type === 'chat_message') {
                         const notif = msg.notification || msg;
                         if (notif && notif.title) {
                             if (!notif.readBy) notif.readBy = [];
@@ -1408,6 +1456,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                         }
                     }
+                    window._adminFetchUnreadMessagesCount();
                 } catch(e) {}
             };
             ws.onerror = function() {};

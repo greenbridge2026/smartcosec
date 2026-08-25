@@ -457,6 +457,7 @@ function switchTab(tab) {
         case 'profile':
         case 'company': title.innerText = 'Company Profile'; renderProfile(view, 'overview'); break;
         case 'compliance': title.innerText = 'Statutory Compliance Calendar'; renderComplianceCalendar(view); break;
+        case 'messages': title.innerText = 'Messages & Chat'; window.location.href = 'messages.html'; break;
         case 'documents': title.innerText = 'Company Documents'; renderDocuments(view); break;
         case 'directors': title.innerText = 'Directors & Shareholders Particulars'; renderDirectorsView(view); break;
         case 'tasks': title.innerText = 'Active Tasks & Workflows'; renderServices(view); break;
@@ -4454,20 +4455,31 @@ let cdSelectedShareholderIdx = 0;
 let cdSelectedUboIdx = 0;
 
 window.switchCdHeaderTab = function(tabKey) {
-    cdActiveTab = tabKey;
-    const tabs = ['overview', 'aml', 'directors', 'secretaries', 'auditors', 'members', 'ubos', 'allotments', 'rons', 'transfers', 'documents', 'compliance', 'activities'];
+    let targetKey = tabKey;
+    if (tabKey === 'shareholders') targetKey = 'members';
+    if (tabKey === 'controllers') targetKey = 'ubos';
+
+    cdActiveTab = targetKey;
+    try {
+        localStorage.setItem('portal_active_subtab', targetKey);
+        const url = new URL(window.location);
+        url.searchParams.set('subtab', targetKey);
+        window.history.replaceState({}, '', url);
+    } catch (e) {}
+
+    const tabs = ['overview', 'aml', 'directors', 'secretaries', 'auditors', 'members', 'shareholders', 'ubos', 'controllers', 'allotments', 'rons', 'transfers', 'documents', 'compliance', 'activities'];
     tabs.forEach(t => {
-        const btn = document.getElementById('cd-tab-' + t);
+        const btn = document.getElementById('cd-tab-' + t) || (t === 'members' ? document.getElementById('cd-tab-shareholders') : null);
         const panel = document.getElementById('cd-panel-' + t);
         if (btn) {
-            if (t === tabKey) {
+            if (t === targetKey || t === tabKey) {
                 btn.className = 'cd-tab-btn px-2 lg:px-3 py-2.5 text-blue-600 border-b-2 border-blue-600 whitespace-nowrap transition-all font-extrabold text-[11px] lg:text-xs';
             } else {
                 btn.className = 'cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500 text-[11px] lg:text-xs';
             }
         }
         if (panel) {
-            if (t === tabKey) {
+            if (t === targetKey || t === tabKey) {
                 panel.classList.remove('hidden');
             } else {
                 panel.classList.add('hidden');
@@ -4605,9 +4617,6 @@ window.cdSelectDirector = function(idx) {
                     <p class="text-[10px] text-slate-400 font-medium mt-0.5">${dType}</p>
                 </div>
             </div>
-            <button onclick="alert('Edit Details')" class="px-3 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-                Edit Details
-            </button>
         </div>
 
         <div class="space-y-6">
@@ -4699,68 +4708,80 @@ window.cdSelectDirector = function(idx) {
 window.cdSelectSecretary = function(idx) {
     cdSelectedSecretaryIdx = idx;
     const reqData = (state.requirements && state.requirements.excelData) ? state.requirements.excelData : (state.requirements || {});
+    const companyName = reqData.companyName || (state.user && state.user.companyName) || '3B Trading & Consulting Pte. Ltd.';
     const secretaries = (reqData.secretaries && reqData.secretaries.length > 0) ? reqData.secretaries : [
         {
-            name: 'PIYUSH KUMAR CHAPLOT',
+            name: 'Piyush Kumar Chaplot',
             type: 'Secretary',
             idNumber: 'S7980739G',
             nationality: 'Singaporean',
-            appointmentDate: '2025-01-09',
+            appointmentDate: '2020-03-30',
+            resignationDate: '—',
             email: 'piyush.kumar.chaplot@corporatesg.com',
             mobile: '+65 9123 4567',
             address: '#13-12, 3 Rhu Cross, Singapore 437433',
-            acraNo: 'S7980739G',
+            acraNo: '',
             qualification: 'ACIS (Chartered Secretary)',
             experience: '10+ Years',
             registeredAddress: '#13-12, 3 Rhu Cross, Singapore 437433',
-            status: 'ACTIVE'
+            status: 'Active'
         },
         {
-            name: 'BU WENLIANG',
+            name: 'Kalyanasundaram Maran',
             type: 'Primary',
             idNumber: 'S8912345B',
             nationality: 'SINGAPORE CITIZEN',
-            appointmentDate: '2024-08-07',
-            email: 'bu.wenliang@corporatesg.com',
+            appointmentDate: '2016-01-25',
+            resignationDate: '2020-03-30',
+            email: 'kalyanasundaram.maran@corporatesg.com',
             mobile: '+65 9876 5432',
             address: '37A TOH CRESCENT SINGAPORE 507947',
-            acraNo: 'AC20160012',
+            acraNo: '',
             qualification: 'Chartered Secretary',
             experience: '8 Years',
             registeredAddress: '37A TOH CRESCENT SINGAPORE 507947',
-            status: 'RESIGNED'
-        },
-        {
-            name: 'TAN SONG WEI',
-            type: 'Secretary',
-            idNumber: 'S9012345C',
-            nationality: 'SINGAPORE CITIZEN',
-            appointmentDate: '2024-08-07',
-            email: 'tan.song.wei@corporatesg.com',
-            mobile: '+65 9123 9999',
-            address: '10 ANSON ROAD SINGAPORE 079903',
-            acraNo: 'AC20160015',
-            qualification: 'Chartered Secretary',
-            experience: '6 Years',
-            registeredAddress: '10 ANSON ROAD SINGAPORE 079903',
-            status: 'RESIGNED'
+            status: 'Resigned'
         }
     ];
     const s = secretaries[idx] || secretaries[0];
     const panel = document.getElementById('cd-secretary-details-panel');
     if (!panel) return;
 
+    // Dynamically update left list card highlights
+    const listContainer = document.getElementById('cd-secretaries-list-container');
+    if (listContainer) {
+        const cards = listContainer.querySelectorAll('.cd-secretary-card');
+        cards.forEach((c, cIdx) => {
+            if (cIdx === idx) {
+                c.className = 'cd-secretary-card p-4 bg-white rounded-2xl border border-blue-500 ring-2 ring-blue-500/10 hover:border-blue-300 transition-all cursor-pointer shadow-sm';
+            } else {
+                c.className = 'cd-secretary-card p-4 bg-white rounded-2xl border border-slate-100 hover:border-blue-300 transition-all cursor-pointer shadow-sm';
+            }
+        });
+    }
+
     const sName = s.name || s.fullName || s.secretaryName || 'Secretary';
+    const isPiyush = sName.toLowerCase().includes('piyush');
     const sType = s.type || s.position || s.role || 'Company Secretary';
-    const sStatus = (s.status || 'ACTIVE').toUpperCase();
-    const sId = s.idNumber || s.idNo || s.nric || s.passport || s.id || '—';
-    const sNat = s.nationality || '—';
+    const sId = s.idNumber || s.idNo || s.nric || s.passport || s.id || (isPiyush ? 'S7980739G' : 'S8912345B');
+    const sNat = s.nationality || (isPiyush ? 'Singaporean' : 'SINGAPORE CITIZEN');
     const sDob = s.dob || s.dateOfBirth || '—';
-    const sAppDate = s.appointmentDate || s.dateAppointed || '—';
-    const sEmail = s.email || '—';
-    const sMobile = s.mobile || s.phone || '—';
-    const sAddress = s.address || s.residentialAddress || '—';
+    const sAppDate = s.appointmentDate || s.dateAppointed || (isPiyush ? '2020-03-30' : '2016-01-25');
+    const sEmail = s.email || s.emailAddress || s.contactEmail || s.userEmail || `${(sName || '').toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.')}@corporatesg.com`;
+    const sMobile = s.mobile || s.phone || s.phoneNumber || s.contactNumber || s.mobileNo || (isPiyush ? '+65 9123 4567' : '+65 9876 5432');
+    const sQual = s.qualification || (isPiyush ? 'ACIS (Chartered Secretary)' : 'Chartered Secretary');
+    const sExp = s.experience || (isPiyush ? '10+ Years' : '8 Years');
+    const sAcra = (s.acraNo && s.acraNo !== '—' && s.acraNo !== '-') ? s.acraNo : (s.acra && s.acra !== '—' && s.acra !== '-' ? s.acra : '');
+    const sAddress = s.address || s.residentialAddress || (isPiyush ? '#13-12, 3 Rhu Cross, Singapore 437433' : '37A TOH CRESCENT SINGAPORE 507947');
     const sRegAddress = s.registeredAddress || sAddress;
+
+    const sResDate = s.resignationDate || s.dateResigned || '—';
+    const hasResigned = !!(sResDate && String(sResDate).trim() !== '' && String(sResDate) !== '—');
+    const isResigned = hasResigned || (s.status && String(s.status).trim().toUpperCase() === 'RESIGNED');
+    const sStatus = isResigned ? 'RESIGNED' : 'ACTIVE';
+    const statusBadgeClass = isResigned 
+        ? 'bg-slate-100 text-slate-600 border-slate-200' 
+        : 'bg-emerald-50 text-emerald-600 border-emerald-100';
 
     panel.innerHTML = `
         <div class="flex justify-between items-start border-b border-slate-100 pb-4">
@@ -4772,14 +4793,11 @@ window.cdSelectSecretary = function(idx) {
                     <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
                         ${sName}
                         <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-slate-100 text-slate-700 border border-slate-200">${sType}</span>
-                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">${sStatus}</span>
+                        <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase ${statusBadgeClass}">${sStatus}</span>
                     </h3>
-                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">Appointed on: ${sAppDate} &bull; Resigned on: &mdash;</p>
+                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">Appointed on: ${sAppDate} &bull; Resigned on: ${sResDate}</p>
                 </div>
             </div>
-            <button onclick="alert('Edit Details')" class="px-3 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-                Edit Details
-            </button>
         </div>
 
         <div class="space-y-6">
@@ -4795,13 +4813,13 @@ window.cdSelectSecretary = function(idx) {
                     <div class="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-4">
                         <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-100 pb-2">Personal Details</h4>
                         <div class="space-y-3 text-[11px]">
-                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Full Name</span><span class="font-extrabold text-slate-900">${s.name || '—'}</span></div>
-                            <div class="flex justify-between"><span class="text-slate-400 font-medium">NRIC / Passport No.</span><span class="font-mono font-extrabold text-slate-900">${s.idNumber || '—'}</span></div>
-                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Nationality</span><span class="font-bold text-slate-900">${s.nationality || '—'}</span></div>
-                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Date of Birth</span><span class="font-bold text-slate-900">${s.dob || '&mdash;'}</span></div>
-                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Email</span><span class="font-bold text-blue-600">${s.email || '—'}</span></div>
-                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Phone Number</span><span class="font-bold text-slate-900">${s.mobile || '—'}</span></div>
-                            <div><span class="text-slate-400 font-medium block">Residential Address</span><span class="font-medium text-slate-800 leading-relaxed">${s.address || '—'}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Full Name</span><span class="font-extrabold text-slate-900">${sName}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">NRIC / Passport No.</span><span class="font-mono font-extrabold text-slate-900">${sId}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Nationality</span><span class="font-bold text-slate-900">${sNat}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Date of Birth</span><span class="font-bold text-slate-900">${sDob}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Email</span><span class="font-bold text-blue-600">${sEmail}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Contact Number</span><span class="font-bold text-slate-900">${sMobile}</span></div>
+                            <div><span class="text-slate-400 font-medium block">Residential Address</span><span class="font-medium text-slate-800 leading-relaxed">${sAddress}</span></div>
                         </div>
                     </div>
 
@@ -4809,10 +4827,11 @@ window.cdSelectSecretary = function(idx) {
                     <div class="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-4">
                         <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-100 pb-2">Professional Details</h4>
                         <div class="space-y-3 text-[11px]">
-                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Appointment Type</span><span class="font-bold text-slate-900">Company Secretary</span></div>
-                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Qualification</span><span class="font-bold text-slate-900">${s.qualification || 'ACIS (Chartered Secretary)'}</span></div>
-                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Experience</span><span class="font-bold text-slate-900">${s.experience || '10+ Years'}</span></div>
-                            <div><span class="text-slate-400 font-medium block">Registered Address</span><span class="font-medium text-slate-800 leading-relaxed">${s.registeredAddress || s.address}</span></div>
+                            ${(sAcra && sAcra !== '—' && sAcra !== '-') ? `<div class="flex justify-between"><span class="text-slate-400 font-medium">ACRA Registered No.</span><span class="font-bold text-slate-900">${sAcra}</span></div>` : ''}
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Appointment Type</span><span class="font-bold text-slate-900">${sType === 'Primary' ? 'Primary Company Secretary' : 'Company Secretary'}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Qualification</span><span class="font-bold text-slate-900">${sQual}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-400 font-medium">Experience</span><span class="font-bold text-slate-900">${sExp}</span></div>
+                            <div><span class="text-slate-400 font-medium block">Registered Address</span><span class="font-medium text-slate-800 leading-relaxed">${sRegAddress}</span></div>
                         </div>
                     </div>
                 </div>
@@ -4842,10 +4861,10 @@ window.cdSelectSecretary = function(idx) {
                         </thead>
                         <tbody class="divide-y divide-slate-100 text-slate-800 font-semibold">
                             <tr>
-                                <td class="p-3 font-extrabold text-slate-900">ADACTIN GROUP PTE. LTD.</td>
-                                <td class="p-3 text-slate-600">Company Secretary</td>
-                                <td class="p-3 font-mono">2025-01-09</td>
-                                <td class="p-3"><span class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-emerald-50 text-emerald-600 border border-emerald-100">Active</span></td>
+                                <td class="p-3 font-extrabold text-slate-900">${companyName}</td>
+                                <td class="p-3 text-slate-600">${sType === 'Primary' ? 'Primary Company Secretary' : 'Company Secretary'}</td>
+                                <td class="p-3 font-mono">${sAppDate}</td>
+                                <td class="p-3"><span class="px-2 py-0.5 rounded text-[9px] font-extrabold uppercase ${statusBadgeClass}">${sStatus}</span></td>
                             </tr>
                         </tbody>
                     </table>
@@ -4854,6 +4873,464 @@ window.cdSelectSecretary = function(idx) {
         </div>
     `;
     if (window.lucide) window.lucide.createIcons();
+};
+
+window.cdFilterSecretariesList = function() {
+    const searchInput = document.getElementById('cd-secretary-search-input');
+    const statusSelect = document.getElementById('cd-secretary-status-filter');
+    const searchVal = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    const statusFilter = statusSelect ? statusSelect.value : 'all';
+
+    const reqData = (state.requirements && state.requirements.excelData) ? state.requirements.excelData : (state.requirements || {});
+    const secretaries = (reqData.secretaries && reqData.secretaries.length > 0) ? reqData.secretaries : [
+        {
+            name: 'Piyush Kumar Chaplot',
+            type: 'Secretary',
+            idNumber: 'S7980739G',
+            nationality: 'Singaporean',
+            appointmentDate: '2020-03-30',
+            resignationDate: '—',
+            email: 'piyush.kumar.chaplot@corporatesg.com',
+            mobile: '+65 9123 4567',
+            address: '#13-12, 3 Rhu Cross, Singapore 437433',
+            acraNo: '',
+            qualification: 'ACIS (Chartered Secretary)',
+            experience: '10+ Years',
+            registeredAddress: '#13-12, 3 Rhu Cross, Singapore 437433',
+            status: 'Active'
+        },
+        {
+            name: 'Kalyanasundaram Maran',
+            type: 'Primary',
+            idNumber: 'S8912345B',
+            nationality: 'SINGAPORE CITIZEN',
+            appointmentDate: '2016-01-25',
+            resignationDate: '2020-03-30',
+            email: 'kalyanasundaram.maran@corporatesg.com',
+            mobile: '+65 9876 5432',
+            address: '37A TOH CRESCENT SINGAPORE 507947',
+            acraNo: '',
+            qualification: 'Chartered Secretary',
+            experience: '8 Years',
+            registeredAddress: '37A TOH CRESCENT SINGAPORE 507947',
+            status: 'Resigned'
+        }
+    ];
+    const container = document.getElementById('cd-secretaries-list-container');
+    if (!container) return;
+
+    container.innerHTML = secretaries.map((s, idx) => {
+        const sName = s.name || s.fullName || s.secretaryName || 'Secretary';
+        const sEmail = s.email || s.emailAddress || s.contactEmail || s.userEmail || '';
+        const sRes = s.resignationDate || s.dateResigned;
+        const hasRes = !!(sRes && String(sRes).trim() !== '' && String(sRes) !== '—');
+        const isRes = hasRes || (s.status && String(s.status).trim().toUpperCase() === 'RESIGNED');
+        const sStat = isRes ? 'RESIGNED' : 'ACTIVE';
+        const statusVal = isRes ? 'Resigned' : 'Active';
+
+        const matchesSearch = sName.toLowerCase().includes(searchVal) || sEmail.toLowerCase().includes(searchVal);
+        const matchesFilter = statusFilter === 'all' || statusVal === statusFilter;
+
+        if (!matchesSearch || !matchesFilter) return '';
+
+        const badgeCls = isRes ? 'bg-slate-100 text-slate-600 border-slate-200' : 'bg-emerald-50 text-emerald-600 border-emerald-100';
+        return `
+            <div onclick="cdSelectSecretary(${idx})" class="cd-secretary-card p-4 bg-white rounded-2xl border ${idx === cdSelectedSecretaryIdx ? 'border-blue-500 ring-2 ring-blue-500/10' : 'border-slate-100'} hover:border-blue-300 transition-all cursor-pointer shadow-sm">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-extrabold text-xs flex items-center justify-center shrink-0">
+                        ${(sName || 'S').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between gap-1 mb-1">
+                            <span class="font-extrabold text-slate-900 text-xs truncate">${sName}</span>
+                            <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase ${badgeCls}">${sStat}</span>
+                        </div>
+                        <p class="text-[10px] text-blue-600 font-semibold truncate">${s.email || s.qualification || s.acraNo || 'Active Secretary'}</p>
+                        <p class="text-[10px] text-slate-400 font-medium mt-1">Appointed on: ${s.appointmentDate || '—'}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+};
+
+window.cdOpenAddSecretaryModal = function() {
+    const modalHtml = `
+        <div id="add-secretary-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+            <div class="bg-white rounded-3xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+                <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 class="font-extrabold text-slate-900 text-lg">Add New Secretary</h3>
+                    <button type="button" onclick="window.cdCloseAddSecretaryModal()" class="text-slate-400 hover:text-slate-600 transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <form id="add-secretary-form" onsubmit="window.cdSubmitAddSecretary(event)" class="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Secretary Full Name</label>
+                        <input type="text" id="add-sec-name" required placeholder="Lim Shu Qing" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Secretary Type</label>
+                            <select id="add-sec-type" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition cursor-pointer">
+                                <option value="Primary">Primary</option>
+                                <option value="Secretary">Secretary</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">ACRA Registered No.</label>
+                            <input type="text" id="add-sec-acra" required placeholder="AC2021XXXX567" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nationality</label>
+                            <input type="text" id="add-sec-nationality" required placeholder="Singapore Citizen" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Date of Birth</label>
+                            <input type="date" id="add-sec-dob" required class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email Address</label>
+                            <input type="email" id="add-sec-email" required placeholder="shuqing.lim@corporatesg.com" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Contact Number</label>
+                            <input type="text" id="add-sec-mobile" required placeholder="+65 9123 4567" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Qualification</label>
+                            <input type="text" id="add-sec-qualification" required placeholder="ACIS (Chartered Secretary)" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Experience</label>
+                            <input type="text" id="add-sec-experience" required placeholder="10+ Years" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Appointment Date</label>
+                            <input type="date" id="add-sec-appoint" required class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">NRIC / Passport ID</label>
+                            <input type="text" id="add-sec-id" required placeholder="S1234567A" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Registered Address</label>
+                        <textarea id="add-sec-address" required rows="3" placeholder="Enter residential/registered address" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition leading-relaxed"></textarea>
+                    </div>
+                    <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 -mx-6 -mb-6">
+                        <button type="button" onclick="window.cdCloseAddSecretaryModal()" class="px-5 py-2 border border-slate-200 text-slate-500 hover:bg-slate-100 font-bold rounded-xl text-xs transition-colors">
+                            Cancel
+                        </button>
+                        <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-lg shadow-blue-600/20">
+                            Add Secretary
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    const div = document.createElement('div');
+    div.id = 'cd-add-secretary-modal-wrapper';
+    div.innerHTML = modalHtml;
+    document.body.appendChild(div);
+};
+
+window.cdCloseAddSecretaryModal = function() {
+    const wrapper = document.getElementById('cd-add-secretary-modal-wrapper');
+    if (wrapper) wrapper.remove();
+};
+
+window.cdSubmitAddSecretary = function(event) {
+    event.preventDefault();
+    if (!state.requirements) state.requirements = {};
+    if (!state.requirements.excelData) state.requirements.excelData = {};
+    if (!state.requirements.excelData.secretaries) {
+        state.requirements.excelData.secretaries = [
+            {
+                name: 'Piyush Kumar Chaplot',
+                type: 'Secretary',
+                idNumber: 'S7980739G',
+                nationality: 'Singaporean',
+                appointmentDate: '2020-03-30',
+                resignationDate: '—',
+                email: 'piyush.kumar.chaplot@corporatesg.com',
+                mobile: '+65 9123 4567',
+                address: '#13-12, 3 Rhu Cross, Singapore 437433',
+                acraNo: 'S7980739G',
+                qualification: 'ACIS (Chartered Secretary)',
+                experience: '10+ Years',
+                registeredAddress: '#13-12, 3 Rhu Cross, Singapore 437433',
+                status: 'Active'
+            },
+            {
+                name: 'Kalyanasundaram Maran',
+                type: 'Primary',
+                idNumber: 'S8912345B',
+                nationality: 'SINGAPORE CITIZEN',
+                appointmentDate: '2016-01-25',
+                resignationDate: '2020-03-30',
+                email: 'kalyanasundaram.maran@corporatesg.com',
+                mobile: '+65 9876 5432',
+                address: '37A TOH CRESCENT SINGAPORE 507947',
+                acraNo: 'AC20160012',
+                qualification: 'Chartered Secretary',
+                experience: '8 Years',
+                registeredAddress: '37A TOH CRESCENT SINGAPORE 507947',
+                status: 'Resigned'
+            }
+        ];
+    }
+
+    const newSec = {
+        name: document.getElementById('add-sec-name').value,
+        type: document.getElementById('add-sec-type').value,
+        acraNo: document.getElementById('add-sec-acra').value,
+        nationality: document.getElementById('add-sec-nationality').value,
+        dob: document.getElementById('add-sec-dob').value,
+        email: document.getElementById('add-sec-email').value,
+        mobile: document.getElementById('add-sec-mobile').value,
+        qualification: document.getElementById('add-sec-qualification').value,
+        experience: document.getElementById('add-sec-experience').value,
+        appointmentDate: document.getElementById('add-sec-appoint').value,
+        resignationDate: '—',
+        idNumber: document.getElementById('add-sec-id').value,
+        address: document.getElementById('add-sec-address').value,
+        registeredAddress: document.getElementById('add-sec-address').value,
+        status: 'Active'
+    };
+
+    state.requirements.excelData.secretaries.push(newSec);
+    window.cdCloseAddSecretaryModal();
+    if (window.cdFilterSecretariesList) window.cdFilterSecretariesList();
+    cdSelectSecretary(state.requirements.excelData.secretaries.length - 1);
+};
+
+window.cdOpenEditSecretaryModal = function(index) {
+    const reqData = (state.requirements && state.requirements.excelData) ? state.requirements.excelData : (state.requirements || {});
+    const secretaries = (reqData.secretaries && reqData.secretaries.length > 0) ? reqData.secretaries : [
+        {
+            name: 'Piyush Kumar Chaplot',
+            type: 'Secretary',
+            idNumber: 'S7980739G',
+            nationality: 'Singaporean',
+            appointmentDate: '2020-03-30',
+            resignationDate: '—',
+            email: 'piyush.kumar.chaplot@corporatesg.com',
+            mobile: '+65 9123 4567',
+            address: '#13-12, 3 Rhu Cross, Singapore 437433',
+            acraNo: '',
+            qualification: 'ACIS (Chartered Secretary)',
+            experience: '10+ Years',
+            registeredAddress: '#13-12, 3 Rhu Cross, Singapore 437433',
+            status: 'Active'
+        },
+        {
+            name: 'Kalyanasundaram Maran',
+            type: 'Primary',
+            idNumber: 'S8912345B',
+            nationality: 'SINGAPORE CITIZEN',
+            appointmentDate: '2016-01-25',
+            resignationDate: '2020-03-30',
+            email: 'kalyanasundaram.maran@corporatesg.com',
+            mobile: '+65 9876 5432',
+            address: '37A TOH CRESCENT SINGAPORE 507947',
+            acraNo: '',
+            qualification: 'Chartered Secretary',
+            experience: '8 Years',
+            registeredAddress: '37A TOH CRESCENT SINGAPORE 507947',
+            status: 'Resigned'
+        }
+    ];
+
+    const s = secretaries[index] || secretaries[0];
+    if (!s) return;
+
+    const sName = s.name || s.fullName || s.secretaryName || '';
+    const isPiyush = sName.toLowerCase().includes('piyush');
+    const sType = s.type || s.position || s.role || (isPiyush ? 'Secretary' : 'Primary');
+    const sAcra = (s.acraNo && s.acraNo !== '—' && s.acraNo !== '-') ? s.acraNo : (s.acra && s.acra !== '—' && s.acra !== '-' ? s.acra : '');
+    const sNat = s.nationality || (isPiyush ? 'Singaporean' : 'SINGAPORE CITIZEN');
+    const sDob = s.dob || s.dateOfBirth || '—';
+    const sEmail = s.email || s.emailAddress || s.contactEmail || s.userEmail || `${(sName || '').toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.')}@corporatesg.com`;
+    const sMobile = s.mobile || s.phone || s.phoneNumber || s.contactNumber || s.mobileNo || (isPiyush ? '+65 9123 4567' : '+65 9876 5432');
+    const sQual = s.qualification || (isPiyush ? 'ACIS (Chartered Secretary)' : 'Chartered Secretary');
+    const sExp = s.experience || (isPiyush ? '10+ Years' : '8 Years');
+    const sAppDate = s.appointmentDate || s.dateAppointed || (isPiyush ? '2020-03-30' : '2016-01-25');
+    const sResDate = s.resignationDate || s.dateResigned;
+    const hasRes = !!(sResDate && String(sResDate).trim() !== '' && String(sResDate) !== '—');
+    const isRes = hasRes || (s.status && String(s.status).trim().toUpperCase() === 'RESIGNED');
+    const sStatus = isRes ? 'Resigned' : 'Active';
+    const sAddress = s.registeredAddress || s.address || (isPiyush ? '#13-12, 3 Rhu Cross, Singapore 437433' : '37A TOH CRESCENT SINGAPORE 507947');
+
+    const modalHtml = `
+        <div id="edit-secretary-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+            <div class="bg-white rounded-3xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+                <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 class="font-extrabold text-slate-900 text-lg">Edit Secretary Details</h3>
+                    <button type="button" onclick="window.cdCloseEditSecretaryModal()" class="text-slate-400 hover:text-slate-600 transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <form id="edit-secretary-form" onsubmit="window.cdSubmitEditSecretary(event, ${index})" class="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Secretary Full Name</label>
+                        <input type="text" id="edit-sec-name" required value="${sName}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Secretary Type</label>
+                            <select id="edit-sec-type" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition cursor-pointer">
+                                <option value="Primary" ${sType === 'Primary' ? 'selected' : ''}>Primary</option>
+                                <option value="Secretary" ${sType !== 'Primary' ? 'selected' : ''}>Secretary</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">ACRA Registered No.</label>
+                            <input type="text" id="edit-sec-acra" required value="${sAcra}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nationality</label>
+                            <input type="text" id="edit-sec-nationality" required value="${sNat}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Date of Birth</label>
+                            <input type="text" id="edit-sec-dob" required value="${sDob}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email Address</label>
+                            <input type="email" id="edit-sec-email" required value="${sEmail}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Contact Number</label>
+                            <input type="text" id="edit-sec-mobile" required value="${sMobile}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Qualification</label>
+                            <input type="text" id="edit-sec-qualification" required value="${sQual}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Experience</label>
+                            <input type="text" id="edit-sec-experience" required value="${sExp}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Appointment Date</label>
+                            <input type="text" id="edit-sec-appoint" required value="${sAppDate}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Status</label>
+                            <select id="edit-sec-status" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition cursor-pointer">
+                                <option value="Active" ${sStatus === 'Active' ? 'selected' : ''}>Active</option>
+                                <option value="Resigned" ${sStatus === 'Resigned' ? 'selected' : ''}>Resigned</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Registered Address</label>
+                        <textarea id="edit-sec-address" required rows="3" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition leading-relaxed">${sAddress}</textarea>
+                    </div>
+                    <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 -mx-6 -mb-6">
+                        <button type="button" onclick="window.cdCloseEditSecretaryModal()" class="px-5 py-2 border border-slate-200 text-slate-500 hover:bg-slate-100 font-bold rounded-xl text-xs transition-colors">
+                            Cancel
+                        </button>
+                        <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-lg shadow-blue-600/20">
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    const div = document.createElement('div');
+    div.id = 'cd-edit-secretary-modal-wrapper';
+    div.innerHTML = modalHtml;
+    document.body.appendChild(div);
+};
+
+window.cdCloseEditSecretaryModal = function() {
+    const wrapper = document.getElementById('cd-edit-secretary-modal-wrapper');
+    if (wrapper) wrapper.remove();
+};
+
+window.cdSubmitEditSecretary = function(event, index) {
+    event.preventDefault();
+    if (!state.requirements) state.requirements = {};
+    if (!state.requirements.excelData) state.requirements.excelData = {};
+    if (!state.requirements.excelData.secretaries) {
+        state.requirements.excelData.secretaries = [
+            {
+                name: 'Piyush Kumar Chaplot',
+                type: 'Secretary',
+                idNumber: 'S7980739G',
+                nationality: 'Singaporean',
+                appointmentDate: '2020-03-30',
+                resignationDate: '—',
+                email: 'piyush.kumar.chaplot@corporatesg.com',
+                mobile: '+65 9123 4567',
+                address: '#13-12, 3 Rhu Cross, Singapore 437433',
+                acraNo: '',
+                qualification: 'ACIS (Chartered Secretary)',
+                experience: '10+ Years',
+                registeredAddress: '#13-12, 3 Rhu Cross, Singapore 437433',
+                status: 'Active'
+            },
+            {
+                name: 'Kalyanasundaram Maran',
+                type: 'Primary',
+                idNumber: 'S8912345B',
+                nationality: 'SINGAPORE CITIZEN',
+                appointmentDate: '2016-01-25',
+                resignationDate: '2020-03-30',
+                email: 'kalyanasundaram.maran@corporatesg.com',
+                mobile: '+65 9876 5432',
+                address: '37A TOH CRESCENT SINGAPORE 507947',
+                acraNo: '',
+                qualification: 'Chartered Secretary',
+                experience: '8 Years',
+                registeredAddress: '37A TOH CRESCENT SINGAPORE 507947',
+                status: 'Resigned'
+            }
+        ];
+    }
+
+    const statusVal = document.getElementById('edit-sec-status').value;
+
+    state.requirements.excelData.secretaries[index] = {
+        ...state.requirements.excelData.secretaries[index],
+        name: document.getElementById('edit-sec-name').value,
+        type: document.getElementById('edit-sec-type').value,
+        acraNo: document.getElementById('edit-sec-acra').value,
+        email: document.getElementById('edit-sec-email').value,
+        mobile: document.getElementById('edit-sec-mobile').value,
+        nationality: document.getElementById('edit-sec-nationality').value,
+        dob: document.getElementById('edit-sec-dob').value,
+        qualification: document.getElementById('edit-sec-qualification').value,
+        experience: document.getElementById('edit-sec-experience').value,
+        appointmentDate: document.getElementById('edit-sec-appoint').value,
+        status: statusVal,
+        address: document.getElementById('edit-sec-address').value,
+        registeredAddress: document.getElementById('edit-sec-address').value
+    };
+
+    window.cdCloseEditSecretaryModal();
+    if (window.cdFilterSecretariesList) window.cdFilterSecretariesList();
+    cdSelectSecretary(index);
 };
 
 window.cdSelectShareholder = function(idx) {
@@ -4929,9 +5406,6 @@ window.cdSelectShareholder = function(idx) {
                     <p class="text-[10px] text-slate-400 font-medium mt-0.5">Shareholder ID: ${mId} &bull; Added on: ${mDate}</p>
                 </div>
             </div>
-            <button onclick="alert('Edit Details')" class="px-3 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-                Edit Details
-            </button>
         </div>
 
         <div class="space-y-6">
@@ -5042,64 +5516,112 @@ window.switchUboSubTab = function(tabName) {
     }
 };
 
+function getNormalizedControllers(reqData, companyName = '', uen = '') {
+    reqData = reqData || {};
+    const rawControllers = reqData.controllers || (reqData.excelData ? reqData.excelData.controllers : []) || [];
+    const cleanCompNameCtrl = (companyName || '').toLowerCase().trim();
+    const cleanCompUenCtrl = (uen || '').toLowerCase().trim();
+
+    const visibleControllers = [];
+    rawControllers.forEach((c) => {
+        const cNameStr = String(c.name || '').trim();
+        const cleanCName = cNameStr.toLowerCase();
+        const isHeaderRow = 
+            cleanCName === cleanCompNameCtrl ||
+            cleanCName === cleanCompUenCtrl ||
+            cleanCName === 'name' ||
+            cleanCName === 'controller name' ||
+            cleanCName === 'name of controller';
+
+        if (!isHeaderRow && cNameStr !== '') {
+            let pct = "50.00";
+            if (c.ownershipPercentage) {
+                pct = String(c.ownershipPercentage).replace(/[^0-9.]/g, '').trim();
+            } else if (c.ownershipPct) {
+                pct = String(c.ownershipPct).replace(/[^0-9.]/g, '').trim();
+            } else if (c.remarks && String(c.remarks).includes('%')) {
+                pct = String(c.remarks).replace(/[^0-9.]/g, '').trim();
+            }
+            if (!pct || pct === "0.00" || pct === "0") {
+                pct = "50.00";
+            }
+
+            visibleControllers.push({
+                name: cNameStr,
+                role: c.role || "Ultimate Beneficial Owner",
+                status: c.status || "Active",
+                idType: c.idType || (c.idNumber && String(c.idNumber).startsWith('S') ? "NRIC" : "Passport / FIN"),
+                idNumber: c.idNumber || c.idNo || c.nric || c.passport || "—",
+                nationality: c.nationality || "—",
+                dob: c.dob || c.dateOfBirth || "—",
+                email: c.email || c.emailAddress || `${(cNameStr || '').toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.')}@email.com`,
+                mobile: c.mobile || c.phone || c.contactNumber || "+65 9123 4567",
+                address: c.address || c.residentialAddress || "—",
+                ownershipPct: c.ownershipPct || pct,
+                interestNature: c.interestNature || "Direct Ownership",
+                votingRights: c.votingRights || (c.ownershipPct || pct),
+                controlType: c.controlType || "Ownership of Shares",
+                controlBasis: c.controlBasis || "Shareholding",
+                dateSince: c.dateSince || c.dateOfEntry || c.appointmentDate || "—",
+                pep: c.pep || "No",
+                relatedParty: c.relatedParty || "No",
+                sourceOfWealth: c.sourceOfWealth || "Business Income",
+                purposeOfOwnership: c.purposeOfOwnership || "Investment",
+                remarks: c.remarks || "—"
+            });
+        }
+    });
+
+    if (visibleControllers.length > 0) return visibleControllers;
+
+    return [
+        {
+            name: 'PANDIKADAVIL UNNIKRISHNAN JAYAPRAKASH',
+            role: 'Ultimate Beneficial Owner',
+            status: 'Active',
+            idType: 'NRIC',
+            idNumber: 'S27145758',
+            nationality: 'SINGAPORE CITIZEN',
+            dob: '1965-04-24',
+            email: 'jp@1ge.sg',
+            mobile: '6598177292',
+            address: '37A TOH CRESCENT SINGAPORE 507947',
+            ownershipPct: '99.99',
+            interestNature: 'Direct Ownership',
+            votingRights: '99.99',
+            controlType: 'Ownership of Shares & Voting Rights',
+            controlBasis: 'Holds > 75% of share capital & voting power',
+            dateSince: '2013-05-01',
+            pep: 'No',
+            relatedParty: 'No',
+            sourceOfWealth: 'Business Income',
+            purposeOfOwnership: 'Principal Founder & Major Shareholder',
+            remarks: 'Verified ultimate controller of 3B Trading & Consulting Pte. Ltd.'
+        }
+    ];
+}
+
 window.cdSelectUbo = function(idx) {
     cdSelectedUboIdx = idx;
     const reqData = (state.requirements && state.requirements.excelData) ? state.requirements.excelData : (state.requirements || {});
-    const controllers = (reqData.controllers && reqData.controllers.length > 0) ? reqData.controllers : [
-        {
-            name: 'BHATIA SAPNA',
-            role: 'Ultimate Beneficial Owner',
-            ownershipPct: '50',
-            votingRights: '50%',
-            controlType: 'Ownership of Shares',
-            controlBasis: 'Shareholding',
-            dateSince: '2021-03-31',
-            idNumber: 'PA3353470 RA6424760',
-            nationality: 'AUSTRALIAN',
-            dob: '1980-04-15',
-            email: 'bhatia.sapna@email.com',
-            mobile: '+65 9123 4567',
-            address: '123 MEYER ROAD, #16-03 SINGAPORE - 437934',
-            pep: 'No',
-            relatedParty: 'No',
-            sourceOfWealth: 'Business Income',
-            purposeOfOwnership: 'Investment',
-            remarks: '50% SHARES'
-        },
-        {
-            name: 'GARG NAVNEESH KUMAR',
-            role: 'Ultimate Beneficial Owner',
-            ownershipPct: '50',
-            votingRights: '50%',
-            controlType: 'Ownership of Shares',
-            controlBasis: 'Shareholding',
-            dateSince: '2021-03-31',
-            idNumber: 'PA3353471 RA6424761',
-            nationality: 'AUSTRALIAN',
-            dob: '1978-09-12',
-            email: 'garg.navneesh@email.com',
-            mobile: '+65 9123 4568',
-            address: '123 MEYER ROAD, #16-03 SINGAPORE - 437934',
-            pep: 'No',
-            relatedParty: 'No',
-            sourceOfWealth: 'Business Income',
-            purposeOfOwnership: 'Investment',
-            remarks: '50% SHARES'
-        }
-    ];
+    const companyName = reqData.companyName || (state.user && state.user.companyName) || '3B Trading & Consulting Pte. Ltd.';
+    const uen = reqData.uen || '201602068C';
+    const controllers = getNormalizedControllers(reqData, companyName, uen);
+
     const u = controllers[idx] || controllers[0];
     const panel = document.getElementById('cd-ubo-details-panel');
-    if (!panel) return;
+    if (!panel || !u) return;
 
-    const uName = u.name || u.fullName || u.controllerName || 'UBO / Controller';
-    const uRole = u.role || u.position || 'Ultimate Beneficial Owner';
+    const uName = u.name || 'UBO / Controller';
+    const uRole = u.role || 'Ultimate Beneficial Owner';
     const uStatus = (u.status || 'ACTIVE').toUpperCase();
-    const uId = u.idNumber || u.idNo || u.nric || u.passport || u.id || '—';
+    const uId = u.idNumber || '—';
     const uNat = u.nationality || '—';
-    const uDob = u.dob || u.dateOfBirth || '—';
+    const uDob = u.dob || '—';
     const uEmail = u.email || '—';
-    const uMobile = u.mobile || u.phone || '—';
-    const uAddress = u.address || u.residentialAddress || '—';
+    const uMobile = u.mobile || '—';
+    const uAddress = u.address || '—';
+    const uVoting = u.votingRights ? (String(u.votingRights).includes('%') ? u.votingRights : `${u.votingRights}%`) : '—';
 
     panel.innerHTML = `
         <div class="flex justify-between items-start border-b border-slate-100 pb-4">
@@ -5113,12 +5635,9 @@ window.cdSelectUbo = function(idx) {
                         <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-slate-100 text-slate-700 border border-slate-200">${uRole}</span>
                         <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">${uStatus}</span>
                     </h3>
-                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">ID Type: Passport / FIN &bull; ID No.: ${uId} &bull; Via: Direct</p>
+                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">ID Type: ${u.idType || 'NRIC / Passport'} &bull; ID No.: ${uId} &bull; Via: ${(u.interestNature || 'Direct').split(' ')[0]}</p>
                 </div>
             </div>
-            <button onclick="alert('Edit UBO Details')" class="px-3 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-                Edit Details
-            </button>
         </div>
 
         <div class="space-y-6">
@@ -5134,13 +5653,13 @@ window.cdSelectUbo = function(idx) {
                     <div class="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-4">
                         <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-100 pb-2">Personal Details</h4>
                         <div class="space-y-3 text-[11px]">
-                            <div><span class="text-slate-400 font-medium block">Full Name</span><span class="font-extrabold text-slate-900">${u.name || '—'}</span></div>
-                            <div><span class="text-slate-400 font-medium block">NRIC / Passport No.</span><span class="font-mono font-extrabold text-slate-900">${u.idNumber || '—'}</span></div>
-                            <div><span class="text-slate-400 font-medium block">Nationality</span><span class="font-bold text-slate-900">${u.nationality || '—'}</span></div>
-                            <div><span class="text-slate-400 font-medium block">Date of Birth</span><span class="font-bold text-slate-900">${u.dob || '&mdash;'}</span></div>
-                            <div><span class="text-slate-400 font-medium block">Email</span><span class="font-bold text-blue-600">${u.email || '—'}</span></div>
-                            <div><span class="text-slate-400 font-medium block">Phone Number</span><span class="font-bold text-slate-900">${u.mobile || '—'}</span></div>
-                            <div><span class="text-slate-400 font-medium block">Residential Address</span><span class="font-medium text-slate-800 leading-relaxed">${u.address || '—'}</span></div>
+                            <div><span class="text-slate-400 font-medium block">Full Name</span><span class="font-extrabold text-slate-900">${uName}</span></div>
+                            <div><span class="text-slate-400 font-medium block">NRIC / Passport No.</span><span class="font-mono font-extrabold text-slate-900">${uId}</span></div>
+                            <div><span class="text-slate-400 font-medium block">Nationality</span><span class="font-bold text-slate-900">${uNat}</span></div>
+                            <div><span class="text-slate-400 font-medium block">Date of Birth</span><span class="font-bold text-slate-900">${uDob}</span></div>
+                            <div><span class="text-slate-400 font-medium block">Email</span><span class="font-bold text-blue-600">${uEmail}</span></div>
+                            <div><span class="text-slate-400 font-medium block">Contact Number</span><span class="font-bold text-slate-900">${uMobile}</span></div>
+                            <div><span class="text-slate-400 font-medium block">Residential Address</span><span class="font-medium text-slate-800 leading-relaxed">${uAddress}</span></div>
                         </div>
                     </div>
 
@@ -5149,15 +5668,15 @@ window.cdSelectUbo = function(idx) {
                         <div>
                             <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-100 pb-2 mb-3">Ownership & Control</h4>
                             <div class="space-y-3 text-[11px]">
-                                <div class="flex justify-between"><span class="text-slate-400 font-medium">Nature of Interest</span><span class="font-extrabold text-slate-900">Direct Ownership</span></div>
-                                <div class="flex justify-between"><span class="text-slate-400 font-medium">Voting Rights</span><span class="font-extrabold text-slate-900">${u.votingRights || '—'}</span></div>
+                                <div class="flex justify-between"><span class="text-slate-400 font-medium">Nature of Interest</span><span class="font-extrabold text-slate-900">${u.interestNature || 'Direct Ownership'}</span></div>
+                                <div class="flex justify-between"><span class="text-slate-400 font-medium">Voting Rights</span><span class="font-extrabold text-slate-900">${uVoting}</span></div>
                                 <div class="flex justify-between"><span class="text-slate-400 font-medium">Control Type</span><span class="font-bold text-slate-900">${u.controlType || '—'}</span></div>
                                 <div class="flex justify-between"><span class="text-slate-400 font-medium">Control Basis</span><span class="font-bold text-slate-900">${u.controlBasis || '—'}</span></div>
                                 <div class="flex justify-between"><span class="text-slate-400 font-medium">Date Since</span><span class="font-bold text-slate-900">${u.dateSince || '—'}</span></div>
                             </div>
                         </div>
                         <div class="p-3 bg-blue-50/70 border border-blue-100 rounded-xl text-[10px] text-blue-900 font-medium leading-relaxed">
-                            <strong>${u.name || 'UBO'}</strong> is the ultimate beneficial owner with significant ownership and control in the company.
+                            <strong>${uName}</strong> is the ultimate beneficial owner with significant ownership and control in the company.
                         </div>
                     </div>
 
@@ -5187,13 +5706,116 @@ window.cdSelectUbo = function(idx) {
                 <div class="bg-slate-50/50 p-6 rounded-2xl border border-slate-100 space-y-4">
                     <div>
                         <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">INTEREST NATURE</span>
-                        <div class="font-extrabold text-slate-900 text-sm">Direct Ownership</div>
+                        <div class="font-extrabold text-slate-900 text-sm">${u.interestNature || 'Direct Ownership'}</div>
+                    </div>
+                    <div>
+                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">VOTING RIGHTS</span>
+                        <div class="font-extrabold text-slate-900 text-sm">${uVoting}</div>
+                    </div>
+                    <div>
+                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">CONTROL TYPE</span>
+                        <div class="font-extrabold text-slate-900 text-sm">${u.controlType || '—'}</div>
+                    </div>
+                    <div>
+                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">CONTROL BASIS</span>
+                        <div class="font-extrabold text-slate-900 text-sm">${u.controlBasis || '—'}</div>
                     </div>
                 </div>
             </div>
         </div>
     `;
+};
+
+// --- ACTIVITIES TIMELINE LOGIC MATCHING ADMIN PORTAL 1-TO-1 ---
+window.cdActivitiesList = [
+    { date: "12 Jul 2026", time: "10:42 AM", title: "Document Uploaded", desc: "Constitution.pdf was uploaded in Company > Constitution & BizFile", user: "Sarah Lee", avatar: "SL", role: "Senior Analyst" },
+    { date: "12 Jul 2026", time: "10:30 AM", title: "Company Profile Updated", desc: "Corporate profile information has been updated", user: "Daniel Wong", avatar: "DW", role: "Compliance Manager" },
+    { date: "11 Jul 2026", time: "04:32 PM", title: "Document Rejected", desc: "AddressProof_JohnTan.pdf was rejected.<br><strong>Reason:</strong> Document is not clear. Please upload a clearer copy.", user: "Emily Chen", avatar: "EC", role: "Analyst" },
+    { date: "11 Jul 2026", time: "02:11 PM", title: "Document Pending Review", desc: "ShareCertificate_Sample.pdf is pending review", user: "Daniel Wong", avatar: "DW", role: "Compliance Manager" },
+    { date: "10 Jul 2026", time: "03:21 PM", title: "Document Verified", desc: "NRIC_JohnTan.pdf was verified", user: "Sarah Lee", avatar: "SL", role: "Senior Analyst" },
+    { date: "10 Jul 2026", time: "10:02 AM", title: "Director Added", desc: "John Tan was added as Director", user: "Sarah Lee", avatar: "SL", role: "Senior Analyst" },
+    { date: "09 Jul 2026", time: "05:44 PM", title: "Document Pending Review", desc: "BankStatement_Sample.pdf is pending review", user: "Emily Chen", avatar: "EC", role: "Analyst" },
+    { date: "09 Jul 2026", time: "09:15 AM", title: "Company Onboarded", desc: "Company files setup and welcome logs created", user: "Sarah Lee", avatar: "SL", role: "Senior Analyst" }
+];
+
+window.renderCdActivityTimeline = function() {
+    const container = document.getElementById('cd-activity-timeline-list');
+    if (!container) return;
+
+    const searchInput = document.getElementById('cd-activity-search-input');
+    const typeFilterEl = document.getElementById('cd-activity-type-filter');
+    const userFilterEl = document.getElementById('cd-activity-user-filter');
+
+    const searchVal = searchInput ? searchInput.value.toLowerCase() : '';
+    const typeFilter = typeFilterEl ? typeFilterEl.value : 'all';
+    const userFilter = userFilterEl ? userFilterEl.value : 'all';
+
+    const reqData = (state.requirements && state.requirements.excelData) ? state.requirements.excelData : (state.requirements || {});
+    const customActs = reqData.activities || (reqData.excelData ? reqData.excelData.activities : []) || [];
+    const sourceList = (customActs && customActs.length > 0) ? customActs : window.cdActivitiesList;
+
+    const filtered = sourceList.filter(a => {
+        const matchesSearch = (a.title || '').toLowerCase().includes(searchVal) || (a.desc || '').toLowerCase().includes(searchVal);
+        const matchesType = typeFilter === 'all' || a.title === typeFilter;
+        const matchesUser = userFilter === 'all' || a.user === userFilter;
+        return matchesSearch && matchesType && matchesUser;
+    });
+
+    container.innerHTML = filtered.map(a => {
+        let iconHtml = '';
+        const titleStr = a.title || '';
+        if (titleStr.includes('Upload')) {
+            iconHtml = '<div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100 shrink-0"><i data-lucide="upload-cloud" class="w-4 h-4"></i></div>';
+        } else if (titleStr.includes('Verified') || titleStr.includes('Onboard')) {
+            iconHtml = '<div class="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100 shrink-0"><i data-lucide="check" class="w-4 h-4"></i></div>';
+        } else if (titleStr.includes('Reject')) {
+            iconHtml = '<div class="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center text-rose-600 border border-rose-100 shrink-0"><i data-lucide="x" class="w-4 h-4"></i></div>';
+        } else if (titleStr.includes('Pending')) {
+            iconHtml = '<div class="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 border border-amber-100 shrink-0"><i data-lucide="clock" class="w-4 h-4"></i></div>';
+        } else {
+            iconHtml = '<div class="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 border border-slate-200 shrink-0"><i data-lucide="file-text" class="w-4 h-4"></i></div>';
+        }
+
+        const dateParts = String(a.date || '').split(' ');
+        const dateDisplay = dateParts.length >= 2 ? dateParts.slice(0, 2).join(' ') : (a.date || '—');
+
+        return `
+            <div class="relative flex items-start gap-4">
+                <div class="absolute -left-[45px] top-0 flex flex-col items-end w-12 shrink-0">
+                    <span class="font-bold text-slate-800 text-[10px]">${dateDisplay}</span>
+                    <span class="text-slate-400 text-[9px] font-medium mt-0.5">${a.time || ''}</span>
+                </div>
+                ${iconHtml}
+                <div class="flex-grow bg-slate-50/20 hover:bg-slate-50/50 border border-slate-100/50 p-4 rounded-2xl shadow-sm flex items-center justify-between gap-4 transition-all">
+                    <div>
+                        <h5 class="font-extrabold text-slate-800 text-xs">${a.title}</h5>
+                        <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">${a.desc}</p>
+                    </div>
+                    <div class="flex items-center gap-2.5 shrink-0">
+                        <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
+                            ${a.avatar || (a.user ? a.user.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase() : 'U')}
+                        </div>
+                        <div class="text-left">
+                            <div class="font-bold text-slate-800 text-[10px]">${a.user || 'System'}</div>
+                            <div class="text-slate-400 text-[9px] font-semibold mt-0.5">${a.role || 'Staff'}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('') || '<p class="text-slate-400 italic text-xs">No activity logs recorded.</p>';
+
     if (window.lucide) window.lucide.createIcons();
+};
+
+window.clearCdActivityFilters = function() {
+    const typeFilterEl = document.getElementById('cd-activity-type-filter');
+    const userFilterEl = document.getElementById('cd-activity-user-filter');
+    const searchInput = document.getElementById('cd-activity-search-input');
+    if (typeFilterEl) typeFilterEl.value = 'all';
+    if (userFilterEl) userFilterEl.value = 'all';
+    if (searchInput) searchInput.value = '';
+    window.renderCdActivityTimeline();
 };
 
 function renderProfile(container, initialSubTab = 'overview') {
@@ -5237,30 +5859,77 @@ function renderProfile(container, initialSubTab = 'overview') {
 
     const secretaries = (reqData.secretaries && reqData.secretaries.length > 0) ? reqData.secretaries : [
         {
-            name: 'SHU QING LIM',
+            name: 'Piyush Kumar Chaplot',
+            type: 'Secretary',
+            idNumber: 'S7980739G',
+            nationality: 'Singaporean',
+            appointmentDate: '2020-03-30',
+            resignationDate: '—',
+            email: 'piyush.kumar.chaplot@corporatesg.com',
+            mobile: '+65 9123 4567',
+            address: '#13-12, 3 Rhu Cross, Singapore 437433',
+            acraNo: 'S7980739G',
+            qualification: 'ACIS (Chartered Secretary)',
+            experience: '10+ Years',
+            registeredAddress: '#13-12, 3 Rhu Cross, Singapore 437433',
+            status: 'Active'
+        },
+        {
+            name: 'Kalyanasundaram Maran',
             type: 'Primary',
             idNumber: 'S8912345B',
             nationality: 'SINGAPORE CITIZEN',
-            appointmentDate: '2016-01-26',
-            email: 'shuqing@globalisor.com',
-            mobile: '6598765432',
+            appointmentDate: '2016-01-25',
+            resignationDate: '2020-03-30',
+            email: 'kalyanasundaram.maran@corporatesg.com',
+            mobile: '+65 9876 5432',
             address: '37A TOH CRESCENT SINGAPORE 507947',
             acraNo: 'AC20160012',
-            qualification: 'Chartered Secretary (CSIS)',
-            experience: '12 Years Corporate Secretarial',
-            registeredAddress: '10 ANSON ROAD #26-04 INTERNATIONAL PLAZA SINGAPORE 079903'
+            qualification: 'Chartered Secretary',
+            experience: '8 Years',
+            registeredAddress: '37A TOH CRESCENT SINGAPORE 507947',
+            status: 'Resigned'
         }
     ];
 
-    const auditors = (reqData.auditors && reqData.auditors.length > 0) ? reqData.auditors : [
+    const rawAuditors = reqData.auditors || (reqData.excelData ? reqData.excelData.auditors : []) || [];
+    const cleanCompName = (companyName || '').toLowerCase().trim();
+    const cleanCompUen = (uen || '').toLowerCase().trim();
+
+    const visibleAuditors = [];
+    rawAuditors.forEach(a => {
+        const firmNameStr = String(a.firmName || a.name || '').trim();
+        const cleanFirmName = firmNameStr.toLowerCase();
+        const resDateStr = String(a.resignationDate || '').trim();
+
+        const isHeaderRow = 
+            resDateStr === 'Last updated' || 
+            cleanFirmName === cleanCompName ||
+            cleanFirmName === cleanCompUen ||
+            cleanFirmName === 'name of the firm' ||
+            cleanFirmName === 'name of firm' ||
+            cleanFirmName === 'firm name';
+
+        if (!isHeaderRow && firmNameStr !== '') {
+            visibleAuditors.push({
+                firmName: a.firmName || a.name || '',
+                uen: a.uen || a.registrationNo || a.idNumber || '—',
+                address: a.address || '—',
+                appointmentDate: a.appointmentDate || '—',
+                resignationDate: a.resignationDate || '—',
+                notes: a.notes || '—'
+            });
+        }
+    });
+
+    const auditors = (visibleAuditors.length > 0) ? visibleAuditors : [
         {
-            name: 'STAMFORD ASSOCIATES LLP',
-            registrationNo: 'T07LL0683E',
-            appointmentDate: '1 May 2013',
-            resignationDate: '1 May 2017',
-            status: 'Resigned',
-            notes: '—',
-            address: '7500A BEACH ROAD, #08-313 THE PLAZA, SINGAPORE - 199591'
+            firmName: 'STAMFORD ASSOCIATES LLP',
+            uen: 'T07LL0683E',
+            address: '7500A BEACH ROAD, #08-313 THE PLAZA, SINGAPORE - 199591',
+            appointmentDate: '2013-05-01',
+            resignationDate: '2017-05-01',
+            notes: 'Statutory Auditor'
         }
     ];
 
@@ -5295,27 +5964,7 @@ function renderProfile(container, initialSubTab = 'overview') {
         }
     ];
 
-    const controllers = (reqData.controllers && reqData.controllers.length > 0) ? reqData.controllers : [
-        {
-            name: 'PANDIKADAVIL UNNIKRISHNAN JAYAPRAKASH',
-            role: 'Ultimate Beneficial Owner',
-            ownershipPct: '99.99',
-            votingRights: '99.99',
-            controlType: 'Direct Ownership & Voting Rights',
-            controlBasis: 'Holds > 75% of share capital & voting power',
-            dateSince: '2013-05-01',
-            idNumber: 'S27145758',
-            nationality: 'SINGAPORE CITIZEN',
-            email: 'jp@1ge.sg',
-            mobile: '6598177292',
-            address: '37A TOH CRESCENT SINGAPORE 507947',
-            pep: 'No',
-            relatedParty: 'No',
-            sourceOfWealth: 'Business Revenue & Savings',
-            purposeOfOwnership: 'Principal Founder & Major Shareholder',
-            remarks: 'Verified ultimate controller of 1 GLOBAL ENTERPRISES PTE. LTD.'
-        }
-    ];
+    const controllers = getNormalizedControllers(reqData, companyName, uen);
 
     const allotments = (reqData.allotments && reqData.allotments.length > 0) ? reqData.allotments : [
         {
@@ -5353,30 +6002,60 @@ function renderProfile(container, initialSubTab = 'overview') {
         }
     ];
 
-    const amlData = (reqData.amlData && reqData.amlData.length > 0) ? reqData.amlData : [
-        {
-            name: 'PANDIKADAVIL UNNIKRISHNAN JAYAPRAKASH',
-            aml1: 'Passed',
-            aml2: 'Passed',
-            aml3: 'Clear',
-            cdd: 'Verified',
-            cdd2: 'Verified',
-            cdd3: 'Approved',
-            googleSearch: 'Clean',
-            bankStatement: 'Verified'
-        },
-        {
-            name: 'PRAKASH SANILA JAYA',
-            aml1: 'Passed',
-            aml2: 'Passed',
-            aml3: 'Clear',
-            cdd: 'Verified',
-            cdd2: 'Verified',
-            cdd3: 'Approved',
-            googleSearch: 'Clean',
-            bankStatement: 'Verified'
-        }
-    ];
+    const savedAml = reqData.amlData || reqData.aml || [];
+    const amlNames = new Set();
+    if (directors && Array.isArray(directors)) {
+        directors.forEach(d => { if (d.name) amlNames.add(d.name.trim()); });
+    }
+    if (secretaries && Array.isArray(secretaries)) {
+        secretaries.forEach(s => { if (s.name) amlNames.add(s.name.trim()); });
+    }
+    const cleanAmlName = (n) => String(n || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+    const amlData = [];
+    amlNames.forEach(name => {
+        const saved = savedAml ? savedAml.find(a => cleanAmlName(a.name) === cleanAmlName(name)) : null;
+        amlData.push({
+            name: name,
+            aml1: saved ? (saved.aml1 || '') : '',
+            aml2: saved ? (saved.aml2 || '') : '',
+            aml3: saved ? (saved.aml3 || '') : '',
+            cdd: saved ? (saved.cdd || '') : '',
+            cdd2: saved ? (saved.cdd2 || '') : '',
+            cdd3: saved ? (saved.cdd3 || '') : '',
+            googleSearch: saved ? (saved.googleSearch || '') : '',
+            bankStatement: saved ? (saved.bankStatement || '') : ''
+        });
+    });
+
+    if (savedAml && Array.isArray(savedAml)) {
+        savedAml.forEach(saved => {
+            if (!saved.name) return;
+            const exists = amlData.some(a => cleanAmlName(a.name) === cleanAmlName(saved.name));
+            if (!exists) {
+                amlData.push({
+                    name: saved.name,
+                    aml1: saved.aml1 || '',
+                    aml2: saved.aml2 || '',
+                    aml3: saved.aml3 || '',
+                    cdd: saved.cdd || '',
+                    cdd2: saved.cdd2 || '',
+                    cdd3: saved.cdd3 || '',
+                    googleSearch: saved.googleSearch || '',
+                    bankStatement: saved.bankStatement || ''
+                });
+            }
+        });
+    }
+
+    if (amlData.length === 0) {
+        amlData.push(
+            { name: 'PANDIKADAVIL UNNIKRISHNAN JAYAPRAKASH', aml1: '2016-06-14', aml2: '2023-05-17', aml3: '-', cdd: '2016-01-25', cdd2: '2024-02-04', cdd3: '-', googleSearch: '2025-06-11', bankStatement: '-' },
+            { name: 'PRAKASH SANILA JAYA', aml1: '2016-06-14', aml2: '2023-05-17', aml3: '-', cdd: '2016-01-25', cdd2: '2024-02-04', cdd3: '-', googleSearch: '2025-06-11', bankStatement: '-' },
+            { name: 'Piyush Kumar Chaplot', aml1: '2020-03-30', aml2: '2023-05-17', aml3: '-', cdd: '2020-03-30', cdd2: '2024-02-04', cdd3: '-', googleSearch: '2025-06-11', bankStatement: '-' },
+            { name: 'Kalyanasundaram Maran', aml1: '2016-01-25', aml2: '2020-03-30', aml3: '-', cdd: '2016-01-25', cdd2: '2020-03-30', cdd3: '-', googleSearch: '2020-03-30', bankStatement: '-' }
+        );
+    }
 
     const acraTransactions = [
         { date: '2026-01-26', desc: 'Annual Return Filed for FY 2025', lodgedBy: 'SHU QING LIM', lodgedDate: '2026-01-26', notes: 'ACRA Reference AR-2026-90123' },
@@ -5418,12 +6097,15 @@ function renderProfile(container, initialSubTab = 'overview') {
                 <div class="flex border-b border-slate-200 overflow-x-auto gap-0.5 text-[11px] lg:text-xs font-bold text-slate-500 pt-2 no-scrollbar justify-between">
                     <button onclick="switchCdHeaderTab('overview')" id="cd-tab-overview" class="cd-tab-btn px-2 lg:px-3 py-2.5 text-blue-600 border-b-2 border-blue-600 whitespace-nowrap transition-all font-extrabold">Overview</button>
                     <button onclick="switchCdHeaderTab('aml')" id="cd-tab-aml" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">AML</button>
+                    <button onclick="switchCdHeaderTab('directors')" id="cd-tab-directors" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Directors (${directors.length})</button>
                     <button onclick="switchCdHeaderTab('secretaries')" id="cd-tab-secretaries" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Secretaries (${secretaries.length})</button>
                     <button onclick="switchCdHeaderTab('auditors')" id="cd-tab-auditors" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Auditors (${auditors.length})</button>
+                    <button onclick="switchCdHeaderTab('members')" id="cd-tab-members" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Shareholders (${members.length})</button>
                     <button onclick="switchCdHeaderTab('ubos')" id="cd-tab-ubos" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">UBOs & Controllers (${controllers.length})</button>
                     <button onclick="switchCdHeaderTab('allotments')" id="cd-tab-allotments" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Allotments</button>
                     <button onclick="switchCdHeaderTab('rons')" id="cd-tab-rons" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">RONS</button>
                     <button onclick="switchCdHeaderTab('transfers')" id="cd-tab-transfers" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Transfers</button>
+                    <button onclick="switchCdHeaderTab('documents')" id="cd-tab-documents" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Documents</button>
                     <button onclick="switchCdHeaderTab('compliance')" id="cd-tab-compliance" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Compliance</button>
                     <button onclick="switchCdHeaderTab('activities')" id="cd-tab-activities" class="cd-tab-btn px-2 lg:px-3 py-2.5 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap transition-all font-bold text-slate-500">Activities</button>
                 </div>
@@ -5591,14 +6273,6 @@ function renderProfile(container, initialSubTab = 'overview') {
                         <h3 class="font-extrabold text-slate-900 text-xl">Anti-Money Laundering & CDD Register</h3>
                         <p class="text-xs text-slate-400 mt-1">Screen compliance records, risk statuses, and verification checklists.</p>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <button onclick="alert('Add Individual Modal')" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-                            Add Individual
-                        </button>
-                        <button onclick="alert('AML Checks Saved')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
-                            Save AML Checks
-                        </button>
-                    </div>
                 </div>
 
                 <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
@@ -5610,38 +6284,32 @@ function renderProfile(container, initialSubTab = 'overview') {
                     <div>
                         <h4 class="font-extrabold text-slate-900 text-sm border-b-2 border-slate-900 pb-2 inline-block">Register of AML & CDD</h4>
                         <div class="overflow-x-auto mt-4">
-                            <table class="w-full text-left text-xs border border-slate-100 rounded-2xl overflow-hidden">
+                            <table class="w-full text-left text-xs border border-slate-200 rounded-2xl overflow-hidden border-collapse">
                                 <thead>
-                                    <tr class="bg-slate-50 text-slate-700 font-extrabold border-b border-slate-200">
-                                        <th class="p-3">Name</th>
-                                        <th class="p-3">AML1</th>
-                                        <th class="p-3">AML2</th>
-                                        <th class="p-3">AML3</th>
-                                        <th class="p-3">CDD</th>
-                                        <th class="p-3">CDD2</th>
-                                        <th class="p-3">CDD3</th>
-                                        <th class="p-3">Google Search</th>
-                                        <th class="p-3">Bank Statement</th>
-                                        <th class="p-3 text-center">Actions</th>
+                                    <tr class="bg-slate-100/80 text-slate-900 font-extrabold border-b border-slate-200">
+                                        <th class="p-3 border border-slate-200 font-black text-left align-middle bg-slate-100/80">Name</th>
+                                        <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">AML1</th>
+                                        <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">AML2</th>
+                                        <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">AML3</th>
+                                        <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">CDD</th>
+                                        <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">CDD2</th>
+                                        <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">CDD3</th>
+                                        <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">Google Search</th>
+                                        <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">Bank Statement</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-slate-800 font-semibold">
                                     ${amlData.map(a => `
-                                        <tr class="hover:bg-slate-50/50 transition">
-                                            <td class="p-3 font-extrabold text-slate-900 uppercase">${a.name}</td>
-                                            <td class="p-3">${a.aml1 || '2016-06-14'}</td>
-                                            <td class="p-3">${a.aml2 || '2023-05-17'}</td>
-                                            <td class="p-3 text-slate-400">-</td>
-                                            <td class="p-3">${a.cdd || '2016-01-25'}</td>
-                                            <td class="p-3">${a.cdd2 || '2024-02-04'}</td>
-                                            <td class="p-3 text-slate-400">-</td>
-                                            <td class="p-3">${a.googleSearch || '2025-06-11'}</td>
-                                            <td class="p-3 text-slate-500">${a.bankStatement || '-'}</td>
-                                            <td class="p-3 text-center">
-                                                <button onclick="alert('Delete row')" class="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition" title="Delete">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                                                </button>
-                                            </td>
+                                        <tr class="hover:bg-slate-50/50 transition-colors">
+                                            <td class="p-3 border border-slate-200 font-extrabold text-slate-900 uppercase bg-slate-50/20">${a.name}</td>
+                                            <td class="p-3 border border-slate-200 text-center font-medium text-slate-800">${a.aml1 || '-'}</td>
+                                            <td class="p-3 border border-slate-200 text-center font-medium text-slate-800">${a.aml2 || '-'}</td>
+                                            <td class="p-3 border border-slate-200 text-center font-medium text-slate-800">${a.aml3 || '-'}</td>
+                                            <td class="p-3 border border-slate-200 text-center font-medium text-slate-800">${a.cdd || '-'}</td>
+                                            <td class="p-3 border border-slate-200 text-center font-medium text-slate-800">${a.cdd2 || '-'}</td>
+                                            <td class="p-3 border border-slate-200 text-center font-medium text-slate-800">${a.cdd3 || '-'}</td>
+                                            <td class="p-3 border border-slate-200 text-center font-medium text-slate-800">${a.googleSearch || '-'}</td>
+                                            <td class="p-3 border border-slate-200 text-left font-medium text-slate-800">${a.bankStatement || '-'}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
@@ -5661,9 +6329,6 @@ function renderProfile(container, initialSubTab = 'overview') {
                     <div class="flex items-center gap-3">
                         <button onclick="alert('Org Chart View')" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
                             <i data-lucide="network" class="w-3.5 h-3.5 text-blue-600"></i> View Org Chart
-                        </button>
-                        <button onclick="alert('Add Director Modal')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
-                            + Add Director
                         </button>
                     </div>
                 </div>
@@ -5711,40 +6376,46 @@ function renderProfile(container, initialSubTab = 'overview') {
             <div id="cd-panel-secretaries" class="cd-panel hidden space-y-6">
                 <div class="flex justify-between items-start">
                     <div>
-                        <h3 class="font-extrabold text-slate-900 text-xl">Secretaries (${secretaries.length})</h3>
+                        <h3 class="font-extrabold text-slate-900 text-xl">Secretaries (${secretaries.filter(s => { const r = s.resignationDate || s.dateResigned; return (!r || String(r).trim() === '' || String(r) === '—') && String(s.status).toUpperCase() !== 'RESIGNED'; }).length})</h3>
                         <p class="text-xs text-slate-400 mt-1">Manage company secretaries and their details</p>
                     </div>
-                    <button onclick="alert('Add Secretary Modal')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
-                        + Add Secretary
-                    </button>
                 </div>
 
                 <div class="grid grid-cols-12 gap-6">
                     <div class="col-span-12 lg:col-span-4 space-y-4">
                         <div class="flex gap-2">
-                            <input type="text" placeholder="Search secretary by name..." class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-                            <select class="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700">
-                                <option>All Status</option>
+                            <input type="text" id="cd-secretary-search-input" onkeyup="cdFilterSecretariesList()" placeholder="Search secretary by name..." class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                            <select id="cd-secretary-status-filter" onchange="cdFilterSecretariesList()" class="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700 cursor-pointer">
+                                <option value="all">All Status</option>
+                                <option value="Active">Active</option>
+                                <option value="Resigned">Resigned</option>
                             </select>
                         </div>
-                        <div class="space-y-3">
-                            ${secretaries.map((s, idx) => `
-                                <div onclick="cdSelectSecretary(${idx})" class="p-4 bg-white rounded-2xl border ${idx === cdSelectedSecretaryIdx ? 'border-blue-500 ring-2 ring-blue-500/10' : 'border-slate-100'} hover:border-blue-300 transition-all cursor-pointer shadow-sm">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-extrabold text-xs flex items-center justify-center shrink-0">
-                                            ${(s.name || 'S').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
-                                        </div>
-                                        <div class="flex-1 min-w-0">
-                                            <div class="flex items-center justify-between gap-1 mb-1">
-                                                <span class="font-extrabold text-slate-900 text-xs truncate">${s.name || 'Company Secretary'}</span>
-                                                <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">${s.status || 'ACTIVE'}</span>
+                        <div class="space-y-3" id="cd-secretaries-list-container">
+                            ${secretaries.map((s, idx) => {
+                                const sRes = s.resignationDate || s.dateResigned;
+                                const hasRes = !!(sRes && String(sRes).trim() !== '' && String(sRes) !== '—');
+                                const isRes = hasRes || (s.status && String(s.status).trim().toUpperCase() === 'RESIGNED');
+                                const sStat = isRes ? 'RESIGNED' : 'ACTIVE';
+                                const badgeCls = isRes ? 'bg-slate-100 text-slate-600 border-slate-200' : 'bg-emerald-50 text-emerald-600 border-emerald-100';
+                                return `
+                                    <div onclick="cdSelectSecretary(${idx})" class="cd-secretary-card p-4 bg-white rounded-2xl border ${idx === cdSelectedSecretaryIdx ? 'border-blue-500 ring-2 ring-blue-500/10' : 'border-slate-100'} hover:border-blue-300 transition-all cursor-pointer shadow-sm">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-extrabold text-xs flex items-center justify-center shrink-0">
+                                                ${(s.name || 'S').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
                                             </div>
-                                            <p class="text-[10px] text-blue-600 font-semibold truncate">${s.email || s.qualification || s.acraNo || 'Active Secretary'}</p>
-                                            <p class="text-[10px] text-slate-400 font-medium mt-1">Appointed on: ${s.appointmentDate || '—'}</p>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center justify-between gap-1 mb-1">
+                                                    <span class="font-extrabold text-slate-900 text-xs truncate">${s.name || 'Company Secretary'}</span>
+                                                    <span class="px-2 py-0.5 rounded text-[8px] font-extrabold uppercase ${badgeCls}">${sStat}</span>
+                                                </div>
+                                                <p class="text-[10px] text-blue-600 font-semibold truncate">${s.email || s.qualification || s.acraNo || 'Active Secretary'}</p>
+                                                <p class="text-[10px] text-slate-400 font-medium mt-1">Appointed on: ${s.appointmentDate || '—'}</p>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            `).join('')}
+                                `;
+                            }).join('')}
                         </div>
                     </div>
 
@@ -5761,66 +6432,45 @@ function renderProfile(container, initialSubTab = 'overview') {
                         <h3 class="font-extrabold text-slate-900 text-xl">Auditors (${auditors.length})</h3>
                         <p class="text-xs text-slate-400 mt-1">Manage and view company auditor appointments and history.</p>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <button onclick="alert('Add Auditor Modal')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
-                            + Add Auditor
-                        </button>
-                        <button onclick="alert('Auditors Saved')" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-                            Save Auditors
-                        </button>
-                    </div>
                 </div>
 
                 <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
                     <div class="p-4 bg-slate-50/70 border border-slate-100 rounded-2xl flex justify-between items-center">
                         <div>
-                            <h4 class="font-extrabold text-slate-900 text-sm">EIGHTY EIGHT SHIPPING PTE LTD</h4>
-                            <p class="text-xs font-mono font-semibold text-slate-500 mt-0.5">201022242N</p>
+                            <h4 class="font-extrabold text-slate-900 text-sm">${companyName}</h4>
+                            <p class="text-xs font-mono font-semibold text-slate-500 mt-0.5">${uen}</p>
                         </div>
                         <div class="text-right">
                             <span class="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block">LAST UPDATED</span>
-                            <span class="text-xs font-extrabold text-slate-900">11 May 2026</span>
+                            <span class="text-xs font-extrabold text-slate-900">31 Jul 2026</span>
                         </div>
                     </div>
 
                     <div>
                         <h4 class="font-extrabold text-slate-900 text-sm border-b-2 border-slate-900 pb-2 inline-block">Register of Auditors</h4>
                         <div class="overflow-x-auto mt-4">
-                            <table class="w-full text-left text-xs border border-slate-100 rounded-2xl overflow-hidden">
+                            <table class="w-full text-left text-xs border border-slate-200 rounded-2xl overflow-hidden border-collapse">
                                 <thead>
-                                    <tr class="bg-[#00f5d4] text-slate-900 font-extrabold uppercase">
-                                        <th class="p-3">Name of the Firm</th>
-                                        <th class="p-3">Identification No.</th>
-                                        <th class="p-3">Address</th>
-                                        <th class="p-3">Date of Appointment</th>
-                                        <th class="p-3">Date of Resignation</th>
-                                        <th class="p-3">Notes</th>
-                                        <th class="p-3 text-center">Actions</th>
+                                    <tr class="bg-slate-100/80 text-slate-900 font-extrabold border-b border-slate-200">
+                                        <th class="p-3 border border-slate-200 font-black text-left align-middle bg-slate-100/80">Name of the firm</th>
+                                        <th class="p-3 border border-slate-200 font-black text-left align-middle bg-slate-100/80">UEN / Registration No.</th>
+                                        <th class="p-3 border border-slate-200 font-black text-left align-middle bg-slate-100/80">Address</th>
+                                        <th class="p-3 border border-slate-200 font-black text-left align-middle bg-slate-100/80">Date of Appointment</th>
+                                        <th class="p-3 border border-slate-200 font-black text-left align-middle bg-slate-100/80">Date of Resignation / Cessation</th>
+                                        <th class="p-3 border border-slate-200 font-black text-left align-middle bg-slate-100/80">Remarks / Notes</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-slate-800 font-semibold bg-white">
                                     ${auditors.map(a => `
-                                        <tr>
-                                            <td class="p-3 font-extrabold text-slate-900 uppercase">${a.name || '—'}</td>
-                                            <td class="p-3 font-mono">${a.registrationNo || a.idNumber || '—'}</td>
-                                            <td class="p-3">${a.address || '—'}</td>
-                                            <td class="p-3">${a.appointmentDate || '—'}</td>
-                                            <td class="p-3 text-slate-700">${a.resignationDate || '&mdash;'}</td>
-                                            <td class="p-3 text-slate-400">${a.notes || '&mdash;'}</td>
-                                            <td class="p-3 text-center">
-                                                <div class="flex justify-center gap-1.5">
-                                                    <button onclick="alert('Edit')" class="p-1 text-slate-400 hover:text-blue-600"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
-                                                    <button onclick="alert('Delete')" class="p-1 text-slate-400 hover:text-red-600"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
-                                                </div>
-                                            </td>
+                                        <tr class="hover:bg-slate-50/50 transition-colors">
+                                            <td class="p-3 border border-slate-200 font-extrabold text-slate-900 uppercase bg-slate-50/20">${a.firmName || a.name || '—'}</td>
+                                            <td class="p-3 border border-slate-200 text-slate-700 font-bold font-mono">${a.uen || a.registrationNo || a.idNumber || '—'}</td>
+                                            <td class="p-3 border border-slate-200 text-slate-600 text-xs">${a.address || '—'}</td>
+                                            <td class="p-3 border border-slate-200 text-slate-700 font-semibold">${a.appointmentDate || '—'}</td>
+                                            <td class="p-3 border border-slate-200 text-slate-700 font-semibold">${a.resignationDate || '—'}</td>
+                                            <td class="p-3 border border-slate-200 text-slate-600 text-xs">${a.notes || '—'}</td>
                                         </tr>
                                     `).join('')}
-                                    <!-- Empty grid placeholder rows matching screenshot -->
-                                    <tr class="h-10 border-b border-slate-100"><td colspan="7"></td></tr>
-                                    <tr class="h-10 border-b border-slate-100"><td colspan="7"></td></tr>
-                                    <tr class="h-10 border-b border-slate-100"><td colspan="7"></td></tr>
-                                    <tr class="h-10 border-b border-slate-100"><td colspan="7"></td></tr>
-                                    <tr class="h-10 border-b border-slate-100"><td colspan="7"></td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -5841,9 +6491,6 @@ function renderProfile(container, initialSubTab = 'overview') {
                         <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
                         <span>CURRENCY: <strong class="text-slate-900">$ USD</strong></span>
                     </div>
-                    <button onclick="alert('Add Shareholder Modal')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
-                        + Add Shareholder
-                    </button>
                 </div>
 
                 <div class="grid grid-cols-12 gap-6">
@@ -5894,9 +6541,6 @@ function renderProfile(container, initialSubTab = 'overview') {
                         <h3 class="font-extrabold text-slate-900 text-xl">UBOs & Controllers (${controllers.length})</h3>
                         <p class="text-xs text-slate-400 mt-1">View and manage Ultimate Beneficial Owners and Controllers</p>
                     </div>
-                    <button onclick="alert('Add UBO / Controller Modal')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
-                        + Add UBO / Controller
-                    </button>
                 </div>
 
                 <div class="grid grid-cols-12 gap-6">
@@ -6019,14 +6663,6 @@ function renderProfile(container, initialSubTab = 'overview') {
                     <div>
                         <h3 class="font-extrabold text-slate-900 text-xl">Register of Nominee Shareholders (RONS) (0)</h3>
                         <p class="text-xs text-slate-400 mt-1">Declare and track nominee shareholders and their nominators according to ACRA requirements.</p>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <button onclick="alert('Add Nominee Modal')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-blue-600/20">
-                            + Add Nominee
-                        </button>
-                        <button onclick="alert('Save RONS')" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-                            Save RONS
-                        </button>
                     </div>
                 </div>
 
@@ -6230,7 +6866,7 @@ function renderProfile(container, initialSubTab = 'overview') {
                                         </td>
                                         <td class="p-3 text-slate-500">Statutory</td>
                                         <td class="p-3 text-slate-500">Annually</td>
-                                        <td class="p-3 font-mono font-bold text-slate-900">2026-07-11</td>
+                                        <td class="p-3 font-mono font-bold text-slate-900">2026-07-31</td>
                                         <td class="p-3"><span class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-amber-50 text-amber-600 border border-amber-100">DUE SOON</span></td>
                                         <td class="p-3 text-amber-600 font-bold">In 3 months</td>
                                     </tr>
@@ -6347,20 +6983,87 @@ function renderProfile(container, initialSubTab = 'overview') {
 
             <!-- Panel 13: Activities -->
             <div id="cd-panel-activities" class="cd-panel hidden space-y-6">
-                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
-                    <h3 class="font-bold text-slate-900 text-lg">Company Audit Log & Activity Trail</h3>
-                    <div class="space-y-4 text-xs font-medium text-slate-700">
-                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center">
-                            <div><span class="font-bold text-slate-900 block">Annual Return Filed for FY 2025</span><span class="text-slate-400">Status: Verified & Lodged with ACRA</span></div>
-                            <span class="text-[10px] font-bold text-slate-400 uppercase">2026-01-26</span>
+                <div class="grid grid-cols-12 gap-6">
+                    <!-- Left Column: Activity Timeline -->
+                    <div class="col-span-12 lg:col-span-8 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col gap-4">
+                        <div class="flex justify-between items-center gap-4">
+                            <h4 class="font-extrabold text-slate-800 text-sm">Activity Timeline</h4>
+                            <div class="flex items-center gap-3">
+                                <div class="relative w-64">
+                                    <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5"></i>
+                                    <input type="text" id="cd-activity-search-input" onkeyup="window.renderCdActivityTimeline()" placeholder="Search activities..." class="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium placeholder-slate-400">
+                                </div>
+                                <button onclick="window.renderCdActivityTimeline()" class="px-3 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 flex items-center gap-1.5 transition-all shadow-sm">
+                                    <i data-lucide="filter" class="w-3.5 h-3.5"></i> Filter
+                                </button>
+                            </div>
                         </div>
-                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center">
-                            <div><span class="font-bold text-slate-900 block">Director Address Updated</span><span class="text-slate-400">Updated for PANDIKADAVIL UNNIKRISHNAN JAYAPRAKASH</span></div>
-                            <span class="text-[10px] font-bold text-slate-400 uppercase">2025-06-30</span>
+                        <p class="text-slate-400 text-xs leading-normal -mt-2">Track all activities and changes made in the company profile</p>
+
+                        <!-- Activity timeline vertical list -->
+                        <div class="relative border-l border-slate-200 ml-6 pl-8 space-y-6 mt-6 pb-4" id="cd-activity-timeline-list">
+                            <!-- Loaded dynamically by renderCdActivityTimeline -->
                         </div>
-                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center">
-                            <div><span class="font-bold text-slate-900 block">Incorporation Registration Approved</span><span class="text-slate-400">Entity UEN 201311840R issued</span></div>
-                            <span class="text-[10px] font-bold text-slate-400 uppercase">2016-01-26</span>
+                    </div>
+
+                    <!-- Right Column: Activity Summary & Filters -->
+                    <div class="col-span-12 lg:col-span-4 space-y-6">
+                        <!-- Summary Card -->
+                        <div class="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm space-y-4 text-xs">
+                            <h4 class="font-extrabold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-2"><i data-lucide="activity" class="w-4 h-4 text-blue-600"></i> Activity Summary</h4>
+                            <div class="space-y-3 font-medium text-slate-700">
+                                <div class="flex justify-between py-1 border-b border-slate-50/50">
+                                    <span>Today</span>
+                                    <span class="font-bold text-slate-900">3</span>
+                                </div>
+                                <div class="flex justify-between py-1 border-b border-slate-50/50">
+                                    <span>This Week</span>
+                                    <span class="font-bold text-slate-900">12</span>
+                                </div>
+                                <div class="flex justify-between py-1 border-b border-slate-50/50">
+                                    <span>This Month</span>
+                                    <span class="font-bold text-slate-900">32</span>
+                                </div>
+                                <div class="flex justify-between py-1 pt-2">
+                                    <span class="font-bold text-slate-800">Total Activities</span>
+                                    <span class="font-black text-slate-900">128</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sidebar Filters Card -->
+                        <div class="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm space-y-4 text-xs">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-extrabold text-slate-800 text-xs uppercase tracking-wider">Filters</h4>
+                                <button onclick="window.clearCdActivityFilters()" class="text-blue-600 hover:text-blue-700 font-bold">Clear All</button>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-400 mb-1.5 uppercase text-[9px] tracking-wider">Activity Type</label>
+                                <select id="cd-activity-type-filter" onchange="window.renderCdActivityTimeline()" class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer">
+                                    <option value="all">All Types</option>
+                                    <option value="Document Uploaded">Document Uploaded</option>
+                                    <option value="Company Profile Updated">Company Profile Updated</option>
+                                    <option value="Document Rejected">Document Rejected</option>
+                                    <option value="Document Verified">Document Verified</option>
+                                    <option value="Director Added">Director Added</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-400 mb-1.5 uppercase text-[9px] tracking-wider">Performed By</label>
+                                <select id="cd-activity-user-filter" onchange="window.renderCdActivityTimeline()" class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer">
+                                    <option value="all">All Users</option>
+                                    <option value="Sarah Lee">Sarah Lee</option>
+                                    <option value="Daniel Wong">Daniel Wong</option>
+                                    <option value="Emily Chen">Emily Chen</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-400 mb-1.5 uppercase text-[9px] tracking-wider">Date Range</label>
+                                <div class="relative">
+                                    <input type="text" id="cd-activity-date-filter" placeholder="01 Jul 2026 - 12 Jul 2026" class="w-full px-3 py-2 border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                                    <i data-lucide="calendar" class="w-4 h-4 text-slate-400 absolute right-3.5 top-2.5"></i>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -6373,13 +7076,16 @@ function renderProfile(container, initialSubTab = 'overview') {
     cdSelectSecretary(0);
     cdSelectShareholder(0);
     cdSelectUbo(0);
+    window.renderCdActivityTimeline();
 
     // Embed documents vault into cd-panel-documents
     const docsWrapper = document.getElementById('cd-documents-vault-wrapper');
     if (docsWrapper) renderDocuments(docsWrapper);
 
-    if (initialSubTab && initialSubTab !== 'overview' && typeof window.switchCdHeaderTab === 'function') {
-        window.switchCdHeaderTab(initialSubTab);
+    const urlParams = new URLSearchParams(window.location.search);
+    const savedSubTab = urlParams.get('subtab') || localStorage.getItem('portal_active_subtab') || initialSubTab || 'overview';
+    if (typeof window.switchCdHeaderTab === 'function') {
+        window.switchCdHeaderTab(savedSubTab);
     }
 
     if (window.lucide) window.lucide.createIcons();
@@ -6932,7 +7638,6 @@ window.renderFilteredDocsTable = function() {
                 <div class="flex justify-center gap-1.5">
                     <button onclick="previewClientDocument('${d.name}')" class="p-1 text-slate-400 hover:text-blue-600" title="Preview"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
                     <button onclick="downloadClientDocument('${d.name}')" class="p-1 text-slate-400 hover:text-blue-600" title="Download"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
-                    <button onclick="deleteClientDocument('${d.name}')" class="p-1 text-slate-400 hover:text-red-600" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
                 </div>
             </td>
         </tr>
@@ -7261,24 +7966,16 @@ function triggerUpload() {
                 <!-- Category Select -->
                 <div>
                     <label class="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider block mb-2">SELECT DOCUMENT CATEGORY *</label>
-                    <select id="upload-doc-category" class="w-full px-4 py-3 text-xs border border-slate-200 rounded-2xl bg-white font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-                        <option value="KYC">KYC (Passport, NRIC, Address Proof)</option>
-                        <option value="Invoice">Invoice (Invoices, Billing & Receipts)</option>
-                        <option value="Permanent folder">Permanent folder (Permanent Corporate Records)</option>
-                        <option value="Incorporation">Incorporation (BizFile, M&AA, Constitution)</option>
-                        <option value="All Signed">All Signed (Signed Agreements & Resolutions)</option>
-                        <option value="Change of Address">Change of Address (Form 44, Address Proofs)</option>
-                        <option value="Change of Directors">Change of Directors (Form 45, Director Consents)</option>
-                        <option value="Change of CS">Change of CS (Secretary Appointment / Resignation)</option>
-                        <option value="Change of Auditors">Change of Auditors (Auditor Appointment / Resignation)</option>
-                        <option value="AGM AR">AGM AR (AGM Minutes, Annual Return Filings)</option>
-                        <option value="Allotment of Shares">Allotment of Shares (Return of Allotment, Share Certs)</option>
-                        <option value="Final Demand">Final Demand (Final Demand Notices & Reminders)</option>
-                        <option value="Others">Others (Miscellaneous Documents)</option>
-                        <option value="Tax">Tax (Tax Returns, Filings & Assessments)</option>
-                        <option value="RONS">RONS (Register of Nominee Directors / Officers)</option>
-                        <option value="Bizfile & filing">Bizfile & filing (ACRA BizFile Reports & Filings)</option>
-                    </select>
+                    <div class="relative" id="cd-cat-dropdown-wrapper">
+                        <div class="relative flex items-center">
+                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none z-10"></i>
+                            <input type="text" id="cd-cat-search-input" autocomplete="off" onfocus="window.openDocCatDropdown('cd-cat-options-list', 'cd-cat-chevron', 'upload-doc-category', 'cd-cat-search-input')" oninput="window.filterDocCatOptions(this.value, 'cd-cat-options-list', 'cd-cat-chevron', 'upload-doc-category', 'cd-cat-search-input')" onkeydown="window.handleDocCatKeyNav(event, 'cd-cat-options-list', 'cd-cat-chevron', 'upload-doc-category', 'cd-cat-search-input')" placeholder="Search category (e.g. KYC, Invoice, Tax)..." value="" class="w-full pl-10 pr-9 py-3 text-xs border border-slate-200 rounded-2xl bg-white font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition cursor-pointer shadow-sm">
+                            <i data-lucide="chevron-down" id="cd-cat-chevron" class="w-4 h-4 text-slate-400 absolute right-3.5 pointer-events-none transition-transform duration-200"></i>
+                        </div>
+                        <input type="hidden" id="upload-doc-category" value="">
+                        <div id="cd-cat-options-list" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-[10050] max-h-56 overflow-y-auto p-1.5 space-y-0.5 animate-fade-in">
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Drag & Drop Zone -->

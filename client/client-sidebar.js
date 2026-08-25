@@ -181,9 +181,10 @@ document.addEventListener('DOMContentLoaded', () => {
         'onboarding': `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-400 group-hover:text-slate-900 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 14h6"/><path d="M9 18h6"/><path d="M12 10h.01"/></svg>`
     };
 
-    const getLinkHtml = (tabId, icon, label, badgeCount) => {
+    const getLinkHtml = (tabId, icon, label, badgeCount, badgeId) => {
         const svgIcon = SIDEBAR_SVGS[tabId] || '';
-        const badgeHtml = badgeCount ? `<span class="ml-auto px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-600 text-white leading-none">${badgeCount}</span>` : '';
+        const badgeIdAttr = badgeId ? `id="${badgeId}"` : '';
+        const badgeHtml = (badgeCount || badgeId) ? `<span ${badgeIdAttr} class="ml-auto px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-600 text-white leading-none ${badgeCount ? '' : 'hidden'}">${badgeCount || 0}</span>` : '';
         if (tabId === 'messages') {
             return `<a href="messages.html" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 hover:text-slate-900 transition-colors group font-semibold text-sm text-slate-600" id="nav-messages" title="${label}">
                 ${svgIcon} <span class="sidebar-text">${label}</span> ${badgeHtml}
@@ -204,7 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ${getLinkHtml('home', 'home', 'Dashboard')}
         ${getLinkHtml('profile', 'profile', 'Company Profile')}
         ${getLinkHtml('compliance', 'compliance', 'Compliance')}
-        ${getLinkHtml('messages', 'messages', 'Messages & Chat')}
+        ${getLinkHtml('messages', 'messages', 'Messages & Chat', null, 'client-messages-unread-badge')}
     `;
     if (isNewClient) {
         sidebarNavLinks += getLinkHtml('onboarding', 'onboarding', 'Onboarding');
@@ -433,6 +434,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 badge.style.display = 'none';
             }
         }
+        if (typeof window._clientFetchUnreadMessagesCount === 'function') {
+            window._clientFetchUnreadMessagesCount();
+        }
         if (notifs.length === 0) {
             list.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px;">No notifications yet</div>';
             return;
@@ -478,6 +482,44 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    window._clientFetchUnreadMessagesCount = async function() {
+        try {
+            const auth = JSON.parse(localStorage.getItem('client_auth') || '{}');
+            const clientId = auth.id || auth.userId || '';
+            if (!clientId) return;
+
+            let count = 0;
+            const res = await fetch(`/api/messages?clientId=${clientId}`);
+            if (res.ok) {
+                const msgs = await res.json();
+                if (Array.isArray(msgs)) {
+                    count = msgs.filter(m => m.senderRole !== 'client' && (!m.isRead || m.isRead === false)).length;
+                }
+            }
+
+            if (window._clientNotifications && Array.isArray(window._clientNotifications)) {
+                const notifMsgUnread = window._clientNotifications.filter(n =>
+                    n.type === 'message' && (!n.readBy || !n.readBy.includes(clientId))
+                ).length;
+                if (notifMsgUnread > count) {
+                    count = notifMsgUnread;
+                }
+            }
+
+            const badge = document.getElementById('client-messages-unread-badge');
+            if (badge) {
+                if (count > 0) {
+                    badge.textContent = count > 99 ? '99+' : count;
+                    badge.classList.remove('hidden');
+                    badge.style.display = 'inline-flex';
+                } else {
+                    badge.classList.add('hidden');
+                    badge.style.display = 'none';
+                }
+            }
+        } catch(e) {}
+    };
+
     window._clientFetchNotifications = async function() {
         try {
             const auth = JSON.parse(localStorage.getItem('client_auth') || '{}');
@@ -490,11 +532,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 window._clientRenderNotifications();
             }
         } catch(e) {}
+        window._clientFetchUnreadMessagesCount();
     };
 
     window._clientFetchNotifications();
+    window._clientFetchUnreadMessagesCount();
     if (!window._clientNotifInterval) {
-        window._clientNotifInterval = setInterval(window._clientFetchNotifications, 10000);
+        window._clientNotifInterval = setInterval(() => {
+            window._clientFetchNotifications();
+            window._clientFetchUnreadMessagesCount();
+        }, 10000);
     }
 
     // WebSocket for real-time client notifications
@@ -514,7 +561,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ws.onmessage = function(evt) {
                     try {
                         const msg = JSON.parse(evt.data);
-                        if (msg.type === 'notification' || msg.type === 'new_notification') {
+                        if (msg.type === 'notification' || msg.type === 'new_notification' || msg.type === 'new_message' || msg.type === 'chat_message') {
                             const notif = msg.notification || msg;
                             if (notif && notif.title) {
                                 if (!notif.readBy) notif.readBy = [];
@@ -535,6 +582,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                             }
                         }
+                        window._clientFetchUnreadMessagesCount();
                     } catch(e) {}
                 };
                 ws.onerror = function() {};
