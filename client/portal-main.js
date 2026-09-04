@@ -4167,7 +4167,7 @@ window.triggerQuickAIPrompt = function(promptText) {
                         </div>
                         <div class="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Financial Year End (FYE)</span>
-                            <div class="font-bold text-slate-800">${ed.fye || '—'}</div>
+                            <div class="font-bold text-slate-800">${ed.fye ? formatDateDisplay(ed.fye) : '—'}</div>
                         </div>
                         <div class="bg-slate-50/50 p-4 rounded-xl border border-slate-100 lg:col-span-2">
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Registered Address</span>
@@ -4175,7 +4175,7 @@ window.triggerQuickAIPrompt = function(promptText) {
                         </div>
                         <div class="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Last AGM Date</span>
-                            <div class="font-bold text-slate-800">${ed.lastAgmDate || '—'}</div>
+                            <div class="font-bold text-slate-800">${ed.lastAgmDate ? formatDateDisplay(ed.lastAgmDate) : '—'}</div>
                         </div>
                     </div>
                 </div>
@@ -6196,7 +6196,7 @@ function renderProfile(container, initialSubTab = 'overview') {
                                 <div class="flex-grow">
                                     <div class="flex justify-between items-start">
                                         <span class="font-extrabold text-slate-800 text-xs">Financial Year End (FYE)</span>
-                                        <span class="font-extrabold text-slate-900 text-xs">2025-12-30</span>
+                                        <span class="font-extrabold text-slate-900 text-xs">30 Dec 2025</span>
                                     </div>
                                     <div class="flex justify-between items-start mt-0.5">
                                         <span class="text-slate-400 font-medium text-[11px]">Every year on 30 Dec</span>
@@ -6213,7 +6213,7 @@ function renderProfile(container, initialSubTab = 'overview') {
                                 <div class="flex-grow">
                                     <div class="flex justify-between items-start">
                                         <span class="font-extrabold text-slate-800 text-xs">Last AGM Date</span>
-                                        <span class="font-extrabold text-slate-900 text-xs">29 Jun 2026</span>
+                                        <span class="font-extrabold text-slate-900 text-xs">30 Jun 2026</span>
                                     </div>
                                     <div class="flex justify-between items-start mt-0.5">
                                         <span class="text-slate-400 font-medium text-[11px]">Due within 6 months of FYE</span>
@@ -8547,6 +8547,38 @@ function formatLastSeen(timestamp) {
     if (isYesterday) return `Last seen: Yesterday, ${timeStr}`;
     const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
     return `Last seen: ${dateStr}, ${timeStr}`;
+}
+
+function formatDateDisplay(dateStr) {
+    if (!dateStr || dateStr === '—' || dateStr === 'NA' || dateStr === 'N/A' || dateStr === 'null' || dateStr === 'undefined') return '—';
+    const str = String(dateStr).trim();
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (isoMatch) {
+        const y = parseInt(isoMatch[1], 10);
+        const m = parseInt(isoMatch[2], 10);
+        const d = parseInt(isoMatch[3], 10);
+        if (m >= 1 && m <= 12) return `${d} ${months[m - 1]} ${y}`;
+    }
+    const dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+    if (dmyMatch) {
+        const d = parseInt(dmyMatch[1], 10);
+        const m = parseInt(dmyMatch[2], 10);
+        const y = parseInt(dmyMatch[3], 10);
+        if (m >= 1 && m <= 12) return `${d} ${months[m - 1]} ${y}`;
+    }
+    const textMatch = str.match(/^(\d{1,2})[\s\-\/]+([a-zA-Z]+)[\s\-\/,\.]+(\d{4})/);
+    if (textMatch) {
+        const d = parseInt(textMatch[1], 10);
+        const mStr = textMatch[2].substring(0, 3);
+        const y = parseInt(textMatch[3], 10);
+        const mCap = mStr.charAt(0).toUpperCase() + mStr.slice(1).toLowerCase();
+        return `${d} ${mCap} ${y}`;
+    }
+    const d = new Date(str);
+    if (isNaN(d.getTime())) return str;
+    const adjusted = new Date(d.getTime() + 12 * 3600 * 1000);
+    return `${adjusted.getUTCDate()} ${months[adjusted.getUTCMonth()]} ${adjusted.getUTCFullYear()}`;
 }
 
 async function markAsRead() {
