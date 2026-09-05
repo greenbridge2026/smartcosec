@@ -389,7 +389,7 @@
                             <div class="flex-grow pb-4">
                                 <div class="flex justify-between items-start">
                                     <span class="font-bold text-slate-800 text-[13px]">Financial Year End (FYE)</span>
-                                    <span class="font-bold text-slate-900 text-[13px]" id="info-fye">2026-12-31</span>
+                                    <span class="font-bold text-slate-900 text-[13px]" id="info-fye">31 Dec 2026</span>
                                 </div>
                                 <div class="flex justify-between items-start mt-1">
                                     <span class="text-slate-500 text-xs">Every year on 31 Dec</span>
@@ -1445,10 +1445,25 @@
                 return `${d} ${mCap} ${y}`;
             }
 
-            // Fallback: use LOCAL Date components to avoid UTC shift
+            // Fallback: use UTC Date components to avoid local timezone shift
             const d = new Date(str);
             if (isNaN(d.getTime())) return str;
-            return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+            return `${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+        }
+
+        function renderStrikeoutText(val, isStrikeout = false) {
+            if (!val || val === 'N/A' || val === 'null' || val === '—') return '—';
+            const str = String(val).trim();
+            if (isStrikeout) {
+                return `<span class="line-through text-slate-400 font-normal">${str}</span>`;
+            }
+            if (str.includes('[strike]') || str.includes('<s>') || str.includes('<strike>') || str.includes('line-through')) {
+                return str
+                    .replace(/\[strike\](.*?)\[\/strike\]/gi, '<span class="line-through text-slate-400 font-normal">$1</span>')
+                    .replace(/<s>(.*?)<\/s>/gi, '<span class="line-through text-slate-400 font-normal">$1</span>')
+                    .replace(/<strike>(.*?)<\/strike>/gi, '<span class="line-through text-slate-400 font-normal">$1</span>');
+            }
+            return str;
         }
 
         async function loadCompanyDetails() {
@@ -1570,8 +1585,8 @@
 
             // Render Excel register details or fallback to onboarding details
             if (excel) {
-                document.getElementById('info-primary-activity').innerText = excel.primaryActivity || "—";
-                document.getElementById('info-secondary-activity').innerText = excel.secondaryActivity || "—";
+                document.getElementById('info-primary-activity').innerHTML = renderStrikeoutText(excel.primaryActivity);
+                document.getElementById('info-secondary-activity').innerHTML = renderStrikeoutText(excel.secondaryActivity, excel.secondaryActivityStrikeout);
                 document.getElementById('info-address').innerText = excel.registeredOfficeAddress || "—";
                 updateFyeDisplay(excel.fye);
                 document.getElementById('info-agm').innerText = (excel.lastAgmDate && excel.lastAgmDate !== 'NA') ? formatDateDisplay(excel.lastAgmDate) : "—";
@@ -1594,8 +1609,8 @@
                 const actPri = details.activities && details.activities.primary ? details.activities.primary : "—";
                 const actSec = details.activities && details.activities.secondary ? details.activities.secondary : "—";
 
-                document.getElementById('info-primary-activity').innerText = actPri;
-                document.getElementById('info-secondary-activity').innerText = actSec;
+                document.getElementById('info-primary-activity').innerHTML = renderStrikeoutText(actPri);
+                document.getElementById('info-secondary-activity').innerHTML = renderStrikeoutText(actSec);
                 document.getElementById('info-address').innerText = officeStr;
                 updateFyeDisplay(details.fye);
                 document.getElementById('info-agm').innerText = "—";
@@ -1806,8 +1821,8 @@
 
                 window.currentAllotments.forEach(item => {
                     const sa = parseFloat(String(item.sharesApplied || item.shares || '0').replace(/[^0-9.]/g, '')) || 0;
-                    const da = parseFloat(String(item.depositAmount || '0').replace(/[^0-9.]/g, '')) || 0;
-                    const aa = parseFloat(String(item.allottedAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                    const da = parseFloat(String(item.depositAmount || item.paidAmount || item.amountPaid || item.consideration || '0').replace(/[^0-9.]/g, '')) || 0;
+                    const aa = parseFloat(String(item.allottedAmount || item.amountAllotted || '0').replace(/[^0-9.]/g, '')) || 0;
 
                     totalSharesApplied += sa;
                     totalDepositAmount += da;
@@ -1827,11 +1842,11 @@
                         <td class="p-3 font-mono font-bold text-slate-700">${item.certNumber || '—'}</td>
                         <td class="p-3 text-center">
                             <div class="flex items-center justify-center gap-2">
-                                <button onclick="window.openEditAllotmentModal(${idx})" class="p-1.5 hover:text-blue-600 hover:bg-blue-50 rounded-lg text-slate-400 transition" title="Edit Allotment">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                                <button type="button" onclick="window.openEditAllotmentModal(${idx})" class="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50/80 rounded-xl transition-all cursor-pointer relative z-10 inline-flex items-center justify-center border border-transparent hover:border-blue-200" title="Edit Allotment">
+                                    <svg class="w-4 h-4 pointer-events-none" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                                 </button>
-                                <button onclick="window.deleteAllotment(${idx})" class="p-1.5 hover:text-rose-600 hover:bg-rose-50 rounded-lg text-slate-400 transition" title="Delete Allotment">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/></svg>
+                                <button type="button" onclick="window.deleteAllotment(${idx})" class="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50/80 rounded-xl transition-all cursor-pointer relative z-10 inline-flex items-center justify-center border border-transparent hover:border-rose-200" title="Delete Allotment">
+                                    <svg class="w-4 h-4 pointer-events-none" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/></svg>
                                 </button>
                             </div>
                         </td>
@@ -1864,8 +1879,8 @@
             };
 
             window.openEditAllotmentModal = function(index) {
-                const isEdit = index >= 0;
-                const item = isEdit ? window.currentAllotments[index] : {
+                const isEdit = (typeof index === 'number' && index >= 0);
+                const item = isEdit ? (window.currentAllotments && window.currentAllotments[index] ? window.currentAllotments[index] : {}) : {
                     applicationDate: '',
                     allotmentDate: '',
                     applicantName: '',
@@ -1876,6 +1891,29 @@
                     allottedAmount: '1000',
                     certNumber: ''
                 };
+
+                const formatDateForInput = (dStr) => {
+                    if (!dStr || dStr === "—" || dStr === "NA" || dStr === "null") return "";
+                    const str = String(dStr).trim();
+                    const isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+                    if (isoMatch) {
+                        return `${isoMatch[1]}-${String(isoMatch[2]).padStart(2, '0')}-${String(isoMatch[3]).padStart(2, '0')}`;
+                    }
+                    const dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+                    if (dmyMatch) {
+                        return `${dmyMatch[3]}-${String(dmyMatch[2]).padStart(2, '0')}-${String(dmyMatch[1]).padStart(2, '0')}`;
+                    }
+                    const d = new Date(str);
+                    if (isNaN(d.getTime())) return str;
+                    const y = d.getUTCFullYear();
+                    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+                    const day = String(d.getUTCDate()).padStart(2, '0');
+                    return `${y}-${m}-${day}`;
+                };
+
+                const cleanShares = String(item.sharesApplied || item.shares || '').replace(/[^0-9.]/g, '');
+                const cleanAppDate = formatDateForInput(item.applicationDate);
+                const cleanAllotDate = formatDateForInput(item.allotmentDate);
 
                 const modalHtml = `
                     <div id="allotment-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
@@ -1890,11 +1928,11 @@
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
                                         <label class="block font-bold text-slate-500 uppercase tracking-wider mb-1">Application Date</label>
-                                        <input type="date" id="m-allot-app-date" value="${item.applicationDate || ''}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500">
+                                        <input type="date" id="m-allot-app-date" value="${cleanAppDate}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500">
                                     </div>
                                     <div>
-                                        <label class="block font-bold text-slate-500 uppercase tracking-wider mb-1">Allotment Date</label>
-                                        <input type="date" id="m-allot-date" required value="${item.allotmentDate || ''}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500">
+                                        <label class="block font-bold text-slate-500 uppercase tracking-wider mb-1">Allotment Date *</label>
+                                        <input type="date" id="m-allot-date" required value="${cleanAllotDate}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500">
                                     </div>
                                 </div>
                                 <div>
@@ -1908,7 +1946,7 @@
                                     </div>
                                     <div>
                                         <label class="block font-bold text-slate-500 uppercase tracking-wider mb-1">Number of Shares *</label>
-                                        <input type="number" id="m-allot-shares" required value="${item.sharesApplied || item.shares || ''}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500">
+                                        <input type="number" id="m-allot-shares" required value="${cleanShares}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500">
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-3 gap-3">
@@ -1937,6 +1975,7 @@
                         </div>
                     </div>
                 `;
+                document.getElementById('allotment-modal')?.remove();
                 const div = document.createElement('div');
                 div.innerHTML = modalHtml;
                 document.body.appendChild(div.firstElementChild);
@@ -1944,9 +1983,15 @@
 
             window.saveAllotment = async function(event, index) {
                 event.preventDefault();
+                const appDateInput = document.getElementById('m-allot-app-date').value;
+                const allotDateInput = document.getElementById('m-allot-date').value;
+                
+                const oldItem = (index >= 0 && window.currentAllotments[index]) ? window.currentAllotments[index] : {};
+
                 const newObj = {
-                    applicationDate: document.getElementById('m-allot-app-date').value,
-                    allotmentDate: document.getElementById('m-allot-date').value,
+                    ...oldItem,
+                    applicationDate: appDateInput || oldItem.applicationDate || '',
+                    allotmentDate: allotDateInput || oldItem.allotmentDate || '',
                     applicantName: document.getElementById('m-allot-name').value.trim(),
                     shareClass: document.getElementById('m-allot-class').value.trim(),
                     sharesApplied: document.getElementById('m-allot-shares').value.trim(),
@@ -1964,6 +2009,21 @@
 
                 document.getElementById('allotment-modal')?.remove();
                 renderAllotmentsTable(window.currentAllotments);
+
+                // Re-sync Shareholders summary & list with updated allotments
+                const service = (typeof clientData !== 'undefined' && clientData && clientData.services && clientData.services.length > 0) ? clientData.services[0] : null;
+                const details = service ? (service.details || {}) : {};
+                const excel = details.excelData || {};
+                const excelMembers = excel.members || excel.shareholders || [];
+                const excelTransfers = window.currentTransfers || excel.transfers || [];
+
+                if (typeof initShareholdersData === 'function') {
+                    initShareholdersData(excelMembers, window.currentAllotments, excelTransfers);
+                }
+                if (typeof renderShareholdersList === 'function') {
+                    renderShareholdersList();
+                }
+
                 await window.saveEntireCompanyState("Share allotment saved successfully.");
             };
 
@@ -1971,6 +2031,21 @@
                 if (confirm("Are you sure you want to delete this allotment record?")) {
                     window.currentAllotments.splice(index, 1);
                     renderAllotmentsTable(window.currentAllotments);
+
+                    // Re-sync Shareholders summary & list with updated allotments
+                    const service = (typeof clientData !== 'undefined' && clientData && clientData.services && clientData.services.length > 0) ? clientData.services[0] : null;
+                    const details = service ? (service.details || {}) : {};
+                    const excel = details.excelData || {};
+                    const excelMembers = excel.members || excel.shareholders || [];
+                    const excelTransfers = window.currentTransfers || excel.transfers || [];
+
+                    if (typeof initShareholdersData === 'function') {
+                        initShareholdersData(excelMembers, window.currentAllotments, excelTransfers);
+                    }
+                    if (typeof renderShareholdersList === 'function') {
+                        renderShareholdersList();
+                    }
+
                     await window.saveEntireCompanyState("Allotment record deleted.");
                 }
             };
@@ -2312,11 +2387,11 @@
                     }
 
                     const monthsArr = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-                    const day = fyeDate.getDate();
-                    const monthName = monthsArr[fyeDate.getMonth()];
-                    const year = fyeDate.getFullYear();
+                    const day = fyeDate.getUTCDate();
+                    const monthName = monthsArr[fyeDate.getUTCMonth()];
+                    const year = fyeDate.getUTCFullYear();
 
-                    fyeDateEl.innerText = `${year}-${String(fyeDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    fyeDateEl.innerText = `${day} ${monthName} ${year}`;
                     fyeRecurrenceEl.innerText = `Every year on ${day} ${monthName}`;
 
                     const now = new Date();
@@ -2391,9 +2466,9 @@
                     }
                     const d = new Date(str);
                     if (isNaN(d.getTime())) return "";
-                    const y = d.getFullYear();
-                    const m = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
+                    const y = d.getUTCFullYear();
+                    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+                    const day = String(d.getUTCDate()).padStart(2, '0');
                     return `${y}-${m}-${day}`;
                 };
 
@@ -2507,9 +2582,9 @@
                     }
                     const d = new Date(str);
                     if (isNaN(d.getTime())) return "";
-                    const y = d.getFullYear();
-                    const m = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
+                    const y = d.getUTCFullYear();
+                    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+                    const day = String(d.getUTCDate()).padStart(2, '0');
                     return `${y}-${m}-${day}`;
                 };
 
@@ -3259,19 +3334,19 @@
                             <tbody class="divide-y divide-slate-100 text-slate-700">
                                 <tr class="hover:bg-slate-50/50 transition">
                                     <td class="p-4 font-bold text-slate-900">Financial Year End (FYE)</td>
-                                    <td class="p-4 font-semibold text-xs text-slate-600">${fye}</td>
+                                    <td class="p-4 font-semibold text-xs text-slate-600">${fye !== "—" ? formatDateDisplay(fye) : "—"}</td>
                                     <td class="p-4 text-xs font-semibold text-slate-400">Every year</td>
                                     <td class="p-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase">Completed</span></td>
                                 </tr>
                                 <tr class="hover:bg-slate-50/50 transition">
                                     <td class="p-4 font-bold text-slate-900">Last AGM Date</td>
-                                    <td class="p-4 font-semibold text-xs text-slate-600">${agm}</td>
+                                    <td class="p-4 font-semibold text-xs text-slate-600">${agm !== "—" ? formatDateDisplay(agm) : "—"}</td>
                                     <td class="p-4 text-xs font-semibold text-slate-400">Due within 6 months of FYE</td>
                                     <td class="p-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${agm !== "—" ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200'} uppercase">${agm !== "—" ? 'Completed' : 'Pending'}</span></td>
                                 </tr>
                                 <tr class="hover:bg-slate-50/50 transition">
                                     <td class="p-4 font-bold text-slate-900">Date of Annual Return</td>
-                                    <td class="p-4 font-semibold text-xs text-slate-600">${ar}</td>
+                                    <td class="p-4 font-semibold text-xs text-slate-600">${ar !== "—" ? formatDateDisplay(ar) : "—"}</td>
                                     <td class="p-4 text-xs font-semibold text-slate-400">Due within 30 days of AGM</td>
                                     <td class="p-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${ar !== "—" ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200'} uppercase">${ar !== "—" ? 'Completed' : 'Pending'}</span></td>
                                 </tr>
@@ -4259,8 +4334,8 @@
                         name: d.name || "Unknown Director",
                         title: isNominee ? "Nominee Director" : (d.type || "Director"),
                         isNominee: isNominee,
-                        email: d.email || `${(d.name || '').toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.')}@globalisor-client.com`,
-                        mobile: d.phone || d.mobile || "+65 9123 4567",
+                        email: d.email || "",
+                        mobile: d.phone || d.mobile || "",
                         idNumber: d.idNumber || "—",
                         dob: d.dob || "—",
                         nationality: d.nationality || "—",
@@ -4323,7 +4398,7 @@
                  if (statusFilter === 'all') {
                      matchesFilter = true;
                  } else if (statusFilter === 'active') {
-                     matchesFilter = d.status !== 'Resigned';
+                     matchesFilter = !d.isNominee && d.status !== 'Resigned';
                  } else if (statusFilter === 'active-nominee') {
                      matchesFilter = d.isNominee && d.status !== 'Resigned';
                  } else if (statusFilter === 'Nominee Director') {
@@ -4626,6 +4701,7 @@
                     </div>
                 `;
             } else if (activeDirectorTab === 'relatedEntities') {
+                const relEntities = (director && Array.isArray(director.relatedEntities)) ? director.relatedEntities : [];
                 container.innerHTML = `
                     <h4 class="font-extrabold text-slate-800 text-sm mb-4">Directorships & Shareholdings in Other Entities</h4>
                     <div class="overflow-x-auto">
@@ -4639,18 +4715,18 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-50 text-slate-700 font-medium">
-                                <tr class="hover:bg-slate-50/50">
-                                    <td class="p-3 font-bold text-slate-900">${director.name.toUpperCase()} CONSULTING PTE. LTD.</td>
-                                    <td class="p-3 font-mono">202108745W</td>
-                                    <td class="p-3">Sole Director</td>
-                                    <td class="p-3">100.00%</td>
-                                </tr>
-                                <tr class="hover:bg-slate-50/50">
-                                    <td class="p-3 font-bold text-slate-900">GLOBAL BRIDGE VENTURES CO.</td>
-                                    <td class="p-3 font-mono">—</td>
-                                    <td class="p-3">Managing Partner</td>
-                                    <td class="p-3">25.00%</td>
-                                </tr>
+                                ${relEntities.length === 0 ? `
+                                    <tr>
+                                        <td colspan="4" class="p-6 text-center text-slate-400 font-medium bg-slate-50/20">No related entity details found.</td>
+                                    </tr>
+                                ` : relEntities.map(re => `
+                                    <tr class="hover:bg-slate-50/50">
+                                        <td class="p-3 font-bold text-slate-900">${re.name || '—'}</td>
+                                        <td class="p-3 font-mono">${re.uen || '—'}</td>
+                                        <td class="p-3">${re.relationship || '—'}</td>
+                                        <td class="p-3">${re.shareholding || '—'}</td>
+                                    </tr>
+                                `).join('')}
                             </tbody>
                         </table>
                     </div>
@@ -5038,60 +5114,23 @@
                         name: s.name || "Unknown Secretary",
                         type: s.type || (idx === 0 ? "Primary" : "Secretary"),
                         acraNo: s.acraNo || "—",
-                        email: s.email || `${(s.name || '').toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.')}@corporatesg.com`,
-                        mobile: s.mobile || "+65 9123 4567",
+                        email: s.email || "",
+                        mobile: s.mobile || "",
                         idNumber: s.idNumber || "—",
                         dob: s.dob || "—",
                         nationality: s.nationality || "—",
                         address: s.address || "—",
                         appointmentDate: s.appointmentDate || "—",
                         resignationDate: s.resignationDate || "—",
-                        qualification: s.qualification || "ACIS (Chartered Secretary)",
-                        experience: s.experience || "10+ Years",
+                        qualification: s.qualification || "",
+                        experience: s.experience || "",
                         registeredAddress: s.registeredAddress || s.address || "—",
                         status: s.status || (hasResigned ? "Resigned" : "Active"),
                         notes: s.notes || []
                     });
                 });
             } else {
-                secretariesList = [
-                    {
-                        name: "Piyush Kumar Chaplot",
-                        type: "Secretary",
-                        acraNo: "",
-                        email: "piyush.kumar.chaplot@corporatesg.com",
-                        mobile: "+65 9123 4567",
-                        idNumber: "S7980739G",
-                        dob: "—",
-                        nationality: "Singaporean",
-                        address: "#13-12, 3 Rhu Cross, Singapore 437433",
-                        appointmentDate: "2020-03-30",
-                        resignationDate: "—",
-                        qualification: "ACIS (Chartered Secretary)",
-                        experience: "10+ Years",
-                        registeredAddress: "#13-12, 3 Rhu Cross, Singapore 437433",
-                        status: "Active",
-                        notes: []
-                    },
-                    {
-                        name: "Kalyanasundaram Maran",
-                        type: "Primary",
-                        acraNo: "",
-                        email: "kalyanasundaram.maran@corporatesg.com",
-                        mobile: "+65 9876 5432",
-                        idNumber: "S8912345B",
-                        dob: "—",
-                        nationality: "SINGAPORE CITIZEN",
-                        address: "37A TOH CRESCENT SINGAPORE 507947",
-                        appointmentDate: "2016-01-25",
-                        resignationDate: "2020-03-30",
-                        qualification: "Chartered Secretary",
-                        experience: "8 Years",
-                        registeredAddress: "37A TOH CRESCENT SINGAPORE 507947",
-                        status: "Resigned",
-                        notes: []
-                    }
-                ];
+                secretariesList = [];
             }
         }
 
@@ -5244,7 +5283,7 @@
 
             if (activeSecretaryTab === 'overview') {
                 container.innerHTML = `
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 gap-6">
                         <!-- Personal Details -->
                         <div class="space-y-4 border border-slate-100 rounded-2xl p-5 bg-white shadow-sm">
                             <h4 class="font-extrabold text-slate-800 text-sm border-b border-slate-50 pb-2">Personal Details</h4>
@@ -5276,30 +5315,6 @@
                                 <div class="flex flex-col gap-1 py-1">
                                     <span class="text-slate-400 font-bold">Residential Address</span>
                                     <span class="font-bold text-slate-800 leading-relaxed">${secretary.address}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Professional Details -->
-                        <div class="space-y-4 border border-slate-100 rounded-2xl p-5 bg-white shadow-sm">
-                            <h4 class="font-extrabold text-slate-800 text-sm border-b border-slate-50 pb-2">Professional Details</h4>
-                            <div class="space-y-3 text-xs">
-                                ${(secretary.acraNo && secretary.acraNo !== '—' && secretary.acraNo !== '-') ? `<div class="flex justify-between py-1 border-b border-slate-50/50"><span class="text-slate-400 font-bold">ACRA Registered No.</span><span class="font-bold text-slate-800">${secretary.acraNo}</span></div>` : ''}
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Appointment Type</span>
-                                    <span class="font-bold text-slate-800">${secretary.type === 'Primary' ? 'Primary Company Secretary' : 'Company Secretary'}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Qualification</span>
-                                    <span class="font-bold text-slate-800">${secretary.qualification}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Experience</span>
-                                    <span class="font-bold text-slate-800">${secretary.experience}</span>
-                                </div>
-                                <div class="flex flex-col gap-1 py-1">
-                                    <span class="text-slate-400 font-bold">Registered Address</span>
-                                    <span class="font-bold text-slate-800 leading-relaxed">${secretary.registeredAddress}</span>
                                 </div>
                             </div>
                         </div>
@@ -5817,42 +5832,65 @@
 
             members.forEach((m, idx) => {
                 const sharesInfo = calculateSharesForName(m.name, allotments, transfers);
-                memberCalculatedShares.push(sharesInfo);
                 
-                const hasCeased = !!(m.dateCeased && String(m.dateCeased).trim() !== '' && String(m.dateCeased) !== '—');
+                // Fallback to direct properties on member object if allotments/transfers didn't produce total shares
+                const directTotal = parseFloat(String(m.shares || m.numberOfShares || m.sharesHeld || '0').replace(/[^0-9.]/g, '')) || 0;
+                const directOrd = parseFloat(String(m.ordinaryShares !== undefined ? m.ordinaryShares : (String(m.shareClass || '').toLowerCase().includes('pref') ? 0 : directTotal)).replace(/[^0-9.]/g, '')) || 0;
+                const directPref = parseFloat(String(m.preferenceShares !== undefined ? m.preferenceShares : (String(m.shareClass || '').toLowerCase().includes('pref') ? directTotal : 0)).replace(/[^0-9.]/g, '')) || 0;
+
+                const effectiveOrd = sharesInfo.total > 0 ? sharesInfo.ordinary : directOrd;
+                const effectivePref = sharesInfo.total > 0 ? sharesInfo.preference : directPref;
+                const effectiveTotal = sharesInfo.total > 0 ? sharesInfo.total : (effectiveOrd + effectivePref || directTotal);
+
+                const finalInfo = {
+                    ordinary: effectiveOrd,
+                    preference: effectivePref,
+                    total: effectiveTotal
+                };
+
+                memberCalculatedShares.push(finalInfo);
+                
+                const hasCeased = !!(m.dateCeased && String(m.dateCeased).trim() !== '' && String(m.dateCeased) !== '—') ||
+                                  (m.status === 'Ceased' || m.status === 'Cancelled' || m.status === 'Ceased / Cancelled');
                 if (!hasCeased) {
-                    totalActiveOrdinaryAcrossMembers += sharesInfo.ordinary;
-                    totalActivePreferenceAcrossMembers += sharesInfo.preference;
+                    totalActiveOrdinaryAcrossMembers += finalInfo.ordinary;
+                    totalActivePreferenceAcrossMembers += finalInfo.preference;
                 }
             });
 
             const totalActiveSharesAcrossMembers = totalActiveOrdinaryAcrossMembers + totalActivePreferenceAcrossMembers;
 
             members.forEach((m, idx) => {
-                const hasCeased = !!(m.dateCeased && String(m.dateCeased).trim() !== '' && String(m.dateCeased) !== '—');
+                const hasCeased = !!(m.dateCeased && String(m.dateCeased).trim() !== '' && String(m.dateCeased) !== '—') ||
+                                  (m.status === 'Ceased' || m.status === 'Cancelled' || m.status === 'Ceased / Cancelled');
                 const sharesInfo = memberCalculatedShares[idx];
                 
                 const sharesHeld = hasCeased ? 0 : sharesInfo.total;
                 
-                let pct = "0.00";
-                if (!hasCeased && totalActiveSharesAcrossMembers > 0 && sharesHeld > 0) {
+                let pct = (m.percentage !== undefined && m.percentage !== null && String(m.percentage).trim() !== '') 
+                    ? parseFloat(String(m.percentage).replace(/,/g, '')).toFixed(2) 
+                    : "0.00";
+                    
+                if ((pct === "0.00" || pct === "NaN") && !hasCeased && totalActiveSharesAcrossMembers > 0 && sharesHeld > 0) {
                     pct = ((sharesHeld / totalActiveSharesAcrossMembers) * 100).toFixed(2);
                 }
-
+                
                 const rawPaid = (m.consideration !== undefined && m.consideration !== null && String(m.consideration).trim() !== '')
                     ? parseFloat(String(m.consideration).replace(/,/g, ''))
                     : (m.paidAmount !== undefined && m.paidAmount !== null && String(m.paidAmount).trim() !== '')
                         ? parseFloat(String(m.paidAmount).replace(/,/g, ''))
-                        : null;
+                        : (m.amount !== undefined && m.amount !== null && String(m.amount).trim() !== '')
+                            ? parseFloat(String(m.amount).replace(/,/g, ''))
+                            : null;
 
                 const paidAmount = hasCeased ? 0 : (rawPaid !== null && !isNaN(rawPaid) ? rawPaid : sharesHeld);
-                const status = (hasCeased || sharesHeld === 0) ? "Ceased / Cancelled" : "Active";
+                const status = hasCeased ? "Ceased / Cancelled" : "Active";
 
                 shareholdersList.push({
                     name: m.name || "Unknown Shareholder",
                     type: m.type || ((m.idNumber && (m.idNumber.length > 9 || m.idNumber.startsWith('20'))) ? "Corporate" : "Individual"),
-                    id: `SHR-000${idx + 1}`,
-                    addedDate: m.dateEntered || "2016-01-26",
+                    id: m.id || `SHR-000${idx + 1}`,
+                    addedDate: m.dateEntered || m.addedDate || "2016-01-26",
                     dateCeased: m.dateCeased || "",
                     sharesHeld: sharesHeld,
                     ordinaryShares: sharesInfo.ordinary,
@@ -5868,7 +5906,8 @@
                     idNumber: m.idNumber || "—",
                     nationality: m.nationality || "—",
                     dob: m.dob || "—",
-                    status: status
+                    status: status,
+                    isStrikeout: !!(m.isStrikeout || m.status === 'Strikeout' || m.strikeout || String(m.name || '').includes('<s>') || String(m.name || '').includes('line-through'))
                 });
             });
         }
@@ -5899,7 +5938,10 @@
              const totalShares = shareholdersList.reduce((sum, s) => sum + (Number(s.sharesHeld) || 0), 0);
              const totalOrdShares = shareholdersList.reduce((sum, s) => sum + (s.status === 'Active' ? (s.ordinaryShares || 0) : 0), 0);
              const totalPrefShares = shareholdersList.reduce((sum, s) => sum + (s.status === 'Active' ? (s.preferenceShares || 0) : 0), 0);
-             const totalValue = shareholdersList.reduce((sum, s) => sum + (Number(s.paidAmount) || 0), 0);
+             const totalValue = shareholdersList.reduce((sum, s) => {
+                 const p = parseFloat(String(s.paidAmount || '0').replace(/[^0-9.]/g, '')) || 0;
+                 return sum + (s.status === 'Active' ? p : 0);
+             }, 0);
              const mainCurrency = (shareholdersList.find(s => s.currency && s.currency !== '—') || {}).currency || 'USD';
  
              const currencySymbolMap = { 'USD': '$ USD', 'SGD': 'S$ SGD', 'EUR': '€ EUR', 'GBP': '£ GBP', 'INR': '₹ INR' };
@@ -5959,6 +6001,8 @@
                     holdingDesc = `${s.sharesHeld.toLocaleString()} shares`;
                 }
 
+                const displayName = s.isStrikeout ? `<span class="line-through text-slate-400 font-normal">${s.name}</span>` : s.name;
+
                 return `
                     <div onclick="selectShareholder(${idx})" class="p-4 border rounded-2xl cursor-pointer transition-all flex items-start justify-between gap-3 relative ${activeClasses}">
                         <div class="flex items-start gap-3">
@@ -5967,7 +6011,7 @@
                             </div>
                             <div class="flex-grow">
                                 <div class="flex items-center gap-2 flex-wrap">
-                                    <h4 class="font-bold text-slate-800 text-sm">${s.name}</h4>
+                                    <h4 class="font-bold text-slate-800 text-sm">${displayName}</h4>
                                     <span class="px-1.5 py-0.5 rounded text-[8px] font-bold border uppercase tracking-wider ${typeColor}">${s.type}</span>
                                     ${statusTag}
                                 </div>
@@ -5994,6 +6038,8 @@
                 ? '<span class="px-2.5 py-0.5 rounded-full text-[9px] font-black border uppercase tracking-wider text-emerald-600 bg-emerald-50 border-emerald-100">Active</span>'
                 : `<span class="px-2.5 py-0.5 rounded-full text-[9px] font-black border uppercase tracking-wider text-rose-600 bg-rose-50 border-rose-100">${shareholder.status || 'Ceased'}</span>`;
 
+            const displayName = shareholder.isStrikeout ? `<span class="line-through text-slate-400 font-normal">${shareholder.name}</span>` : shareholder.name;
+
             panel.innerHTML = `
                 <!-- Profile Header -->
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-slate-100 shrink-0">
@@ -6003,14 +6049,15 @@
                         </div>
                         <div>
                             <div class="flex items-center gap-2">
-                                <h3 class="font-extrabold text-slate-900 text-lg">${shareholder.name}</h3>
+                                <h3 class="font-extrabold text-slate-900 text-lg">${displayName}</h3>
                                 <span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-100 text-slate-600 border border-slate-200">${shareholder.type}</span>
                                 ${statusBadge}
                             </div>
                             <p class="text-slate-400 text-[11px] font-semibold mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
                                 <span><strong>Shareholder ID:</strong> ${shareholder.id}</span>
                                 <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                <span><strong>Added on:</strong> ${shareholder.addedDate}</span>
+                                <span><strong>Added on:</strong> ${formatDateDisplay(shareholder.addedDate)}</span>
+                                ${(shareholder.dateCeased && shareholder.dateCeased !== '—') ? `<span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span><span><strong>Ceased on:</strong> ${formatDateDisplay(shareholder.dateCeased)}</span>` : ''}
                             </p>
                         </div>
                     </div>
@@ -6059,7 +6106,9 @@
 
         window.switchShareholderTab = function(tabId) {
             activeShareholderTab = tabId;
-            selectShareholder(selectedShareholderIndex);
+            if (selectedShareholderIndex !== null && selectedShareholderIndex !== undefined) {
+                window.selectShareholder(selectedShareholderIndex);
+            }
         };
 
         function renderShareholderTabContent() {
@@ -6499,23 +6548,46 @@
                                     <input type="text" id="edit-sh-pct" required value="${s.percentage}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                                 </div>
                                 <div>
+                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Paid Amount ($)</label>
+                                    <input type="number" step="any" id="edit-sh-paid" value="${s.paidAmount}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Entry / Allotment Date</label>
+                                    <input type="text" id="edit-sh-added-date" value="${s.addedDate}" placeholder="e.g. 26 Jan 2016" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Cessation Date</label>
+                                    <input type="text" id="edit-sh-ceased-date" value="${s.dateCeased}" placeholder="Leave blank if active" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">UEN / NRIC / ID</label>
-                                    <input type="text" id="edit-sh-id" required value="${s.idNumber}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                                    <input type="text" id="edit-sh-id" value="${s.idNumber}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Strikeout Status</label>
+                                    <select id="edit-sh-strikeout" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition cursor-pointer">
+                                        <option value="false" ${!s.isStrikeout ? 'selected' : ''}>Active / Normal</option>
+                                        <option value="true" ${s.isStrikeout ? 'selected' : ''}>Strikeout</option>
+                                    </select>
                                 </div>
                             </div>
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nationality</label>
-                                    <input type="text" id="edit-sh-nationality" required value="${s.nationality}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                                    <input type="text" id="edit-sh-nationality" value="${s.nationality}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email</label>
-                                    <input type="email" id="edit-sh-email" required value="${s.email}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                                    <input type="email" id="edit-sh-email" value="${s.email}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                                 </div>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Address</label>
-                                <textarea id="edit-sh-address" required rows="3" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition leading-relaxed">${s.address}</textarea>
+                                <textarea id="edit-sh-address" rows="3" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition leading-relaxed">${s.address}</textarea>
                             </div>
                             <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 -mx-6 -mb-6">
                                 <button type="button" onclick="window.closeEditShareholderModal()" class="px-5 py-2 border border-slate-200 text-slate-500 hover:bg-slate-100 font-bold rounded-xl text-xs transition-colors">
@@ -6544,6 +6616,8 @@
             event.preventDefault();
             const sharesVal = parseInt(document.getElementById('edit-sh-shares').value, 10) || 0;
             const pctVal = parseFloat(document.getElementById('edit-sh-pct').value).toFixed(2);
+            const paidVal = parseFloat(document.getElementById('edit-sh-paid').value) || 0;
+            const isStrike = document.getElementById('edit-sh-strikeout').value === 'true';
 
             shareholdersList[index] = {
                 ...shareholdersList[index],
@@ -6551,12 +6625,16 @@
                 type: document.getElementById('edit-sh-type').value,
                 sharesHeld: sharesVal,
                 percentage: pctVal,
-                paidAmount: sharesVal,
+                paidAmount: paidVal,
                 votingRights: pctVal,
+                addedDate: document.getElementById('edit-sh-added-date').value,
+                dateCeased: document.getElementById('edit-sh-ceased-date').value,
                 email: document.getElementById('edit-sh-email').value,
                 address: document.getElementById('edit-sh-address').value,
                 idNumber: document.getElementById('edit-sh-id').value,
-                nationality: document.getElementById('edit-sh-nationality').value
+                nationality: document.getElementById('edit-sh-nationality').value,
+                isStrikeout: isStrike,
+                status: isStrike ? "Strikeout" : (document.getElementById('edit-sh-ceased-date').value ? "Ceased / Cancelled" : "Active")
             };
 
             window.closeEditShareholderModal();
@@ -6704,8 +6782,8 @@
 
                 <!-- Tabs Navigation -->
                 <div class="flex border-b border-slate-100 py-3 gap-6 overflow-x-auto shrink-0">
-                    ${['overview', 'ownershipAndControl'].map(tab => {
-                        const label = tab === 'ownershipAndControl' ? 'Ownership & Control' : tab.charAt(0).toUpperCase() + tab.slice(1);
+                    ${['overview'].map(tab => {
+                        const label = tab.charAt(0).toUpperCase() + tab.slice(1);
                         const isActive = tab === activeUboTab;
                         const tabClasses = isActive 
                             ? 'text-blue-600 border-blue-600 font-bold' 
@@ -6739,116 +6817,44 @@
             const ubo = ubosList[selectedUboIndex];
             if (!ubo) return;
 
+            const displayName = ubo.isStrikeout || ubo.status === 'Strikeout' ? `<span class="line-through text-slate-400 font-normal">${ubo.name}</span>` : ubo.name;
+
             if (activeUboTab === 'overview') {
                 container.innerHTML = `
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="grid grid-cols-1 gap-6">
                         <!-- Personal Details -->
                         <div class="space-y-4 border border-slate-100 rounded-2xl p-5 bg-white shadow-sm text-xs">
                             <h4 class="font-extrabold text-slate-800 text-sm border-b border-slate-50 pb-2">Personal Details</h4>
                             <div class="space-y-3 font-medium text-slate-700">
                                 <div class="flex justify-between py-1 border-b border-slate-50/50">
                                     <span class="text-slate-400 font-bold">Full Name</span>
-                                    <span class="font-bold text-slate-800">${ubo.name}</span>
+                                    <span class="font-bold text-slate-800">${displayName}</span>
                                 </div>
                                 <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">NRIC / Passport No.</span>
-                                    <span class="font-mono font-bold text-slate-800">${ubo.idNumber}</span>
+                                    <span class="text-slate-400 font-bold">NRIC / Passport / Certificate No.</span>
+                                    <span class="font-mono font-bold text-slate-800">${ubo.certificateNo || ubo.idNumber || '—'}</span>
                                 </div>
                                 <div class="flex justify-between py-1 border-b border-slate-50/50">
                                     <span class="text-slate-400 font-bold">Nationality</span>
-                                    <span class="font-bold text-slate-800">${ubo.nationality}</span>
+                                    <span class="font-bold text-slate-800">${ubo.nationality || '—'}</span>
                                 </div>
                                 <div class="flex justify-between py-1 border-b border-slate-50/50">
                                     <span class="text-slate-400 font-bold">Date of Birth</span>
-                                    <span class="font-bold text-slate-800">${ubo.dob}</span>
+                                    <span class="font-bold text-slate-800">${formatDateDisplay(ubo.dob)}</span>
                                 </div>
                                 <div class="flex justify-between py-1 border-b border-slate-50/50">
                                     <span class="text-slate-400 font-bold">Email</span>
-                                    <span class="font-bold text-blue-600">${ubo.email}</span>
+                                    <span class="font-bold text-blue-600">${ubo.email || '—'}</span>
                                 </div>
                                 <div class="flex justify-between py-1 border-b border-slate-50/50">
                                     <span class="text-slate-400 font-bold">Phone Number</span>
-                                    <span class="font-bold text-slate-800">${ubo.mobile}</span>
+                                    <span class="font-bold text-slate-800">${ubo.mobile || '—'}</span>
                                 </div>
                                 <div class="flex flex-col gap-1 py-1">
                                     <span class="text-slate-400 font-bold">Residential Address</span>
-                                    <span class="font-bold text-slate-850 leading-relaxed">${ubo.address}</span>
+                                    <span class="font-bold text-slate-850 leading-relaxed">${ubo.address || '—'}</span>
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- Ownership & Control -->
-                        <div class="space-y-4 border border-slate-100 rounded-2xl p-5 bg-white shadow-sm text-xs flex flex-col justify-between">
-                            <div class="space-y-3 font-medium text-slate-700">
-                                <h4 class="font-extrabold text-slate-800 text-sm border-b border-slate-50 pb-2">Ownership & Control</h4>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Nature of Interest</span>
-                                    <span class="font-bold text-slate-800">${ubo.interestNature}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Voting Rights</span>
-                                    <span class="font-bold text-slate-800">${ubo.votingRights}%</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Control Type</span>
-                                    <span class="font-bold text-slate-800">${ubo.controlType}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Control Basis</span>
-                                    <span class="font-bold text-slate-800">${ubo.controlBasis}</span>
-                                </div>
-                                <div class="flex justify-between py-1">
-                                    <span class="text-slate-400 font-bold">Date Since</span>
-                                    <span class="font-bold text-slate-800">${ubo.dateSince}</span>
-                                </div>
-                            </div>
-
-                            <div class="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-2.5 text-[10px] font-bold text-blue-900 leading-normal">
-                                <i data-lucide="info" class="w-4 h-4 text-blue-600 shrink-0 mt-0.5"></i>
-                                <span>${ubo.name} is the ultimate beneficial owner with significant ownership and control in the company.</span>
-                            </div>
-                        </div>
-
-                        <!-- Additional Information -->
-                        <div class="space-y-4 border border-slate-100 rounded-2xl p-5 bg-white shadow-sm text-xs">
-                            <h4 class="font-extrabold text-slate-800 text-sm border-b border-slate-50 pb-2">Additional Information</h4>
-                            <div class="space-y-3 font-medium text-slate-700">
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Politically Exposed Person (PEP)</span>
-                                    <span class="font-bold text-slate-800">${ubo.pep}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Related Party</span>
-                                    <span class="font-bold text-slate-800">${ubo.relatedParty}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Source of Wealth</span>
-                                    <span class="font-bold text-slate-800">${ubo.sourceOfWealth}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Purpose of Ownership</span>
-                                    <span class="font-bold text-slate-800">${ubo.purposeOfOwnership}</span>
-                                </div>
-                                <div class="flex flex-col gap-1 py-1">
-                                    <span class="text-slate-400 font-bold">Remarks</span>
-                                    <span class="font-bold text-slate-800 leading-normal">${ubo.remarks}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mt-6 border border-slate-100 rounded-2xl p-5 bg-white shadow-sm text-xs text-slate-700">
-                        <h4 class="font-extrabold text-slate-800 text-sm border-b border-slate-50 pb-2 mb-3">Related Entities</h4>
-                        <p class="text-slate-400 italic">No related entities found.</p>
-                    </div>
-                `;
-            } else if (activeUboTab === 'ownershipAndControl') {
-                container.innerHTML = `
-                    <h4 class="font-extrabold text-slate-800 text-sm mb-4">Ownership & Control Details</h4>
-                    <div class="grid grid-cols-1 gap-6 bg-slate-50/50 p-6 rounded-2xl border border-slate-100 text-xs">
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Interest Nature</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1">${ubo.interestNature}</p>
                         </div>
                     </div>
                 `;
@@ -8299,9 +8305,10 @@
                         const formatDate = (val) => {
                             if (!val || val === '—' || val === 'NA' || val === 'N/A' || val === 'null' || val === 'undefined') return '';
                             if (val instanceof Date) {
-                                const year = val.getFullYear();
-                                const month = String(val.getMonth() + 1).padStart(2, '0');
-                                const day = String(val.getDate()).padStart(2, '0');
+                                const adjusted = new Date(val.getTime() + 12 * 3600 * 1000);
+                                const year = adjusted.getUTCFullYear();
+                                const month = String(adjusted.getUTCMonth() + 1).padStart(2, '0');
+                                const day = String(adjusted.getUTCDate()).padStart(2, '0');
                                 return `${year}-${month}-${day}`;
                             }
                             const str = String(val).trim();
@@ -8328,9 +8335,10 @@
                             }
                             const d = new Date(str);
                             if (!isNaN(d.getTime())) {
-                                const year = d.getFullYear();
-                                const month = String(d.getMonth() + 1).padStart(2, '0');
-                                const day = String(d.getDate()).padStart(2, '0');
+                                const adjusted = new Date(d.getTime() + 12 * 3600 * 1000);
+                                const year = adjusted.getUTCFullYear();
+                                const month = String(adjusted.getUTCMonth() + 1).padStart(2, '0');
+                                const day = String(adjusted.getUTCDate()).padStart(2, '0');
                                 return `${year}-${month}-${day}`;
                             }
                             return str;

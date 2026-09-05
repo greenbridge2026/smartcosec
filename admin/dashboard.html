@@ -1927,6 +1927,38 @@
             return path.split(/[\.\[\]]+/).filter(Boolean).reduce((acc, part) => acc && acc[part], obj);
         }
 
+        function formatDateDisplay(dateStr) {
+            if (!dateStr || dateStr === '—' || dateStr === 'NA' || dateStr === 'N/A' || dateStr === 'null' || dateStr === 'undefined') return '—';
+            const str = String(dateStr).trim();
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+            if (isoMatch) {
+                const y = parseInt(isoMatch[1], 10);
+                const m = parseInt(isoMatch[2], 10);
+                const d = parseInt(isoMatch[3], 10);
+                if (m >= 1 && m <= 12) return `${d} ${months[m - 1]} ${y}`;
+            }
+            const dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+            if (dmyMatch) {
+                const d = parseInt(dmyMatch[1], 10);
+                const m = parseInt(dmyMatch[2], 10);
+                const y = parseInt(dmyMatch[3], 10);
+                if (m >= 1 && m <= 12) return `${d} ${months[m - 1]} ${y}`;
+            }
+            const textMatch = str.match(/^(\d{1,2})[\s\-\/]+([a-zA-Z]+)[\s\-\/,\.]+(\d{4})/);
+            if (textMatch) {
+                const d = parseInt(textMatch[1], 10);
+                const mStr = textMatch[2].substring(0, 3);
+                const y = parseInt(textMatch[3], 10);
+                const mCap = mStr.charAt(0).toUpperCase() + mStr.slice(1).toLowerCase();
+                return `${d} ${mCap} ${y}`;
+            }
+            const d = new Date(str);
+            if (isNaN(d.getTime())) return str;
+            const adjusted = new Date(d.getTime() + 12 * 3600 * 1000);
+            return `${adjusted.getUTCDate()} ${months[adjusted.getUTCMonth()]} ${adjusted.getUTCFullYear()}`;
+        }
+
         let activeSectionStatuses = {};
         let activeClientId = null;
 
@@ -2067,15 +2099,15 @@
                                     </div>
                                     <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
                                         <span class="text-[10px] font-bold text-slate-400 uppercase">FYE (Financial Year End)</span>
-                                        <div class="font-bold text-slate-800 mt-0.5">${ed.fye || '—'}</div>
+                                        <div class="font-bold text-slate-800 mt-0.5">${ed.fye ? formatDateDisplay(ed.fye) : '—'}</div>
                                     </div>
                                     <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
                                         <span class="text-[10px] font-bold text-slate-400 uppercase">Last AGM Date</span>
-                                        <div class="font-bold text-slate-800 mt-0.5">${ed.lastAgmDate || '—'}</div>
+                                        <div class="font-bold text-slate-800 mt-0.5">${ed.lastAgmDate ? formatDateDisplay(ed.lastAgmDate) : '—'}</div>
                                     </div>
                                     <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
                                         <span class="text-[10px] font-bold text-slate-400 uppercase">Date of Annual Return</span>
-                                        <div class="font-bold text-slate-800 mt-0.5">${ed.annualReturnDate || '—'}</div>
+                                        <div class="font-bold text-slate-800 mt-0.5">${ed.annualReturnDate ? formatDateDisplay(ed.annualReturnDate) : '—'}</div>
                                     </div>
                                     <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
                                         <span class="text-[10px] font-bold text-slate-400 uppercase">XBRL Prepared</span>
