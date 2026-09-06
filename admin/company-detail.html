@@ -663,8 +663,8 @@
                             <div class="relative flex-grow">
                                 <select id="shareholder-type-filter" onchange="filterShareholdersList()" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-700 cursor-pointer">
                                     <option value="all">All Types</option>
-                                    <option value="Individual">Individual</option>
                                     <option value="Corporate">Corporate</option>
+                                    <option value="Individual">Individual</option>
                                 </select>
                             </div>
                             <div class="relative flex-grow">
@@ -1216,14 +1216,16 @@
                     <table class="w-full text-left text-xs border-collapse font-sans min-w-[1000px]">
                         <thead>
                             <tr class="text-slate-950 border-b border-slate-350 bg-slate-50 font-black">
-                                <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">Name</th>
+                                <th class="p-3 border border-slate-200 font-black text-left align-middle bg-slate-100/80 min-w-[240px] w-72">Name</th>
                                 <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">AML1</th>
                                 <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">AML2</th>
                                 <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">AML3</th>
-                                <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">CDD</th>
+                                <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">CDD1</th>
                                 <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">CDD2</th>
                                 <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">CDD3</th>
                                 <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">Google Search</th>
+                                <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">Next AML</th>
+                                <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">Next CDD</th>
                                 <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">Bank Statement</th>
                                 <th class="p-3 border border-slate-200 font-black text-center align-middle w-24 bg-slate-100/80">Actions</th>
                             </tr>
@@ -1453,17 +1455,19 @@
 
         function renderStrikeoutText(val, isStrikeout = false) {
             if (!val || val === 'N/A' || val === 'null' || val === '—') return '—';
-            const str = String(val).trim();
+            let str = String(val).trim();
+            if (!str) return '—';
             if (isStrikeout) {
-                return `<span class="line-through text-slate-400 font-normal">${str}</span>`;
+                return `<span class="line-through text-slate-400 font-normal">${str.replace(/(\r\n|\n|\r)/g, '<br/>')}</span>`;
             }
-            if (str.includes('[strike]') || str.includes('<s>') || str.includes('<strike>') || str.includes('line-through')) {
-                return str
-                    .replace(/\[strike\](.*?)\[\/strike\]/gi, '<span class="line-through text-slate-400 font-normal">$1</span>')
-                    .replace(/<s>(.*?)<\/s>/gi, '<span class="line-through text-slate-400 font-normal">$1</span>')
-                    .replace(/<strike>(.*?)<\/strike>/gi, '<span class="line-through text-slate-400 font-normal">$1</span>');
-            }
-            return str;
+            let formatted = str
+                .replace(/\[strike\](.*?)\[\/strike\]/gi, '<span class="line-through text-slate-400 font-normal">$1</span>')
+                .replace(/<s>(.*?)<\/s>/gi, '<span class="line-through text-slate-400 font-normal">$1</span>')
+                .replace(/<strike>(.*?)<\/strike>/gi, '<span class="line-through text-slate-400 font-normal">$1</span>')
+                .replace(/<del>(.*?)<\/del>/gi, '<span class="line-through text-slate-400 font-normal">$1</span>')
+                .replace(/~~(.*?)~~/gi, '<span class="line-through text-slate-400 font-normal">$1</span>');
+
+            return formatted.replace(/(\r\n|\n|\r)/g, '<br/>');
         }
 
         async function loadCompanyDetails() {
@@ -2617,11 +2621,12 @@
                                 </div>
                                 <div>
                                     <label class="block font-bold text-slate-500 uppercase tracking-wider mb-1">Primary SSIC & Description</label>
-                                    <input type="text" id="modal-primary-ssic" value="${primarySsic}" placeholder="62011 - Software Development" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                                    <textarea id="modal-primary-ssic" rows="2" placeholder="62011 - Software Development" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">${primarySsic}</textarea>
                                 </div>
                                 <div>
                                     <label class="block font-bold text-slate-500 uppercase tracking-wider mb-1">Secondary SSIC & Description</label>
-                                    <input type="text" id="modal-secondary-ssic" value="${secondarySsic}" placeholder="70201 - Management Consultancy" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                                    <textarea id="modal-secondary-ssic" rows="3" placeholder="70201 - Management Consultancy" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">${secondarySsic}</textarea>
+                                    <p class="text-[11px] text-slate-400 mt-1">Tip: Use &lt;s&gt;old activity&lt;/s&gt; or ~~old activity~~ to format strikethrough text on separate lines.</p>
                                 </div>
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
@@ -3420,44 +3425,21 @@
 
         function initAmlData(savedAml, directors, secretaries) {
             amlList = [];
-            const names = new Set();
-            if (directors && Array.isArray(directors)) {
-                directors.forEach(d => { if (d.name) names.add(d.name.trim()); });
-            }
-            if (secretaries && Array.isArray(secretaries)) {
-                secretaries.forEach(s => { if (s.name) names.add(s.name.trim()); });
-            }
-
-            const cleanName = (n) => String(n || '').trim().toLowerCase().replace(/\s+/g, ' ');
-
-            names.forEach(name => {
-                const saved = savedAml ? savedAml.find(a => cleanName(a.name) === cleanName(name)) : null;
-                amlList.push({
-                    name: name,
-                    aml1: saved ? (saved.aml1 || '') : '',
-                    aml2: saved ? (saved.aml2 || '') : '',
-                    aml3: saved ? (saved.aml3 || '') : '',
-                    cdd: saved ? (saved.cdd || '') : '',
-                    cdd2: saved ? (saved.cdd2 || '') : '',
-                    cdd3: saved ? (saved.cdd3 || '') : '',
-                    googleSearch: saved ? (saved.googleSearch || '') : '',
-                    bankStatement: saved ? (saved.bankStatement || '') : ''
-                });
-            });
-
             if (savedAml && Array.isArray(savedAml)) {
                 savedAml.forEach(saved => {
-                    const exists = amlList.some(a => cleanName(a.name) === cleanName(saved.name));
-                    if (!exists) {
+                    if (saved && saved.name) {
                         amlList.push({
-                            name: saved.name,
+                            name: saved.name || '',
                             aml1: saved.aml1 || '',
                             aml2: saved.aml2 || '',
                             aml3: saved.aml3 || '',
-                            cdd: saved.cdd || '',
+                            cdd1: saved.cdd1 || saved.cdd || '',
+                            cdd: saved.cdd1 || saved.cdd || '',
                             cdd2: saved.cdd2 || '',
                             cdd3: saved.cdd3 || '',
                             googleSearch: saved.googleSearch || '',
+                            nextAml: saved.nextAml || '',
+                            nextCdd: saved.nextCdd || '',
                             bankStatement: saved.bankStatement || ''
                         });
                     }
@@ -3499,16 +3481,17 @@
 
             // Filter out duplicate or header imported rows
             const visibleAml = [];
-            amlList.forEach(a => {
+            amlList.forEach((a, idx) => {
                 const isHeaderRow = 
                     a.name.toLowerCase().trim() === sheetCompanyName.toLowerCase().trim() ||
                     a.name.toLowerCase().trim() === sheetCompanyUen.toLowerCase().trim() ||
                     a.name.toLowerCase().trim() === 'name' ||
                     a.name.toLowerCase().trim() === 'aml1' ||
-                    a.name.toLowerCase().trim() === 'cdd';
+                    a.name.toLowerCase().trim() === 'cdd' ||
+                    a.name.toLowerCase().trim() === 'cdd1';
                 
                 if (!isHeaderRow) {
-                    visibleAml.push(a);
+                    visibleAml.push({ ...a, _originalIndex: idx });
                 }
             });
 
@@ -3520,18 +3503,19 @@
             if (visibleAml.length === 0) {
                 rowsHtml = `
                     <tr>
-                        <td colspan="10" class="p-8 text-center text-slate-400 border border-slate-200 bg-slate-50/50">
+                        <td colspan="12" class="p-8 text-center text-slate-400 border border-slate-200 bg-slate-50/50">
                             No AML records found. Click "Add Individual" to add one.
                         </td>
                     </tr>
                 `;
             } else {
                 visibleAml.forEach((a) => {
-                    const realIndex = amlList.findIndex(item => item.name === a.name);
+                    const realIndex = a._originalIndex !== undefined ? a._originalIndex : amlList.findIndex(item => item.name === a.name);
+                    const cddVal = a.cdd1 || a.cdd || '';
                     rowsHtml += `
                         <tr class="hover:bg-slate-50/50 transition-colors">
-                            <td class="p-0 border border-slate-200 bg-slate-50/20 font-bold text-slate-900">
-                                <input type="text" value="${a.name || ''}" oninput="window.updateAmlField(${realIndex}, 'name', this.value)" class="w-full h-full px-3 py-2 bg-transparent border-none text-slate-900 font-extrabold outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 text-xs">
+                            <td class="p-0 border border-slate-200 bg-slate-50/20 font-bold text-slate-900 min-w-[240px] w-72">
+                                <input type="text" value="${a.name || ''}" oninput="window.updateAmlField(${realIndex}, 'name', this.value)" class="w-full h-full px-3 py-2 bg-transparent border-none text-slate-900 font-extrabold outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 text-xs" title="${a.name || ''}">
                             </td>
                             <td class="p-0 border border-slate-200">
                                 <input type="text" value="${a.aml1 || ''}" oninput="window.updateAmlField(${realIndex}, 'aml1', this.value)" class="w-full h-full px-3 py-2 bg-transparent border-none text-slate-800 font-medium outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 text-xs text-center" placeholder="-">
@@ -3543,7 +3527,7 @@
                                 <input type="text" value="${a.aml3 || ''}" oninput="window.updateAmlField(${realIndex}, 'aml3', this.value)" class="w-full h-full px-3 py-2 bg-transparent border-none text-slate-800 font-medium outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 text-xs text-center" placeholder="-">
                             </td>
                             <td class="p-0 border border-slate-200">
-                                <input type="text" value="${a.cdd || ''}" oninput="window.updateAmlField(${realIndex}, 'cdd', this.value)" class="w-full h-full px-3 py-2 bg-transparent border-none text-slate-800 font-medium outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 text-xs text-center" placeholder="-">
+                                <input type="text" value="${cddVal}" oninput="window.updateAmlField(${realIndex}, 'cdd1', this.value)" class="w-full h-full px-3 py-2 bg-transparent border-none text-slate-800 font-medium outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 text-xs text-center" placeholder="-">
                             </td>
                             <td class="p-0 border border-slate-200">
                                 <input type="text" value="${a.cdd2 || ''}" oninput="window.updateAmlField(${realIndex}, 'cdd2', this.value)" class="w-full h-full px-3 py-2 bg-transparent border-none text-slate-800 font-medium outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 text-xs text-center" placeholder="-">
@@ -3555,12 +3539,23 @@
                                 <input type="text" value="${a.googleSearch || ''}" oninput="window.updateAmlField(${realIndex}, 'googleSearch', this.value)" class="w-full h-full px-3 py-2 bg-transparent border-none text-slate-800 font-medium outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 text-xs text-center" placeholder="-">
                             </td>
                             <td class="p-0 border border-slate-200">
+                                <input type="text" value="${a.nextAml || ''}" oninput="window.updateAmlField(${realIndex}, 'nextAml', this.value)" class="w-full h-full px-3 py-2 bg-transparent border-none text-slate-800 font-medium outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 text-xs text-center" placeholder="-">
+                            </td>
+                            <td class="p-0 border border-slate-200">
+                                <input type="text" value="${a.nextCdd || ''}" oninput="window.updateAmlField(${realIndex}, 'nextCdd', this.value)" class="w-full h-full px-3 py-2 bg-transparent border-none text-slate-800 font-medium outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 text-xs text-center" placeholder="-">
+                            </td>
+                            <td class="p-0 border border-slate-200">
                                 <input type="text" value="${a.bankStatement || ''}" oninput="window.updateAmlField(${realIndex}, 'bankStatement', this.value)" class="w-full h-full px-3 py-2 bg-transparent border-none text-slate-800 font-medium outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 text-xs text-left" placeholder="-">
                             </td>
                             <td class="p-2 border border-slate-200 text-center bg-slate-50/20 align-middle">
-                                <button onclick="window.deleteAmlIndividual(${realIndex})" class="p-1 hover:text-rose-600 text-slate-400 transition-colors" title="Delete">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/></svg>
-                                </button>
+                                <div class="flex items-center justify-center gap-2">
+                                    <button onclick="window.openEditAmlModal(${realIndex})" class="p-1 hover:text-blue-600 text-slate-500 transition-colors" title="Edit">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+                                    </button>
+                                    <button onclick="window.deleteAmlIndividual(${realIndex})" class="p-1 hover:text-rose-600 text-slate-400 transition-colors" title="Delete">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/></svg>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     `;
@@ -3571,7 +3566,9 @@
             for (let i = 0; i < 5; i++) {
                 rowsHtml += `
                     <tr class="h-8">
-                        <td class="p-3 border border-slate-200 bg-slate-50/10"></td>
+                        <td class="p-3 border border-slate-200 bg-slate-50/10 min-w-[240px] w-72"></td>
+                        <td class="p-3 border border-slate-200"></td>
+                        <td class="p-3 border border-slate-200"></td>
                         <td class="p-3 border border-slate-200"></td>
                         <td class="p-3 border border-slate-200"></td>
                         <td class="p-3 border border-slate-200"></td>
@@ -3591,32 +3588,236 @@
         window.updateAmlField = async function(index, field, value) {
             if (amlList[index]) {
                 amlList[index][field] = value;
+                if (field === 'cdd1') amlList[index]['cdd'] = value;
+                if (field === 'cdd') amlList[index]['cdd1'] = value;
                 await window.saveEntireCompanyState("AML field updated.");
             }
         };
 
-        window.addAmlIndividualPrompt = async function() {
-            const name = prompt("Enter full name of the individual to add to AML Register:");
-            if (name && name.trim() !== '') {
-                const exists = amlList.some(a => a.name.toLowerCase() === name.trim().toLowerCase());
-                if (exists) {
-                    alert("This individual is already on the register.");
-                    return;
-                }
-                amlList.push({
-                    name: name.trim(),
-                    aml1: '',
-                    aml2: '',
-                    aml3: '',
-                    cdd: '',
-                    cdd2: '',
-                    cdd3: '',
-                    googleSearch: '',
-                    bankStatement: ''
-                });
-                await window.saveEntireCompanyState("Added individual to AML register.");
-                window.renderAmlTable();
+        window.openEditAmlModal = function(index) {
+            const a = amlList[index];
+            if (!a) return;
+
+            const modal = document.createElement('div');
+            modal.id = 'aml-modal-wrapper';
+            modal.className = 'fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-3xl p-6 shadow-2xl w-full max-w-2xl space-y-6 font-sans text-xs max-h-[90vh] overflow-y-auto">
+                    <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+                        <div>
+                            <h4 class="font-black text-slate-900 text-base">Edit AML & CDD Record</h4>
+                            <p class="text-slate-500 text-[11px] mt-0.5">Update compliance verification dates and risk checks for this individual.</p>
+                        </div>
+                        <button onclick="document.getElementById('aml-modal-wrapper').remove()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Full Name *</label>
+                            <input type="text" id="m-aml-name" value="${a.name || ''}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-extrabold text-slate-900">
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">AML1</label>
+                                <input type="text" id="m-aml-aml1" value="${a.aml1 || ''}" placeholder="e.g. 2025-04-23" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">AML2</label>
+                                <input type="text" id="m-aml-aml2" value="${a.aml2 || ''}" placeholder="e.g. -" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">AML3</label>
+                                <input type="text" id="m-aml-aml3" value="${a.aml3 || ''}" placeholder="e.g. 2025-04-10" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">CDD1</label>
+                                <input type="text" id="m-aml-cdd1" value="${a.cdd1 || a.cdd || ''}" placeholder="e.g. -" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">CDD2</label>
+                                <input type="text" id="m-aml-cdd2" value="${a.cdd2 || ''}" placeholder="e.g. -" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">CDD3</label>
+                                <input type="text" id="m-aml-cdd3" value="${a.cdd3 || ''}" placeholder="e.g. 2028-04-23" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">Google Search</label>
+                                <input type="text" id="m-aml-googlesearch" value="${a.googleSearch || ''}" placeholder="e.g. 2028-04-09" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">Next AML</label>
+                                <input type="text" id="m-aml-nextaml" value="${a.nextAml || ''}" placeholder="e.g. 2026-04-23" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">Next CDD</label>
+                                <input type="text" id="m-aml-nextcdd" value="${a.nextCdd || ''}" placeholder="e.g. 2026-04-23" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block font-bold text-slate-600 mb-1">Bank Statement</label>
+                            <input type="text" id="m-aml-bankstatement" value="${a.bankStatement || ''}" placeholder="e.g. Verified" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                        <button onclick="document.getElementById('aml-modal-wrapper').remove()" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl">Cancel</button>
+                        <button onclick="window.saveEditAml(${index})" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md">Save Changes</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        };
+
+        window.saveEditAml = async function(index) {
+            const name = document.getElementById('m-aml-name').value.trim();
+            if (!name) {
+                alert("Individual Name is required.");
+                return;
             }
+            const cdd1Val = document.getElementById('m-aml-cdd1').value.trim();
+            amlList[index] = {
+                name: name,
+                aml1: document.getElementById('m-aml-aml1').value.trim(),
+                aml2: document.getElementById('m-aml-aml2').value.trim(),
+                aml3: document.getElementById('m-aml-aml3').value.trim(),
+                cdd1: cdd1Val,
+                cdd: cdd1Val,
+                cdd2: document.getElementById('m-aml-cdd2').value.trim(),
+                cdd3: document.getElementById('m-aml-cdd3').value.trim(),
+                googleSearch: document.getElementById('m-aml-googlesearch').value.trim(),
+                nextAml: document.getElementById('m-aml-nextaml').value.trim(),
+                nextCdd: document.getElementById('m-aml-nextcdd').value.trim(),
+                bankStatement: document.getElementById('m-aml-bankstatement').value.trim()
+            };
+            const wrapper = document.getElementById('aml-modal-wrapper');
+            if (wrapper) wrapper.remove();
+            await window.saveEntireCompanyState("AML record updated successfully.");
+            window.renderAmlTable();
+        };
+
+        window.addAmlIndividualPrompt = function() {
+            const modal = document.createElement('div');
+            modal.id = 'aml-modal-wrapper';
+            modal.className = 'fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-3xl p-6 shadow-2xl w-full max-w-2xl space-y-6 font-sans text-xs max-h-[90vh] overflow-y-auto">
+                    <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+                        <div>
+                            <h4 class="font-black text-slate-900 text-base">Add Individual to AML Register</h4>
+                            <p class="text-slate-500 text-[11px] mt-0.5">Enter details for the new compliance record.</p>
+                        </div>
+                        <button onclick="document.getElementById('aml-modal-wrapper').remove()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Full Name *</label>
+                            <input type="text" id="m-aml-name" placeholder="e.g. JOHN DOE" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-extrabold text-slate-900">
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">AML1</label>
+                                <input type="text" id="m-aml-aml1" placeholder="e.g. 2025-04-23" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">AML2</label>
+                                <input type="text" id="m-aml-aml2" placeholder="e.g. -" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">AML3</label>
+                                <input type="text" id="m-aml-aml3" placeholder="e.g. 2025-04-10" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">CDD1</label>
+                                <input type="text" id="m-aml-cdd1" placeholder="e.g. -" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">CDD2</label>
+                                <input type="text" id="m-aml-cdd2" placeholder="e.g. -" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">CDD3</label>
+                                <input type="text" id="m-aml-cdd3" placeholder="e.g. 2028-04-23" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">Google Search</label>
+                                <input type="text" id="m-aml-googlesearch" placeholder="e.g. 2028-04-09" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">Next AML</label>
+                                <input type="text" id="m-aml-nextaml" placeholder="e.g. 2026-04-23" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">Next CDD</label>
+                                <input type="text" id="m-aml-nextcdd" placeholder="e.g. 2026-04-23" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block font-bold text-slate-600 mb-1">Bank Statement</label>
+                            <input type="text" id="m-aml-bankstatement" placeholder="e.g. Verified" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                        <button onclick="document.getElementById('aml-modal-wrapper').remove()" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl">Cancel</button>
+                        <button onclick="window.saveAddAml()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md">Add Individual</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        };
+
+        window.saveAddAml = async function() {
+            const name = document.getElementById('m-aml-name').value.trim();
+            if (!name) {
+                alert("Individual Name is required.");
+                return;
+            }
+            const exists = amlList.some(a => a.name.toLowerCase() === name.toLowerCase());
+            if (exists) {
+                alert("This individual is already on the register.");
+                return;
+            }
+            const cdd1Val = document.getElementById('m-aml-cdd1').value.trim();
+            amlList.push({
+                name: name,
+                aml1: document.getElementById('m-aml-aml1').value.trim(),
+                aml2: document.getElementById('m-aml-aml2').value.trim(),
+                aml3: document.getElementById('m-aml-aml3').value.trim(),
+                cdd1: cdd1Val,
+                cdd: cdd1Val,
+                cdd2: document.getElementById('m-aml-cdd2').value.trim(),
+                cdd3: document.getElementById('m-aml-cdd3').value.trim(),
+                googleSearch: document.getElementById('m-aml-googlesearch').value.trim(),
+                nextAml: document.getElementById('m-aml-nextaml').value.trim(),
+                nextCdd: document.getElementById('m-aml-nextcdd').value.trim(),
+                bankStatement: document.getElementById('m-aml-bankstatement').value.trim()
+            });
+            const wrapper = document.getElementById('aml-modal-wrapper');
+            if (wrapper) wrapper.remove();
+            await window.saveEntireCompanyState("Added individual to AML register.");
+            window.renderAmlTable();
         };
 
         window.deleteAmlIndividual = async function(index) {
@@ -3688,7 +3889,7 @@
 
             // Filter out the header records from the table body
             const visibleAuditors = [];
-            auditorsList.forEach(a => {
+            auditorsList.forEach((a, idx) => {
                 const isHeaderRow = 
                     a.resignationDate === 'Last updated' || 
                     a.firmName.toLowerCase().trim() === sheetCompanyName.toLowerCase().trim() ||
@@ -3702,7 +3903,7 @@
                         }
                     }
                 } else {
-                    visibleAuditors.push(a);
+                    visibleAuditors.push({ ...a, _originalIndex: idx });
                 }
             });
 
@@ -3729,13 +3930,13 @@
                 `;
             } else {
                 visibleAuditors.forEach((a) => {
-                    const realIndex = auditorsList.findIndex(item => item.firmName === a.firmName);
+                    const realIndex = a._originalIndex !== undefined ? a._originalIndex : auditorsList.findIndex(item => item.firmName === a.firmName);
                     const appDate = a.appointmentDate ? formatDateDisplay(a.appointmentDate) : '—';
                     const resDate = a.resignationDate ? formatDateDisplay(a.resignationDate) : '—';
                     
                     rowsHtml += `
                         <tr class="hover:bg-slate-50/50 transition-colors">
-                            <td class="p-3 border border-slate-250 font-extrabold text-slate-900">${a.firmName}</td>
+                            <td class="p-3 border border-slate-250 font-extrabold text-slate-900">${a.firmName || ''}</td>
                             <td class="p-3 border border-slate-250 text-slate-700 font-bold">${a.uen || '—'}</td>
                             <td class="p-3 border border-slate-250 text-slate-650 text-xs">${a.address || '—'}</td>
                             <td class="p-3 border border-slate-250 text-slate-700 font-semibold">${appDate}</td>
@@ -3811,11 +4012,11 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block font-bold text-slate-500 mb-1.5">Date of Appointment</label>
-                                <input type="date" id="m-audit-appdate" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                                <input type="text" id="m-audit-appdate" placeholder="YYYY-MM-DD or DD MMM YYYY" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
                             </div>
                             <div>
                                 <label class="block font-bold text-slate-500 mb-1.5">Date of Resignation</label>
-                                <input type="date" id="m-audit-resdate" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                                <input type="text" id="m-audit-resdate" placeholder="YYYY-MM-DD or DD MMM YYYY" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
                             </div>
                         </div>
                         <div>
@@ -3843,8 +4044,8 @@
                 firmName: name,
                 uen: document.getElementById('m-audit-uen').value.trim(),
                 address: document.getElementById('m-audit-address').value.trim(),
-                appointmentDate: document.getElementById('m-audit-appdate').value,
-                resignationDate: document.getElementById('m-audit-resdate').value,
+                appointmentDate: document.getElementById('m-audit-appdate').value.trim(),
+                resignationDate: document.getElementById('m-audit-resdate').value.trim(),
                 notes: document.getElementById('m-audit-notes').value.trim()
             });
             const wrapper = document.getElementById('auditor-modal-wrapper');
@@ -3872,29 +4073,29 @@
                     <div class="space-y-4">
                         <div>
                             <label class="block font-bold text-slate-500 mb-1.5">Name of the Firm *</label>
-                            <input type="text" id="m-audit-name" value="${a.firmName}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            <input type="text" id="m-audit-name" value="${a.firmName || ''}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
                         </div>
                         <div>
                             <label class="block font-bold text-slate-500 mb-1.5">Identification No.</label>
-                            <input type="text" id="m-audit-uen" value="${a.uen}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            <input type="text" id="m-audit-uen" value="${a.uen || ''}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
                         </div>
                         <div>
                             <label class="block font-bold text-slate-500 mb-1.5">Address</label>
-                            <input type="text" id="m-audit-address" value="${a.address}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                            <input type="text" id="m-audit-address" value="${a.address || ''}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block font-bold text-slate-500 mb-1.5">Date of Appointment</label>
-                                <input type="date" id="m-audit-appdate" value="${a.appointmentDate}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                                <input type="text" id="m-audit-appdate" value="${a.appointmentDate || ''}" placeholder="YYYY-MM-DD or DD MMM YYYY" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
                             </div>
                             <div>
                                 <label class="block font-bold text-slate-500 mb-1.5">Date of Resignation</label>
-                                <input type="date" id="m-audit-resdate" value="${a.resignationDate}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
+                                <input type="text" id="m-audit-resdate" value="${a.resignationDate || ''}" placeholder="YYYY-MM-DD or DD MMM YYYY" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">
                             </div>
                         </div>
                         <div>
                             <label class="block font-bold text-slate-500 mb-1.5">Notes</label>
-                            <textarea id="m-audit-notes" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">${a.notes}</textarea>
+                            <textarea id="m-audit-notes" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold text-slate-800">${a.notes || ''}</textarea>
                         </div>
                     </div>
 
@@ -3917,8 +4118,8 @@
                 firmName: name,
                 uen: document.getElementById('m-audit-uen').value.trim(),
                 address: document.getElementById('m-audit-address').value.trim(),
-                appointmentDate: document.getElementById('m-audit-appdate').value,
-                resignationDate: document.getElementById('m-audit-resdate').value,
+                appointmentDate: document.getElementById('m-audit-appdate').value.trim(),
+                resignationDate: document.getElementById('m-audit-resdate').value.trim(),
                 notes: document.getElementById('m-audit-notes').value.trim()
             };
             const wrapper = document.getElementById('auditor-modal-wrapper');
@@ -4351,10 +4552,10 @@
                 directorsList = [];
             }
 
-            // Sort: Nominee Directors first at the top level
+            // Sort: Standard Directors first, then Nominee Directors
             directorsList.sort((a, b) => {
-                if (a.isNominee && !b.isNominee) return -1;
-                if (!a.isNominee && b.isNominee) return 1;
+                if (!a.isNominee && b.isNominee) return -1;
+                if (a.isNominee && !b.isNominee) return 1;
                 if (a.status === 'Verified' && b.status !== 'Verified') return -1;
                 if (a.status !== 'Verified' && b.status === 'Verified') return 1;
                 return 0;
@@ -4375,10 +4576,10 @@
             const searchVal = document.getElementById('director-search-input').value.toLowerCase();
             const statusFilter = document.getElementById('director-status-filter').value;
 
-            // Sort: Nominee Directors at the very top
+            // Sort: Standard Directors first, then Nominee Directors
             directorsList.sort((a, b) => {
-                if (a.isNominee && !b.isNominee) return -1;
-                if (!a.isNominee && b.isNominee) return 1;
+                if (!a.isNominee && b.isNominee) return -1;
+                if (a.isNominee && !b.isNominee) return 1;
                 if (a.status === 'Verified' && b.status !== 'Verified') return -1;
                 if (a.status !== 'Verified' && b.status === 'Verified') return 1;
                 return 0;
@@ -5886,9 +6087,16 @@
                 const paidAmount = hasCeased ? 0 : (rawPaid !== null && !isNaN(rawPaid) ? rawPaid : sharesHeld);
                 const status = hasCeased ? "Ceased / Cancelled" : "Active";
 
+                const nameUpper = String(m.name || '').toUpperCase();
+                const isCorpName = nameUpper.includes('PTE') || nameUpper.includes('LTD') || nameUpper.includes('LIMITED') || nameUpper.includes('INC') || nameUpper.includes('CORP') || nameUpper.includes('LLC') || nameUpper.includes('HOLDINGS') || nameUpper.includes('SDN BHD') || nameUpper.includes('BHD') || nameUpper.includes('CONSOLIDATION');
+
+                const resolvedType = (m.type && String(m.type).trim() !== '') 
+                    ? (String(m.type).toLowerCase().includes('corp') || String(m.type).toLowerCase().includes('company') ? "Corporate" : (String(m.type).toLowerCase().includes('indiv') ? "Individual" : m.type)) 
+                    : (isCorpName || (m.idNumber && (m.idNumber.length > 9 || m.idNumber.startsWith('20')))) ? "Corporate" : "Individual";
+
                 shareholdersList.push({
                     name: m.name || "Unknown Shareholder",
-                    type: m.type || ((m.idNumber && (m.idNumber.length > 9 || m.idNumber.startsWith('20'))) ? "Corporate" : "Individual"),
+                    type: resolvedType,
                     id: m.id || `SHR-000${idx + 1}`,
                     addedDate: m.dateEntered || m.addedDate || "2016-01-26",
                     dateCeased: m.dateCeased || "",
@@ -5900,8 +6108,8 @@
                     paidAmount: paidAmount,
                     currency: m.currency || "SGD",
                     votingRights: pct,
-                    email: m.email || `${(m.name || '').toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.')}@email.com`,
-                    mobile: m.mobile || "+65 9123 4567",
+                    email: (m.email && String(m.email).trim() !== '' && String(m.email).trim() !== '—') ? String(m.email).trim() : "—",
+                    mobile: (m.mobile && String(m.mobile).trim() !== '' && String(m.mobile).trim() !== '—') ? String(m.mobile).trim() : "—",
                     address: m.address || "—",
                     idNumber: m.idNumber || "—",
                     nationality: m.nationality || "—",
@@ -5920,10 +6128,16 @@
              const typeFilter = document.getElementById('shareholder-type-filter') ? document.getElementById('shareholder-type-filter').value : 'all';
              const classFilter = document.getElementById('shareholder-class-filter') ? document.getElementById('shareholder-class-filter').value : 'all';
  
-             // Sort shareholders list: Active first
+             // Sort shareholders list: Active first, then Corporate first, then Individual
              shareholdersList.sort((a, b) => {
                  if (a.status === 'Active' && b.status !== 'Active') return -1;
                  if (a.status !== 'Active' && b.status === 'Active') return 1;
+                 
+                 const aCorp = a.type === 'Corporate';
+                 const bCorp = b.type === 'Corporate';
+                 if (aCorp && !bCorp) return -1;
+                 if (!aCorp && bCorp) return 1;
+
                  return 0;
              });
  
@@ -6410,38 +6624,45 @@
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Type</label>
                                     <select id="add-sh-type" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition cursor-pointer">
-                                        <option value="Individual">Individual</option>
                                         <option value="Corporate">Corporate</option>
+                                        <option value="Individual">Individual</option>
                                     </select>
                                 </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Ordinary/Preference</label>
+                                    <select id="add-sh-share-class" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition cursor-pointer">
+                                        <option value="Ordinary Shares">Ordinary</option>
+                                        <option value="Preference Shares">Preference</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Shares Quantity</label>
                                     <input type="number" id="add-sh-shares" required placeholder="1000000" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                                 </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Percentage %</label>
                                     <input type="text" id="add-sh-pct" required placeholder="50.00" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                                 </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">UEN / NRIC / ID</label>
                                     <input type="text" id="add-sh-id" required placeholder="S1234567A" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                                 </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nationality</label>
                                     <input type="text" id="add-sh-nationality" required placeholder="Singapore Citizen" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                                 </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email</label>
-                                    <input type="email" id="add-sh-email" required placeholder="alan.lim@email.com" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email</label>
+                                <input type="email" id="add-sh-email" placeholder="alan.lim@email.com" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Address</label>
-                                <textarea id="add-sh-address" required rows="3" placeholder="Enter shareholder registered address" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition leading-relaxed"></textarea>
+                                <textarea id="add-sh-address" rows="3" placeholder="Enter shareholder registered address" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition leading-relaxed"></textarea>
                             </div>
                             <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 -mx-6 -mb-6">
                                 <button type="button" onclick="window.closeAddShareholderModal()" class="px-5 py-2 border border-slate-200 text-slate-500 hover:bg-slate-100 font-bold rounded-xl text-xs transition-colors">
@@ -6468,22 +6689,27 @@
 
         window.submitAddShareholder = async function(event) {
             event.preventDefault();
+            const sharesVal = parseInt(document.getElementById('add-sh-shares').value, 10) || 0;
+            const selectedClass = document.getElementById('add-sh-share-class').value;
+            const isPref = selectedClass.toLowerCase().includes('pref');
             const newSh = {
                 name: document.getElementById('add-sh-name').value,
                 type: document.getElementById('add-sh-type').value,
                 id: `SHR-000${shareholdersList.length + 1}`,
                 addedDate: "12 Jul 2026",
-                sharesHeld: parseInt(document.getElementById('add-sh-shares').value, 10) || 0,
+                sharesHeld: sharesVal,
+                ordinaryShares: isPref ? 0 : sharesVal,
+                preferenceShares: isPref ? sharesVal : 0,
                 percentage: parseFloat(document.getElementById('add-sh-pct').value).toFixed(2),
-                shareClass: "Ordinary Shares",
-                paidAmount: parseInt(document.getElementById('add-sh-shares').value, 10) || 0,
+                shareClass: selectedClass,
+                paidAmount: sharesVal,
                 votingRights: parseFloat(document.getElementById('add-sh-pct').value).toFixed(2),
-                email: document.getElementById('add-sh-email').value,
-                mobile: "+65 9123 4567",
-                address: document.getElementById('add-sh-address').value,
-                idNumber: document.getElementById('add-sh-id').value,
-                nationality: document.getElementById('add-sh-nationality').value,
-                dob: "1980-02-15",
+                email: document.getElementById('add-sh-email').value || "—",
+                mobile: "—",
+                address: document.getElementById('add-sh-address').value || "—",
+                idNumber: document.getElementById('add-sh-id').value || "—",
+                nationality: document.getElementById('add-sh-nationality').value || "—",
+                dob: "—",
                 status: "Active"
             };
 
@@ -6533,40 +6759,49 @@
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Type</label>
                                     <select id="edit-sh-type" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition cursor-pointer">
-                                        <option value="Individual" ${s.type === 'Individual' ? 'selected' : ''}>Individual</option>
                                         <option value="Corporate" ${s.type === 'Corporate' ? 'selected' : ''}>Corporate</option>
+                                        <option value="Individual" ${s.type === 'Individual' ? 'selected' : ''}>Individual</option>
                                     </select>
                                 </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Ordinary/Preference</label>
+                                    <select id="edit-sh-share-class" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition cursor-pointer">
+                                        <option value="Ordinary Shares" ${(!s.shareClass || s.shareClass.toLowerCase().includes('ord')) ? 'selected' : ''}>Ordinary</option>
+                                        <option value="Preference Shares" ${(s.shareClass && s.shareClass.toLowerCase().includes('pref')) ? 'selected' : ''}>Preference</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Shares Quantity</label>
                                     <input type="number" id="edit-sh-shares" required value="${s.sharesHeld}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                                 </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Percentage %</label>
                                     <input type="text" id="edit-sh-pct" required value="${s.percentage}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                                 </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Paid Amount ($)</label>
                                     <input type="number" step="any" id="edit-sh-paid" value="${s.paidAmount}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                                 </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Entry / Allotment Date</label>
                                     <input type="text" id="edit-sh-added-date" value="${s.addedDate}" placeholder="e.g. 26 Jan 2016" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                                 </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Cessation Date</label>
                                     <input type="text" id="edit-sh-ceased-date" value="${s.dateCeased}" placeholder="Leave blank if active" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                                 </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">UEN / NRIC / ID</label>
                                     <input type="text" id="edit-sh-id" value="${s.idNumber}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                                 </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Strikeout Status</label>
                                     <select id="edit-sh-strikeout" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition cursor-pointer">
@@ -6574,16 +6809,14 @@
                                         <option value="true" ${s.isStrikeout ? 'selected' : ''}>Strikeout</option>
                                     </select>
                                 </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nationality</label>
                                     <input type="text" id="edit-sh-nationality" value="${s.nationality}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                                 </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email</label>
-                                    <input type="email" id="edit-sh-email" value="${s.email}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email</label>
+                                <input type="email" id="edit-sh-email" value="${s.email}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Address</label>
@@ -6618,11 +6851,16 @@
             const pctVal = parseFloat(document.getElementById('edit-sh-pct').value).toFixed(2);
             const paidVal = parseFloat(document.getElementById('edit-sh-paid').value) || 0;
             const isStrike = document.getElementById('edit-sh-strikeout').value === 'true';
+            const selectedClass = document.getElementById('edit-sh-share-class').value;
+            const isPref = selectedClass.toLowerCase().includes('pref');
 
             shareholdersList[index] = {
                 ...shareholdersList[index],
                 name: document.getElementById('edit-sh-name').value,
                 type: document.getElementById('edit-sh-type').value,
+                shareClass: selectedClass,
+                ordinaryShares: isPref ? 0 : sharesVal,
+                preferenceShares: isPref ? sharesVal : 0,
                 sharesHeld: sharesVal,
                 percentage: pctVal,
                 paidAmount: paidVal,
@@ -6670,8 +6908,8 @@
                         idNumber: c.idNumber || "—",
                         nationality: c.nationality || "—",
                         dob: c.dob || "—",
-                        email: c.email || `${(c.name || '').toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.')}@email.com`,
-                        mobile: c.mobile || "+65 9123 4567",
+                        email: (c.email && String(c.email).trim() !== '' && String(c.email).trim() !== '—') ? String(c.email).trim() : "—",
+                        mobile: (c.mobile && String(c.mobile).trim() !== '' && String(c.mobile).trim() !== '—') ? String(c.mobile).trim() : "—",
                         address: c.address || "—",
                         ownershipPct: pct,
                         interestNature: "Direct Ownership",
@@ -8311,6 +8549,20 @@
                                 const day = String(adjusted.getUTCDate()).padStart(2, '0');
                                 return `${year}-${month}-${day}`;
                             }
+                            
+                            const numVal = Number(val);
+                            if (!isNaN(numVal) && numVal > 10000 && numVal < 100000 && typeof XLSX !== 'undefined' && XLSX.SSF) {
+                                try {
+                                    const parsed = XLSX.SSF.parse_date_code(numVal);
+                                    if (parsed && parsed.y && parsed.m && parsed.d) {
+                                        const y = parsed.y;
+                                        const m = String(parsed.m).padStart(2, '0');
+                                        const d = String(parsed.d).padStart(2, '0');
+                                        return `${y}-${m}-${d}`;
+                                    }
+                                } catch(e) {}
+                            }
+
                             const str = String(val).trim();
                             const isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
                             if (isoMatch) {
@@ -8333,13 +8585,15 @@
                                 const y = textMatch[3];
                                 return `${y}-${m}-${d}`;
                             }
-                            const d = new Date(str);
-                            if (!isNaN(d.getTime())) {
-                                const adjusted = new Date(d.getTime() + 12 * 3600 * 1000);
-                                const year = adjusted.getUTCFullYear();
-                                const month = String(adjusted.getUTCMonth() + 1).padStart(2, '0');
-                                const day = String(adjusted.getUTCDate()).padStart(2, '0');
-                                return `${year}-${month}-${day}`;
+                            if (isNaN(Number(str))) {
+                                const d = new Date(str);
+                                if (!isNaN(d.getTime())) {
+                                    const adjusted = new Date(d.getTime() + 12 * 3600 * 1000);
+                                    const year = adjusted.getUTCFullYear();
+                                    const month = String(adjusted.getUTCMonth() + 1).padStart(2, '0');
+                                    const day = String(adjusted.getUTCDate()).padStart(2, '0');
+                                    return `${year}-${month}-${day}`;
+                                }
                             }
                             return str;
                         };
@@ -8383,7 +8637,17 @@
                                     let val = '';
                                     for (let j = i + 1; j < row.length; j++) {
                                         if (row[j] !== undefined && row[j] !== null && String(row[j]).trim() !== '') {
-                                            val = String(row[j]).trim();
+                                            const cellRef = XLSX.utils.encode_cell({ r: r, c: j });
+                                            const cellObj = homeSheet[cellRef];
+                                            if (cellObj && Array.isArray(cellObj.r)) {
+                                                val = cellObj.r.map(run => {
+                                                    const text = run.t || '';
+                                                    const isStruck = !!((run.font && (run.font.strike || run.font.strikethrough)) || (run.s && run.s.strike));
+                                                    return isStruck ? `<s>${text}</s>` : text;
+                                                }).join('');
+                                            } else {
+                                                val = String(row[j]).trim();
+                                            }
                                             break;
                                         }
                                     }
@@ -8553,8 +8817,20 @@
                                         regHeaders.forEach((header, idx) => {
                                             const val = row[idx];
                                             if (val === undefined || val === null) return;
-                                            if (header.includes('name of member') || header.includes('member name')) {
+                                            if (header.includes('name of member') || header.includes('member name') || header.includes('shareholder name') || header.includes('name of shareholder')) {
                                                 member.name = String(val).trim();
+                                            } else if (header.includes('individual') || header.includes('corporate') || header.includes('shareholder type') || header.includes('member type') || header.includes('entity') || (header.includes('type') && !header.includes('share class'))) {
+                                                const rawType = String(val).trim();
+                                                if (rawType) {
+                                                    const lowerType = rawType.toLowerCase();
+                                                    if (lowerType.includes('corp') || lowerType.includes('company') || lowerType.includes('entity')) {
+                                                        member.type = 'Corporate';
+                                                    } else if (lowerType.includes('indiv')) {
+                                                        member.type = 'Individual';
+                                                    } else {
+                                                        member.type = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
+                                                    }
+                                                }
                                             } else if (header.includes('nric') || header.includes('id card') || header.includes('passport') || header.includes('fin')) {
                                                 member.idNumber = String(val).trim();
                                             } else if (header.includes('nationality')) {
@@ -8610,6 +8886,7 @@
                                     let sharesVal = 0;
                                     let consVal = 0;
                                     let foundVal = false;
+                                    let typeVal = '';
 
                                     if (ledgerHeaders.length > 0) {
                                         ledgerHeaders.forEach((header, idx) => {
@@ -8617,6 +8894,18 @@
                                             if (val === undefined || val === null) return;
                                             if (header.includes('name of member') || header.includes('member')) {
                                                 name = String(val).trim();
+                                            } else if (header.includes('individual') || header.includes('corporate') || header.includes('shareholder type') || header.includes('member type') || header.includes('entity') || (header.includes('type') && !header.includes('share class'))) {
+                                                const rawType = String(val).trim();
+                                                if (rawType) {
+                                                    const lowerType = rawType.toLowerCase();
+                                                    if (lowerType.includes('corp') || lowerType.includes('company') || lowerType.includes('entity')) {
+                                                        typeVal = 'Corporate';
+                                                    } else if (lowerType.includes('indiv')) {
+                                                        typeVal = 'Individual';
+                                                    } else {
+                                                        typeVal = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
+                                                    }
+                                                }
                                             } else if (header.includes('number of shares') || header.includes('shares')) {
                                                 const num = parseFloat(String(val).replace(/,/g, ''));
                                                 if (!isNaN(num)) { sharesVal = num; foundVal = true; }
@@ -8640,12 +8929,13 @@
                                         const key = name.toLowerCase();
                                         if (!memberMap[key]) {
                                             const mObj = { name, shares: sharesVal, consideration: consVal, currency: ledgerCurrency };
+                                            if (typeVal) mObj.type = typeVal;
                                             memberMap[key] = mObj;
                                             memberOrder.push(mObj);
                                         } else {
+                                            if (typeVal) memberMap[key].type = typeVal;
                                             memberMap[key].shares = (memberMap[key].shares || 0) + sharesVal;
                                             memberMap[key].consideration = (memberMap[key].consideration || 0) + consVal;
-                                            memberMap[key].currency = ledgerCurrency;
                                         }
                                     }
                                 }
@@ -8907,32 +9197,89 @@
                         const amlSheet = getSheet('AML') || getSheet('Register of AML') || getSheet('AML Register');
                         if (amlSheet) {
                             const rows = XLSX.utils.sheet_to_json(amlSheet, { header: 1 });
-                            rows.forEach((row, idx) => {
-                                if (!row || row.length === 0) return;
-                                const nameVal = String(row[0] || '').trim();
-                                if (!nameVal || nameVal === '' || nameVal.toLowerCase() === 'name' || nameVal.toLowerCase().includes('register') || nameVal.toLowerCase() === 'none') {
-                                    return;
+                            if (rows && rows.length > 0) {
+                                let headerRowIdx = -1;
+                                let colMap = {};
+
+                                for (let r = 0; r < Math.min(10, rows.length); r++) {
+                                    const row = rows[r];
+                                    if (!row || !Array.isArray(row)) continue;
+                                    const rowStr = row.map(c => String(c || '').toLowerCase().trim()).join(' ');
+                                    if (rowStr.includes('name') && (rowStr.includes('aml') || rowStr.includes('cdd'))) {
+                                        headerRowIdx = r;
+                                        break;
+                                    }
                                 }
 
-                                const getVal = (colIdx) => {
-                                    const rawVal = row[colIdx];
-                                    if (rawVal === undefined || rawVal === null) return '';
-                                    const formatted = formatDate(rawVal);
-                                    return (formatted === '') ? String(rawVal).trim() : formatted;
-                                };
+                                if (headerRowIdx !== -1) {
+                                    const headerRow = rows[headerRowIdx];
+                                    headerRow.forEach((cellVal, cIdx) => {
+                                        const cleanHeader = String(cellVal || '').toLowerCase().trim().replace(/[\s\-_]+/g, '');
+                                        if (cleanHeader === 'name' || cleanHeader === 'individualname' || cleanHeader === 'fullname') {
+                                            colMap.name = cIdx;
+                                        } else if (cleanHeader === 'aml1') {
+                                            colMap.aml1 = cIdx;
+                                        } else if (cleanHeader === 'aml2') {
+                                            colMap.aml2 = cIdx;
+                                        } else if (cleanHeader === 'aml3') {
+                                            colMap.aml3 = cIdx;
+                                        } else if (cleanHeader === 'cdd1' || cleanHeader === 'cdd') {
+                                            colMap.cdd1 = cIdx;
+                                        } else if (cleanHeader === 'cdd2') {
+                                            colMap.cdd2 = cIdx;
+                                        } else if (cleanHeader === 'cdd3') {
+                                            colMap.cdd3 = cIdx;
+                                        } else if (cleanHeader.includes('googlesearch') || cleanHeader === 'google') {
+                                            colMap.googleSearch = cIdx;
+                                        } else if (cleanHeader === 'nextaml') {
+                                            colMap.nextAml = cIdx;
+                                        } else if (cleanHeader === 'nextcdd') {
+                                            colMap.nextCdd = cIdx;
+                                        } else if (cleanHeader.includes('bankstatement') || cleanHeader.includes('bank')) {
+                                            colMap.bankStatement = cIdx;
+                                        }
+                                    });
+                                }
 
-                                result.amlData.push({
-                                    name: nameVal,
-                                    aml1: getVal(1),
-                                    aml2: getVal(2),
-                                    aml3: getVal(3),
-                                    cdd: getVal(4),
-                                    cdd2: getVal(5),
-                                    cdd3: getVal(6),
-                                    googleSearch: getVal(7),
-                                    bankStatement: getVal(8)
-                                });
-                            });
+                                const startIdx = (headerRowIdx !== -1) ? headerRowIdx + 1 : 0;
+                                for (let r = startIdx; r < rows.length; r++) {
+                                    const row = rows[r];
+                                    if (!row || !Array.isArray(row) || row.length === 0) continue;
+
+                                    const nameColIdx = (colMap.name !== undefined) ? colMap.name : 0;
+                                    const nameVal = String(row[nameColIdx] || '').trim();
+
+                                    if (!nameVal || nameVal === '' || nameVal.toLowerCase() === 'name' || nameVal.toLowerCase().includes('register') || nameVal.toLowerCase() === 'none' || nameVal.toLowerCase() === 'n/a') {
+                                        continue;
+                                    }
+
+                                    const getCellVal = (prop, fallbackColIdx) => {
+                                        const cIdx = (colMap[prop] !== undefined) ? colMap[prop] : (headerRowIdx !== -1 ? -1 : fallbackColIdx);
+                                        if (cIdx === undefined || cIdx < 0) return '';
+                                        const rawVal = row[cIdx];
+                                        if (rawVal === undefined || rawVal === null) return '';
+                                        const formatted = formatDate(rawVal);
+                                        return (formatted === '') ? String(rawVal).trim() : formatted;
+                                    };
+
+                                    const cddVal = getCellVal('cdd1', 4);
+
+                                    result.amlData.push({
+                                        name: nameVal,
+                                        aml1: getCellVal('aml1', 1),
+                                        aml2: getCellVal('aml2', 2),
+                                        aml3: getCellVal('aml3', 3),
+                                        cdd1: cddVal,
+                                        cdd: cddVal,
+                                        cdd2: getCellVal('cdd2', 5),
+                                        cdd3: getCellVal('cdd3', 6),
+                                        googleSearch: getCellVal('googleSearch', 7),
+                                        nextAml: getCellVal('nextAml', -1),
+                                        nextCdd: getCellVal('nextCdd', -1),
+                                        bankStatement: getCellVal('bankStatement', 8)
+                                    });
+                                }
+                            }
                         }
 
                         console.log("Workbook sheets parsed successfully:", workbook.SheetNames);
