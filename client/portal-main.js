@@ -14,6 +14,23 @@ const state = {
     isAIActive: false
 };
 
+function renderStrikeoutText(val, isStrikeout = false) {
+    if (!val || val === 'N/A' || val === 'null' || val === '—') return '—';
+    let str = String(val).trim();
+    if (!str) return '—';
+    if (isStrikeout) {
+        return `<span class="line-through text-slate-400 font-normal">${str.replace(/(\r\n|\n|\r)/g, '<br/>')}</span>`;
+    }
+    let formatted = str
+        .replace(/\[strike\](.*?)\[\/strike\]/gi, '<span class="line-through text-slate-400 font-normal">$1</span>')
+        .replace(/<s>(.*?)<\/s>/gi, '<span class="line-through text-slate-400 font-normal">$1</span>')
+        .replace(/<strike>(.*?)<\/strike>/gi, '<span class="line-through text-slate-400 font-normal">$1</span>')
+        .replace(/<del>(.*?)<\/del>/gi, '<span class="line-through text-slate-400 font-normal">$1</span>')
+        .replace(/~~(.*?)~~/gi, '<span class="line-through text-slate-400 font-normal">$1</span>');
+
+    return formatted.replace(/(\r\n|\n|\r)/g, '<br/>');
+}
+
 // Initialize Platform
 document.addEventListener('DOMContentLoaded', async () => {
     // Session Recovery
@@ -4159,11 +4176,11 @@ window.triggerQuickAIPrompt = function(promptText) {
                         </div>
                         <div class="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Primary Activity (SSIC)</span>
-                            <div class="font-bold text-slate-800">${ed.primaryActivity || '—'}</div>
+                            <div class="font-bold text-slate-800">${renderStrikeoutText(ed.primaryActivity)}</div>
                         </div>
                         <div class="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Secondary Activity (SSIC)</span>
-                            <div class="font-bold text-slate-800">${ed.secondaryActivity || '—'}</div>
+                            <div class="font-bold text-slate-800">${renderStrikeoutText(ed.secondaryActivity, ed.secondaryActivityStrikeout)}</div>
                         </div>
                         <div class="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Financial Year End (FYE)</span>
@@ -5554,8 +5571,8 @@ function getNormalizedControllers(reqData, companyName = '', uen = '') {
                 idNumber: c.idNumber || c.idNo || c.nric || c.passport || "—",
                 nationality: c.nationality || "—",
                 dob: c.dob || c.dateOfBirth || "—",
-                email: c.email || c.emailAddress || `${(cNameStr || '').toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.')}@email.com`,
-                mobile: c.mobile || c.phone || c.contactNumber || "+65 9123 4567",
+                email: (c.email || c.emailAddress) && String(c.email || c.emailAddress).trim() !== '' && String(c.email || c.emailAddress).trim() !== '—' ? String(c.email || c.emailAddress).trim() : "—",
+                mobile: (c.mobile || c.phone || c.contactNumber) && String(c.mobile || c.phone || c.contactNumber).trim() !== '' && String(c.mobile || c.phone || c.contactNumber).trim() !== '—' ? String(c.mobile || c.phone || c.contactNumber).trim() : "—",
                 address: c.address || c.residentialAddress || "—",
                 ownershipPct: c.ownershipPct || pct,
                 interestNature: c.interestNature || "Direct Ownership",
@@ -6287,28 +6304,32 @@ function renderProfile(container, initialSubTab = 'overview') {
                             <table class="w-full text-left text-xs border border-slate-200 rounded-2xl overflow-hidden border-collapse">
                                 <thead>
                                     <tr class="bg-slate-100/80 text-slate-900 font-extrabold border-b border-slate-200">
-                                        <th class="p-3 border border-slate-200 font-black text-left align-middle bg-slate-100/80">Name</th>
+                                        <th class="p-3 border border-slate-200 font-black text-left align-middle bg-slate-100/80 min-w-[240px]">Name</th>
                                         <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">AML1</th>
                                         <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">AML2</th>
                                         <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">AML3</th>
-                                        <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">CDD</th>
+                                        <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">CDD1</th>
                                         <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">CDD2</th>
                                         <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">CDD3</th>
                                         <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">Google Search</th>
+                                        <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">Next AML</th>
+                                        <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">Next CDD</th>
                                         <th class="p-3 border border-slate-200 font-black text-center align-middle bg-slate-100/80">Bank Statement</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-slate-800 font-semibold">
                                     ${amlData.map(a => `
                                         <tr class="hover:bg-slate-50/50 transition-colors">
-                                            <td class="p-3 border border-slate-200 font-extrabold text-slate-900 uppercase bg-slate-50/20">${a.name}</td>
+                                            <td class="p-3 border border-slate-200 font-extrabold text-slate-900 uppercase bg-slate-50/20 whitespace-nowrap min-w-[240px]">${a.name}</td>
                                             <td class="p-3 border border-slate-200 text-center font-medium text-slate-800">${a.aml1 || '-'}</td>
                                             <td class="p-3 border border-slate-200 text-center font-medium text-slate-800">${a.aml2 || '-'}</td>
                                             <td class="p-3 border border-slate-200 text-center font-medium text-slate-800">${a.aml3 || '-'}</td>
-                                            <td class="p-3 border border-slate-200 text-center font-medium text-slate-800">${a.cdd || '-'}</td>
+                                            <td class="p-3 border border-slate-200 text-center font-medium text-slate-800">${a.cdd1 || a.cdd || '-'}</td>
                                             <td class="p-3 border border-slate-200 text-center font-medium text-slate-800">${a.cdd2 || '-'}</td>
                                             <td class="p-3 border border-slate-200 text-center font-medium text-slate-800">${a.cdd3 || '-'}</td>
                                             <td class="p-3 border border-slate-200 text-center font-medium text-slate-800">${a.googleSearch || '-'}</td>
+                                            <td class="p-3 border border-slate-200 text-center font-medium text-slate-800">${a.nextAml || '-'}</td>
+                                            <td class="p-3 border border-slate-200 text-center font-medium text-slate-800">${a.nextCdd || '-'}</td>
                                             <td class="p-3 border border-slate-200 text-left font-medium text-slate-800">${a.bankStatement || '-'}</td>
                                         </tr>
                                     `).join('')}

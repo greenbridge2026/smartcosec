@@ -931,6 +931,20 @@ Please log in immediately to complete your activation.</textarea>
                                 const day = String(adjusted.getUTCDate()).padStart(2, '0');
                                 return `${year}-${month}-${day}`;
                             }
+
+                            const numVal = Number(val);
+                            if (!isNaN(numVal) && numVal > 10000 && numVal < 100000 && typeof XLSX !== 'undefined' && XLSX.SSF) {
+                                try {
+                                    const parsed = XLSX.SSF.parse_date_code(numVal);
+                                    if (parsed && parsed.y && parsed.m && parsed.d) {
+                                        const y = parsed.y;
+                                        const m = String(parsed.m).padStart(2, '0');
+                                        const d = String(parsed.d).padStart(2, '0');
+                                        return `${y}-${m}-${d}`;
+                                    }
+                                } catch(e) {}
+                            }
+
                             const str = String(val).trim();
                             const isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
                             if (isoMatch) {
@@ -953,13 +967,15 @@ Please log in immediately to complete your activation.</textarea>
                                 const y = textMatch[3];
                                 return `${y}-${m}-${d}`;
                             }
-                            const d = new Date(str);
-                            if (!isNaN(d.getTime())) {
-                                const adjusted = new Date(d.getTime() + 12 * 3600 * 1000);
-                                const year = adjusted.getUTCFullYear();
-                                const month = String(adjusted.getUTCMonth() + 1).padStart(2, '0');
-                                const day = String(adjusted.getUTCDate()).padStart(2, '0');
-                                return `${year}-${month}-${day}`;
+                            if (isNaN(Number(str))) {
+                                const d = new Date(str);
+                                if (!isNaN(d.getTime())) {
+                                    const adjusted = new Date(d.getTime() + 12 * 3600 * 1000);
+                                    const year = adjusted.getUTCFullYear();
+                                    const month = String(adjusted.getUTCMonth() + 1).padStart(2, '0');
+                                    const day = String(adjusted.getUTCDate()).padStart(2, '0');
+                                    return `${year}-${month}-${day}`;
+                                }
                             }
                             return str;
                         };
@@ -1073,7 +1089,17 @@ Please log in immediately to complete your activation.</textarea>
                                     let val = '';
                                     for (let j = i + 1; j < row.length; j++) {
                                         if (row[j] !== undefined && row[j] !== null && String(row[j]).trim() !== '') {
-                                            val = String(row[j]).trim();
+                                            const cellRef = XLSX.utils.encode_cell({ r: r, c: j });
+                                            const cellObj = homeSheet[cellRef];
+                                            if (cellObj && Array.isArray(cellObj.r)) {
+                                                val = cellObj.r.map(run => {
+                                                    const text = run.t || '';
+                                                    const isStruck = !!((run.font && (run.font.strike || run.font.strikethrough)) || (run.s && run.s.strike));
+                                                    return isStruck ? `<s>${text}</s>` : text;
+                                                }).join('');
+                                            } else {
+                                                val = String(row[j]).trim();
+                                            }
                                             break;
                                         }
                                     }
@@ -1239,8 +1265,20 @@ Please log in immediately to complete your activation.</textarea>
                                         regHeaders.forEach((header, idx) => {
                                             const val = row[idx];
                                             if (val === undefined || val === null) return;
-                                            if (header.includes('name of member') || header.includes('member name')) {
+                                            if (header.includes('name of member') || header.includes('member name') || header.includes('shareholder name') || header.includes('name of shareholder')) {
                                                 member.name = String(val).trim();
+                                            } else if (header.includes('individual') || header.includes('corporate') || header.includes('shareholder type') || header.includes('member type') || header.includes('entity') || (header.includes('type') && !header.includes('share class'))) {
+                                                const rawType = String(val).trim();
+                                                if (rawType) {
+                                                    const lowerType = rawType.toLowerCase();
+                                                    if (lowerType.includes('corp') || lowerType.includes('company') || lowerType.includes('entity')) {
+                                                        member.type = 'Corporate';
+                                                    } else if (lowerType.includes('indiv')) {
+                                                        member.type = 'Individual';
+                                                    } else {
+                                                        member.type = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
+                                                    }
+                                                }
                                             } else if (header.includes('nric') || header.includes('id card') || header.includes('passport') || header.includes('fin')) {
                                                 member.idNumber = String(val).trim();
                                             } else if (header.includes('nationality')) {
@@ -1296,6 +1334,7 @@ Please log in immediately to complete your activation.</textarea>
                                     let sharesVal = 0;
                                     let consVal = 0;
                                     let foundVal = false;
+                                    let typeVal = '';
 
                                     if (ledgerHeaders.length > 0) {
                                         ledgerHeaders.forEach((header, idx) => {
@@ -1303,6 +1342,18 @@ Please log in immediately to complete your activation.</textarea>
                                             if (val === undefined || val === null) return;
                                             if (header.includes('name of member') || header.includes('member')) {
                                                 name = String(val).trim();
+                                            } else if (header.includes('individual') || header.includes('corporate') || header.includes('shareholder type') || header.includes('member type') || header.includes('entity') || (header.includes('type') && !header.includes('share class'))) {
+                                                const rawType = String(val).trim();
+                                                if (rawType) {
+                                                    const lowerType = rawType.toLowerCase();
+                                                    if (lowerType.includes('corp') || lowerType.includes('company') || lowerType.includes('entity')) {
+                                                        typeVal = 'Corporate';
+                                                    } else if (lowerType.includes('indiv')) {
+                                                        typeVal = 'Individual';
+                                                    } else {
+                                                        typeVal = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
+                                                    }
+                                                }
                                             } else if (header.includes('number of shares') || header.includes('shares')) {
                                                 const num = parseFloat(String(val).replace(/,/g, ''));
                                                 if (!isNaN(num)) { sharesVal = num; foundVal = true; }
@@ -1326,9 +1377,11 @@ Please log in immediately to complete your activation.</textarea>
                                         const key = name.toLowerCase();
                                         if (!memberMap[key]) {
                                             const mObj = { name, shares: sharesVal, consideration: consVal, currency: ledgerCurrency };
+                                            if (typeVal) mObj.type = typeVal;
                                             memberMap[key] = mObj;
                                             memberOrder.push(mObj);
                                         } else {
+                                            if (typeVal) memberMap[key].type = typeVal;
                                             memberMap[key].shares = (memberMap[key].shares || 0) + sharesVal;
                                             memberMap[key].consideration = (memberMap[key].consideration || 0) + consVal;
                                             memberMap[key].currency = ledgerCurrency;
