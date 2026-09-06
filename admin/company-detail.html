@@ -5963,6 +5963,7 @@
             // 1. Process Allotments
             if (allotments && Array.isArray(allotments)) {
                 allotments.forEach(item => {
+                    if (item.isStrikeout || item.strikeout || item.status === 'Strikeout' || item.status === 'Ceased / Cancelled') return;
                     const applicant = String(item.applicantName || '').trim().toLowerCase();
                     if (applicant === normalizedName) {
                         const shares = parseFloat(String(item.sharesApplied || item.shares || '0').replace(/[^0-9.]/g, '')) || 0;
@@ -5979,6 +5980,7 @@
             // 2. Process Transfers
             if (transfers && Array.isArray(transfers)) {
                 transfers.forEach(item => {
+                    if (item.isStrikeout || item.strikeout || item.status === 'Strikeout' || item.status === 'Ceased / Cancelled') return;
                     const transferor = String(item.transferorName || '').trim().toLowerCase();
                     const transferee = String(item.transfereeName || item.transfereeInfo || '').trim().toLowerCase();
                     const shares = parseFloat(String(item.sharesTransferred || '0').replace(/[^0-9.]/g, '')) || 0;
@@ -6052,7 +6054,8 @@
                 memberCalculatedShares.push(finalInfo);
                 
                 const hasCeased = !!(m.dateCeased && String(m.dateCeased).trim() !== '' && String(m.dateCeased) !== '—') ||
-                                  (m.status === 'Ceased' || m.status === 'Cancelled' || m.status === 'Ceased / Cancelled');
+                                  (m.status === 'Ceased' || m.status === 'Cancelled' || m.status === 'Ceased / Cancelled' || m.status === 'Strikeout') ||
+                                  !!(m.isStrikeout || m.strikeout);
                 if (!hasCeased) {
                     totalActiveOrdinaryAcrossMembers += finalInfo.ordinary;
                     totalActivePreferenceAcrossMembers += finalInfo.preference;
@@ -6063,7 +6066,8 @@
 
             members.forEach((m, idx) => {
                 const hasCeased = !!(m.dateCeased && String(m.dateCeased).trim() !== '' && String(m.dateCeased) !== '—') ||
-                                  (m.status === 'Ceased' || m.status === 'Cancelled' || m.status === 'Ceased / Cancelled');
+                                  (m.status === 'Ceased' || m.status === 'Cancelled' || m.status === 'Ceased / Cancelled' || m.status === 'Strikeout') ||
+                                  !!(m.isStrikeout || m.strikeout);
                 const sharesInfo = memberCalculatedShares[idx];
                 
                 const sharesHeld = hasCeased ? 0 : sharesInfo.total;
@@ -8486,13 +8490,49 @@
             }
         }
 
+        function isCellStruckOut(cellObj) {
+            if (!cellObj) return false;
+            if (cellObj.s && cellObj.s.font) {
+                if (cellObj.s.font.strike || cellObj.s.font.strikethrough) return true;
+            }
+            if (Array.isArray(cellObj.r)) {
+                for (let i = 0; i < cellObj.r.length; i++) {
+                    const run = cellObj.r[i];
+                    if (run && run.font && (run.font.strike || run.font.strikethrough)) return true;
+                }
+            }
+            if (cellObj.h) {
+                const hStr = String(cellObj.h);
+                if (/<(s|strike|del)\b/i.test(hStr) || /style="[^"]*text-decoration\s*:\s*line-through/i.test(hStr)) {
+                    return true;
+                }
+            }
+            const valStr = String(cellObj.w || cellObj.v || '');
+            if (/<(s|strike|del)\b/i.test(valStr) || /~~.+~~/.test(valStr) || /\u0336/.test(valStr)) {
+                return true;
+            }
+            return false;
+        }
+
+        function isRowStruckOut(sheet, rIndex, maxCols = 15) {
+            if (!sheet) return false;
+            for (let c = 0; c < maxCols; c++) {
+                const cellRef = XLSX.utils.encode_cell({ r: rIndex, c: c });
+                const cellObj = sheet[cellRef];
+                if (cellObj && isCellStruckOut(cellObj)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         function parseExcelFile(file) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     try {
                         const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                        const workbook = XLSX.read(data, { type: 'array', cellDates: true, cellStyles: true, cellHTML: true, cellNF: true });
                         const result = {
                             companyName: '',
                             uen: '',
@@ -8789,7 +8829,7 @@
                             const memberMap = {};
                             const memberOrder = [];
 
-                            rows.forEach(row => {
+                            rows.forEach((row, rowIdx) => {
                                 if (!row || row.length === 0) return;
                                 const rowStr = row.map(c => String(c || '')).join(' ').toLowerCase();
 
@@ -8809,6 +8849,8 @@
                                     }
                                     return;
                                 }
+
+                                const isStruckOutRow = isRowStruckOut(membersSheet, rowIdx);
 
                                 if (currentMode === 'register' && regHeaders.length > 0) {
                                     const firstCell = String(row[1] || row[0] || '').trim();
@@ -8857,6 +8899,13 @@
                                                 member.percentage = String(val).trim();
                                             }
                                         });
+
+                                        if (isStruckOutRow) {
+                                            member.isStrikeout = true;
+                                            member.status = 'Ceased / Cancelled';
+                                            member.shares = 0;
+                                            member.consideration = 0;
+                                        }
 
                                         if (member.name && member.name.toLowerCase() !== 'total' && member.name.toLowerCase() !== 'total ordinary') {
                                             const key = member.name.toLowerCase();
@@ -8928,15 +8977,37 @@
                                     if (name && name.toLowerCase() !== 'total' && name.toLowerCase() !== 'total ordinary' && !name.toLowerCase().startsWith('s. no.') && foundVal) {
                                         const key = name.toLowerCase();
                                         if (!memberMap[key]) {
-                                            const mObj = { name, shares: sharesVal, consideration: consVal, currency: ledgerCurrency };
+                                            const mObj = { 
+                                                name, 
+                                                shares: isStruckOutRow ? 0 : sharesVal, 
+                                                consideration: isStruckOutRow ? 0 : consVal, 
+                                                currency: ledgerCurrency,
+                                                transactions: [{ shares: sharesVal, consideration: consVal, isStrikeout: isStruckOutRow }]
+                                            };
                                             if (typeVal) mObj.type = typeVal;
                                             memberMap[key] = mObj;
                                             memberOrder.push(mObj);
                                         } else {
                                             if (typeVal) memberMap[key].type = typeVal;
-                                            memberMap[key].shares = (memberMap[key].shares || 0) + sharesVal;
-                                            memberMap[key].consideration = (memberMap[key].consideration || 0) + consVal;
+                                            if (!memberMap[key].transactions) memberMap[key].transactions = [];
+                                            memberMap[key].transactions.push({ shares: sharesVal, consideration: consVal, isStrikeout: isStruckOutRow });
+                                            if (!isStruckOutRow) {
+                                                memberMap[key].shares = (memberMap[key].shares || 0) + sharesVal;
+                                                memberMap[key].consideration = (memberMap[key].consideration || 0) + consVal;
+                                            }
                                         }
+                                    }
+                                }
+                            });
+
+                            Object.values(memberMap).forEach(m => {
+                                if (m.transactions && m.transactions.length > 0) {
+                                    const allStruck = m.transactions.every(tx => tx.isStrikeout);
+                                    if (allStruck) {
+                                        m.isStrikeout = true;
+                                        m.status = 'Ceased / Cancelled';
+                                        m.shares = 0;
+                                        m.consideration = 0;
                                     }
                                 }
                             });
@@ -9006,14 +9077,15 @@
                         }
 
                         // 6. Allotments sheet
-                        const allotmentsSheet = getSheet('Allotments');
+                        const allotmentsSheet = getSheet('Allotments') || getSheet('Allotment') || getSheet('Applications and Allotments') || getSheet('Applications & Allotments') || getSheet('Register of Applications') || getSheet('Share Allotments');
                         if (allotmentsSheet) {
                             const rows = XLSX.utils.sheet_to_json(allotmentsSheet, { header: 1 });
                             let headers = [];
                             let currClass = 'Ordinary';
-                            rows.forEach(row => {
+                            rows.forEach((row, rowIdx) => {
                                 if (!row || row.length === 0) return;
-                                const rowStr = row.join(' ').toLowerCase();
+                                const isStruckOutRow = isRowStruckOut(allotmentsSheet, rowIdx);
+                                const rowStr = row.map(c => String(c || '')).join(' ').toLowerCase();
                                 if (rowStr.includes('class of shares')) {
                                     row.forEach(c => {
                                         if (c && String(c).toLowerCase().includes('class of shares')) {
@@ -9022,31 +9094,79 @@
                                     });
                                     return;
                                 }
-                                if (rowStr.includes('date of application')) {
+                                if (rowStr.includes('date of application') || rowStr.includes('application date') || rowStr.includes('date of allotment') || rowStr.includes('allotment date') || rowStr.includes('applicant name') || rowStr.includes('name of applicant') || rowStr.includes('allottee') || rowStr.includes('number of shares') || rowStr.includes('shares applied') || rowStr.includes('deposit amount') || rowStr.includes('certificate')) {
                                     headers = row.map(h => String(h || '').trim().toLowerCase());
                                     return;
                                 }
-                                if (headers.length > 0 && row.length >= 3) {
-                                    const firstCell = formatDate(row[0]);
-                                    if (firstCell && !firstCell.toLowerCase().startsWith('register') && !firstCell.toLowerCase().startsWith('class')) {
+                                if (headers.length > 0 && row.length >= 2) {
+                                    const rowContent = row.map(c => String(c || '').trim()).join(' ');
+                                    if (rowContent && !rowContent.toLowerCase().startsWith('register') && !rowContent.toLowerCase().startsWith('class of shares') && !rowContent.toLowerCase().startsWith('s. no') && !rowContent.toLowerCase().startsWith('s/n')) {
                                         const item = { shareClass: currClass };
                                         headers.forEach((header, idx) => {
                                             const val = row[idx];
                                             if (val === undefined || val === null) return;
-                                            const valStr = formatDate(val);
-                                            if (header.includes('application')) item.applicationDate = valStr;
-                                            else if (header.includes('allotment')) item.allotmentDate = valStr;
-                                            else if (header.includes('name') || header.includes('applicant')) item.applicantName = String(val).trim();
-                                            else if (header.includes('number') || header.includes('shares')) item.sharesApplied = String(val).trim();
-                                            else if (header.includes('currency')) item.currency = String(val).trim();
-                                            else if (header.includes('deposit')) item.depositAmount = String(val).trim();
-                                            else if (header.includes('allotted')) item.allottedAmount = String(val).trim();
-                                            else if (header.includes('payable')) item.furtherAmountPayable = String(val).trim();
-                                            else if (header.includes('certificate')) item.certNumber = String(val).trim();
-                                            else if (header.includes('notes')) item.notes = String(val).trim();
+                                            const rawStr = String(val).trim();
+                                            if (!rawStr) return;
+
+                                            if (header.includes('applicant') || header.includes('allottee') || header.includes('name of member') || (header.includes('name') && !header.includes('class') && !header.includes('date'))) {
+                                                item.applicantName = rawStr;
+                                            } else if (header.includes('date of application') || header.includes('application date') || (header.includes('application') && !header.includes('name'))) {
+                                                item.applicationDate = formatDate(val);
+                                            } else if (header.includes('date of allotment') || header.includes('allotment date') || (header.includes('allotment') && !header.includes('name'))) {
+                                                item.allotmentDate = formatDate(val);
+                                            } else if (header.includes('number') || header.includes('shares') || header.includes('applied') || header.includes('quantity')) {
+                                                const num = parseFloat(rawStr.replace(/,/g, ''));
+                                                item.sharesApplied = !isNaN(num) ? num : rawStr;
+                                            } else if (header.includes('currency')) {
+                                                item.currency = rawStr;
+                                            } else if (header.includes('deposit') || header.includes('paid amount') || header.includes('amount paid')) {
+                                                const num = parseFloat(rawStr.replace(/,/g, ''));
+                                                item.depositAmount = !isNaN(num) ? num : rawStr;
+                                            } else if (header.includes('allotted amount') || header.includes('amount allotted')) {
+                                                const num = parseFloat(rawStr.replace(/,/g, ''));
+                                                item.allottedAmount = !isNaN(num) ? num : rawStr;
+                                            } else if (header.includes('payable')) {
+                                                item.furtherAmountPayable = rawStr;
+                                            } else if (header.includes('certificate') || header.includes('cert')) {
+                                                item.certNumber = rawStr;
+                                            } else if (header.includes('notes') || header.includes('remarks')) {
+                                                item.notes = rawStr;
+                                            }
                                         });
-                                        if (item.applicantName) result.allotments.push(item);
+
+                                        if (item.applicantName && item.applicantName.toLowerCase() !== 'total' && item.applicantName.toLowerCase() !== 's. no.') {
+                                            if (isStruckOutRow) {
+                                                item.isStrikeout = true;
+                                                item.status = 'Strikeout';
+                                            }
+                                            item.applicationDate = item.applicationDate || item.allotmentDate || '—';
+                                            item.allotmentDate = item.allotmentDate || item.applicationDate || '—';
+                                            item.depositAmount = item.depositAmount !== undefined ? item.depositAmount : (item.sharesApplied || '—');
+                                            item.allottedAmount = item.allottedAmount !== undefined ? item.allottedAmount : (item.depositAmount || item.sharesApplied || '—');
+                                            result.allotments.push(item);
+                                        }
                                     }
+                                }
+                            });
+                        }
+
+                        // Fallback: If no allotments were captured from Allotments sheet, synthesize initial allotments from Members sheet
+                        if ((!result.allotments || result.allotments.length === 0) && result.members && result.members.length > 0) {
+                            result.members.forEach((m, idx) => {
+                                if (m.name && m.name.toLowerCase() !== 'total') {
+                                    const shares = m.shares || m.numberOfShares || m.sharesHeld || 0;
+                                    result.allotments.push({
+                                        applicationDate: m.dateEntered || '2016-01-26',
+                                        allotmentDate: m.dateEntered || '2016-01-26',
+                                        applicantName: m.name,
+                                        shareClass: m.shareClass || 'Ordinary',
+                                        sharesApplied: shares,
+                                        currency: m.currency || 'USD',
+                                        depositAmount: m.consideration || shares,
+                                        allottedAmount: m.consideration || shares,
+                                        certNumber: `Cert #${idx + 1}`,
+                                        isStrikeout: !!(m.isStrikeout || m.strikeout || m.status === 'Ceased / Cancelled')
+                                    });
                                 }
                             });
                         }
@@ -9056,8 +9176,9 @@
                         if (transfersSheet) {
                             const rows = XLSX.utils.sheet_to_json(transfersSheet, { header: 1 });
                             let currentShareClass = "Ordinary Shares";
-                            rows.forEach(row => {
+                            rows.forEach((row, rowIdx) => {
                                 if (!row || row.length === 0) return;
+                                const isStruckOutRow = isRowStruckOut(transfersSheet, rowIdx);
                                 const c0 = String(row[0] || '').trim();
                                 if (c0.toLowerCase().startsWith('class of shares:')) {
                                     currentShareClass = c0.replace(/class of shares:/i, '').trim();
@@ -9091,7 +9212,9 @@
                                         transfereeName: transfereeName,
                                         transfereeAddress: transfereeAddress,
                                         transfereeCertNo: transfereeCert,
-                                        priceOrConsideration: priceOrConsideration
+                                        priceOrConsideration: priceOrConsideration,
+                                        isStrikeout: isStruckOutRow,
+                                        status: isStruckOutRow ? 'Strikeout' : undefined
                                     });
                                 }
                             });

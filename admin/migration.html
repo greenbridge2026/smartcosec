@@ -909,13 +909,49 @@ Please log in immediately to complete your activation.</textarea>
 
         // ================= CLIENT DIRECTORY / ZIP SELECTION =================
 
+        function isCellStruckOut(cellObj) {
+            if (!cellObj) return false;
+            if (cellObj.s && cellObj.s.font) {
+                if (cellObj.s.font.strike || cellObj.s.font.strikethrough) return true;
+            }
+            if (Array.isArray(cellObj.r)) {
+                for (let i = 0; i < cellObj.r.length; i++) {
+                    const run = cellObj.r[i];
+                    if (run && run.font && (run.font.strike || run.font.strikethrough)) return true;
+                }
+            }
+            if (cellObj.h) {
+                const hStr = String(cellObj.h);
+                if (/<(s|strike|del)\b/i.test(hStr) || /style="[^"]*text-decoration\s*:\s*line-through/i.test(hStr)) {
+                    return true;
+                }
+            }
+            const valStr = String(cellObj.w || cellObj.v || '');
+            if (/<(s|strike|del)\b/i.test(valStr) || /~~.+~~/.test(valStr) || /\u0336/.test(valStr)) {
+                return true;
+            }
+            return false;
+        }
+
+        function isRowStruckOut(sheet, rIndex, maxCols = 15) {
+            if (!sheet) return false;
+            for (let c = 0; c < maxCols; c++) {
+                const cellRef = XLSX.utils.encode_cell({ r: rIndex, c: c });
+                const cellObj = sheet[cellRef];
+                if (cellObj && isCellStruckOut(cellObj)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         function parseExcelFile(file) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     try {
                         const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                        const workbook = XLSX.read(data, { type: 'array', cellDates: true, cellStyles: true, cellHTML: true, cellNF: true });
 
                         const getSheet = (name) => {
                             const key = workbook.SheetNames.find(s => s.trim().toLowerCase() === name.trim().toLowerCase());
@@ -1237,7 +1273,7 @@ Please log in immediately to complete your activation.</textarea>
                             const memberMap = {};
                             const memberOrder = [];
 
-                            rows.forEach(row => {
+                            rows.forEach((row, rowIdx) => {
                                 if (!row || row.length === 0) return;
                                 const rowStr = row.map(c => String(c || '')).join(' ').toLowerCase();
 
@@ -1257,6 +1293,8 @@ Please log in immediately to complete your activation.</textarea>
                                     }
                                     return;
                                 }
+
+                                const isStruckOutRow = isRowStruckOut(membersSheet, rowIdx);
 
                                 if (currentMode === 'register' && regHeaders.length > 0) {
                                     const firstCell = String(row[1] || row[0] || '').trim();
@@ -1305,6 +1343,13 @@ Please log in immediately to complete your activation.</textarea>
                                                 member.percentage = String(val).trim();
                                             }
                                         });
+
+                                        if (isStruckOutRow) {
+                                            member.isStrikeout = true;
+                                            member.status = 'Ceased / Cancelled';
+                                            member.shares = 0;
+                                            member.consideration = 0;
+                                        }
 
                                         if (member.name && member.name.toLowerCase() !== 'total' && member.name.toLowerCase() !== 'total ordinary') {
                                             const key = member.name.toLowerCase();
@@ -1376,16 +1421,38 @@ Please log in immediately to complete your activation.</textarea>
                                     if (name && name.toLowerCase() !== 'total' && name.toLowerCase() !== 'total ordinary' && !name.toLowerCase().startsWith('s. no.') && foundVal) {
                                         const key = name.toLowerCase();
                                         if (!memberMap[key]) {
-                                            const mObj = { name, shares: sharesVal, consideration: consVal, currency: ledgerCurrency };
+                                            const mObj = { 
+                                                name, 
+                                                shares: isStruckOutRow ? 0 : sharesVal, 
+                                                consideration: isStruckOutRow ? 0 : consVal, 
+                                                currency: ledgerCurrency,
+                                                transactions: [{ shares: sharesVal, consideration: consVal, isStrikeout: isStruckOutRow }]
+                                            };
                                             if (typeVal) mObj.type = typeVal;
                                             memberMap[key] = mObj;
                                             memberOrder.push(mObj);
                                         } else {
                                             if (typeVal) memberMap[key].type = typeVal;
-                                            memberMap[key].shares = (memberMap[key].shares || 0) + sharesVal;
-                                            memberMap[key].consideration = (memberMap[key].consideration || 0) + consVal;
-                                            memberMap[key].currency = ledgerCurrency;
+                                            if (!memberMap[key].transactions) memberMap[key].transactions = [];
+                                            memberMap[key].transactions.push({ shares: sharesVal, consideration: consVal, isStrikeout: isStruckOutRow });
+                                            if (!isStruckOutRow) {
+                                                memberMap[key].shares = (memberMap[key].shares || 0) + sharesVal;
+                                                memberMap[key].consideration = (memberMap[key].consideration || 0) + consVal;
+                                                memberMap[key].currency = ledgerCurrency;
+                                            }
                                         }
+                                    }
+                                }
+                            });
+
+                            Object.values(memberMap).forEach(m => {
+                                if (m.transactions && m.transactions.length > 0) {
+                                    const allStruck = m.transactions.every(tx => tx.isStrikeout);
+                                    if (allStruck) {
+                                        m.isStrikeout = true;
+                                        m.status = 'Ceased / Cancelled';
+                                        m.shares = 0;
+                                        m.consideration = 0;
                                     }
                                 }
                             });
