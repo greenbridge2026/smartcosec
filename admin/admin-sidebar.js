@@ -112,7 +112,7 @@ function isLocalAdminLink(url) {
     if (urlStr.includes('://')) return false;
     const path = urlStr.split('?')[0].split('#')[0];
     if (path.includes('document-viewer')) return false;
-    return (path.endsWith('.html') || !path.includes('.')) && !path.includes('/auth.html');
+    return (path.endsWith('.html') || !path.includes('.')) && !path.includes('/auth.html') && !path.includes('/admin');
 }
 
 function updateActiveSidebarItem(url) {
@@ -427,7 +427,7 @@ window.logout = function() {
     localStorage.removeItem('admin_auth');
     localStorage.removeItem('staff_auth');
     localStorage.removeItem('token');
-    window.location.href = '/auth.html';
+    window.location.href = '/admin';
 };
 
 window.toggleMobileSidebar = function() {
