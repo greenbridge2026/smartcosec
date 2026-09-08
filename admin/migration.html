@@ -909,6 +909,107 @@ Please log in immediately to complete your activation.</textarea>
 
         // ================= CLIENT DIRECTORY / ZIP SELECTION =================
 
+        async function extractStruckOutCellsFromXlsx(data) {
+            const struckOutRowsMap = {};
+            if (typeof JSZip === 'undefined') return struckOutRowsMap;
+            try {
+                const zip = await JSZip.loadAsync(data);
+                const workbookXml = await zip.file('xl/workbook.xml')?.async('text');
+                const sheetMap = {};
+                if (workbookXml) {
+                    const sheetTags = workbookXml.match(/<sheet\b[^>]*>/gi) || [];
+                    sheetTags.forEach(tag => {
+                        const nameMatch = tag.match(/name="([^"]+)"/i);
+                        const rIdMatch = tag.match(/r:id="([^"]+)"/i);
+                        if (nameMatch && rIdMatch) {
+                            sheetMap[rIdMatch[1]] = nameMatch[1];
+                        }
+                    });
+                }
+                const relsXml = await zip.file('xl/_rels/workbook.xml.rels')?.async('text');
+                const fileToSheetName = {};
+                if (relsXml) {
+                    const relTags = relsXml.match(/<Relationship\b[^>]*>/gi) || [];
+                    relTags.forEach(tag => {
+                        const idMatch = tag.match(/Id="([^"]+)"/i);
+                        const targetMatch = tag.match(/Target="([^"]+)"/i);
+                        if (idMatch && targetMatch && sheetMap[idMatch[1]]) {
+                            const target = targetMatch[1].replace(/^\//, '').replace(/^xl\//, '');
+                            fileToSheetName[target] = sheetMap[idMatch[1]];
+                        }
+                    });
+                }
+
+                const stylesXml = await zip.file('xl/styles.xml')?.async('text');
+                const strikeFontIds = new Set();
+                const strikeStyleIds = new Set();
+                if (stylesXml) {
+                    const fontMatches = stylesXml.match(/<font[\s\S]*?<\/font>/gi) || [];
+                    fontMatches.forEach((fontXml, fontIdx) => {
+                        if (/<strike\b/i.test(fontXml)) {
+                            strikeFontIds.add(fontIdx);
+                        }
+                    });
+                    const cellXfsMatch = stylesXml.match(/<cellXfs[\s\S]*?<\/cellXfs>/i);
+                    if (cellXfsMatch) {
+                        const xfMatches = cellXfsMatch[0].match(/<xf[\s\S]*?(\/>|<\/xf>)/gi) || [];
+                        xfMatches.forEach((xfXml, styleIdx) => {
+                            const fontIdMatch = xfXml.match(/fontId="(\d+)"/i);
+                            if (fontIdMatch) {
+                                const fontId = parseInt(fontIdMatch[1], 10);
+                                if (strikeFontIds.has(fontId)) {
+                                    strikeStyleIds.add(styleIdx);
+                                }
+                            }
+                        });
+                    }
+                }
+
+                const sharedStringsXml = await zip.file('xl/sharedStrings.xml')?.async('text');
+                const strikeStringIds = new Set();
+                if (sharedStringsXml) {
+                    const siMatches = sharedStringsXml.match(/<si[\s\S]*?<\/si>/gi) || [];
+                    siMatches.forEach((siXml, strIdx) => {
+                        if (/<strike\b/i.test(siXml)) {
+                            strikeStringIds.add(strIdx);
+                        }
+                    });
+                }
+
+                const sheetFiles = Object.keys(zip.files).filter(f => f.startsWith('xl/worksheets/') && f.endsWith('.xml'));
+                for (const sheetFile of sheetFiles) {
+                    const relPath = sheetFile.replace(/^xl\//, '');
+                    const sheetName = fileToSheetName[relPath] || relPath;
+                    const sheetXml = await zip.file(sheetFile).async('text');
+                    const rowSet = new Set();
+                    const cellMatches = sheetXml.match(/<c\b[\s\S]*?<\/c>/gi) || [];
+                    cellMatches.forEach(cXml => {
+                        const rMatch = cXml.match(/r="([A-Z]+)(\d+)"/i);
+                        const sMatch = cXml.match(/s="(\d+)"/i);
+                        const tMatch = cXml.match(/t="s"/i);
+                        const vMatch = cXml.match(/<v>(\d+)<\/v>/i);
+                        if (rMatch) {
+                            const rowNum = parseInt(rMatch[2], 10) - 1;
+                            let isStruck = false;
+                            if (sMatch && strikeStyleIds.has(parseInt(sMatch[1], 10))) {
+                                isStruck = true;
+                            }
+                            if (tMatch && vMatch && strikeStringIds.has(parseInt(vMatch[1], 10))) {
+                                isStruck = true;
+                            }
+                            if (isStruck) {
+                                rowSet.add(rowNum);
+                            }
+                        }
+                    });
+                    struckOutRowsMap[sheetName.toLowerCase()] = rowSet;
+                }
+            } catch (e) {
+                console.warn("Error parsing raw XLSX zip XML for strikeout:", e);
+            }
+            return struckOutRowsMap;
+        }
+
         function isCellStruckOut(cellObj) {
             if (!cellObj) return false;
             if (cellObj.s && cellObj.s.font) {
@@ -933,9 +1034,19 @@ Please log in immediately to complete your activation.</textarea>
             return false;
         }
 
-        function isRowStruckOut(sheet, rIndex, maxCols = 15) {
+        function isRowStruckOut(sheet, rIndex, sheetName = '') {
+            if (window.excelStruckOutRowsMap) {
+                const sheetKey = String(sheetName || '').toLowerCase();
+                for (const key in window.excelStruckOutRowsMap) {
+                    if (!sheetKey || key === sheetKey || key.includes(sheetKey) || sheetKey.includes(key)) {
+                        if (window.excelStruckOutRowsMap[key] && window.excelStruckOutRowsMap[key].has(rIndex)) {
+                            return true;
+                        }
+                    }
+                }
+            }
             if (!sheet) return false;
-            for (let c = 0; c < maxCols; c++) {
+            for (let c = 0; c < 15; c++) {
                 const cellRef = XLSX.utils.encode_cell({ r: rIndex, c: c });
                 const cellObj = sheet[cellRef];
                 if (cellObj && isCellStruckOut(cellObj)) {
@@ -946,7 +1057,14 @@ Please log in immediately to complete your activation.</textarea>
         }
 
         function parseExcelFile(file) {
-            return new Promise((resolve) => {
+            return new Promise(async (resolve) => {
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    window.excelStruckOutRowsMap = await extractStruckOutCellsFromXlsx(arrayBuffer);
+                } catch(e) {
+                    console.warn("Could not pre-extract strikeout rows:", e);
+                }
+
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     try {

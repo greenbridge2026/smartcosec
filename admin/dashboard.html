@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://unpkg.com/topojson@3"></script>
     <script>
@@ -263,6 +264,10 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                                 <input type="text" id="dashboard-search-input" oninput="renderClients()" placeholder="Search clients, directors, UEN..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
                             </div>
+                            <button onclick="exportClientsToExcel()" class="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-[11px] flex items-center gap-1.5 transition-all shadow-md active:scale-[0.98]">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Download Excel
+                            </button>
                             <button onclick="confirmClearAllClients()" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-[11px] flex items-center gap-1.5 transition-all shadow-md active:scale-[0.98]">
                                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear All Clients
                             </button>
@@ -319,6 +324,57 @@
                 <button class="btn btn-outline flex-1 py-3" onclick="closeClearClientsModal()">Cancel</button>
                 <button class="btn btn-primary bg-red-600 hover:bg-red-700 border-none flex-1 py-3" onclick="executeClearAllClients()">Clear All</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Edit Client Modal -->
+    <div class="hidden fixed inset-0 z-[3000] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300" id="edit-client-modal">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto" onclick="closeEditClientModal()"></div>
+        <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl relative z-10 pointer-events-auto transform scale-90 transition-transform">
+            <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+                <h3 class="text-lg font-extrabold text-slate-800 flex items-center gap-2">
+                    <span class="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                    </span>
+                    Edit Client Details
+                </h3>
+                <button onclick="closeEditClientModal()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+            </div>
+            <form id="edit-client-form" onsubmit="saveClientEdit(event)" class="space-y-4">
+                <input type="hidden" id="edit-client-id">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Company / Business Name</label>
+                    <input type="text" id="edit-client-company" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Client Name</label>
+                    <input type="text" id="edit-client-name" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Email Address</label>
+                    <input type="email" id="edit-client-email" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none" required>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Phone Number</label>
+                        <input type="text" id="edit-client-phone" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Status</label>
+                        <select id="edit-client-status" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+                            <option value="Approved">Approved</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Under Review">Under Review</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Rejected">Rejected</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex gap-3 pt-4 border-t border-slate-100">
+                    <button type="button" class="btn btn-outline flex-1 py-2.5 text-xs font-bold" onclick="closeEditClientModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary bg-blue-600 hover:bg-blue-700 text-white flex-1 py-2.5 text-xs font-bold shadow-md">Save Changes</button>
+                </div>
+            </form>
         </div>
     </div>
     
@@ -1065,6 +1121,10 @@
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                                             <input type="text" id="dashboard-search-input" oninput="renderClients()" placeholder="Search clients, directors, UEN..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
                                         </div>
+                                        <button onclick="exportClientsToExcel()" class="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-[11px] flex items-center gap-1.5 transition-all shadow-md active:scale-[0.98]">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                            Download Excel
+                                        </button>
                                     </div>
                                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="clients-grid"></div>
                                 </div>
@@ -1412,54 +1472,51 @@
             const container = document.getElementById('dashboard-recent-activity');
             if (!container) return;
             
-            const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-            const end = endDate || new Date();
+            const liveLogs = JSON.parse(localStorage.getItem('admin_live_activities') || '[]');
             
-            const today = new Date();
-            const activityTemplates = [
-                { time: "10:42 AM", action: "uploaded NRIC", name: "John Tan", type: "success", date: new Date(today) },
-                { time: "10:18 AM", action: "completed onboarding", name: "Jane Smith", type: "success", date: new Date(today) },
-                { time: "09:54 AM", action: "AML screening failed for XYZ Ltd.", name: "XYZ Ltd.", type: "error", date: new Date(today.getTime() - 24 * 60 * 60 * 1000) },
-                { time: "09:31 AM", action: "incorporation completed", name: "ABC Pte. Ltd.", type: "success", date: new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000) },
-                { time: "09:05 AM", action: "Document rejected for LMN Pte. Ltd.", name: "LMN Pte. Ltd.", type: "error", date: new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000) }
-            ];
-            
-            const filteredActivities = activityTemplates.filter(act => act.date >= start && act.date <= end);
-            
+            // Build dynamic live activity entries from active clientsData
+            const clientActivities = (clientsData || []).map(c => {
+                const compName = (c.companyNames && c.companyNames.length > 0) ? c.companyNames.join(', ') : (c.companyName || c.name || 'Client');
+                const status = c.latestStatus || c.status || 'Approved';
+                const isSuccess = (status.toLowerCase() === 'approved' || status.toLowerCase() === 'completed');
+                const timeStr = c.latestActivity || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                return {
+                    time: timeStr.includes(':') ? timeStr : '10:00 AM',
+                    action: `profile status set to "${status}" (${compName})`,
+                    name: c.name || compName,
+                    type: isSuccess ? 'success' : 'info',
+                    date: new Date(),
+                    clientId: c.clientId || c.id
+                };
+            });
+
+            const allActivities = [...liveLogs, ...clientActivities];
+
             let html = '';
-            filteredActivities.forEach((act, index) => {
-                const client = clientsData[index % clientsData.length];
-                const targetName = client ? client.name : act.name;
-                const targetId = client ? client.clientId : '';
-                
+            allActivities.slice(0, 8).forEach(act => {
                 let iconHtml = '';
                 if (act.type === 'success') {
                     iconHtml = `<span class="w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100 shadow-sm"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i></span>`;
                 } else {
-                    iconHtml = `<span class="w-5 h-5 rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0 border border-red-100 shadow-sm"><i data-lucide="alert-circle" class="w-3.5 h-3.5"></i></span>`;
+                    iconHtml = `<span class="w-5 h-5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 shadow-sm"><i data-lucide="clock" class="w-3.5 h-3.5"></i></span>`;
                 }
                 
-                const clickHandler = targetId ? `onclick="window.location.href='onboarding.html?clientId=${targetId}'"` : '';
-                
-                let descriptionHtml = '';
-                if (act.action.includes(act.name)) {
-                    const actionPart = act.action.replace(act.name, `<span class="font-extrabold text-slate-800 hover:underline cursor-pointer" ${clickHandler}>${targetName}</span>`);
-                    descriptionHtml = actionPart;
-                } else {
-                    descriptionHtml = `<span class="font-extrabold text-slate-800 hover:underline cursor-pointer" ${clickHandler}>${targetName}</span> ${act.action}`;
-                }
-                
-                const dateDisplay = window.formatDashboardDate(act.date);
-                
+                const clickHandler = act.clientId ? `onclick="openClientProfile('${act.clientId}')"` : '';
+                const dateDisplay = (typeof act.date === 'string') ? act.date.split('T')[0] : (window.formatDashboardDate ? window.formatDashboardDate(act.date) : 'Today');
+
                 html += `
                     <div class="flex items-center gap-3">
                         <span class="text-slate-400 font-semibold w-24 shrink-0 text-[10px]">${dateDisplay} ${act.time}</span>
                         ${iconHtml}
-                        <div class="text-slate-600 font-medium leading-tight">${descriptionHtml}</div>
+                        <div class="text-slate-600 font-medium leading-tight">
+                            <span class="font-extrabold text-slate-800 hover:underline cursor-pointer" ${clickHandler}>${act.name}</span> ${act.action}
+                        </div>
                     </div>
                 `;
             });
-            container.innerHTML = html || `<div class="py-4 text-center text-slate-400">No activities for this range.</div>`;
+
+            container.innerHTML = html || `<div class="py-4 text-center text-slate-400">No recent activity logs available.</div>`;
+            if (window.lucide) window.lucide.createIcons();
         }
 
         function renderStats() {
@@ -1535,6 +1592,7 @@
                                      (Array.isArray(c.contactNumbers) && c.contactNumbers.some(num => (num || '').toLowerCase().includes(search)));
                 return matchesFilter && matchesSearch;
             });
+            window.currentFilteredClients = filtered;
 
             // Toggle grid vs list wrapper class
             if (currentViewMode === 'list') {
@@ -1548,10 +1606,8 @@
                 const nomineeDirs = c.nomineeDirectors || [];
                 const businessHeader = c.companyNames && c.companyNames.length > 0 
                     ? c.companyNames.join(', ') 
-                    : 'No associated business';
+                    : (c.companyName || c.name || 'No associated business');
                 
-                const clientBadge = `<div class="text-xs font-bold text-blue-600 bg-blue-50/50 px-2 py-1 rounded border border-blue-100/50 inline-block mb-3">${c.name}</div>`;
-
                 const nomineeHtml = nomineeDirs.length > 0 ? `
                     <div class="flex items-center gap-1.5 mb-3 text-[10px] text-amber-700 bg-amber-50/60 border border-amber-100/50 rounded-lg px-2.5 py-1 inline-flex shrink-0">
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500 mr-0.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
@@ -1559,18 +1615,6 @@
                         <span class="font-semibold text-slate-700 truncate max-w-[150px]" title="${nomineeDirs.join(', ')}">${nomineeDirs.join(', ')}</span>
                     </div>
                 ` : '';
-
-                let joinedDateStr = 'N/A';
-                try {
-                    const timestampSec = parseInt(c.clientId.substring(0, 8), 16);
-                    if (!isNaN(timestampSec)) {
-                        const joinedDate = new Date(timestampSec * 1000);
-                        const day = String(joinedDate.getDate()).padStart(2, '0');
-                        const month = String(joinedDate.getMonth() + 1).padStart(2, '0');
-                        const year = joinedDate.getFullYear();
-                        joinedDateStr = `${day}-${month}-${year}`;
-                    }
-                } catch(e) { console.warn('Failed to parse joined date', e); }
 
                 let lastActivityStr = c.latestActivity || 'N/A';
                 if (lastActivityStr !== 'Joined' && lastActivityStr !== 'N/A') {
@@ -1593,7 +1637,6 @@
                 const pendingCnt = c.pendingCount || 0;
                 const approvedCnt = c.approvedCount || 0;
                 const rejectedCnt = c.rejectedCount || 0;
-                const staff = c.latestStaff || 'Unassigned';
                 const svcsArr = c.serviceTypes || [];
                 const uniqueTypes = [...new Set(svcsArr)].slice(0,3);
 
@@ -1602,9 +1645,6 @@
                 const pW = Math.round((pendingCnt / barTotal) * 100);
                 const aW = Math.round((approvedCnt / barTotal) * 100);
                 const rW = Math.round((rejectedCnt / barTotal) * 100);
-
-                const staffInitial = staff === 'Unassigned' ? '?' : staff.charAt(0).toUpperCase();
-                const staffColor = staff === 'Unassigned' ? 'bg-slate-300 text-slate-500' : 'bg-indigo-500 text-white';
 
                 if (currentViewMode === 'list') {
                     return `
@@ -1615,9 +1655,8 @@
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                                 </div>
                                 <div class="min-w-0">
-                                    <h4 class="font-extrabold text-slate-800 text-sm truncate" title="${businessHeader}">${businessHeader}</h4>
+                                    <h4 class="font-extrabold text-blue-600 text-sm truncate" title="${businessHeader}">${businessHeader}</h4>
                                     <div class="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-slate-400">
-                                        <span class="font-bold text-blue-600 bg-blue-50/40 px-1.5 py-0.5 rounded border border-blue-100/30">${c.name}</span>
                                         <span class="font-bold">#${seqId}</span>
                                         ${nomineeDirs.length > 0 ? `<span class="px-2 py-0.5 font-bold bg-amber-50 text-amber-700 border border-amber-100 rounded-md">Nominee: ${nomineeDirs.join(', ')}</span>` : ''}
                                     </div>
@@ -1633,26 +1672,17 @@
                                 `).join('') || '<span class="text-[10px] text-slate-400 font-bold">No services</span>'}
                             </div>
 
-                            <!-- Right section: Status & Assignee & Date -->
-                            <div class="flex items-center gap-6 justify-between md:justify-end shrink-0">
-                                <!-- Date -->
-                                <div class="text-right hidden lg:block">
-                                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Joined Date</div>
-                                    <div class="text-xs font-semibold text-slate-600 mt-0.5">${joinedDateStr}</div>
-                                </div>
-
-                                <!-- Assignee -->
-                                <div class="flex items-center gap-2">
-                                    <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black uppercase ${staffColor} shadow-sm border border-white/50">
-                                        ${staffInitial}
-                                    </div>
-                                    <div class="text-xs text-slate-600 font-bold hidden sm:block">${staff}</div>
-                                </div>
-
+                            <!-- Right section: Status & Edit -->
+                            <div class="flex items-center gap-4 justify-between md:justify-end shrink-0">
                                 <!-- Status Badge -->
                                 <div class="min-w-[100px] text-right">
                                     <span class="status-badge ${props.class} inline-block">${props.text}</span>
                                 </div>
+
+                                <!-- Edit Button -->
+                                <button onclick="event.stopPropagation(); openEditClientModal('${c.clientId}')" class="px-2.5 py-1 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-all flex items-center gap-1 shrink-0" title="Edit Client">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg> Edit
+                                </button>
 
                                 <!-- Chevron right -->
                                 <div class="text-slate-300">
@@ -1665,23 +1695,22 @@
 
                 return `
                     <div class="client-card" data-status="${props.key}" onclick="openClientProfile('${c.clientId}')">
-                        <!-- Header row: status + ID -->
-                        <div class="flex justify-between items-start mb-3">
+                        <!-- Header row: status + ID & Edit -->
+                        <div class="flex justify-between items-center mb-3">
                             <div class="flex items-center gap-2">
                                 <span class="status-badge ${props.class}">${props.text}</span>
                                 <span id="presence-dot-${c.clientId}" class="w-2.5 h-2.5 rounded-full ${c.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}" title="${c.isOnline ? 'Online' : 'Offline'}"></span>
                             </div>
-                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID: ${seqId}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID: ${seqId}</span>
+                                <button onclick="event.stopPropagation(); openEditClientModal('${c.clientId}')" class="px-2 py-0.5 text-[11px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md transition-all flex items-center gap-1 shrink-0" title="Edit Client">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg> Edit
+                                </button>
+                            </div>
                         </div>
 
-                        <!-- Company & client name -->
-                        <h3 class="text-base font-bold text-slate-900 leading-snug mb-1 truncate" title="${businessHeader}">${businessHeader}</h3>
-                        <div class="flex items-center gap-2 mb-3">
-                            <span class="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                ${c.name}
-                            </span>
-                        </div>
+                        <!-- Company & client name (Bold & Blue, single display) -->
+                        <h3 class="text-base font-extrabold text-blue-600 leading-snug mb-2 truncate" title="${businessHeader}">${businessHeader}</h3>
 
                         <!-- Email row -->
                         <div class="flex items-center gap-1.5 mb-3 text-xs text-slate-500 truncate">
@@ -1698,15 +1727,11 @@
                             ${svcsArr.length > 3 ? `<span class="px-1.5 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-500 rounded-md">+${svcsArr.length-3} more</span>` : ''}
                         </div>` : ''}
 
-                        <!-- Service count & staff row -->
+                        <!-- Service count row -->
                         <div class="flex items-center justify-between mb-3">
                             <div class="flex items-center gap-1.5">
                                 <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                 <span class="text-xs font-semibold text-slate-700">${totalSvcs} Service${totalSvcs !== 1 ? 's' : ''}</span>
-                            </div>
-                            <div class="flex items-center gap-1.5">
-                                <div class="w-6 h-6 rounded-full ${staffColor} flex items-center justify-center text-[10px] font-bold shadow-sm" title="Staff: ${staff}">${staffInitial}</div>
-                                <span class="text-[10px] text-slate-500 font-semibold truncate max-w-[80px]">${staff}</span>
                             </div>
                         </div>
 
@@ -1725,16 +1750,10 @@
                             </div>
                         </div>` : ''}
 
-                        <!-- Date row -->
-                        <div class="grid grid-cols-2 gap-2 pt-3 border-t border-slate-100/80">
-                            <div>
-                                <div class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Joined</div>
-                                <div class="text-xs font-bold text-slate-700">${joinedDateStr}</div>
-                            </div>
-                            <div>
-                                <div class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Last Activity</div>
-                                <div class="text-xs font-bold text-slate-700">${lastActivityStr}</div>
-                            </div>
+                        <!-- Date row: Last Activity only -->
+                        <div class="pt-3 border-t border-slate-100/80">
+                            <div class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Last Activity</div>
+                            <div class="text-xs font-bold text-slate-700 mt-0.5">${lastActivityStr}</div>
                         </div>
                     </div>
                 `;
@@ -2845,6 +2864,159 @@
                 modal.classList.add('hidden');
             }, 300);
         }
+
+        window.openEditClientModal = function(clientId) {
+            const client = (clientsData || []).find(c => c && (c.clientId === clientId || c.id === clientId));
+            if (!client) {
+                console.warn('Client not found:', clientId);
+                return;
+            }
+            document.getElementById('edit-client-id').value = client.clientId || client.id || '';
+            const company = (client.companyNames && client.companyNames.length > 0) 
+                ? client.companyNames.join(', ') 
+                : (client.companyName || client.name || '');
+            document.getElementById('edit-client-company').value = company;
+            document.getElementById('edit-client-name').value = client.name || '';
+            document.getElementById('edit-client-email').value = client.email || '';
+            document.getElementById('edit-client-phone').value = client.phone || '';
+            document.getElementById('edit-client-status').value = client.latestStatus || client.status || 'Approved';
+
+            const modal = document.getElementById('edit-client-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.offsetHeight; // force reflow
+                modal.classList.remove('opacity-0', 'pointer-events-none');
+                modal.querySelector('.transform').classList.remove('scale-90');
+                modal.classList.add('opacity-100', 'pointer-events-auto');
+            }
+        };
+
+        window.closeEditClientModal = function() {
+            const modal = document.getElementById('edit-client-modal');
+            if (!modal) return;
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.add('scale-90');
+            modal.classList.remove('opacity-100', 'pointer-events-auto');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        };
+
+        window.saveClientEdit = async function(e) {
+            if (e) e.preventDefault();
+            const id = document.getElementById('edit-client-id').value;
+            const company = document.getElementById('edit-client-company').value.trim();
+            const name = document.getElementById('edit-client-name').value.trim();
+            const email = document.getElementById('edit-client-email').value.trim();
+            const phone = document.getElementById('edit-client-phone').value.trim();
+            const status = document.getElementById('edit-client-status').value;
+
+            const client = (clientsData || []).find(c => c && (c.clientId === id || c.id === id));
+            if (client) {
+                client.companyNames = [company];
+                client.companyName = company;
+                client.name = name;
+                client.email = email;
+                client.phone = phone;
+                client.latestStatus = status;
+                client.status = status;
+            }
+
+            try {
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const headers = { 'Content-Type': 'application/json' };
+                if (authObj.token) headers['Authorization'] = 'Bearer ' + authObj.token;
+                await fetch(`/api/clients/${id}`, {
+                    method: 'PUT',
+                    headers,
+                    body: JSON.stringify({ companyName: company, name, email, phone, status })
+                });
+            } catch(err) {
+                console.warn('API sync warn:', err);
+            }
+
+            // Log live activity
+            try {
+                const liveLogs = JSON.parse(localStorage.getItem('admin_live_activities') || '[]');
+                liveLogs.unshift({
+                    time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                    action: `details updated (${company})`,
+                    name: name || company,
+                    type: 'success',
+                    date: new Date().toISOString().split('T')[0],
+                    clientId: id
+                });
+                localStorage.setItem('admin_live_activities', JSON.stringify(liveLogs));
+                if (window.renderRecentActivityTimeline) window.renderRecentActivityTimeline();
+            } catch(logErr) { console.warn('Activity log error:', logErr); }
+
+            closeEditClientModal();
+            renderClients();
+        };
+
+        window.exportClientsToExcel = function() {
+            const listToExport = window.currentFilteredClients || clientsData || [];
+            if (!listToExport || listToExport.length === 0) {
+                alert("No clients available to export.");
+                return;
+            }
+
+            const data = listToExport.map((c, idx) => {
+                const company = (c.companyNames && c.companyNames.length > 0)
+                    ? c.companyNames.join(', ')
+                    : (c.companyName || c.name || 'N/A');
+                return {
+                    "S.No": idx + 1,
+                    "Company name": company
+                };
+            });
+
+            try {
+                if (typeof XLSX !== 'undefined') {
+                    const worksheet = XLSX.utils.json_to_sheet(data);
+                    worksheet['!cols'] = [
+                        { wch: 10 },
+                        { wch: 50 }
+                    ];
+                    const workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "All Clients");
+                    
+                    // Generate Base64 Data URI for instant, reliable Windows download
+                    const b64 = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
+                    const dataUrl = "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64," + b64;
+                    
+                    const a = document.createElement("a");
+                    a.style.display = "none";
+                    a.href = dataUrl;
+                    a.download = "Globalisor_Clients.xlsx";
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => {
+                        if (document.body.contains(a)) document.body.removeChild(a);
+                    }, 2000);
+                    return;
+                }
+            } catch(err) {
+                console.error("XLSX export failed:", err);
+            }
+
+            // Fallback Data URI CSV
+            let csvContent = "\ufeffS.No,Company name\n";
+            data.forEach(row => {
+                const cleanComp = String(row["Company name"] || '').replace(/"/g, '""');
+                csvContent += `${row["S.No"]},"${cleanComp}"\n`;
+            });
+            const dataUrl = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
+            const a = document.createElement("a");
+            a.style.display = "none";
+            a.href = dataUrl;
+            a.download = "Globalisor_Clients.csv";
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                if (document.body.contains(a)) document.body.removeChild(a);
+            }, 2000);
+        };
 
         window.executeClearAllClients = async function() {
             closeClearClientsModal();
