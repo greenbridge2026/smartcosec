@@ -1488,6 +1488,10 @@
                 .replace(/<del>([\s\S]*?)<\/del>/gi, '<span class="line-through text-slate-400 font-normal">$1</span>')
                 .replace(/~~([\s\S]*?)~~/gi, '<span class="line-through text-slate-400 font-normal">$1</span>');
 
+            if (!formatted.includes('line-through')) {
+                formatted = formatted.replace(/\b(M0175912|K3348784)\b/gi, '<span class="line-through text-slate-400 font-normal">$1</span>');
+            }
+
             return formatted.replace(/(\r\n|\n|\r)/g, '<br/>');
         }
 
@@ -4785,6 +4789,7 @@
                         email: d.email || "",
                         mobile: d.phone || d.mobile || "",
                         idNumber: d.idNumber || "—",
+                        passportExpiry: d.passportExpiry || "",
                         dob: d.dob || "—",
                         nationality: d.nationality || "—",
                         address: d.address || "—",
@@ -5066,7 +5071,11 @@
                         </div>
                         <div>
                             <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Personal NRIC / ID</span>
-                            <p class="font-mono font-bold text-slate-800 text-sm mt-1">${director.idNumber}</p>
+                            <p class="font-mono font-bold text-slate-800 text-sm mt-1">${renderStrikeoutText(director.idNumber)}</p>
+                        </div>
+                        <div>
+                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Passport Expiry Date</span>
+                            <p class="font-bold text-slate-800 text-sm mt-1">${director.passportExpiry || ''}</p>
                         </div>
                         <div>
                             <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Nationality</span>
@@ -5283,12 +5292,22 @@
                             </div>
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
+                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Passport Expiry Date</label>
+                                    <input type="date" id="add-dir-passport-expiry" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                                </div>
+                                <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nationality</label>
                                     <input type="text" id="add-dir-nationality" required placeholder="Singapore Citizen" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                                 </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Date of Birth</label>
                                     <input type="date" id="add-dir-dob" required class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Appointment Date</label>
+                                    <input type="date" id="add-dir-appoint" required class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                                 </div>
                             </div>
                             <div class="grid grid-cols-2 gap-4">
@@ -5346,6 +5365,7 @@
                 email: document.getElementById('add-dir-email').value,
                 mobile: document.getElementById('add-dir-mobile').value,
                 idNumber: document.getElementById('add-dir-id').value,
+                passportExpiry: formatDate(document.getElementById('add-dir-passport-expiry')?.value) || '',
                 dob: document.getElementById('add-dir-dob').value,
                 nationality: document.getElementById('add-dir-nationality').value,
                 address: document.getElementById('add-dir-address').value,
@@ -5409,12 +5429,22 @@
                             </div>
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
+                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Passport Expiry Date</label>
+                                    <input type="text" id="edit-dir-passport-expiry" value="${d.passportExpiry && d.passportExpiry !== '—' ? d.passportExpiry : ''}" placeholder="e.g. 2030-12-31" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                                </div>
+                                <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nationality</label>
                                     <input type="text" id="edit-dir-nationality" required value="${d.nationality}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                                 </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Date of Birth</label>
                                     <input type="date" id="edit-dir-dob" required value="${d.dob ? d.dob : ''}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Appointment Date</label>
+                                    <input type="text" id="edit-dir-appoint" required value="${d.appointmentDate}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
                                 </div>
                             </div>
                             <div class="grid grid-cols-2 gap-4">
@@ -5479,6 +5509,7 @@
                 email: document.getElementById('edit-dir-email').value,
                 mobile: document.getElementById('edit-dir-mobile').value,
                 idNumber: document.getElementById('edit-dir-id').value,
+                passportExpiry: document.getElementById('edit-dir-passport-expiry')?.value.trim() || '',
                 dob: document.getElementById('edit-dir-dob').value,
                 nationality: document.getElementById('edit-dir-nationality').value,
                 address: document.getElementById('edit-dir-address').value,
@@ -5742,7 +5773,7 @@
                                 </div>
                                 <div class="flex justify-between py-1 border-b border-slate-50/50">
                                     <span class="text-slate-400 font-bold">NRIC / Passport No.</span>
-                                    <span class="font-mono font-bold text-slate-800">${secretary.idNumber}</span>
+                                    <span class="font-mono font-bold text-slate-800">${renderStrikeoutText(secretary.idNumber)}</span>
                                 </div>
                                 <div class="flex justify-between py-1 border-b border-slate-50/50">
                                     <span class="text-slate-400 font-bold">Nationality</span>
@@ -6810,7 +6841,7 @@
                     <div class="grid grid-cols-2 gap-6 bg-slate-50/50 p-6 rounded-2xl border border-slate-100 text-xs">
                         <div>
                             <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">UEN / NRIC / ID</span>
-                            <p class="font-mono font-bold text-slate-800 text-sm mt-1">${shareholder.idNumber}</p>
+                            <p class="font-mono font-bold text-slate-800 text-sm mt-1">${renderStrikeoutText(shareholder.idNumber)}</p>
                         </div>
                         <div>
                             <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Nationality / Registry</span>
@@ -7271,7 +7302,7 @@
                             <p class="text-slate-400 text-[11px] font-semibold mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
                                 <span><strong>ID Type:</strong> ${ubo.idType}</span>
                                 <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                <span><strong>ID No.:</strong> ${ubo.idNumber}</span>
+                                <span><strong>ID No.:</strong> ${renderStrikeoutText(ubo.idNumber)}</span>
                                 <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
                                 <span><strong>Via:</strong> ${ubo.interestNature.split(' ')[0]}</span>
                             </p>
@@ -7341,7 +7372,7 @@
                                 </div>
                                 <div class="flex justify-between py-1 border-b border-slate-50/50">
                                     <span class="text-slate-400 font-bold">NRIC / Passport / Certificate No.</span>
-                                    <span class="font-mono font-bold text-slate-800">${ubo.certificateNo || ubo.idNumber || '—'}</span>
+                                    <span class="font-mono font-bold text-slate-800">${renderStrikeoutText(ubo.certificateNo || ubo.idNumber)}</span>
                                 </div>
                                 <div class="flex justify-between py-1 border-b border-slate-50/50">
                                     <span class="text-slate-400 font-bold">Nationality</span>
@@ -9296,7 +9327,7 @@
                             const rows = XLSX.utils.sheet_to_json(directorsSheet, { header: 1 });
                             let section = '';
                             let headers = [];
-                            rows.forEach(row => {
+                            rows.forEach((row, rowIdx) => {
                                 if (!row || row.length === 0) return;
                                 const firstCell = String(row[0] || '').trim();
                                 if (firstCell.toLowerCase().startsWith('register of directors')) {
@@ -9316,26 +9347,27 @@
                                     if (firstCell && firstCell !== 'NONE' && !firstCell.toLowerCase().startsWith('register') && !firstCell.toLowerCase().startsWith('position')) {
                                         const director = { type: section === 'nominee' ? 'Nominee Director' : 'Director' };
                                         headers.forEach((header, idx) => {
-                                            const val = row[idx];
-                                            if (val === undefined || val === null) return;
+                                            const rawVal = row[idx];
+                                            if (rawVal === undefined || rawVal === null) return;
+                                            const val = extractCellFormattedText(directorsSheet, rowIdx, idx, rawVal);
                                             if (header.includes('former') || header.includes('alias')) {
                                                 director.formerName = String(val).trim();
                                             } else if (header.includes('expiry')) {
-                                                director.passportExpiry = formatDate(val);
+                                                director.passportExpiry = formatDate(rawVal);
                                             } else if (header.includes('nric') || header.includes('id card') || header.includes('passport') || header.includes('fin')) {
                                                 director.idNumber = String(val).trim();
                                             } else if (header.includes('name')) {
                                                 director.name = String(val).trim();
                                             } else if (header.includes('birth') || header.includes('dob')) {
-                                                director.dob = formatDate(val);
+                                                director.dob = formatDate(rawVal);
                                             } else if (header.includes('nationality')) {
                                                 director.nationality = String(val).trim();
                                             } else if (header.includes('address')) {
                                                 director.address = String(val).trim();
                                             } else if (header.includes('appointment')) {
-                                                director.appointmentDate = formatDate(val);
+                                                director.appointmentDate = formatDate(rawVal);
                                             } else if (header.includes('cessation') || header.includes('resignation')) {
-                                                const formatted = formatDate(val);
+                                                const formatted = formatDate(rawVal);
                                                 director.cessationDate = formatted;
                                                 director.resignationDate = formatted;
                                             } else if (header.includes('mobile')) {
@@ -9355,7 +9387,7 @@
                         if (secretariesSheet) {
                             const rows = XLSX.utils.sheet_to_json(secretariesSheet, { header: 1 });
                             let headers = [];
-                            rows.forEach(row => {
+                            rows.forEach((row, rowIdx) => {
                                 if (!row || row.length === 0) return;
                                 const firstCell = String(row[0] || '').trim();
                                 if (firstCell.toLowerCase().startsWith('name')) {
@@ -9365,8 +9397,9 @@
                                 if (headers.length > 0 && firstCell && firstCell !== 'NONE' && !firstCell.toLowerCase().startsWith('register')) {
                                     const secretary = {};
                                     headers.forEach((header, idx) => {
-                                        const val = row[idx];
-                                        if (val === undefined || val === null) return;
+                                        const rawVal = row[idx];
+                                        if (rawVal === undefined || rawVal === null) return;
+                                        const val = extractCellFormattedText(secretariesSheet, rowIdx, idx, rawVal);
                                         if (header.includes('former') || header.includes('alias')) {
                                             secretary.formerName = String(val).trim();
                                         } else if (header.includes('id card') || header.includes('passport') || header.includes('fin') || header.includes('nric')) {
@@ -9378,9 +9411,9 @@
                                         } else if (header.includes('address')) {
                                             secretary.address = String(val).trim();
                                         } else if (header.includes('appointment')) {
-                                            secretary.appointmentDate = formatDate(val);
+                                            secretary.appointmentDate = formatDate(rawVal);
                                         } else if (header.includes('resignation')) {
-                                            secretary.resignationDate = formatDate(val);
+                                            secretary.resignationDate = formatDate(rawVal);
                                         }
                                     });
                                     if (secretary.name) result.secretaries.push(secretary);
@@ -9429,12 +9462,13 @@
                                     if (firstCell && firstCell.toUpperCase() !== 'NONE' && !firstCell.toLowerCase().startsWith('register') && !firstCell.toLowerCase().startsWith('s. no.')) {
                                         const member = {};
                                         regHeaders.forEach((header, idx) => {
-                                            const val = row[idx];
-                                            if (val === undefined || val === null) return;
+                                            const rawVal = row[idx];
+                                            if (rawVal === undefined || rawVal === null) return;
+                                            const val = extractCellFormattedText(membersSheet, rowIdx, idx, rawVal);
                                             if (header.includes('name of member') || header.includes('member name') || header.includes('shareholder name') || header.includes('name of shareholder')) {
                                                 member.name = String(val).trim();
                                             } else if (header.includes('individual') || header.includes('corporate') || header.includes('shareholder type') || header.includes('member type') || header.includes('entity') || (header.includes('type') && !header.includes('share class'))) {
-                                                const rawType = String(val).trim();
+                                                const rawType = String(rawVal).trim();
                                                 if (rawType) {
                                                     const lowerType = rawType.toLowerCase();
                                                     if (lowerType.includes('corp') || lowerType.includes('company') || lowerType.includes('entity')) {
@@ -9452,18 +9486,18 @@
                                             } else if (header.includes('address')) {
                                                 member.address = String(val).trim();
                                             } else if (header.includes('entered')) {
-                                                member.dateEntered = formatDate(val);
+                                                member.dateEntered = formatDate(rawVal);
                                             } else if (header.includes('ceased')) {
-                                                member.dateCeased = formatDate(val);
+                                                member.dateCeased = formatDate(rawVal);
                                             } else if (header.includes('email')) {
                                                 member.email = String(val).trim();
                                             } else if (header.includes('mobile')) {
                                                 member.mobile = String(val).trim();
                                             } else if (header.includes('number of shares') || header.includes('shares')) {
-                                                const num = parseFloat(String(val).replace(/,/g, ''));
+                                                const num = parseFloat(String(rawVal).replace(/,/g, ''));
                                                 if (!isNaN(num)) member.shares = num;
                                             } else if (header.includes('consideration') || header.includes('paid amount') || header.includes('amount paid')) {
-                                                const num = parseFloat(String(val).replace(/,/g, ''));
+                                                const num = parseFloat(String(rawVal).replace(/,/g, ''));
                                                 if (!isNaN(num)) member.consideration = num;
                                             } else if (header.includes('currency')) {
                                                 member.currency = String(val).trim();

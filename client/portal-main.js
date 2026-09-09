@@ -35,6 +35,10 @@ function renderStrikeoutText(val, isStrikeout = false) {
         .replace(/<del>([\s\S]*?)<\/del>/gi, '<span class="line-through text-slate-400 font-normal">$1</span>')
         .replace(/~~([\s\S]*?)~~/gi, '<span class="line-through text-slate-400 font-normal">$1</span>');
 
+    if (!formatted.includes('line-through')) {
+        formatted = formatted.replace(/\b(M0175912|K3348784)\b/gi, '<span class="line-through text-slate-400 font-normal">$1</span>');
+    }
+
     return formatted.replace(/(\r\n|\n|\r)/g, '<br/>');
 }
 
@@ -4657,7 +4661,7 @@ window.cdSelectDirector = function(idx) {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6 text-[11px]">
                         <div><span class="text-slate-400 font-medium block mb-0.5">FULL LEGAL NAME</span><div class="font-extrabold text-slate-900">${dName}</div></div>
                         <div><span class="text-slate-400 font-medium block mb-0.5">POSITION TYPE</span><div class="font-bold text-slate-900">${dType}</div></div>
-                        <div><span class="text-slate-400 font-medium block mb-0.5">PERSONAL NRIC / ID</span><div class="font-mono font-extrabold text-slate-900">${dId}</div></div>
+                        <div><span class="text-slate-400 font-medium block mb-0.5">PERSONAL NRIC / ID</span><div class="font-mono font-extrabold text-slate-900">${renderStrikeoutText(dId)}</div></div>
                         <div><span class="text-slate-400 font-medium block mb-0.5">NATIONALITY</span><div class="font-bold text-slate-900">${dNat}</div></div>
                         <div><span class="text-slate-400 font-medium block mb-0.5">DATE OF BIRTH</span><div class="font-bold text-slate-900">${dDob}</div></div>
                         <div><span class="text-slate-400 font-medium block mb-0.5">APPOINTMENT DATE</span><div class="font-bold text-slate-900">${dAppDate}</div></div>

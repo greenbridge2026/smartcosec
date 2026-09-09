@@ -1056,6 +1056,41 @@ Please log in immediately to complete your activation.</textarea>
             return false;
         }
 
+        function extractCellFormattedText(sheet, rIndex, cIndex, rawVal) {
+            if (!sheet) return String(rawVal || '').trim();
+            const cellRef = XLSX.utils.encode_cell({ r: rIndex, c: cIndex });
+            const cellObj = sheet[cellRef];
+            if (!cellObj) return String(rawVal || '').trim();
+
+            if (Array.isArray(cellObj.r)) {
+                return cellObj.r.map(run => {
+                    const text = run.t || '';
+                    const isStruck = !!(
+                        run.strike || run.strikethrough ||
+                        (run.font && (run.font.strike || run.font.strikethrough)) ||
+                        (run.s && (run.s.strike || run.s.strikethrough || (run.s.font && (run.s.font.strike || run.s.font.strikethrough))))
+                    );
+                    return isStruck ? `<s>${text}</s>` : text;
+                }).join('');
+            }
+
+            if (cellObj.h) {
+                let hStr = String(cellObj.h);
+                if (/<(s|strike|del)\b/i.test(hStr) || /style="[^"]*text-decoration\s*:\s*line-through/i.test(hStr)) {
+                    hStr = hStr.replace(/<span[^>]*style="[^"]*text-decoration\s*:\s*line-through[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '<s>$1</s>');
+                    hStr = hStr.replace(/<(strike|del)\b[^>]*>([\s\S]*?)<\/(strike|del)>/gi, '<s>$2</s>');
+                    const cleanHTML = hStr.replace(/<(?!s|\/s)\b[^>]*>/gi, '');
+                    if (cleanHTML.trim()) return cleanHTML.trim();
+                }
+            }
+
+            let val = String(rawVal !== undefined && rawVal !== null ? rawVal : (cellObj.w || cellObj.v || '')).trim();
+            if (isCellStruckOut(cellObj) && val) {
+                val = `<s>${val}</s>`;
+            }
+            return val;
+        }
+
         function parseExcelFile(file) {
             return new Promise(async (resolve) => {
                 try {
@@ -1289,7 +1324,7 @@ Please log in immediately to complete your activation.</textarea>
                             const rows = XLSX.utils.sheet_to_json(directorsSheet, { header: 1 });
                             let section = '';
                             let headers = [];
-                            rows.forEach(row => {
+                            rows.forEach((row, rowIdx) => {
                                 if (!row || row.length === 0) return;
                                 const firstCell = String(row[0] || '').trim();
                                 if (firstCell.toLowerCase().startsWith('register of directors')) {
@@ -1309,26 +1344,27 @@ Please log in immediately to complete your activation.</textarea>
                                     if (firstCell && firstCell !== 'NONE' && !firstCell.toLowerCase().startsWith('register') && !firstCell.toLowerCase().startsWith('position')) {
                                         const director = { type: section === 'nominee' ? 'Nominee Director' : 'Director' };
                                         headers.forEach((header, idx) => {
-                                            const val = row[idx];
-                                            if (val === undefined || val === null) return;
+                                            const rawVal = row[idx];
+                                            if (rawVal === undefined || rawVal === null) return;
+                                            const val = extractCellFormattedText(directorsSheet, rowIdx, idx, rawVal);
                                             if (header.includes('former') || header.includes('alias')) {
                                                 director.formerName = String(val).trim();
                                             } else if (header.includes('expiry')) {
-                                                director.passportExpiry = formatDate(val);
+                                                director.passportExpiry = formatDate(rawVal);
                                             } else if (header.includes('nric') || header.includes('id card') || header.includes('passport') || header.includes('fin')) {
                                                 director.idNumber = String(val).trim();
                                             } else if (header.includes('name')) {
                                                 director.name = String(val).trim();
                                             } else if (header.includes('birth') || header.includes('dob')) {
-                                                director.dob = formatDate(val);
+                                                director.dob = formatDate(rawVal);
                                             } else if (header.includes('nationality')) {
                                                 director.nationality = String(val).trim();
                                             } else if (header.includes('address')) {
                                                 director.address = String(val).trim();
                                             } else if (header.includes('appointment')) {
-                                                director.appointmentDate = formatDate(val);
+                                                director.appointmentDate = formatDate(rawVal);
                                             } else if (header.includes('cessation') || header.includes('resignation')) {
-                                                const formatted = formatDate(val);
+                                                const formatted = formatDate(rawVal);
                                                 director.cessationDate = formatted;
                                                 director.resignationDate = formatted;
                                             } else if (header.includes('mobile')) {
@@ -1347,7 +1383,7 @@ Please log in immediately to complete your activation.</textarea>
                         if (secretariesSheet) {
                             const rows = XLSX.utils.sheet_to_json(secretariesSheet, { header: 1 });
                             let headers = [];
-                            rows.forEach(row => {
+                            rows.forEach((row, rowIdx) => {
                                 if (!row || row.length === 0) return;
                                 const firstCell = String(row[0] || '').trim();
                                 if (firstCell.toLowerCase().startsWith('name')) {
@@ -1357,8 +1393,9 @@ Please log in immediately to complete your activation.</textarea>
                                 if (headers.length > 0 && firstCell && firstCell !== 'NONE' && !firstCell.toLowerCase().startsWith('register')) {
                                     const secretary = {};
                                     headers.forEach((header, idx) => {
-                                        const val = row[idx];
-                                        if (val === undefined || val === null) return;
+                                        const rawVal = row[idx];
+                                        if (rawVal === undefined || rawVal === null) return;
+                                        const val = extractCellFormattedText(secretariesSheet, rowIdx, idx, rawVal);
                                         if (header.includes('former') || header.includes('alias')) {
                                             secretary.formerName = String(val).trim();
                                         } else if (header.includes('id card') || header.includes('passport') || header.includes('fin') || header.includes('nric')) {
@@ -1370,9 +1407,9 @@ Please log in immediately to complete your activation.</textarea>
                                         } else if (header.includes('address')) {
                                             secretary.address = String(val).trim();
                                         } else if (header.includes('appointment')) {
-                                            secretary.appointmentDate = formatDate(val);
+                                            secretary.appointmentDate = formatDate(rawVal);
                                         } else if (header.includes('resignation')) {
-                                            secretary.resignationDate = formatDate(val);
+                                            secretary.resignationDate = formatDate(rawVal);
                                         }
                                     });
                                     if (secretary.name) result.secretaries.push(secretary);
