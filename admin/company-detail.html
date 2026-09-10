@@ -3058,7 +3058,7 @@
             };
         }
 
-        window.docCategoriesList = [
+        window.baseDocCategoriesList = [
             { val: "KYC", label: "KYC (Passport, NRIC, Address Proof)" },
             { val: "Invoice", label: "Invoice (Invoices, Billing & Receipts)" },
             { val: "Permanent folder", label: "Permanent folder (Permanent Corporate Records)" },
@@ -3071,22 +3071,36 @@
             { val: "AGM AR", label: "AGM AR (AGM Minutes, Annual Return Filings)" },
             { val: "Allotment of Shares", label: "Allotment of Shares (Return of Allotment, Share Certs)" },
             { val: "Final Demand", label: "Final Demand (Final Demand Notices & Reminders)" },
-            { val: "Others", label: "Others (Miscellaneous Documents)" },
             { val: "Tax", label: "Tax (Tax Returns, Filings & Assessments)" },
             { val: "RONS", label: "RONS (Register of Nominee Directors / Officers)" },
-            { val: "Bizfile & filing", label: "Bizfile & filing (ACRA BizFile Reports & Filings)" }
+            { val: "Bizfile & filing", label: "Bizfile & filing (ACRA BizFile Reports & Filings)" },
+            { val: "Others", label: "Others (Miscellaneous Documents)" }
         ];
+
+        window.getDocCategoriesList = function() {
+            const list = [...window.baseDocCategoriesList];
+            if (typeof documentsList !== 'undefined' && Array.isArray(documentsList)) {
+                documentsList.forEach(d => {
+                    const cat = (d.folder || d.type || '').trim();
+                    if (cat && !list.some(item => item.val.toLowerCase() === cat.toLowerCase())) {
+                        list.push({ val: cat, label: `${cat} (Custom Category)` });
+                    }
+                });
+            }
+            return list;
+        };
 
         window.docCatHighlightedIndex = -1;
 
         window.openDocCatDropdown = function(optionsId = 'modal-cat-options-list', chevronId = 'modal-cat-chevron', hiddenId = 'modal-doc-category', searchInputId = 'modal-cat-search-input') {
             const list = document.getElementById(optionsId);
             const chevron = document.getElementById(chevronId);
+            const searchInput = document.getElementById(searchInputId);
             if (!list) return;
             list.classList.remove('hidden');
             if (chevron) chevron.classList.add('rotate-180');
             window.docCatHighlightedIndex = -1;
-            window.renderDocCatOptions('', optionsId, chevronId, hiddenId, searchInputId);
+            window.renderDocCatOptions(searchInput ? searchInput.value : '', optionsId, chevronId, hiddenId, searchInputId);
         };
 
         window.closeDocCatDropdown = function(optionsId = 'modal-cat-options-list', chevronId = 'modal-cat-chevron') {
@@ -3103,26 +3117,46 @@
             const hiddenVal = hiddenEl ? hiddenEl.value : '';
             if (!list) return;
 
+            const allCategories = window.getDocCategoriesList();
             const term = (filterVal || '').toLowerCase().trim();
-            const filtered = window.docCategoriesList.filter(item => 
+            const filtered = allCategories.filter(item => 
                 item.label.toLowerCase().includes(term) || item.val.toLowerCase().includes(term)
             );
 
-            if (filtered.length === 0) {
-                list.innerHTML = `<div class="px-4 py-3 text-xs text-slate-400 italic text-center">No categories matching "${filterVal}"</div>`;
-                return;
-            }
-
-            list.innerHTML = filtered.map((item, idx) => {
-                const isSelected = hiddenVal && item.val === hiddenVal;
-                return `
-                    <button type="button" data-cat-val="${item.val}" data-is-selected="${isSelected}" onmouseenter="window.docCatHighlightedIndex = ${idx}; window.updateDocCatHighlight('${optionsId}')" onclick="window.selectDocCatOption('${item.val}', '${item.label.replace(/'/g, "\\'")}', '${hiddenId}', '${searchInputId}', '${optionsId}', '${chevronId}')" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between gap-2 border-l-4 ${isSelected ? 'border-blue-600 bg-blue-50 text-blue-700 font-extrabold' : 'border-transparent text-slate-700 hover:border-blue-500 hover:bg-slate-50 hover:text-blue-600'}">
-                        <span>${item.label}</span>
-                        ${isSelected ? '<i data-lucide="check" class="w-4 h-4 text-blue-600 shrink-0"></i>' : ''}
+            let html = '';
+            
+            // If user typed something that is not an exact match to a known category, show "+ Use custom category" option
+            const hasExactMatch = allCategories.some(item => item.val.toLowerCase() === term);
+            if (term.length > 0 && !hasExactMatch) {
+                const customVal = filterVal.trim();
+                const isSelected = hiddenVal && hiddenVal.toLowerCase() === customVal.toLowerCase();
+                html += `
+                    <button type="button" data-cat-val="${customVal.replace(/"/g, '&quot;')}" data-is-selected="${isSelected}" onmouseenter="window.docCatHighlightedIndex = 0; window.updateDocCatHighlight('${optionsId}')" onclick="window.selectDocCatOption('${customVal.replace(/'/g, "\\'")}', '${customVal.replace(/'/g, "\\'")}', '${hiddenId}', '${searchInputId}', '${optionsId}', '${chevronId}')" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between gap-2 border-l-4 border-blue-600 bg-blue-50/80 text-blue-800 hover:bg-blue-100 shadow-sm cursor-pointer">
+                        <div class="flex items-center gap-2 truncate">
+                            <i data-lucide="plus-circle" class="w-4 h-4 text-blue-600 shrink-0"></i>
+                            <span class="truncate">Use custom category: <strong class="text-blue-950 underline decoration-blue-400 decoration-2 font-black">"${customVal}"</strong></span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-md bg-blue-200/80 text-blue-900 text-[10px] font-black shrink-0 uppercase tracking-wider">Custom</span>
                     </button>
                 `;
-            }).join('');
+            }
 
+            if (filtered.length === 0 && !term) {
+                html += `<div class="px-4 py-3 text-xs text-slate-400 italic text-center">No categories found. Type to enter a custom category.</div>`;
+            } else {
+                html += filtered.map((item, idx) => {
+                    const isSelected = hiddenVal && item.val.toLowerCase() === hiddenVal.toLowerCase();
+                    const actualIdx = (term.length > 0 && !hasExactMatch) ? idx + 1 : idx;
+                    return `
+                        <button type="button" data-cat-val="${item.val.replace(/"/g, '&quot;')}" data-is-selected="${isSelected}" onmouseenter="window.docCatHighlightedIndex = ${actualIdx}; window.updateDocCatHighlight('${optionsId}')" onclick="window.selectDocCatOption('${item.val.replace(/'/g, "\\'")}', '${item.label.replace(/'/g, "\\'")}', '${hiddenId}', '${searchInputId}', '${optionsId}', '${chevronId}')" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between gap-2 border-l-4 ${isSelected ? 'border-blue-600 bg-blue-50 text-blue-700 font-extrabold' : 'border-transparent text-slate-700 hover:border-blue-500 hover:bg-slate-50 hover:text-blue-600'} cursor-pointer">
+                            <span class="truncate">${item.label}</span>
+                            ${isSelected ? '<i data-lucide="check" class="w-4 h-4 text-blue-600 shrink-0"></i>' : ''}
+                        </button>
+                    `;
+                }).join('');
+            }
+
+            list.innerHTML = html;
             if (window.lucide) window.lucide.createIcons();
             window.updateDocCatHighlight(optionsId);
         };
@@ -3134,7 +3168,7 @@
             buttons.forEach((btn, idx) => {
                 if (idx === window.docCatHighlightedIndex) {
                     btn.classList.add('bg-blue-600', 'text-white', 'border-blue-700', 'shadow-md', 'scale-[1.01]');
-                    btn.classList.remove('bg-blue-50', 'text-blue-700', 'border-blue-600', 'border-transparent', 'text-slate-700', 'hover:bg-slate-50', 'hover:text-blue-600');
+                    btn.classList.remove('bg-blue-50', 'bg-blue-50/80', 'text-blue-700', 'text-blue-800', 'border-blue-600', 'border-transparent', 'text-slate-700', 'hover:bg-slate-50', 'hover:text-blue-600');
                     btn.scrollIntoView({ block: 'nearest' });
                 } else {
                     btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-700', 'shadow-md', 'scale-[1.01]');
@@ -3184,6 +3218,12 @@
                 if (!list.classList.contains('hidden') && window.docCatHighlightedIndex >= 0 && window.docCatHighlightedIndex < buttons.length) {
                     event.preventDefault();
                     buttons[window.docCatHighlightedIndex].click();
+                } else {
+                    const searchInput = document.getElementById(searchInputId);
+                    if (searchInput && searchInput.value.trim()) {
+                        event.preventDefault();
+                        window.selectDocCatOption(searchInput.value.trim(), searchInput.value.trim(), hiddenId, searchInputId, optionsId, chevronId);
+                    }
                 }
             } else if (event.key === 'Escape') {
                 event.preventDefault();
@@ -3192,6 +3232,8 @@
         };
 
         window.filterDocCatOptions = function(query, optionsId = 'modal-cat-options-list', chevronId = 'modal-cat-chevron', hiddenId = 'modal-doc-category', searchInputId = 'modal-cat-search-input') {
+            const hidden = document.getElementById(hiddenId);
+            if (hidden) hidden.value = query ? query.trim() : '';
             window.openDocCatDropdown(optionsId, chevronId, hiddenId, searchInputId);
             window.docCatHighlightedIndex = 0;
             window.renderDocCatOptions(query, optionsId, chevronId, hiddenId, searchInputId);
@@ -3200,9 +3242,28 @@
         window.selectDocCatOption = function(val, label, hiddenId = 'modal-doc-category', searchInputId = 'modal-cat-search-input', optionsId = 'modal-cat-options-list', chevronId = 'modal-cat-chevron') {
             const input = document.getElementById(searchInputId);
             const hidden = document.getElementById(hiddenId);
-            if (input) input.value = label;
+            if (input) input.value = val;
             if (hidden) hidden.value = val;
             window.closeDocCatDropdown(optionsId, chevronId);
+        };
+
+        window.selectQuickDocCategory = function(catName, hiddenId = 'modal-doc-category', searchInputId = 'modal-cat-search-input', optionsId = 'modal-cat-options-list', chevronId = 'modal-cat-chevron') {
+            const input = document.getElementById(searchInputId);
+            const hidden = document.getElementById(hiddenId);
+            if (input) input.value = catName;
+            if (hidden) hidden.value = catName;
+            window.closeDocCatDropdown(optionsId, chevronId);
+        };
+
+        window.focusCustomCategoryInput = function(searchInputId = 'modal-cat-search-input', hiddenId = 'modal-doc-category', optionsId = 'modal-cat-options-list', chevronId = 'modal-cat-chevron') {
+            const input = document.getElementById(searchInputId);
+            const hidden = document.getElementById(hiddenId);
+            if (input) {
+                input.value = '';
+                if (hidden) hidden.value = '';
+                input.focus();
+                window.openDocCatDropdown(optionsId, chevronId, hiddenId, searchInputId);
+            }
         };
 
         document.addEventListener('click', function(e) {
@@ -3229,7 +3290,7 @@
                                     <i data-lucide="upload-cloud" class="w-5 h-5 text-blue-600"></i>
                                     Upload Documents
                                 </h3>
-                                <p class="text-xs text-slate-500 mt-0.5">Select category and upload multiple documents for this client.</p>
+                                <p class="text-xs text-slate-500 mt-0.5">Select from list or create a custom category to group documents under that category.</p>
                             </div>
                             <button type="button" onclick="closeUploadModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-xl hover:bg-slate-200/50 transition">
                                 <i data-lucide="x" class="w-5 h-5"></i>
@@ -3237,16 +3298,30 @@
                         </div>
                         <form id="upload-doc-form" onsubmit="submitUploadDocModal(event)" class="p-6 space-y-5">
                             <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Select Document Category *</label>
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Document Category *</label>
+                                    <span class="text-[10px] text-blue-600 font-bold">Select from list or type custom category</span>
+                                </div>
                                 <div class="relative" id="modal-cat-dropdown-wrapper">
                                     <div class="relative flex items-center">
                                         <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none z-10"></i>
-                                        <input type="text" id="modal-cat-search-input" autocomplete="off" onfocus="window.openDocCatDropdown('modal-cat-options-list', 'modal-cat-chevron', 'modal-doc-category', 'modal-cat-search-input')" oninput="window.filterDocCatOptions(this.value, 'modal-cat-options-list', 'modal-cat-chevron', 'modal-doc-category', 'modal-cat-search-input')" onkeydown="window.handleDocCatKeyNav(event, 'modal-cat-options-list', 'modal-cat-chevron', 'modal-doc-category', 'modal-cat-search-input')" placeholder="Search category (e.g. KYC, Invoice, Tax)..." value="" class="w-full pl-10 pr-9 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 bg-white outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition cursor-pointer shadow-sm">
+                                        <input type="text" id="modal-cat-search-input" autocomplete="off" onfocus="window.openDocCatDropdown('modal-cat-options-list', 'modal-cat-chevron', 'modal-doc-category', 'modal-cat-search-input')" oninput="window.filterDocCatOptions(this.value, 'modal-cat-options-list', 'modal-cat-chevron', 'modal-doc-category', 'modal-cat-search-input')" onkeydown="window.handleDocCatKeyNav(event, 'modal-cat-options-list', 'modal-cat-chevron', 'modal-doc-category', 'modal-cat-search-input')" onblur="const h = document.getElementById('modal-doc-category'); if(h && this.value.trim()) h.value = this.value.trim();" placeholder="Select or type category (e.g. KYC, Invoice, Board Resolutions)..." value="" class="w-full pl-10 pr-9 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 bg-white outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition cursor-pointer shadow-sm">
                                         <i data-lucide="chevron-down" id="modal-cat-chevron" class="w-4 h-4 text-slate-400 absolute right-3 pointer-events-none transition-transform duration-200"></i>
                                     </div>
                                     <input type="hidden" id="modal-doc-category" value="">
                                     <div id="modal-cat-options-list" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-[10050] max-h-56 overflow-y-auto p-1.5 space-y-0.5 animate-fade-in">
                                     </div>
+                                </div>
+
+                                <!-- Quick Select Pills -->
+                                <div class="flex flex-wrap items-center gap-1.5 mt-2.5">
+                                    <span class="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mr-0.5">Quick Select:</span>
+                                    <button type="button" onclick="selectQuickDocCategory('KYC')" class="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700 rounded-lg text-[11px] font-bold transition">KYC</button>
+                                    <button type="button" onclick="selectQuickDocCategory('Invoice')" class="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700 rounded-lg text-[11px] font-bold transition">Invoice</button>
+                                    <button type="button" onclick="selectQuickDocCategory('Incorporation')" class="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700 rounded-lg text-[11px] font-bold transition">Incorporation</button>
+                                    <button type="button" onclick="selectQuickDocCategory('Tax')" class="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700 rounded-lg text-[11px] font-bold transition">Tax</button>
+                                    <button type="button" onclick="selectQuickDocCategory('All Signed')" class="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700 rounded-lg text-[11px] font-bold transition">All Signed</button>
+                                    <button type="button" onclick="focusCustomCategoryInput()" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-[11px] font-extrabold transition flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> Custom Category</button>
                                 </div>
                             </div>
 
@@ -3348,7 +3423,17 @@
                 return;
             }
 
-            const category = document.getElementById('modal-doc-category').value;
+            const searchInput = document.getElementById('modal-cat-search-input');
+            const hiddenCategory = document.getElementById('modal-doc-category');
+            const category = (hiddenCategory && hiddenCategory.value ? hiddenCategory.value.trim() : '') || 
+                             (searchInput && searchInput.value ? searchInput.value.trim() : '');
+
+            if (!category) {
+                showToast("Please select or enter a document category.", "warning");
+                if (searchInput) searchInput.focus();
+                return;
+            }
+
             if (!modalSelectedFiles || modalSelectedFiles.length === 0) {
                 showToast("Please select at least one file to upload.", "warning");
                 return;
@@ -3404,6 +3489,7 @@
             if (successCount > 0) {
                 showToast(`Successfully uploaded ${successCount} file(s) under category "${category}" to GCP Storage bucket & updated MongoDB!${failCount > 0 ? ` (${failCount} failed)` : ''}`, "success");
                 closeUploadModal();
+                activeDocFolder = category;
                 await initDocumentsData();
             } else {
                 showToast(`Upload failed for all ${modalSelectedFiles.length} file(s). Please check server connection or file format.`, "error");
@@ -8155,43 +8241,83 @@
                 "AGM AR",
                 "Allotment of Shares",
                 "Final Demand",
-                "Others",
                 "Tax",
                 "RONS",
-                "Bizfile & filing"
+                "Bizfile & filing",
+                "Others"
             ];
 
             const counts = {};
+            const customCategories = [];
+
             documentsList.forEach(d => {
-                const folderRaw = (d.folder || d.type || 'Other').trim();
-                const matchedKey = taxonomyKeys.find(k => k.toLowerCase() === folderRaw.toLowerCase() || folderRaw.toLowerCase().startsWith(k.toLowerCase())) || folderRaw;
-                counts[matchedKey] = (counts[matchedKey] || 0) + 1;
+                const folderRaw = (d.folder || d.type || 'Others').trim();
+                const matchedKey = taxonomyKeys.find(k => k.toLowerCase() === folderRaw.toLowerCase() || folderRaw.toLowerCase().startsWith(k.toLowerCase()));
+                if (matchedKey) {
+                    counts[matchedKey] = (counts[matchedKey] || 0) + 1;
+                } else {
+                    counts[folderRaw] = (counts[folderRaw] || 0) + 1;
+                    if (!customCategories.some(c => c.toLowerCase() === folderRaw.toLowerCase())) {
+                        customCategories.push(folderRaw);
+                    }
+                }
             });
 
             const folders = [
-                { name: "All Documents", count: documentsList.length },
-                ...taxonomyKeys.map(k => ({ name: k, count: counts[k] || 0 }))
+                { name: "All Documents", count: documentsList.length, isCustom: false },
+                ...taxonomyKeys.map(k => ({ name: k, count: counts[k] || 0, isCustom: false })),
+                ...customCategories.map(c => ({ name: c, count: counts[c] || 0, isCustom: true }))
             ];
 
             container.innerHTML = folders.map(f => {
-                const isActive = f.name === activeDocFolder;
+                const isActive = activeDocFolder && (f.name.toLowerCase() === activeDocFolder.toLowerCase() || (activeDocFolder === 'All Documents' && f.name === 'All Documents'));
                 const activeClasses = isActive 
-                    ? 'bg-blue-50 text-blue-600 font-bold' 
-                    : 'text-slate-600 hover:bg-slate-50 font-semibold';
+                    ? 'bg-blue-50 text-blue-700 font-extrabold border-l-4 border-blue-600 shadow-sm' 
+                    : 'text-slate-600 hover:bg-slate-50 font-semibold border-l-4 border-transparent';
                 return `
-                    <button onclick="selectDocFolder('${f.name}')" class="w-full flex items-center justify-between px-3 py-2 text-xs rounded-xl transition-all text-left ${activeClasses}">
-                        <span class="truncate pr-2">${f.name}</span>
-                        <span class="px-2 py-0.5 rounded-full text-[9px] bg-slate-100 text-slate-500 font-black">${f.count}</span>
+                    <button onclick="selectDocFolder('${f.name.replace(/'/g, "\\'")}')" class="w-full flex items-center justify-between px-3 py-2 text-xs rounded-xl transition-all text-left ${activeClasses} cursor-pointer group">
+                        <div class="flex items-center gap-1.5 truncate pr-2">
+                            <span class="truncate">${f.name}</span>
+                            ${f.isCustom ? '<span class="text-[9px] px-1.5 py-0.2 bg-blue-100/80 text-blue-700 font-black rounded uppercase tracking-wider shrink-0">Custom</span>' : ''}
+                        </div>
+                        <span class="px-2 py-0.5 rounded-full text-[9px] ${isActive ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'} font-black">${f.count}</span>
                     </button>
                 `;
             }).join('');
+
+            updateDocTypeFilterOptions();
+        }
+
+        function updateDocTypeFilterOptions() {
+            const filterSelect = document.getElementById('doc-type-filter');
+            if (!filterSelect) return;
+
+            const currentVal = filterSelect.value || 'all';
+            const taxonomyKeys = [
+                "KYC", "Invoice", "Permanent folder", "Incorporation", "All Signed",
+                "Change of Address", "Change of Directors", "Change of CS", "Change of Auditors",
+                "AGM AR", "Allotment of Shares", "Final Demand", "Tax", "RONS", "Bizfile & filing", "Others"
+            ];
+
+            const allCategories = [...taxonomyKeys];
+            documentsList.forEach(d => {
+                const cat = (d.folder || d.type || '').trim();
+                if (cat && !allCategories.some(k => k.toLowerCase() === cat.toLowerCase())) {
+                    allCategories.push(cat);
+                }
+            });
+
+            filterSelect.innerHTML = `
+                <option value="all" ${currentVal === 'all' ? 'selected' : ''}>All Types</option>
+                ${allCategories.map(k => `<option value="${k}" ${currentVal.toLowerCase() === k.toLowerCase() ? 'selected' : ''}>${k}</option>`).join('')}
+            `;
         }
 
         window.selectDocFolder = function(folderName) {
             activeDocFolder = folderName;
             renderDocFolders();
             renderDocTable();
-        }
+        };
 
         window.renderDocTable = function() {
             const tableBody = document.getElementById('doc-table-body');
@@ -8199,21 +8325,26 @@
             const tableView = document.getElementById('doc-table-view');
             if (!tableBody || !gridView) return;
 
-            const searchVal = document.getElementById('doc-search-input').value.toLowerCase();
-            const typeFilter = document.getElementById('doc-type-filter').value;
-            const statusFilter = document.getElementById('doc-status-filter').value;
-            const userFilter = document.getElementById('doc-user-filter').value;
-            const sortVal = document.getElementById('doc-sort-select').value;
+            const searchVal = document.getElementById('doc-search-input') ? document.getElementById('doc-search-input').value.toLowerCase().trim() : '';
+            const typeFilter = document.getElementById('doc-type-filter') ? document.getElementById('doc-type-filter').value : 'all';
+            const statusFilter = document.getElementById('doc-status-filter') ? document.getElementById('doc-status-filter').value : 'all';
+            const userFilter = document.getElementById('doc-user-filter') ? document.getElementById('doc-user-filter').value : 'all';
+            const sortVal = document.getElementById('doc-sort-select') ? document.getElementById('doc-sort-select').value : 'newest';
 
             // Filter
             let filtered = documentsList.filter(d => {
-                const folderStr = (d.folder || '').toLowerCase();
-                const typeStr = (d.type || '').toLowerCase();
-                const activeFolderStr = activeDocFolder.toLowerCase();
+                const folderStr = (d.folder || '').toLowerCase().trim();
+                const typeStr = (d.type || '').toLowerCase().trim();
+                const activeFolderStr = (activeDocFolder || 'All Documents').toLowerCase().trim();
 
-                const matchesFolder = activeDocFolder === 'All Documents' || folderStr === activeFolderStr || folderStr.startsWith(activeFolderStr) || typeStr === activeFolderStr;
-                const matchesSearch = d.name.toLowerCase().includes(searchVal) || typeStr.includes(searchVal) || folderStr.includes(searchVal);
-                const matchesType = typeFilter === 'all' || typeStr.includes(typeFilter.toLowerCase()) || folderStr.includes(typeFilter.toLowerCase());
+                const matchesFolder = activeFolderStr === 'all documents' || 
+                    folderStr === activeFolderStr || 
+                    typeStr === activeFolderStr ||
+                    folderStr.startsWith(activeFolderStr) ||
+                    (folderStr === 'others' && activeFolderStr === 'others');
+
+                const matchesSearch = !searchVal || d.name.toLowerCase().includes(searchVal) || typeStr.includes(searchVal) || folderStr.includes(searchVal);
+                const matchesType = typeFilter === 'all' || typeStr === typeFilter.toLowerCase() || folderStr === typeFilter.toLowerCase() || folderStr.startsWith(typeFilter.toLowerCase());
                 const matchesStatus = statusFilter === 'all' || d.status === statusFilter;
                 const matchesUser = userFilter === 'all' || d.uploadedBy === userFilter;
                 return matchesFolder && matchesSearch && matchesType && matchesStatus && matchesUser;
