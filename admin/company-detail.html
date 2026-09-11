@@ -3288,9 +3288,9 @@
                             <div>
                                 <h3 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
                                     <i data-lucide="upload-cloud" class="w-5 h-5 text-blue-600"></i>
-                                    Upload Documents
+                                    Upload Documents & Folders
                                 </h3>
-                                <p class="text-xs text-slate-500 mt-0.5">Select from list or create a custom category to group documents under that category.</p>
+                                <p class="text-xs text-slate-500 mt-0.5">Drag & drop files or entire folders with automatic category detection.</p>
                             </div>
                             <button type="button" onclick="closeUploadModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-xl hover:bg-slate-200/50 transition">
                                 <i data-lucide="x" class="w-5 h-5"></i>
@@ -3300,7 +3300,7 @@
                             <div>
                                 <div class="flex items-center justify-between mb-1.5">
                                     <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Document Category *</label>
-                                    <span class="text-[10px] text-blue-600 font-bold">Select from list or type custom category</span>
+                                    <span class="text-[10px] text-blue-600 font-bold">Auto-detected from folders or select below</span>
                                 </div>
                                 <div class="relative" id="modal-cat-dropdown-wrapper">
                                     <div class="relative flex items-center">
@@ -3326,21 +3326,43 @@
                             </div>
 
                             <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Select File(s) *</label>
-                                <div class="border-2 border-dashed border-slate-200 hover:border-blue-400 bg-slate-50/50 hover:bg-blue-50/20 rounded-2xl p-5 text-center transition-all cursor-pointer relative">
-                                    <input type="file" id="modal-doc-files" multiple onchange="handleModalFilesSelected(event)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
-                                    <div class="flex flex-col items-center gap-1.5 pointer-events-none">
-                                        <div class="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                                            <i data-lucide="folder-up" class="w-5 h-5"></i>
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Select Files or Folder *</label>
+                                    <span class="text-[10px] text-blue-600 font-bold">Drag & drop entire folders supported</span>
+                                </div>
+                                <div id="modal-upload-dropzone" 
+                                     ondragover="handleModalDragOver(event)" 
+                                     ondragleave="handleModalDragLeave(event)" 
+                                     ondrop="handleModalDrop(event)" 
+                                     class="border-2 border-dashed border-slate-200 hover:border-blue-400 bg-slate-50/50 hover:bg-blue-50/20 rounded-2xl p-5 text-center transition-all relative group">
+                                    
+                                    <div class="flex flex-col items-center gap-2 pointer-events-none">
+                                        <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                                            <i data-lucide="folder-up" class="w-6 h-6"></i>
                                         </div>
-                                        <span class="text-xs font-bold text-slate-700">Click or drag & drop files here</span>
-                                        <span class="text-[10px] text-slate-400 font-medium">Supports PDF, DOCX, JPG, PNG, Excel files</span>
+                                        <div>
+                                            <span class="text-xs font-bold text-slate-800 block">Drag & drop folder(s) or files here</span>
+                                            <span class="text-[11px] text-slate-400 font-medium">Automatic category detection based on folder name</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-4 flex items-center justify-center gap-2.5">
+                                        <label class="px-3.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 cursor-pointer flex items-center gap-1.5 shadow-sm hover:border-slate-300 transition">
+                                            <i data-lucide="file" class="w-3.5 h-3.5 text-blue-600"></i>
+                                            <span>Choose Files</span>
+                                            <input type="file" id="modal-doc-files" multiple onchange="handleModalFilesSelected(event)" class="hidden">
+                                        </label>
+                                        <label class="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-extrabold text-blue-700 cursor-pointer flex items-center gap-1.5 shadow-sm transition">
+                                            <i data-lucide="folder" class="w-3.5 h-3.5 text-blue-600"></i>
+                                            <span>Choose Folder</span>
+                                            <input type="file" id="modal-doc-folder" webkitdirectory directory multiple onchange="handleModalFolderSelected(event)" class="hidden">
+                                        </label>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- File Preview List Container -->
-                            <div id="modal-file-list-preview" class="space-y-2 max-h-40 overflow-y-auto pr-1"></div>
+                            <div id="modal-file-list-preview" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
                             
                             <div class="pt-4 border-t border-slate-100 flex justify-end gap-3">
                                 <button type="button" onclick="closeUploadModal()" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs transition">Cancel</button>
@@ -3361,13 +3383,145 @@
             if (window.lucide) window.lucide.createIcons();
         };
 
+        window.handleModalDragOver = function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            const dropzone = document.getElementById('modal-upload-dropzone');
+            if (dropzone) {
+                dropzone.classList.add('border-blue-500', 'bg-blue-50/60', 'scale-[1.01]');
+            }
+        };
+
+        window.handleModalDragLeave = function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            const dropzone = document.getElementById('modal-upload-dropzone');
+            if (dropzone) {
+                dropzone.classList.remove('border-blue-500', 'bg-blue-50/60', 'scale-[1.01]');
+            }
+        };
+
+        window.handleModalDrop = async function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            const dropzone = document.getElementById('modal-upload-dropzone');
+            if (dropzone) {
+                dropzone.classList.remove('border-blue-500', 'bg-blue-50/60', 'scale-[1.01]');
+            }
+
+            const dt = event.dataTransfer;
+            if (!dt) return;
+
+            const scannedFiles = await scanDataTransferItems(dt);
+            if (scannedFiles.length > 0) {
+                addFilesToModalSelection(scannedFiles);
+            }
+        };
+
+        async function scanDataTransferItems(dataTransfer) {
+            const items = dataTransfer.items;
+            const files = [];
+
+            async function scanEntry(entry, folderPath = '') {
+                if (entry.isFile) {
+                    return new Promise((resolve) => {
+                        entry.file((file) => {
+                            const pathParts = folderPath.split('/').filter(Boolean);
+                            file.detectedCategory = pathParts.length > 0 ? pathParts[0] : '';
+                            file.relativePath = (folderPath ? folderPath + '/' : '') + file.name;
+                            files.push(file);
+                            resolve();
+                        }, (err) => {
+                            console.warn("Could not read file entry:", err);
+                            resolve();
+                        });
+                    });
+                } else if (entry.isDirectory) {
+                    const dirReader = entry.createReader();
+                    const nextPath = folderPath ? `${folderPath}/${entry.name}` : entry.name;
+                    
+                    const readAllEntries = () => new Promise((resolve) => {
+                        const entriesList = [];
+                        function readBatch() {
+                            dirReader.readEntries(async (entries) => {
+                                if (!entries || !entries.length) {
+                                    resolve(entriesList);
+                                } else {
+                                    entriesList.push(...entries);
+                                    readBatch();
+                                }
+                            }, () => resolve(entriesList));
+                        }
+                        readBatch();
+                    });
+
+                    const children = await readAllEntries();
+                    for (const child of children) {
+                        await scanEntry(child, nextPath);
+                    }
+                }
+            }
+
+            if (items && items.length > 0 && items[0].webkitGetAsEntry) {
+                for (let i = 0; i < items.length; i++) {
+                    const entry = items[i].webkitGetAsEntry();
+                    if (entry) {
+                        await scanEntry(entry, '');
+                    }
+                }
+            } else if (dataTransfer.files && dataTransfer.files.length > 0) {
+                for (let i = 0; i < dataTransfer.files.length; i++) {
+                    const file = dataTransfer.files[i];
+                    file.detectedCategory = '';
+                    file.relativePath = file.webkitRelativePath || file.name;
+                    files.push(file);
+                }
+            }
+
+            return files;
+        }
+
         window.handleModalFilesSelected = function(event) {
             const files = Array.from(event.target.files);
             if (!files.length) return;
-            modalSelectedFiles.push(...files);
+            files.forEach(file => {
+                file.detectedCategory = '';
+                file.relativePath = file.name;
+            });
+            addFilesToModalSelection(files);
             event.target.value = '';
-            renderModalFileListPreview();
         };
+
+        window.handleModalFolderSelected = function(event) {
+            const files = Array.from(event.target.files);
+            if (!files.length) return;
+
+            files.forEach(file => {
+                const relPath = file.webkitRelativePath || file.name;
+                const pathParts = relPath.split('/').filter(Boolean);
+                file.detectedCategory = pathParts.length > 1 ? pathParts[0] : '';
+                file.relativePath = relPath;
+            });
+
+            addFilesToModalSelection(files);
+            event.target.value = '';
+        };
+
+        function addFilesToModalSelection(newFiles) {
+            modalSelectedFiles.push(...newFiles);
+
+            // Auto-detect default category if input is currently empty and files have a detected folder
+            const detectedCategories = Array.from(new Set(newFiles.map(f => f.detectedCategory).filter(Boolean)));
+            const searchInput = document.getElementById('modal-cat-search-input');
+            const hiddenCategory = document.getElementById('modal-doc-category');
+
+            if (detectedCategories.length === 1 && searchInput && (!searchInput.value.trim() || !hiddenCategory.value.trim())) {
+                searchInput.value = detectedCategories[0];
+                if (hiddenCategory) hiddenCategory.value = detectedCategories[0];
+            }
+
+            renderModalFileListPreview();
+        }
 
         window.removeModalFile = function(idx) {
             modalSelectedFiles.splice(idx, 1);
@@ -3383,25 +3537,36 @@
                 return;
             }
 
+            const detectedCategories = Array.from(new Set(modalSelectedFiles.map(f => f.detectedCategory).filter(Boolean)));
+            const fallbackCategory = (document.getElementById('modal-doc-category')?.value || document.getElementById('modal-cat-search-input')?.value || 'General').trim();
+
             container.innerHTML = `
-                <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">
-                    Selected Files (${modalSelectedFiles.length}):
+                <div class="flex items-center justify-between text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">
+                    <span>Selected Files (${modalSelectedFiles.length}):</span>
+                    ${detectedCategories.length > 0 ? `<span class="text-emerald-600 font-extrabold normal-case">✓ ${detectedCategories.length} folder category/categories auto-detected</span>` : ''}
                 </div>
                 <div class="space-y-1.5">
-                    ${modalSelectedFiles.map((f, idx) => `
-                        <div class="flex items-center justify-between text-xs bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
-                            <div class="flex items-center gap-2 truncate pr-2">
-                                <i data-lucide="file-text" class="w-3.5 h-3.5 text-blue-500 shrink-0"></i>
-                                <span class="font-semibold text-slate-700 truncate" title="${f.name}">${f.name}</span>
+                    ${modalSelectedFiles.map((f, idx) => {
+                        const cat = f.detectedCategory || fallbackCategory;
+                        const isFolderCat = Boolean(f.detectedCategory);
+                        return `
+                            <div class="flex items-center justify-between text-xs bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl hover:bg-slate-100/80 transition">
+                                <div class="flex items-center gap-2 truncate pr-2">
+                                    <i data-lucide="${isFolderCat ? 'folder-check' : 'file-text'}" class="w-3.5 h-3.5 ${isFolderCat ? 'text-emerald-600' : 'text-blue-500'} shrink-0"></i>
+                                    <span class="font-semibold text-slate-700 truncate" title="${f.relativePath || f.name}">${f.relativePath || f.name}</span>
+                                </div>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <span class="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${isFolderCat ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'}">
+                                        ${cat}
+                                    </span>
+                                    <span class="text-[10px] text-slate-400 font-bold">${(f.size / 1024).toFixed(0)} KB</span>
+                                    <button type="button" onclick="removeModalFile(${idx})" class="text-rose-400 hover:text-rose-600 p-1 hover:bg-rose-50 rounded-lg transition" title="Remove">
+                                        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                </div>
                             </div>
-                            <div class="flex items-center gap-2 shrink-0">
-                                <span class="text-[10px] text-slate-400 font-bold">${(f.size / 1024).toFixed(0)} KB</span>
-                                <button type="button" onclick="removeModalFile(${idx})" class="text-rose-400 hover:text-rose-600 p-1 hover:bg-rose-50 rounded-lg transition" title="Remove">
-                                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `).join('')}
+                        `;
+                    }).join('')}
                 </div>
             `;
             if (window.lucide) window.lucide.createIcons();
@@ -3423,19 +3588,20 @@
                 return;
             }
 
-            const searchInput = document.getElementById('modal-cat-search-input');
-            const hiddenCategory = document.getElementById('modal-doc-category');
-            const category = (hiddenCategory && hiddenCategory.value ? hiddenCategory.value.trim() : '') || 
-                             (searchInput && searchInput.value ? searchInput.value.trim() : '');
-
-            if (!category) {
-                showToast("Please select or enter a document category.", "warning");
-                if (searchInput) searchInput.focus();
+            if (!modalSelectedFiles || modalSelectedFiles.length === 0) {
+                showToast("Please select at least one file or folder to upload.", "warning");
                 return;
             }
 
-            if (!modalSelectedFiles || modalSelectedFiles.length === 0) {
-                showToast("Please select at least one file to upload.", "warning");
+            const searchInput = document.getElementById('modal-cat-search-input');
+            const hiddenCategory = document.getElementById('modal-doc-category');
+            const fallbackCategory = (hiddenCategory && hiddenCategory.value ? hiddenCategory.value.trim() : '') || 
+                             (searchInput && searchInput.value ? searchInput.value.trim() : '');
+
+            const hasMissingCat = modalSelectedFiles.some(f => !f.detectedCategory && !fallbackCategory);
+            if (hasMissingCat && !fallbackCategory) {
+                showToast("Please select or enter a document category for files outside folders.", "warning");
+                if (searchInput) searchInput.focus();
                 return;
             }
 
@@ -3446,20 +3612,23 @@
 
             let successCount = 0;
             let failCount = 0;
+            const uploadedCategories = new Set();
 
             // Sequential loop to prevent payload size issues
             for (let i = 0; i < modalSelectedFiles.length; i++) {
                 const file = modalSelectedFiles[i];
+                const fileCategory = file.detectedCategory || fallbackCategory || 'Others';
+                uploadedCategories.add(fileCategory);
                 const displayName = file.name.length > 20 ? file.name.substring(0, 18) + '...' : file.name;
                 
                 if (btn) {
-                    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Uploading ${i + 1}/${modalSelectedFiles.length}: ${displayName}`;
+                    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Uploading ${i + 1}/${modalSelectedFiles.length}: ${displayName} [${fileCategory}]`;
                     if (window.lucide) window.lucide.createIcons();
                 }
 
                 const formData = new FormData();
                 formData.append('clientId', clientId);
-                formData.append('category', category);
+                formData.append('category', fileCategory);
                 formData.append('files', file);
 
                 try {
@@ -3487,9 +3656,14 @@
             }
 
             if (successCount > 0) {
-                showToast(`Successfully uploaded ${successCount} file(s) under category "${category}" to GCP Storage bucket & updated MongoDB!${failCount > 0 ? ` (${failCount} failed)` : ''}`, "success");
+                const catListStr = Array.from(uploadedCategories).join(', ');
+                showToast(`Successfully uploaded ${successCount} file(s) across categories: [${catListStr}]!${failCount > 0 ? ` (${failCount} failed)` : ''}`, "success");
                 closeUploadModal();
-                activeDocFolder = category;
+                if (uploadedCategories.size === 1) {
+                    activeDocFolder = Array.from(uploadedCategories)[0];
+                } else {
+                    activeDocFolder = 'All Documents';
+                }
                 await initDocumentsData();
             } else {
                 showToast(`Upload failed for all ${modalSelectedFiles.length} file(s). Please check server connection or file format.`, "error");
