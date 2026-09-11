@@ -5091,14 +5091,27 @@
                 const name1 = getVal(this.data, 'names[0]') || 'Not specified';
                 const name2 = getVal(this.data, 'names[1]') || 'Not specified';
                 let primaryAct = 'Not specified';
-                const activitiesList = getVal(this.data, 'activities');
-                if (Array.isArray(activitiesList) && activitiesList.length > 0) {
-                    primaryAct = activitiesList.map(a => `${a.code === 'MANUAL' ? '' : a.code + ' - '}${a.name}`).join(', ');
+                let secondaryAct = 'None';
+                
+                const primaryObj = getVal(this.data, 'activities.primary');
+                const secondaryObj = getVal(this.data, 'activities.secondary');
+                
+                if (primaryObj) {
+                    primaryAct = typeof primaryObj === 'object' ? `${primaryObj.code ? primaryObj.code + ' ' : ''}${primaryObj.name || ''}`.trim() : primaryObj;
                 } else {
-                    const oldPrimary = getVal(this.data, 'activities.primary');
-                    if (oldPrimary) {
-                        primaryAct = typeof oldPrimary === 'object' ? `${oldPrimary.code || ''} ${oldPrimary.name || ''}`.trim() : oldPrimary;
+                    const activitiesList = getVal(this.data, 'activities');
+                    if (Array.isArray(activitiesList) && activitiesList.length > 0) {
+                        primaryAct = activitiesList.map(a => `${a.code === 'MANUAL' ? '' : a.code + ' - '}${a.name}`).join(', ');
+                    } else {
+                        const oldPrimary = getVal(this.data, 'activities.primary');
+                        if (oldPrimary) {
+                            primaryAct = typeof oldPrimary === 'object' ? `${oldPrimary.code || ''} ${oldPrimary.name || ''}`.trim() : oldPrimary;
+                        }
                     }
+                }
+
+                if (secondaryObj) {
+                    secondaryAct = typeof secondaryObj === 'object' ? `${secondaryObj.code ? secondaryObj.code + ' ' : ''}${secondaryObj.name || ''}`.trim() : secondaryObj;
                 }
                 const compType = getVal(this.data, 'companyType') || 'Pte Ltd';
                 
@@ -5189,6 +5202,10 @@
                                     <div class="summary-row">
                                         <span class="summary-label">Primary Business Activity:</span>
                                         <span class="summary-value">${primaryAct}</span>
+                                    </div>
+                                    <div class="summary-row">
+                                        <span class="summary-label">Secondary Business Activity:</span>
+                                        <span class="summary-value">${secondaryAct}</span>
                                     </div>
                                 </div>
                                 
