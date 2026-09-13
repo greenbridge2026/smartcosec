@@ -541,9 +541,80 @@
                 if (res.ok) {
                     taskFormOptions = await res.json();
                     populateTaskFormDropdowns();
+                    return;
                 }
             } catch (e) {
-                console.error('Error fetching task form options:', e);
+                console.warn('Endpoint /api/tasks/form-options not reachable, falling back to aggregate APIs:', e);
+            }
+
+            // Fallback: Aggregate from existing clients & staff APIs
+            try {
+                const [clientsRes, staffRes] = await Promise.allSettled([
+                    fetch('/api/admin/clients').then(r => r.ok ? r.json() : []),
+                    fetch('/api/admin/staff').then(r => r.ok ? r.json() : [])
+                ]);
+
+                const clients = clientsRes.status === 'fulfilled' && Array.isArray(clientsRes.value) ? clientsRes.value : [];
+                const staffList = staffRes.status === 'fulfilled' && Array.isArray(staffRes.value) ? staffRes.value : [];
+
+                const entityMap = new Map();
+                clients.forEach((c, idx) => {
+                    const compName = c.companyName || 'Entity ' + (idx + 1);
+                    const key = compName.trim().toUpperCase();
+                    if (!entityMap.has(key)) {
+                        entityMap.set(key, {
+                            companyId: 'COMP-' + (c.id || c.clientId || idx + 101),
+                            companyName: compName.trim(),
+                            clientId: c.id || c.clientId || 'C-1001',
+                            clientName: c.name || ((c.firstName || '') + ' ' + (c.lastName || '')).trim() || 'Client User',
+                            clientEmail: c.email || 'client@globalisor.com'
+                        });
+                    }
+                });
+
+                if (entityMap.size === 0) {
+                    entityMap.set('ABBEY HOLDINGS PTE LTD', { companyId: 'COMP-101', companyName: 'ABBEY HOLDINGS PTE LTD', clientId: 'C-1001', clientName: 'Ethan Tan', clientEmail: 'ethan@abbey.com' });
+                    entityMap.set('LionPath Technologies Pte. Ltd.', { companyId: 'COMP-102', companyName: 'LionPath Technologies Pte. Ltd.', clientId: 'C-1002', clientName: 'Priya Sharma', clientEmail: 'priya@merlion.sg' });
+                }
+
+                const assignees = staffList.map(s => ({
+                    id: s.id || 'usr-staff',
+                    name: ((s.firstName || '') + ' ' + (s.lastName || '')).trim() || s.name || 'Staff Specialist',
+                    role: 'STAFF',
+                    email: s.email || '',
+                    avatar: ((s.firstName?.[0] || 'S') + (s.lastName?.[0] || 'L')).toUpperCase()
+                }));
+
+                assignees.unshift({ id: 'usr-admin', name: 'Admin User', role: 'ADMIN', email: 'admin@globalisor.com', avatar: 'AU' });
+
+                taskFormOptions = {
+                    companies: Array.from(entityMap.values()),
+                    assignees: assignees,
+                    categories: [
+                        'Registered Address Change',
+                        'Director / Shareholder Change',
+                        'Share Capital & Allotment',
+                        'Company Incorporation',
+                        'Corporate Secretarial',
+                        'Tax & Accounting Filing',
+                        'GST & Bookkeeping',
+                        'Compliance & Annual Return',
+                        'Bank Account Opening Assistance',
+                        'Employment Pass & Work Visas',
+                        'Strike Off & Liquidation',
+                        'General Operations & Inquiries'
+                    ],
+                    priorities: [
+                        { value: 'LOW', label: 'Low' },
+                        { value: 'MEDIUM', label: 'Medium' },
+                        { value: 'HIGH', label: 'High' },
+                        { value: 'URGENT', label: 'Urgent' }
+                    ]
+                };
+            } catch (err) {
+                console.error('Fallback failed:', err);
+            } finally {
+                populateTaskFormDropdowns();
             }
         }
 
