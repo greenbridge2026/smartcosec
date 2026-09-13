@@ -213,7 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sidebarNavLinks += `
         ${getLinkHtml('documents', 'documents', 'Documents')}
         ${getLinkHtml('directors', 'directors', 'Directors & Shareholders')}
-        ${getLinkHtml('tasks', 'tasks', 'Tasks', 3)}
+        ${getLinkHtml('tasks', 'tasks', 'Tasks', null, 'client-tasks-badge')}
         ${getLinkHtml('billing', 'billing', 'Billing & Invoices')}
         ${getLinkHtml('blogs', 'blogs', 'Blogs')}
         ${getLinkHtml('settings', 'settings', 'Settings')}

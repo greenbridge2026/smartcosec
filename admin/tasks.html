@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task & Request Hub | Globalisor Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <script>
+        if (!localStorage.getItem('admin_auth')) window.location.href = '/admin';
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], outfit: ['Outfit', 'sans-serif'] },
+                    colors: { slate: { 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 800: '#1e293b', 900: '#0f172a' } }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Outfit', sans-serif; background: #f8fafc; min-height: 100vh; overflow-x: hidden; }
+        .top-nav { height: 60px; background: #ffffff; backdrop-filter: blur(20px); border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; left: 0; right: 0; display: flex; align-items: center; padding: 0 1.5rem; z-index: 9999; gap: 0.5rem; justify-content: space-between; }
+        .main-container { padding: 2rem; max-width: 1600px; margin-left: 240px !important; margin-right: auto; }
+        .module-nav-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #64748b; transition: all 0.2s; cursor: pointer !important; border: none; background: transparent; white-space: nowrap; width: 100% !important; box-sizing: border-box !important; }
+        .module-nav-btn:hover { color: #0f172a; background: #ffffff; }
+        .module-nav-btn.active { color: #0f172a; background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        
+        .top-nav > div:nth-child(2), #module-switcher {
+            position: fixed !important;
+            top: 60px !important;
+            left: 0 !important;
+            width: 240px !important;
+            height: calc(100vh - 60px) !important;
+            background: #ffffff !important;
+            backdrop-filter: blur(20px) !important;
+            border-right: 1px solid #e2e8f0 !important;
+            border-top: none !important;
+            border-left: none !important;
+            border-bottom: none !important;
+            border-radius: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            padding: 1.5rem 1rem !important;
+            gap: 0.5rem !important;
+            align-items: stretch !important;
+            justify-content: flex-start !important;
+            z-index: 9998 !important;
+            box-shadow: none !important;
+        }
+
+        .submenu-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            transition: all 0.3s ease;
+        }
+        .submenu-container.hidden {
+            display: none !important;
+        }
+        .submenu-arrow {
+            transition: transform 0.2s ease;
+        }
+        .submenu-open .submenu-arrow {
+            transform: rotate(180deg);
+        }
+
+        .admin-table { width: 100%; text-align: left; border-collapse: collapse; }
+        .admin-table th { padding: 1rem 1.5rem; font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #f1f5f9; background: #f8fafc; }
+        .admin-table td { padding: 1.25rem 1.5rem; font-size: 0.85rem; color: #1e293b; border-bottom: 1px solid #f1f5f9; }
+        
+        .kanban-col {
+            background: #f1f5f9;
+            border-radius: 16px;
+            padding: 1rem;
+            min-height: 540px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            border: 2px dashed transparent;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .kanban-col.drag-over {
+            background: #eff6ff !important;
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12) !important;
+            transform: scale(1.005);
+        }
+        .kanban-card {
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 1rem;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            cursor: grab;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+        }
+        .kanban-card:active {
+            cursor: grabbing;
+        }
+        .kanban-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+            border-color: #cbd5e1;
+        }
+        .kanban-card.dragging {
+            opacity: 0.4;
+            transform: scale(0.97) rotate(1deg);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.12);
+            border: 1px dashed #3b82f6;
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+    <script type="module" src="admin-sidebar.js"></script>
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="flex items-center gap-4">
+            <div class="flex flex-col leading-none cursor-pointer" onclick="window.location.href='dashboard.html'">
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Admin</span>
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Portal</span>
+            </div>
+            <div class="h-4 w-px bg-slate-200"></div>
+            <span class="text-xs font-semibold text-slate-500 font-sans" id="top-nav-page-header">Task & Request Operations</span>
+        </div>
+        <div id="module-switcher" class="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-white/80">
+            <button onclick="window.location.href='dashboard.html'" class="module-nav-btn" id="btn-clients"><i data-lucide="users" class="w-4 h-4"></i> Clients</button>
+            <button onclick="window.location.href='applications.html'" class="module-nav-btn" id="btn-applications"><i data-lucide="file-text" class="w-4 h-4"></i> Applications</button>
+            <button onclick="window.location.href='kyc.html'" class="module-nav-btn" id="btn-kyc"><i data-lucide="shield-check" class="w-4 h-4"></i> KYC Review</button>
+            <button onclick="window.location.href='compliance.html'" class="module-nav-btn" id="btn-compliance"><i data-lucide="scale" class="w-4 h-4"></i> Compliance</button>
+            <button onclick="window.location.href='tasks.html'" class="module-nav-btn active" id="btn-tasks"><i data-lucide="check-square" class="w-4 h-4"></i> Tasks</button>
+            <button onclick="window.location.href='reports.html'" class="module-nav-btn" id="btn-reports"><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Reports</button>
+            <button onclick="window.location.href='messages.html'" class="module-nav-btn" id="btn-messages"><i data-lucide="message-square" class="w-4 h-4"></i> Messages</button>
+            <button onclick="window.location.href='content.html'" class="module-nav-btn" id="btn-content"><i data-lucide="book-open" class="w-4 h-4"></i> Content</button>
+            
+            <div class="w-full flex flex-col gap-0.5">
+                <button onclick="toggleSubmenu('services-submenu')" class="module-nav-btn" id="btn-services">
+                    <i data-lucide="folder-git" class="w-4 h-4"></i>
+                    <span class="flex-1 text-left">Services</span>
+                    <i data-lucide="chevron-down" class="w-3.5 h-3.5 submenu-arrow transition-transform duration-200 shrink-0"></i>
+                </button>
+                <div id="services-submenu" class="submenu-container hidden pl-6 flex flex-col gap-0.5 mt-0.5">
+                    <button onclick="window.location.href='blogs.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-blogs"><i data-lucide="newspaper" class="w-3.5 h-3.5"></i> Blogs</button>
+                    <button onclick="window.location.href='countries.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-countries"><i data-lucide="globe" class="w-3.5 h-3.5"></i> Countries</button>
+                    <button onclick="window.location.href='users.html'" class="module-nav-btn py-1.5 text-[0.75rem]" id="btn-users"><i data-lucide="user-cog" class="w-3.5 h-3.5"></i> Users</button>
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center justify-end gap-3 relative">
+            <button onclick="openCreateTaskModal()" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm shadow-blue-500/20">
+                <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+                <span>Create Task</span>
+            </button>
+            <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
+                <div class="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-xs">AD</div>
+                <div class="flex flex-col">
+                    <div class="text-xs font-semibold text-slate-800">Admin Team</div>
+                    <button onclick="localStorage.removeItem('admin_auth'); localStorage.removeItem('token'); window.location.href='/admin'" class="text-[10px] text-red-500 font-bold hover:underline text-left leading-none">Sign Out</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-container">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">Task & Request Command Center</h1>
+                <p class="text-xs text-slate-500 font-sans mt-0.5">Manage incoming client requests, corporate changes, queries, and assign operational tasks to staff specialists.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="bg-white border border-slate-200 p-1 rounded-xl flex items-center shadow-xs">
+                    <button id="view-mode-table" onclick="setViewMode('table')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-900 text-white flex items-center gap-1.5">
+                        <i data-lucide="list" class="w-3.5 h-3.5"></i> Table
+                    </button>
+                    <button id="view-mode-kanban" onclick="setViewMode('kanban')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900 flex items-center gap-1.5">
+                        <i data-lucide="kanban-square" class="w-3.5 h-3.5"></i> Board
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI Metrics Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Total Tasks</div>
+                <div class="text-2xl font-extrabold text-slate-900" id="kpi-total">0</div>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+                <div class="text-[10px] font-bold text-amber-500 uppercase tracking-wider mb-1">Unassigned Pool</div>
+                <div class="text-2xl font-extrabold text-amber-600" id="kpi-unassigned">0</div>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+                <div class="text-[10px] font-bold text-blue-500 uppercase tracking-wider mb-1">In Progress</div>
+                <div class="text-2xl font-extrabold text-blue-600" id="kpi-in-progress">0</div>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+                <div class="text-[10px] font-bold text-purple-500 uppercase tracking-wider mb-1">Waiting Client</div>
+                <div class="text-2xl font-extrabold text-purple-600" id="kpi-waiting">0</div>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+                <div class="text-[10px] font-bold text-rose-500 uppercase tracking-wider mb-1">Urgent Priority</div>
+                <div class="text-2xl font-extrabold text-rose-600" id="kpi-urgent">0</div>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+                <div class="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-1">Resolved</div>
+                <div class="text-2xl font-extrabold text-emerald-600" id="kpi-completed">0</div>
+            </div>
+        </div>
+
+        <!-- Filter & Search Controls -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
+                <div class="relative flex-1 min-w-[200px] max-w-md">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                    <input type="text" id="task-search" oninput="applyFilters()" placeholder="Search by ticket #, company, title, client..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-sans">
+                </div>
+                <select id="filter-status" onchange="applyFilters()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none">
+                    <option value="ALL">All Statuses</option>
+                    <option value="PENDING">Pending (Unassigned)</option>
+                    <option value="ASSIGNED">Assigned</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="WAITING_CLIENT_INPUT">Waiting Client Input</option>
+                    <option value="UNDER_REVIEW">Under Review</option>
+                    <option value="COMPLETED">Completed</option>
+                </select>
+                <select id="filter-priority" onchange="applyFilters()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none">
+                    <option value="ALL">All Priorities</option>
+                    <option value="URGENT">Urgent</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                </select>
+                <select id="filter-assignee" onchange="applyFilters()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none">
+                    <option value="ALL">All Assignees</option>
+                    <option value="UNASSIGNED">Unassigned Only</option>
+                    <option value="usr-admin">Admin User</option>
+                    <option value="usr-staff">Sarah Lim</option>
+                </select>
+            </div>
+            <button onclick="refreshTasks()" class="p-2 hover:bg-slate-100 rounded-xl text-slate-600 transition" title="Refresh Tasks">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <!-- View 1: Data Table View -->
+        <div id="table-view-container" class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Ticket</th>
+                            <th>Company & Client</th>
+                            <th>Request / Subject</th>
+                            <th>Type / Category</th>
+                            <th>Priority</th>
+                            <th>Assigned Staff</th>
+                            <th>Status</th>
+                            <th>SLA / Due</th>
+                            <th class="text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tasks-table-body">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- View 2: Kanban Board View (Hidden by default) -->
+        <div id="kanban-view-container" class="hidden grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <!-- Col 1: Pending & Unassigned -->
+            <div class="kanban-col" id="lane-pending" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event, this)" ondragleave="handleDragLeave(event, this)" ondrop="handleDrop(event, 'PENDING', this)">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                        <span class="text-xs font-bold text-slate-800">Pending / Unassigned</span>
+                    </div>
+                    <span class="text-[11px] font-bold px-2 py-0.5 bg-white rounded-full text-slate-600 shadow-2xs" id="count-col-pending">0</span>
+                </div>
+                <div id="col-pending-cards" class="space-y-3 overflow-y-auto max-h-[700px] custom-scrollbar pr-1 flex-1"></div>
+            </div>
+
+            <!-- Col 2: In Progress -->
+            <div class="kanban-col" id="lane-progress" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event, this)" ondragleave="handleDragLeave(event, this)" ondrop="handleDrop(event, 'IN_PROGRESS', this)">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                        <span class="text-xs font-bold text-slate-800">In Progress</span>
+                    </div>
+                    <span class="text-[11px] font-bold px-2 py-0.5 bg-white rounded-full text-slate-600 shadow-2xs" id="count-col-progress">0</span>
+                </div>
+                <div id="col-progress-cards" class="space-y-3 overflow-y-auto max-h-[700px] custom-scrollbar pr-1 flex-1"></div>
+            </div>
+
+            <!-- Col 3: Waiting Client / Review -->
+            <div class="kanban-col" id="lane-waiting" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event, this)" ondragleave="handleDragLeave(event, this)" ondrop="handleDrop(event, 'WAITING_CLIENT_INPUT', this)">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                        <span class="text-xs font-bold text-slate-800">Waiting Client / Review</span>
+                    </div>
+                    <span class="text-[11px] font-bold px-2 py-0.5 bg-white rounded-full text-slate-600 shadow-2xs" id="count-col-waiting">0</span>
+                </div>
+                <div id="col-waiting-cards" class="space-y-3 overflow-y-auto max-h-[700px] custom-scrollbar pr-1 flex-1"></div>
+            </div>
+
+            <!-- Col 4: Completed -->
+            <div class="kanban-col" id="lane-completed" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event, this)" ondragleave="handleDragLeave(event, this)" ondrop="handleDrop(event, 'COMPLETED', this)">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                        <span class="text-xs font-bold text-slate-800">Completed & Resolved</span>
+                    </div>
+                    <span class="text-[11px] font-bold px-2 py-0.5 bg-white rounded-full text-slate-600 shadow-2xs" id="count-col-completed">0</span>
+                </div>
+                <div id="col-completed-cards" class="space-y-3 overflow-y-auto max-h-[700px] custom-scrollbar pr-1 flex-1"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Floating Drag & Status Toast Notification -->
+    <div id="toast-notification" class="fixed bottom-6 right-6 z-[999999] transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="bg-slate-900/95 backdrop-blur-md text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center gap-3 text-xs font-sans pointer-events-auto">
+            <div class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0">✓</div>
+            <div id="toast-message" class="text-xs">Task status updated</div>
+            <button id="toast-action-btn" onclick="" class="ml-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-xl transition shrink-0 cursor-pointer">Open Details</button>
+            <button onclick="hideToast()" class="text-slate-400 hover:text-white text-base ml-1 leading-none cursor-pointer">&times;</button>
+        </div>
+    </div>
+
+    <!-- Task Detail Drawer / Modal -->
+    <div id="task-detail-modal" onclick="if(event.target === this) closeDetailModal()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[99999] hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden transform scale-95 transition-transform duration-200" onclick="event.stopPropagation()">
+            <!-- Header -->
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+                <div class="flex items-center gap-3">
+                    <span id="detail-ticket-badge" class="px-2.5 py-1 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-xs font-mono font-bold">TSK-1001</span>
+                    <span id="detail-type-badge" class="text-[10px] font-bold px-2 py-0.5 bg-slate-200 text-slate-700 rounded-md uppercase">CHANGE</span>
+                    <div id="detail-priority-badge-wrapper"><span id="detail-priority-badge" class="text-[10px] font-bold px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-md">URGENT</span></div>
+                </div>
+                <button type="button" onclick="closeDetailModal()" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-xl text-xs font-bold transition shadow-2xs border border-slate-200 cursor-pointer" title="Close Modal">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    <span>Close</span>
+                </button>
+            </div>
+
+            <!-- Body -->
+            <div class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                <!-- Title & Meta -->
+                <div>
+                    <h2 id="detail-title" class="text-xl font-bold text-slate-900">Task Title</h2>
+                    <div class="flex flex-wrap items-center gap-4 mt-2 text-xs text-slate-500 font-sans">
+                        <div><strong class="text-slate-700">Company:</strong> <span id="detail-company">LionPath Pte Ltd</span></div>
+                        <div><strong class="text-slate-700">Client:</strong> <span id="detail-client">Ethan Tan</span></div>
+                        <div><strong class="text-slate-700">Due:</strong> <span id="detail-due">2026-09-20</span></div>
+                        <div><strong class="text-slate-700">Category:</strong> <span id="detail-category">Registered Address</span></div>
+                    </div>
+                </div>
+
+                <!-- Status Stepper Bar -->
+                <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Lifecycle Timeline</div>
+                    <div class="flex items-center justify-between relative" id="stepper-bar">
+                        <!-- Stepper items injected -->
+                    </div>
+                </div>
+
+                <!-- Assignment & Fast Status Controls -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">Assigned Specialist</label>
+                        <div class="flex items-center gap-2">
+                            <select id="detail-assignee-select" class="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none">
+                                <option value="">-- Unassigned --</option>
+                                <option value="usr-admin">Admin User (ADMIN)</option>
+                                <option value="usr-staff">Sarah Lim (STAFF)</option>
+                            </select>
+                            <button onclick="saveAssignment()" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition">
+                                Assign
+                            </button>
+                            <button onclick="selfAssign()" class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition whitespace-nowrap">
+                                Take Task
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">Change Status</label>
+                        <div class="flex items-center gap-2">
+                            <select id="detail-status-select" class="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none">
+                                <option value="PENDING">Pending</option>
+                                <option value="ASSIGNED">Assigned</option>
+                                <option value="IN_PROGRESS">In Progress</option>
+                                <option value="WAITING_CLIENT_INPUT">Waiting Client Input</option>
+                                <option value="UNDER_REVIEW">Under Review</option>
+                                <option value="COMPLETED">Completed</option>
+                            </select>
+                            <button onclick="saveStatusChange()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition">
+                                Update
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Task Description & Attachments -->
+                <div class="space-y-3">
+                    <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Description & Instructions</h3>
+                    <div id="detail-description" class="p-4 bg-slate-50 rounded-2xl text-xs text-slate-700 leading-relaxed font-sans border border-slate-100"></div>
+                    <div id="detail-attachments" class="flex flex-wrap gap-2 pt-1"></div>
+                </div>
+
+                <!-- Discussion & Comments Trail -->
+                <div class="space-y-4 pt-2 border-t border-slate-100">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Activity & Communication Thread</h3>
+                        <span class="text-[11px] text-slate-400 font-sans" id="detail-comments-count">0 comments</span>
+                    </div>
+
+                    <div id="detail-comments-list" class="space-y-3 font-sans">
+                        <!-- Comment bubble items -->
+                    </div>
+
+                    <!-- Add Comment / Internal Note Box -->
+                    <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <label class="text-xs font-bold text-slate-700">Post Note/Reply</label>
+                                <div class="flex items-center gap-1.5 ml-3">
+                                    <input type="checkbox" id="comment-is-internal" class="rounded border-slate-300 text-amber-600 focus:ring-amber-500">
+                                    <label for="comment-is-internal" class="text-[11px] font-bold text-amber-700 cursor-pointer">Internal Note (Staff/Admin Only)</label>
+                                </div>
+                            </div>
+                        </div>
+                        <textarea id="comment-text-input" rows="2" onkeydown="if((event.metaKey || event.ctrlKey || event.key === 'Enter') && (event.metaKey || event.ctrlKey || (!event.shiftKey && event.key === 'Enter'))) { event.preventDefault(); postComment(); }" placeholder="Type response to client or internal team note (Press Enter to post)..." class="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-sans transition"></textarea>
+                        <div class="flex justify-end gap-2 mt-2">
+                            <button type="button" id="btn-post-comment" onclick="postComment()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer">
+                                <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                                <span>Post</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Task Modal -->
+    <div id="create-task-modal" onclick="if(event.target === this) closeCreateTaskModal()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[99999] hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 overflow-hidden transform scale-95 transition-transform duration-200" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                <h3 class="text-lg font-bold text-slate-900">Create New Operational Task</h3>
+                <button type="button" onclick="closeCreateTaskModal()" class="flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer" title="Close">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <form id="create-task-form" onsubmit="handleCreateTask(event)" class="space-y-4 font-sans text-xs">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Company / Entity</label>
+                    <select id="new-task-company" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none">
+                        <option value="ABBEY HOLDINGS PTE LTD" selected>ABBEY HOLDINGS PTE LTD</option>
+                        <option value="LionPath Technologies Pte. Ltd.">LionPath Technologies Pte. Ltd.</option>
+                        <option value="Merlion Ventures Pte. Ltd.">Merlion Ventures Pte. Ltd.</option>
+                        <option value="HarbourEdge Logistics Pte. Ltd.">HarbourEdge Logistics Pte. Ltd.</option>
+                        <option value="3B Trading & Consulting Pte. Ltd.">3B Trading & Consulting Pte. Ltd.</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Task Title / Subject</label>
+                    <input type="text" id="new-task-title" required placeholder="e.g. Change Registered Address, Director Consent..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Category</label>
+                        <select id="new-task-category" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none font-semibold">
+                            <option value="Registered Address Change">Registered Address Change</option>
+                            <option value="Director / Shareholder Change">Director / Shareholder Change</option>
+                            <option value="Share Capital & Allotment">Share Capital & Allotment</option>
+                            <option value="Tax & Accounting">Tax & Accounting</option>
+                            <option value="Compliance Filing">Compliance Filing</option>
+                            <option value="General Operations">General Operations</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Priority</label>
+                        <select id="new-task-priority" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none font-semibold">
+                            <option value="LOW">Low</option>
+                            <option value="MEDIUM" selected>Medium</option>
+                            <option value="HIGH">High</option>
+                            <option value="URGENT">Urgent</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Assign To</label>
+                        <select id="new-task-assignee" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none font-semibold">
+                            <option value="">-- Unassigned --</option>
+                            <option value="usr-admin">Admin User (ADMIN)</option>
+                            <option value="usr-staff">Sarah Lim (STAFF)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Due Date</label>
+                        <input type="date" id="new-task-duedate" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Description & Requirements</label>
+                    <textarea id="new-task-description" rows="3" placeholder="Provide detailed instructions or notes..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none"></textarea>
+                </div>
+                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="closeCreateTaskModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 rounded-xl transition">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition">Create Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let allTasks = [];
+        let currentTask = null;
+        let activeViewMode = 'table';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshTasks();
+        });
+
+        async function refreshTasks() {
+            try {
+                const res = await fetch('/api/tasks');
+                if (res.ok) {
+                    allTasks = await res.json();
+                    applyFilters();
+                    updateKpiMetrics();
+                }
+            } catch (e) {
+                console.error('Error fetching tasks:', e);
+            }
+        }
+
+        async function updateKpiMetrics() {
+            try {
+                const res = await fetch('/api/tasks/stats');
+                if (res.ok) {
+                    const stats = await res.json();
+                    document.getElementById('kpi-total').innerText = stats.total || 0;
+                    document.getElementById('kpi-unassigned').innerText = stats.unassigned || 0;
+                    document.getElementById('kpi-in-progress').innerText = stats.inProgress || 0;
+                    document.getElementById('kpi-waiting').innerText = stats.waitingClient || 0;
+                    document.getElementById('kpi-urgent').innerText = stats.urgent || 0;
+                    document.getElementById('kpi-completed').innerText = stats.completed || 0;
+                }
+            } catch (e) {}
+        }
+
+        function setViewMode(mode) {
+            activeViewMode = mode;
+            const tableBtn = document.getElementById('view-mode-table');
+            const kanbanBtn = document.getElementById('view-mode-kanban');
+            const tableContainer = document.getElementById('table-view-container');
+            const kanbanContainer = document.getElementById('kanban-view-container');
+
+            if (mode === 'table') {
+                tableBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-900 text-white flex items-center gap-1.5';
+                kanbanBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900 flex items-center gap-1.5';
+                tableContainer.classList.remove('hidden');
+                kanbanContainer.classList.add('hidden');
+            } else {
+                kanbanBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-900 text-white flex items-center gap-1.5';
+                tableBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900 flex items-center gap-1.5';
+                tableContainer.classList.add('hidden');
+                kanbanContainer.classList.remove('hidden');
+            }
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const q = (document.getElementById('task-search').value || '').toLowerCase();
+            const status = document.getElementById('filter-status').value;
+            const priority = document.getElementById('filter-priority').value;
+            const assignee = document.getElementById('filter-assignee').value;
+
+            const filtered = allTasks.filter(t => {
+                if (status !== 'ALL' && (t.status || '').toUpperCase() !== status) return false;
+                if (priority !== 'ALL' && (t.priority || '').toUpperCase() !== priority) return false;
+                if (assignee === 'UNASSIGNED' && t.assignedTo && t.assignedTo.id) return false;
+                if (assignee !== 'ALL' && assignee !== 'UNASSIGNED' && (!t.assignedTo || t.assignedTo.id !== assignee)) return false;
+                if (q) {
+                    const match = (t.title || '').toLowerCase().includes(q) ||
+                                  (t.ticketNumber || '').toLowerCase().includes(q) ||
+                                  (t.companyName || '').toLowerCase().includes(q) ||
+                                  (t.clientName || '').toLowerCase().includes(q) ||
+                                  (t.category || '').toLowerCase().includes(q);
+                    if (!match) return false;
+                }
+                return true;
+            });
+
+            renderTable(filtered);
+            renderKanban(filtered);
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function renderTable(tasks) {
+            const tbody = document.getElementById('tasks-table-body');
+            if (!tbody) return;
+
+            if (tasks.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-12 text-slate-400 font-sans text-xs">No tasks match the selected criteria.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = tasks.map(t => {
+                const priorityBadge = getPriorityBadgeHtml(t.priority);
+                const statusBadge = getStatusBadgeHtml(t.status);
+                const assigneeHtml = t.assignedTo && t.assignedTo.name
+                    ? `<div class="flex items-center gap-2">
+                        <div class="w-6 h-6 rounded-full bg-slate-900 text-white font-bold text-[10px] flex items-center justify-center">${t.assignedTo.avatar || t.assignedTo.name.slice(0,2).toUpperCase()}</div>
+                        <span class="font-bold text-xs text-slate-800">${t.assignedTo.name}</span>
+                       </div>`
+                    : `<span class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Unassigned</span>`;
+
+                return `
+                    <tr class="hover:bg-slate-50 transition cursor-pointer" onclick="openTaskDetail('${t.id}')">
+                        <td>
+                            <span class="font-mono font-bold text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">${t.ticketNumber || t.id}</span>
+                        </td>
+                        <td>
+                            <div class="font-bold text-slate-900 text-xs">${t.companyName || 'Entity'}</div>
+                            <div class="text-[11px] text-slate-400 font-sans">${t.clientName || 'Client'}</div>
+                        </td>
+                        <td>
+                            <div class="font-bold text-slate-900 text-xs max-w-xs truncate">${t.title}</div>
+                            <div class="text-[11px] text-slate-400 font-sans truncate max-w-xs">${(t.description || '').slice(0, 45)}...</div>
+                        </td>
+                        <td>
+                            <span class="text-[11px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">${t.category || t.type}</span>
+                        </td>
+                        <td>${priorityBadge}</td>
+                        <td>${assigneeHtml}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <span class="text-xs font-semibold text-slate-600">${t.dueDate || 'Standard SLA'}</span>
+                        </td>
+                        <td class="text-right" onclick="event.stopPropagation()">
+                            <button onclick="openTaskDetail('${t.id}')" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition">
+                                Manage
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        let draggedTaskId = null;
+        let toastTimeout = null;
+
+        function showToastNotification(message, taskId) {
+            const toast = document.getElementById('toast-notification');
+            const msgEl = document.getElementById('toast-message');
+            const btnEl = document.getElementById('toast-action-btn');
+            if (!toast || !msgEl) return;
+
+            msgEl.innerHTML = message;
+            if (btnEl && taskId) {
+                btnEl.style.display = 'inline-flex';
+                btnEl.onclick = () => {
+                    hideToast();
+                    openTaskDetail(taskId);
+                };
+            } else if (btnEl) {
+                btnEl.style.display = 'none';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                hideToast();
+            }, 4500);
+        }
+
+        function hideToast() {
+            const toast = document.getElementById('toast-notification');
+            if (toast) {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+            }
+        }
+
+        function handleDragStart(e, taskId) {
+            draggedTaskId = taskId;
+            e.dataTransfer.setData('text/plain', taskId);
+            e.dataTransfer.effectAllowed = 'move';
+            const cardEl = e.currentTarget;
+            setTimeout(() => {
+                if (cardEl) cardEl.classList.add('dragging');
+            }, 0);
+        }
+
+        function handleDragEnd(e) {
+            if (e.currentTarget) e.currentTarget.classList.remove('dragging');
+            document.querySelectorAll('.kanban-col').forEach(col => col.classList.remove('drag-over'));
+            draggedTaskId = null;
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+
+        function handleDragEnter(e, colEl) {
+            e.preventDefault();
+            if (colEl && colEl.classList.contains('kanban-col')) {
+                colEl.classList.add('drag-over');
+            }
+        }
+
+        function handleDragLeave(e, colEl) {
+            if (colEl && !colEl.contains(e.relatedTarget)) {
+                colEl.classList.remove('drag-over');
+            }
+        }
+
+        async function handleDrop(e, targetStatus, colEl) {
+            e.preventDefault();
+            if (colEl) colEl.classList.remove('drag-over');
+            const taskId = e.dataTransfer.getData('text/plain') || draggedTaskId;
+            if (!taskId) return;
+
+            const task = allTasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            const currentStatus = (task.status || 'PENDING').toUpperCase();
+            if (currentStatus === targetStatus) return;
+
+            // Optimistic UI update
+            const previousStatus = task.status;
+            task.status = targetStatus;
+            applyFilters();
+            updateKpiMetrics();
+
+            const statusLabels = {
+                'PENDING': 'Pending / Unassigned',
+                'IN_PROGRESS': 'In Progress',
+                'WAITING_CLIENT_INPUT': 'Waiting Client / Review',
+                'COMPLETED': 'Completed & Resolved'
+            };
+
+            showToastNotification(`Moved <strong>${task.ticketNumber || task.id}</strong> to <span class="font-bold text-blue-300">${statusLabels[targetStatus] || targetStatus}</span>`, taskId);
+
+            // API Synchronization
+            try {
+                const res = await fetch(`/api/tasks/${taskId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        status: targetStatus,
+                        performedBy: 'Admin User',
+                        performedByRole: 'ADMIN',
+                        resolutionNote: targetStatus === 'COMPLETED' ? 'Marked complete via Board drag-and-drop' : undefined
+                    })
+                });
+                if (res.ok) {
+                    const updated = await res.json();
+                    const idx = allTasks.findIndex(t => t.id === taskId);
+                    if (idx !== -1) allTasks[idx] = updated;
+                    applyFilters();
+                    updateKpiMetrics();
+                } else {
+                    // Rollback on failure
+                    task.status = previousStatus;
+                    applyFilters();
+                    updateKpiMetrics();
+                    showToastNotification(`Failed to move task ${task.ticketNumber || task.id}`, null);
+                }
+            } catch (err) {
+                console.error(err);
+                task.status = previousStatus;
+                applyFilters();
+                updateKpiMetrics();
+            }
+        }
+
+        window.handleDragStart = handleDragStart;
+        window.handleDragEnd = handleDragEnd;
+        window.handleDragOver = handleDragOver;
+        window.handleDragEnter = handleDragEnter;
+        window.handleDragLeave = handleDragLeave;
+        window.handleDrop = handleDrop;
+        window.showToastNotification = showToastNotification;
+        window.hideToast = hideToast;
+
+        function renderKanban(tasks) {
+            const pendingCol = document.getElementById('col-pending-cards');
+            const progressCol = document.getElementById('col-progress-cards');
+            const waitingCol = document.getElementById('col-waiting-cards');
+            const completedCol = document.getElementById('col-completed-cards');
+
+            const pending = tasks.filter(t => ['PENDING', 'ASSIGNED'].includes((t.status || '').toUpperCase()));
+            const progress = tasks.filter(t => (t.status || '').toUpperCase() === 'IN_PROGRESS');
+            const waiting = tasks.filter(t => ['WAITING_CLIENT_INPUT', 'UNDER_REVIEW'].includes((t.status || '').toUpperCase()));
+            const completed = tasks.filter(t => ['COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase()));
+
+            document.getElementById('count-col-pending').innerText = pending.length;
+            document.getElementById('count-col-progress').innerText = progress.length;
+            document.getElementById('count-col-waiting').innerText = waiting.length;
+            document.getElementById('count-col-completed').innerText = completed.length;
+
+            const renderCards = (list) => {
+                if (list.length === 0) return `<div class="p-8 text-center text-slate-400 text-xs italic font-sans border-2 border-dashed border-slate-200/80 rounded-2xl">Drop tasks here</div>`;
+                return list.map(t => {
+                    const assigneeAvatar = t.assignedTo?.name
+                        ? `<div class="flex items-center gap-1.5">
+                            <div class="w-5 h-5 rounded-full bg-slate-900 text-white font-bold text-[9px] flex items-center justify-center">${t.assignedTo.avatar || t.assignedTo.name.slice(0,2).toUpperCase()}</div>
+                            <span class="text-xs font-semibold text-slate-700">${t.assignedTo.name}</span>
+                           </div>`
+                        : `<span class="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Unassigned</span>`;
+
+                    return `
+                        <div class="kanban-card group relative" draggable="true" 
+                             ondragstart="handleDragStart(event, '${t.id}')" 
+                             ondragend="handleDragEnd(event)" 
+                             onclick="openTaskDetail('${t.id}')">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-mono text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">${t.ticketNumber || t.id}</span>
+                                <div class="flex items-center gap-1.5">
+                                    ${getPriorityBadgeHtml(t.priority)}
+                                    <div class="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity p-0.5" title="Drag to reassign status">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+                                    </div>
+                                </div>
+                            </div>
+                            <h4 class="text-xs font-bold text-slate-900 leading-snug mb-1">${t.title}</h4>
+                            <div class="flex items-center justify-between text-[11px] text-slate-500 font-sans mb-3">
+                                <span class="font-medium text-slate-700 truncate max-w-[140px]">${t.companyName || 'Entity'}</span>
+                                <span class="text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">${t.category || t.type}</span>
+                            </div>
+                            <div class="flex items-center justify-between pt-2.5 border-t border-slate-100 text-[11px]">
+                                ${assigneeAvatar}
+                                <span class="font-semibold text-slate-500 text-[10px]">${t.dueDate || 'SLA Standard'}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            };
+
+            pendingCol.innerHTML = renderCards(pending);
+            progressCol.innerHTML = renderCards(progress);
+            waitingCol.innerHTML = renderCards(waiting);
+            completedCol.innerHTML = renderCards(completed);
+        }
+
+        function getPriorityBadgeHtml(priority) {
+            const p = (priority || 'MEDIUM').toUpperCase();
+            if (p === 'URGENT') return `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold bg-rose-50 text-rose-600 border border-rose-200 animate-pulse">URGENT</span>`;
+            if (p === 'HIGH') return `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">HIGH</span>`;
+            if (p === 'MEDIUM') return `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-600 border border-blue-100">MEDIUM</span>`;
+            return `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600">LOW</span>`;
+        }
+
+        function getStatusBadgeHtml(status) {
+            const s = (status || 'PENDING').toUpperCase();
+            if (s === 'COMPLETED' || s === 'RESOLVED') return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">● Completed</span>`;
+            if (s === 'IN_PROGRESS') return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-600 border border-blue-200">● In Progress</span>`;
+            if (s === 'WAITING_CLIENT_INPUT') return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-purple-50 text-purple-600 border border-purple-200">● Waiting Client</span>`;
+            if (s === 'ASSIGNED') return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">● Assigned</span>`;
+            if (s === 'UNDER_REVIEW') return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">● Under Review</span>`;
+            return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200">● Pending</span>`;
+        }
+
+        async function openTaskDetail(taskId) {
+            try {
+                const res = await fetch(`/api/tasks/${taskId}`);
+                if (!res.ok) return;
+                currentTask = await res.json();
+                renderDetailModal();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function renderDetailModal() {
+            if (!currentTask) return;
+            const t = currentTask;
+
+            document.getElementById('detail-ticket-badge').innerText = t.ticketNumber || t.id;
+            document.getElementById('detail-type-badge').innerText = t.type || 'REQUEST';
+            const badgeWrapper = document.getElementById('detail-priority-badge-wrapper');
+            if (badgeWrapper) {
+                badgeWrapper.innerHTML = getPriorityBadgeHtml(t.priority);
+            }
+            document.getElementById('detail-title').innerText = t.title;
+            document.getElementById('detail-company').innerText = t.companyName || 'N/A';
+            document.getElementById('detail-client').innerText = t.clientName || 'N/A';
+            document.getElementById('detail-due').innerText = t.dueDate || 'Standard SLA';
+            document.getElementById('detail-category').innerText = t.category || 'General';
+            document.getElementById('detail-description').innerText = t.description || 'No additional description provided.';
+
+            // Select values
+            document.getElementById('detail-assignee-select').value = t.assignedTo?.id || '';
+            document.getElementById('detail-status-select').value = t.status || 'PENDING';
+
+            // Stepper
+            renderStepper(t.status);
+
+            // Attachments
+            const attContainer = document.getElementById('detail-attachments');
+            if (t.attachments && t.attachments.length > 0) {
+                attContainer.innerHTML = t.attachments.map(att => `
+                    <div class="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs">
+                        <i data-lucide="paperclip" class="w-3.5 h-3.5 text-blue-600"></i>
+                        <span>${att.name}</span>
+                    </div>
+                `).join('');
+            } else {
+                attContainer.innerHTML = `<span class="text-xs text-slate-400 font-sans italic">No attached files</span>`;
+            }
+
+            // Comments
+            const commentsList = document.getElementById('detail-comments-list');
+            const comments = t.comments || [];
+            document.getElementById('detail-comments-count').innerText = `${comments.length} comment${comments.length === 1 ? '' : 's'}`;
+
+            if (comments.length === 0) {
+                commentsList.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs font-sans italic">No conversation notes yet. Post a reply or team note below.</div>`;
+            } else {
+                commentsList.innerHTML = comments.map(c => {
+                    const isInternal = c.isInternal;
+                    const bgClass = isInternal ? 'bg-amber-50/80 border-amber-200' : (c.authorRole === 'CLIENT' ? 'bg-blue-50/60 border-blue-100' : 'bg-white border-slate-200');
+                    const roleBadge = isInternal 
+                        ? `<span class="px-1.5 py-0.5 bg-amber-200 text-amber-900 rounded text-[9px] font-bold">INTERNAL NOTE</span>`
+                        : `<span class="px-1.5 py-0.5 bg-slate-200 text-slate-800 rounded text-[9px] font-bold">${c.authorRole || 'STAFF'}</span>`;
+
+                    const timeStr = new Date(c.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                    return `
+                        <div class="p-3.5 rounded-2xl border ${bgClass} shadow-2xs space-y-1.5">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-5 h-5 rounded-full bg-slate-800 text-white font-bold text-[9px] flex items-center justify-center">${c.authorAvatar || 'U'}</div>
+                                    <span class="text-xs font-bold text-slate-900">${c.authorName || 'User'}</span>
+                                    ${roleBadge}
+                                </div>
+                                <span class="text-[10px] text-slate-400">${timeStr}</span>
+                            </div>
+                            <p class="text-xs text-slate-700 leading-relaxed font-sans">${c.text}</p>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            const modal = document.getElementById('task-detail-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.firstElementChild.classList.remove('scale-95');
+            }, 10);
+
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function renderStepper(status) {
+            const steps = [
+                { key: 'PENDING', label: 'Raised' },
+                { key: 'ASSIGNED', label: 'Assigned' },
+                { key: 'IN_PROGRESS', label: 'In Progress' },
+                { key: 'UNDER_REVIEW', label: 'Review' },
+                { key: 'COMPLETED', label: 'Completed' }
+            ];
+
+            const statusOrder = ['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'WAITING_CLIENT_INPUT', 'UNDER_REVIEW', 'COMPLETED'];
+            const currentIndex = statusOrder.indexOf(status);
+
+            const stepperBar = document.getElementById('stepper-bar');
+            stepperBar.innerHTML = steps.map((step, idx) => {
+                const stepIdx = statusOrder.indexOf(step.key);
+                const isPassed = currentIndex >= stepIdx && currentIndex !== -1;
+                const isCurrent = (step.key === status) || (step.key === 'UNDER_REVIEW' && status === 'WAITING_CLIENT_INPUT');
+
+                const circleBg = isCurrent ? 'bg-blue-600 text-white ring-4 ring-blue-100' : (isPassed ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500');
+
+                return `
+                    <div class="flex flex-col items-center gap-1 z-10">
+                        <div class="w-6 h-6 rounded-full ${circleBg} flex items-center justify-center text-[10px] font-bold">
+                            ${isPassed && !isCurrent ? '✓' : idx + 1}
+                        </div>
+                        <span class="text-[10px] font-bold ${isCurrent ? 'text-blue-600' : (isPassed ? 'text-slate-800' : 'text-slate-400')}">${step.label}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function closeDetailModal() {
+            const modal = document.getElementById('task-detail-modal');
+            modal.classList.add('opacity-0');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                currentTask = null;
+            }, 200);
+        }
+
+        async function saveAssignment() {
+            if (!currentTask) return;
+            const staffId = document.getElementById('detail-assignee-select').value;
+            let assignee = null;
+            if (staffId === 'usr-admin') {
+                assignee = { id: 'usr-admin', name: 'Admin User', role: 'ADMIN', email: 'admin@globalisor.com', avatar: 'AU' };
+            } else if (staffId === 'usr-staff') {
+                assignee = { id: 'usr-staff', name: 'Sarah Lim', role: 'STAFF', email: 'staff@globalisor.com', avatar: 'SL' };
+            }
+
+            try {
+                const res = await fetch(`/api/tasks/${currentTask.id}/assign`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        assignee,
+                        performedBy: 'Admin User',
+                        performedByRole: 'ADMIN'
+                    })
+                });
+                if (res.ok) {
+                    currentTask = await res.json();
+                    renderDetailModal();
+                    refreshTasks();
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function selfAssign() {
+            document.getElementById('detail-assignee-select').value = 'usr-admin';
+            saveAssignment();
+        }
+
+        async function saveStatusChange() {
+            if (!currentTask) return;
+            const newStatus = document.getElementById('detail-status-select').value;
+
+            try {
+                const res = await fetch(`/api/tasks/${currentTask.id}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        status: newStatus,
+                        performedBy: 'Admin User',
+                        performedByRole: 'ADMIN'
+                    })
+                });
+                if (res.ok) {
+                    currentTask = await res.json();
+                    renderDetailModal();
+                    refreshTasks();
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function postComment() {
+            if (!currentTask) {
+                console.error("No active task selected");
+                return;
+            }
+            const inputEl = document.getElementById('comment-text-input');
+            const postBtn = document.getElementById('btn-post-comment');
+            const text = inputEl ? inputEl.value.trim() : '';
+            if (!text) {
+                if (inputEl) {
+                    inputEl.focus();
+                    inputEl.classList.add('ring-2', 'ring-rose-500', 'border-rose-400');
+                    setTimeout(() => inputEl.classList.remove('ring-2', 'ring-rose-500', 'border-rose-400'), 2000);
+                }
+                return;
+            }
+            const isInternal = document.getElementById('comment-is-internal')?.checked || false;
+
+            if (postBtn) {
+                postBtn.disabled = true;
+                postBtn.classList.add('opacity-70');
+                postBtn.innerText = 'Posting...';
+            }
+
+            try {
+                const res = await fetch(`/api/tasks/${currentTask.id}/comments`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        authorId: 'usr-admin',
+                        authorName: 'Admin User',
+                        authorRole: 'ADMIN',
+                        authorAvatar: 'AD',
+                        text,
+                        isInternal
+                    })
+                });
+                if (res.ok) {
+                    currentTask = await res.json();
+                    if (inputEl) inputEl.value = '';
+                    renderDetailModal();
+                    refreshTasks();
+                    
+                    // Auto-scroll comments container to newest entry
+                    const commentsBox = document.getElementById('detail-comments-list');
+                    if (commentsBox && commentsBox.lastElementChild) {
+                        commentsBox.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                    showToastNotification(`<strong>Success:</strong> ${isInternal ? 'Internal note' : 'Reply'} posted.`);
+                } else {
+                    const errTxt = await res.text();
+                    console.error("Failed to post comment:", errTxt);
+                    alert("Failed to post comment. Server error.");
+                }
+            } catch (e) {
+                console.error("Error posting comment:", e);
+                alert("Network error while posting comment.");
+            } finally {
+                if (postBtn) {
+                    postBtn.disabled = false;
+                    postBtn.classList.remove('opacity-70');
+                    postBtn.innerHTML = `<i data-lucide="send" class="w-3.5 h-3.5"></i> <span>Post</span>`;
+                    if (window.lucide) window.lucide.createIcons();
+                }
+            }
+        }
+
+        function openCreateTaskModal() {
+            const modal = document.getElementById('create-task-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.firstElementChild.classList.remove('scale-95');
+            }, 10);
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function closeCreateTaskModal() {
+            const modal = document.getElementById('create-task-modal');
+            modal.classList.add('opacity-0');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        async function handleCreateTask(e) {
+            e.preventDefault();
+            const companyName = document.getElementById('new-task-company').value;
+            const title = document.getElementById('new-task-title').value.trim();
+            const category = document.getElementById('new-task-category').value;
+            const priority = document.getElementById('new-task-priority').value;
+            const assigneeId = document.getElementById('new-task-assignee').value;
+            const dueDate = document.getElementById('new-task-duedate').value;
+            const description = document.getElementById('new-task-description').value.trim();
+
+            let assignedTo = null;
+            if (assigneeId === 'usr-admin') {
+                assignedTo = { id: 'usr-admin', name: 'Admin User', role: 'ADMIN', email: 'admin@globalisor.com', avatar: 'AU' };
+            } else if (assigneeId === 'usr-staff') {
+                assignedTo = { id: 'usr-staff', name: 'Sarah Lim', role: 'STAFF', email: 'staff@globalisor.com', avatar: 'SL' };
+            }
+
+            const payload = {
+                companyName,
+                companyId: 'COMP-101',
+                clientId: 'C-1001',
+                clientName: 'Ethan Tan',
+                title,
+                category,
+                type: 'REQUEST',
+                priority,
+                status: assignedTo ? 'ASSIGNED' : 'PENDING',
+                assignedTo,
+                dueDate: dueDate || '2026-09-30',
+                description,
+                createdBy: { id: 'usr-admin', name: 'Admin User', role: 'ADMIN' }
+            };
+
+            try {
+                const res = await fetch('/api/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    closeCreateTaskModal();
+                    document.getElementById('create-task-form').reset();
+                    refreshTasks();
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeDetailModal();
+                closeCreateTaskModal();
+            }
+        });
+    </script>
+</body>
+</html>

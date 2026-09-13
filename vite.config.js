@@ -48,6 +48,7 @@ export default defineConfig(({ mode }) => {
           adminApplications: resolve(__dirname, 'admin/applications.html'),
           adminBlogs: resolve(__dirname, 'admin/blogs.html'),
           adminCompliance: resolve(__dirname, 'admin/compliance.html'),
+          adminTasks: resolve(__dirname, 'admin/tasks.html'),
           adminContent: resolve(__dirname, 'admin/content.html'),
           adminCountries: resolve(__dirname, 'admin/countries.html'),
           adminKyc: resolve(__dirname, 'admin/kyc.html'),

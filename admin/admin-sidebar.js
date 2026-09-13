@@ -153,6 +153,8 @@ function updateActiveSidebarItem(url) {
             activeId = 'nav-compliance';
             activeCatId = 'cat-operations';
             activeSubId = 'sub-operations';
+        } else if (path.includes('tasks.html')) {
+            activeId = 'nav-tasks';
         } else if (path.includes('messages.html')) {
             activeId = 'nav-messages';
         } else if (path.includes('content.html')) {
@@ -225,6 +227,7 @@ function updateActiveSidebarItem(url) {
                 'nav-kyc': 'KYC Review',
                 'nav-onboarding': 'Client Onboarding',
                 'nav-compliance': 'Compliance',
+                'nav-tasks': 'Task & Request Operations',
                 'nav-messages': 'Messages',
                 'nav-content': 'Content',
                 'nav-blogs': 'Blogs',
@@ -468,12 +471,25 @@ document.addEventListener('DOMContentLoaded', () => {
     style.id = 'admin-sidebar-custom-styles';
     style.textContent = `
         #module-switcher {
+            position: fixed !important;
+            top: 60px !important;
+            left: 0 !important;
+            width: 240px !important;
+            height: calc(100vh - 60px) !important;
+            border-right: 1px solid #e2e8f0 !important;
+            border-top: none !important;
+            border-left: none !important;
+            border-bottom: none !important;
+            border-radius: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
             padding: 1.25rem 0.75rem !important;
             gap: 0.25rem !important;
-            background: #f8fafc !important;
+            background: #ffffff !important;
             overflow-y: auto;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
             box-sizing: border-box !important;
+            z-index: 9998 !important;
         }
         
         .main-container {
@@ -879,6 +895,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span>Messages</span>
                 <span id="admin-messages-unread-badge" class="ml-auto px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-600 text-white leading-none hidden">0</span>
             </a>
+
+            <!-- Tasks & Requests (Direct Link) -->
+            <a href="tasks.html" class="direct-link-btn" id="nav-tasks" data-tooltip="Tasks & Requests">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/></svg>
+                <span>Tasks</span>
+            </a>
             
             <div class="h-[1px] bg-slate-200/60 my-1 shrink-0"></div>
             
@@ -906,11 +928,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span>Client Onboarding</span>
                         </a>
                         <a href="compliance.html" class="submenu-item" id="nav-compliance" data-tooltip="Compliance">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="m16 16 3-8 3 8c-.87.65-2.24.83-3 .83s-2.13-.18-3-.83Z"/><path d="m2 16 3-8 3 8c-.87.65-2.24.83-3 .83s-2.13-.18-3-.83Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="m16 16 3-8 3 8c-.87.65-2.24.83-3 .83s-2.13-.18-3-.83Z"/><path d="m2 16 3-8 3 8c-.87.65-2.24.83-3 .83s-2.13-.18-3-.83Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h18"/></svg>
                             <span>Compliance</span>
                         </a>
                     </div>
-
                 </div>
             </div>
             

@@ -34,6 +34,249 @@ const getDb = () => {
     if (!db.groups) db.groups = [];
     if (!db.requirements) db.requirements = [];
     if (!db.onboarding) db.onboarding = [];
+    if (!db.tasks) {
+        db.tasks = [
+            {
+                id: "tsk-1001",
+                ticketNumber: "TSK-1001",
+                clientId: "C-1001",
+                clientName: "Ethan Tan",
+                clientEmail: "ethan.tan@lionpath.com",
+                companyId: "COMP-101",
+                companyName: "LionPath Technologies Pte. Ltd.",
+                title: "Change Registered Office Address to Marina Bay",
+                description: "We are relocating our corporate office from Tanjong Pagar to Marina Bay Financial Centre Tower 1, Level 28. Please prepare ACRA Form 45 and lodgement.",
+                type: "CHANGE",
+                category: "Registered Address Change",
+                priority: "HIGH",
+                status: "IN_PROGRESS",
+                assignedTo: {
+                    id: "usr-staff",
+                    name: "Sarah Lim",
+                    email: "staff@globalisor.com",
+                    role: "STAFF",
+                    avatar: "SL"
+                },
+                createdBy: {
+                    id: "C-1001",
+                    name: "Ethan Tan",
+                    role: "CLIENT"
+                },
+                attachments: [
+                    {
+                        id: "att-1",
+                        name: "Tenancy_Agreement_MBFC.pdf",
+                        url: "#",
+                        type: "application/pdf",
+                        size: 2450000,
+                        uploadedAt: 1714550000000
+                    }
+                ],
+                comments: [
+                    {
+                        id: "cmt-1",
+                        authorId: "C-1001",
+                        authorName: "Ethan Tan",
+                        authorRole: "CLIENT",
+                        text: "Hi Globalisor team, tenancy starts next month. Can we file before 1st of the month?",
+                        isInternal: false,
+                        attachments: [],
+                        timestamp: 1714550100000
+                    },
+                    {
+                        id: "cmt-2",
+                        authorId: "usr-staff",
+                        authorName: "Sarah Lim",
+                        authorRole: "STAFF",
+                        text: "Noted with thanks Ethan. We have drafted the board resolution and will send it for digital signing shortly.",
+                        isInternal: false,
+                        attachments: [],
+                        timestamp: 1714553700000
+                    }
+                ],
+                activityLog: [
+                    {
+                        id: "act-1",
+                        action: "CREATED",
+                        details: "Task created by Ethan Tan",
+                        performedBy: "Ethan Tan",
+                        performedByRole: "CLIENT",
+                        timestamp: 1714550000000
+                    },
+                    {
+                        id: "act-2",
+                        action: "ASSIGNED",
+                        details: "Task assigned to Sarah Lim (STAFF)",
+                        performedBy: "Admin User",
+                        performedByRole: "ADMIN",
+                        timestamp: 1714551000000
+                    },
+                    {
+                        id: "act-3",
+                        action: "STATUS_CHANGED",
+                        details: "Status changed from PENDING to IN_PROGRESS",
+                        performedBy: "Sarah Lim",
+                        performedByRole: "STAFF",
+                        timestamp: 1714553600000
+                    }
+                ],
+                dueDate: "2026-09-20",
+                slaHours: 24,
+                createdAt: 1714550000000,
+                updatedAt: 1714553700000
+            },
+            {
+                id: "tsk-1002",
+                ticketNumber: "TSK-1002",
+                clientId: "C-1002",
+                clientName: "Priya Sharma",
+                clientEmail: "priya.s@merlion.com",
+                companyId: "COMP-102",
+                companyName: "Merlion Ventures Pte. Ltd.",
+                title: "Corporate Income Tax (Form C-S) Estimation Query",
+                description: "We would like to clarify if our recent cross-border SaaS subscription revenues qualify for Singapore tax exemption under the startup scheme.",
+                type: "QUERY",
+                category: "Tax & Accounting",
+                priority: "MEDIUM",
+                status: "ASSIGNED",
+                assignedTo: {
+                    id: "usr-admin",
+                    name: "Admin User",
+                    email: "admin@globalisor.com",
+                    role: "ADMIN",
+                    avatar: "AU"
+                },
+                createdBy: {
+                    id: "C-1002",
+                    name: "Priya Sharma",
+                    role: "CLIENT"
+                },
+                attachments: [],
+                comments: [],
+                activityLog: [
+                    {
+                        id: "act-4",
+                        action: "CREATED",
+                        details: "Task created by Priya Sharma",
+                        performedBy: "Priya Sharma",
+                        performedByRole: "CLIENT",
+                        timestamp: 1714600000000
+                    },
+                    {
+                        id: "act-5",
+                        action: "ASSIGNED",
+                        details: "Task assigned directly to Admin User",
+                        performedBy: "Admin User",
+                        performedByRole: "ADMIN",
+                        timestamp: 1714601000000
+                    }
+                ],
+                dueDate: "2026-09-25",
+                slaHours: 48,
+                createdAt: 1714600000000,
+                updatedAt: 1714601000000
+            },
+            {
+                id: "tsk-1003",
+                ticketNumber: "TSK-1003",
+                clientId: "C-1007",
+                clientName: "Ravi Kumar",
+                clientEmail: "ravi.k@harbouredge.com",
+                companyId: "COMP-103",
+                companyName: "HarbourEdge Logistics Pte. Ltd.",
+                title: "Appointment of Additional Resident Director",
+                description: "Urgent request: We are onboarding a new local resident director Mr. Dennis Wong. Need draft consent to act Form 45 and register with ACRA.",
+                type: "REQUEST",
+                category: "Director / Shareholder Change",
+                priority: "URGENT",
+                status: "PENDING",
+                assignedTo: null,
+                createdBy: {
+                    id: "C-1007",
+                    name: "Ravi Kumar",
+                    role: "CLIENT"
+                },
+                attachments: [
+                    {
+                        id: "att-2",
+                        name: "Dennis_Wong_NRIC_Passport.pdf",
+                        url: "#",
+                        type: "application/pdf",
+                        size: 1820000,
+                        uploadedAt: 1714650000000
+                    }
+                ],
+                comments: [],
+                activityLog: [
+                    {
+                        id: "act-6",
+                        action: "CREATED",
+                        details: "Task created by Ravi Kumar",
+                        performedBy: "Ravi Kumar",
+                        performedByRole: "CLIENT",
+                        timestamp: 1714650000000
+                    }
+                ],
+                dueDate: "2026-09-15",
+                slaHours: 12,
+                createdAt: 1714650000000,
+                updatedAt: 1714650000000
+            },
+            {
+                id: "tsk-1004",
+                ticketNumber: "TSK-1004",
+                clientId: "C-1001",
+                clientName: "Ethan Tan",
+                clientEmail: "ethan.tan@lionpath.com",
+                companyId: "COMP-101",
+                companyName: "LionPath Technologies Pte. Ltd.",
+                title: "Allotment of 50,000 Ordinary Shares to Seed Investor",
+                description: "Please issue and lodge 50,000 new ordinary shares at SGD 1.00 per share to Nexus Ventures.",
+                type: "CHANGE",
+                category: "Share Capital & Allotment",
+                priority: "MEDIUM",
+                status: "COMPLETED",
+                assignedTo: {
+                    id: "usr-staff",
+                    name: "Sarah Lim",
+                    email: "staff@globalisor.com",
+                    role: "STAFF",
+                    avatar: "SL"
+                },
+                createdBy: {
+                    id: "C-1001",
+                    name: "Ethan Tan",
+                    role: "CLIENT"
+                },
+                attachments: [],
+                comments: [],
+                activityLog: [
+                    {
+                        id: "act-7",
+                        action: "CREATED",
+                        details: "Task created",
+                        performedBy: "Ethan Tan",
+                        performedByRole: "CLIENT",
+                        timestamp: 1714400000000
+                    },
+                    {
+                        id: "act-8",
+                        action: "STATUS_CHANGED",
+                        details: "Status changed to COMPLETED. Lodgement reference ACRA-2026-98124",
+                        performedBy: "Sarah Lim",
+                        performedByRole: "STAFF",
+                        timestamp: 1714480000000
+                    }
+                ],
+                dueDate: "2026-09-10",
+                slaHours: 48,
+                resolutionNotes: "ACRA Return of Allotment successfully lodged. Updated Electronic Register of Members (EROM) provided to client.",
+                createdAt: 1714400000000,
+                updatedAt: 1714480000000,
+                resolvedAt: 1714480000000
+            }
+        ];
+    }
     if (!db.users) {
         db.users = [
             {
@@ -3087,6 +3330,344 @@ app.get('/api/admin/clients', (req, res) => {
 
     res.json(clientList);
 });
+
+// ==================== TASK MANAGEMENT API ====================
+
+app.get('/api/tasks/stats', (req, res) => {
+    const db = getDb();
+    const tasks = db.tasks || [];
+    const total = tasks.length;
+    const pending = tasks.filter(t => (t.status || '').toUpperCase() === 'PENDING').length;
+    const assigned = tasks.filter(t => (t.status || '').toUpperCase() === 'ASSIGNED').length;
+    const inProgress = tasks.filter(t => (t.status || '').toUpperCase() === 'IN_PROGRESS').length;
+    const waitingClient = tasks.filter(t => (t.status || '').toUpperCase() === 'WAITING_CLIENT_INPUT').length;
+    const completed = tasks.filter(t => ['COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase())).length;
+    const urgent = tasks.filter(t => (t.priority || '').toUpperCase() === 'URGENT' && !['COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase())).length;
+    const unassigned = tasks.filter(t => !t.assignedTo || !t.assignedTo.id).length;
+
+    res.json({
+        total,
+        pending,
+        assigned,
+        inProgress,
+        waitingClient,
+        completed,
+        urgent,
+        unassigned
+    });
+});
+
+app.get('/api/tasks', (req, res) => {
+    const db = getDb();
+    let tasks = db.tasks || [];
+    const { status, priority, category, clientId, assignedToId, search } = req.query;
+
+    if (status && status !== 'ALL') {
+        tasks = tasks.filter(t => (t.status || '').toUpperCase() === status.toUpperCase());
+    }
+    if (priority && priority !== 'ALL') {
+        tasks = tasks.filter(t => (t.priority || '').toUpperCase() === priority.toUpperCase());
+    }
+    if (category && category !== 'ALL') {
+        tasks = tasks.filter(t => (t.category || '').toLowerCase() === category.toLowerCase());
+    }
+    if (clientId) {
+        tasks = tasks.filter(t => t.clientId === clientId);
+    }
+    if (assignedToId) {
+        if (assignedToId === 'UNASSIGNED') {
+            tasks = tasks.filter(t => !t.assignedTo || !t.assignedTo.id);
+        } else {
+            tasks = tasks.filter(t => t.assignedTo && t.assignedTo.id === assignedToId);
+        }
+    }
+    if (search) {
+        const q = search.toLowerCase();
+        tasks = tasks.filter(t => 
+            (t.title && t.title.toLowerCase().includes(q)) ||
+            (t.ticketNumber && t.ticketNumber.toLowerCase().includes(q)) ||
+            (t.companyName && t.companyName.toLowerCase().includes(q)) ||
+            (t.clientName && t.clientName.toLowerCase().includes(q)) ||
+            (t.description && t.description.toLowerCase().includes(q))
+        );
+    }
+
+    // Sort newest first
+    tasks.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    res.json(tasks);
+});
+
+app.get('/api/tasks/:id', (req, res) => {
+    const db = getDb();
+    const task = (db.tasks || []).find(t => t.id === req.params.id || t.ticketNumber === req.params.id);
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    res.json(task);
+});
+
+app.post('/api/tasks', (req, res) => {
+    const db = getDb();
+    if (!db.tasks) db.tasks = [];
+
+    const now = Date.now();
+    const taskCount = db.tasks.length;
+    const ticketNumber = req.body.ticketNumber || `TSK-${1000 + taskCount + 1}`;
+    
+    const newTask = {
+        id: `tsk-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        ticketNumber,
+        clientId: req.body.clientId || 'C-1001',
+        clientName: req.body.clientName || 'Client User',
+        clientEmail: req.body.clientEmail || 'client@globalisor.com',
+        companyId: req.body.companyId || 'COMP-101',
+        companyName: req.body.companyName || 'Globalisor Entity Pte. Ltd.',
+        title: req.body.title || 'Untitled Request',
+        description: req.body.description || '',
+        type: req.body.type || 'REQUEST', // REQUEST, CHANGE, QUERY, COMPLIANCE, GENERAL
+        category: req.body.category || 'General Operations',
+        priority: req.body.priority || 'MEDIUM', // LOW, MEDIUM, HIGH, URGENT
+        status: req.body.status || 'PENDING',
+        assignedTo: req.body.assignedTo || null,
+        createdBy: req.body.createdBy || {
+            id: req.body.clientId || 'C-1001',
+            name: req.body.clientName || 'Client User',
+            role: 'CLIENT'
+        },
+        attachments: req.body.attachments || [],
+        comments: req.body.comments || [],
+        activityLog: [
+            {
+                id: `act-${Date.now()}`,
+                action: 'CREATED',
+                details: `Task raised: ${req.body.title || 'Untitled Request'}`,
+                performedBy: req.body.clientName || 'Client User',
+                performedByRole: req.body.createdBy?.role || 'CLIENT',
+                timestamp: now
+            }
+        ],
+        dueDate: req.body.dueDate || '',
+        slaHours: req.body.slaHours || 24,
+        createdAt: now,
+        updatedAt: now
+    };
+
+    db.tasks.unshift(newTask);
+
+    // Auto-generate notification
+    if (!db.notifications) db.notifications = [];
+    db.notifications.unshift({
+        id: `notif-${Date.now()}`,
+        clientId: newTask.clientId,
+        title: `Task Raised: ${newTask.ticketNumber}`,
+        message: `Your request '${newTask.title}' has been submitted and is currently being routed.`,
+        type: 'TASK_CREATED',
+        relatedId: newTask.id,
+        link: '/client/portal.html?tab=tasks',
+        priority: 'Info',
+        timestamp: now,
+        readBy: []
+    });
+
+    saveDb(db);
+    res.status(201).json(newTask);
+});
+
+app.put('/api/tasks/:id/assign', (req, res) => {
+    const db = getDb();
+    const taskIndex = (db.tasks || []).findIndex(t => t.id === req.params.id || t.ticketNumber === req.params.id);
+    if (taskIndex === -1) return res.status(404).json({ error: 'Task not found' });
+
+    const task = db.tasks[taskIndex];
+    const now = Date.now();
+    const { assignee, performedBy, performedByRole } = req.body;
+
+    task.assignedTo = assignee || null;
+    if (task.status === 'PENDING' && assignee) {
+        task.status = 'ASSIGNED';
+    }
+    task.updatedAt = now;
+
+    const details = assignee && assignee.name 
+        ? `Task assigned to ${assignee.name} (${assignee.role || 'STAFF'})`
+        : `Task unassigned`;
+
+    task.activityLog.push({
+        id: `act-${Date.now()}`,
+        action: 'ASSIGNED',
+        details,
+        performedBy: performedBy || 'Admin User',
+        performedByRole: performedByRole || 'ADMIN',
+        timestamp: now
+    });
+
+    // Notify client and assigned staff
+    if (!db.notifications) db.notifications = [];
+    if (assignee && assignee.id) {
+        db.notifications.unshift({
+            id: `notif-${Date.now()}-1`,
+            clientId: assignee.id,
+            title: `Assigned Task: ${task.ticketNumber}`,
+            message: `You have been assigned to handle: ${task.title}`,
+            type: 'TASK_ASSIGNED',
+            relatedId: task.id,
+            link: '/staff/dashboard.html?tab=tasks',
+            priority: 'Warning',
+            timestamp: now,
+            readBy: []
+        });
+    }
+
+    if (task.clientId && assignee) {
+        db.notifications.unshift({
+            id: `notif-${Date.now()}-2`,
+            clientId: task.clientId,
+            title: `Task Assigned: ${task.ticketNumber}`,
+            message: `Your request is assigned to specialist ${assignee.name}.`,
+            type: 'TASK_STATUS',
+            relatedId: task.id,
+            link: '/client/portal.html?tab=tasks',
+            priority: 'Info',
+            timestamp: now,
+            readBy: []
+        });
+    }
+
+    saveDb(db);
+    res.json(task);
+});
+
+app.put('/api/tasks/:id/status', (req, res) => {
+    const db = getDb();
+    const taskIndex = (db.tasks || []).findIndex(t => t.id === req.params.id || t.ticketNumber === req.params.id);
+    if (taskIndex === -1) return res.status(404).json({ error: 'Task not found' });
+
+    const task = db.tasks[taskIndex];
+    const now = Date.now();
+    const { status, resolutionNotes, performedBy, performedByRole } = req.body;
+    const oldStatus = task.status;
+
+    task.status = status || task.status;
+    task.updatedAt = now;
+
+    if (['COMPLETED', 'RESOLVED'].includes(task.status.toUpperCase())) {
+        task.resolvedAt = now;
+        if (resolutionNotes) task.resolutionNotes = resolutionNotes;
+    }
+
+    task.activityLog.push({
+        id: `act-${Date.now()}`,
+        action: 'STATUS_CHANGED',
+        details: `Status changed from ${oldStatus} to ${task.status}${resolutionNotes ? '. Notes: ' + resolutionNotes : ''}`,
+        performedBy: performedBy || 'Staff User',
+        performedByRole: performedByRole || 'STAFF',
+        timestamp: now
+    });
+
+    // Notify client
+    if (!db.notifications) db.notifications = [];
+    if (task.clientId) {
+        db.notifications.unshift({
+            id: `notif-${Date.now()}`,
+            clientId: task.clientId,
+            title: `Task Status: ${task.ticketNumber}`,
+            message: `Status of '${task.title}' updated to ${task.status}.`,
+            type: 'TASK_STATUS',
+            relatedId: task.id,
+            link: '/client/portal.html?tab=tasks',
+            priority: ['COMPLETED', 'RESOLVED'].includes(task.status.toUpperCase()) ? 'Info' : 'Warning',
+            timestamp: now,
+            readBy: []
+        });
+    }
+
+    saveDb(db);
+    res.json(task);
+});
+
+app.post('/api/tasks/:id/comments', (req, res) => {
+    const db = getDb();
+    const taskIndex = (db.tasks || []).findIndex(t => t.id === req.params.id || t.ticketNumber === req.params.id);
+    if (taskIndex === -1) return res.status(404).json({ error: 'Task not found' });
+
+    const task = db.tasks[taskIndex];
+    const now = Date.now();
+    const { authorId, authorName, authorRole, authorAvatar, text, isInternal, attachments } = req.body;
+
+    const newComment = {
+        id: `cmt-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        authorId: authorId || 'usr-user',
+        authorName: authorName || 'User',
+        authorRole: authorRole || 'STAFF',
+        authorAvatar: authorAvatar || 'U',
+        text: text || '',
+        isInternal: !!isInternal,
+        attachments: attachments || [],
+        timestamp: now
+    };
+
+    if (!task.comments) task.comments = [];
+    task.comments.push(newComment);
+    task.updatedAt = now;
+
+    if (authorRole === 'CLIENT' && task.status === 'WAITING_CLIENT_INPUT') {
+        task.status = 'IN_PROGRESS';
+    }
+
+    task.activityLog.push({
+        id: `act-${Date.now()}`,
+        action: 'COMMENTED',
+        details: `${isInternal ? '[Internal Note] ' : ''}${authorName || 'User'} replied: "${(text || '').slice(0, 40)}..."`,
+        performedBy: authorName || 'User',
+        performedByRole: authorRole || 'STAFF',
+        timestamp: now
+    });
+
+    // Notify recipient if not internal
+    if (!isInternal) {
+        if (!db.notifications) db.notifications = [];
+        if (authorRole === 'CLIENT' && task.assignedTo && task.assignedTo.id) {
+            db.notifications.unshift({
+                id: `notif-${Date.now()}`,
+                clientId: task.assignedTo.id,
+                title: `Client Message on ${task.ticketNumber}`,
+                message: `${authorName}: ${text}`,
+                type: 'TASK_COMMENT',
+                relatedId: task.id,
+                link: '/staff/dashboard.html?tab=tasks',
+                priority: 'Info',
+                timestamp: now,
+                readBy: []
+            });
+        } else if (authorRole !== 'CLIENT' && task.clientId) {
+            db.notifications.unshift({
+                id: `notif-${Date.now()}`,
+                clientId: task.clientId,
+                title: `Update on ${task.ticketNumber}`,
+                message: `${authorName} replied to your task.`,
+                type: 'TASK_COMMENT',
+                relatedId: task.id,
+                link: '/client/portal.html?tab=tasks',
+                priority: 'Info',
+                timestamp: now,
+                readBy: []
+            });
+        }
+    }
+
+    saveDb(db);
+    res.status(201).json(task);
+});
+
+app.delete('/api/tasks/:id', (req, res) => {
+    const db = getDb();
+    const taskIndex = (db.tasks || []).findIndex(t => t.id === req.params.id || t.ticketNumber === req.params.id);
+    if (taskIndex === -1) return res.status(404).json({ error: 'Task not found' });
+
+    db.tasks.splice(taskIndex, 1);
+    saveDb(db);
+    res.json({ success: true, message: 'Task deleted' });
+});
+
+// =============================================================
 
 app.get(/^\/admin(\/.*)?$/, (req, res) => {
     res.sendFile(path.join(__dirname, 'admin', 'dashboard.html'));

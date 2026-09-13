@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Globalisor | Professional Corporate Services & Compliance</title>
+    <meta name="description" content="Precision-driven global corporate services, company incorporation, and compliance platform.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        outfit: ['Outfit', 'sans-serif'],
+                        sans: ['"Plus Jakarta Sans"', 'Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            500: '#14b8a6',
+                            600: '#298486',
+                            700: '#1f6668',
+                            800: '#134e48',
+                            900: '#042f2e',
+                        },
+                        accent: {
+                            blue: '#2563eb',
+                            orange: '#f15a24',
+                            pink: '#d97298'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Lucide Icons & D3.js for 3D Globe -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/topojson@3"></script>
+
+    <style>
+        :root {
+            --bg-gradient: radial-gradient(circle at 50% 0%, rgba(240, 249, 255, 0.9) 0%, rgba(224, 242, 254, 0.6) 35%, rgba(248, 250, 252, 1) 100%);
+            --font-outfit: 'Outfit', sans-serif;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: #0f172a;
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism Classes */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .glass-card:hover {
+            transform: translateY(-4px);
+            background: rgba(255, 255, 255, 0.98);
+            border-color: rgba(37, 99, 235, 0.3);
+            box-shadow: 0 20px 35px -10px rgba(37, 99, 235, 0.12);
+        }
+
+        /* Ambient Glow & Floating Particles */
+        .ambient-glow {
+            position: absolute;
+            border-radius: 9999px;
+            filter: blur(80px);
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.5;
+        }
+
+        /* Animated Grid Pattern */
+        .bg-grid-pattern {
+            background-size: 40px 40px;
+            background-image: 
+                linear-gradient(to right, rgba(148, 163, 184, 0.12) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+        }
+
+        /* Typewriter Cursor */
+        .cursor-blink {
+            display: inline-block;
+            animation: blink 1s infinite;
+            color: #2563eb;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        /* Custom Country Chip */
+        .country-chip {
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .country-chip:hover, .country-chip.active {
+            transform: translateY(-2px);
+            border-color: #2563eb;
+            background: #ffffff;
+            box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.15);
+        }
+
+        .country-chip.active .chip-icon-box {
+            background: #2563eb;
+            color: #ffffff;
+        }
+
+        /* Service Cards */
+        .service-icon-box {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .service-card-item:hover .service-icon-box {
+            transform: scale(1.08) rotate(3deg);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col">
+
+    <!-- NAVBAR -->
+    <header class="sticky top-0 z-50 glass-panel border-b border-slate-200/60 transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            <!-- Brand Logo -->
+            <a href="#" class="flex items-center gap-3 group">
+                <svg width="180" height="38" viewBox="0 0 280 60" fill="none" xmlns="http://www.w3.org/2000/svg" class="transition-transform group-hover:scale-[1.02]">
+                    <circle cx="30" cy="30" r="16" fill="#298486" />
+                    <path d="M30 14C21.1634 14 14 21.1634 14 30C14 38.8366 21.1634 46 30 46C38.8366 46 46 38.8366 46 30C46 21.1634 38.8366 14 30 14Z" fill="#36A9AD" />
+                    <path d="M30 14V46C38.8366 46 46 38.8366 46 30C46 21.1634 38.8366 14 30 14Z" fill="#58CED1" fill-opacity="0.5" />
+                    <rect x="29" y="4" width="2" height="6" rx="1" fill="#E8743B" />
+                    <circle cx="30" cy="4" r="3" fill="#F15A24" />
+                    <line x1="42" y1="18" x2="48" y2="12" stroke="#D97298" stroke-width="2.5" stroke-linecap="round" />
+                    <circle cx="48" cy="12" r="3" fill="#D97298" />
+                    <rect x="50" y="29" width="6" height="2" rx="1" fill="#E8743B" />
+                    <circle cx="56" cy="30" r="3" fill="#F15A24" />
+                    <line x1="42" y1="42" x2="48" y2="48" stroke="#D97298" stroke-width="2.5" stroke-linecap="round" />
+                    <circle cx="48" cy="48" r="3" fill="#D97298" />
+                    <rect x="29" y="50" width="2" height="6" rx="1" fill="#E8743B" />
+                    <circle cx="30" cy="56" r="3" fill="#F15A24" />
+                    <text x="75" y="43" font-family="Outfit" font-size="36" font-weight="700" fill="#298486" style="letter-spacing: -0.02em;">Globalisor</text>
+                </svg>
+            </a>
+
+            <!-- Navigation Links -->
+            <nav class="hidden md:flex items-center gap-8">
+                <a href="#worldwide-presence" class="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">Global Hubs</a>
+                <a href="#services" class="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">Services</a>
+                <a href="#benefits" class="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">Why Us</a>
+                <a href="#pulse" class="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">Corporate Pulse</a>
+            </nav>
+
+            <!-- CTA Actions -->
+            <div class="flex items-center gap-4">
+                <a href="#worldwide-presence" class="hidden sm:inline-flex items-center justify-center px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-900 text-white hover:bg-blue-600 transition-all duration-300 shadow-md hover:shadow-blue-500/20">
+                    Incorporate Now
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow">
+        <!-- HERO SECTION -->
+        <section class="relative pt-20 pb-28 md:pt-28 md:pb-36 overflow-hidden">
+            <!-- Background Gradients -->
+            <div class="ambient-glow w-96 h-96 bg-blue-300/40 top-10 left-1/4"></div>
+            <div class="ambient-glow w-96 h-96 bg-teal-200/40 top-20 right-1/4"></div>
+            <div class="absolute inset-0 bg-grid-pattern opacity-40 pointer-events-none"></div>
+
+            <div class="max-w-5xl mx-auto px-6 text-center relative z-10">
+                <!-- Badge -->
+                <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/80 border border-slate-200 shadow-sm mb-8 animate-bounce" style="animation-duration: 3s;">
+                    <span class="text-xs">✨</span>
+                    <span class="text-xs font-bold font-outfit uppercase tracking-widest text-slate-700">Digital First Compliance & Incorporation</span>
+                </div>
+
+                <!-- Main Heading with Typewriter -->
+                <h1 class="text-5xl sm:text-6xl md:text-7xl font-extrabold font-outfit tracking-tight text-slate-950 mb-6 leading-[1.1]">
+                    Go <span id="typewriter-text" class="text-blue-600">Global.</span><span class="cursor-blink">|</span>
+                </h1>
+
+                <!-- Subtitle -->
+                <p class="text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto mb-10 leading-relaxed font-normal">
+                    New generation corporate advisory and accounting firm. We bridge the gap between traditional cross-border compliance and modern digital business.
+                </p>
+
+                <!-- Hero Buttons -->
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <a href="#worldwide-presence" class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-slate-950 hover:bg-blue-600 text-white font-bold text-sm tracking-wider uppercase transition-all duration-300 shadow-lg shadow-slate-900/10 flex items-center justify-center gap-2 group">
+                        <span>Get Started</span>
+                        <svg class="w-4 h-4 transition-transform group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    </a>
+                    <a href="#services" class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 font-bold text-sm tracking-wider uppercase transition-all duration-300 shadow-sm flex items-center justify-center gap-2">
+                        <span>Explore Services</span>
+                    </a>
+                </div>
+
+                <!-- Stats ribbon -->
+                <div class="mt-16 pt-10 border-t border-slate-200/80 grid grid-cols-2 md:grid-cols-4 gap-6 text-left">
+                    <div class="p-4 rounded-2xl bg-white/40 border border-white/60">
+                        <div class="text-3xl font-extrabold font-outfit text-slate-900">100%</div>
+                        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1">Digital Paperless Filing</div>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-white/40 border border-white/60">
+                        <div class="text-3xl font-extrabold font-outfit text-slate-900">24h</div>
+                        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1">Express Fast-Track Setup</div>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-white/40 border border-white/60">
+                        <div class="text-3xl font-extrabold font-outfit text-slate-900">6+</div>
+                        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1">Key Global Jurisdictions</div>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-white/40 border border-white/60">
+                        <div class="text-3xl font-extrabold font-outfit text-slate-900">99.8%</div>
+                        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1">Statutory Compliance Rate</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- WORLDWIDE PRESENCE (3D INTERACTIVE GLOBE SECTION) -->
+        <section id="worldwide-presence" class="py-24 bg-gradient-to-b from-blue-50/40 via-white to-white relative overflow-hidden">
+            <div class="max-w-7xl mx-auto px-6 relative z-10">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+                    
+                    <!-- Left: Interactive 3D Globe -->
+                    <div class="lg:col-span-5 flex flex-col items-center">
+                        <div class="relative w-full aspect-square max-w-[440px] mx-auto rounded-full overflow-hidden border border-slate-200/80 bg-white/60 shadow-2xl shadow-blue-500/5 group backdrop-blur-md">
+                            <canvas id="globe-canvas" class="w-full h-full block cursor-grab active:cursor-grabbing"></canvas>
+                            
+                            <!-- Globe overlay sphere depth effect -->
+                            <div class="absolute inset-0 rounded-full pointer-events-none shadow-[inset_-25px_-25px_50px_rgba(0,0,0,0.35),_inset_15px_15px_30px_rgba(255,255,255,0.7)]"></div>
+
+                            <!-- Interactive Country Floating Badge -->
+                            <div id="map-caption" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md border border-slate-200 px-6 py-2.5 rounded-full text-center shadow-lg transition-all duration-300 opacity-0 translate-y-3 pointer-events-none">
+                                <span class="text-sm font-bold font-outfit text-slate-900 tracking-wider flex items-center gap-2" id="map-caption-text">
+                                    <span class="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
+                                    Singapore
+                                </span>
+                            </div>
+                        </div>
+                        <p class="text-xs font-medium text-slate-400 mt-4 flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5 text-blue-500 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg> Hover over country hubs to rotate globe
+                        </p>
+                    </div>
+
+                    <!-- Right: Country Cards Grid -->
+                    <div class="lg:col-span-7">
+                        <div class="mb-8">
+                            <span class="text-xs font-bold text-blue-600 uppercase tracking-widest font-outfit mb-2 block">Global Network</span>
+                            <h2 class="text-3xl sm:text-4xl md:text-5xl font-extrabold font-outfit tracking-tight text-slate-900 leading-tight">
+                                Worldwide Presence & Multi-Jurisdiction Hubs
+                            </h2>
+                            <p class="text-slate-500 text-base mt-3 max-w-xl">
+                                Select your preferred target jurisdiction to review statutory registration formats, tax benefits, and compliance requirements.
+                            </p>
+                        </div>
+
+                        <!-- Dynamic Country Grid -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5" id="country-chips-list">
+                            <!-- Country Cards injected via JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- CORE SERVICES SECTION -->
+        <section id="services" class="py-24 bg-slate-50/60 relative overflow-hidden">
+            <div class="max-w-7xl mx-auto px-6 relative z-10">
+                <div class="text-center max-w-3xl mx-auto mb-16">
+                    <span class="text-xs font-bold text-blue-600 uppercase tracking-widest font-outfit mb-2 block">Full-Spectrum Suite</span>
+                    <h2 class="text-3xl sm:text-4xl md:text-5xl font-extrabold font-outfit tracking-tight text-slate-900">
+                        Our Corporate Services
+                    </h2>
+                    <p class="text-slate-500 text-base sm:text-lg mt-3">
+                        Comprehensive compliance, tax optimization, and statutory governance designed for founders and modern enterprises.
+                    </p>
+                </div>
+
+                <!-- Services Grid (9 Services) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    
+                    <!-- 1. Local Incorporation -->
+                    <div class="service-card-item glass-card p-7 rounded-3xl flex flex-col justify-between">
+                        <div>
+                            <div class="service-icon-box bg-blue-50 text-blue-600 mb-5">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+                                    <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/>
+                                    <path d="M6 12H4a2 2 0 0 0-2 2v8"/>
+                                    <path d="M18 16h2a2 2 0 0 1 2 2v4"/>
+                                    <path d="M10 6h4M10 10h4M10 14h4M10 18h4"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-bold font-outfit text-slate-900 mb-2">Local Incorporation</h3>
+                            <p class="text-slate-600 text-sm leading-relaxed">
+                                Fast-track entity setup for local citizens & PRs, full ACRA compliance filings, constitution setup, and official UEN issuance.
+                            </p>
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-blue-600">
+                            <span>Same-Day Processing</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+                        </div>
+                    </div>
+
+                    <!-- 2. Foreign Incorporation -->
+                    <div class="service-card-item glass-card p-7 rounded-3xl flex flex-col justify-between">
+                        <div>
+                            <div class="service-icon-box bg-indigo-50 text-indigo-600 mb-5">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+                                    <path d="M2 12h20"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-bold font-outfit text-slate-900 mb-2">Foreign Incorporation</h3>
+                            <p class="text-slate-600 text-sm leading-relaxed">
+                                Specialized cross-border structure registration tailored for international founders, offshore entities, and remote business owners.
+                            </p>
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-indigo-600">
+                            <span>100% Remote Setup</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+                        </div>
+                    </div>
+
+                    <!-- 3. Nominee Director -->
+                    <div class="service-card-item glass-card p-7 rounded-3xl flex flex-col justify-between">
+                        <div>
+                            <div class="service-icon-box bg-emerald-50 text-emerald-600 mb-5">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+                                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                    <circle cx="8.5" cy="7" r="4"/>
+                                    <path d="M22 10c0 4-3 7-6 9-3-2-6-5-6-9V6l6-2 6 2v4Z"/>
+                                    <polyline points="14 10 15.5 11.5 18.5 8.5"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-bold font-outfit text-slate-900 mb-2">Nominee Director</h3>
+                            <p class="text-slate-600 text-sm leading-relaxed">
+                                Fulfill statutory local resident director requirements with certified, highly-vetted professional nominee services.
+                            </p>
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-emerald-600">
+                            <span>Fully Indemnified</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+                        </div>
+                    </div>
+
+                    <!-- 4. Work Visa & Employment Pass -->
+                    <div class="service-card-item glass-card p-7 rounded-3xl flex flex-col justify-between">
+                        <div>
+                            <div class="service-icon-box bg-purple-50 text-purple-600 mb-5">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+                                    <path d="M14 6V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2"/>
+                                    <rect width="14" height="11" x="2" y="6" rx="2"/>
+                                    <circle cx="18" cy="13" r="3"/>
+                                    <path d="M14 20v-1a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-bold font-outfit text-slate-900 mb-2">Work Visa & EP</h3>
+                            <p class="text-slate-600 text-sm leading-relaxed">
+                                End-to-end management of Employment Pass (EP), S Pass, and Dependant's Pass applications with the Ministry of Manpower.
+                            </p>
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-purple-600">
+                            <span>COMPASS Advisory</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+                        </div>
+                    </div>
+
+                    <!-- 5. Accounting & Bookkeeping -->
+                    <div class="service-card-item glass-card p-7 rounded-3xl flex flex-col justify-between">
+                        <div>
+                            <div class="service-icon-box bg-amber-50 text-amber-600 mb-5">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+                                    <rect width="13" height="18" x="2" y="3" rx="2"/>
+                                    <line x1="5" y1="7" x2="12" y2="7"/>
+                                    <rect x="5" y="11" width="2" height="2" rx="0.5"/>
+                                    <rect x="9" y="11" width="2" height="2" rx="0.5"/>
+                                    <rect x="5" y="15" width="2" height="2" rx="0.5"/>
+                                    <circle cx="18" cy="16" r="5" fill="none"/>
+                                    <path d="M18 13.5v5"/>
+                                    <path d="M16.5 14.5h2a1 1 0 0 1 1 1v0a1 1 0 0 1-1 1h-1a1 1 0 0 0-1 1v0a1 1 0 0 0 1 1h2"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-bold font-outfit text-slate-900 mb-2">Accounting & Bookkeeping</h3>
+                            <p class="text-slate-600 text-sm leading-relaxed">
+                                SFRS-compliant bookkeeping, transaction recording, and monthly management reporting for clarity in decision-making.
+                            </p>
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-amber-600">
+                            <span>Cloud-Synced (Xero/QBO)</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+                        </div>
+                    </div>
+
+                    <!-- 6. Corporate Secretary -->
+                    <div class="service-card-item glass-card p-7 rounded-3xl flex flex-col justify-between">
+                        <div>
+                            <div class="service-icon-box bg-teal-50 text-teal-600 mb-5">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+                                    <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/>
+                                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                                    <polyline points="9 14 11 16 15 12"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-bold font-outfit text-slate-900 mb-2">Corporate Secretary</h3>
+                            <p class="text-slate-600 text-sm leading-relaxed">
+                                Mandatory corporate secretarial services to maintain registers, file annual returns, and manage board resolutions.
+                            </p>
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-teal-600">
+                            <span>ACRA Compliant</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+                        </div>
+                    </div>
+
+                    <!-- 7. Registered Address & Mailroom -->
+                    <div class="service-card-item glass-card p-7 rounded-3xl flex flex-col justify-between">
+                        <div>
+                            <div class="service-icon-box bg-sky-50 text-sky-600 mb-5">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+                                    <path d="M2 18v-7c0-2.76 2.24-5 5-5h10c2.76 0 5 2.24 5 5v7"/>
+                                    <path d="M2 14h20M2 18h20"/>
+                                    <path d="M12 18v4"/>
+                                    <path d="M6 10v-5h4v3H6"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-bold font-outfit text-slate-900 mb-2">Registered Address</h3>
+                            <p class="text-slate-600 text-sm leading-relaxed">
+                                Prestigious prime business address with secure daily mail handling, document digitization, and instant scan notifications.
+                            </p>
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-sky-600">
+                            <span>CBD Location</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+                        </div>
+                    </div>
+
+                    <!-- 8. Payroll & CPF Management -->
+                    <div class="service-card-item glass-card p-7 rounded-3xl flex flex-col justify-between">
+                        <div>
+                            <div class="service-icon-box bg-rose-50 text-rose-600 mb-5">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+                                    <path d="M15 6V5a2 2 0 0 0-2-2H3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10"/>
+                                    <rect width="13" height="11" x="2" y="6" rx="2"/>
+                                    <circle cx="18" cy="14" r="5"/>
+                                    <path d="M18 11v6"/>
+                                    <path d="M16.5 12.5h2a1 1 0 0 1 1 1v0a1 1 0 0 1-1 1h-1a1 1 0 0 0-1 1v0a1 1 0 0 0 1 1h2"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-bold font-outfit text-slate-900 mb-2">Payroll & CPF</h3>
+                            <p class="text-slate-600 text-sm leading-relaxed">
+                                Automated salary disbursements, statutory CPF contributions, payslip generation, and IR8A year-end tax preparation.
+                            </p>
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-rose-600">
+                            <span>Direct Bank Integration</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+                        </div>
+                    </div>
+
+                    <!-- 9. GST & Corporate Tax -->
+                    <div class="service-card-item glass-card p-7 rounded-3xl flex flex-col justify-between">
+                        <div>
+                            <div class="service-icon-box bg-violet-50 text-violet-600 mb-5">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+                                    <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"/>
+                                    <text x="6" y="10" font-family="system-ui, -apple-system, sans-serif" font-size="4.5" font-weight="800" fill="currentColor" letter-spacing="0.2">GST</text>
+                                    <line x1="6" y1="13" x2="13" y2="13"/>
+                                    <circle cx="18" cy="16" r="4.5"/>
+                                    <circle cx="16.5" cy="14.5" r="0.5" fill="currentColor"/>
+                                    <circle cx="19.5" cy="17.5" r="0.5" fill="currentColor"/>
+                                    <line x1="19.5" y1="14.5" x2="16.5" y2="17.5"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-bold font-outfit text-slate-900 mb-2">GST & Corporate Tax</h3>
+                            <p class="text-slate-600 text-sm leading-relaxed">
+                                Complete preparation for ECI estimates, Form C-S/C filings, quarterly GST returns, and strategic tax deduction reviews.
+                            </p>
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-violet-600">
+                            <span>Maximized Reliefs</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+
+        <!-- CORPORATE PULSE / INSIGHTS SECTION -->
+        <section id="pulse" class="py-24 bg-white relative">
+            <div class="max-w-7xl mx-auto px-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
+                    <div>
+                        <span class="text-xs font-bold text-blue-600 uppercase tracking-widest font-outfit mb-2 block">Latest Intelligence</span>
+                        <h2 class="text-3xl sm:text-4xl md:text-5xl font-extrabold font-outfit text-slate-900 tracking-tight">Corporate Pulse</h2>
+                        <p class="text-slate-500 text-base mt-2 max-w-xl">Regulatory updates, cross-border tax changes, and structural business advice for founders.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="blog-preview-grid">
+                    <!-- Dynamic Blog Cards -->
+                </div>
+            </div>
+        </section>
+
+
+        <!-- CTA FOOTER BANNER -->
+        <section class="py-20 bg-slate-950 text-white relative overflow-hidden">
+            <div class="ambient-glow w-96 h-96 bg-blue-600/30 -top-20 -right-20"></div>
+            <div class="ambient-glow w-96 h-96 bg-teal-500/20 -bottom-20 -left-20"></div>
+
+            <div class="max-w-5xl mx-auto px-6 text-center relative z-10">
+                <h2 class="text-3xl sm:text-4xl md:text-5xl font-extrabold font-outfit tracking-tight mb-6">
+                    Ready to launch your global entity?
+                </h2>
+                <p class="text-slate-400 text-lg max-w-2xl mx-auto mb-10">
+                    Get started today with our transparent pricing, instant document generation, and direct dedicated compliance specialist.
+                </p>
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <a href="#worldwide-presence" class="w-full sm:w-auto px-9 py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm tracking-wider uppercase transition-all duration-300 shadow-xl shadow-blue-600/25">
+                        Start Incorporation
+                    </a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+
+    <!-- FOOTER -->
+    <footer class="bg-slate-900 text-slate-400 py-16 border-t border-slate-800 text-sm">
+        <div class="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+            <div class="md:col-span-2">
+                <div class="mb-4">
+                    <span class="text-2xl font-extrabold font-outfit text-white tracking-tight">Globalisor</span>
+                </div>
+                <p class="text-slate-400 max-w-sm leading-relaxed mb-6">
+                    Simplifying global business incorporation, accounting, and multi-jurisdictional compliance through intelligent digital infrastructure.
+                </p>
+                <div class="flex gap-4 text-xs font-semibold text-slate-500">
+                    <span>Singapore</span> &bull; <span>Hong Kong</span> &bull; <span>USA</span> &bull; <span>Dubai</span> &bull; <span>UK</span>
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-white font-bold font-outfit uppercase tracking-wider text-xs mb-4">Services</h4>
+                <ul class="space-y-2.5">
+                    <li><a href="#services" class="hover:text-white transition-colors">Local Incorporation</a></li>
+                    <li><a href="#services" class="hover:text-white transition-colors">Nominee Director</a></li>
+                    <li><a href="#services" class="hover:text-white transition-colors">Corporate Secretary</a></li>
+                    <li><a href="#services" class="hover:text-white transition-colors">Accounting & Tax</a></li>
+                    <li><a href="#services" class="hover:text-white transition-colors">Work Visa & EP</a></li>
+                </ul>
+            </div>
+
+            <div>
+                <h4 class="text-white font-bold font-outfit uppercase tracking-wider text-xs mb-4">Legal & Support</h4>
+                <ul class="space-y-2.5">
+                    <li><a href="#" class="hover:text-white transition-colors">Privacy Policy</a></li>
+                    <li><a href="#" class="hover:text-white transition-colors">Terms of Service</a></li>
+                    <li><a href="#" class="hover:text-white transition-colors">Regulatory Compliance</a></li>
+                    <li><a href="#" class="hover:text-white transition-colors">Contact Advisory</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="max-w-7xl mx-auto px-6 pt-8 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+            <p>&copy; 2026 Globalisor. All rights reserved.</p>
+            <p class="text-slate-500">Designed for modern global enterprises & founders.</p>
+        </div>
+    </footer>
+
+
+    <!-- COUNTRY DETAILS MODAL / POPUP -->
+    <div id="country-detail-modal" class="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm hidden flex items-center justify-center p-4 transition-all duration-300 opacity-0">
+        <div class="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl relative border border-slate-100 max-h-[90vh] overflow-y-auto transform scale-95 transition-all" id="modal-container">
+            <button onclick="closeCountryModal()" class="absolute top-6 right-6 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+
+            <div class="flex items-center gap-3 mb-6">
+                <span id="modal-flag" class="text-3xl">🇸🇬</span>
+                <div>
+                    <h3 class="text-2xl font-extrabold font-outfit text-slate-900" id="modal-country-name">Singapore</h3>
+                    <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider" id="modal-country-code">SG Hub</p>
+                </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                <div class="p-4 rounded-2xl bg-blue-50/60 border border-blue-100">
+                    <span class="text-xs font-bold text-blue-600 uppercase tracking-wider block mb-1">Corporate Tax</span>
+                    <span class="text-lg font-extrabold text-slate-900" id="modal-tax">17%</span>
+                </div>
+                <div class="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-100">
+                    <span class="text-xs font-bold text-emerald-600 uppercase tracking-wider block mb-1">Compliance Score</span>
+                    <span class="text-lg font-extrabold text-emerald-700" id="modal-compliance">99.5%</span>
+                </div>
+                <div class="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100">
+                    <span class="text-xs font-bold text-indigo-600 uppercase tracking-wider block mb-1">Registration No</span>
+                    <span class="text-xs font-bold text-slate-800 truncate block" id="modal-uen">9-digit UEN</span>
+                </div>
+            </div>
+
+            <!-- Services List -->
+            <div class="mb-6">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Available Corporate Solutions</h4>
+                <div class="flex flex-wrap gap-2" id="modal-services-chips">
+                    <!-- Injected chips -->
+                </div>
+            </div>
+
+            <!-- Modal Action Buttons -->
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button onclick="closeCountryModal()" class="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs uppercase tracking-wider hover:bg-slate-50">
+                    Close
+                </button>
+                <a href="#services" onclick="closeCountryModal()" class="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider shadow-md">
+                    Explore Package
+                </a>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // 1. Data Definitions
+        const COUNTRIES = [
+            {
+                id: "CNTRY-singapore",
+                name: "Singapore",
+                key: "singapore",
+                flag: "🇸🇬",
+                code: "SG",
+                uen: "9-character alphanumeric (UEN)",
+                tax: "17% (flat rate)",
+                compliance: "99.5%",
+                services: ["Company Incorporation", "Corporate Secretary", "Nominee Director", "Registered Address", "Tax & Accounting"]
+            },
+            {
+                id: "CNTRY-hong-kong",
+                name: "Hong Kong",
+                key: "hong_kong",
+                flag: "🇭🇰",
+                code: "HK",
+                uen: "8-digit Business Registration",
+                tax: "16.5% (two-tier)",
+                compliance: "98.8%",
+                services: ["Company Incorporation", "Corporate Secretary", "Registered Address", "Tax & Compliance"]
+            },
+            {
+                id: "CNTRY-united-states",
+                name: "United States",
+                key: "united_states",
+                flag: "🇺🇸",
+                code: "USA",
+                uen: "9-digit Federal EIN",
+                tax: "21% (federal flat)",
+                compliance: "97.2%",
+                services: ["Delaware / Wyoming LLC & C-Corp", "Registered Agent", "EIN Filing", "Corporate Tax"]
+            },
+            {
+                id: "CNTRY-dubai",
+                name: "Dubai (UAE)",
+                key: "dubai",
+                flag: "🇦🇪",
+                code: "UAE",
+                uen: "Free Zone / Mainland License",
+                tax: "9% (above 375k AED)",
+                compliance: "99.1%",
+                services: ["Freezone Entity Setup", "Corporate Secretary", "Investor Visa", "Tax & Accounting"]
+            },
+            {
+                id: "CNTRY-australia",
+                name: "Australia",
+                key: "australia",
+                flag: "🇦🇺",
+                code: "AUS",
+                uen: "9-digit ACN / ABN",
+                tax: "25% - 30%",
+                compliance: "96.8%",
+                services: ["ASIC Company Registration", "Resident Director", "Registered Office", "GST & BAS Filing"]
+            },
+            {
+                id: "CNTRY-united-kingdom",
+                name: "United Kingdom",
+                key: "united_kingdom",
+                flag: "🇬🇧",
+                code: "UK",
+                uen: "8-digit CRN Number",
+                tax: "19% - 25%",
+                compliance: "98.5%",
+                services: ["Companies House Setup", "Corporate Secretary", "Registered Address", "Corporation Tax"]
+            }
+        ];
+
+        const BLOGS = [
+            {
+                title: "Navigating Cross-Border Entity Incorporation in 2026",
+                category: "Compliance",
+                date: "May 28, 2026",
+                readTime: "4 min read",
+                summary: "A breakdown of multi-jurisdictional incorporation requirements, statutory nominee directors, and local secretarial guidelines."
+            },
+            {
+                title: "Optimizing Effective Tax Rates via Regional Treaties",
+                category: "Corporate Tax",
+                date: "May 24, 2026",
+                readTime: "5 min read",
+                summary: "How single-tier territorial tax systems, startup exemptions, and Double Taxation Agreements (DTA) reduce overseas friction."
+            },
+            {
+                title: "Employment Passes & Key Personnel Mobility Guidelines",
+                category: "Global Mobility",
+                date: "May 18, 2026",
+                readTime: "3 min read",
+                summary: "Navigating points-based immigration frameworks (COMPASS) and structuring executive transfers seamlessly."
+            }
+        ];
+
+        // 2. Typewriter Effect
+        const heroWords = ["Global.", "Digital.", "Compliance.", "Beyond."];
+        let wordIdx = 0;
+        let charIdx = 0;
+        let isDeleting = false;
+        const typeEl = document.getElementById('typewriter-text');
+
+        function runTypewriter() {
+            if (!typeEl) return;
+            const current = heroWords[wordIdx];
+            if (isDeleting) {
+                typeEl.textContent = current.substring(0, charIdx - 1);
+                charIdx--;
+            } else {
+                typeEl.textContent = current.substring(0, charIdx + 1);
+                charIdx++;
+            }
+
+            let delay = isDeleting ? 50 : 130;
+            if (!isDeleting && charIdx === current.length) {
+                delay = 2200;
+                isDeleting = true;
+            } else if (isDeleting && charIdx === 0) {
+                isDeleting = false;
+                wordIdx = (wordIdx + 1) % heroWords.length;
+                delay = 400;
+            }
+            setTimeout(runTypewriter, delay);
+        }
+
+        // 3. Render Country Cards
+        function renderCountryChips() {
+            const list = document.getElementById('country-chips-list');
+            if (!list) return;
+
+            list.innerHTML = COUNTRIES.map(c => `
+                <div class="country-chip glass-card p-4 rounded-2xl flex items-center justify-between" data-country="${c.key}" onclick="openCountryModal('${c.id}')">
+                    <div class="flex items-center gap-3.5">
+                        <span class="text-2xl">${c.flag}</span>
+                        <div>
+                            <h4 class="font-bold font-outfit text-slate-900 text-sm">${c.name}</h4>
+                            <span class="text-xs text-slate-500">Tax: ${c.tax}</span>
+                        </div>
+                    </div>
+                    <div class="chip-icon-box w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 transition-colors">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 4. Render Blog Preview
+        function renderBlogs() {
+            const grid = document.getElementById('blog-preview-grid');
+            if (!grid) return;
+
+            grid.innerHTML = BLOGS.map(b => `
+                <div class="glass-card p-7 rounded-3xl flex flex-col justify-between group">
+                    <div>
+                        <div class="flex items-center justify-between text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">
+                            <span class="text-blue-600">${b.category}</span>
+                            <span>${b.readTime}</span>
+                        </div>
+                        <h3 class="text-xl font-bold font-outfit text-slate-900 mb-3 group-hover:text-blue-600 transition-colors leading-snug">
+                            ${b.title}
+                        </h3>
+                        <p class="text-slate-600 text-sm leading-relaxed mb-6">
+                            ${b.summary}
+                        </p>
+                    </div>
+                    <div class="flex items-center justify-between text-xs font-semibold text-slate-400 pt-4 border-t border-slate-100">
+                        <span>${b.date}</span>
+                        <span class="text-blue-600 font-bold flex items-center gap-1">Read Article <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 5. Modal Operations
+        window.openCountryModal = function(countryId) {
+            const country = COUNTRIES.find(c => c.id === countryId);
+            if (!country) return;
+
+            document.getElementById('modal-flag').textContent = country.flag;
+            document.getElementById('modal-country-name').textContent = country.name;
+            document.getElementById('modal-country-code').textContent = country.code + ' Jurisdiction';
+            document.getElementById('modal-tax').textContent = country.tax;
+            document.getElementById('modal-compliance').textContent = country.compliance;
+            document.getElementById('modal-uen').textContent = country.uen;
+
+            const chipsContainer = document.getElementById('modal-services-chips');
+            chipsContainer.innerHTML = country.services.map(s => `
+                <span class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold">${s}</span>
+            `).join('');
+
+            const modal = document.getElementById('country-detail-modal');
+            const container = document.getElementById('modal-container');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                container.classList.remove('scale-95');
+            }, 10);
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        window.closeCountryModal = function() {
+            const modal = document.getElementById('country-detail-modal');
+            const container = document.getElementById('modal-container');
+            modal.classList.add('opacity-0');
+            container.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 250);
+        };
+
+        // 6. Interactive 3D Globe with D3 and TopoJSON
+        function initGlobe() {
+            const canvas = document.getElementById('globe-canvas');
+            const caption = document.getElementById('map-caption');
+            const captionText = document.getElementById('map-caption-text');
+            if (!canvas || !window.d3) return;
+
+            const ctx = canvas.getContext('2d');
+            let width = canvas.offsetWidth || 440;
+            let height = canvas.offsetHeight || 440;
+            const dpr = window.devicePixelRatio || 1;
+
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.scale(dpr, dpr);
+
+            const projection = d3.geoOrthographic()
+                .scale(width / 2.15)
+                .translate([width / 2, height / 2])
+                .clipAngle(90);
+
+            const path = d3.geoPath(projection, ctx);
+            const graticule = d3.geoGraticule();
+
+            const countryCoords = {
+                'singapore': [103.8198, 1.3521],
+                'hong_kong': [114.1694, 22.3193],
+                'united_states': [-95.7129, 37.0902],
+                'dubai': [55.2708, 25.2048],
+                'australia': [133.7751, -25.2744],
+                'united_kingdom': [-1.1743, 52.3555]
+            };
+
+            const countryTopoIds = {
+                'singapore': 702,
+                'hong_kong': 344,
+                'united_states': 840,
+                'dubai': 784,
+                'australia': 36,
+                'united_kingdom': 826
+            };
+
+            const activeIds = Object.values(countryTopoIds);
+
+            // Connection arcs from Singapore hub to others
+            const connections = [
+                { from: countryCoords['singapore'], to: countryCoords['hong_kong'], speed: 1600, offset: 0.1 },
+                { from: countryCoords['singapore'], to: countryCoords['dubai'], speed: 2200, offset: 0.3 },
+                { from: countryCoords['singapore'], to: countryCoords['australia'], speed: 2000, offset: 0.5 },
+                { from: countryCoords['dubai'], to: countryCoords['united_kingdom'], speed: 1900, offset: 0.7 },
+                { from: countryCoords['united_kingdom'], to: countryCoords['united_states'], speed: 2100, offset: 0.2 },
+                { from: countryCoords['singapore'], to: countryCoords['united_states'], speed: 2800, offset: 0.8 }
+            ];
+
+            let rotation = [0, -15];
+            let targetRotation = [0, -15];
+            let currentScale = width / 2.15;
+            let targetScale = width / 2.15;
+            let isHovered = false;
+            let isDragging = false;
+            let startMousePos = [0, 0];
+            let startRotation = [0, 0];
+            let activeKey = null;
+            let activeCountryId = null;
+            let countries = [];
+
+            function getCountryColor(d) {
+                const numId = Number(d.id);
+                if (activeCountryId && numId === activeCountryId) {
+                    return '#2563eb'; // Bright active blue
+                }
+                if (activeIds.includes(numId)) {
+                    return '#93c5fd'; // Soft network blue
+                }
+                return '#cbd5e1'; // Light grey slate
+            }
+
+            // Load World Atlas TopoJSON
+            if (window.topojson) {
+                d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+                    .then(data => {
+                        if (data && data.objects && data.objects.countries) {
+                            countries = topojson.feature(data, data.objects.countries).features;
+                        }
+                    })
+                    .catch(err => {
+                        console.warn('World atlas CDN not reachable, continuing in fallback mode:', err);
+                    });
+            }
+
+            // Animation Loop
+            function render() {
+                // Rotation handling
+                if (isHovered) {
+                    rotation[0] += (targetRotation[0] - rotation[0]) * 0.08;
+                    rotation[1] += (targetRotation[1] - rotation[1]) * 0.08;
+                    currentScale += (targetScale - currentScale) * 0.08;
+                } else if (!isDragging) {
+                    rotation[0] += 0.22; // Smooth continuous rotation
+                    rotation[1] += (-15 - rotation[1]) * 0.05;
+                    currentScale += ((width / 2.15) - currentScale) * 0.08;
+                }
+
+                projection.rotate(rotation).scale(currentScale);
+
+                ctx.clearRect(0, 0, width, height);
+
+                // 1. Ocean Base Fill
+                ctx.beginPath();
+                ctx.arc(width / 2, height / 2, projection.scale(), 0, 2 * Math.PI);
+                ctx.fillStyle = '#f1f5f9';
+                ctx.fill();
+
+                // 2. Graticules
+                ctx.beginPath();
+                path(graticule());
+                ctx.lineWidth = 0.5;
+                ctx.strokeStyle = 'rgba(148, 163, 184, 0.2)';
+                ctx.stroke();
+
+                // 3. Countries
+                if (countries.length > 0) {
+                    countries.forEach(d => {
+                        ctx.beginPath();
+                        path(d);
+                        ctx.fillStyle = getCountryColor(d);
+                        ctx.fill();
+                    });
+
+                    ctx.beginPath();
+                    countries.forEach(d => path(d));
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 0.6;
+                    ctx.stroke();
+                }
+
+                // 4. Connection Arcs & Glowing Traveling Photons
+                const centerCoords = projection.invert([width / 2, height / 2]);
+                if (centerCoords) {
+                    connections.forEach(conn => {
+                        ctx.beginPath();
+                        path({ type: 'LineString', coordinates: [conn.from, conn.to] });
+                        ctx.strokeStyle = 'rgba(37, 99, 235, 0.18)';
+                        ctx.lineWidth = 1.2;
+                        ctx.stroke();
+
+                        // Moving photon
+                        const interpolator = d3.geoInterpolate(conn.from, conn.to);
+                        const t = (Date.now() / conn.speed + conn.offset) % 1.0;
+                        const pulseCoords = interpolator(t);
+                        const dist = d3.geoDistance(centerCoords, pulseCoords);
+
+                        if (dist < Math.PI / 2) {
+                            const pt = projection(pulseCoords);
+                            if (pt) {
+                                ctx.beginPath();
+                                ctx.arc(pt[0], pt[1], 3, 0, 2 * Math.PI);
+                                ctx.fillStyle = '#2563eb';
+                                ctx.shadowColor = '#3b82f6';
+                                ctx.shadowBlur = 6;
+                                ctx.fill();
+                                ctx.shadowBlur = 0;
+                            }
+                        }
+                    });
+
+                    // 5. Hub Pins with Pulsing Radar Rings
+                    Object.keys(countryCoords).forEach(k => {
+                        const coords = countryCoords[k];
+                        const dist = d3.geoDistance(centerCoords, coords);
+
+                        if (dist < Math.PI / 2) {
+                            const pt = projection(coords);
+                            if (pt) {
+                                const isCurrent = activeKey === k;
+                                const baseRadius = isCurrent ? 6 : 3.5;
+
+                                // Pin Center Dot
+                                ctx.beginPath();
+                                ctx.arc(pt[0], pt[1], baseRadius, 0, 2 * Math.PI);
+                                ctx.fillStyle = isCurrent ? '#2563eb' : '#3b82f6';
+                                ctx.fill();
+                                ctx.strokeStyle = '#ffffff';
+                                ctx.lineWidth = 1.5;
+                                ctx.stroke();
+
+                                // Radar Pulse Ring
+                                const pulseProg = (Date.now() % 1600) / 1600;
+                                const pulseRadius = baseRadius + pulseProg * (isCurrent ? 20 : 12);
+                                const opacity = (1 - pulseProg) * (isCurrent ? 0.9 : 0.45);
+
+                                ctx.beginPath();
+                                ctx.arc(pt[0], pt[1], pulseRadius, 0, 2 * Math.PI);
+                                ctx.strokeStyle = `rgba(37, 99, 235, ${opacity})`;
+                                ctx.lineWidth = isCurrent ? 2 : 1;
+                                ctx.stroke();
+                            }
+                        }
+                    });
+                }
+
+                requestAnimationFrame(render);
+            }
+
+            // Start animation loop
+            requestAnimationFrame(render);
+
+            // Drag to rotate globe interaction
+            canvas.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                isHovered = false;
+                startMousePos = [e.clientX, e.clientY];
+                startRotation = [rotation[0], rotation[1]];
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const dx = e.clientX - startMousePos[0];
+                const dy = e.clientY - startMousePos[1];
+                rotation[0] = startRotation[0] + dx * 0.4;
+                rotation[1] = Math.max(-60, Math.min(60, startRotation[1] - dy * 0.4));
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                }
+            });
+
+            // Touch support for mobile
+            canvas.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    isDragging = true;
+                    isHovered = false;
+                    startMousePos = [e.touches[0].clientX, e.touches[0].clientY];
+                    startRotation = [rotation[0], rotation[1]];
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchmove', (e) => {
+                if (!isDragging || e.touches.length !== 1) return;
+                const dx = e.touches[0].clientX - startMousePos[0];
+                const dy = e.touches[0].clientY - startMousePos[1];
+                rotation[0] = startRotation[0] + dx * 0.4;
+                rotation[1] = Math.max(-60, Math.min(60, startRotation[1] - dy * 0.4));
+            }, { passive: true });
+
+            window.addEventListener('touchend', () => {
+                isDragging = false;
+            });
+
+            // Bind Country hover interactions
+            function bindCountryEvents() {
+                document.querySelectorAll('.country-chip').forEach(chip => {
+                    chip.addEventListener('mouseenter', () => {
+                        const key = chip.getAttribute('data-country');
+                        const coords = countryCoords[key];
+                        if (coords) {
+                            isHovered = true;
+                            activeKey = key;
+                            activeCountryId = countryTopoIds[key];
+
+                            // Shortest rotational path
+                            const targetLon = -coords[0];
+                            const targetLat = -coords[1];
+                            const diff = ((targetLon - rotation[0] + 180) % 360) - 180;
+                            targetRotation = [rotation[0] + diff, targetLat];
+                            targetScale = (width / 2.15) * (key === 'singapore' || key === 'hong_kong' ? 2.5 : 1.35);
+
+                            const countryObj = COUNTRIES.find(c => c.key === key);
+                            if (countryObj && caption && captionText) {
+                                captionText.innerHTML = `<span class="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span> ${countryObj.name}`;
+                                caption.classList.remove('opacity-0', 'translate-y-3');
+                            }
+                        }
+                    });
+
+                    chip.addEventListener('mouseleave', () => {
+                        isHovered = false;
+                        activeKey = null;
+                        activeCountryId = null;
+                        targetScale = width / 2.15;
+                        if (caption) caption.classList.add('opacity-0', 'translate-y-3');
+                    });
+                });
+            }
+
+            bindCountryEvents();
+
+            // Resize handling
+            window.addEventListener('resize', () => {
+                const newW = canvas.offsetWidth;
+                const newH = canvas.offsetHeight;
+                if (newW && newH && (newW !== width || newH !== height)) {
+                    width = newW;
+                    height = newH;
+                    canvas.width = width * dpr;
+                    canvas.height = height * dpr;
+                    ctx.scale(dpr, dpr);
+                    projection.translate([width / 2, height / 2]);
+                    if (!isHovered) {
+                        currentScale = width / 2.15;
+                    }
+                }
+            });
+        }
+
+        // Initialize on DOM Ready
+        document.addEventListener('DOMContentLoaded', () => {
+            renderCountryChips();
+            renderBlogs();
+            runTypewriter();
+            initGlobe();
+            if (window.lucide) window.lucide.createIcons();
+        });
+    </script>
+</body>
+</html>
