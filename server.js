@@ -3331,7 +3331,141 @@ app.get('/api/admin/clients', (req, res) => {
     res.json(clientList);
 });
 
-// ==================== TASK MANAGEMENT API ====================
+// GET /api/tasks/form-options → get metadata options for task creation & assignment
+app.get('/api/tasks/form-options', (req, res) => {
+    const db = getDb();
+    
+    // 1. Gather all companies/entities with client info
+    const entityMap = new Map();
+    
+    const registerEntity = (compName, compId, cId, cName, cEmail) => {
+        if (!compName || compName === 'N/A' || !compName.trim()) return;
+        const key = compName.trim().toUpperCase();
+        if (!entityMap.has(key)) {
+            entityMap.set(key, {
+                companyId: compId || `COMP-${cId || '101'}`,
+                companyName: compName.trim(),
+                clientId: cId || 'C-1001',
+                clientName: cName || 'Client User',
+                clientEmail: cEmail || 'client@globalisor.com'
+            });
+        }
+    };
+
+    // From db.services
+    (db.services || []).forEach(s => {
+        const client = (db.clients || []).find(c => c.clientId === s.clientId) || {};
+        registerEntity(s.companyName, s.companyId, s.clientId, client.name, client.email);
+    });
+
+    // From db.onboarding
+    (db.onboarding || []).forEach(o => {
+        const compName = o.companyName || o.step1CompanyDetails?.data?.companyName;
+        registerEntity(compName, o.id, o.clientId, o.clientName, o.clientEmail);
+    });
+
+    // From db.clients
+    (db.clients || []).forEach(c => {
+        registerEntity(c.companyName, `COMP-${c.clientId || '101'}`, c.clientId, c.name, c.email);
+    });
+
+    // From db.compliance
+    (db.compliance || []).forEach(comp => {
+        registerEntity(comp.companyName, comp.companyId, comp.clientId, comp.clientName, comp.clientEmail);
+    });
+
+    // From db.tasks
+    (db.tasks || []).forEach(t => {
+        registerEntity(t.companyName, t.companyId, t.clientId, t.clientName, t.clientEmail);
+    });
+
+    // Fallbacks if empty
+    if (entityMap.size === 0) {
+        registerEntity('LionPath Technologies Pte. Ltd.', 'COMP-101', 'C-1001', 'Ethan Tan', 'ethan.tan@lionpath.com');
+        registerEntity('Merlion Ventures Pte. Ltd.', 'COMP-102', 'C-1002', 'Priya Sharma', 'priya.s@merlion.com');
+        registerEntity('HarbourEdge Logistics Pte. Ltd.', 'COMP-103', 'C-1007', 'Ravi Kumar', 'ravi.k@harbouredge.com');
+        registerEntity('3B Trading & Consulting Pte. Ltd.', 'COMP-104', 'C-1004', 'Ben Bradley', 'ben@3btrading.com');
+        registerEntity('ABBEY HOLDINGS PTE LTD', 'COMP-105', 'C-1005', 'Arthur Abbey', 'arthur@abbey.com');
+    }
+
+    const companies = Array.from(entityMap.values()).sort((a, b) => a.companyName.localeCompare(b.companyName));
+
+    // 2. Staff & Admin assignees
+    const users = db.users || [];
+    const staffList = users
+        .filter(u => u.role === 'STAFF' || u.role === 'ADMIN')
+        .map(u => {
+            const name = (u.firstName + ' ' + (u.lastName || '')).trim() || u.name || (u.role === 'ADMIN' ? 'Admin User' : 'Staff Specialist');
+            const initials = (u.firstName && u.lastName) 
+                ? (u.firstName[0] + u.lastName[0]).toUpperCase() 
+                : (name.length >= 2 ? name.slice(0, 2).toUpperCase() : 'ST');
+            return {
+                id: u.id,
+                name: name,
+                role: u.role || 'STAFF',
+                email: u.email || '',
+                avatar: initials
+            };
+        });
+
+    if (!staffList.some(s => s.id === 'usr-admin' || s.role === 'ADMIN')) {
+        staffList.unshift({
+            id: 'usr-admin',
+            name: 'Admin User',
+            role: 'ADMIN',
+            email: 'admin@globalisor.com',
+            avatar: 'AU'
+        });
+    }
+    if (!staffList.some(s => s.id === 'usr-staff')) {
+        staffList.push({
+            id: 'usr-staff',
+            name: 'Sarah Lim',
+            role: 'STAFF',
+            email: 'staff@globalisor.com',
+            avatar: 'SL'
+        });
+    }
+
+    // 3. Dynamic & standard categories
+    const defaultCategories = [
+        'Registered Address Change',
+        'Director / Shareholder Change',
+        'Share Capital & Allotment',
+        'Company Incorporation',
+        'Corporate Secretarial',
+        'Tax & Accounting Filing',
+        'GST & Bookkeeping',
+        'Compliance & Annual Return',
+        'Bank Account Opening Assistance',
+        'Employment Pass & Work Visas',
+        'Strike Off & Liquidation',
+        'General Operations & Inquiries'
+    ];
+    
+    const catSet = new Set(defaultCategories);
+    if (db.catalog && Array.isArray(db.catalog)) {
+        db.catalog.forEach(c => { 
+            if (c.title) catSet.add(c.title); 
+            if (c.category) catSet.add(c.category); 
+        });
+    }
+    (db.tasks || []).forEach(t => {
+        if (t.category) catSet.add(t.category);
+    });
+
+    res.json({
+        companies,
+        assignees: staffList,
+        categories: Array.from(catSet),
+        priorities: [
+            { value: 'LOW', label: 'Low' },
+            { value: 'MEDIUM', label: 'Medium' },
+            { value: 'HIGH', label: 'High' },
+            { value: 'URGENT', label: 'Urgent' }
+        ]
+    });
+});
 
 app.get('/api/tasks/stats', (req, res) => {
     const db = getDb();

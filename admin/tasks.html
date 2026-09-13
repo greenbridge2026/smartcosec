@@ -452,7 +452,10 @@
     <div id="create-task-modal" onclick="if(event.target === this) closeCreateTaskModal()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[99999] hidden opacity-0 transition-opacity duration-200">
         <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 overflow-hidden transform scale-95 transition-transform duration-200" onclick="event.stopPropagation()">
             <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                <h3 class="text-lg font-bold text-slate-900">Create New Operational Task</h3>
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900">Create New Operational Task</h3>
+                    <p class="text-[11px] text-slate-500 font-sans mt-0.5">Assign requests and corporate actions to client entities and staff specialists</p>
+                </div>
                 <button type="button" onclick="closeCreateTaskModal()" class="flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer" title="Close">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
@@ -460,33 +463,31 @@
             <form id="create-task-form" onsubmit="handleCreateTask(event)" class="space-y-4 font-sans text-xs">
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Company / Entity</label>
-                    <select id="new-task-company" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none">
-                        <option value="ABBEY HOLDINGS PTE LTD" selected>ABBEY HOLDINGS PTE LTD</option>
-                        <option value="LionPath Technologies Pte. Ltd.">LionPath Technologies Pte. Ltd.</option>
-                        <option value="Merlion Ventures Pte. Ltd.">Merlion Ventures Pte. Ltd.</option>
-                        <option value="HarbourEdge Logistics Pte. Ltd.">HarbourEdge Logistics Pte. Ltd.</option>
-                        <option value="3B Trading & Consulting Pte. Ltd.">3B Trading & Consulting Pte. Ltd.</option>
+                    <select id="new-task-company" onchange="onCompanySelectChange()" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                        <option value="" disabled selected>Loading companies...</option>
                     </select>
+                    <div id="company-client-preview" class="hidden mt-1.5 px-3 py-1.5 bg-blue-50/60 rounded-xl border border-blue-100/80 text-[11px] text-slate-600 flex items-center justify-between">
+                        <div>Client: <strong id="preview-client-name" class="text-slate-800">-</strong> (<span id="preview-client-email" class="text-slate-500">-</span>)</div>
+                        <span id="preview-client-id" class="font-mono text-[10px] text-blue-600 font-bold bg-white px-1.5 py-0.5 rounded border border-blue-200">-</span>
+                    </div>
+                    <div id="custom-company-input-wrap" class="hidden mt-2">
+                        <input type="text" id="new-task-custom-company" placeholder="Enter new or unlisted company name..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                    </div>
                 </div>
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Task Title / Subject</label>
-                    <input type="text" id="new-task-title" required placeholder="e.g. Change Registered Address, Director Consent..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none">
+                    <input type="text" id="new-task-title" required placeholder="e.g. Change Registered Address, Director Consent, Tax Filing..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20">
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">Category</label>
-                        <select id="new-task-category" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none font-semibold">
-                            <option value="Registered Address Change">Registered Address Change</option>
-                            <option value="Director / Shareholder Change">Director / Shareholder Change</option>
-                            <option value="Share Capital & Allotment">Share Capital & Allotment</option>
-                            <option value="Tax & Accounting">Tax & Accounting</option>
-                            <option value="Compliance Filing">Compliance Filing</option>
-                            <option value="General Operations">General Operations</option>
+                        <select id="new-task-category" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none font-semibold focus:ring-2 focus:ring-blue-500/20">
+                            <option value="" disabled selected>Loading categories...</option>
                         </select>
                     </div>
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">Priority</label>
-                        <select id="new-task-priority" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none font-semibold">
+                        <select id="new-task-priority" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none font-semibold focus:ring-2 focus:ring-blue-500/20">
                             <option value="LOW">Low</option>
                             <option value="MEDIUM" selected>Medium</option>
                             <option value="HIGH">High</option>
@@ -497,24 +498,22 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">Assign To</label>
-                        <select id="new-task-assignee" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none font-semibold">
+                        <select id="new-task-assignee" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none font-semibold focus:ring-2 focus:ring-blue-500/20">
                             <option value="">-- Unassigned --</option>
-                            <option value="usr-admin">Admin User (ADMIN)</option>
-                            <option value="usr-staff">Sarah Lim (STAFF)</option>
                         </select>
                     </div>
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">Due Date</label>
-                        <input type="date" id="new-task-duedate" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none">
+                        <input type="date" id="new-task-duedate" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20">
                     </div>
                 </div>
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Description & Requirements</label>
-                    <textarea id="new-task-description" rows="3" placeholder="Provide detailed instructions or notes..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none"></textarea>
+                    <textarea id="new-task-description" rows="3" placeholder="Provide detailed instructions or notes..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"></textarea>
                 </div>
                 <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                    <button type="button" onclick="closeCreateTaskModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 rounded-xl transition">Cancel</button>
-                    <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition">Create Task</button>
+                    <button type="button" onclick="closeCreateTaskModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 rounded-xl transition cursor-pointer">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition shadow-sm shadow-blue-500/20 cursor-pointer">Create Task</button>
                 </div>
             </form>
         </div>
@@ -524,10 +523,154 @@
         let allTasks = [];
         let currentTask = null;
         let activeViewMode = 'kanban';
+        let taskFormOptions = {
+            companies: [],
+            assignees: [],
+            categories: [],
+            priorities: []
+        };
 
         document.addEventListener('DOMContentLoaded', () => {
+            fetchTaskFormOptions();
             refreshTasks();
         });
+
+        async function fetchTaskFormOptions() {
+            try {
+                const res = await fetch('/api/tasks/form-options');
+                if (res.ok) {
+                    taskFormOptions = await res.json();
+                    populateTaskFormDropdowns();
+                }
+            } catch (e) {
+                console.error('Error fetching task form options:', e);
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function populateTaskFormDropdowns() {
+            // 1. Company Dropdown
+            const compSelect = document.getElementById('new-task-company');
+            if (compSelect) {
+                const companies = taskFormOptions.companies || [];
+                let compHtml = `<option value="" disabled selected>-- Select Registered Company / Entity --</option>`;
+                companies.forEach((c, idx) => {
+                    compHtml += `<option value="${escapeHtml(c.companyName)}" data-index="${idx}">${escapeHtml(c.companyName)} (${escapeHtml(c.clientName || 'Client')})</option>`;
+                });
+                compHtml += `<option value="__custom__">+ Add Custom / Unregistered Entity...</option>`;
+                compSelect.innerHTML = compHtml;
+            }
+
+            // 2. Category Dropdown
+            const catSelect = document.getElementById('new-task-category');
+            if (catSelect) {
+                const categories = taskFormOptions.categories || [];
+                let catHtml = `<option value="" disabled>-- Select Task Category --</option>`;
+                categories.forEach((cat, idx) => {
+                    catHtml += `<option value="${escapeHtml(cat)}" ${idx === 0 ? 'selected' : ''}>${escapeHtml(cat)}</option>`;
+                });
+                catSelect.innerHTML = catHtml;
+            }
+
+            // 3. Priority Dropdown
+            const prioSelect = document.getElementById('new-task-priority');
+            if (prioSelect) {
+                const priorities = taskFormOptions.priorities || [
+                    { value: 'LOW', label: 'Low' },
+                    { value: 'MEDIUM', label: 'Medium' },
+                    { value: 'HIGH', label: 'High' },
+                    { value: 'URGENT', label: 'Urgent' }
+                ];
+                let prioHtml = '';
+                priorities.forEach(p => {
+                    prioHtml += `<option value="${p.value}" ${p.value === 'MEDIUM' ? 'selected' : ''}>${p.label}</option>`;
+                });
+                prioSelect.innerHTML = prioHtml;
+            }
+
+            // 4. Modal Assignee Dropdown
+            const modalAssigneeSelect = document.getElementById('new-task-assignee');
+            if (modalAssigneeSelect) {
+                const assignees = taskFormOptions.assignees || [];
+                let assHtml = `<option value="" selected>-- Unassigned Pool --</option>`;
+                assignees.forEach(s => {
+                    assHtml += `<option value="${s.id}">${escapeHtml(s.name)} (${s.role || 'STAFF'})</option>`;
+                });
+                modalAssigneeSelect.innerHTML = assHtml;
+            }
+
+            // 5. Main Filter Assignee Dropdown
+            const filterAssigneeSelect = document.getElementById('filter-assignee');
+            if (filterAssigneeSelect) {
+                const currentFilterVal = filterAssigneeSelect.value;
+                const assignees = taskFormOptions.assignees || [];
+                let filterHtml = `
+                    <option value="ALL">All Assignees</option>
+                    <option value="UNASSIGNED">Unassigned Only</option>
+                `;
+                assignees.forEach(s => {
+                    filterHtml += `<option value="${s.id}">${escapeHtml(s.name)}</option>`;
+                });
+                filterAssigneeSelect.innerHTML = filterHtml;
+                if (currentFilterVal) filterAssigneeSelect.value = currentFilterVal;
+            }
+
+            // 6. Detail Modal Assignee Dropdown
+            const detailAssigneeSelect = document.getElementById('detail-assignee-select');
+            if (detailAssigneeSelect) {
+                const assignees = taskFormOptions.assignees || [];
+                let detailAssHtml = `<option value="">-- Unassigned --</option>`;
+                assignees.forEach(s => {
+                    detailAssHtml += `<option value="${s.id}">${escapeHtml(s.name)} (${s.role || 'STAFF'})</option>`;
+                });
+                detailAssigneeSelect.innerHTML = detailAssHtml;
+                if (currentTask && currentTask.assignedTo?.id) {
+                    detailAssigneeSelect.value = currentTask.assignedTo.id;
+                }
+            }
+        }
+
+        function onCompanySelectChange() {
+            const compSelect = document.getElementById('new-task-company');
+            const customWrap = document.getElementById('custom-company-input-wrap');
+            const previewWrap = document.getElementById('company-client-preview');
+            const nameEl = document.getElementById('preview-client-name');
+            const emailEl = document.getElementById('preview-client-email');
+            const idEl = document.getElementById('preview-client-id');
+
+            if (!compSelect) return;
+            const val = compSelect.value;
+
+            if (val === '__custom__') {
+                if (customWrap) customWrap.classList.remove('hidden');
+                if (previewWrap) previewWrap.classList.add('hidden');
+                const customInput = document.getElementById('new-task-custom-company');
+                if (customInput) customInput.focus();
+            } else {
+                if (customWrap) customWrap.classList.add('hidden');
+                const selectedOpt = compSelect.selectedOptions[0];
+                const idx = selectedOpt?.dataset?.index;
+                const company = idx !== undefined ? (taskFormOptions.companies || [])[idx] : null;
+
+                if (company && previewWrap) {
+                    previewWrap.classList.remove('hidden');
+                    if (nameEl) nameEl.innerText = company.clientName || 'Client User';
+                    if (emailEl) emailEl.innerText = company.clientEmail || 'client@globalisor.com';
+                    if (idEl) idEl.innerText = company.clientId || 'C-1001';
+                } else if (previewWrap) {
+                    previewWrap.classList.add('hidden');
+                }
+            }
+        }
 
         async function refreshTasks() {
             try {
@@ -1010,10 +1153,17 @@
             if (!currentTask) return;
             const staffId = document.getElementById('detail-assignee-select').value;
             let assignee = null;
-            if (staffId === 'usr-admin') {
-                assignee = { id: 'usr-admin', name: 'Admin User', role: 'ADMIN', email: 'admin@globalisor.com', avatar: 'AU' };
-            } else if (staffId === 'usr-staff') {
-                assignee = { id: 'usr-staff', name: 'Sarah Lim', role: 'STAFF', email: 'staff@globalisor.com', avatar: 'SL' };
+            if (staffId) {
+                const found = (taskFormOptions.assignees || []).find(s => s.id === staffId);
+                if (found) {
+                    assignee = {
+                        id: found.id,
+                        name: found.name,
+                        role: found.role || 'STAFF',
+                        email: found.email || '',
+                        avatar: found.avatar || 'ST'
+                    };
+                }
             }
 
             try {
@@ -1030,6 +1180,7 @@
                     currentTask = await res.json();
                     renderDetailModal();
                     refreshTasks();
+                    showToastNotification(`Task assigned to <strong>${assignee ? assignee.name : 'Unassigned Pool'}</strong>`, currentTask.id);
                 }
             } catch (e) {
                 console.error(e);
@@ -1037,7 +1188,11 @@
         }
 
         async function selfAssign() {
-            document.getElementById('detail-assignee-select').value = 'usr-admin';
+            const adminUser = (taskFormOptions.assignees || []).find(s => s.role === 'ADMIN' || s.id === 'usr-admin') || { id: 'usr-admin' };
+            const detailSelect = document.getElementById('detail-assignee-select');
+            if (detailSelect) {
+                detailSelect.value = adminUser.id;
+            }
             saveAssignment();
         }
 
@@ -1134,6 +1289,30 @@
 
         function openCreateTaskModal() {
             const modal = document.getElementById('create-task-modal');
+            const form = document.getElementById('create-task-form');
+            if (form) form.reset();
+
+            // Default due date: 7 days ahead
+            const dueDateInput = document.getElementById('new-task-duedate');
+            if (dueDateInput) {
+                const d = new Date();
+                d.setDate(d.getDate() + 7);
+                dueDateInput.value = d.toISOString().split('T')[0];
+            }
+
+            // Reset custom input & preview
+            const previewWrap = document.getElementById('company-client-preview');
+            if (previewWrap) previewWrap.classList.add('hidden');
+            const customWrap = document.getElementById('custom-company-input-wrap');
+            if (customWrap) customWrap.classList.add('hidden');
+
+            // Refresh options if needed
+            if (!taskFormOptions.companies || taskFormOptions.companies.length === 0) {
+                fetchTaskFormOptions();
+            } else {
+                populateTaskFormDropdowns();
+            }
+
             modal.classList.remove('hidden');
             setTimeout(() => {
                 modal.classList.remove('opacity-0');
@@ -1153,7 +1332,41 @@
 
         async function handleCreateTask(e) {
             e.preventDefault();
-            const companyName = document.getElementById('new-task-company').value;
+            const compSelect = document.getElementById('new-task-company');
+            const compVal = compSelect ? compSelect.value : '';
+            const customComp = document.getElementById('new-task-custom-company')?.value.trim();
+
+            let companyName = compVal;
+            let companyId = 'COMP-' + Math.floor(Math.random() * 900 + 100);
+            let clientId = 'C-1001';
+            let clientName = 'Ethan Tan';
+            let clientEmail = 'ethan.tan@lionpath.com';
+
+            if (compVal === '__custom__') {
+                if (!customComp) {
+                    alert('Please enter a company name');
+                    return;
+                }
+                companyName = customComp;
+                companyId = 'COMP-' + Math.floor(Math.random() * 9000 + 1000);
+            } else {
+                const selectedOpt = compSelect.selectedOptions[0];
+                const idx = selectedOpt?.dataset?.index;
+                const compObj = idx !== undefined ? (taskFormOptions.companies || [])[idx] : null;
+                if (compObj) {
+                    companyName = compObj.companyName;
+                    companyId = compObj.companyId || companyId;
+                    clientId = compObj.clientId || clientId;
+                    clientName = compObj.clientName || clientName;
+                    clientEmail = compObj.clientEmail || clientEmail;
+                }
+            }
+
+            if (!companyName) {
+                alert('Please select or enter a company');
+                return;
+            }
+
             const title = document.getElementById('new-task-title').value.trim();
             const category = document.getElementById('new-task-category').value;
             const priority = document.getElementById('new-task-priority').value;
@@ -1162,24 +1375,32 @@
             const description = document.getElementById('new-task-description').value.trim();
 
             let assignedTo = null;
-            if (assigneeId === 'usr-admin') {
-                assignedTo = { id: 'usr-admin', name: 'Admin User', role: 'ADMIN', email: 'admin@globalisor.com', avatar: 'AU' };
-            } else if (assigneeId === 'usr-staff') {
-                assignedTo = { id: 'usr-staff', name: 'Sarah Lim', role: 'STAFF', email: 'staff@globalisor.com', avatar: 'SL' };
+            if (assigneeId) {
+                const found = (taskFormOptions.assignees || []).find(s => s.id === assigneeId);
+                if (found) {
+                    assignedTo = {
+                        id: found.id,
+                        name: found.name,
+                        role: found.role || 'STAFF',
+                        email: found.email || '',
+                        avatar: found.avatar || 'ST'
+                    };
+                }
             }
 
             const payload = {
                 companyName,
-                companyId: 'COMP-101',
-                clientId: 'C-1001',
-                clientName: 'Ethan Tan',
+                companyId,
+                clientId,
+                clientName,
+                clientEmail,
                 title,
-                category,
-                type: 'REQUEST',
-                priority,
+                category: category || 'General Operations',
+                type: (category || '').toLowerCase().includes('change') ? 'CHANGE' : ((category || '').toLowerCase().includes('query') ? 'QUERY' : 'REQUEST'),
+                priority: priority || 'MEDIUM',
                 status: assignedTo ? 'ASSIGNED' : 'PENDING',
                 assignedTo,
-                dueDate: dueDate || '2026-09-30',
+                dueDate: dueDate || '',
                 description,
                 createdBy: { id: 'usr-admin', name: 'Admin User', role: 'ADMIN' }
             };
@@ -1191,14 +1412,35 @@
                     body: JSON.stringify(payload)
                 });
                 if (res.ok) {
+                    const created = await res.json();
                     closeCreateTaskModal();
                     document.getElementById('create-task-form').reset();
+                    showToastNotification(`<strong>Task Created:</strong> ${created.ticketNumber || created.id} (${created.title})`, created.id);
                     refreshTasks();
+                } else {
+                    const err = await res.json();
+                    alert('Error creating task: ' + (err.error || 'Server error'));
                 }
             } catch (err) {
                 console.error(err);
+                alert('Failed to create task. Please check server connection.');
             }
         }
+
+        // Expose functions globally for event handlers
+        window.openCreateTaskModal = openCreateTaskModal;
+        window.closeCreateTaskModal = closeCreateTaskModal;
+        window.handleCreateTask = handleCreateTask;
+        window.onCompanySelectChange = onCompanySelectChange;
+        window.openTaskDetail = openTaskDetail;
+        window.closeDetailModal = closeDetailModal;
+        window.saveAssignment = saveAssignment;
+        window.selfAssign = selfAssign;
+        window.saveStatusChange = saveStatusChange;
+        window.postComment = postComment;
+        window.setViewMode = setViewMode;
+        window.applyFilters = applyFilters;
+        window.refreshTasks = refreshTasks;
 
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
