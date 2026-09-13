@@ -461,17 +461,71 @@
                 </button>
             </div>
             <form id="create-task-form" onsubmit="handleCreateTask(event)" class="space-y-4 font-sans text-xs">
-                <div>
-                    <label class="block font-bold text-slate-700 mb-1">Company / Entity</label>
-                    <select id="new-task-company" onchange="onCompanySelectChange()" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-                        <option value="" disabled selected>Loading companies...</option>
-                    </select>
-                    <div id="company-client-preview" class="hidden mt-1.5 px-3 py-1.5 bg-blue-50/60 rounded-xl border border-blue-100/80 text-[11px] text-slate-600 flex items-center justify-between">
-                        <div>Client: <strong id="preview-client-name" class="text-slate-800">-</strong> (<span id="preview-client-email" class="text-slate-500">-</span>)</div>
-                        <span id="preview-client-id" class="font-mono text-[10px] text-blue-600 font-bold bg-white px-1.5 py-0.5 rounded border border-blue-200">-</span>
+                <!-- Searchable Company / Entity Combobox -->
+                <div class="relative" id="company-combobox-wrapper">
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block font-bold text-slate-700">Company / Entity <span class="text-rose-500">*</span></label>
+                        <span class="text-[10px] font-semibold text-slate-400" id="entity-count-badge">Search clients & entities</span>
                     </div>
-                    <div id="custom-company-input-wrap" class="hidden mt-2">
-                        <input type="text" id="new-task-custom-company" placeholder="Enter new or unlisted company name..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+
+                    <!-- Hidden actual inputs -->
+                    <input type="hidden" id="new-task-company" name="companyName" required>
+                    <input type="hidden" id="new-task-company-id">
+                    <input type="hidden" id="new-task-client-id">
+                    <input type="hidden" id="new-task-client-name">
+                    <input type="hidden" id="new-task-client-email">
+                    <input type="hidden" id="new-task-is-custom" value="false">
+
+                    <!-- Search Input Trigger -->
+                    <div class="relative">
+                        <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                        <input type="text" id="company-search-input" 
+                               autocomplete="off"
+                               onfocus="openCompanyDropdown()" 
+                               oninput="filterCompanyDropdown(this.value)" 
+                               onkeydown="handleCompanyInputKeydown(event)"
+                               placeholder="Type to search company, client name, or enter custom entity..." 
+                               class="w-full pl-9 pr-16 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition">
+                        
+                        <div class="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                            <button type="button" id="btn-clear-company" onclick="clearSelectedCompany()" class="hidden p-0.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition cursor-pointer" title="Clear selection">
+                                <i data-lucide="x" class="w-3 h-3"></i>
+                            </button>
+                            <button type="button" onclick="toggleCompanyDropdown()" class="p-0.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition cursor-pointer" title="Toggle list">
+                                <i data-lucide="chevron-down" id="company-dropdown-arrow" class="w-3.5 h-3.5 transition-transform duration-200"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Dropdown Results Floating Menu -->
+                    <div id="company-dropdown-menu" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl border border-slate-200 shadow-2xl z-[999999] overflow-hidden transition-all duration-150 max-h-60 flex flex-col">
+                        <div class="px-3 py-2 border-b border-slate-100 flex items-center justify-between bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                            <span>Select Client / Entity</span>
+                            <span id="company-results-count" class="text-blue-600 font-mono">0 entities</span>
+                        </div>
+                        <div id="company-options-list" class="overflow-y-auto custom-scrollbar p-1.5 space-y-1 flex-1">
+                            <!-- Injected dynamically -->
+                        </div>
+                        <!-- Custom Option Item always accessible at footer -->
+                        <div id="company-custom-option-wrap" class="p-2 border-t border-slate-100 bg-slate-50/80 hover:bg-blue-50/70 transition cursor-pointer flex items-center gap-2 text-xs font-semibold text-blue-600" onclick="selectCustomCompanyFromInput()">
+                            <i data-lucide="plus-circle" class="w-3.5 h-3.5 shrink-0 text-blue-600"></i>
+                            <span id="custom-option-label" class="truncate">+ Use custom / unregistered entity</span>
+                        </div>
+                    </div>
+
+                    <!-- Client Detail Preview Card -->
+                    <div id="company-client-preview" class="hidden mt-2 p-2.5 bg-blue-50/70 rounded-xl border border-blue-100 text-xs flex items-center justify-between transition-all">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-7 h-7 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0" id="preview-avatar">C</div>
+                            <div>
+                                <div class="font-bold text-slate-900 leading-tight" id="preview-client-name">-</div>
+                                <div class="text-[11px] text-slate-500 font-sans" id="preview-client-email">-</div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-end gap-0.5">
+                            <span id="preview-client-id" class="font-mono text-[10px] text-blue-700 font-bold bg-white px-2 py-0.5 rounded-md border border-blue-200 shadow-2xs">-</span>
+                            <span id="preview-company-badge" class="text-[9px] font-bold uppercase text-emerald-700 bg-emerald-100/80 px-1.5 py-0.2 rounded">Registered</span>
+                        </div>
                     </div>
                 </div>
                 <div>
@@ -629,17 +683,13 @@
         }
 
         function populateTaskFormDropdowns() {
-            // 1. Company Dropdown
-            const compSelect = document.getElementById('new-task-company');
-            if (compSelect) {
-                const companies = taskFormOptions.companies || [];
-                let compHtml = `<option value="" disabled selected>-- Select Registered Company / Entity --</option>`;
-                companies.forEach((c, idx) => {
-                    compHtml += `<option value="${escapeHtml(c.companyName)}" data-index="${idx}">${escapeHtml(c.companyName)} (${escapeHtml(c.clientName || 'Client')})</option>`;
-                });
-                compHtml += `<option value="__custom__">+ Add Custom / Unregistered Entity...</option>`;
-                compSelect.innerHTML = compHtml;
+            // 1. Company Combobox Setup
+            const countBadge = document.getElementById('entity-count-badge');
+            if (countBadge) {
+                const total = (taskFormOptions.companies || []).length;
+                countBadge.innerText = `${total} registered ${total === 1 ? 'entity' : 'entities'}`;
             }
+            renderCompanyDropdownList('');
 
             // 2. Category Dropdown
             const catSelect = document.getElementById('new-task-category');
@@ -710,38 +760,232 @@
             }
         }
 
-        function onCompanySelectChange() {
-            const compSelect = document.getElementById('new-task-company');
-            const customWrap = document.getElementById('custom-company-input-wrap');
+        let companyDropdownActive = false;
+
+        function renderCompanyDropdownList(filterQuery) {
+            const listEl = document.getElementById('company-options-list');
+            const countEl = document.getElementById('company-results-count');
+            const customLabelEl = document.getElementById('custom-option-label');
+            if (!listEl) return;
+
+            const q = (filterQuery || '').trim().toLowerCase();
+            const allCompanies = taskFormOptions.companies || [];
+
+            const filtered = allCompanies.filter(c => {
+                if (!q) return true;
+                const cName = (c.companyName || '').toLowerCase();
+                const clName = (c.clientName || '').toLowerCase();
+                const clEmail = (c.clientEmail || '').toLowerCase();
+                const clId = (c.clientId || '').toLowerCase();
+                return cName.includes(q) || clName.includes(q) || clEmail.includes(q) || clId.includes(q);
+            });
+
+            if (countEl) {
+                countEl.innerText = `${filtered.length} of ${allCompanies.length}`;
+            }
+
+            if (customLabelEl) {
+                customLabelEl.innerText = q ? `+ Use "${filterQuery.trim()}" as custom entity` : `+ Add Custom / Unregistered Entity...`;
+            }
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = `
+                    <div class="p-3 text-center text-slate-400 font-sans text-xs italic">
+                        No registered entities match "${escapeHtml(filterQuery)}".<br>
+                        <span class="text-[11px] text-blue-600 font-semibold not-italic">Click below to use as custom company</span>
+                    </div>
+                `;
+            } else {
+                listEl.innerHTML = filtered.map(c => {
+                    const originalIndex = allCompanies.findIndex(item => item === c);
+                    const isSelected = document.getElementById('new-task-company')?.value === c.companyName;
+                    const activeBg = isSelected ? 'bg-blue-50 border-blue-200' : 'hover:bg-slate-100 border-transparent';
+
+                    return `
+                        <div class="px-3 py-2 rounded-xl border ${activeBg} cursor-pointer transition flex items-center justify-between gap-2 text-xs group"
+                             onclick="selectCompanyItem(${originalIndex})">
+                            <div class="min-w-0 flex-1">
+                                <div class="font-bold text-slate-900 group-hover:text-blue-600 transition truncate">${escapeHtml(c.companyName)}</div>
+                                <div class="text-[11px] text-slate-500 font-sans truncate">
+                                    <span>${escapeHtml(c.clientName || 'Client')}</span>
+                                    ${c.clientEmail ? `<span class="text-slate-400"> • ${escapeHtml(c.clientEmail)}</span>` : ''}
+                                </div>
+                            </div>
+                            <span class="font-mono text-[10px] font-bold text-slate-500 bg-slate-100 group-hover:bg-blue-100 group-hover:text-blue-700 px-1.5 py-0.5 rounded border border-slate-200 shrink-0">${escapeHtml(c.clientId || 'C-101')}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function openCompanyDropdown() {
+            const menu = document.getElementById('company-dropdown-menu');
+            const arrow = document.getElementById('company-dropdown-arrow');
+            const input = document.getElementById('company-search-input');
+            if (menu) menu.classList.remove('hidden');
+            if (arrow) arrow.classList.add('rotate-180');
+            companyDropdownActive = true;
+            renderCompanyDropdownList(input ? input.value : '');
+        }
+
+        function closeCompanyDropdown() {
+            const menu = document.getElementById('company-dropdown-menu');
+            const arrow = document.getElementById('company-dropdown-arrow');
+            if (menu) menu.classList.add('hidden');
+            if (arrow) arrow.classList.remove('rotate-180');
+            companyDropdownActive = false;
+        }
+
+        function toggleCompanyDropdown() {
+            if (companyDropdownActive) {
+                closeCompanyDropdown();
+            } else {
+                openCompanyDropdown();
+                const input = document.getElementById('company-search-input');
+                if (input) input.focus();
+            }
+        }
+
+        function filterCompanyDropdown(val) {
+            openCompanyDropdown();
+            renderCompanyDropdownList(val);
+            const hiddenComp = document.getElementById('new-task-company');
+            if (hiddenComp) hiddenComp.value = val.trim();
+        }
+
+        function selectCompanyItem(originalIndex) {
+            const company = (taskFormOptions.companies || [])[originalIndex];
+            if (!company) return;
+
+            document.getElementById('new-task-company').value = company.companyName;
+            document.getElementById('new-task-company-id').value = company.companyId || 'COMP-101';
+            document.getElementById('new-task-client-id').value = company.clientId || 'C-1001';
+            document.getElementById('new-task-client-name').value = company.clientName || 'Client User';
+            document.getElementById('new-task-client-email').value = company.clientEmail || 'client@globalisor.com';
+            document.getElementById('new-task-is-custom').value = 'false';
+
+            const searchInput = document.getElementById('company-search-input');
+            if (searchInput) searchInput.value = company.companyName;
+
+            const clearBtn = document.getElementById('btn-clear-company');
+            if (clearBtn) clearBtn.classList.remove('hidden');
+
             const previewWrap = document.getElementById('company-client-preview');
             const nameEl = document.getElementById('preview-client-name');
             const emailEl = document.getElementById('preview-client-email');
             const idEl = document.getElementById('preview-client-id');
+            const avatarEl = document.getElementById('preview-avatar');
+            const badgeEl = document.getElementById('preview-company-badge');
 
-            if (!compSelect) return;
-            const val = compSelect.value;
-
-            if (val === '__custom__') {
-                if (customWrap) customWrap.classList.remove('hidden');
-                if (previewWrap) previewWrap.classList.add('hidden');
-                const customInput = document.getElementById('new-task-custom-company');
-                if (customInput) customInput.focus();
-            } else {
-                if (customWrap) customWrap.classList.add('hidden');
-                const selectedOpt = compSelect.selectedOptions[0];
-                const idx = selectedOpt?.dataset?.index;
-                const company = idx !== undefined ? (taskFormOptions.companies || [])[idx] : null;
-
-                if (company && previewWrap) {
-                    previewWrap.classList.remove('hidden');
-                    if (nameEl) nameEl.innerText = company.clientName || 'Client User';
-                    if (emailEl) emailEl.innerText = company.clientEmail || 'client@globalisor.com';
-                    if (idEl) idEl.innerText = company.clientId || 'C-1001';
-                } else if (previewWrap) {
-                    previewWrap.classList.add('hidden');
+            if (previewWrap) {
+                previewWrap.classList.remove('hidden');
+                if (nameEl) nameEl.innerText = company.clientName || 'Client User';
+                if (emailEl) emailEl.innerText = company.clientEmail || 'client@globalisor.com';
+                if (idEl) idEl.innerText = company.clientId || 'C-1001';
+                if (badgeEl) {
+                    badgeEl.innerText = 'Registered Entity';
+                    badgeEl.className = 'text-[9px] font-bold uppercase text-emerald-700 bg-emerald-100/80 px-1.5 py-0.2 rounded';
+                }
+                if (avatarEl) {
+                    const initials = (company.clientName || 'CU').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+                    avatarEl.innerText = initials;
                 }
             }
+
+            closeCompanyDropdown();
         }
+
+        function selectCustomCompanyFromInput() {
+            const searchInput = document.getElementById('company-search-input');
+            let val = searchInput ? searchInput.value.trim() : '';
+            if (!val) {
+                val = prompt('Enter custom company or client entity name:') || '';
+                val = val.trim();
+            }
+            if (!val) return;
+
+            document.getElementById('new-task-company').value = val;
+            document.getElementById('new-task-company-id').value = 'COMP-' + Math.floor(Math.random() * 9000 + 1000);
+            document.getElementById('new-task-client-id').value = 'C-CUSTOM';
+            document.getElementById('new-task-client-name').value = 'Direct Client';
+            document.getElementById('new-task-client-email').value = 'client@globalisor.com';
+            document.getElementById('new-task-is-custom').value = 'true';
+
+            if (searchInput) searchInput.value = val;
+
+            const clearBtn = document.getElementById('btn-clear-company');
+            if (clearBtn) clearBtn.classList.remove('hidden');
+
+            const previewWrap = document.getElementById('company-client-preview');
+            const nameEl = document.getElementById('preview-client-name');
+            const emailEl = document.getElementById('preview-client-email');
+            const idEl = document.getElementById('preview-client-id');
+            const avatarEl = document.getElementById('preview-avatar');
+            const badgeEl = document.getElementById('preview-company-badge');
+
+            if (previewWrap) {
+                previewWrap.classList.remove('hidden');
+                if (nameEl) nameEl.innerText = val;
+                if (emailEl) emailEl.innerText = 'Custom unlisted entity';
+                if (idEl) idEl.innerText = 'NEW-ENTITY';
+                if (badgeEl) {
+                    badgeEl.innerText = 'Custom Entity';
+                    badgeEl.className = 'text-[9px] font-bold uppercase text-blue-700 bg-blue-100 px-1.5 py-0.2 rounded';
+                }
+                if (avatarEl) avatarEl.innerText = val.slice(0, 2).toUpperCase();
+            }
+
+            closeCompanyDropdown();
+        }
+
+        function clearSelectedCompany() {
+            document.getElementById('new-task-company').value = '';
+            document.getElementById('new-task-company-id').value = '';
+            document.getElementById('new-task-client-id').value = '';
+            document.getElementById('new-task-client-name').value = '';
+            document.getElementById('new-task-client-email').value = '';
+            document.getElementById('new-task-is-custom').value = 'false';
+
+            const searchInput = document.getElementById('company-search-input');
+            if (searchInput) {
+                searchInput.value = '';
+                searchInput.focus();
+            }
+
+            const clearBtn = document.getElementById('btn-clear-company');
+            if (clearBtn) clearBtn.classList.add('hidden');
+
+            const previewWrap = document.getElementById('company-client-preview');
+            if (previewWrap) previewWrap.classList.add('hidden');
+
+            openCompanyDropdown();
+        }
+
+        function handleCompanyInputKeydown(e) {
+            if (e.key === 'Escape') {
+                closeCompanyDropdown();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                const listEl = document.getElementById('company-options-list');
+                const firstOption = listEl?.querySelector('[onclick^="selectCompanyItem"]');
+                if (firstOption) {
+                    firstOption.click();
+                } else {
+                    selectCustomCompanyFromInput();
+                }
+            } else if (e.key === 'ArrowDown') {
+                openCompanyDropdown();
+            }
+        }
+
+        // Close combobox on click outside
+        document.addEventListener('click', (e) => {
+            const wrap = document.getElementById('company-combobox-wrapper');
+            if (wrap && !wrap.contains(e.target)) {
+                closeCompanyDropdown();
+            }
+        });
 
         async function refreshTasks() {
             try {
@@ -1371,11 +1615,9 @@
                 dueDateInput.value = d.toISOString().split('T')[0];
             }
 
-            // Reset custom input & preview
-            const previewWrap = document.getElementById('company-client-preview');
-            if (previewWrap) previewWrap.classList.add('hidden');
-            const customWrap = document.getElementById('custom-company-input-wrap');
-            if (customWrap) customWrap.classList.add('hidden');
+            // Reset combobox
+            clearSelectedCompany();
+            closeCompanyDropdown();
 
             // Refresh options if needed
             if (!taskFormOptions.companies || taskFormOptions.companies.length === 0) {
@@ -1394,6 +1636,7 @@
 
         function closeCreateTaskModal() {
             const modal = document.getElementById('create-task-modal');
+            closeCompanyDropdown();
             modal.classList.add('opacity-0');
             modal.firstElementChild.classList.add('scale-95');
             setTimeout(() => {
@@ -1403,40 +1646,29 @@
 
         async function handleCreateTask(e) {
             e.preventDefault();
-            const compSelect = document.getElementById('new-task-company');
-            const compVal = compSelect ? compSelect.value : '';
-            const customComp = document.getElementById('new-task-custom-company')?.value.trim();
-
-            let companyName = compVal;
-            let companyId = 'COMP-' + Math.floor(Math.random() * 900 + 100);
-            let clientId = 'C-1001';
-            let clientName = 'Ethan Tan';
-            let clientEmail = 'ethan.tan@lionpath.com';
-
-            if (compVal === '__custom__') {
-                if (!customComp) {
-                    alert('Please enter a company name');
-                    return;
-                }
-                companyName = customComp;
-                companyId = 'COMP-' + Math.floor(Math.random() * 9000 + 1000);
-            } else {
-                const selectedOpt = compSelect.selectedOptions[0];
-                const idx = selectedOpt?.dataset?.index;
-                const compObj = idx !== undefined ? (taskFormOptions.companies || [])[idx] : null;
-                if (compObj) {
-                    companyName = compObj.companyName;
-                    companyId = compObj.companyId || companyId;
-                    clientId = compObj.clientId || clientId;
-                    clientName = compObj.clientName || clientName;
-                    clientEmail = compObj.clientEmail || clientEmail;
-                }
+            const searchInput = document.getElementById('company-search-input');
+            let companyName = (document.getElementById('new-task-company')?.value || '').trim();
+            
+            // If user typed into the combobox but didn't click an item, auto-select the typed custom entity
+            if (!companyName && searchInput && searchInput.value.trim()) {
+                selectCustomCompanyFromInput();
+                companyName = (document.getElementById('new-task-company')?.value || '').trim();
             }
 
             if (!companyName) {
-                alert('Please select or enter a company');
+                alert('Please search and select a Client / Company or enter a custom entity name.');
+                if (searchInput) {
+                    searchInput.focus();
+                    searchInput.classList.add('ring-2', 'ring-rose-500', 'border-rose-400');
+                    setTimeout(() => searchInput.classList.remove('ring-2', 'ring-rose-500', 'border-rose-400'), 2000);
+                }
                 return;
             }
+
+            const companyId = document.getElementById('new-task-company-id')?.value || ('COMP-' + Math.floor(Math.random() * 900 + 100));
+            const clientId = document.getElementById('new-task-client-id')?.value || 'C-1001';
+            const clientName = document.getElementById('new-task-client-name')?.value || 'Client User';
+            const clientEmail = document.getElementById('new-task-client-email')?.value || 'client@globalisor.com';
 
             const title = document.getElementById('new-task-title').value.trim();
             const category = document.getElementById('new-task-category').value;
@@ -1486,6 +1718,7 @@
                     const created = await res.json();
                     closeCreateTaskModal();
                     document.getElementById('create-task-form').reset();
+                    clearSelectedCompany();
                     showToastNotification(`<strong>Task Created:</strong> ${created.ticketNumber || created.id} (${created.title})`, created.id);
                     refreshTasks();
                 } else {
@@ -1502,7 +1735,14 @@
         window.openCreateTaskModal = openCreateTaskModal;
         window.closeCreateTaskModal = closeCreateTaskModal;
         window.handleCreateTask = handleCreateTask;
-        window.onCompanySelectChange = onCompanySelectChange;
+        window.openCompanyDropdown = openCompanyDropdown;
+        window.closeCompanyDropdown = closeCompanyDropdown;
+        window.toggleCompanyDropdown = toggleCompanyDropdown;
+        window.filterCompanyDropdown = filterCompanyDropdown;
+        window.selectCompanyItem = selectCompanyItem;
+        window.selectCustomCompanyFromInput = selectCustomCompanyFromInput;
+        window.clearSelectedCompany = clearSelectedCompany;
+        window.handleCompanyInputKeydown = handleCompanyInputKeydown;
         window.openTaskDetail = openTaskDetail;
         window.closeDetailModal = closeDetailModal;
         window.saveAssignment = saveAssignment;
