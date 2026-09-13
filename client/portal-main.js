@@ -239,6 +239,7 @@ async function fetchData() {
             fetch('/api/catalog').then(async cRes => {
                 if (cRes.ok) state.catalog = await cRes.json();
             }),
+            fetchClientTasks(),
             fetch('/api/compliance').then(async cpRes => {
                 if (cpRes.ok) {
                     const cpList = await cpRes.json();
@@ -488,7 +489,7 @@ function switchTab(tab) {
         case 'messages': title.innerText = 'Messages & Chat'; window.location.href = 'messages.html'; break;
         case 'documents': title.innerText = 'Company Documents'; renderDocuments(view); break;
         case 'directors': title.innerText = 'Directors & Shareholders Particulars'; renderDirectorsView(view); break;
-        case 'tasks': title.innerText = 'Active Tasks & Workflows'; renderServices(view); break;
+        case 'tasks': title.innerText = 'Tasks & Requests Hub'; renderTasksClientView(view); break;
         case 'billing': title.innerText = 'Billing & Invoices'; renderBilling(view); break;
         case 'blogs': title.innerText = 'Corporate Regulatory Blogs & Insights'; renderBlogsView(view); break;
         case 'settings': title.innerText = 'Account Settings'; renderClientSettings(view); break;
@@ -7715,82 +7716,663 @@ function renderUpdates(container) {
     if (window.lucide) window.lucide.createIcons();
 }
 
-function renderServices(container) {
+window.clientTasksList = [];
+window.clientTasksFilter = 'ALL';
+
+async function fetchClientTasks() {
+    try {
+        const clientId = state.clientId || 'C-1001';
+        const res = await fetch(`/api/tasks`);
+        if (res.ok) {
+            const data = await res.json();
+            window.clientTasksList = data || [];
+            const tasksBadge = document.getElementById('client-tasks-badge');
+            if (tasksBadge) {
+                const activeCount = (window.clientTasksList || []).filter(t => !['COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase())).length;
+                if (activeCount > 0) {
+                    tasksBadge.innerText = activeCount;
+                    tasksBadge.classList.remove('hidden');
+                } else {
+                    tasksBadge.classList.add('hidden');
+                }
+            }
+            return window.clientTasksList;
+        }
+    } catch (e) {
+        console.error('Failed to load client tasks', e);
+    }
+    return window.clientTasksList || [];
+}
+
+async function renderTasksClientView(container) {
     container.innerHTML = `
-        <div class="space-y-10">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-                <div class="max-w-xl">
-                    <p class="text-slate-500">Track the real-time progress of your ongoing corporate operations and applications.</p>
+        <div class="space-y-8 animate-fade-in">
+            <!-- Top Action & Stat Banner -->
+            <div class="p-8 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden">
+                <div class="absolute right-0 top-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="space-y-2 max-w-xl z-10">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold border border-blue-400/20">
+                        <span class="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
+                        Client Operations & Requests Hub
+                    </div>
+                    <h2 class="text-2xl lg:text-3xl font-extrabold font-outfit tracking-tight">Corporate Requests & Tasks</h2>
+                    <p class="text-xs lg:text-sm text-slate-300 font-sans leading-relaxed">
+                        Need to change registered office address, appoint new directors, file tax queries or request corporate actions? Submit below and our certified corporate secretarial team will execute it.
+                    </p>
+                </div>
+                <div class="z-10 shrink-0">
+                    <button onclick="openClientRaiseRequestModal()" class="px-6 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-2xl shadow-lg shadow-blue-500/30 transition transform hover:-translate-y-0.5 flex items-center gap-2.5">
+                        <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                        <span>Raise New Request / Query</span>
+                    </button>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 gap-8">
-                ${state.services.length === 0 ? '<div class="premium-card p-20 text-center text-slate-400">No active workflows initiated.</div>' : state.services.map(s => `
-                    <div class="premium-card">
-                        <div class="flex flex-col lg:flex-row gap-12">
-                            <div class="lg:w-1/3 space-y-8">
-                                <div class="flex items-center gap-5">
-                                    <div class="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0"><i data-lucide="activity" class="w-8 h-8"></i></div>
-                                    <div>
-                                        <h3 class="text-2xl font-extrabold text-slate-900">${s.type}</h3>
-                                        <p class="text-sm text-slate-400 font-bold uppercase tracking-widest">${s.company}</p>
-                                    </div>
-                                </div>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Workflow ID</p>
-                                        <p class="text-sm font-extrabold text-slate-900">#${window.appSeqMap?.[s.id] || s.id}</p>
-                                    </div>
-                                    <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Initiated</p>
-                                        <p class="text-sm font-extrabold text-slate-900">${s.date}</p>
-                                    </div>
-                                </div>
-                                <button class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold text-xs uppercase tracking-[0.2em] hover:bg-slate-800 transition-all">Audit Trail</button>
-                            </div>
-                            
-                            <div class="flex-1">
-                                <div class="flex justify-between items-center mb-10">
-                                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">Live Timeline</h4>
-                                    <span class="status-badge ${s.status === 'Active' ? 'status-active' : 'status-progress'}">${s.status}</span>
-                                </div>
-                                <div class="relative space-y-12">
-                                    <!-- Journey Line -->
-                                    <div class="absolute left-6 top-2 bottom-2 w-0.5 bg-slate-100"></div>
-                                    
-                                    <div class="flex gap-6 relative z-10">
-                                        <div class="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0"><i data-lucide="check" class="w-6 h-6"></i></div>
-                                        <div>
-                                            <h5 class="font-bold text-slate-900">Request Received</h5>
-                                            <p class="text-sm text-slate-500 mt-1">Application lodged and initial data capture complete.</p>
-                                        </div>
-                                    </div>
-                                    <div class="flex gap-6 relative z-10">
-                                        <div class="w-12 h-12 rounded-full ${s.progress >= 65 ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-blue-600 text-white shadow-blue-500/20'} flex items-center justify-center shrink-0">
-                                            <i data-lucide="${s.progress >= 65 ? 'check' : 'loader'}" class="w-6 h-6 ${s.progress < 65 ? 'animate-spin' : ''}"></i>
-                                        </div>
-                                        <div>
-                                            <h5 class="font-bold text-slate-900">Governance Review</h5>
-                                            <p class="text-sm text-slate-500 mt-1">Globalisor compliance team performing due diligence.</p>
-                                        </div>
-                                    </div>
-                                    <div class="flex gap-6 relative z-10">
-                                        <div class="w-12 h-12 rounded-full ${s.progress >= 100 ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-slate-100 text-slate-300'} flex items-center justify-center shrink-0"><i data-lucide="flag" class="w-6 h-6"></i></div>
-                                        <div>
-                                            <h5 class="font-bold ${s.progress >= 100 ? 'text-slate-900' : 'text-slate-400'}">Final Execution</h5>
-                                            <p class="text-sm text-slate-400 mt-1">Official registration with ACRA and certificate issuance.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+            <!-- Stats KPI Row -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="client-task-stats-row">
+                <div class="p-5 bg-white rounded-2xl border border-slate-100 shadow-xs flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold shrink-0">
+                        <i data-lucide="layers" class="w-6 h-6"></i>
                     </div>
-                `).join('')}
+                    <div>
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Raised</div>
+                        <div class="text-xl font-extrabold text-slate-900" id="client-stat-total">0</div>
+                    </div>
+                </div>
+                <div class="p-5 bg-white rounded-2xl border border-slate-100 shadow-xs flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold shrink-0">
+                        <i data-lucide="clock" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-bold text-amber-500 uppercase tracking-wider">In Progress</div>
+                        <div class="text-xl font-extrabold text-amber-600" id="client-stat-progress">0</div>
+                    </div>
+                </div>
+                <div class="p-5 bg-white rounded-2xl border border-slate-100 shadow-xs flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold shrink-0">
+                        <i data-lucide="message-circle" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-bold text-purple-500 uppercase tracking-wider">Your Input Needed</div>
+                        <div class="text-xl font-extrabold text-purple-600" id="client-stat-waiting">0</div>
+                    </div>
+                </div>
+                <div class="p-5 bg-white rounded-2xl border border-slate-100 shadow-xs flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
+                        <i data-lucide="check-circle" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Completed</div>
+                        <div class="text-xl font-extrabold text-emerald-600" id="client-stat-completed">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Pills -->
+            <div class="flex items-center justify-between flex-wrap gap-4 pb-2 border-b border-slate-200">
+                <div class="flex items-center gap-2">
+                    <button onclick="filterClientTasks('ALL')" id="client-tab-ALL" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-white">All Tasks</button>
+                    <button onclick="filterClientTasks('ACTIVE')" id="client-tab-ACTIVE" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100">In Progress</button>
+                    <button onclick="filterClientTasks('WAITING')" id="client-tab-WAITING" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100">Awaiting Feedback</button>
+                    <button onclick="filterClientTasks('COMPLETED')" id="client-tab-COMPLETED" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100">Resolved</button>
+                </div>
+                <button onclick="renderTasksClientView(document.getElementById('main-view'))" class="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1.5">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
+                </button>
+            </div>
+
+            <!-- Task Cards Container -->
+            <div id="client-tasks-list-container" class="space-y-6">
+                <div class="p-16 text-center text-slate-400 bg-white rounded-3xl border border-slate-100 shadow-xs">
+                    <div class="inline-block p-4 bg-slate-50 rounded-2xl mb-3"><i data-lucide="loader" class="w-6 h-6 animate-spin text-blue-600"></i></div>
+                    <p class="text-xs font-bold">Loading tasks and requests...</p>
+                </div>
             </div>
         </div>
     `;
+
+    await fetchClientTasks();
+    updateClientTasksCards();
     if (window.lucide) window.lucide.createIcons();
 }
+
+function updateClientTasksCards() {
+    const list = window.clientTasksList || [];
+    const container = document.getElementById('client-tasks-list-container');
+    if (!container) return;
+
+    // Update Stats
+    const total = list.length;
+    const progress = list.filter(t => ['IN_PROGRESS', 'ASSIGNED'].includes((t.status || '').toUpperCase())).length;
+    const waiting = list.filter(t => (t.status || '').toUpperCase() === 'WAITING_CLIENT_INPUT').length;
+    const completed = list.filter(t => ['COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase())).length;
+
+    const elTotal = document.getElementById('client-stat-total');
+    const elProg = document.getElementById('client-stat-progress');
+    const elWait = document.getElementById('client-stat-waiting');
+    const elComp = document.getElementById('client-stat-completed');
+    if (elTotal) elTotal.innerText = total;
+    if (elProg) elProg.innerText = progress;
+    if (elWait) elWait.innerText = waiting;
+    if (elComp) elComp.innerText = completed;
+
+    // Filter
+    let filtered = list;
+    if (window.clientTasksFilter === 'ACTIVE') {
+        filtered = list.filter(t => ['IN_PROGRESS', 'ASSIGNED', 'PENDING'].includes((t.status || '').toUpperCase()));
+    } else if (window.clientTasksFilter === 'WAITING') {
+        filtered = list.filter(t => (t.status || '').toUpperCase() === 'WAITING_CLIENT_INPUT');
+    } else if (window.clientTasksFilter === 'COMPLETED') {
+        filtered = list.filter(t => ['COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase()));
+    }
+
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div class="p-16 text-center bg-white rounded-3xl border border-slate-100 shadow-xs space-y-3">
+                <div class="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto"><i data-lucide="clipboard-check" class="w-7 h-7"></i></div>
+                <h4 class="text-base font-bold text-slate-900">No requests in this view</h4>
+                <p class="text-xs text-slate-400 max-w-sm mx-auto font-sans">Have a change of address, director appointment, share update or corporate tax inquiry? Click below to submit.</p>
+                <button onclick="openClientRaiseRequestModal()" class="px-5 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition">Raise Request Now</button>
+            </div>
+        `;
+        if (window.lucide) window.lucide.createIcons();
+        return;
+    }
+
+    container.innerHTML = filtered.map(t => {
+        const priorityHtml = getClientPriorityBadge(t.priority);
+        const statusHtml = getClientStatusBadge(t.status);
+        const comments = t.comments || [];
+        const publicComments = comments.filter(c => !c.isInternal);
+        const isDone = ['COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase());
+
+        const stepperSteps = [
+            { key: 'PENDING', label: '1. Request Raised' },
+            { key: 'ASSIGNED', label: '2. Assigned to Specialist' },
+            { key: 'IN_PROGRESS', label: '3. In Progress & Lodgement' },
+            { key: 'COMPLETED', label: '4. Completed' }
+        ];
+
+        const statusRank = {
+            'PENDING': 1,
+            'ASSIGNED': 2,
+            'IN_PROGRESS': 3,
+            'WAITING_CLIENT_INPUT': 3,
+            'UNDER_REVIEW': 3,
+            'COMPLETED': 4,
+            'RESOLVED': 4
+        };
+        const currentRank = statusRank[(t.status || 'PENDING').toUpperCase()] || 1;
+
+        return `
+            <div class="p-6 sm:p-8 bg-white rounded-3xl border border-slate-100 shadow-sm space-y-6 hover:border-slate-300 transition-all">
+                <!-- Header row -->
+                <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-slate-100">
+                    <div class="space-y-1.5">
+                        <div class="flex items-center gap-2.5 flex-wrap">
+                            <span class="font-mono text-xs font-bold px-2.5 py-1 bg-blue-50 text-blue-600 rounded-lg border border-blue-100">${t.ticketNumber || t.id}</span>
+                            <span class="text-[11px] font-bold px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg uppercase">${t.category || t.type}</span>
+                            ${priorityHtml}
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-900">${t.title}</h3>
+                        <p class="text-xs text-slate-400 font-sans">Entity: <strong class="text-slate-700 font-semibold">${t.companyName || 'Corporate Entity'}</strong> • Created: <span class="text-slate-600">${new Date(t.createdAt || Date.now()).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })}</span></p>
+                    </div>
+                    <div class="flex items-center gap-3 shrink-0">
+                        ${statusHtml}
+                    </div>
+                </div>
+
+                <!-- Visual Stepper Progress Bar -->
+                <div class="p-4 bg-slate-50/80 rounded-2xl border border-slate-100">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        ${stepperSteps.map((step, idx) => {
+                            const stepRank = idx + 1;
+                            const isStepPassed = currentRank >= stepRank;
+                            const isCurrent = currentRank === stepRank;
+                            return `
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${isCurrent ? 'bg-blue-600 text-white ring-4 ring-blue-100' : (isStepPassed ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500')}">
+                                        ${isStepPassed && !isCurrent ? '✓' : stepRank}
+                                    </div>
+                                    <span class="text-[11px] font-bold truncate ${isCurrent ? 'text-blue-600 font-extrabold' : (isStepPassed ? 'text-slate-800' : 'text-slate-400')}">${step.label}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+
+                <!-- Description & Details -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 space-y-3">
+                        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Request Instructions</div>
+                        <p class="text-xs text-slate-700 leading-relaxed font-sans bg-slate-50 p-4 rounded-2xl border border-slate-100">${t.description || 'No additional instructions given.'}</p>
+                        
+                        ${t.resolutionNotes ? `
+                            <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 font-sans space-y-1">
+                                <strong class="font-bold flex items-center gap-1.5"><i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i> Resolution & ACRA Lodgement Details</strong>
+                                <p>${t.resolutionNotes}</p>
+                            </div>
+                        ` : ''}
+
+                        ${t.attachments && t.attachments.length > 0 ? `
+                            <div class="space-y-1.5 pt-1">
+                                <div class="text-[10px] font-bold text-slate-400 uppercase">Attached Documents (${t.attachments.length})</div>
+                                <div class="flex flex-wrap gap-2">
+                                    ${t.attachments.map(att => `
+                                        <div class="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700">
+                                            <i data-lucide="file-text" class="w-3.5 h-3.5 text-blue-600"></i>
+                                            <span>${att.name}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- Assigned Specialist Card -->
+                    <div class="p-5 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col justify-between space-y-4">
+                        <div class="space-y-2">
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dedicated Specialist</div>
+                            ${t.assignedTo && t.assignedTo.name ? `
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-slate-900 text-white font-bold text-sm flex items-center justify-center shadow-sm">${t.assignedTo.avatar || t.assignedTo.name.slice(0,2).toUpperCase()}</div>
+                                    <div>
+                                        <div class="font-bold text-xs text-slate-900">${t.assignedTo.name}</div>
+                                        <div class="text-[11px] text-blue-600 font-semibold font-sans">${t.assignedTo.role === 'ADMIN' ? 'Senior Executive' : 'Corporate Secretary Specialist'}</div>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="flex items-center gap-2 text-xs font-bold text-amber-600 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+                                    <i data-lucide="clock" class="w-4 h-4"></i>
+                                    <span>Routing to qualified officer...</span>
+                                </div>
+                            `}
+                        </div>
+                        <div class="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500 font-sans">
+                            <span>Target SLA:</span>
+                            <span class="font-bold text-slate-800">${t.dueDate ? 'Due ' + t.dueDate : 'Within 24 Hours'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Discussion & Comments Expander -->
+                <div class="pt-4 border-t border-slate-100 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <button onclick="toggleClientComments('${t.id}')" class="text-xs font-bold text-slate-700 hover:text-blue-600 flex items-center gap-2">
+                            <i data-lucide="message-square" class="w-4 h-4 text-blue-600"></i>
+                            <span>Communication Thread (${publicComments.length} messages)</span>
+                            <i data-lucide="chevron-down" id="chevron-${t.id}" class="w-3.5 h-3.5 transition-transform"></i>
+                        </button>
+                    </div>
+
+                    <div id="comments-box-${t.id}" class="hidden space-y-4 pt-2">
+                        <div class="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar font-sans">
+                            ${publicComments.length === 0 ? '<p class="text-xs text-slate-400 italic text-center py-2">No messages yet. Send a query or update below.</p>' : publicComments.map(c => `
+                                <div class="p-3.5 rounded-2xl ${c.authorRole === 'CLIENT' ? 'bg-blue-50/60 ml-6 border border-blue-100' : 'bg-slate-50 mr-6 border border-slate-100'} space-y-1">
+                                    <div class="flex items-center justify-between text-[11px]">
+                                        <span class="font-bold ${c.authorRole === 'CLIENT' ? 'text-blue-700' : 'text-slate-900'}">${c.authorName || 'Corporate Specialist'} (${c.authorRole || 'STAFF'})</span>
+                                        <span class="text-slate-400">${new Date(c.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                    </div>
+                                    <p class="text-xs text-slate-700 leading-relaxed">${c.text}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        <!-- Post new reply -->
+                        <div class="flex gap-2">
+                            <input type="text" id="client-msg-input-${t.id}" onkeydown="if(event.key === 'Enter') sendClientTaskMessage('${t.id}')" placeholder="Type a message, question or update to your specialist..." class="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-sans">
+                            <button onclick="sendClientTaskMessage('${t.id}')" class="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5">
+                                <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                                <span>Send</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    if (window.lucide) window.lucide.createIcons();
+}
+
+function getClientPriorityBadge(priority) {
+    const p = (priority || 'MEDIUM').toUpperCase();
+    if (p === 'URGENT') return `<span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-rose-50 text-rose-600 border border-rose-200 animate-pulse">URGENT</span>`;
+    if (p === 'HIGH') return `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">HIGH PRIORITY</span>`;
+    return `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600">STANDARD PRIORITY</span>`;
+}
+
+function getClientStatusBadge(status) {
+    const s = (status || 'PENDING').toUpperCase();
+    if (s === 'COMPLETED' || s === 'RESOLVED') return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-200"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Completed</span>`;
+    if (s === 'IN_PROGRESS') return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-600 border border-blue-200"><span class="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span> In Progress</span>`;
+    if (s === 'WAITING_CLIENT_INPUT') return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-600 border border-purple-200"><span class="w-2 h-2 rounded-full bg-purple-500"></span> Feedback Needed</span>`;
+    if (s === 'ASSIGNED') return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200"><span class="w-2 h-2 rounded-full bg-cyan-500"></span> Assigned</span>`;
+    return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200"><span class="w-2 h-2 rounded-full bg-slate-400"></span> Queued</span>`;
+}
+
+function filterClientTasks(tabKey) {
+    window.clientTasksFilter = tabKey;
+    ['ALL', 'ACTIVE', 'WAITING', 'COMPLETED'].forEach(key => {
+        const btn = document.getElementById(`client-tab-${key}`);
+        if (btn) {
+            if (key === tabKey) {
+                btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-white';
+            } else {
+                btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100';
+            }
+        }
+    });
+    updateClientTasksCards();
+}
+
+function toggleClientComments(taskId) {
+    const box = document.getElementById(`comments-box-${taskId}`);
+    const icon = document.getElementById(`chevron-${taskId}`);
+    if (!box) return;
+    if (box.classList.contains('hidden')) {
+        box.classList.remove('hidden');
+        if (icon) icon.classList.add('rotate-180');
+    } else {
+        box.classList.add('hidden');
+        if (icon) icon.classList.remove('rotate-180');
+    }
+}
+
+function getClientPortalEntityInfo() {
+    const reqData = (state && state.requirements && state.requirements.excelData) ? state.requirements.excelData : ((state && state.requirements) || {});
+    
+    // 1. Company Name
+    const companyName = (state && state.user && state.user.companyName) ||
+                        reqData.companyName ||
+                        document.getElementById('sidebar-company-name')?.innerText?.trim() ||
+                        document.getElementById('header-company-name')?.innerText?.trim() ||
+                        document.getElementById('sidebar-bottom-company-name')?.innerText?.trim() ||
+                        'ABBEY HOLDINGS PTE LTD';
+
+    // 2. UEN / Company ID
+    let uen = reqData.uen || (state && state.user && (state.user.uen || state.user.companyId)) || '';
+    if (!uen) {
+        const uenText = document.getElementById('sidebar-company-uen')?.innerText || '';
+        uen = uenText.replace(/UEN:\s*/i, '').trim();
+    }
+    if (!uen) uen = '201822782W';
+
+    // 3. Client User Name
+    const clientName = (state && state.user && (state.user.name || state.user.fullName || state.user.clientName)) ||
+                       reqData.clientName ||
+                       'Abbey Holdings Executive';
+
+    // 4. Client Email
+    const clientEmail = (state && state.user && state.user.email) ||
+                        reqData.clientEmail ||
+                        'contact@abbeyholdings.sg';
+
+    // 5. Client ID
+    const clientId = (state && state.user && (state.user.id || state.user.clientId)) || 'C-1001';
+
+    return {
+        companyName,
+        companyId: uen,
+        clientName,
+        clientEmail,
+        clientId
+    };
+}
+
+async function sendClientTaskMessage(taskId) {
+    const input = document.getElementById(`client-msg-input-${taskId}`);
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+
+    const entityInfo = getClientPortalEntityInfo();
+
+    try {
+        const res = await fetch(`/api/tasks/${taskId}/comments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                authorId: entityInfo.clientId,
+                authorName: entityInfo.clientName,
+                authorRole: 'CLIENT',
+                authorAvatar: 'CL',
+                text,
+                isInternal: false
+            })
+        });
+        if (res.ok) {
+            input.value = '';
+            await fetchClientTasks();
+            updateClientTasksCards();
+            // keep comments open
+            const box = document.getElementById(`comments-box-${taskId}`);
+            if (box) box.classList.remove('hidden');
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function openClientRaiseRequestModal() {
+    const modalContainer = document.getElementById('modal-container');
+    const modalContent = document.getElementById('modal-content');
+    if (!modalContainer || !modalContent) return;
+
+    const entityInfo = getClientPortalEntityInfo();
+
+    modalContent.innerHTML = `
+        <div class="space-y-6">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                        <i data-lucide="file-plus" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-900 font-outfit">Raise Corporate Request / Query</h3>
+                        <p class="text-xs text-slate-500 font-sans">Submitting request on behalf of <strong class="text-blue-600 font-semibold">${entityInfo.companyName}</strong> (${entityInfo.companyId}).</p>
+                    </div>
+                </div>
+                <button onclick="closeModal()" class="p-2 text-slate-400 hover:text-slate-700 rounded-xl transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form onsubmit="handleClientSubmitRequest(event)" class="space-y-4 font-sans text-xs">
+                <!-- Request Category Pre-Sets -->
+                <div>
+                    <label class="block font-bold text-slate-700 mb-2 uppercase text-[10px] tracking-wider">Select Category of Request</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5" id="request-category-picker">
+                        <label class="p-3 rounded-2xl border-2 border-blue-600 bg-blue-50/50 cursor-pointer flex items-center gap-3 transition">
+                            <input type="radio" name="req_cat" value="Registered Address Change" checked class="hidden">
+                            <span class="text-lg">📍</span>
+                            <div>
+                                <div class="font-bold text-slate-900 text-xs">Address Change</div>
+                                <div class="text-[10px] text-slate-500">Relocation / ACRA lodgement</div>
+                            </div>
+                        </label>
+                        <label class="p-3 rounded-2xl border-2 border-slate-200 hover:border-slate-300 bg-white cursor-pointer flex items-center gap-3 transition">
+                            <input type="radio" name="req_cat" value="Director / Shareholder Change" class="hidden">
+                            <span class="text-lg">👥</span>
+                            <div>
+                                <div class="font-bold text-slate-900 text-xs">Officers / Directors</div>
+                                <div class="text-[10px] text-slate-500">Appointment / Resignation</div>
+                            </div>
+                        </label>
+                        <label class="p-3 rounded-2xl border-2 border-slate-200 hover:border-slate-300 bg-white cursor-pointer flex items-center gap-3 transition">
+                            <input type="radio" name="req_cat" value="Share Capital & Allotment" class="hidden">
+                            <span class="text-lg">📈</span>
+                            <div>
+                                <div class="font-bold text-slate-900 text-xs">Share Capital</div>
+                                <div class="text-[10px] text-slate-500">Allotment / Share transfer</div>
+                            </div>
+                        </label>
+                        <label class="p-3 rounded-2xl border-2 border-slate-200 hover:border-slate-300 bg-white cursor-pointer flex items-center gap-3 transition">
+                            <input type="radio" name="req_cat" value="Tax & Accounting" class="hidden">
+                            <span class="text-lg">📊</span>
+                            <div>
+                                <div class="font-bold text-slate-900 text-xs">Tax & Accounting Query</div>
+                                <div class="text-[10px] text-slate-500">IRAS Form C-S, GST, Filing</div>
+                            </div>
+                        </label>
+                        <label class="p-3 rounded-2xl border-2 border-slate-200 hover:border-slate-300 bg-white cursor-pointer flex items-center gap-3 transition">
+                            <input type="radio" name="req_cat" value="Compliance Filing" class="hidden">
+                            <span class="text-lg">🏛️</span>
+                            <div>
+                                <div class="font-bold text-slate-900 text-xs">Compliance & AGM</div>
+                                <div class="text-[10px] text-slate-500">Annual Returns / Extension</div>
+                            </div>
+                        </label>
+                        <label class="p-3 rounded-2xl border-2 border-slate-200 hover:border-slate-300 bg-white cursor-pointer flex items-center gap-3 transition">
+                            <input type="radio" name="req_cat" value="General Operations" class="hidden">
+                            <span class="text-lg">💡</span>
+                            <div>
+                                <div class="font-bold text-slate-900 text-xs">Custom Inquiry</div>
+                                <div class="text-[10px] text-slate-500">Advisory & Special assistance</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Title & Priority -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="sm:col-span-2">
+                        <label class="block font-bold text-slate-700 mb-1">Subject / Request Title</label>
+                        <input type="text" id="client-req-title" required placeholder="e.g. Change of registered office to Marina Bay Tower..." class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Priority</label>
+                        <select id="client-req-priority" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none">
+                            <option value="MEDIUM" selected>Standard (24-48h)</option>
+                            <option value="HIGH">High Priority (24h)</option>
+                            <option value="URGENT">Urgent (Express)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Detailed Description & Specifications</label>
+                    <textarea id="client-req-desc" rows="3" required placeholder="Please provide exact particulars, new details, effective dates, or specific questions..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"></textarea>
+                </div>
+
+                <!-- File Attachment -->
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Attach Supporting Documents (Optional)</label>
+                    <div class="p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-300 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="upload-cloud" class="w-5 h-5 text-slate-400"></i>
+                            <div>
+                                <div class="text-xs font-bold text-slate-700" id="client-upload-label">Upload Tenancy, Passport, Resolution, etc.</div>
+                                <div class="text-[10px] text-slate-400">PDF, PNG, JPG up to 10MB</div>
+                            </div>
+                        </div>
+                        <label class="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer hover:bg-slate-100 transition shadow-2xs">
+                            Browse File
+                            <input type="file" id="client-req-file" class="hidden" onchange="document.getElementById('client-upload-label').innerText = this.files[0] ? this.files[0].name : 'Upload Tenancy, Passport, Resolution...'">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Footer Actions -->
+                <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 rounded-xl transition">Cancel</button>
+                    <button type="submit" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 font-bold text-white rounded-xl shadow-lg shadow-blue-500/20 transition flex items-center gap-2">
+                        <i data-lucide="check" class="w-4 h-4"></i>
+                        <span>Submit Request</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+
+    // Radio click listener
+    const radios = modalContent.querySelectorAll('input[name="req_cat"]');
+    radios.forEach(r => {
+        r.parentElement.addEventListener('click', () => {
+            radios.forEach(x => {
+                x.parentElement.classList.remove('border-blue-600', 'bg-blue-50/50');
+                x.parentElement.classList.add('border-slate-200', 'bg-white');
+            });
+            r.checked = true;
+            r.parentElement.classList.remove('border-slate-200', 'bg-white');
+            r.parentElement.classList.add('border-blue-600', 'bg-blue-50/50');
+        });
+    });
+
+    modalContainer.classList.remove('opacity-0', 'pointer-events-none');
+    modalContent.classList.remove('scale-95');
+    if (window.lucide) window.lucide.createIcons();
+}
+
+async function handleClientSubmitRequest(e) {
+    e.preventDefault();
+    const category = document.querySelector('input[name="req_cat"]:checked')?.value || 'General Operations';
+    const title = document.getElementById('client-req-title').value.trim();
+    const priority = document.getElementById('client-req-priority').value;
+    const description = document.getElementById('client-req-desc').value.trim();
+    const fileInput = document.getElementById('client-req-file');
+
+    let attachments = [];
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+        const file = fileInput.files[0];
+        attachments.push({
+            id: `att-${Date.now()}`,
+            name: file.name,
+            url: '#',
+            type: file.type || 'application/pdf',
+            size: file.size,
+            uploadedAt: Date.now()
+        });
+    }
+
+    const entityInfo = getClientPortalEntityInfo();
+
+    const payload = {
+        title,
+        description,
+        category,
+        type: category.includes('Change') ? 'CHANGE' : (category.includes('Query') ? 'QUERY' : 'REQUEST'),
+        priority,
+        status: 'PENDING',
+        clientId: entityInfo.clientId,
+        clientName: entityInfo.clientName,
+        clientEmail: entityInfo.clientEmail,
+        companyId: entityInfo.companyId,
+        companyName: entityInfo.companyName,
+        attachments,
+        dueDate: priority === 'URGENT' ? 'Within 12 Hours' : (priority === 'HIGH' ? 'Within 24 Hours' : 'Within 48 Hours'),
+        createdBy: {
+            id: entityInfo.clientId,
+            name: entityInfo.clientName,
+            role: 'CLIENT'
+        }
+    };
+
+    try {
+        const res = await fetch('/api/tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+            closeModal();
+            renderTasksClientView(document.getElementById('main-view'));
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+// Explicitly bind client task functions to window for DOM onclick events
+window.openClientRaiseRequestModal = openClientRaiseRequestModal;
+window.handleClientSubmitRequest = handleClientSubmitRequest;
+window.filterClientTasks = filterClientTasks;
+window.toggleClientComments = toggleClientComments;
+window.sendClientTaskMessage = sendClientTaskMessage;
+window.renderTasksClientView = renderTasksClientView;
+window.fetchClientTasks = fetchClientTasks;
+window.updateClientTasksCards = updateClientTasksCards;
 
 function renderDirectorsView(container) {
     const reqData = (state.requirements && state.requirements.excelData) ? state.requirements.excelData : (state.requirements || {});

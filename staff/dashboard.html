@@ -235,6 +235,48 @@
             transform: rotate(180deg);
         }
 
+        .kanban-col {
+            background: #f1f5f9;
+            border-radius: 16px;
+            padding: 1rem;
+            min-height: 520px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            border: 2px dashed transparent;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .kanban-col.drag-over {
+            background: #eff6ff !important;
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12) !important;
+            transform: scale(1.005);
+        }
+        .kanban-card {
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 1rem;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            cursor: grab;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+        }
+        .kanban-card:active {
+            cursor: grabbing;
+        }
+        .kanban-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+            border-color: #cbd5e1;
+        }
+        .kanban-card.dragging {
+            opacity: 0.4;
+            transform: scale(0.97) rotate(1deg);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.12);
+            border: 1px dashed #3b82f6;
+        }
+
         @media (min-width: 1024px) {
             body.sidebar-collapsed #staff-sidebar {
                 width: 70px !important;
@@ -924,91 +966,231 @@
             </div>
         </div>
 
-        <div id="view-tasks" class="hidden space-y-8">
-            <h1 class="text-3xl font-bold text-slate-900 font-outfit mb-8">Completed Tasks</h1>
+        <div id="view-tasks" class="hidden space-y-8 font-outfit">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 class="text-3xl font-bold text-slate-900">Task & Request Operations</h1>
+                    <p class="text-xs text-slate-500 font-sans mt-0.5">Manage your assigned client requests, claim tasks from the open queue, and submit resolution updates.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="renderTasks()" class="p-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh Tasks
+                    </button>
+                </div>
+            </div>
 
             <!-- Summary Stats -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-                <div class="bg-white/80 backdrop-blur-md rounded-2xl border border-white p-6 shadow-sm flex items-center gap-4">
-                    <div class="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-xl flex items-center justify-center">
-                        <i data-lucide="check-circle" class="w-6 h-6"></i>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex items-center gap-4">
+                    <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold shrink-0">
+                        <i data-lucide="user-check" class="w-6 h-6"></i>
                     </div>
                     <div>
-                        <div class="text-2xl font-bold text-slate-900">1</div>
-                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Applications Completed</div>
+                        <div class="text-2xl font-bold text-slate-900" id="staff-stat-my-tasks">0</div>
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">My Assigned Tasks</div>
                     </div>
                 </div>
-                <div class="bg-white/80 backdrop-blur-md rounded-2xl border border-white p-6 shadow-sm flex items-center gap-4">
-                    <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-xl flex items-center justify-center">
-                        <i data-lucide="file-text" class="w-6 h-6"></i>
+                <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex items-center gap-4">
+                    <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center font-bold shrink-0">
+                        <i data-lucide="inbox" class="w-6 h-6"></i>
                     </div>
                     <div>
-                        <div class="text-2xl font-bold text-slate-900">7</div>
-                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Documents Reviewed</div>
+                        <div class="text-2xl font-bold text-amber-600" id="staff-stat-unassigned">0</div>
+                        <div class="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Open Pool (Claimable)</div>
                     </div>
                 </div>
-                <div class="bg-white/80 backdrop-blur-md rounded-2xl border border-white p-6 shadow-sm flex items-center gap-4">
-                    <div class="w-12 h-12 bg-purple-50 text-purple-500 rounded-xl flex items-center justify-center">
-                        <i data-lucide="shield-check" class="w-6 h-6"></i>
+                <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex items-center gap-4">
+                    <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center font-bold shrink-0">
+                        <i data-lucide="message-square" class="w-6 h-6"></i>
                     </div>
                     <div>
-                        <div class="text-2xl font-bold text-slate-900">4</div>
-                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">KYC Approvals</div>
+                        <div class="text-2xl font-bold text-purple-600" id="staff-stat-waiting">0</div>
+                        <div class="text-[10px] font-bold text-purple-500 uppercase tracking-wider">Awaiting Client</div>
                     </div>
                 </div>
-                <div class="bg-white/80 backdrop-blur-md rounded-2xl border border-white p-6 shadow-sm flex items-center gap-4">
-                    <div class="w-12 h-12 bg-orange-50 text-orange-500 rounded-xl flex items-center justify-center">
-                        <i data-lucide="clock" class="w-6 h-6"></i>
+                <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex items-center gap-4">
+                    <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center font-bold shrink-0">
+                        <i data-lucide="check-circle-2" class="w-6 h-6"></i>
                     </div>
                     <div>
-                        <div class="text-2xl font-bold text-slate-900">12</div>
-                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Actions</div>
+                        <div class="text-2xl font-bold text-emerald-600" id="staff-stat-completed">0</div>
+                        <div class="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Resolved Today</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Completed Applications Table -->
-            <div class="bg-white/80 backdrop-blur-md rounded-2xl border border-white shadow-sm overflow-hidden mb-8">
-                <div class="px-6 py-4 border-b border-slate-50 bg-slate-50/30">
-                    <h3 class="text-xs font-bold text-slate-600 uppercase tracking-widest">Completed Applications (1)</h3>
+            <!-- Tabs Filter & View Mode Switcher -->
+            <div class="flex items-center justify-between flex-wrap gap-4 pb-2 border-b border-slate-200">
+                <div class="flex items-center gap-2">
+                    <button onclick="setStaffTaskTab('my')" id="staff-task-tab-my" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-white">My Worklist</button>
+                    <button onclick="setStaffTaskTab('pool')" id="staff-task-tab-pool" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100">Open Pool (Claim)</button>
+                    <button onclick="setStaffTaskTab('all')" id="staff-task-tab-all" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100">All Operations</button>
                 </div>
+                <div class="flex items-center gap-2">
+                    <div class="bg-white border border-slate-200 p-1 rounded-xl flex items-center shadow-xs">
+                        <button id="staff-view-mode-table" onclick="setStaffTaskViewMode('table')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-900 text-white flex items-center gap-1.5 cursor-pointer">
+                            <i data-lucide="list" class="w-3.5 h-3.5"></i> Table
+                        </button>
+                        <button id="staff-view-mode-kanban" onclick="setStaffTaskViewMode('kanban')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900 flex items-center gap-1.5 cursor-pointer">
+                            <i data-lucide="kanban-square" class="w-3.5 h-3.5"></i> Board
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View 1: Tasks Table -->
+            <div id="staff-tasks-table-container" class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="bg-slate-50/50">
-                                <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">ID</th>
-                                <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">BUSINESS</th>
-                                <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">CLIENT</th>
-                                <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">SUBMITTED</th>
-                                <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">COMPLETED</th>
+                            <tr class="bg-slate-50/70 border-b border-slate-100">
+                                <th class="px-6 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">TICKET #</th>
+                                <th class="px-6 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">COMPANY & CLIENT</th>
+                                <th class="px-6 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">REQUEST SUBJECT</th>
+                                <th class="px-6 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">CATEGORY</th>
+                                <th class="px-6 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">PRIORITY</th>
+                                <th class="px-6 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">STATUS</th>
+                                <th class="px-6 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">DUE / SLA</th>
+                                <th class="px-6 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">ACTION</th>
                             </tr>
                         </thead>
-                        <tbody id="completed-apps-body" class="divide-y divide-slate-50">
+                        <tbody id="staff-tasks-table-body" class="divide-y divide-slate-100 font-sans">
                             <!-- Injected here -->
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <!-- Documents Reviewed Table -->
-            <div class="bg-white/80 backdrop-blur-md rounded-2xl border border-white shadow-sm overflow-hidden">
-                <div class="px-6 py-4 border-b border-slate-50 bg-slate-50/30">
-                    <h3 class="text-xs font-bold text-slate-600 uppercase tracking-widest">Documents Reviewed (7)</h3>
+            <!-- View 2: Staff Kanban Board View (Drag & Drop) -->
+            <div id="staff-tasks-kanban-container" class="hidden grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <!-- Col 1: Unassigned Pool / Pending -->
+                <div class="kanban-col" id="staff-lane-pool" ondragover="handleStaffDragOver(event)" ondragenter="handleStaffDragEnter(event, this)" ondragleave="handleStaffDragLeave(event, this)" ondrop="handleStaffDrop(event, 'PENDING', this)">
+                    <div class="flex items-center justify-between pb-2 border-b border-slate-200">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                            <span class="text-xs font-bold text-slate-800">Unassigned Pool</span>
+                        </div>
+                        <span class="text-[11px] font-bold px-2 py-0.5 bg-white rounded-full text-slate-600 shadow-2xs" id="staff-count-col-pool">0</span>
+                    </div>
+                    <div id="staff-col-pool-cards" class="space-y-3 overflow-y-auto max-h-[700px] custom-scrollbar pr-1 flex-1"></div>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-50/50">
-                                <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">DOCUMENT</th>
-                                <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">FILE</th>
-                                <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">OUTCOME</th>
-                                <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">REVIEWED</th>
-                            </tr>
-                        </thead>
-                        <tbody id="completed-docs-body" class="divide-y divide-slate-50">
-                            <!-- Injected here -->
-                        </tbody>
-                    </table>
+
+                <!-- Col 2: In Progress (My Active) -->
+                <div class="kanban-col" id="staff-lane-progress" ondragover="handleStaffDragOver(event)" ondragenter="handleStaffDragEnter(event, this)" ondragleave="handleStaffDragLeave(event, this)" ondrop="handleStaffDrop(event, 'IN_PROGRESS', this)">
+                    <div class="flex items-center justify-between pb-2 border-b border-slate-200">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                            <span class="text-xs font-bold text-slate-800">In Progress (Active)</span>
+                        </div>
+                        <span class="text-[11px] font-bold px-2 py-0.5 bg-white rounded-full text-slate-600 shadow-2xs" id="staff-count-col-progress">0</span>
+                    </div>
+                    <div id="staff-col-progress-cards" class="space-y-3 overflow-y-auto max-h-[700px] custom-scrollbar pr-1 flex-1"></div>
+                </div>
+
+                <!-- Col 3: Waiting Client / Review -->
+                <div class="kanban-col" id="staff-lane-waiting" ondragover="handleStaffDragOver(event)" ondragenter="handleStaffDragEnter(event, this)" ondragleave="handleStaffDragLeave(event, this)" ondrop="handleStaffDrop(event, 'WAITING_CLIENT_INPUT', this)">
+                    <div class="flex items-center justify-between pb-2 border-b border-slate-200">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                            <span class="text-xs font-bold text-slate-800">Waiting Client / Review</span>
+                        </div>
+                        <span class="text-[11px] font-bold px-2 py-0.5 bg-white rounded-full text-slate-600 shadow-2xs" id="staff-count-col-waiting">0</span>
+                    </div>
+                    <div id="staff-col-waiting-cards" class="space-y-3 overflow-y-auto max-h-[700px] custom-scrollbar pr-1 flex-1"></div>
+                </div>
+
+                <!-- Col 4: Completed & Lodged -->
+                <div class="kanban-col" id="staff-lane-completed" ondragover="handleStaffDragOver(event)" ondragenter="handleStaffDragEnter(event, this)" ondragleave="handleStaffDragLeave(event, this)" ondrop="handleStaffDrop(event, 'COMPLETED', this)">
+                    <div class="flex items-center justify-between pb-2 border-b border-slate-200">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                            <span class="text-xs font-bold text-slate-800">Completed & Lodged</span>
+                        </div>
+                        <span class="text-[11px] font-bold px-2 py-0.5 bg-white rounded-full text-slate-600 shadow-2xs" id="staff-count-col-completed">0</span>
+                    </div>
+                    <div id="staff-col-completed-cards" class="space-y-3 overflow-y-auto max-h-[700px] custom-scrollbar pr-1 flex-1"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Staff Task Toast -->
+        <div id="staff-toast-notification" class="fixed bottom-6 right-6 z-[999999] transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none font-outfit">
+            <div class="bg-slate-900/95 backdrop-blur-md text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center gap-3 text-xs font-sans pointer-events-auto">
+                <div class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0">✓</div>
+                <div id="staff-toast-message" class="text-xs">Task status updated</div>
+                <button id="staff-toast-action-btn" onclick="" class="ml-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-xl transition shrink-0 cursor-pointer">Open Details</button>
+                <button onclick="hideStaffToast()" class="text-slate-400 hover:text-white text-base ml-1 leading-none cursor-pointer">&times;</button>
+            </div>
+        </div>
+
+        <!-- Staff Task Workflow & Comment Modal -->
+        <div id="staff-task-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-[99999] hidden opacity-0 transition-opacity duration-200">
+            <div class="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden transform scale-95 transition-transform duration-200 font-outfit">
+                <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+                    <div class="flex items-center gap-3">
+                        <span id="st-ticket-badge" class="px-2.5 py-1 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-xs font-mono font-bold">TSK-1001</span>
+                        <span id="st-type-badge" class="text-[10px] font-bold px-2 py-0.5 bg-slate-200 text-slate-700 rounded uppercase">CHANGE</span>
+                        <span id="st-priority-badge" class="text-[10px] font-bold px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-200 rounded">HIGH</span>
+                    </div>
+                    <button onclick="closeStaffTaskModal()" class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg transition"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                    <div>
+                        <h2 id="st-title" class="text-xl font-bold text-slate-900">Task Title</h2>
+                        <div class="flex flex-wrap items-center gap-4 mt-2 text-xs text-slate-500 font-sans">
+                            <div><strong class="text-slate-700">Company:</strong> <span id="st-company">LionPath Pte Ltd</span></div>
+                            <div><strong class="text-slate-700">Client:</strong> <span id="st-client">Ethan Tan</span></div>
+                            <div><strong class="text-slate-700">Target SLA:</strong> <span id="st-due">2026-09-20</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Status Action Toolbar -->
+                    <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fast Progress Actions</div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button onclick="updateStaffTaskStatus('IN_PROGRESS')" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition">Start Work</button>
+                            <button onclick="updateStaffTaskStatus('WAITING_CLIENT_INPUT')" class="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition">Request Client Input</button>
+                            <button onclick="updateStaffTaskStatus('UNDER_REVIEW')" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition">Submit for Review</button>
+                            <button onclick="promptStaffTaskResolve()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition">Mark Completed & Lodge</button>
+                        </div>
+                    </div>
+
+                    <!-- Description & Attachments -->
+                    <div class="space-y-2">
+                        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Instructions & Details</div>
+                        <p id="st-description" class="text-xs text-slate-700 leading-relaxed font-sans bg-slate-50 p-4 rounded-2xl border border-slate-100"></p>
+                        <div id="st-attachments" class="flex flex-wrap gap-2 pt-1"></div>
+                    </div>
+
+                    <!-- Resolution Notes if any -->
+                    <div id="st-resolution-box" class="hidden p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-900 font-sans">
+                        <strong class="font-bold block mb-1">Resolution Summary:</strong>
+                        <p id="st-resolution-text"></p>
+                    </div>
+
+                    <!-- Discussion & Communication -->
+                    <div class="space-y-3 pt-2 border-t border-slate-100">
+                        <div class="text-xs font-bold text-slate-900 uppercase tracking-wider">Activity & Communication Thread</div>
+                        <div id="st-comments-list" class="space-y-3 max-h-60 overflow-y-auto pr-1 font-sans"></div>
+
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                            <div class="flex items-center gap-2 mb-2">
+                                <label class="text-xs font-bold text-slate-700">Reply to Client or Team</label>
+                                <div class="flex items-center gap-1.5 ml-3">
+                                    <input type="checkbox" id="st-comment-is-internal" class="rounded border-slate-300 text-amber-600">
+                                    <label for="st-comment-is-internal" class="text-[11px] font-bold text-amber-700 cursor-pointer">Internal Note Only</label>
+                                </div>
+                            </div>
+                            <textarea id="st-comment-input" rows="2" placeholder="Send reply to client or add internal processing note..." class="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-sans"></textarea>
+                            <div class="flex justify-end mt-2">
+                                <button onclick="sendStaffComment()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5">
+                                    <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                                    <span>Send Message</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3926,48 +4108,559 @@
             }
         }
 
-        function renderTasks() {
-            const appsBody = document.getElementById('completed-apps-body');
-            const docsBody = document.getElementById('completed-docs-body');
-            if (!appsBody || !docsBody) return;
-            
-            // Derived dynamically from assigned applications
-            const completedApps = staffData.applications
-                .filter(app => {
-                    const status = (app.status || '').toLowerCase();
-                    return status === 'completed' || status === 'approved';
-                })
-                .map(app => ({
-                    id: app.id,
-                    business: app.business,
-                    client: app.client,
-                    submitted: app.date || 'N/A',
-                    completed: app.deadline || 'Completed'
-                }));
+        let staffTaskList = [];
+        let staffTaskFilter = 'my';
+        let staffTaskViewMode = 'table';
+        let currentStaffTask = null;
+        let staffDraggedTaskId = null;
+        let staffToastTimeout = null;
 
-            // Derived dynamically from assigned reviewed documents
-            const reviewedDocs = staffData.documents
-                .filter(doc => (doc.status || '').toLowerCase() !== 'pending')
-                .map(doc => ({
-                    name: doc.title,
-                    file: doc.file,
-                    outcome: (doc.status || 'approved').charAt(0).toUpperCase() + (doc.status || 'approved').slice(1),
-                    date: doc.date || 'N/A'
-                }));
+        function setStaffTaskViewMode(mode) {
+            staffTaskViewMode = mode;
+            const btnTable = document.getElementById('staff-view-mode-table');
+            const btnKanban = document.getElementById('staff-view-mode-kanban');
+            const tableContainer = document.getElementById('staff-tasks-table-container');
+            const kanbanContainer = document.getElementById('staff-tasks-kanban-container');
 
-            appsBody.innerHTML = completedApps.map(app => `
-                <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="px-6 py-4 text-xs font-bold text-emerald-600">${app.id}</td>
-                    <td class="px-6 py-4 text-xs font-bold text-slate-800">${app.business}</td>
-                    <td class="px-6 py-4 text-xs font-medium text-slate-500">${app.client}</td>
-                    <td class="px-6 py-4 text-xs font-medium text-slate-400">${app.submitted}</td>
-                    <td class="px-6 py-4 text-xs font-bold text-emerald-500">${app.completed}</td>
-                </tr>
+            if (mode === 'table') {
+                btnTable.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-900 text-white flex items-center gap-1.5 cursor-pointer';
+                btnKanban.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900 flex items-center gap-1.5 cursor-pointer';
+                tableContainer.classList.remove('hidden');
+                kanbanContainer.classList.add('hidden');
+            } else {
+                btnTable.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900 flex items-center gap-1.5 cursor-pointer';
+                btnKanban.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-900 text-white flex items-center gap-1.5 cursor-pointer';
+                tableContainer.classList.add('hidden');
+                kanbanContainer.classList.remove('hidden');
+            }
+            updateStaffTasksView();
+        }
+
+        function showStaffToastNotification(message, taskId) {
+            const toast = document.getElementById('staff-toast-notification');
+            const msgEl = document.getElementById('staff-toast-message');
+            const btnEl = document.getElementById('staff-toast-action-btn');
+            if (!toast || !msgEl) return;
+
+            msgEl.innerHTML = message;
+            if (btnEl && taskId) {
+                btnEl.style.display = 'inline-flex';
+                btnEl.onclick = () => {
+                    hideStaffToast();
+                    openStaffTaskModal(taskId);
+                };
+            } else if (btnEl) {
+                btnEl.style.display = 'none';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            if (staffToastTimeout) clearTimeout(staffToastTimeout);
+            staffToastTimeout = setTimeout(() => {
+                hideStaffToast();
+            }, 4500);
+        }
+
+        function hideStaffToast() {
+            const toast = document.getElementById('staff-toast-notification');
+            if (toast) {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+            }
+        }
+
+        function handleStaffDragStart(e, taskId) {
+            staffDraggedTaskId = taskId;
+            e.dataTransfer.setData('text/plain', taskId);
+            e.dataTransfer.effectAllowed = 'move';
+            const cardEl = e.currentTarget;
+            setTimeout(() => {
+                if (cardEl) cardEl.classList.add('dragging');
+            }, 0);
+        }
+
+        function handleStaffDragEnd(e) {
+            if (e.currentTarget) e.currentTarget.classList.remove('dragging');
+            document.querySelectorAll('#staff-tasks-kanban-container .kanban-col').forEach(col => col.classList.remove('drag-over'));
+            staffDraggedTaskId = null;
+        }
+
+        function handleStaffDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+
+        function handleStaffDragEnter(e, colEl) {
+            e.preventDefault();
+            if (colEl && colEl.classList.contains('kanban-col')) {
+                colEl.classList.add('drag-over');
+            }
+        }
+
+        function handleStaffDragLeave(e, colEl) {
+            if (colEl && !colEl.contains(e.relatedTarget)) {
+                colEl.classList.remove('drag-over');
+            }
+        }
+
+        async function handleStaffDrop(e, targetStatus, colEl) {
+            e.preventDefault();
+            if (colEl) colEl.classList.remove('drag-over');
+            const taskId = e.dataTransfer.getData('text/plain') || staffDraggedTaskId;
+            if (!taskId) return;
+
+            const task = (staffTaskList || []).find(t => t.id === taskId);
+            if (!task) return;
+
+            const currentStatus = (task.status || 'PENDING').toUpperCase();
+            if (currentStatus === targetStatus && (task.assignedTo && task.assignedTo.id === 'usr-staff')) return;
+
+            const previousStatus = task.status;
+            const previousAssignee = task.assignedTo;
+
+            // If dragged into In Progress or Assigned, auto-assign to Sarah Lim if unassigned
+            let newAssignee = task.assignedTo;
+            if (targetStatus === 'IN_PROGRESS' && (!task.assignedTo || !task.assignedTo.id)) {
+                newAssignee = {
+                    id: 'usr-staff',
+                    name: 'Sarah Lim',
+                    role: 'STAFF',
+                    email: 'staff@globalisor.com',
+                    avatar: 'SL'
+                };
+            } else if (targetStatus === 'PENDING' && !task.assignedTo) {
+                newAssignee = null;
+            }
+
+            task.status = targetStatus;
+            task.assignedTo = newAssignee;
+            updateStaffTasksView();
+
+            const statusLabels = {
+                'PENDING': 'Unassigned Pool',
+                'IN_PROGRESS': 'In Progress',
+                'WAITING_CLIENT_INPUT': 'Waiting Client / Review',
+                'COMPLETED': 'Completed & Lodged'
+            };
+
+            showStaffToastNotification(`Moved <strong>${task.ticketNumber || task.id}</strong> to <span class="font-bold text-blue-300">${statusLabels[targetStatus] || targetStatus}</span>`, taskId);
+
+            try {
+                // If assignment changed, sync assignment first
+                if (newAssignee && (!previousAssignee || previousAssignee.id !== newAssignee.id)) {
+                    await fetch(`/api/tasks/${taskId}/assign`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            assignee: newAssignee,
+                            performedBy: 'Sarah Lim',
+                            performedByRole: 'STAFF'
+                        })
+                    });
+                }
+
+                const res = await fetch(`/api/tasks/${taskId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        status: targetStatus,
+                        performedBy: 'Sarah Lim',
+                        performedByRole: 'STAFF',
+                        resolutionNote: targetStatus === 'COMPLETED' ? 'Marked complete & lodged via Specialist Kanban' : undefined
+                    })
+                });
+
+                if (res.ok) {
+                    const updated = await res.json();
+                    const idx = staffTaskList.findIndex(t => t.id === taskId);
+                    if (idx !== -1) staffTaskList[idx] = updated;
+                    updateStaffTasksView();
+                } else {
+                    task.status = previousStatus;
+                    task.assignedTo = previousAssignee;
+                    updateStaffTasksView();
+                    showStaffToastNotification(`Failed to move task ${task.ticketNumber || task.id}`, null);
+                }
+                task.status = previousStatus;
+                task.assignedTo = previousAssignee;
+                updateStaffTasksView();
+            }
+        }
+
+        window.handleStaffDragStart = handleStaffDragStart;
+        window.handleStaffDragEnd = handleStaffDragEnd;
+        window.handleStaffDragOver = handleStaffDragOver;
+        window.handleStaffDragEnter = handleStaffDragEnter;
+        window.handleStaffDragLeave = handleStaffDragLeave;
+        window.handleStaffDrop = handleStaffDrop;
+        window.setStaffTaskViewMode = setStaffTaskViewMode;
+        window.showStaffToastNotification = showStaffToastNotification;
+        window.hideStaffToast = hideStaffToast;
+
+        async function renderTasks() {
+            try {
+                const res = await fetch('/api/tasks');
+                if (res.ok) {
+                    staffTaskList = await res.json();
+                }
+            } catch (e) {
+                console.error("Failed to load staff tasks", e);
+            }
+            updateStaffTasksView();
+        }
+
+        function setStaffTaskTab(tab) {
+            staffTaskFilter = tab;
+            ['my', 'pool', 'all'].forEach(t => {
+                const btn = document.getElementById(`staff-task-tab-${t}`);
+                if (btn) {
+                    if (t === tab) {
+                        btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-white';
+                    } else {
+                        btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100';
+                    }
+                }
+            });
+            updateStaffTasksView();
+        }
+
+        function renderStaffKanban(tasks) {
+            const poolCol = document.getElementById('staff-col-pool-cards');
+            const progressCol = document.getElementById('staff-col-progress-cards');
+            const waitingCol = document.getElementById('staff-col-waiting-cards');
+            const completedCol = document.getElementById('staff-col-completed-cards');
+            if (!poolCol || !progressCol) return;
+
+            const myId = 'usr-staff';
+            const pool = tasks.filter(t => !t.assignedTo || !t.assignedTo.id || (t.status || '').toUpperCase() === 'PENDING');
+            const progress = tasks.filter(t => (t.status || '').toUpperCase() === 'IN_PROGRESS' || ((t.status || '').toUpperCase() === 'ASSIGNED' && t.assignedTo?.id === myId));
+            const waiting = tasks.filter(t => ['WAITING_CLIENT_INPUT', 'UNDER_REVIEW'].includes((t.status || '').toUpperCase()));
+            const completed = tasks.filter(t => ['COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase()));
+
+            const elPool = document.getElementById('staff-count-col-pool');
+            const elProg = document.getElementById('staff-count-col-progress');
+            const elWait = document.getElementById('staff-count-col-waiting');
+            const elComp = document.getElementById('staff-count-col-completed');
+            if (elPool) elPool.innerText = pool.length;
+            if (elProg) elProg.innerText = progress.length;
+            if (elWait) elWait.innerText = waiting.length;
+            if (elComp) elComp.innerText = completed.length;
+
+            const renderCards = (list) => {
+                if (list.length === 0) return `<div class="p-8 text-center text-slate-400 text-xs italic font-sans border-2 border-dashed border-slate-200/80 rounded-2xl">Drop tasks here</div>`;
+                return list.map(t => {
+                    const isClaimable = !t.assignedTo || !t.assignedTo.id;
+                    const assigneeDisplay = t.assignedTo?.name
+                        ? `<div class="flex items-center gap-1.5">
+                            <div class="w-4 h-4 rounded-full bg-slate-800 text-white font-bold text-[8px] flex items-center justify-center">${t.assignedTo.avatar || 'SL'}</div>
+                            <span class="text-[11px] font-semibold text-slate-700">${t.assignedTo.name}</span>
+                           </div>`
+                        : `<button onclick="event.stopPropagation(); claimStaffTask('${t.id}')" class="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded shadow-2xs">Claim</button>`;
+
+                    const priorityBadge = `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${t.priority === 'URGENT' ? 'bg-rose-50 text-rose-600 border border-rose-200 animate-pulse' : (t.priority === 'HIGH' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-600')}">${t.priority || 'MEDIUM'}</span>`;
+
+                    return `
+                        <div class="kanban-card group relative" draggable="true" 
+                             ondragstart="handleStaffDragStart(event, '${t.id}')" 
+                             ondragend="handleStaffDragEnd(event)" 
+                             onclick="openStaffTaskModal('${t.id}')">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-mono text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">${t.ticketNumber || t.id}</span>
+                                <div class="flex items-center gap-1.5">
+                                    ${priorityBadge}
+                                    <div class="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 cursor-grab active:cursor-grabbing" title="Drag to update status">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+                                    </div>
+                                </div>
+                            </div>
+                            <h4 class="text-xs font-bold text-slate-900 leading-snug mb-1">${t.title}</h4>
+                            <div class="flex items-center justify-between text-[11px] text-slate-500 font-sans mb-3">
+                                <span class="font-medium text-slate-700 truncate max-w-[130px]">${t.companyName || 'Entity'}</span>
+                                <span class="text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">${t.category || t.type}</span>
+                            </div>
+                            <div class="flex items-center justify-between pt-2.5 border-t border-slate-100 text-[11px]">
+                                ${assigneeDisplay}
+                                <span class="font-semibold text-slate-500 text-[10px]">${t.dueDate || 'SLA Standard'}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            };
+
+            poolCol.innerHTML = renderCards(pool);
+            progressCol.innerHTML = renderCards(progress);
+            waitingCol.innerHTML = renderCards(waiting);
+            completedCol.innerHTML = renderCards(completed);
+        }
+
+        function updateStaffTasksView() {
+            const list = staffTaskList || [];
+            const myId = 'usr-staff';
+
+            const myTasks = list.filter(t => t.assignedTo && t.assignedTo.id === myId);
+            const unassigned = list.filter(t => !t.assignedTo || !t.assignedTo.id);
+            const waiting = list.filter(t => (t.status || '').toUpperCase() === 'WAITING_CLIENT_INPUT');
+            const completed = list.filter(t => ['COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase()));
+
+            const elMy = document.getElementById('staff-stat-my-tasks');
+            const elUn = document.getElementById('staff-stat-unassigned');
+            const elWait = document.getElementById('staff-stat-waiting');
+            const elComp = document.getElementById('staff-stat-completed');
+            if (elMy) elMy.innerText = myTasks.length;
+            if (elUn) elUn.innerText = unassigned.length;
+            if (elWait) elWait.innerText = waiting.length;
+            if (elComp) elComp.innerText = completed.length;
+
+            let displayList = list;
+            if (staffTaskFilter === 'my') {
+                displayList = myTasks;
+            } else if (staffTaskFilter === 'pool') {
+                displayList = unassigned;
+            }
+
+            renderStaffKanban(displayList);
+
+            const tbody = document.getElementById('staff-tasks-table-body');
+            if (!tbody) return;
+
+            if (displayList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-12 text-slate-400 text-xs italic">No tasks in this category.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = displayList.map(t => {
+                const isMyTask = t.assignedTo && t.assignedTo.id === myId;
+                const isClaimable = !t.assignedTo || !t.assignedTo.id;
+
+                let actionBtn = `
+                    <button onclick="openStaffTaskModal('${t.id}')" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition">
+                        Manage
+                    </button>
+                `;
+
+                if (isClaimable) {
+                    actionBtn = `
+                        <button onclick="claimStaffTask('${t.id}')" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition shadow-2xs">
+                            Claim Task
+                        </button>
+                    `;
+                }
+
+                return `
+                    <tr class="hover:bg-slate-50 transition cursor-pointer" onclick="openStaffTaskModal('${t.id}')">
+                        <td class="px-6 py-4 font-mono font-bold text-xs text-blue-600">${t.ticketNumber || t.id}</td>
+                        <td class="px-6 py-4">
+                            <div class="font-bold text-slate-900 text-xs">${t.companyName || 'Entity'}</div>
+                            <div class="text-[11px] text-slate-400">${t.clientName || 'Client'}</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="font-bold text-slate-900 text-xs max-w-xs truncate">${t.title}</div>
+                        </td>
+                        <td class="px-6 py-4 text-xs font-semibold text-slate-600">${t.category || t.type}</td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${t.priority === 'URGENT' ? 'bg-rose-50 text-rose-600 border border-rose-200' : (t.priority === 'HIGH' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-600')}">${t.priority || 'MEDIUM'}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-0.5 rounded text-[11px] font-bold ${t.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600' : (t.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600')}">${t.status || 'PENDING'}</span>
+                        </td>
+                        <td class="px-6 py-4 text-xs font-semibold text-slate-500">${t.dueDate || 'Standard SLA'}</td>
+                        <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">${actionBtn}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        async function claimStaffTask(taskId) {
+            try {
+                const res = await fetch(`/api/tasks/${taskId}/assign`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        assignee: {
+                            id: 'usr-staff',
+                            name: 'Sarah Lim',
+                            role: 'STAFF',
+                            email: 'staff@globalisor.com',
+                            avatar: 'SL'
+                        },
+                        performedBy: 'Sarah Lim',
+                        performedByRole: 'STAFF'
+                    })
+                });
+                if (res.ok) {
+                    await renderTasks();
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function openStaffTaskModal(taskId) {
+            try {
+                const res = await fetch(`/api/tasks/${taskId}`);
+                if (!res.ok) return;
+                currentStaffTask = await res.json();
+                const t = currentStaffTask;
+
+                document.getElementById('st-ticket-badge').innerText = t.ticketNumber || t.id;
+                document.getElementById('st-type-badge').innerText = t.category || t.type || 'REQUEST';
+                document.getElementById('st-priority-badge').innerText = t.priority || 'MEDIUM';
+                document.getElementById('st-title').innerText = t.title;
+                document.getElementById('st-company').innerText = t.companyName || 'N/A';
+                document.getElementById('st-client').innerText = t.clientName || 'N/A';
+                document.getElementById('st-due').innerText = t.dueDate || 'Standard SLA';
+                document.getElementById('st-description').innerText = t.description || 'No instructions.';
+
+                // Resolution
+                const resBox = document.getElementById('st-resolution-box');
+                const resText = document.getElementById('st-resolution-text');
+                if (t.resolutionNotes) {
+                    resBox.classList.remove('hidden');
+                    resText.innerText = t.resolutionNotes;
+                } else {
+                    resBox.classList.add('hidden');
+                }
+
+                // Attachments
+                const attContainer = document.getElementById('st-attachments');
+                if (t.attachments && t.attachments.length > 0) {
+                    attContainer.innerHTML = t.attachments.map(att => `
+                        <div class="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700">
+                            <i data-lucide="paperclip" class="w-3.5 h-3.5 text-blue-600"></i>
+                            <span>${att.name}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    attContainer.innerHTML = `<span class="text-xs text-slate-400 italic">No attachments</span>`;
+                }
+
+                // Comments
+                renderStaffComments();
+
+                const modal = document.getElementById('staff-task-modal');
+                modal.classList.remove('hidden');
+                setTimeout(() => {
+                    modal.classList.remove('opacity-0');
+                    modal.firstElementChild.classList.remove('scale-95');
+                }, 10);
+
+                if (window.lucide) window.lucide.createIcons();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function renderStaffComments() {
+            if (!currentStaffTask) return;
+            const commentsList = document.getElementById('st-comments-list');
+            const comments = currentStaffTask.comments || [];
+
+            if (comments.length === 0) {
+                commentsList.innerHTML = `<p class="text-center py-4 text-slate-400 text-xs italic">No messages yet.</p>`;
+                return;
+            }
+
+            commentsList.innerHTML = comments.map(c => `
+                <div class="p-3 rounded-2xl border ${c.isInternal ? 'bg-amber-50 border-amber-200' : (c.authorRole === 'CLIENT' ? 'bg-blue-50/60 border-blue-100' : 'bg-white border-slate-200')} space-y-1">
+                    <div class="flex items-center justify-between text-[11px]">
+                        <span class="font-bold ${c.authorRole === 'CLIENT' ? 'text-blue-700' : 'text-slate-900'}">${c.authorName} (${c.isInternal ? 'INTERNAL NOTE' : c.authorRole})</span>
+                        <span class="text-slate-400">${new Date(c.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <p class="text-xs text-slate-700 leading-relaxed">${c.text}</p>
+                </div>
             `).join('');
+        }
 
-            docsBody.innerHTML = reviewedDocs.map(doc => `
-                <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="px-6 py-4 text-xs font-bold text-slate-800">${doc.name}</td>
+        function closeStaffTaskModal() {
+            const modal = document.getElementById('staff-task-modal');
+            modal.classList.add('opacity-0');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                currentStaffTask = null;
+            }, 200);
+        }
+
+        async function updateStaffTaskStatus(status) {
+            if (!currentStaffTask) return;
+            try {
+                const res = await fetch(`/api/tasks/${currentStaffTask.id}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        status,
+                        performedBy: 'Sarah Lim',
+                        performedByRole: 'STAFF'
+                    })
+                });
+                if (res.ok) {
+                    currentStaffTask = await res.json();
+                    renderStaffComments();
+                    await renderTasks();
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function promptStaffTaskResolve() {
+            if (!currentStaffTask) return;
+            const notes = prompt("Enter resolution & ACRA lodgement reference details:", "Lodgement completed with ACRA successfully.");
+            if (notes === null) return;
+
+            try {
+                const res = await fetch(`/api/tasks/${currentStaffTask.id}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        status: 'COMPLETED',
+                        resolutionNotes: notes,
+                        performedBy: 'Sarah Lim',
+                        performedByRole: 'STAFF'
+                    })
+                });
+                if (res.ok) {
+                    currentStaffTask = await res.json();
+                    closeStaffTaskModal();
+                    await renderTasks();
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function sendStaffComment() {
+            if (!currentStaffTask) return;
+            const text = document.getElementById('st-comment-input').value.trim();
+            if (!text) return;
+            const isInternal = document.getElementById('st-comment-is-internal').checked;
+
+            try {
+                const res = await fetch(`/api/tasks/${currentStaffTask.id}/comments`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        authorId: 'usr-staff',
+                        authorName: 'Sarah Lim',
+                        authorRole: 'STAFF',
+                        authorAvatar: 'SL',
+                        text,
+                        isInternal
+                    })
+                });
+                if (res.ok) {
+                    currentStaffTask = await res.json();
+                    document.getElementById('st-comment-input').value = '';
+                    renderStaffComments();
+                    await renderTasks();
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
                     <td class="px-6 py-4 text-xs font-medium text-slate-400">${doc.file}</td>
                     <td class="px-6 py-4">
                         <span class="text-[10px] font-black uppercase text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">${doc.outcome}</span>
