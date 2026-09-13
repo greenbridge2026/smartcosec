@@ -202,37 +202,26 @@ async function fetchData() {
             fetch(`/api/clients/${state.user.id}/invoices`).then(async iRes => {
                 if (iRes.ok) state.invoices = await iRes.json();
             }),
-            fetch(`/api/documents?clientId=${state.user.id}`).then(async dRes => {
-                if (dRes.ok) {
-                    const docsList = await dRes.json();
-                    if (docsList && docsList.length > 0) {
-                        state.documents = docsList.map(d => ({
-                            id: d.id,
-                            name: d.title || d.documentType || d.name || 'Document',
-                            status: d.status ? (d.status.charAt(0).toUpperCase() + d.status.slice(1)) : 'Approved',
-                            category: d.category || d.suggestedModule || d.documentType || 'Corporate',
-                            expiry: d.expiry || 'N/A',
-                            date: d.date || d.uploadDate || '2026-05-11',
-                            file: d.file || '#',
-                            documentType: d.documentType || 'Other',
-                            uploadSource: d.uploadSource || 'System'
-                        }));
-                    }
-                }
-            }),
+            fetchClientTasks(),
+            window.fetchClientDocuments(),
             fetch('/api/kyc').then(async kRes => {
                 if (kRes.ok) {
                     const kycList = await kRes.json();
                     const clientKYC = kycList.find(k => k.clientId === state.user.id);
                     state.kyc = clientKYC;
-                    if ((!state.documents || state.documents.length === 0) && clientKYC && clientKYC.documents) {
+                    if ((!state.documents || state.documents.length === 0) && clientKYC && clientKYC.documents && clientKYC.documents.length > 0) {
                         state.documents = clientKYC.documents.map(d => ({
-                            name: d.name,
-                            status: d.status,
-                            category: d.type || 'Identity',
+                            id: d.id || ('kyc-' + Math.random().toString(36).substring(2, 7)),
+                            name: d.name || 'KYC Document',
+                            status: (d.status || 'APPROVED').toUpperCase(),
+                            folder: d.type || 'KYC',
+                            category: d.type || 'KYC',
                             expiry: d.expiry || 'N/A',
-                            date: d.uploadedAt || '2026-05-11'
+                            uploadedOn: d.uploadedAt || '2026-05-11',
+                            uploadedBy: 'Client Portal',
+                            file: d.file || '#'
                         }));
+                        window._clientSampleDocs = state.documents;
                     }
                 }
             }),
@@ -7721,11 +7710,49 @@ window.clientTasksFilter = 'ALL';
 
 async function fetchClientTasks() {
     try {
-        const clientId = state.clientId || 'C-1001';
-        const res = await fetch(`/api/tasks`);
+        const entityInfo = getClientPortalEntityInfo();
+        const activeCompName = (entityInfo.companyName || '').trim();
+        const activeCompId = (entityInfo.companyId || '').trim();
+        const activeClientId = (entityInfo.clientId || '').trim();
+
+        // Query backend for tasks
+        let fetchUrl = `/api/tasks`;
+        if (activeCompName) {
+            fetchUrl += `?companyName=${encodeURIComponent(activeCompName)}`;
+        } else if (activeClientId) {
+            fetchUrl += `?clientId=${encodeURIComponent(activeClientId)}`;
+        }
+
+        const res = await fetch(fetchUrl);
         if (res.ok) {
             const data = await res.json();
-            window.clientTasksList = data || [];
+            const allTasks = data || [];
+
+            // Strict Tenant Isolation: Only show tasks matching the active company or client
+            window.clientTasksList = allTasks.filter(t => {
+                const taskCompName = (t.companyName || '').trim().toLowerCase();
+                const taskCompId = (t.companyId || '').trim().toLowerCase();
+                const taskClientId = (t.clientId || '').trim().toLowerCase();
+
+                const curCompName = activeCompName.toLowerCase();
+                const curCompId = activeCompId.toLowerCase();
+                const curClientId = activeClientId.toLowerCase();
+
+                if (curCompName && taskCompName && taskCompName === curCompName) {
+                    return true;
+                }
+                if (curCompId && taskCompId && taskCompId === curCompId) {
+                    return true;
+                }
+                if (curClientId && taskClientId && taskClientId === curClientId) {
+                    if (taskCompName && curCompName && taskCompName !== curCompName) {
+                        return false;
+                    }
+                    return true;
+                }
+                return false;
+            });
+
             const tasksBadge = document.getElementById('client-tasks-badge');
             if (tasksBadge) {
                 const activeCount = (window.clientTasksList || []).filter(t => !['COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase())).length;
@@ -8082,13 +8109,14 @@ function toggleClientComments(taskId) {
 function getClientPortalEntityInfo() {
     const reqData = (state && state.requirements && state.requirements.excelData) ? state.requirements.excelData : ((state && state.requirements) || {});
     
-    // 1. Company Name
+    // 1. Company Name (strictly resolve from logged-in session, requirements data, or active header)
     const companyName = (state && state.user && state.user.companyName) ||
                         reqData.companyName ||
+                        (state && state.user && state.user.company) ||
                         document.getElementById('sidebar-company-name')?.innerText?.trim() ||
                         document.getElementById('header-company-name')?.innerText?.trim() ||
                         document.getElementById('sidebar-bottom-company-name')?.innerText?.trim() ||
-                        'ABBEY HOLDINGS PTE LTD';
+                        '';
 
     // 2. UEN / Company ID
     let uen = reqData.uen || (state && state.user && (state.user.uen || state.user.companyId)) || '';
@@ -8096,20 +8124,19 @@ function getClientPortalEntityInfo() {
         const uenText = document.getElementById('sidebar-company-uen')?.innerText || '';
         uen = uenText.replace(/UEN:\s*/i, '').trim();
     }
-    if (!uen) uen = '201822782W';
 
     // 3. Client User Name
     const clientName = (state && state.user && (state.user.name || state.user.fullName || state.user.clientName)) ||
                        reqData.clientName ||
-                       'Abbey Holdings Executive';
+                       'Client Executive';
 
     // 4. Client Email
     const clientEmail = (state && state.user && state.user.email) ||
                         reqData.clientEmail ||
-                        'contact@abbeyholdings.sg';
+                        '';
 
     // 5. Client ID
-    const clientId = (state && state.user && (state.user.id || state.user.clientId)) || 'C-1001';
+    const clientId = (state && state.user && (state.user.id || state.user.clientId)) || '';
 
     return {
         companyName,
@@ -8465,30 +8492,46 @@ function renderDirectorsView(container) {
 }
 window.renderDirectorsView = renderDirectorsView;
 
-window._clientSampleDocs = [
-    { name: 'VIKRAM KUMAR - Passport & PEP pass copy-exp-27 08 2022.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:56', status: 'APPROVED', uploadedBy: 'System Upload' },
-    { name: 'vikram kumar - Google Search.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:55', status: 'APPROVED', uploadedBy: 'System Upload' },
-    { name: 'Vikram Address Proof-notarised.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:54', status: 'APPROVED', uploadedBy: 'System Upload' },
-    { name: 'Vikram Kumar - FIN.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:54', status: 'APPROVED', uploadedBy: 'System Upload' },
-    { name: 'SentroWeb AML CFT Search.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:53', status: 'APPROVED', uploadedBy: 'System Upload' },
-    { name: 'Vikram - notarised passport and Fin card.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:53', status: 'APPROVED', uploadedBy: 'System Upload' },
-    { name: 'CDD-Vikram Kumar.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:47:52', status: 'APPROVED', uploadedBy: 'System Upload' },
-    { name: 'Kumar Vikram -AML-18 05 2023.pdf', folder: 'KYC', uploadedOn: '2026-07-28 10:41:22', status: 'APPROVED', uploadedBy: 'System Upload' },
-    { name: 'ACRA-ack-change in ROA.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:57', status: 'APPROVED', uploadedBy: 'System Upload' },
-    { name: 'ACRA filing-Change in address.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:54', status: 'APPROVED', uploadedBy: 'System Upload' },
-    { name: 'Change of Reg. office address - signed copy.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:52', status: 'APPROVED', uploadedBy: 'System Upload' },
-    { name: 'ACRA Filing - Change of address.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:50', status: 'APPROVED', uploadedBy: 'System Upload' },
-    { name: 'ACRA Filing - Change of address ack.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:48', status: 'APPROVED', uploadedBy: 'System Upload' },
-    { name: 'DRIW - Change of address-Shenton House -3B Trading.pdf', folder: 'Change of Address', uploadedOn: '2026-07-28 07:22:46', status: 'APPROVED', uploadedBy: 'System Upload' },
-    { name: 'Company Incorporation Certificate.pdf', folder: 'Incorporation', uploadedOn: '2026-01-26 09:00:00', status: 'APPROVED', uploadedBy: 'System Upload' },
-    { name: 'Bizfile Summary Report.pdf', folder: 'Bizfile & filing', uploadedOn: '2026-01-26 09:05:00', status: 'APPROVED', uploadedBy: 'System Upload' },
-    { name: 'Annual Return FY 2025 - Signed.pdf', folder: 'AGM AR', uploadedOn: '2026-01-26 10:00:00', status: 'APPROVED', uploadedBy: 'System Upload' },
-    { name: 'Tax Computation FY 2025.pdf', folder: 'Tax', uploadedOn: '2026-03-15 14:20:00', status: 'APPROVED', uploadedBy: 'System Upload' },
-    { name: 'Register of Controllers (RONS).pdf', folder: 'RONS', uploadedOn: '2026-01-26 09:30:00', status: 'APPROVED', uploadedBy: 'System Upload' }
-];
-
+window._clientSampleDocs = [];
 window._activeDocFolder = 'All Documents';
 window._docSearchQuery = '';
+
+window.fetchClientDocuments = async function() {
+    if (!state.user || !state.user.id) {
+        state.documents = [];
+        window._clientSampleDocs = [];
+        return [];
+    }
+    try {
+        const companyParam = encodeURIComponent(state.user.companyName || '');
+        const clientIdParam = encodeURIComponent(state.user.id);
+        const res = await fetch(`/api/documents?clientId=${clientIdParam}&companyName=${companyParam}`);
+        if (res.ok) {
+            const docsList = await res.json();
+            if (Array.isArray(docsList)) {
+                state.documents = docsList.map(d => ({
+                    id: d.id,
+                    name: d.title || d.originalPath || d.name || 'Document',
+                    folder: d.category || d.folder || d.suggestedModule || 'Other',
+                    category: d.category || d.folder || d.suggestedModule || 'Other',
+                    uploadedOn: d.uploadDate || d.date || '2026-05-11',
+                    status: (d.status || 'APPROVED').toUpperCase(),
+                    uploadedBy: d.uploadSource || d.uploadedBy || 'System Upload',
+                    file: d.file || d.viewUrl || (d.id ? `/api/documents/${d.id}/view` : '#')
+                }));
+            } else {
+                state.documents = [];
+            }
+        } else {
+            state.documents = [];
+        }
+    } catch (e) {
+        console.warn('Failed to fetch client documents:', e);
+        state.documents = [];
+    }
+    window._clientSampleDocs = state.documents || [];
+    return window._clientSampleDocs;
+};
 
 window.filterDocumentFolder = function(folderName) {
     window._activeDocFolder = folderName;
@@ -8513,12 +8556,12 @@ window.renderFilteredDocsTable = function() {
 
     let filtered = window._clientSampleDocs || [];
     if (window._activeDocFolder && window._activeDocFolder !== 'All Documents') {
-        filtered = filtered.filter(d => d.folder.toLowerCase() === window._activeDocFolder.toLowerCase());
+        filtered = filtered.filter(d => (d.folder || '').toLowerCase() === window._activeDocFolder.toLowerCase());
     }
 
     if (window._docSearchQuery) {
         const q = window._docSearchQuery.toLowerCase();
-        filtered = filtered.filter(d => d.name.toLowerCase().includes(q) || d.folder.toLowerCase().includes(q) || d.uploadedBy.toLowerCase().includes(q));
+        filtered = filtered.filter(d => (d.name || '').toLowerCase().includes(q) || (d.folder || '').toLowerCase().includes(q) || (d.uploadedBy || '').toLowerCase().includes(q));
     }
 
     const countEl = document.getElementById('doc-filtered-count');
@@ -8578,10 +8621,15 @@ window.resetDocumentFilters = function() {
     window._docSearchQuery = '';
     const input = document.getElementById('doc-search-input');
     if (input) input.value = '';
+    const typeSelect = document.getElementById('doc-type-filter');
+    if (typeSelect) typeSelect.value = '';
     window.filterDocumentFolder('All Documents');
 };
 
 window.previewClientDocument = function(name) {
+    const doc = (window._clientSampleDocs || []).find(d => d.name === name || d.id === name);
+    const viewUrl = (doc && doc.file && doc.file !== '#') ? doc.file : (doc && doc.id ? `/api/documents/${doc.id}/view` : null);
+
     const modal = document.getElementById('modal-container');
     const content = document.getElementById('modal-content');
     if (modal && content) {
@@ -8600,7 +8648,8 @@ window.previewClientDocument = function(name) {
                     <div class="font-extrabold text-slate-900 text-sm">${name}</div>
                     <p class="text-xs text-slate-500">Verified & Approved Document Record in Globalisor Vault</p>
                     <div class="pt-4 flex justify-center gap-3">
-                        <button onclick="downloadClientDocument('${name}')" class="px-5 py-2.5 bg-blue-600 text-white font-bold text-xs rounded-xl hover:bg-blue-700 transition-all shadow-md shadow-blue-500/20">Download Original PDF</button>
+                        ${viewUrl ? `<a href="${viewUrl}" target="_blank" class="px-5 py-2.5 bg-blue-600 text-white font-bold text-xs rounded-xl hover:bg-blue-700 transition-all shadow-md shadow-blue-500/20 inline-flex items-center gap-2"><span>Open in New Tab</span> ↗</a>` : ''}
+                        <button onclick="downloadClientDocument('${name}')" class="px-5 py-2.5 bg-slate-900 text-white font-bold text-xs rounded-xl hover:bg-slate-800 transition-all shadow-md">Download PDF</button>
                     </div>
                 </div>
             </div>
@@ -8610,6 +8659,11 @@ window.previewClientDocument = function(name) {
 };
 
 window.downloadClientDocument = function(name) {
+    const doc = (window._clientSampleDocs || []).find(d => d.name === name || d.id === name);
+    const viewUrl = (doc && doc.file && doc.file !== '#') ? doc.file : (doc && doc.id ? `/api/documents/${doc.id}/view` : null);
+    if (viewUrl && viewUrl !== '#') {
+        window.open(viewUrl, '_blank');
+    }
     const toast = document.createElement('div');
     toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#0f172a;color:#fff;padding:12px 18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.25);z-index:99999;font-family:Outfit,sans-serif;font-size:12px;';
     toast.innerHTML = `<div style="font-weight:700;">📥 Downloading ${name}...</div>`;
@@ -8617,32 +8671,137 @@ window.downloadClientDocument = function(name) {
     setTimeout(() => toast.remove(), 2500);
 };
 
-window.deleteClientDocument = function(name) {
+window.deleteClientDocument = async function(name) {
     if (confirm(`Are you sure you want to delete "${name}"?`)) {
-        window._clientSampleDocs = window._clientSampleDocs.filter(d => d.name !== name);
-        window.renderFilteredDocsTable();
+        const doc = (window._clientSampleDocs || []).find(d => d.name === name || d.id === name);
+        if (doc && doc.id) {
+            try {
+                await fetch(`/api/documents/${doc.id}`, { method: 'DELETE' });
+            } catch (e) {
+                console.warn('Error deleting doc:', e);
+            }
+        }
+        window._clientSampleDocs = (window._clientSampleDocs || []).filter(d => d.name !== name && d.id !== name);
+        state.documents = window._clientSampleDocs;
+        const container = document.getElementById('view-container') || document.getElementById('cd-documents-vault-wrapper');
+        if (container && document.getElementById('docs-table-body')) {
+            renderDocuments(container);
+        } else {
+            window.renderFilteredDocsTable();
+        }
+    }
+};
+
+window.openClientDocUploadModal = function() {
+    const modal = document.getElementById('modal-container');
+    const content = document.getElementById('modal-content');
+    if (modal && content) {
+        content.innerHTML = `
+            <div class="space-y-6">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+                    <h3 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                        📄 Upload Client Document
+                    </h3>
+                    <button onclick="document.getElementById('modal-container').classList.add('opacity-0','pointer-events-none')" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors">
+                        ✕
+                    </button>
+                </div>
+                <form id="client-doc-upload-form" onsubmit="handleClientDocUploadSubmit(event)" class="space-y-4">
+                    <div>
+                        <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Document Category / Folder</label>
+                        <select id="upload-doc-category" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                            <option value="KYC">KYC</option>
+                            <option value="Invoice">Invoice</option>
+                            <option value="Permanent folder">Permanent folder</option>
+                            <option value="Incorporation">Incorporation</option>
+                            <option value="Change of Address">Change of Address</option>
+                            <option value="Change of Directors">Change of Directors</option>
+                            <option value="AGM AR">AGM AR</option>
+                            <option value="Tax">Tax</option>
+                            <option value="RONS">RONS</option>
+                            <option value="Bizfile & filing">Bizfile & filing</option>
+                            <option value="Others">Others</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Select File (.pdf, .png, .jpg)</label>
+                        <input type="file" id="upload-doc-file" required class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    </div>
+                    <div class="pt-4 flex justify-end gap-3">
+                        <button type="button" onclick="document.getElementById('modal-container').classList.add('opacity-0','pointer-events-none')" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancel</button>
+                        <button type="submit" class="px-5 py-2 bg-blue-600 text-white font-bold text-xs rounded-xl hover:bg-blue-700 shadow-md shadow-blue-500/20">Upload Now</button>
+                    </div>
+                </form>
+            </div>
+        `;
+        modal.classList.remove('opacity-0', 'pointer-events-none');
+    }
+};
+
+window.handleClientDocUploadSubmit = async function(e) {
+    e.preventDefault();
+    const fileInput = document.getElementById('upload-doc-file');
+    const categorySelect = document.getElementById('upload-doc-category');
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) return;
+
+    const file = fileInput.files[0];
+    const category = categorySelect ? categorySelect.value : 'Others';
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('clientId', state.user ? state.user.id : 'C-CLIENT');
+    formData.append('companyName', (state.user && state.user.companyName) ? state.user.companyName : '');
+    formData.append('category', category);
+
+    try {
+        const res = await fetch('/api/documents/upload', {
+            method: 'POST',
+            body: formData
+        });
+        if (res.ok) {
+            document.getElementById('modal-container').classList.add('opacity-0','pointer-events-none');
+            await window.fetchClientDocuments();
+            const container = document.getElementById('view-container') || document.getElementById('cd-documents-vault-wrapper');
+            if (container) renderDocuments(container);
+        } else {
+            alert('Upload failed. Please try again.');
+        }
+    } catch (err) {
+        console.error('Upload error:', err);
+        alert('Upload failed: ' + err.message);
     }
 };
 
 function renderDocuments(container) {
+    if (!window._clientSampleDocs) {
+        window._clientSampleDocs = state.documents || [];
+    }
+    const docs = window._clientSampleDocs || [];
+    const countFor = (name) => {
+        if (name === 'All Documents') return docs.length;
+        if (name === 'Bizfile & filing') return docs.filter(d => (d.folder || '').toLowerCase().includes('bizfile')).length;
+        if (name === 'Others') return docs.filter(d => (d.folder || '').toLowerCase() === 'others' || (d.folder || '').toLowerCase() === 'other' || (d.folder || '').toLowerCase() === 'misc').length;
+        return docs.filter(d => (d.folder || '').toLowerCase() === name.toLowerCase()).length;
+    };
+
     const folders = [
-        { name: 'All Documents', count: window._clientSampleDocs.length, active: true },
-        { name: 'KYC', count: window._clientSampleDocs.filter(d=>d.folder==='KYC').length },
-        { name: 'Invoice', count: window._clientSampleDocs.filter(d=>d.folder==='Invoice').length },
-        { name: 'Permanent folder', count: window._clientSampleDocs.filter(d=>d.folder==='Permanent folder').length },
-        { name: 'Incorporation', count: window._clientSampleDocs.filter(d=>d.folder==='Incorporation').length },
-        { name: 'All Signed', count: 0 },
-        { name: 'Change of Address', count: window._clientSampleDocs.filter(d=>d.folder==='Change of Address').length },
-        { name: 'Change of Directors', count: 0 },
-        { name: 'Change of CS', count: 0 },
-        { name: 'Change of Auditors', count: 0 },
-        { name: 'AGM AR', count: window._clientSampleDocs.filter(d=>d.folder==='AGM AR').length },
-        { name: 'Allotment of Shares', count: 0 },
-        { name: 'Final Demand', count: 0 },
-        { name: 'Others', count: 0 },
-        { name: 'Tax', count: window._clientSampleDocs.filter(d=>d.folder==='Tax').length },
-        { name: 'RONS', count: window._clientSampleDocs.filter(d=>d.folder==='RONS').length },
-        { name: 'Bizfile & filing', count: window._clientSampleDocs.filter(d=>d.folder==='Bizfile & filing').length }
+        { name: 'All Documents', count: countFor('All Documents'), active: true },
+        { name: 'KYC', count: countFor('KYC') },
+        { name: 'Invoice', count: countFor('Invoice') },
+        { name: 'Permanent folder', count: countFor('Permanent folder') },
+        { name: 'Incorporation', count: countFor('Incorporation') },
+        { name: 'All Signed', count: countFor('All Signed') },
+        { name: 'Change of Address', count: countFor('Change of Address') },
+        { name: 'Change of Directors', count: countFor('Change of Directors') },
+        { name: 'Change of CS', count: countFor('Change of CS') },
+        { name: 'Change of Auditors', count: countFor('Change of Auditors') },
+        { name: 'AGM AR', count: countFor('AGM AR') },
+        { name: 'Allotment of Shares', count: countFor('Allotment of Shares') },
+        { name: 'Final Demand', count: countFor('Final Demand') },
+        { name: 'Others', count: countFor('Others') },
+        { name: 'Tax', count: countFor('Tax') },
+        { name: 'RONS', count: countFor('RONS') },
+        { name: 'Bizfile & filing', count: countFor('Bizfile & filing') }
     ];
 
     container.innerHTML = `
@@ -8674,20 +8833,15 @@ function renderDocuments(container) {
                     <div class="space-y-3">
                         <div>
                             <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1.5">DOCUMENT TYPE</label>
-                            <select onchange="window.searchClientDocs(this.value)" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                            <select id="doc-type-filter" onchange="window.searchClientDocs(this.value)" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
                                 <option value="">All Types</option>
                                 <option value="KYC">KYC</option>
                                 <option value="Change of Address">Change of Address</option>
                                 <option value="Incorporation">Incorporation</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1.5">VERIFICATION STATUS</label>
-                            <select class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-                                <option>All Status</option>
-                                <option>Approved</option>
-                                <option>Pending</option>
-                                <option>Rejected</option>
+                                <option value="Invoice">Invoice</option>
+                                <option value="Tax">Tax</option>
+                                <option value="AGM AR">AGM AR</option>
+                                <option value="Bizfile">Bizfile</option>
                             </select>
                         </div>
                     </div>
@@ -8704,7 +8858,8 @@ function renderDocuments(container) {
                         </div>
                         <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
                             <span id="doc-filtered-count" class="text-xs font-bold text-slate-400"></span>
-                            <button onclick="alert('Upload Modal')" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20">
+                            <button onclick="openClientDocUploadModal()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                                 Upload Document
                             </button>
                         </div>
