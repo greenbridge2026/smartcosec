@@ -567,6 +567,12 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="10" rx="1"/><rect width="7" height="5" x="3" y="14" rx="1"/></svg>
             <span>Dashboard</span>
         </button>
+
+        <!-- Tasks (Direct Link) -->
+        <button onclick="switchTab('tasks')" class="direct-link-btn" id="btn-tasks" title="Tasks" data-tooltip="Tasks">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <span>Tasks</span>
+        </button>
         
         <div class="h-[1px] bg-slate-200/60 my-1 shrink-0"></div>
         
@@ -593,10 +599,6 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                         <span>Client Onboarding</span>
                     </a>
-                    <button onclick="switchTab('tasks')" class="submenu-item" id="btn-tasks" title="Tasks" data-tooltip="Tasks">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                        <span>Tasks</span>
-                    </button>
                 </div>
             </div>
         </div>
@@ -1796,7 +1798,7 @@
             // Auto expand/open category submenus
             let activeCatId = '';
             let activeSubId = '';
-            if (['applications', 'kyc', 'tasks'].includes(tab)) {
+            if (['applications', 'kyc'].includes(tab)) {
                 activeCatId = 'cat-operations';
                 activeSubId = 'sub-operations';
             } else if (['documents', 'vault', 'guidance'].includes(tab)) {
@@ -4204,6 +4206,39 @@
             }
         }
 
+        function getCurrentStaffAssignee() {
+            const auth = JSON.parse(localStorage.getItem('staff_auth') || '{}');
+            const name = auth.name || CURRENT_STAFF_NAME || 'Staff Specialist';
+            const email = auth.email || CURRENT_STAFF_EMAIL || 'staff@globalisor.com';
+            const initials = (name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)) || 'SL';
+            return {
+                id: auth.id || 'usr-staff',
+                name: name,
+                role: 'STAFF',
+                email: email,
+                avatar: initials
+            };
+        }
+
+        function isTaskAssignedToMe(t) {
+            if (!t || !t.assignedTo) return false;
+            const auth = JSON.parse(localStorage.getItem('staff_auth') || '{}');
+            const myId = auth.id;
+            const myEmail = (auth.email || CURRENT_STAFF_EMAIL || '').toLowerCase().trim();
+            const myName = (auth.name || CURRENT_STAFF_NAME || '').toLowerCase().trim();
+
+            const assId = t.assignedTo.id;
+            const assEmail = (t.assignedTo.email || '').toLowerCase().trim();
+            const assName = (t.assignedTo.name || '').toLowerCase().trim();
+
+            if (myId && assId && (assId === myId || assId === 'usr-staff')) return true;
+            if (assId === 'usr-staff') return true;
+            if (myEmail && assEmail && assEmail === myEmail) return true;
+            if (myName && assName && assName === myName) return true;
+            if (!myId && !myEmail && !myName && (t.assignedTo.role === 'STAFF' || assId)) return true;
+            return false;
+        }
+
         async function handleStaffDrop(e, targetStatus, colEl) {
             e.preventDefault();
             if (colEl) colEl.classList.remove('drag-over');
@@ -4214,21 +4249,16 @@
             if (!task) return;
 
             const currentStatus = (task.status || 'PENDING').toUpperCase();
-            if (currentStatus === targetStatus && (task.assignedTo && task.assignedTo.id === 'usr-staff')) return;
+            if (currentStatus === targetStatus && (task.assignedTo && isTaskAssignedToMe(task))) return;
 
             const previousStatus = task.status;
             const previousAssignee = task.assignedTo;
 
-            // If dragged into In Progress or Assigned, auto-assign to Sarah Lim if unassigned
+            // If dragged into In Progress or Assigned, auto-assign to current staff if unassigned
+            const currentStaff = getCurrentStaffAssignee();
             let newAssignee = task.assignedTo;
-            if (targetStatus === 'IN_PROGRESS' && (!task.assignedTo || !task.assignedTo.id)) {
-                newAssignee = {
-                    id: 'usr-staff',
-                    name: 'Sarah Lim',
-                    role: 'STAFF',
-                    email: 'staff@globalisor.com',
-                    avatar: 'SL'
-                };
+            if ((targetStatus === 'IN_PROGRESS' || targetStatus === 'ASSIGNED') && (!task.assignedTo || !task.assignedTo.id)) {
+                newAssignee = currentStaff;
             } else if (targetStatus === 'PENDING' && !task.assignedTo) {
                 newAssignee = null;
             }
@@ -4240,6 +4270,7 @@
             const statusLabels = {
                 'PENDING': 'Unassigned Pool',
                 'IN_PROGRESS': 'In Progress',
+                'ASSIGNED': 'Assigned',
                 'WAITING_CLIENT_INPUT': 'Waiting Client / Review',
                 'COMPLETED': 'Completed & Lodged'
             };
@@ -4254,7 +4285,7 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             assignee: newAssignee,
-                            performedBy: 'Sarah Lim',
+                            performedBy: currentStaff.name,
                             performedByRole: 'STAFF'
                         })
                     });
@@ -4265,7 +4296,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         status: targetStatus,
-                        performedBy: 'Sarah Lim',
+                        performedBy: currentStaff.name,
                         performedByRole: 'STAFF',
                         resolutionNote: targetStatus === 'COMPLETED' ? 'Marked complete & lodged via Specialist Kanban' : undefined
                     })
@@ -4282,9 +4313,12 @@
                     updateStaffTasksView();
                     showStaffToastNotification(`Failed to move task ${task.ticketNumber || task.id}`, null);
                 }
+            } catch (err) {
+                console.error("Failed to move task:", err);
                 task.status = previousStatus;
                 task.assignedTo = previousAssignee;
                 updateStaffTasksView();
+                showStaffToastNotification(`Failed to move task ${task.ticketNumber || task.id}`, null);
             }
         }
 
@@ -4332,11 +4366,10 @@
             const completedCol = document.getElementById('staff-col-completed-cards');
             if (!poolCol || !progressCol) return;
 
-            const myId = 'usr-staff';
             const pool = tasks.filter(t => !t.assignedTo || !t.assignedTo.id || (t.status || '').toUpperCase() === 'PENDING');
-            const progress = tasks.filter(t => (t.status || '').toUpperCase() === 'IN_PROGRESS' || ((t.status || '').toUpperCase() === 'ASSIGNED' && t.assignedTo?.id === myId));
-            const waiting = tasks.filter(t => ['WAITING_CLIENT_INPUT', 'UNDER_REVIEW'].includes((t.status || '').toUpperCase()));
-            const completed = tasks.filter(t => ['COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase()));
+            const progress = tasks.filter(t => ['IN_PROGRESS', 'ASSIGNED'].includes((t.status || '').toUpperCase()) && (t.assignedTo && t.assignedTo.id && (t.status || '').toUpperCase() !== 'PENDING'));
+            const waiting = tasks.filter(t => ['WAITING_CLIENT_INPUT', 'UNDER_REVIEW', 'WAITING'].includes((t.status || '').toUpperCase()));
+            const completed = tasks.filter(t => ['COMPLETED', 'RESOLVED', 'LODGED', 'CANCELLED'].includes((t.status || '').toUpperCase()));
 
             const elPool = document.getElementById('staff-count-col-pool');
             const elProg = document.getElementById('staff-count-col-progress');
@@ -4396,12 +4429,10 @@
 
         function updateStaffTasksView() {
             const list = staffTaskList || [];
-            const myId = 'usr-staff';
-
-            const myTasks = list.filter(t => t.assignedTo && t.assignedTo.id === myId);
-            const unassigned = list.filter(t => !t.assignedTo || !t.assignedTo.id);
-            const waiting = list.filter(t => (t.status || '').toUpperCase() === 'WAITING_CLIENT_INPUT');
-            const completed = list.filter(t => ['COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase()));
+            const myTasks = list.filter(t => isTaskAssignedToMe(t));
+            const unassigned = list.filter(t => !t.assignedTo || !t.assignedTo.id || (t.status || '').toUpperCase() === 'PENDING');
+            const waiting = list.filter(t => ['WAITING_CLIENT_INPUT', 'UNDER_REVIEW', 'WAITING'].includes((t.status || '').toUpperCase()));
+            const completed = list.filter(t => ['COMPLETED', 'RESOLVED', 'LODGED', 'CANCELLED'].includes((t.status || '').toUpperCase()));
 
             const elMy = document.getElementById('staff-stat-my-tasks');
             const elUn = document.getElementById('staff-stat-unassigned');
@@ -4430,7 +4461,7 @@
             }
 
             tbody.innerHTML = displayList.map(t => {
-                const isMyTask = t.assignedTo && t.assignedTo.id === myId;
+                const isMyTask = isTaskAssignedToMe(t);
                 const isClaimable = !t.assignedTo || !t.assignedTo.id;
 
                 let actionBtn = `
@@ -4462,7 +4493,7 @@
                             <span class="px-2 py-0.5 rounded text-[10px] font-bold ${t.priority === 'URGENT' ? 'bg-rose-50 text-rose-600 border border-rose-200' : (t.priority === 'HIGH' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-600')}">${t.priority || 'MEDIUM'}</span>
                         </td>
                         <td class="px-6 py-4">
-                            <span class="px-2 py-0.5 rounded text-[11px] font-bold ${t.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600' : (t.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600')}">${t.status || 'PENDING'}</span>
+                            <span class="px-2 py-0.5 rounded text-[11px] font-bold ${t.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600' : (t.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600' : (t.status === 'ASSIGNED' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-600'))}">${t.status || 'PENDING'}</span>
                         </td>
                         <td class="px-6 py-4 text-xs font-semibold text-slate-500">${t.dueDate || 'Standard SLA'}</td>
                         <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">${actionBtn}</td>
@@ -4475,18 +4506,13 @@
 
         async function claimStaffTask(taskId) {
             try {
+                const currentStaff = getCurrentStaffAssignee();
                 const res = await fetch(`/api/tasks/${taskId}/assign`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        assignee: {
-                            id: 'usr-staff',
-                            name: 'Sarah Lim',
-                            role: 'STAFF',
-                            email: 'staff@globalisor.com',
-                            avatar: 'SL'
-                        },
-                        performedBy: 'Sarah Lim',
+                        assignee: currentStaff,
+                        performedBy: currentStaff.name,
                         performedByRole: 'STAFF'
                     })
                 });
@@ -4586,13 +4612,14 @@
 
         async function updateStaffTaskStatus(status) {
             if (!currentStaffTask) return;
+            const currentStaff = getCurrentStaffAssignee();
             try {
                 const res = await fetch(`/api/tasks/${currentStaffTask.id}/status`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         status,
-                        performedBy: 'Sarah Lim',
+                        performedBy: currentStaff.name,
                         performedByRole: 'STAFF'
                     })
                 });
@@ -4611,6 +4638,7 @@
             const notes = prompt("Enter resolution & ACRA lodgement reference details:", "Lodgement completed with ACRA successfully.");
             if (notes === null) return;
 
+            const currentStaff = getCurrentStaffAssignee();
             try {
                 const res = await fetch(`/api/tasks/${currentStaffTask.id}/status`, {
                     method: 'PUT',
@@ -4618,7 +4646,7 @@
                     body: JSON.stringify({
                         status: 'COMPLETED',
                         resolutionNotes: notes,
-                        performedBy: 'Sarah Lim',
+                        performedBy: currentStaff.name,
                         performedByRole: 'STAFF'
                     })
                 });
@@ -4637,16 +4665,17 @@
             const text = document.getElementById('st-comment-input').value.trim();
             if (!text) return;
             const isInternal = document.getElementById('st-comment-is-internal').checked;
+            const currentStaff = getCurrentStaffAssignee();
 
             try {
                 const res = await fetch(`/api/tasks/${currentStaffTask.id}/comments`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        authorId: 'usr-staff',
-                        authorName: 'Sarah Lim',
+                        authorId: currentStaff.id,
+                        authorName: currentStaff.name,
                         authorRole: 'STAFF',
-                        authorAvatar: 'SL',
+                        authorAvatar: currentStaff.avatar,
                         text,
                         isInternal
                     })
@@ -4660,16 +4689,6 @@
             } catch (e) {
                 console.error(e);
             }
-        }
-                    <td class="px-6 py-4 text-xs font-medium text-slate-400">${doc.file}</td>
-                    <td class="px-6 py-4">
-                        <span class="text-[10px] font-black uppercase text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">${doc.outcome}</span>
-                    </td>
-                    <td class="px-6 py-4 text-xs font-medium text-slate-400">${doc.date}</td>
-                </tr>
-            `).join('');
-
-            if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
         function renderKYCQueue() {
@@ -6298,6 +6317,7 @@
         } else {
             init();
         }
+    </script>
 
     <!-- Document Vault Staff Modals -->
     <!-- Preview Modal -->
