@@ -17,8 +17,14 @@ function cleanUrls() {
         } else if (url.pathname === '/staff' || url.pathname === '/staff/') {
           req.url = '/staff/index.html';
         }
-        // Only append .html to paths without extensions that aren't the root
-        if (!req.url.includes('.') && req.url !== '/' && !req.url.startsWith('/api/')) {
+        // Only append .html to clean page paths (not Vite internals, not APIs, not files with extensions)
+        if (
+          !req.url.includes('.') &&
+          req.url !== '/' &&
+          !req.url.startsWith('/@') &&
+          !req.url.startsWith('/api/') &&
+          !req.url.startsWith('/node_modules/')
+        ) {
           req.url += '.html';
         }
         next();

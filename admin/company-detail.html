@@ -841,10 +841,36 @@
             <div class="grid grid-cols-12 gap-6">
                 <!-- Left Sidebar: Folders & Filters -->
                 <div class="col-span-12 lg:col-span-3 space-y-6">
-                    <!-- Folders Card -->
+                    <!-- Folders Card with Global Category Management -->
                     <div class="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm space-y-3">
-                        <h4 class="font-extrabold text-slate-800 text-xs uppercase tracking-wider mb-2">Folders</h4>
-                        <div class="space-y-1" id="doc-folders-list">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                            <div>
+                                <h4 class="font-extrabold text-slate-800 text-xs uppercase tracking-wider">Categories</h4>
+                                <p class="text-[10px] text-slate-400 font-medium">Common taxonomy</p>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <button onclick="openAddCategoryModal()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-blue-500/20 cursor-pointer" title="Add New Document Category">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                    <span>+ Add</span>
+                                </button>
+                                <div class="relative inline-block text-left" id="doc-cat-menu-wrapper">
+                                    <button onclick="toggleDocCatMenu()" class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer" title="Category Options">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                                    </button>
+                                    <div id="doc-cat-menu-dropdown" class="hidden absolute right-0 mt-1.5 w-44 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-1.5 space-y-1 animate-fade-in">
+                                        <button onclick="openAddCategoryModal(); toggleDocCatMenu(false);" class="w-full text-left px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-xl flex items-center gap-2 transition cursor-pointer">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                                            <span>Add Category</span>
+                                        </button>
+                                        <button onclick="confirmResetCategories(); toggleDocCatMenu(false);" class="w-full text-left px-2.5 py-1.5 text-[11px] font-bold text-amber-700 hover:bg-amber-50 rounded-xl flex items-center gap-2 transition cursor-pointer">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-600"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                                            <span>Reset to Defaults</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="space-y-1 max-h-[460px] overflow-y-auto pr-1" id="doc-folders-list">
                             <!-- Loaded dynamically -->
                         </div>
                     </div>
@@ -3058,36 +3084,552 @@
             };
         }
 
-        window.baseDocCategoriesList = [
-            { val: "KYC", label: "KYC (Passport, NRIC, Address Proof)" },
-            { val: "Invoice", label: "Invoice (Invoices, Billing & Receipts)" },
-            { val: "Permanent folder", label: "Permanent folder (Permanent Corporate Records)" },
-            { val: "Incorporation", label: "Incorporation (BizFile, M&AA, Constitution)" },
-            { val: "All Signed", label: "All Signed (Signed Agreements & Resolutions)" },
-            { val: "Change of Address", label: "Change of Address (Form 44, Address Proofs)" },
-            { val: "Change of Directors", label: "Change of Directors (Form 45, Director Consents)" },
-            { val: "Change of CS", label: "Change of CS (Secretary Appointment / Resignation)" },
-            { val: "Change of Auditors", label: "Change of Auditors (Auditor Appointment / Resignation)" },
-            { val: "AGM AR", label: "AGM AR (AGM Minutes, Annual Return Filings)" },
-            { val: "Allotment of Shares", label: "Allotment of Shares (Return of Allotment, Share Certs)" },
-            { val: "Final Demand", label: "Final Demand (Final Demand Notices & Reminders)" },
-            { val: "Tax", label: "Tax (Tax Returns, Filings & Assessments)" },
-            { val: "RONS", label: "RONS (Register of Nominee Directors / Officers)" },
-            { val: "Bizfile & filing", label: "Bizfile & filing (ACRA BizFile Reports & Filings)" },
-            { val: "Others", label: "Others (Miscellaneous Documents)" }
+        // ==========================================
+        // GLOBAL COMMON DOCUMENT TAXONOMY & CATEGORY MANAGEMENT
+        // ==========================================
+        const DEFAULT_GLOBAL_DOC_CATEGORIES = [
+            { key: "KYC", label: "KYC", icon: "shield-check", color: "blue", desc: "Passport, NRIC, Proof of Address", sortOrder: 1, isSystem: true },
+            { key: "Invoice", label: "Invoice", icon: "file-text", color: "emerald", desc: "Invoices, Billing & Receipts", sortOrder: 2, isSystem: true },
+            { key: "Permanent folder", label: "Permanent folder", icon: "folder-archive", color: "purple", desc: "Permanent Corporate Records", sortOrder: 3, isSystem: true },
+            { key: "Incorporation", label: "Incorporation", icon: "building", color: "indigo", desc: "BizFile, M&AA, Constitution", sortOrder: 4, isSystem: true },
+            { key: "All Signed", label: "All Signed", icon: "file-signature", color: "amber", desc: "Signed Agreements & Resolutions", sortOrder: 5, isSystem: true },
+            { key: "Change of Address", label: "Change of Address", icon: "map-pin", color: "rose", desc: "Form 44, Address Proofs", sortOrder: 6, isSystem: true },
+            { key: "Change of Directors", label: "Change of Directors", icon: "users", color: "sky", desc: "Form 45, Director Consents", sortOrder: 7, isSystem: true },
+            { key: "Change of CS", label: "Change of CS", icon: "user-cog", color: "violet", desc: "Secretary Appointment / Resignation", sortOrder: 8, isSystem: true },
+            { key: "Change of Auditors", label: "Change of Auditors", icon: "file-check", color: "teal", desc: "Auditor Appointment / Resignation", sortOrder: 9, isSystem: true },
+            { key: "AGM AR", label: "AGM AR", icon: "calendar", color: "cyan", desc: "AGM Minutes, Annual Return Filings", sortOrder: 10, isSystem: true },
+            { key: "Allotment of Shares", label: "Allotment of Shares", icon: "pie-chart", color: "orange", desc: "Return of Allotment, Share Certs", sortOrder: 11, isSystem: true },
+            { key: "Final Demand", label: "Final Demand", icon: "alert-triangle", color: "rose", desc: "Final Demand Notices & Reminders", sortOrder: 12, isSystem: true },
+            { key: "Tax", label: "Tax", icon: "receipt", color: "emerald", desc: "Tax Returns, Filings & Assessments", sortOrder: 13, isSystem: true },
+            { key: "RONS", label: "RONS", icon: "file-text", color: "indigo", desc: "Register of Nominee Directors / Officers", sortOrder: 14, isSystem: true },
+            { key: "Bizfile & filing", label: "Bizfile & filing", icon: "file-check-2", color: "blue", desc: "ACRA BizFile Reports & Filings", sortOrder: 15, isSystem: true },
+            { key: "Others", label: "Others", icon: "folder", color: "slate", desc: "Miscellaneous Documents", sortOrder: 16, isSystem: true }
         ];
 
+        window.globalDocCategories = (() => {
+            try {
+                const cached = localStorage.getItem('global_document_categories');
+                if (cached) return JSON.parse(cached);
+            } catch(e){}
+            return [...DEFAULT_GLOBAL_DOC_CATEGORIES];
+        })();
+
+        window.loadGlobalDocCategories = async function() {
+            try {
+                const res = await fetch('/api/documents/categories');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                        window.globalDocCategories = data.map(d => ({
+                            id: d.id,
+                            key: d.key,
+                            label: d.label || d.key,
+                            desc: d.description || d.desc || '',
+                            description: d.description || d.desc || '',
+                            icon: d.icon || 'folder',
+                            color: d.color || 'blue',
+                            sortOrder: d.sortOrder || 99,
+                            isSystem: !!d.isSystem
+                        }));
+                        localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
+                    }
+                }
+            } catch (e) {
+                console.warn("Using cached/default global document categories:", e);
+            }
+        };
+
+        window.getCompanyDetailTaxonomy = function() {
+            return (window.globalDocCategories && window.globalDocCategories.length > 0) 
+                ? window.globalDocCategories 
+                : DEFAULT_GLOBAL_DOC_CATEGORIES;
+        };
+
         window.getDocCategoriesList = function() {
-            const list = [...window.baseDocCategoriesList];
+            const taxonomyList = window.getCompanyDetailTaxonomy();
+            const list = taxonomyList.map(cat => ({
+                val: cat.key,
+                label: cat.desc ? `${cat.label} (${cat.desc})` : cat.label,
+                key: cat.key,
+                color: cat.color || 'blue',
+                icon: cat.icon || 'folder'
+            }));
+
             if (typeof documentsList !== 'undefined' && Array.isArray(documentsList)) {
                 documentsList.forEach(d => {
                     const cat = (d.folder || d.type || '').trim();
                     if (cat && !list.some(item => item.val.toLowerCase() === cat.toLowerCase())) {
-                        list.push({ val: cat, label: `${cat} (Custom Category)` });
+                        list.push({ val: cat, label: `${cat} (Custom Category)`, key: cat, color: 'blue', icon: 'folder' });
                     }
                 });
             }
             return list;
+        };
+
+        const DOC_CAT_COLORS = [
+            { name: 'blue', label: 'Blue', class: 'bg-blue-500' },
+            { name: 'emerald', label: 'Emerald', class: 'bg-emerald-500' },
+            { name: 'purple', label: 'Purple', class: 'bg-purple-500' },
+            { name: 'indigo', label: 'Indigo', class: 'bg-indigo-500' },
+            { name: 'amber', label: 'Amber', class: 'bg-amber-500' },
+            { name: 'rose', label: 'Rose', class: 'bg-rose-500' },
+            { name: 'sky', label: 'Sky', class: 'bg-sky-500' },
+            { name: 'violet', label: 'Violet', class: 'bg-violet-500' },
+            { name: 'teal', label: 'Teal', class: 'bg-teal-500' },
+            { name: 'cyan', label: 'Cyan', class: 'bg-cyan-500' },
+            { name: 'orange', label: 'Orange', class: 'bg-orange-500' },
+            { name: 'slate', label: 'Slate', class: 'bg-slate-500' }
+        ];
+
+        window.toggleDocCatMenu = function(force) {
+            const dropdown = document.getElementById('doc-cat-menu-dropdown');
+            if (!dropdown) return;
+            if (typeof force === 'boolean') {
+                if (force) dropdown.classList.remove('hidden');
+                else dropdown.classList.add('hidden');
+            } else {
+                dropdown.classList.toggle('hidden');
+            }
+        };
+
+        document.addEventListener('click', function(e) {
+            const wrapper = document.getElementById('doc-cat-menu-wrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
+                window.toggleDocCatMenu(false);
+            }
+        });
+
+        window.openAddCategoryModal = function() {
+            const modalId = 'modal-add-doc-category';
+            const oldModal = document.getElementById(modalId);
+            if (oldModal) oldModal.remove();
+
+            const colorSwatchesHtml = DOC_CAT_COLORS.map((c, i) => `
+                <label class="cursor-pointer">
+                    <input type="radio" name="add-cat-color" value="${c.name}" ${i === 0 ? 'checked' : ''} class="peer sr-only">
+                    <span class="w-6 h-6 rounded-full block ${c.class} ring-offset-2 peer-checked:ring-2 peer-checked:ring-blue-600 transition shadow-sm"></span>
+                </label>
+            `).join('');
+
+            const modalHtml = `
+                <div id="${modalId}" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 animate-fade-in">
+                    <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col border border-slate-100">
+                        <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/80">
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                                    <i data-lucide="folder-plus" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-extrabold text-slate-900 text-sm">Add Document Category</h3>
+                                    <p class="text-[10px] text-slate-400">Creates a common category for all clients</p>
+                                </div>
+                            </div>
+                            <button type="button" onclick="document.getElementById('${modalId}').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-200/50 transition">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <form onsubmit="window.submitAddCategory(event, '${modalId}')" class="p-6 space-y-4 text-xs">
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Category Name *</label>
+                                <input type="text" id="add-cat-name-input" required autofocus placeholder="e.g. Board Resolutions, Licenses, Contracts" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Description (Optional)</label>
+                                <input type="text" id="add-cat-desc-input" placeholder="e.g. Signed board minutes and resolutions" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-2 uppercase text-[10px] tracking-wider">Category Color</label>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    ${colorSwatchesHtml}
+                                </div>
+                            </div>
+                            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                                <button type="button" onclick="document.getElementById('${modalId}').remove()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 font-bold rounded-xl transition cursor-pointer">Cancel</button>
+                                <button type="submit" id="btn-save-add-cat" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl shadow-md shadow-blue-500/20 transition flex items-center gap-1.5 cursor-pointer">
+                                    <i data-lucide="plus" class="w-4 h-4"></i>
+                                    <span>Create Category</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            if (window.lucide) window.lucide.createIcons();
+            setTimeout(() => {
+                const inp = document.getElementById('add-cat-name-input');
+                if (inp) inp.focus();
+            }, 50);
+        };
+
+        window.submitAddCategory = async function(event, modalId) {
+            event.preventDefault();
+            const nameInput = document.getElementById('add-cat-name-input');
+            const descInput = document.getElementById('add-cat-desc-input');
+            const colorInput = document.querySelector('input[name="add-cat-color"]:checked');
+            const btn = document.getElementById('btn-save-add-cat');
+
+            const name = nameInput ? nameInput.value.trim() : '';
+            const desc = descInput ? descInput.value.trim() : '';
+            const color = colorInput ? colorInput.value : 'blue';
+
+            if (!name) {
+                alert("Please enter a category name.");
+                return;
+            }
+
+            const currentTaxonomy = window.getCompanyDetailTaxonomy();
+            if (currentTaxonomy.some(c => c.key.toLowerCase() === name.toLowerCase())) {
+                alert(`A category named "${name}" already exists!`);
+                return;
+            }
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Saving...`;
+                if (window.lucide) window.lucide.createIcons();
+            }
+
+            try {
+                const res = await fetch('/api/documents/categories', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        key: name,
+                        label: name,
+                        description: desc,
+                        color: color,
+                        icon: 'folder',
+                        sortOrder: currentTaxonomy.length + 1
+                    })
+                });
+
+                if (res.ok) {
+                    const saved = await res.json();
+                    window.globalDocCategories.push({
+                        id: saved.id,
+                        key: saved.key || name,
+                        label: saved.label || name,
+                        desc: saved.description || desc,
+                        description: saved.description || desc,
+                        color: saved.color || color,
+                        icon: saved.icon || 'folder',
+                        sortOrder: saved.sortOrder || currentTaxonomy.length + 1,
+                        isSystem: false
+                    });
+                } else {
+                    window.globalDocCategories.push({
+                        key: name,
+                        label: name,
+                        desc: desc,
+                        description: desc,
+                        color: color,
+                        icon: 'folder',
+                        sortOrder: currentTaxonomy.length + 1,
+                        isSystem: false
+                    });
+                }
+
+                localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
+                window.showToast(`Category "${name}" created successfully!`, 'success');
+
+                const modal = document.getElementById(modalId);
+                if (modal) modal.remove();
+
+                renderDocFolders();
+                renderCompanyDetailCategoryUploadCards();
+            } catch(err) {
+                console.error("Error creating category:", err);
+                window.globalDocCategories.push({
+                    key: name,
+                    label: name,
+                    desc: desc,
+                    description: desc,
+                    color: color,
+                    icon: 'folder',
+                    sortOrder: currentTaxonomy.length + 1,
+                    isSystem: false
+                });
+                localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
+                window.showToast(`Category "${name}" added.`, "info");
+                const modal = document.getElementById(modalId);
+                if (modal) modal.remove();
+                renderDocFolders();
+            }
+        };
+
+        window.openEditCategoryModal = function(catKey) {
+            const currentTaxonomy = window.getCompanyDetailTaxonomy();
+            const cat = currentTaxonomy.find(c => c.key.toLowerCase() === catKey.toLowerCase()) || { key: catKey, label: catKey, desc: '', color: 'blue' };
+
+            const modalId = 'modal-edit-doc-category';
+            const oldModal = document.getElementById(modalId);
+            if (oldModal) oldModal.remove();
+
+            const colorSwatchesHtml = DOC_CAT_COLORS.map(c => `
+                <label class="cursor-pointer">
+                    <input type="radio" name="edit-cat-color" value="${c.name}" ${c.name === (cat.color || 'blue') ? 'checked' : ''} class="peer sr-only">
+                    <span class="w-6 h-6 rounded-full block ${c.class} ring-offset-2 peer-checked:ring-2 peer-checked:ring-blue-600 transition shadow-sm"></span>
+                </label>
+            `).join('');
+
+            const modalHtml = `
+                <div id="${modalId}" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 animate-fade-in">
+                    <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col border border-slate-100">
+                        <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/80">
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                                    <i data-lucide="pencil" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-extrabold text-slate-900 text-sm">Edit Category</h3>
+                                    <p class="text-[10px] text-slate-400">Updates category globally across all clients</p>
+                                </div>
+                            </div>
+                            <button type="button" onclick="document.getElementById('${modalId}').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-200/50 transition">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <form onsubmit="window.submitEditCategory(event, '${cat.key.replace(/'/g, "\\'")}', '${modalId}')" class="p-6 space-y-4 text-xs">
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Category Name *</label>
+                                <input type="text" id="edit-cat-name-input" required value="${(cat.label || cat.key).replace(/"/g, '&quot;')}" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Description (Optional)</label>
+                                <input type="text" id="edit-cat-desc-input" value="${(cat.desc || cat.description || '').replace(/"/g, '&quot;')}" placeholder="e.g. Official documents and certificates" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-2 uppercase text-[10px] tracking-wider">Category Color</label>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    ${colorSwatchesHtml}
+                                </div>
+                            </div>
+                            <div class="p-3 bg-blue-50/70 border border-blue-100 rounded-xl flex items-start gap-2 text-[11px] text-blue-800">
+                                <i data-lucide="info" class="w-4 h-4 text-blue-600 shrink-0 mt-0.5"></i>
+                                <span>Renaming this category will automatically update all existing documents linked to this folder.</span>
+                            </div>
+                            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                                <button type="button" onclick="document.getElementById('${modalId}').remove()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 font-bold rounded-xl transition cursor-pointer">Cancel</button>
+                                <button type="submit" id="btn-save-edit-cat" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl shadow-md shadow-blue-500/20 transition flex items-center gap-1.5 cursor-pointer">
+                                    <i data-lucide="check" class="w-4 h-4"></i>
+                                    <span>Save Changes</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        window.submitEditCategory = async function(event, oldKey, modalId) {
+            event.preventDefault();
+            const nameInput = document.getElementById('edit-cat-name-input');
+            const descInput = document.getElementById('edit-cat-desc-input');
+            const colorInput = document.querySelector('input[name="edit-cat-color"]:checked');
+            const btn = document.getElementById('btn-save-edit-cat');
+
+            const newName = nameInput ? nameInput.value.trim() : '';
+            const newDesc = descInput ? descInput.value.trim() : '';
+            const newColor = colorInput ? colorInput.value : 'blue';
+
+            if (!newName) {
+                alert("Category name cannot be empty.");
+                return;
+            }
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Updating...`;
+                if (window.lucide) window.lucide.createIcons();
+            }
+
+            try {
+                const catObj = (window.globalDocCategories || []).find(c => c.key.toLowerCase() === oldKey.toLowerCase());
+                const idOrKey = catObj && catObj.id ? catObj.id : encodeURIComponent(oldKey);
+
+                await fetch(`/api/documents/categories/${idOrKey}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        key: newName,
+                        label: newName,
+                        description: newDesc,
+                        color: newColor
+                    })
+                });
+
+                if (window.globalDocCategories) {
+                    const idx = window.globalDocCategories.findIndex(c => c.key.toLowerCase() === oldKey.toLowerCase());
+                    if (idx >= 0) {
+                        window.globalDocCategories[idx].key = newName;
+                        window.globalDocCategories[idx].label = newName;
+                        window.globalDocCategories[idx].desc = newDesc;
+                        window.globalDocCategories[idx].description = newDesc;
+                        window.globalDocCategories[idx].color = newColor;
+                    }
+                    localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
+                }
+
+                if (documentsList && Array.isArray(documentsList)) {
+                    documentsList.forEach(d => {
+                        if (d.folder && d.folder.toLowerCase() === oldKey.toLowerCase()) d.folder = newName;
+                        if (d.type && d.type.toLowerCase() === oldKey.toLowerCase()) d.type = newName;
+                    });
+                }
+
+                if (activeDocFolder && activeDocFolder.toLowerCase() === oldKey.toLowerCase()) {
+                    activeDocFolder = newName;
+                }
+
+                window.showToast(`Category "${oldKey}" renamed to "${newName}"!`, 'success');
+
+                const modal = document.getElementById(modalId);
+                if (modal) modal.remove();
+
+                renderDocFolders();
+                renderDocTable();
+                renderCompanyDetailCategoryUploadCards();
+            } catch(err) {
+                console.error("Error editing category:", err);
+                window.showToast("Category updated: " + err.message, "info");
+                const modal = document.getElementById(modalId);
+                if (modal) modal.remove();
+                renderDocFolders();
+            }
+        };
+
+        window.openDeleteCategoryModal = function(catKey, count) {
+            const modalId = 'modal-delete-doc-category';
+            const oldModal = document.getElementById(modalId);
+            if (oldModal) oldModal.remove();
+
+            const countMsg = count > 0 
+                ? `<div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 font-medium mt-3 flex items-start gap-2"><i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i><span>This category currently contains <strong>${count} document(s)</strong>. Deleting it will safely move all its documents to the <strong>"Others"</strong> category.</span></div>`
+                : `<p class="text-xs text-slate-500 mt-2">Are you sure you want to delete the category <strong>"${catKey}"</strong>? This will remove it from the common taxonomy.</p>`;
+
+            const modalHtml = `
+                <div id="${modalId}" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 animate-fade-in">
+                    <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col border border-slate-100">
+                        <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-rose-50/60">
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </div>
+                                <h3 class="font-extrabold text-slate-900 text-sm">Delete Category</h3>
+                            </div>
+                            <button type="button" onclick="document.getElementById('${modalId}').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-200/50 transition">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <div class="p-6">
+                            <p class="text-xs text-slate-700 font-semibold">Delete category <span class="text-rose-600 font-black">"${catKey}"</span>?</p>
+                            ${countMsg}
+                            <div class="pt-5 mt-5 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                                <button type="button" onclick="document.getElementById('${modalId}').remove()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 font-bold rounded-xl transition text-xs cursor-pointer">Cancel</button>
+                                <button type="button" id="btn-confirm-delete-cat" onclick="window.submitDeleteCategory('${catKey.replace(/'/g, "\\'")}', '${modalId}')" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl shadow-md shadow-rose-500/20 transition flex items-center gap-1 text-xs cursor-pointer">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                    <span>Delete</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        window.submitDeleteCategory = async function(catKey, modalId) {
+            const btn = document.getElementById('btn-confirm-delete-cat');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Deleting...`;
+                if (window.lucide) window.lucide.createIcons();
+            }
+
+            try {
+                const catObj = (window.globalDocCategories || []).find(c => c.key.toLowerCase() === catKey.toLowerCase());
+                const idOrKey = catObj && catObj.id ? catObj.id : encodeURIComponent(catKey);
+
+                await fetch(`/api/documents/categories/${idOrKey}`, { method: 'DELETE' });
+
+                if (window.globalDocCategories) {
+                    window.globalDocCategories = window.globalDocCategories.filter(c => c.key.toLowerCase() !== catKey.toLowerCase());
+                    localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
+                }
+
+                if (documentsList && Array.isArray(documentsList)) {
+                    documentsList.forEach(d => {
+                        if (d.folder && d.folder.toLowerCase() === catKey.toLowerCase()) d.folder = "Others";
+                        if (d.type && d.type.toLowerCase() === catKey.toLowerCase()) d.type = "Others";
+                    });
+                }
+
+                if (activeDocFolder && activeDocFolder.toLowerCase() === catKey.toLowerCase()) {
+                    activeDocFolder = "All Documents";
+                }
+
+                window.showToast(`Category "${catKey}" deleted.`, 'success');
+                const modal = document.getElementById(modalId);
+                if (modal) modal.remove();
+
+                renderDocFolders();
+                renderDocTable();
+                renderCompanyDetailCategoryUploadCards();
+            } catch(err) {
+                console.error("Error deleting category:", err);
+                window.showToast("Category removed locally: " + err.message, "info");
+                const modal = document.getElementById(modalId);
+                if (modal) modal.remove();
+                renderDocFolders();
+            }
+        };
+
+        window.confirmResetCategories = async function() {
+            if (!confirm("Are you sure you want to reset all document categories to the standard default 16 corporate categories? This action will apply globally across all clients.")) {
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/documents/categories/reset', { method: 'POST' });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.categories && Array.isArray(data.categories)) {
+                        window.globalDocCategories = data.categories.map(d => ({
+                            id: d.id,
+                            key: d.key,
+                            label: d.label || d.key,
+                            desc: d.description || d.desc || '',
+                            description: d.description || d.desc || '',
+                            icon: d.icon || 'folder',
+                            color: d.color || 'blue',
+                            sortOrder: d.sortOrder || 99,
+                            isSystem: !!d.isSystem
+                        }));
+                    } else {
+                        window.globalDocCategories = [...DEFAULT_GLOBAL_DOC_CATEGORIES];
+                    }
+                } else {
+                    window.globalDocCategories = [...DEFAULT_GLOBAL_DOC_CATEGORIES];
+                }
+                localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
+                window.showToast("Reset document categories to corporate defaults.", "success");
+                renderDocFolders();
+                renderDocTable();
+                renderCompanyDetailCategoryUploadCards();
+            } catch (err) {
+                console.error("Error resetting categories:", err);
+                window.globalDocCategories = [...DEFAULT_GLOBAL_DOC_CATEGORIES];
+                localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
+                window.showToast("Reset to defaults (offline).", "info");
+                renderDocFolders();
+            }
         };
 
         window.docCatHighlightedIndex = -1;
@@ -3281,6 +3823,11 @@
             if (event) event.preventDefault();
             modalSelectedFiles = [];
             
+            const activeTaxonomy = window.getCompanyDetailTaxonomy();
+            const quickPillsHtml = activeTaxonomy.slice(0, 6).map(c => `
+                <button type="button" onclick="selectQuickDocCategory('${c.key.replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700 rounded-lg text-[11px] font-bold transition cursor-pointer">${c.label || c.key}</button>
+            `).join('');
+
             const modalHtml = `
                 <div id="upload-doc-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 animate-fade-in">
                     <div class="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col border border-slate-100">
@@ -3316,12 +3863,8 @@
                                 <!-- Quick Select Pills -->
                                 <div class="flex flex-wrap items-center gap-1.5 mt-2.5">
                                     <span class="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mr-0.5">Quick Select:</span>
-                                    <button type="button" onclick="selectQuickDocCategory('KYC')" class="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700 rounded-lg text-[11px] font-bold transition">KYC</button>
-                                    <button type="button" onclick="selectQuickDocCategory('Invoice')" class="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700 rounded-lg text-[11px] font-bold transition">Invoice</button>
-                                    <button type="button" onclick="selectQuickDocCategory('Incorporation')" class="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700 rounded-lg text-[11px] font-bold transition">Incorporation</button>
-                                    <button type="button" onclick="selectQuickDocCategory('Tax')" class="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700 rounded-lg text-[11px] font-bold transition">Tax</button>
-                                    <button type="button" onclick="selectQuickDocCategory('All Signed')" class="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700 rounded-lg text-[11px] font-bold transition">All Signed</button>
-                                    <button type="button" onclick="focusCustomCategoryInput()" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-[11px] font-extrabold transition flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> Custom Category</button>
+                                    ${quickPillsHtml}
+                                    <button type="button" onclick="focusCustomCategoryInput()" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-[11px] font-extrabold transition flex items-center gap-1 cursor-pointer"><i data-lucide="plus" class="w-3 h-3"></i> Custom</button>
                                 </div>
                             </div>
 
@@ -8184,32 +8727,14 @@
             }
         };
 
-        const COMPANY_DETAIL_TAXONOMY = [
-            { key: "KYC", label: "KYC", icon: "shield-check", color: "blue", desc: "Passport, NRIC, Proof of Address" },
-            { key: "Invoice", label: "Invoice", icon: "file-text", color: "emerald", desc: "Invoices, Billing & Receipts" },
-            { key: "Permanent folder", label: "Permanent folder", icon: "folder-archive", color: "purple", desc: "Permanent Corporate Records" },
-            { key: "Incorporation", label: "Incorporation", icon: "building", color: "indigo", desc: "BizFile, M&AA, Constitution" },
-            { key: "All Signed", label: "All Signed", icon: "file-signature", color: "amber", desc: "Signed Agreements & Resolutions" },
-            { key: "Change of Address", label: "Change of Address", icon: "map-pin", color: "rose", desc: "Form 44, Address Proofs" },
-            { key: "Change of Directors", label: "Change of Directors", icon: "users", color: "sky", desc: "Form 45, Director Consents" },
-            { key: "Change of CS", label: "Change of CS", icon: "user-cog", color: "violet", desc: "Secretary Appointment / Resignation" },
-            { key: "Change of Auditors", label: "Change of Auditors", icon: "file-check", color: "teal", desc: "Auditor Appointment / Resignation" },
-            { key: "AGM AR", label: "AGM AR", icon: "calendar", color: "cyan", desc: "AGM Minutes, Annual Return Filings" },
-            { key: "Allotment of Shares", label: "Allotment of Shares", icon: "pie-chart", color: "orange", desc: "Return of Allotment, Share Certs" },
-            { key: "Final Demand", label: "Final Demand", icon: "alert-triangle", color: "rose", desc: "Final Demand Notices & Reminders" },
-            { key: "Others", label: "Others", icon: "folder", color: "slate", desc: "Miscellaneous Documents" },
-            { key: "Tax", label: "Tax", icon: "receipt", color: "emerald", desc: "Tax Returns, Filings & Assessments" },
-            { key: "RONS", label: "RONS", icon: "file-text", color: "indigo", desc: "Register of Nominee Directors / Officers" },
-            { key: "Bizfile & filing", label: "Bizfile & filing", icon: "file-check-2", color: "blue", desc: "ACRA BizFile Reports & Filings" }
-        ];
-
         let cdSelectedCategoryFilesMap = {};
 
         function renderCompanyDetailCategoryUploadCards() {
             const container = document.getElementById('cd-categorized-cards-container');
             if (!container) return;
 
-            container.innerHTML = COMPANY_DETAIL_TAXONOMY.map(cat => {
+            const taxonomyList = window.getCompanyDetailTaxonomy();
+            container.innerHTML = taxonomyList.map(cat => {
                 const files = cdSelectedCategoryFilesMap[cat.key] || [];
                 const hasFiles = files.length > 0;
                 
@@ -8224,7 +8749,8 @@
                     violet: { bg: 'bg-violet-50', text: 'text-violet-600', border: 'border-violet-200' },
                     teal: { bg: 'bg-teal-50', text: 'text-teal-600', border: 'border-teal-200' },
                     cyan: { bg: 'bg-cyan-50', text: 'text-cyan-600', border: 'border-cyan-200' },
-                    orange: { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-200' }
+                    orange: { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-200' },
+                    slate: { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-200' }
                 };
                 const c = colorMap[cat.color] || colorMap.blue;
 
@@ -8250,15 +8776,15 @@
                             <div class="flex items-center justify-between mb-1.5">
                                 <div class="flex items-center gap-2">
                                     <div class="w-7 h-7 rounded-lg ${c.bg} ${c.text} flex items-center justify-center shrink-0">
-                                        <i data-lucide="${cat.icon}" class="w-4 h-4"></i>
+                                        <i data-lucide="${cat.icon || 'folder'}" class="w-4 h-4"></i>
                                     </div>
-                                    <span class="font-extrabold text-slate-800 text-xs truncate max-w-[130px]">${cat.label}</span>
+                                    <span class="font-extrabold text-slate-800 text-xs truncate max-w-[130px]">${cat.label || cat.key}</span>
                                 </div>
                                 <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${hasFiles ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}">
                                     ${files.length}
                                 </span>
                             </div>
-                            <p class="text-[10px] text-slate-400 font-medium mb-2 truncate">${cat.desc}</p>
+                            <p class="text-[10px] text-slate-400 font-medium mb-2 truncate">${cat.desc || cat.description || ''}</p>
                             ${fileListHtml}
                         </div>
                         <div class="mt-3 pt-2 border-t border-slate-200/60">
@@ -8368,6 +8894,8 @@
             const urlParams = new URLSearchParams(window.location.search);
             const clientId = urlParams.get('clientId') || 'C-1001';
 
+            await window.loadGlobalDocCategories();
+
             documentsList = [];
             try {
                 const res = await fetch(`/api/documents/client/${clientId}`);
@@ -8402,45 +8930,46 @@
             const container = document.getElementById('doc-folders-list');
             if (!container) return;
 
-            const taxonomyKeys = [
-                "KYC",
-                "Invoice",
-                "Permanent folder",
-                "Incorporation",
-                "All Signed",
-                "Change of Address",
-                "Change of Directors",
-                "Change of CS",
-                "Change of Auditors",
-                "AGM AR",
-                "Allotment of Shares",
-                "Final Demand",
-                "Tax",
-                "RONS",
-                "Bizfile & filing",
-                "Others"
-            ];
-
+            const taxonomyList = window.getCompanyDetailTaxonomy();
             const counts = {};
-            const customCategories = [];
+            const extraCategories = [];
 
-            documentsList.forEach(d => {
+            (documentsList || []).forEach(d => {
                 const folderRaw = (d.folder || d.type || 'Others').trim();
-                const matchedKey = taxonomyKeys.find(k => k.toLowerCase() === folderRaw.toLowerCase() || folderRaw.toLowerCase().startsWith(k.toLowerCase()));
-                if (matchedKey) {
-                    counts[matchedKey] = (counts[matchedKey] || 0) + 1;
+                const matched = taxonomyList.find(k => k.key.toLowerCase() === folderRaw.toLowerCase() || folderRaw.toLowerCase().startsWith(k.key.toLowerCase()));
+                if (matched) {
+                    counts[matched.key] = (counts[matched.key] || 0) + 1;
                 } else {
                     counts[folderRaw] = (counts[folderRaw] || 0) + 1;
-                    if (!customCategories.some(c => c.toLowerCase() === folderRaw.toLowerCase())) {
-                        customCategories.push(folderRaw);
+                    if (!extraCategories.includes(folderRaw)) {
+                        extraCategories.push(folderRaw);
                     }
                 }
             });
 
             const folders = [
-                { name: "All Documents", count: documentsList.length, isCustom: false },
-                ...taxonomyKeys.map(k => ({ name: k, count: counts[k] || 0, isCustom: false })),
-                ...customCategories.map(c => ({ name: c, count: counts[c] || 0, isCustom: true }))
+                { key: "All Documents", name: "All Documents", icon: "folder", color: "blue", count: (documentsList || []).length, isCustom: false, canEdit: false },
+                ...taxonomyList.map(k => ({
+                    id: k.id,
+                    key: k.key,
+                    name: k.label || k.key,
+                    desc: k.desc || k.description || '',
+                    icon: k.icon || 'folder',
+                    color: k.color || 'blue',
+                    count: counts[k.key] || 0,
+                    isCustom: !k.isSystem,
+                    canEdit: true
+                })),
+                ...extraCategories.map(c => ({
+                    key: c,
+                    name: c,
+                    desc: '',
+                    icon: 'folder',
+                    color: 'blue',
+                    count: counts[c] || 0,
+                    isCustom: true,
+                    canEdit: true
+                }))
             ];
 
             container.innerHTML = folders.map(f => {
@@ -8448,17 +8977,30 @@
                 const activeClasses = isActive 
                     ? 'bg-blue-50 text-blue-700 font-extrabold border-l-4 border-blue-600 shadow-sm' 
                     : 'text-slate-600 hover:bg-slate-50 font-semibold border-l-4 border-transparent';
+                
                 return `
-                    <button onclick="selectDocFolder('${f.name.replace(/'/g, "\\'")}')" class="w-full flex items-center justify-between px-3 py-2 text-xs rounded-xl transition-all text-left ${activeClasses} cursor-pointer group">
-                        <div class="flex items-center gap-1.5 truncate pr-2">
-                            <span class="truncate">${f.name}</span>
-                            ${f.isCustom ? '<span class="text-[9px] px-1.5 py-0.2 bg-blue-100/80 text-blue-700 font-black rounded uppercase tracking-wider shrink-0">Custom</span>' : ''}
+                    <div class="w-full flex items-center justify-between px-2.5 py-2 text-xs rounded-2xl transition-all ${activeClasses} group hover:bg-slate-50 gap-1.5">
+                        <button type="button" onclick="selectDocFolder('${f.name.replace(/'/g, "\\'")}')" class="flex items-center gap-2 truncate flex-grow min-w-0 text-left cursor-pointer" title="${f.name}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-blue-600'} shrink-0"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+                            <span class="truncate ${isActive ? 'text-blue-700 font-bold' : 'text-slate-700 font-semibold'}">${f.name}</span>
+                            ${f.isCustom ? '<span class="text-[8px] px-1.5 py-0.2 bg-blue-100/80 text-blue-700 font-black rounded uppercase tracking-wider shrink-0">Custom</span>' : ''}
+                        </button>
+                        <div class="flex items-center gap-0.5 shrink-0">
+                            <span class="px-2 py-0.5 rounded-full text-[9px] ${isActive ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'} font-black mr-0.5">${f.count}</span>
+                            ${f.canEdit ? `
+                            <button type="button" onclick="event.stopPropagation(); openEditCategoryModal('${f.key.replace(/'/g, "\\'")}')" class="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer" title="Edit / Rename '${f.name}'">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                            </button>
+                            <button type="button" onclick="event.stopPropagation(); openDeleteCategoryModal('${f.key.replace(/'/g, "\\'")}', ${f.count})" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer" title="Delete '${f.name}'">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                            </button>
+                            ` : ''}
                         </div>
-                        <span class="px-2 py-0.5 rounded-full text-[9px] ${isActive ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'} font-black">${f.count}</span>
-                    </button>
+                    </div>
                 `;
             }).join('');
 
+            if (window.lucide) window.lucide.createIcons();
             updateDocTypeFilterOptions();
         }
 
@@ -8467,14 +9009,10 @@
             if (!filterSelect) return;
 
             const currentVal = filterSelect.value || 'all';
-            const taxonomyKeys = [
-                "KYC", "Invoice", "Permanent folder", "Incorporation", "All Signed",
-                "Change of Address", "Change of Directors", "Change of CS", "Change of Auditors",
-                "AGM AR", "Allotment of Shares", "Final Demand", "Tax", "RONS", "Bizfile & filing", "Others"
-            ];
+            const taxonomyList = window.getCompanyDetailTaxonomy();
+            const allCategories = taxonomyList.map(k => k.key);
 
-            const allCategories = [...taxonomyKeys];
-            documentsList.forEach(d => {
+            (documentsList || []).forEach(d => {
                 const cat = (d.folder || d.type || '').trim();
                 if (cat && !allCategories.some(k => k.toLowerCase() === cat.toLowerCase())) {
                     allCategories.push(cat);
