@@ -8514,6 +8514,7 @@ window.fetchClientDocuments = async function() {
                     name: d.title || d.originalPath || d.name || 'Document',
                     folder: d.category || d.folder || d.suggestedModule || 'Other',
                     category: d.category || d.folder || d.suggestedModule || 'Other',
+                    subFolder: d.subFolder || '',
                     uploadedOn: d.uploadDate || d.date || '2026-05-11',
                     status: (d.status || 'APPROVED').toUpperCase(),
                     uploadedBy: d.uploadSource || d.uploadedBy || 'System Upload',
@@ -8561,7 +8562,7 @@ window.renderFilteredDocsTable = function() {
 
     if (window._docSearchQuery) {
         const q = window._docSearchQuery.toLowerCase();
-        filtered = filtered.filter(d => (d.name || '').toLowerCase().includes(q) || (d.folder || '').toLowerCase().includes(q) || (d.uploadedBy || '').toLowerCase().includes(q));
+        filtered = filtered.filter(d => (d.name || '').toLowerCase().includes(q) || (d.folder || '').toLowerCase().includes(q) || (d.subFolder || '').toLowerCase().includes(q) || (d.uploadedBy || '').toLowerCase().includes(q));
     }
 
     const countEl = document.getElementById('doc-filtered-count');
@@ -8593,7 +8594,12 @@ window.renderFilteredDocsTable = function() {
                     <span class="font-extrabold text-slate-900 truncate max-w-md">${d.name}</span>
                 </div>
             </td>
-            <td class="p-3 text-slate-500 font-bold">${d.folder}</td>
+            <td class="p-3 text-slate-700 font-bold">
+                <div class="flex items-center gap-1.5">
+                    <span>${d.folder}</span>
+                    ${d.subFolder ? `<span class="text-slate-300 font-bold">/</span><span class="text-indigo-600 font-extrabold text-[10px] px-1.5 py-0.5 bg-indigo-50 border border-indigo-100 rounded-md">📁 ${d.subFolder}</span>` : ''}
+                </div>
+            </td>
             <td class="p-3 font-mono text-slate-600">${d.uploadedOn}</td>
             <td class="p-3">
                 <span class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-emerald-50 text-emerald-600 border border-emerald-100 tracking-wider uppercase">

@@ -857,10 +857,14 @@
                                     <button onclick="toggleDocCatMenu()" class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer" title="Category Options">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
                                     </button>
-                                    <div id="doc-cat-menu-dropdown" class="hidden absolute right-0 mt-1.5 w-44 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-1.5 space-y-1 animate-fade-in">
+                                    <div id="doc-cat-menu-dropdown" class="hidden absolute right-0 mt-1.5 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-1.5 space-y-1 animate-fade-in">
                                         <button onclick="openAddCategoryModal(); toggleDocCatMenu(false);" class="w-full text-left px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-xl flex items-center gap-2 transition cursor-pointer">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                                             <span>Add Category</span>
+                                        </button>
+                                        <button onclick="openAddSubFolderModal(); toggleDocCatMenu(false);" class="w-full text-left px-2.5 py-1.5 text-[11px] font-bold text-indigo-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl flex items-center gap-2 transition cursor-pointer">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/><line x1="12" y1="10" x2="12" y2="16"/><line x1="9" y1="13" x2="15" y2="13"/></svg>
+                                            <span>+ Add Sub-Folder</span>
                                         </button>
                                         <button onclick="confirmResetCategories(); toggleDocCatMenu(false);" class="w-full text-left px-2.5 py-1.5 text-[11px] font-bold text-amber-700 hover:bg-amber-50 rounded-xl flex items-center gap-2 transition cursor-pointer">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-600"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
@@ -950,6 +954,11 @@
 
                     <!-- Main Files Container (Table / Grid) -->
                     <div class="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm overflow-hidden flex flex-col gap-4">
+                        <!-- Interactive Breadcrumbs & Sub-Folders Chips Navigation -->
+                        <div id="doc-subfolders-bar" class="pb-3 border-b border-slate-100 flex flex-col gap-2.5">
+                            <!-- Rendered dynamically -->
+                        </div>
+
                         <div class="overflow-x-auto">
                             <table class="w-full text-left text-xs border-collapse" id="doc-table-view">
                                 <thead>
@@ -3106,6 +3115,9 @@
             { key: "Others", label: "Others", icon: "folder", color: "slate", desc: "Miscellaneous Documents", sortOrder: 16, isSystem: true }
         ];
 
+        window.docFolderExpandedState = {};
+        window.activeDocSubFolder = null;
+
         window.globalDocCategories = (() => {
             try {
                 const cached = localStorage.getItem('global_document_categories');
@@ -3129,7 +3141,10 @@
                             icon: d.icon || 'folder',
                             color: d.color || 'blue',
                             sortOrder: d.sortOrder || 99,
-                            isSystem: !!d.isSystem
+                            isSystem: !!d.isSystem,
+                            parentKey: d.parentKey || null,
+                            parentId: d.parentId || null,
+                            subFolders: Array.isArray(d.subFolders) ? d.subFolders : []
                         }));
                         localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
                     }
@@ -3145,6 +3160,39 @@
                 : DEFAULT_GLOBAL_DOC_CATEGORIES;
         };
 
+        window.getRootCategoriesList = function() {
+            const taxonomyList = window.getCompanyDetailTaxonomy();
+            const roots = taxonomyList.filter(c => !c.parentKey || c.parentKey.trim() === '');
+            return roots.length > 0 ? roots : taxonomyList;
+        };
+
+        window.getSubFoldersForCategory = function(catKey) {
+            if (!catKey) return [];
+            const taxonomyList = window.getCompanyDetailTaxonomy();
+            const subSet = new Set();
+
+            // 1. Check matching child category objects
+            taxonomyList.forEach(c => {
+                if (c.parentKey && c.parentKey.toLowerCase() === catKey.toLowerCase()) {
+                    subSet.add(c.label || c.key);
+                }
+                if (c.key.toLowerCase() === catKey.toLowerCase() && Array.isArray(c.subFolders)) {
+                    c.subFolders.forEach(s => s && subSet.add(s));
+                }
+            });
+
+            // 2. Check documents list
+            if (typeof documentsList !== 'undefined' && Array.isArray(documentsList)) {
+                documentsList.forEach(d => {
+                    if ((d.folder || d.type || '').toLowerCase() === catKey.toLowerCase() && d.subFolder) {
+                        subSet.add(d.subFolder);
+                    }
+                });
+            }
+
+            return Array.from(subSet);
+        };
+
         window.getDocCategoriesList = function() {
             const taxonomyList = window.getCompanyDetailTaxonomy();
             const list = taxonomyList.map(cat => ({
@@ -3152,14 +3200,16 @@
                 label: cat.desc ? `${cat.label} (${cat.desc})` : cat.label,
                 key: cat.key,
                 color: cat.color || 'blue',
-                icon: cat.icon || 'folder'
+                icon: cat.icon || 'folder',
+                parentKey: cat.parentKey || null,
+                subFolders: cat.subFolders || []
             }));
 
             if (typeof documentsList !== 'undefined' && Array.isArray(documentsList)) {
                 documentsList.forEach(d => {
                     const cat = (d.folder || d.type || '').trim();
                     if (cat && !list.some(item => item.val.toLowerCase() === cat.toLowerCase())) {
-                        list.push({ val: cat, label: `${cat} (Custom Category)`, key: cat, color: 'blue', icon: 'folder' });
+                        list.push({ val: cat, label: `${cat} (Custom Category)`, key: cat, color: 'blue', icon: 'folder', subFolders: [] });
                     }
                 });
             }
@@ -3204,6 +3254,12 @@
             const oldModal = document.getElementById(modalId);
             if (oldModal) oldModal.remove();
 
+            const rootCategories = window.getRootCategoriesList();
+            const parentOptionsHtml = `
+                <option value="">📁 Root Folder / Main Category</option>
+                ${rootCategories.map(r => `<option value="${r.key}">${r.label || r.key}</option>`).join('')}
+            `;
+
             const colorSwatchesHtml = DOC_CAT_COLORS.map((c, i) => `
                 <label class="cursor-pointer">
                     <input type="radio" name="add-cat-color" value="${c.name}" ${i === 0 ? 'checked' : ''} class="peer sr-only">
@@ -3220,8 +3276,8 @@
                                     <i data-lucide="folder-plus" class="w-4 h-4"></i>
                                 </div>
                                 <div>
-                                    <h3 class="font-extrabold text-slate-900 text-sm">Add Document Category</h3>
-                                    <p class="text-[10px] text-slate-400">Creates a common category for all clients</p>
+                                    <h3 class="font-extrabold text-slate-900 text-sm">Add Category or Sub-Folder</h3>
+                                    <p class="text-[10px] text-slate-400">Creates a document folder for taxonomy</p>
                                 </div>
                             </div>
                             <button type="button" onclick="document.getElementById('${modalId}').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-200/50 transition">
@@ -3230,15 +3286,22 @@
                         </div>
                         <form onsubmit="window.submitAddCategory(event, '${modalId}')" class="p-6 space-y-4 text-xs">
                             <div>
-                                <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Category Name *</label>
-                                <input type="text" id="add-cat-name-input" required autofocus placeholder="e.g. Board Resolutions, Licenses, Contracts" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
+                                <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Parent Folder (Optional)</label>
+                                <select id="add-cat-parent-select" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm cursor-pointer">
+                                    ${parentOptionsHtml}
+                                </select>
+                                <p class="text-[10px] text-slate-400 mt-1">Leave as "Root Folder" to create a main category, or select a parent to create a sub-folder.</p>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Folder / Category Name *</label>
+                                <input type="text" id="add-cat-name-input" required autofocus placeholder="e.g. Board Resolutions, Passports, Licenses" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
                             </div>
                             <div>
                                 <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Description (Optional)</label>
                                 <input type="text" id="add-cat-desc-input" placeholder="e.g. Signed board minutes and resolutions" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
                             </div>
                             <div>
-                                <label class="block font-bold text-slate-700 mb-2 uppercase text-[10px] tracking-wider">Category Color</label>
+                                <label class="block font-bold text-slate-700 mb-2 uppercase text-[10px] tracking-wider">Color Tag</label>
                                 <div class="flex items-center gap-2 flex-wrap">
                                     ${colorSwatchesHtml}
                                 </div>
@@ -3247,7 +3310,7 @@
                                 <button type="button" onclick="document.getElementById('${modalId}').remove()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 font-bold rounded-xl transition cursor-pointer">Cancel</button>
                                 <button type="submit" id="btn-save-add-cat" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl shadow-md shadow-blue-500/20 transition flex items-center gap-1.5 cursor-pointer">
                                     <i data-lucide="plus" class="w-4 h-4"></i>
-                                    <span>Create Category</span>
+                                    <span>Create Folder</span>
                                 </button>
                             </div>
                         </form>
@@ -3263,24 +3326,108 @@
             }, 50);
         };
 
+        window.openAddSubFolderModal = function(preselectedParentKey) {
+            const modalId = 'modal-add-doc-subfolder';
+            const oldModal = document.getElementById(modalId);
+            if (oldModal) oldModal.remove();
+
+            const rootCategories = window.getRootCategoriesList();
+            const defaultParent = preselectedParentKey || (activeDocFolder && activeDocFolder !== 'All Documents' ? activeDocFolder : (rootCategories[0] ? rootCategories[0].key : 'KYC'));
+
+            const parentOptionsHtml = rootCategories.map(r => `
+                <option value="${r.key}" ${r.key.toLowerCase() === defaultParent.toLowerCase() ? 'selected' : ''}>${r.label || r.key}</option>
+            `).join('');
+
+            const colorSwatchesHtml = DOC_CAT_COLORS.map((c, i) => `
+                <label class="cursor-pointer">
+                    <input type="radio" name="add-sub-color" value="${c.name}" ${i === 3 ? 'checked' : ''} class="peer sr-only">
+                    <span class="w-6 h-6 rounded-full block ${c.class} ring-offset-2 peer-checked:ring-2 peer-checked:ring-indigo-600 transition shadow-sm"></span>
+                </label>
+            `).join('');
+
+            const modalHtml = `
+                <div id="${modalId}" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 animate-fade-in">
+                    <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col border border-slate-100">
+                        <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-indigo-50/70">
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/><line x1="12" y1="10" x2="12" y2="16"/><line x1="9" y1="13" x2="15" y2="13"/></svg>
+                                </div>
+                                <div>
+                                    <h3 class="font-extrabold text-slate-900 text-sm">Create Sub-Folder</h3>
+                                    <p class="text-[10px] text-slate-500">Nest a subfolder inside a document category</p>
+                                </div>
+                            </div>
+                            <button type="button" onclick="document.getElementById('${modalId}').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-200/50 transition">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <form onsubmit="window.submitAddSubFolder(event, '${modalId}')" class="p-6 space-y-4 text-xs">
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Parent Category *</label>
+                                <select id="add-sub-parent-select" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm cursor-pointer">
+                                    ${parentOptionsHtml}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Sub-Folder Name *</label>
+                                <input type="text" id="add-sub-name-input" required autofocus placeholder="e.g. Passports, FY 2024, Board Minutes, Proof of Address" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Description (Optional)</label>
+                                <input type="text" id="add-sub-desc-input" placeholder="e.g. Passports and identification cards" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-2 uppercase text-[10px] tracking-wider">Folder Color</label>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    ${colorSwatchesHtml}
+                                </div>
+                            </div>
+                            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                                <button type="button" onclick="document.getElementById('${modalId}').remove()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 font-bold rounded-xl transition cursor-pointer">Cancel</button>
+                                <button type="submit" id="btn-save-add-sub" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl shadow-md shadow-indigo-500/20 transition flex items-center gap-1.5 cursor-pointer">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                    <span>Create Sub-Folder</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            if (window.lucide) window.lucide.createIcons();
+            setTimeout(() => {
+                const inp = document.getElementById('add-sub-name-input');
+                if (inp) inp.focus();
+            }, 50);
+        };
+
         window.submitAddCategory = async function(event, modalId) {
             event.preventDefault();
+            const parentSelect = document.getElementById('add-cat-parent-select');
             const nameInput = document.getElementById('add-cat-name-input');
             const descInput = document.getElementById('add-cat-desc-input');
             const colorInput = document.querySelector('input[name="add-cat-color"]:checked');
             const btn = document.getElementById('btn-save-add-cat');
 
+            const parentKey = parentSelect ? parentSelect.value.trim() : '';
             const name = nameInput ? nameInput.value.trim() : '';
             const desc = descInput ? descInput.value.trim() : '';
             const color = colorInput ? colorInput.value : 'blue';
 
             if (!name) {
-                alert("Please enter a category name.");
+                alert("Please enter a folder name.");
                 return;
             }
 
+            if (parentKey) {
+                // Delegate to subfolder creation
+                return window.executeCreateSubFolder(parentKey, name, desc, color, modalId, btn);
+            }
+
             const currentTaxonomy = window.getCompanyDetailTaxonomy();
-            if (currentTaxonomy.some(c => c.key.toLowerCase() === name.toLowerCase())) {
+            if (currentTaxonomy.some(c => !c.parentKey && c.key.toLowerCase() === name.toLowerCase())) {
                 alert(`A category named "${name}" already exists!`);
                 return;
             }
@@ -3301,6 +3448,7 @@
                         description: desc,
                         color: color,
                         icon: 'folder',
+                        parentKey: null,
                         sortOrder: currentTaxonomy.length + 1
                     })
                 });
@@ -3315,6 +3463,8 @@
                         description: saved.description || desc,
                         color: saved.color || color,
                         icon: saved.icon || 'folder',
+                        parentKey: null,
+                        subFolders: [],
                         sortOrder: saved.sortOrder || currentTaxonomy.length + 1,
                         isSystem: false
                     });
@@ -3326,6 +3476,8 @@
                         description: desc,
                         color: color,
                         icon: 'folder',
+                        parentKey: null,
+                        subFolders: [],
                         sortOrder: currentTaxonomy.length + 1,
                         isSystem: false
                     });
@@ -3338,7 +3490,7 @@
                 if (modal) modal.remove();
 
                 renderDocFolders();
-                renderCompanyDetailCategoryUploadCards();
+                renderDocTable();
             } catch(err) {
                 console.error("Error creating category:", err);
                 window.globalDocCategories.push({
@@ -3348,6 +3500,8 @@
                     description: desc,
                     color: color,
                     icon: 'folder',
+                    parentKey: null,
+                    subFolders: [],
                     sortOrder: currentTaxonomy.length + 1,
                     isSystem: false
                 });
@@ -3356,12 +3510,151 @@
                 const modal = document.getElementById(modalId);
                 if (modal) modal.remove();
                 renderDocFolders();
+                renderDocTable();
             }
         };
 
-        window.openEditCategoryModal = function(catKey) {
+        window.submitAddSubFolder = async function(event, modalId) {
+            event.preventDefault();
+            const parentSelect = document.getElementById('add-sub-parent-select');
+            const nameInput = document.getElementById('add-sub-name-input');
+            const descInput = document.getElementById('add-sub-desc-input');
+            const colorInput = document.querySelector('input[name="add-sub-color"]:checked');
+            const btn = document.getElementById('btn-save-add-sub');
+
+            const parentKey = parentSelect ? parentSelect.value.trim() : '';
+            const name = nameInput ? nameInput.value.trim() : '';
+            const desc = descInput ? descInput.value.trim() : '';
+            const color = colorInput ? colorInput.value : 'indigo';
+
+            if (!parentKey) {
+                alert("Please select a parent category.");
+                return;
+            }
+            if (!name) {
+                alert("Please enter a sub-folder name.");
+                return;
+            }
+
+            return window.executeCreateSubFolder(parentKey, name, desc, color, modalId, btn);
+        };
+
+        window.executeCreateSubFolder = async function(parentKey, name, desc, color, modalId, btn) {
+            const existingSubs = window.getSubFoldersForCategory(parentKey);
+            if (existingSubs.some(s => s.toLowerCase() === name.toLowerCase())) {
+                alert(`Sub-folder "${name}" already exists in ${parentKey}!`);
+                return;
+            }
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Creating...`;
+                if (window.lucide) window.lucide.createIcons();
+            }
+
+            try {
+                const res = await fetch(`/api/documents/categories/${encodeURIComponent(parentKey)}/subfolders`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        key: name,
+                        description: desc,
+                        color: color,
+                        icon: 'folder'
+                    })
+                });
+
+                // Update local parent subFolders array
+                const parentCat = (window.globalDocCategories || []).find(c => c.key.toLowerCase() === parentKey.toLowerCase());
+                if (parentCat) {
+                    if (!parentCat.subFolders) parentCat.subFolders = [];
+                    if (!parentCat.subFolders.includes(name)) parentCat.subFolders.push(name);
+                }
+
+                if (res.ok) {
+                    const saved = await res.json();
+                    window.globalDocCategories.push({
+                        id: saved.id,
+                        key: saved.key || name,
+                        label: saved.label || name,
+                        desc: desc,
+                        description: desc,
+                        color: color,
+                        icon: 'folder',
+                        parentKey: parentKey,
+                        subFolders: [],
+                        isSystem: false
+                    });
+                } else {
+                    window.globalDocCategories.push({
+                        key: name,
+                        label: name,
+                        desc: desc,
+                        description: desc,
+                        color: color,
+                        icon: 'folder',
+                        parentKey: parentKey,
+                        subFolders: [],
+                        isSystem: false
+                    });
+                }
+
+                localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
+                window.showToast(`Sub-folder "${name}" created under "${parentKey}"!`, 'success');
+
+                // Auto-expand parent and select the new subfolder
+                window.docFolderExpandedState[parentKey.toLowerCase()] = true;
+                activeDocFolder = parentKey;
+                activeDocSubFolder = name;
+
+                const modal = document.getElementById(modalId);
+                if (modal) modal.remove();
+
+                renderDocFolders();
+                renderDocTable();
+            } catch(err) {
+                console.error("Error creating sub-folder:", err);
+                const parentCat = (window.globalDocCategories || []).find(c => c.key.toLowerCase() === parentKey.toLowerCase());
+                if (parentCat) {
+                    if (!parentCat.subFolders) parentCat.subFolders = [];
+                    if (!parentCat.subFolders.includes(name)) parentCat.subFolders.push(name);
+                }
+                window.globalDocCategories.push({
+                    key: name,
+                    label: name,
+                    desc: desc,
+                    description: desc,
+                    color: color,
+                    icon: 'folder',
+                    parentKey: parentKey,
+                    subFolders: [],
+                    isSystem: false
+                });
+                localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
+                window.showToast(`Sub-folder "${name}" added locally.`, "info");
+                window.docFolderExpandedState[parentKey.toLowerCase()] = true;
+                activeDocFolder = parentKey;
+                activeDocSubFolder = name;
+
+                const modal = document.getElementById(modalId);
+                if (modal) modal.remove();
+                renderDocFolders();
+                renderDocTable();
+            }
+        };
+
+        window.openEditCategoryModal = function(catKey, isSubFolder = false, parentKey = null) {
             const currentTaxonomy = window.getCompanyDetailTaxonomy();
-            const cat = currentTaxonomy.find(c => c.key.toLowerCase() === catKey.toLowerCase()) || { key: catKey, label: catKey, desc: '', color: 'blue' };
+            let cat;
+            if (isSubFolder && parentKey) {
+                cat = currentTaxonomy.find(c => c.parentKey && c.parentKey.toLowerCase() === parentKey.toLowerCase() && c.key.toLowerCase() === catKey.toLowerCase()) || 
+                      { key: catKey, label: catKey, desc: '', color: 'indigo', parentKey: parentKey };
+            } else {
+                cat = currentTaxonomy.find(c => (!c.parentKey || c.parentKey === '') && c.key.toLowerCase() === catKey.toLowerCase()) || 
+                      currentTaxonomy.find(c => c.key.toLowerCase() === catKey.toLowerCase()) ||
+                      { key: catKey, label: catKey, desc: '', color: 'blue' };
+            }
 
             const modalId = 'modal-edit-doc-category';
             const oldModal = document.getElementById(modalId);
@@ -3374,6 +3667,8 @@
                 </label>
             `).join('');
 
+            const title = isSubFolder ? `Edit Sub-Folder (${parentKey})` : `Edit Category / Folder`;
+
             const modalHtml = `
                 <div id="${modalId}" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 animate-fade-in">
                     <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col border border-slate-100">
@@ -3383,17 +3678,17 @@
                                     <i data-lucide="pencil" class="w-4 h-4"></i>
                                 </div>
                                 <div>
-                                    <h3 class="font-extrabold text-slate-900 text-sm">Edit Category</h3>
-                                    <p class="text-[10px] text-slate-400">Updates category globally across all clients</p>
+                                    <h3 class="font-extrabold text-slate-900 text-sm">${title}</h3>
+                                    <p class="text-[10px] text-slate-400">Updates folder and all linked documents</p>
                                 </div>
                             </div>
                             <button type="button" onclick="document.getElementById('${modalId}').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-200/50 transition">
                                 <i data-lucide="x" class="w-4 h-4"></i>
                             </button>
                         </div>
-                        <form onsubmit="window.submitEditCategory(event, '${cat.key.replace(/'/g, "\\'")}', '${modalId}')" class="p-6 space-y-4 text-xs">
+                        <form onsubmit="window.submitEditCategory(event, '${cat.key.replace(/'/g, "\\'")}', '${modalId}', ${isSubFolder}, '${(parentKey || '').replace(/'/g, "\\'")}')" class="p-6 space-y-4 text-xs">
                             <div>
-                                <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Category Name *</label>
+                                <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Folder Name *</label>
                                 <input type="text" id="edit-cat-name-input" required value="${(cat.label || cat.key).replace(/"/g, '&quot;')}" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
                             </div>
                             <div>
@@ -3401,14 +3696,14 @@
                                 <input type="text" id="edit-cat-desc-input" value="${(cat.desc || cat.description || '').replace(/"/g, '&quot;')}" placeholder="e.g. Official documents and certificates" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm">
                             </div>
                             <div>
-                                <label class="block font-bold text-slate-700 mb-2 uppercase text-[10px] tracking-wider">Category Color</label>
+                                <label class="block font-bold text-slate-700 mb-2 uppercase text-[10px] tracking-wider">Folder Color</label>
                                 <div class="flex items-center gap-2 flex-wrap">
                                     ${colorSwatchesHtml}
                                 </div>
                             </div>
                             <div class="p-3 bg-blue-50/70 border border-blue-100 rounded-xl flex items-start gap-2 text-[11px] text-blue-800">
                                 <i data-lucide="info" class="w-4 h-4 text-blue-600 shrink-0 mt-0.5"></i>
-                                <span>Renaming this category will automatically update all existing documents linked to this folder.</span>
+                                <span>Renaming this folder will automatically update all existing documents inside it.</span>
                             </div>
                             <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
                                 <button type="button" onclick="document.getElementById('${modalId}').remove()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 font-bold rounded-xl transition cursor-pointer">Cancel</button>
@@ -3426,7 +3721,7 @@
             if (window.lucide) window.lucide.createIcons();
         };
 
-        window.submitEditCategory = async function(event, oldKey, modalId) {
+        window.submitEditCategory = async function(event, oldKey, modalId, isSubFolder = false, parentKey = null) {
             event.preventDefault();
             const nameInput = document.getElementById('edit-cat-name-input');
             const descInput = document.getElementById('edit-cat-desc-input');
@@ -3438,7 +3733,7 @@
             const newColor = colorInput ? colorInput.value : 'blue';
 
             if (!newName) {
-                alert("Category name cannot be empty.");
+                alert("Folder name cannot be empty.");
                 return;
             }
 
@@ -3449,7 +3744,13 @@
             }
 
             try {
-                const catObj = (window.globalDocCategories || []).find(c => c.key.toLowerCase() === oldKey.toLowerCase());
+                let catObj;
+                if (isSubFolder && parentKey) {
+                    catObj = (window.globalDocCategories || []).find(c => c.parentKey && c.parentKey.toLowerCase() === parentKey.toLowerCase() && c.key.toLowerCase() === oldKey.toLowerCase());
+                } else {
+                    catObj = (window.globalDocCategories || []).find(c => c.key.toLowerCase() === oldKey.toLowerCase());
+                }
+
                 const idOrKey = catObj && catObj.id ? catObj.id : encodeURIComponent(oldKey);
 
                 await fetch(`/api/documents/categories/${idOrKey}`, {
@@ -3459,12 +3760,20 @@
                         key: newName,
                         label: newName,
                         description: newDesc,
-                        color: newColor
+                        color: newColor,
+                        parentKey: parentKey || (catObj ? catObj.parentKey : null)
                     })
                 });
 
                 if (window.globalDocCategories) {
-                    const idx = window.globalDocCategories.findIndex(c => c.key.toLowerCase() === oldKey.toLowerCase());
+                    if (isSubFolder && parentKey) {
+                        const parent = window.globalDocCategories.find(c => c.key.toLowerCase() === parentKey.toLowerCase());
+                        if (parent && Array.isArray(parent.subFolders)) {
+                            const sIdx = parent.subFolders.findIndex(s => s.toLowerCase() === oldKey.toLowerCase());
+                            if (sIdx >= 0) parent.subFolders[sIdx] = newName;
+                        }
+                    }
+                    const idx = window.globalDocCategories.findIndex(c => c.key.toLowerCase() === oldKey.toLowerCase() && (isSubFolder ? (c.parentKey && c.parentKey.toLowerCase() === parentKey.toLowerCase()) : (!c.parentKey || c.parentKey === '')));
                     if (idx >= 0) {
                         window.globalDocCategories[idx].key = newName;
                         window.globalDocCategories[idx].label = newName;
@@ -3477,40 +3786,48 @@
 
                 if (documentsList && Array.isArray(documentsList)) {
                     documentsList.forEach(d => {
-                        if (d.folder && d.folder.toLowerCase() === oldKey.toLowerCase()) d.folder = newName;
-                        if (d.type && d.type.toLowerCase() === oldKey.toLowerCase()) d.type = newName;
+                        if (isSubFolder && parentKey) {
+                            if ((d.folder || '').toLowerCase() === parentKey.toLowerCase() && (d.subFolder || '').toLowerCase() === oldKey.toLowerCase()) {
+                                d.subFolder = newName;
+                            }
+                        } else {
+                            if (d.folder && d.folder.toLowerCase() === oldKey.toLowerCase()) d.folder = newName;
+                            if (d.type && d.type.toLowerCase() === oldKey.toLowerCase()) d.type = newName;
+                        }
                     });
                 }
 
-                if (activeDocFolder && activeDocFolder.toLowerCase() === oldKey.toLowerCase()) {
+                if (isSubFolder && activeDocSubFolder && activeDocSubFolder.toLowerCase() === oldKey.toLowerCase()) {
+                    activeDocSubFolder = newName;
+                } else if (!isSubFolder && activeDocFolder && activeDocFolder.toLowerCase() === oldKey.toLowerCase()) {
                     activeDocFolder = newName;
                 }
 
-                window.showToast(`Category "${oldKey}" renamed to "${newName}"!`, 'success');
+                window.showToast(`Folder "${oldKey}" renamed to "${newName}"!`, 'success');
 
                 const modal = document.getElementById(modalId);
                 if (modal) modal.remove();
 
                 renderDocFolders();
                 renderDocTable();
-                renderCompanyDetailCategoryUploadCards();
             } catch(err) {
-                console.error("Error editing category:", err);
-                window.showToast("Category updated: " + err.message, "info");
+                console.error("Error editing folder:", err);
+                window.showToast("Folder updated: " + err.message, "info");
                 const modal = document.getElementById(modalId);
                 if (modal) modal.remove();
                 renderDocFolders();
+                renderDocTable();
             }
         };
 
-        window.openDeleteCategoryModal = function(catKey, count) {
+        window.openDeleteCategoryModal = function(catKey, count, isSubFolder = false, parentKey = null) {
             const modalId = 'modal-delete-doc-category';
             const oldModal = document.getElementById(modalId);
             if (oldModal) oldModal.remove();
 
             const countMsg = count > 0 
-                ? `<div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 font-medium mt-3 flex items-start gap-2"><i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i><span>This category currently contains <strong>${count} document(s)</strong>. Deleting it will safely move all its documents to the <strong>"Others"</strong> category.</span></div>`
-                : `<p class="text-xs text-slate-500 mt-2">Are you sure you want to delete the category <strong>"${catKey}"</strong>? This will remove it from the common taxonomy.</p>`;
+                ? `<div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 font-medium mt-3 flex items-start gap-2"><i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i><span>This folder contains <strong>${count} document(s)</strong>. Deleting it will safely keep files under <strong>"${isSubFolder ? parentKey : 'Others'}"</strong>.</span></div>`
+                : `<p class="text-xs text-slate-500 mt-2">Are you sure you want to delete <strong>"${catKey}"</strong>?</p>`;
 
             const modalHtml = `
                 <div id="${modalId}" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 animate-fade-in">
@@ -3520,18 +3837,18 @@
                                 <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
                                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                                 </div>
-                                <h3 class="font-extrabold text-slate-900 text-sm">Delete Category</h3>
+                                <h3 class="font-extrabold text-slate-900 text-sm">Delete ${isSubFolder ? 'Sub-Folder' : 'Category'}</h3>
                             </div>
                             <button type="button" onclick="document.getElementById('${modalId}').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-200/50 transition">
                                 <i data-lucide="x" class="w-4 h-4"></i>
                             </button>
                         </div>
                         <div class="p-6">
-                            <p class="text-xs text-slate-700 font-semibold">Delete category <span class="text-rose-600 font-black">"${catKey}"</span>?</p>
+                            <p class="text-xs text-slate-700 font-semibold">Delete <span class="text-rose-600 font-black">"${catKey}"</span>${isSubFolder ? ` from <strong>${parentKey}</strong>` : ''}?</p>
                             ${countMsg}
                             <div class="pt-5 mt-5 border-t border-slate-100 flex items-center justify-end gap-2.5">
                                 <button type="button" onclick="document.getElementById('${modalId}').remove()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 font-bold rounded-xl transition text-xs cursor-pointer">Cancel</button>
-                                <button type="button" id="btn-confirm-delete-cat" onclick="window.submitDeleteCategory('${catKey.replace(/'/g, "\\'")}', '${modalId}')" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl shadow-md shadow-rose-500/20 transition flex items-center gap-1 text-xs cursor-pointer">
+                                <button type="button" id="btn-confirm-delete-cat" onclick="window.submitDeleteCategory('${catKey.replace(/'/g, "\\'")}', '${modalId}', ${isSubFolder}, '${(parentKey || '').replace(/'/g, "\\'")}')" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl shadow-md shadow-rose-500/20 transition flex items-center gap-1 text-xs cursor-pointer">
                                     <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                                     <span>Delete</span>
                                 </button>
@@ -3545,7 +3862,7 @@
             if (window.lucide) window.lucide.createIcons();
         };
 
-        window.submitDeleteCategory = async function(catKey, modalId) {
+        window.submitDeleteCategory = async function(catKey, modalId, isSubFolder = false, parentKey = null) {
             const btn = document.getElementById('btn-confirm-delete-cat');
             if (btn) {
                 btn.disabled = true;
@@ -3554,41 +3871,212 @@
             }
 
             try {
-                const catObj = (window.globalDocCategories || []).find(c => c.key.toLowerCase() === catKey.toLowerCase());
+                let catObj;
+                if (isSubFolder && parentKey) {
+                    catObj = (window.globalDocCategories || []).find(c => c.parentKey && c.parentKey.toLowerCase() === parentKey.toLowerCase() && c.key.toLowerCase() === catKey.toLowerCase());
+                } else {
+                    catObj = (window.globalDocCategories || []).find(c => c.key.toLowerCase() === catKey.toLowerCase());
+                }
+
                 const idOrKey = catObj && catObj.id ? catObj.id : encodeURIComponent(catKey);
 
                 await fetch(`/api/documents/categories/${idOrKey}`, { method: 'DELETE' });
 
                 if (window.globalDocCategories) {
-                    window.globalDocCategories = window.globalDocCategories.filter(c => c.key.toLowerCase() !== catKey.toLowerCase());
+                    if (isSubFolder && parentKey) {
+                        const parent = window.globalDocCategories.find(c => c.key.toLowerCase() === parentKey.toLowerCase());
+                        if (parent && Array.isArray(parent.subFolders)) {
+                            parent.subFolders = parent.subFolders.filter(s => s.toLowerCase() !== catKey.toLowerCase());
+                        }
+                    }
+                    window.globalDocCategories = window.globalDocCategories.filter(c => !(c.key.toLowerCase() === catKey.toLowerCase() && (isSubFolder ? (c.parentKey && c.parentKey.toLowerCase() === parentKey.toLowerCase()) : true)));
                     localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
                 }
 
                 if (documentsList && Array.isArray(documentsList)) {
                     documentsList.forEach(d => {
-                        if (d.folder && d.folder.toLowerCase() === catKey.toLowerCase()) d.folder = "Others";
-                        if (d.type && d.type.toLowerCase() === catKey.toLowerCase()) d.type = "Others";
+                        if (isSubFolder && parentKey) {
+                            if ((d.folder || '').toLowerCase() === parentKey.toLowerCase() && (d.subFolder || '').toLowerCase() === catKey.toLowerCase()) {
+                                d.subFolder = null;
+                            }
+                        } else {
+                            if (d.folder && d.folder.toLowerCase() === catKey.toLowerCase()) d.folder = "Others";
+                            if (d.type && d.type.toLowerCase() === catKey.toLowerCase()) d.type = "Others";
+                            d.subFolder = null;
+                        }
                     });
                 }
 
-                if (activeDocFolder && activeDocFolder.toLowerCase() === catKey.toLowerCase()) {
+                if (isSubFolder && activeDocSubFolder && activeDocSubFolder.toLowerCase() === catKey.toLowerCase()) {
+                    activeDocSubFolder = null;
+                } else if (!isSubFolder && activeDocFolder && activeDocFolder.toLowerCase() === catKey.toLowerCase()) {
                     activeDocFolder = "All Documents";
+                    activeDocSubFolder = null;
                 }
 
-                window.showToast(`Category "${catKey}" deleted.`, 'success');
+                window.showToast(`${isSubFolder ? 'Sub-folder' : 'Category'} "${catKey}" deleted.`, 'success');
                 const modal = document.getElementById(modalId);
                 if (modal) modal.remove();
 
                 renderDocFolders();
                 renderDocTable();
-                renderCompanyDetailCategoryUploadCards();
             } catch(err) {
-                console.error("Error deleting category:", err);
-                window.showToast("Category removed locally: " + err.message, "info");
+                console.error("Error deleting folder:", err);
+                window.showToast("Removed locally: " + err.message, "info");
                 const modal = document.getElementById(modalId);
                 if (modal) modal.remove();
                 renderDocFolders();
+                renderDocTable();
             }
+        };
+
+        window.openMoveDocModal = function(docId, docName, currentCat, currentSubFolder) {
+            const modalId = 'modal-move-doc';
+            const oldModal = document.getElementById(modalId);
+            if (oldModal) oldModal.remove();
+
+            const taxonomyRoots = window.getRootCategoriesList();
+            const catOptionsHtml = taxonomyRoots.map(c => `
+                <option value="${c.key}" ${c.key.toLowerCase() === (currentCat || '').toLowerCase() ? 'selected' : ''}>${c.label || c.key}</option>
+            `).join('');
+
+            const selectedCat = currentCat || (taxonomyRoots[0] ? taxonomyRoots[0].key : 'KYC');
+            const subFolders = window.getSubFoldersForCategory(selectedCat);
+
+            const subOptionsHtml = `
+                <option value="">(No Sub-Folder / Root of Category)</option>
+                ${subFolders.map(s => `
+                    <option value="${s}" ${s.toLowerCase() === (currentSubFolder || '').toLowerCase() ? 'selected' : ''}>📁 ${s}</option>
+                `).join('')}
+            `;
+
+            const modalHtml = `
+                <div id="${modalId}" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 animate-fade-in">
+                    <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col border border-slate-100">
+                        <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-indigo-50/70">
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                                    <i data-lucide="folder-symlink" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-extrabold text-slate-900 text-sm">Move Document</h3>
+                                    <p class="text-[10px] text-slate-500">Reassign document to folder / sub-folder</p>
+                                </div>
+                            </div>
+                            <button type="button" onclick="document.getElementById('${modalId}').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-200/50 transition">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <form onsubmit="window.submitMoveDocModal(event, '${docId}', '${modalId}')" class="p-6 space-y-4 text-xs">
+                            <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-2">
+                                <i data-lucide="file-text" class="w-4 h-4 text-blue-600 shrink-0"></i>
+                                <span class="font-bold text-slate-800 truncate" title="${docName}">${docName}</span>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Target Category *</label>
+                                <select id="move-cat-select" onchange="window.updateMoveSubFolderOptions(this.value)" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm cursor-pointer">
+                                    ${catOptionsHtml}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Target Sub-Folder (Optional)</label>
+                                <select id="move-sub-select" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm cursor-pointer">
+                                    ${subOptionsHtml}
+                                </select>
+                            </div>
+                            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                                <button type="button" onclick="document.getElementById('${modalId}').remove()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 font-bold rounded-xl transition cursor-pointer">Cancel</button>
+                                <button type="submit" id="btn-save-move-doc" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl shadow-md shadow-indigo-500/20 transition flex items-center gap-1.5 cursor-pointer">
+                                    <i data-lucide="check" class="w-4 h-4"></i>
+                                    <span>Move Document</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        window.updateMoveSubFolderOptions = function(catKey) {
+            const subSelect = document.getElementById('move-sub-select');
+            if (!subSelect) return;
+            const subFolders = window.getSubFoldersForCategory(catKey);
+            subSelect.innerHTML = `
+                <option value="">(No Sub-Folder / Root of Category)</option>
+                ${subFolders.map(s => `<option value="${s}">📁 ${s}</option>`).join('')}
+            `;
+        };
+
+        window.submitMoveDocModal = async function(event, docId, modalId) {
+            event.preventDefault();
+            const catSelect = document.getElementById('move-cat-select');
+            const subSelect = document.getElementById('move-sub-select');
+            const btn = document.getElementById('btn-save-move-doc');
+
+            const newCategory = catSelect ? catSelect.value : '';
+            const newSubFolder = subSelect ? subSelect.value : '';
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Moving...`;
+                if (window.lucide) window.lucide.createIcons();
+            }
+
+            try {
+                const res = await fetch(`/api/documents/${docId}/move`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        category: newCategory,
+                        subFolder: newSubFolder || null
+                    })
+                });
+
+                const docIdx = (documentsList || []).findIndex(d => d.id === docId);
+                if (docIdx >= 0) {
+                    documentsList[docIdx].folder = newCategory;
+                    documentsList[docIdx].type = newCategory;
+                    documentsList[docIdx].subFolder = newSubFolder || '';
+                }
+
+                window.showToast(`Document moved to ${newCategory}${newSubFolder ? ' / ' + newSubFolder : ''}!`, 'success');
+                const modal = document.getElementById(modalId);
+                if (modal) modal.remove();
+
+                renderDocFolders();
+                renderDocTable();
+            } catch (err) {
+                console.error("Error moving doc:", err);
+                const docIdx = (documentsList || []).findIndex(d => d.id === docId);
+                if (docIdx >= 0) {
+                    documentsList[docIdx].folder = newCategory;
+                    documentsList[docIdx].type = newCategory;
+                    documentsList[docIdx].subFolder = newSubFolder || '';
+                }
+                window.showToast(`Document moved locally.`, "info");
+                const modal = document.getElementById(modalId);
+                if (modal) modal.remove();
+                renderDocFolders();
+                renderDocTable();
+            }
+        };
+
+        window.toggleDocFolderExpand = function(catKey, event) {
+            if (event) event.stopPropagation();
+            const key = catKey.toLowerCase();
+            window.docFolderExpandedState[key] = !window.docFolderExpandedState[key];
+            renderDocFolders();
+        };
+
+        window.selectDocSubFolder = function(parentFolder, subFolderName) {
+            activeDocFolder = parentFolder;
+            activeDocSubFolder = subFolderName;
+            window.docFolderExpandedState[parentFolder.toLowerCase()] = true;
+            renderDocFolders();
+            renderDocTable();
         };
 
         window.confirmResetCategories = async function() {
@@ -3610,7 +4098,9 @@
                             icon: d.icon || 'folder',
                             color: d.color || 'blue',
                             sortOrder: d.sortOrder || 99,
-                            isSystem: !!d.isSystem
+                            isSystem: !!d.isSystem,
+                            parentKey: d.parentKey || null,
+                            subFolders: d.subFolders || []
                         }));
                     } else {
                         window.globalDocCategories = [...DEFAULT_GLOBAL_DOC_CATEGORIES];
@@ -3837,41 +4327,51 @@
                                     <i data-lucide="upload-cloud" class="w-5 h-5 text-blue-600"></i>
                                     Upload Documents & Folders
                                 </h3>
-                                <p class="text-xs text-slate-500 mt-0.5">Drag & drop files or entire folders with automatic category detection.</p>
+                                <p class="text-xs text-slate-500 mt-0.5">Drag & drop files or entire nested folders with automatic category and sub-folder detection.</p>
                             </div>
                             <button type="button" onclick="closeUploadModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-xl hover:bg-slate-200/50 transition">
                                 <i data-lucide="x" class="w-5 h-5"></i>
                             </button>
                         </div>
                         <form id="upload-doc-form" onsubmit="submitUploadDocModal(event)" class="p-6 space-y-5">
-                            <div>
-                                <div class="flex items-center justify-between mb-1.5">
-                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Document Category *</label>
-                                    <span class="text-[10px] text-blue-600 font-bold">Auto-detected from folders or select below</span>
-                                </div>
-                                <div class="relative" id="modal-cat-dropdown-wrapper">
-                                    <div class="relative flex items-center">
-                                        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none z-10"></i>
-                                        <input type="text" id="modal-cat-search-input" autocomplete="off" onfocus="window.openDocCatDropdown('modal-cat-options-list', 'modal-cat-chevron', 'modal-doc-category', 'modal-cat-search-input')" oninput="window.filterDocCatOptions(this.value, 'modal-cat-options-list', 'modal-cat-chevron', 'modal-doc-category', 'modal-cat-search-input')" onkeydown="window.handleDocCatKeyNav(event, 'modal-cat-options-list', 'modal-cat-chevron', 'modal-doc-category', 'modal-cat-search-input')" onblur="const h = document.getElementById('modal-doc-category'); if(h && this.value.trim()) h.value = this.value.trim();" placeholder="Select or type category (e.g. KYC, Invoice, Board Resolutions)..." value="" class="w-full pl-10 pr-9 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 bg-white outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition cursor-pointer shadow-sm">
-                                        <i data-lucide="chevron-down" id="modal-cat-chevron" class="w-4 h-4 text-slate-400 absolute right-3 pointer-events-none transition-transform duration-200"></i>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <div class="flex items-center justify-between mb-1.5">
+                                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Category *</label>
                                     </div>
-                                    <input type="hidden" id="modal-doc-category" value="">
-                                    <div id="modal-cat-options-list" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-[10050] max-h-56 overflow-y-auto p-1.5 space-y-0.5 animate-fade-in">
+                                    <div class="relative" id="modal-cat-dropdown-wrapper">
+                                        <div class="relative flex items-center">
+                                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none z-10"></i>
+                                            <input type="text" id="modal-cat-search-input" autocomplete="off" onfocus="window.openDocCatDropdown('modal-cat-options-list', 'modal-cat-chevron', 'modal-doc-category', 'modal-cat-search-input')" oninput="window.filterDocCatOptions(this.value, 'modal-cat-options-list', 'modal-cat-chevron', 'modal-doc-category', 'modal-cat-search-input'); window.syncUploadSubFoldersList();" onkeydown="window.handleDocCatKeyNav(event, 'modal-cat-options-list', 'modal-cat-chevron', 'modal-doc-category', 'modal-cat-search-input')" onblur="const h = document.getElementById('modal-doc-category'); if(h && this.value.trim()) h.value = this.value.trim(); window.syncUploadSubFoldersList();" placeholder="Category (e.g. KYC)..." value="${activeDocFolder && activeDocFolder !== 'All Documents' ? activeDocFolder : ''}" class="w-full pl-9 pr-8 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 bg-white outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition cursor-pointer shadow-sm">
+                                            <i data-lucide="chevron-down" id="modal-cat-chevron" class="w-4 h-4 text-slate-400 absolute right-2.5 pointer-events-none transition-transform duration-200"></i>
+                                        </div>
+                                        <input type="hidden" id="modal-doc-category" value="${activeDocFolder && activeDocFolder !== 'All Documents' ? activeDocFolder : ''}">
+                                        <div id="modal-cat-options-list" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-[10050] max-h-56 overflow-y-auto p-1.5 space-y-0.5 animate-fade-in">
+                                        </div>
                                     </div>
                                 </div>
+                                <div>
+                                    <div class="flex items-center justify-between mb-1.5">
+                                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Sub-Folder (Optional)</label>
+                                    </div>
+                                    <div class="relative">
+                                        <input type="text" id="modal-doc-subfolder" list="modal-sub-datalist" placeholder="e.g. Passports, 2026..." value="${activeDocSubFolder || ''}" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 bg-white outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition shadow-sm">
+                                        <datalist id="modal-sub-datalist"></datalist>
+                                    </div>
+                                </div>
+                            </div>
 
-                                <!-- Quick Select Pills -->
-                                <div class="flex flex-wrap items-center gap-1.5 mt-2.5">
-                                    <span class="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mr-0.5">Quick Select:</span>
-                                    ${quickPillsHtml}
-                                    <button type="button" onclick="focusCustomCategoryInput()" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-[11px] font-extrabold transition flex items-center gap-1 cursor-pointer"><i data-lucide="plus" class="w-3 h-3"></i> Custom</button>
-                                </div>
+                            <!-- Quick Select Pills -->
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <span class="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mr-0.5">Quick Select:</span>
+                                ${quickPillsHtml}
+                                <button type="button" onclick="focusCustomCategoryInput()" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-[11px] font-extrabold transition flex items-center gap-1 cursor-pointer"><i data-lucide="plus" class="w-3 h-3"></i> Custom</button>
                             </div>
 
                             <div>
                                 <div class="flex items-center justify-between mb-1.5">
                                     <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Select Files or Folder *</label>
-                                    <span class="text-[10px] text-blue-600 font-bold">Drag & drop entire folders supported</span>
+                                    <span class="text-[10px] text-blue-600 font-bold">Nested drag & drop supported</span>
                                 </div>
                                 <div id="modal-upload-dropzone" 
                                      ondragover="handleModalDragOver(event)" 
@@ -3885,7 +4385,7 @@
                                         </div>
                                         <div>
                                             <span class="text-xs font-bold text-slate-800 block">Drag & drop folder(s) or files here</span>
-                                            <span class="text-[11px] text-slate-400 font-medium">Automatic category detection based on folder name</span>
+                                            <span class="text-[11px] text-slate-400 font-medium">Automatic category & subfolder detection from folders</span>
                                         </div>
                                     </div>
 
@@ -3924,6 +4424,15 @@
             div.innerHTML = modalHtml;
             document.body.appendChild(div);
             if (window.lucide) window.lucide.createIcons();
+            window.syncUploadSubFoldersList();
+        };
+
+        window.syncUploadSubFoldersList = function() {
+            const cat = (document.getElementById('modal-doc-category')?.value || document.getElementById('modal-cat-search-input')?.value || '').trim();
+            const datalist = document.getElementById('modal-sub-datalist');
+            if (!datalist) return;
+            const subs = cat ? window.getSubFoldersForCategory(cat) : [];
+            datalist.innerHTML = subs.map(s => `<option value="${s}">`).join('');
         };
 
         window.handleModalDragOver = function(event) {
@@ -3971,6 +4480,7 @@
                         entry.file((file) => {
                             const pathParts = folderPath.split('/').filter(Boolean);
                             file.detectedCategory = pathParts.length > 0 ? pathParts[0] : '';
+                            file.detectedSubFolder = pathParts.length > 1 ? pathParts[1] : '';
                             file.relativePath = (folderPath ? folderPath + '/' : '') + file.name;
                             files.push(file);
                             resolve();
@@ -4016,6 +4526,7 @@
                 for (let i = 0; i < dataTransfer.files.length; i++) {
                     const file = dataTransfer.files[i];
                     file.detectedCategory = '';
+                    file.detectedSubFolder = '';
                     file.relativePath = file.webkitRelativePath || file.name;
                     files.push(file);
                 }
@@ -4029,6 +4540,7 @@
             if (!files.length) return;
             files.forEach(file => {
                 file.detectedCategory = '';
+                file.detectedSubFolder = '';
                 file.relativePath = file.name;
             });
             addFilesToModalSelection(files);
@@ -4043,6 +4555,7 @@
                 const relPath = file.webkitRelativePath || file.name;
                 const pathParts = relPath.split('/').filter(Boolean);
                 file.detectedCategory = pathParts.length > 1 ? pathParts[0] : '';
+                file.detectedSubFolder = pathParts.length > 2 ? pathParts[1] : '';
                 file.relativePath = relPath;
             });
 
@@ -4061,6 +4574,7 @@
             if (detectedCategories.length === 1 && searchInput && (!searchInput.value.trim() || !hiddenCategory.value.trim())) {
                 searchInput.value = detectedCategories[0];
                 if (hiddenCategory) hiddenCategory.value = detectedCategories[0];
+                window.syncUploadSubFoldersList();
             }
 
             renderModalFileListPreview();
@@ -4082,15 +4596,17 @@
 
             const detectedCategories = Array.from(new Set(modalSelectedFiles.map(f => f.detectedCategory).filter(Boolean)));
             const fallbackCategory = (document.getElementById('modal-doc-category')?.value || document.getElementById('modal-cat-search-input')?.value || 'General').trim();
+            const fallbackSubFolder = (document.getElementById('modal-doc-subfolder')?.value || '').trim();
 
             container.innerHTML = `
                 <div class="flex items-center justify-between text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">
                     <span>Selected Files (${modalSelectedFiles.length}):</span>
-                    ${detectedCategories.length > 0 ? `<span class="text-emerald-600 font-extrabold normal-case">✓ ${detectedCategories.length} folder category/categories auto-detected</span>` : ''}
+                    ${detectedCategories.length > 0 ? `<span class="text-emerald-600 font-extrabold normal-case">✓ ${detectedCategories.length} folder hierarchy auto-detected</span>` : ''}
                 </div>
                 <div class="space-y-1.5">
                     ${modalSelectedFiles.map((f, idx) => {
                         const cat = f.detectedCategory || fallbackCategory;
+                        const sub = f.detectedSubFolder || fallbackSubFolder;
                         const isFolderCat = Boolean(f.detectedCategory);
                         return `
                             <div class="flex items-center justify-between text-xs bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl hover:bg-slate-100/80 transition">
@@ -4100,7 +4616,7 @@
                                 </div>
                                 <div class="flex items-center gap-2 shrink-0">
                                     <span class="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${isFolderCat ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'}">
-                                        ${cat}
+                                        ${cat}${sub ? ` / ${sub}` : ''}
                                     </span>
                                     <span class="text-[10px] text-slate-400 font-bold">${(f.size / 1024).toFixed(0)} KB</span>
                                     <button type="button" onclick="removeModalFile(${idx})" class="text-rose-400 hover:text-rose-600 p-1 hover:bg-rose-50 rounded-lg transition" title="Remove">
@@ -4140,6 +4656,7 @@
             const hiddenCategory = document.getElementById('modal-doc-category');
             const fallbackCategory = (hiddenCategory && hiddenCategory.value ? hiddenCategory.value.trim() : '') || 
                              (searchInput && searchInput.value ? searchInput.value.trim() : '');
+            const fallbackSubFolder = (document.getElementById('modal-doc-subfolder')?.value || '').trim();
 
             const hasMissingCat = modalSelectedFiles.some(f => !f.detectedCategory && !fallbackCategory);
             if (hasMissingCat && !fallbackCategory) {
@@ -4161,17 +4678,21 @@
             for (let i = 0; i < modalSelectedFiles.length; i++) {
                 const file = modalSelectedFiles[i];
                 const fileCategory = file.detectedCategory || fallbackCategory || 'Others';
+                const fileSubFolder = file.detectedSubFolder || fallbackSubFolder || '';
                 uploadedCategories.add(fileCategory);
                 const displayName = file.name.length > 20 ? file.name.substring(0, 18) + '...' : file.name;
                 
                 if (btn) {
-                    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Uploading ${i + 1}/${modalSelectedFiles.length}: ${displayName} [${fileCategory}]`;
+                    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Uploading ${i + 1}/${modalSelectedFiles.length}: ${displayName} [${fileCategory}${fileSubFolder ? ' / ' + fileSubFolder : ''}]`;
                     if (window.lucide) window.lucide.createIcons();
                 }
 
                 const formData = new FormData();
                 formData.append('clientId', clientId);
                 formData.append('category', fileCategory);
+                if (fileSubFolder) {
+                    formData.append('subFolder', fileSubFolder);
+                }
                 formData.append('files', file);
 
                 try {
@@ -4204,8 +4725,10 @@
                 closeUploadModal();
                 if (uploadedCategories.size === 1) {
                     activeDocFolder = Array.from(uploadedCategories)[0];
+                    activeDocSubFolder = fallbackSubFolder || null;
                 } else {
                     activeDocFolder = 'All Documents';
+                    activeDocSubFolder = null;
                 }
                 await initDocumentsData();
             } else {
@@ -8907,6 +9430,7 @@
                             name: d.title || d.originalPath || "Document.pdf",
                             type: d.category || 'Other',
                             folder: d.category || d.suggestedModule || 'Misc',
+                            subFolder: d.subFolder || '',
                             size: d.fileSize ? (d.fileSize > 1024 * 1024 ? (d.fileSize / (1024 * 1024)).toFixed(1) + ' MB' : (d.fileSize / 1024).toFixed(0) + ' KB') : '1.2 MB',
                             uploadedOn: d.uploadDate || '26 Jul 2026',
                             uploadedBy: 'System Upload',
@@ -8930,26 +9454,33 @@
             const container = document.getElementById('doc-folders-list');
             if (!container) return;
 
-            const taxonomyList = window.getCompanyDetailTaxonomy();
+            const rootCategories = window.getRootCategoriesList();
             const counts = {};
-            const extraCategories = [];
+            const subCounts = {}; // key: "catKey:subFolder"
 
             (documentsList || []).forEach(d => {
                 const folderRaw = (d.folder || d.type || 'Others').trim();
-                const matched = taxonomyList.find(k => k.key.toLowerCase() === folderRaw.toLowerCase() || folderRaw.toLowerCase().startsWith(k.key.toLowerCase()));
-                if (matched) {
-                    counts[matched.key] = (counts[matched.key] || 0) + 1;
-                } else {
-                    counts[folderRaw] = (counts[folderRaw] || 0) + 1;
-                    if (!extraCategories.includes(folderRaw)) {
-                        extraCategories.push(folderRaw);
-                    }
+                const matched = rootCategories.find(k => k.key.toLowerCase() === folderRaw.toLowerCase() || folderRaw.toLowerCase().startsWith(k.key.toLowerCase()));
+                const catKey = matched ? matched.key : folderRaw;
+                counts[catKey] = (counts[catKey] || 0) + 1;
+
+                if (d.subFolder) {
+                    const subK = `${catKey.toLowerCase()}:${d.subFolder.toLowerCase()}`;
+                    subCounts[subK] = (subCounts[subK] || 0) + 1;
                 }
             });
 
-            const folders = [
-                { key: "All Documents", name: "All Documents", icon: "folder", color: "blue", count: (documentsList || []).length, isCustom: false, canEdit: false },
-                ...taxonomyList.map(k => ({
+            // Extra root categories that might have documents but not in taxonomy
+            const extraCategories = [];
+            (documentsList || []).forEach(d => {
+                const folderRaw = (d.folder || d.type || 'Others').trim();
+                if (!rootCategories.some(r => r.key.toLowerCase() === folderRaw.toLowerCase()) && !extraCategories.includes(folderRaw)) {
+                    extraCategories.push(folderRaw);
+                }
+            });
+
+            const allRoots = [
+                ...rootCategories.map(k => ({
                     id: k.id,
                     key: k.key,
                     name: k.label || k.key,
@@ -8972,34 +9503,97 @@
                 }))
             ];
 
-            container.innerHTML = folders.map(f => {
-                const isActive = activeDocFolder && (f.name.toLowerCase() === activeDocFolder.toLowerCase() || (activeDocFolder === 'All Documents' && f.name === 'All Documents'));
-                const activeClasses = isActive 
+            const isAllDocsActive = !activeDocFolder || activeDocFolder === 'All Documents';
+
+            let html = `
+                <div class="w-full flex items-center justify-between px-2.5 py-2 text-xs rounded-2xl transition-all ${isAllDocsActive ? 'bg-blue-50 text-blue-700 font-extrabold border-l-4 border-blue-600 shadow-sm' : 'text-slate-600 hover:bg-slate-50 font-semibold border-l-4 border-transparent'} group hover:bg-slate-50 gap-1.5">
+                    <button type="button" onclick="selectDocFolder('All Documents')" class="flex items-center gap-2 truncate flex-grow min-w-0 text-left cursor-pointer" title="All Documents">
+                        <i data-lucide="folder" class="w-4 h-4 ${isAllDocsActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-blue-600'} shrink-0"></i>
+                        <span class="truncate ${isAllDocsActive ? 'text-blue-700 font-bold' : 'text-slate-700 font-semibold'}">All Documents</span>
+                    </button>
+                    <span class="px-2 py-0.5 rounded-full text-[9px] ${isAllDocsActive ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'} font-black mr-0.5">${(documentsList || []).length}</span>
+                </div>
+            `;
+
+            html += allRoots.map(f => {
+                const isParentSelected = activeDocFolder && (f.name.toLowerCase() === activeDocFolder.toLowerCase() || f.key.toLowerCase() === activeDocFolder.toLowerCase());
+                const isParentActive = isParentSelected && !activeDocSubFolder;
+                const subs = window.getSubFoldersForCategory(f.key);
+                const isExpanded = !!window.docFolderExpandedState[f.key.toLowerCase()] || (isParentSelected && subs.length > 0);
+
+                const activeClasses = isParentActive 
                     ? 'bg-blue-50 text-blue-700 font-extrabold border-l-4 border-blue-600 shadow-sm' 
+                    : isParentSelected
+                    ? 'bg-slate-100/70 text-blue-700 font-bold border-l-4 border-blue-300'
                     : 'text-slate-600 hover:bg-slate-50 font-semibold border-l-4 border-transparent';
-                
+
                 return `
-                    <div class="w-full flex items-center justify-between px-2.5 py-2 text-xs rounded-2xl transition-all ${activeClasses} group hover:bg-slate-50 gap-1.5">
-                        <button type="button" onclick="selectDocFolder('${f.name.replace(/'/g, "\\'")}')" class="flex items-center gap-2 truncate flex-grow min-w-0 text-left cursor-pointer" title="${f.name}">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-blue-600'} shrink-0"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
-                            <span class="truncate ${isActive ? 'text-blue-700 font-bold' : 'text-slate-700 font-semibold'}">${f.name}</span>
-                            ${f.isCustom ? '<span class="text-[8px] px-1.5 py-0.2 bg-blue-100/80 text-blue-700 font-black rounded uppercase tracking-wider shrink-0">Custom</span>' : ''}
-                        </button>
-                        <div class="flex items-center gap-0.5 shrink-0">
-                            <span class="px-2 py-0.5 rounded-full text-[9px] ${isActive ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'} font-black mr-0.5">${f.count}</span>
-                            ${f.canEdit ? `
-                            <button type="button" onclick="event.stopPropagation(); openEditCategoryModal('${f.key.replace(/'/g, "\\'")}')" class="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer" title="Edit / Rename '${f.name}'">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                            </button>
-                            <button type="button" onclick="event.stopPropagation(); openDeleteCategoryModal('${f.key.replace(/'/g, "\\'")}', ${f.count})" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer" title="Delete '${f.name}'">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                            </button>
-                            ` : ''}
+                    <div class="space-y-0.5">
+                        <div class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded-2xl transition-all ${activeClasses} group hover:bg-slate-50 gap-1">
+                            <div class="flex items-center gap-1.5 truncate flex-grow min-w-0">
+                                ${subs.length > 0 ? `
+                                    <button type="button" onclick="window.toggleDocFolderExpand('${f.key.replace(/'/g, "\\'")}', event)" class="p-1 text-slate-400 hover:text-blue-600 rounded-md transition cursor-pointer shrink-0" title="${isExpanded ? 'Collapse' : 'Expand'}">
+                                        <i data-lucide="${isExpanded ? 'chevron-down' : 'chevron-right'}" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                ` : `
+                                    <span class="w-3.5 h-3.5 shrink-0 ml-1"></span>
+                                `}
+                                <button type="button" onclick="selectDocFolder('${f.name.replace(/'/g, "\\'")}')" class="flex items-center gap-1.5 truncate text-left cursor-pointer flex-grow min-w-0" title="${f.name}">
+                                    <i data-lucide="${isExpanded ? 'folder-open' : 'folder'}" class="w-3.5 h-3.5 ${isParentSelected ? 'text-blue-600' : 'text-slate-400 group-hover:text-blue-600'} shrink-0"></i>
+                                    <span class="truncate ${isParentActive ? 'text-blue-700 font-bold' : 'text-slate-700 font-semibold'}">${f.name}</span>
+                                    ${f.isCustom ? '<span class="text-[8px] px-1 py-0.2 bg-blue-100/80 text-blue-700 font-black rounded uppercase tracking-wider shrink-0">Custom</span>' : ''}
+                                </button>
+                            </div>
+                            <div class="flex items-center gap-0.5 shrink-0">
+                                <span class="px-2 py-0.5 rounded-full text-[9px] ${isParentActive ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'} font-black mr-0.5">${f.count}</span>
+                                <button type="button" onclick="event.stopPropagation(); openAddSubFolderModal('${f.key.replace(/'/g, "\\'")}')" class="p-1 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition cursor-pointer opacity-0 group-hover:opacity-100" title="Add Sub-Folder to '${f.name}'">
+                                    <i data-lucide="folder-plus" class="w-3 h-3"></i>
+                                </button>
+                                ${f.canEdit ? `
+                                <button type="button" onclick="event.stopPropagation(); openEditCategoryModal('${f.key.replace(/'/g, "\\'")}', false, null)" class="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer" title="Edit '${f.name}'">
+                                    <i data-lucide="edit-2" class="w-3 h-3"></i>
+                                </button>
+                                <button type="button" onclick="event.stopPropagation(); openDeleteCategoryModal('${f.key.replace(/'/g, "\\'")}', ${f.count}, false, null)" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer" title="Delete '${f.name}'">
+                                    <i data-lucide="trash-2" class="w-3 h-3"></i>
+                                </button>
+                                ` : ''}
+                            </div>
                         </div>
+                        ${isExpanded && subs.length > 0 ? `
+                            <div class="pl-6 pr-1 py-0.5 space-y-0.5 border-l-2 border-slate-100 ml-4">
+                                ${subs.map(subName => {
+                                    const isSubActive = isParentSelected && activeDocSubFolder && activeDocSubFolder.toLowerCase() === subName.toLowerCase();
+                                    const subCount = subCounts[`${f.key.toLowerCase()}:${subName.toLowerCase()}`] || 0;
+                                    return `
+                                        <div class="w-full flex items-center justify-between px-2 py-1 text-[11px] rounded-xl transition-all ${isSubActive ? 'bg-indigo-50 text-indigo-700 font-extrabold border-l-2 border-indigo-600 shadow-xs' : 'text-slate-500 hover:bg-slate-50 font-medium'} group/sub gap-1">
+                                            <button type="button" onclick="selectDocSubFolder('${f.key.replace(/'/g, "\\'")}', '${subName.replace(/'/g, "\\'")}')" class="flex items-center gap-1.5 truncate text-left cursor-pointer flex-grow min-w-0" title="${subName}">
+                                                <i data-lucide="corner-down-right" class="w-3 h-3 text-slate-300 shrink-0"></i>
+                                                <i data-lucide="folder" class="w-3 h-3 ${isSubActive ? 'text-indigo-600' : 'text-slate-400 group-hover/sub:text-indigo-600'} shrink-0"></i>
+                                                <span class="truncate ${isSubActive ? 'text-indigo-900 font-bold' : 'text-slate-700 font-semibold'}">${subName}</span>
+                                            </button>
+                                            <div class="flex items-center gap-0.5 shrink-0">
+                                                <span class="px-1.5 py-0.2 rounded-full text-[8px] ${isSubActive ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400 font-bold'}">${subCount}</span>
+                                                <button type="button" onclick="event.stopPropagation(); openEditCategoryModal('${subName.replace(/'/g, "\\'")}', true, '${f.key.replace(/'/g, "\\'")}')" class="p-0.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded transition cursor-pointer opacity-0 group-hover/sub:opacity-100" title="Edit Sub-Folder">
+                                                    <i data-lucide="edit-2" class="w-2.5 h-2.5"></i>
+                                                </button>
+                                                <button type="button" onclick="event.stopPropagation(); openDeleteCategoryModal('${subName.replace(/'/g, "\\'")}', ${subCount}, true, '${f.key.replace(/'/g, "\\'")}')" class="p-0.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer opacity-0 group-hover/sub:opacity-100" title="Delete Sub-Folder">
+                                                    <i data-lucide="trash-2" class="w-2.5 h-2.5"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                                <button type="button" onclick="openAddSubFolderModal('${f.key.replace(/'/g, "\\'")}')" class="w-full text-left px-2 py-1 text-[10px] font-bold text-indigo-600 hover:bg-indigo-50/80 rounded-lg flex items-center gap-1 transition cursor-pointer">
+                                    <i data-lucide="plus" class="w-2.5 h-2.5"></i>
+                                    <span>Add Sub-Folder</span>
+                                </button>
+                            </div>
+                        ` : ''}
                     </div>
                 `;
             }).join('');
 
+            container.innerHTML = html;
             if (window.lucide) window.lucide.createIcons();
             updateDocTypeFilterOptions();
         }
@@ -9027,6 +9621,7 @@
 
         window.selectDocFolder = function(folderName) {
             activeDocFolder = folderName;
+            activeDocSubFolder = null;
             renderDocFolders();
             renderDocTable();
         };
@@ -9035,6 +9630,7 @@
             const tableBody = document.getElementById('doc-table-body');
             const gridView = document.getElementById('doc-grid-view');
             const tableView = document.getElementById('doc-table-view');
+            const subfoldersBar = document.getElementById('doc-subfolders-bar');
             if (!tableBody || !gridView) return;
 
             const searchVal = document.getElementById('doc-search-input') ? document.getElementById('doc-search-input').value.toLowerCase().trim() : '';
@@ -9043,11 +9639,100 @@
             const userFilter = document.getElementById('doc-user-filter') ? document.getElementById('doc-user-filter').value : 'all';
             const sortVal = document.getElementById('doc-sort-select') ? document.getElementById('doc-sort-select').value : 'newest';
 
+            const isAllDocs = !activeDocFolder || activeDocFolder === 'All Documents';
+
+            // Render Subfolders Bar (Breadcrumbs + Subfolder Filter Pills)
+            if (subfoldersBar) {
+                if (isAllDocs) {
+                    subfoldersBar.innerHTML = `
+                        <div class="flex items-center justify-between flex-wrap gap-2">
+                            <div class="flex items-center gap-2 text-xs text-slate-500 font-bold">
+                                <span class="flex items-center gap-1.5 text-blue-600 font-black">
+                                    <i data-lucide="folder" class="w-4 h-4"></i>
+                                    All Documents
+                                </span>
+                                <span class="text-slate-300">/</span>
+                                <span class="text-slate-400 font-semibold">${(documentsList || []).length} total files</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button type="button" onclick="openAddCategoryModal()" class="px-3 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs">
+                                    <i data-lucide="folder-plus" class="w-3.5 h-3.5 text-blue-600"></i>
+                                    <span>New Category</span>
+                                </button>
+                                <button type="button" onclick="openAddSubFolderModal()" class="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs">
+                                    <i data-lucide="folder-plus" class="w-3.5 h-3.5 text-indigo-600"></i>
+                                    <span>New Sub-Folder</span>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    const currentCategorySubs = window.getSubFoldersForCategory(activeDocFolder);
+                    const parentDocs = (documentsList || []).filter(d => (d.folder || d.type || '').toLowerCase() === activeDocFolder.toLowerCase());
+                    const parentTotalCount = parentDocs.length;
+
+                    subfoldersBar.innerHTML = `
+                        <div class="space-y-2">
+                            <!-- Breadcrumbs Navigation -->
+                            <div class="flex items-center justify-between flex-wrap gap-2">
+                                <div class="flex items-center gap-1.5 text-xs font-bold">
+                                    <button type="button" onclick="selectDocFolder('All Documents')" class="text-slate-400 hover:text-blue-600 transition flex items-center gap-1 cursor-pointer">
+                                        <i data-lucide="folder" class="w-3.5 h-3.5"></i>
+                                        <span>All Documents</span>
+                                    </button>
+                                    <span class="text-slate-300">/</span>
+                                    <button type="button" onclick="selectDocFolder('${activeDocFolder.replace(/'/g, "\\'")}')" class="${!activeDocSubFolder ? 'text-blue-600 font-black' : 'text-slate-600 hover:text-blue-600'} transition flex items-center gap-1 cursor-pointer">
+                                        <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>
+                                        <span>${activeDocFolder}</span>
+                                    </button>
+                                    ${activeDocSubFolder ? `
+                                        <span class="text-slate-300">/</span>
+                                        <span class="text-indigo-600 font-black flex items-center gap-1 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
+                                            <i data-lucide="folder-check" class="w-3.5 h-3.5 text-indigo-600"></i>
+                                            <span>${activeDocSubFolder}</span>
+                                        </span>
+                                    ` : ''}
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" onclick="openAddSubFolderModal('${activeDocFolder.replace(/'/g, "\\'")}')" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm shadow-indigo-500/20 cursor-pointer">
+                                        <i data-lucide="folder-plus" class="w-3.5 h-3.5"></i>
+                                        <span>+ Add Sub-Folder</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Sub-Folder Filter Pills -->
+                            <div class="flex items-center gap-1.5 flex-wrap pt-1">
+                                <span class="text-[10px] uppercase font-extrabold tracking-wider text-slate-400 mr-1 flex items-center gap-1">
+                                    <i data-lucide="filter" class="w-3 h-3"></i> Sub-Folders:
+                                </span>
+                                <button type="button" onclick="selectDocFolder('${activeDocFolder.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${!activeDocSubFolder ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}">
+                                    All in ${activeDocFolder} (${parentTotalCount})
+                                </button>
+                                ${currentCategorySubs.map(s => {
+                                    const isSubAct = activeDocSubFolder && activeDocSubFolder.toLowerCase() === s.toLowerCase();
+                                    const subCount = parentDocs.filter(d => (d.subFolder || '').toLowerCase() === s.toLowerCase()).length;
+                                    return `
+                                        <button type="button" onclick="selectDocSubFolder('${activeDocFolder.replace(/'/g, "\\'")}', '${s.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${isSubAct ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20' : 'bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700'}">
+                                            <i data-lucide="folder" class="w-3 h-3 ${isSubAct ? 'text-white' : 'text-indigo-500'}"></i>
+                                            <span>${s}</span>
+                                            <span class="text-[10px] ${isSubAct ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'} px-1.5 py-0.2 rounded-full font-black">${subCount}</span>
+                                        </button>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
             // Filter
-            let filtered = documentsList.filter(d => {
+            let filtered = (documentsList || []).filter(d => {
                 const folderStr = (d.folder || '').toLowerCase().trim();
                 const typeStr = (d.type || '').toLowerCase().trim();
+                const subStr = (d.subFolder || '').toLowerCase().trim();
                 const activeFolderStr = (activeDocFolder || 'All Documents').toLowerCase().trim();
+                const activeSubStr = (activeDocSubFolder || '').toLowerCase().trim();
 
                 const matchesFolder = activeFolderStr === 'all documents' || 
                     folderStr === activeFolderStr || 
@@ -9055,77 +9740,106 @@
                     folderStr.startsWith(activeFolderStr) ||
                     (folderStr === 'others' && activeFolderStr === 'others');
 
-                const matchesSearch = !searchVal || d.name.toLowerCase().includes(searchVal) || typeStr.includes(searchVal) || folderStr.includes(searchVal);
+                const matchesSubFolder = !activeDocSubFolder || subStr === activeSubStr;
+
+                const matchesSearch = !searchVal || 
+                    d.name.toLowerCase().includes(searchVal) || 
+                    typeStr.includes(searchVal) || 
+                    folderStr.includes(searchVal) || 
+                    subStr.includes(searchVal);
+
                 const matchesType = typeFilter === 'all' || typeStr === typeFilter.toLowerCase() || folderStr === typeFilter.toLowerCase() || folderStr.startsWith(typeFilter.toLowerCase());
                 const matchesStatus = statusFilter === 'all' || d.status === statusFilter;
                 const matchesUser = userFilter === 'all' || d.uploadedBy === userFilter;
-                return matchesFolder && matchesSearch && matchesType && matchesStatus && matchesUser;
+                return matchesFolder && matchesSubFolder && matchesSearch && matchesType && matchesStatus && matchesUser;
             });
 
             // Sort
             if (sortVal === 'newest') {
-                filtered.sort((a, b) => b.uploadedOn.localeCompare(a.uploadedOn));
+                filtered.sort((a, b) => (b.uploadedOn || '').localeCompare(a.uploadedOn || ''));
             } else {
-                filtered.sort((a, b) => a.uploadedOn.localeCompare(b.uploadedOn));
+                filtered.sort((a, b) => (a.uploadedOn || '').localeCompare(b.uploadedOn || ''));
             }
 
             // Render Table
             tableBody.innerHTML = filtered.map((d, idx) => {
                 const statusColor = d.status === 'Verified' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : d.status === 'Rejected' ? 'text-rose-600 bg-rose-50 border-rose-100' : 'text-amber-600 bg-amber-50 border-amber-100';
                 return `
-                    <tr onclick="window.openDocumentFile('${d.name}')" class="hover:bg-slate-50/50 transition-colors cursor-pointer ${idx === selectedDocIndex ? 'bg-blue-50/20' : ''}">
+                    <tr onclick="window.openDocumentFile('${d.name.replace(/'/g, "\\'")}')" class="hover:bg-slate-50/50 transition-colors cursor-pointer ${idx === selectedDocIndex ? 'bg-blue-50/20' : ''}">
                         <td class="py-3"><input type="checkbox" class="rounded border-slate-200" onclick="event.stopPropagation()"></td>
                         <td class="py-3 font-bold text-slate-800 flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-4 h-4 text-blue-600 shrink-0"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                            ${d.name}
+                            <i data-lucide="file-text" class="w-4 h-4 text-blue-600 shrink-0"></i>
+                            <span class="truncate max-w-xs" title="${d.name}">${d.name}</span>
                         </td>
-                        <td class="py-3 text-slate-500">${d.folder}</td>
-                        <td class="py-3 text-slate-500">${d.uploadedOn}</td>
+                        <td class="py-3 text-slate-700 font-semibold">
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <span class="font-bold text-slate-800">${d.folder}</span>
+                                ${d.subFolder ? `
+                                    <span class="text-slate-300 font-bold">/</span>
+                                    <span class="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 font-extrabold text-[10px] flex items-center gap-1 border border-indigo-100">
+                                        <i data-lucide="folder" class="w-2.5 h-2.5"></i>
+                                        <span>${d.subFolder}</span>
+                                    </span>
+                                ` : ''}
+                            </div>
+                        </td>
+                        <td class="py-3 text-slate-500 font-mono text-[11px]">${d.uploadedOn}</td>
                         <td class="py-3">
                             <span class="px-2 py-0.5 rounded font-black text-[9px] uppercase tracking-wider ${statusColor}">${d.status}</span>
                         </td>
                         <td class="py-3 text-slate-500">${d.uploadedBy}</td>
                         <td class="py-3 text-right">
                             <div class="flex items-center justify-end gap-1">
-                                <button onclick="event.stopPropagation(); window.openDocumentFile('${d.name}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer" title="Preview PDF Modal">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <button onclick="event.stopPropagation(); window.openMoveDocModal('${d.id}', '${d.name.replace(/'/g, "\\'")}', '${(d.folder || '').replace(/'/g, "\\'")}', '${(d.subFolder || '').replace(/'/g, "\\'")}')" class="p-1.5 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition cursor-pointer" title="Move Document (Category / Sub-Folder)">
+                                    <i data-lucide="folder-symlink" class="w-4 h-4"></i>
                                 </button>
-                                <button onclick="event.stopPropagation(); window.downloadDocumentFile('${d.name}')" class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition cursor-pointer" title="Download File">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                                <button onclick="event.stopPropagation(); window.openDocumentFile('${d.name.replace(/'/g, "\\'")}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer" title="Preview PDF Modal">
+                                    <i data-lucide="eye" class="w-4 h-4"></i>
                                 </button>
-                                <button onclick="event.stopPropagation(); window.deleteDocumentFile('${d.id}', '${d.name}')" class="p-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition cursor-pointer" title="Delete Document">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                                <button onclick="event.stopPropagation(); window.downloadDocumentFile('${d.name.replace(/'/g, "\\'")}')" class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition cursor-pointer" title="Download File">
+                                    <i data-lucide="download" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="event.stopPropagation(); window.deleteDocumentFile('${d.id}', '${d.name.replace(/'/g, "\\'")}')" class="p-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition cursor-pointer" title="Delete Document">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
                                 </button>
                             </div>
                         </td>
                     </tr>
                 `;
-            }).join('') || `<tr><td colspan="7" class="p-12 text-center text-slate-400 font-medium"><div class="flex flex-col items-center justify-center gap-2 py-4"><i data-lucide="folder-open" class="w-8 h-8 text-slate-300"></i><span>No documents uploaded yet. Click <strong class="text-blue-600">Upload Document</strong> to upload files.</span></div></td></tr>`;
+            }).join('') || `<tr><td colspan="7" class="p-12 text-center text-slate-400 font-medium"><div class="flex flex-col items-center justify-center gap-2 py-4"><i data-lucide="folder-open" class="w-8 h-8 text-slate-300"></i><span>No documents match the current folder / sub-folder filter.</span></div></td></tr>`;
 
             // Render Grid
             gridView.innerHTML = filtered.map((d, idx) => {
                 const statusColor = d.status === 'Verified' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : d.status === 'Rejected' ? 'text-rose-600 bg-rose-50 border-rose-100' : 'text-amber-600 bg-amber-50 border-amber-100';
                 return `
-                    <div onclick="window.openDocumentFile('${d.name}')" class="p-4 border rounded-2xl cursor-pointer hover:border-blue-500 hover:shadow-sm transition-all flex flex-col gap-3 bg-white ${idx === selectedDocIndex ? 'border-blue-600 bg-blue-50/10' : 'border-slate-100'}">
+                    <div onclick="window.openDocumentFile('${d.name.replace(/'/g, "\\'")}')" class="p-4 border rounded-2xl cursor-pointer hover:border-blue-500 hover:shadow-sm transition-all flex flex-col gap-3 bg-white ${idx === selectedDocIndex ? 'border-blue-600 bg-blue-50/10' : 'border-slate-100'}">
                         <div class="flex items-start justify-between">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-blue-600 shrink-0"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                                <i data-lucide="file-text" class="w-5 h-5"></i>
+                            </div>
                             <div class="flex items-center gap-1">
                                 <span class="px-2 py-0.5 rounded font-black text-[8px] uppercase tracking-wider ${statusColor}">${d.status}</span>
-                                <button onclick="event.stopPropagation(); window.openDocumentFile('${d.name}')" class="p-1 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Preview PDF Modal">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <button onclick="event.stopPropagation(); window.openMoveDocModal('${d.id}', '${d.name.replace(/'/g, "\\'")}', '${(d.folder || '').replace(/'/g, "\\'")}', '${(d.subFolder || '').replace(/'/g, "\\'")}')" class="p-1 text-indigo-600 hover:bg-indigo-50 rounded-lg transition" title="Move Document">
+                                    <i data-lucide="folder-symlink" class="w-3.5 h-3.5"></i>
                                 </button>
-                                <button onclick="event.stopPropagation(); window.downloadDocumentFile('${d.name}')" class="p-1 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition" title="Download File">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                                <button onclick="event.stopPropagation(); window.openDocumentFile('${d.name.replace(/'/g, "\\'")}')" class="p-1 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Preview PDF Modal">
+                                    <i data-lucide="eye" class="w-3.5 h-3.5"></i>
                                 </button>
-                                <button onclick="event.stopPropagation(); window.deleteDocumentFile('${d.id}', '${d.name}')" class="p-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition" title="Delete Document">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                                <button onclick="event.stopPropagation(); window.downloadDocumentFile('${d.name.replace(/'/g, "\\'")}')" class="p-1 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition" title="Download File">
+                                    <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                </button>
+                                <button onclick="event.stopPropagation(); window.deleteDocumentFile('${d.id}', '${d.name.replace(/'/g, "\\'")}')" class="p-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition" title="Delete Document">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                                 </button>
                             </div>
                         </div>
                         <div>
                             <h5 class="font-bold text-slate-800 text-xs truncate" title="${d.name}">${d.name}</h5>
-                            <p class="text-slate-400 text-[10px] mt-1">${d.folder}</p>
-                            <p class="text-[9px] text-slate-400 mt-2 font-medium">Uploaded ${d.uploadedOn.split(',')[0]} by ${d.uploadedBy}</p>
+                            <div class="flex items-center gap-1 mt-1 text-[10px] text-slate-500 font-medium">
+                                <span>${d.folder}</span>
+                                ${d.subFolder ? `<span class="text-slate-300">/</span><span class="text-indigo-600 font-bold">${d.subFolder}</span>` : ''}
+                            </div>
+                            <p class="text-[9px] text-slate-400 mt-2 font-medium">Uploaded ${d.uploadedOn ? d.uploadedOn.split(',')[0] : ''} by ${d.uploadedBy}</p>
                         </div>
                     </div>
                 `;
@@ -9140,7 +9854,7 @@
             }
 
             if (window.lucide) window.lucide.createIcons();
-        }
+        };
 
         window.selectDocument = function(index) {
             selectedDocIndex = index;
