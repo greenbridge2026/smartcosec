@@ -3144,6 +3144,9 @@
                             isSystem: !!d.isSystem,
                             parentKey: d.parentKey || null,
                             parentId: d.parentId || null,
+                            rootKey: d.rootKey || (d.parentKey ? null : d.key),
+                            level: typeof d.level === 'number' ? d.level : (d.parentKey ? 1 : 0),
+                            fullPath: d.fullPath || d.key,
                             subFolders: Array.isArray(d.subFolders) ? d.subFolders : []
                         }));
                         localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
@@ -3162,35 +3165,179 @@
 
         window.getRootCategoriesList = function() {
             const taxonomyList = window.getCompanyDetailTaxonomy();
-            const roots = taxonomyList.filter(c => !c.parentKey || c.parentKey.trim() === '');
+            const roots = taxonomyList.filter(c => !c.parentKey || c.parentKey.trim() === '' || c.level === 0);
             return roots.length > 0 ? roots : taxonomyList;
         };
 
-        window.getSubFoldersForCategory = function(catKey) {
+        window.getLevel1CategoriesList = function() {
+            const taxonomyList = window.getCompanyDetailTaxonomy();
+            const roots = window.getRootCategoriesList();
+            const rootKeys = new Set(roots.map(r => r.key.toLowerCase()));
+            return taxonomyList.filter(c => c.parentKey && (c.level === 1 || rootKeys.has(c.parentKey.toLowerCase())));
+        };
+
+        // Returns structured 2-level tree for a Category:
+        // [ { key, label, level: 1, color, children: [ { key, label, level: 2, color } ] } ]
+        window.getSubFoldersTreeForCategory = function(catKey) {
             if (!catKey) return [];
             const taxonomyList = window.getCompanyDetailTaxonomy();
-            const subSet = new Set();
+            const catLower = catKey.toLowerCase();
 
-            // 1. Check matching child category objects
+            // 1. Direct Level 1 children of this root category
+            const level1Map = new Map();
+
             taxonomyList.forEach(c => {
-                if (c.parentKey && c.parentKey.toLowerCase() === catKey.toLowerCase()) {
-                    subSet.add(c.label || c.key);
-                }
-                if (c.key.toLowerCase() === catKey.toLowerCase() && Array.isArray(c.subFolders)) {
-                    c.subFolders.forEach(s => s && subSet.add(s));
+                if (c.parentKey && c.parentKey.toLowerCase() === catLower) {
+                    const l1Key = c.key;
+                    if (!level1Map.has(l1Key.toLowerCase())) {
+                        level1Map.set(l1Key.toLowerCase(), {
+                            id: c.id,
+                            key: c.key,
+                            label: c.label || c.key,
+                            color: c.color || 'indigo',
+                            icon: c.icon || 'folder',
+                            parentKey: catKey,
+                            rootKey: catKey,
+                            level: 1,
+                            children: []
+                        });
+                    }
                 }
             });
 
-            // 2. Check documents list
-            if (typeof documentsList !== 'undefined' && Array.isArray(documentsList)) {
-                documentsList.forEach(d => {
-                    if ((d.folder || d.type || '').toLowerCase() === catKey.toLowerCase() && d.subFolder) {
-                        subSet.add(d.subFolder);
+            // Also check subFolders array on root category object
+            const rootObj = taxonomyList.find(c => c.key.toLowerCase() === catLower && (!c.parentKey || c.parentKey === ''));
+            if (rootObj && Array.isArray(rootObj.subFolders)) {
+                rootObj.subFolders.forEach(subName => {
+                    if (subName && !level1Map.has(subName.toLowerCase())) {
+                        level1Map.set(subName.toLowerCase(), {
+                            key: subName,
+                            label: subName,
+                            color: 'indigo',
+                            icon: 'folder',
+                            parentKey: catKey,
+                            rootKey: catKey,
+                            level: 1,
+                            children: []
+                        });
                     }
                 });
             }
 
-            return Array.from(subSet);
+            // 2. Find Level 2 items under each Level 1
+            taxonomyList.forEach(c => {
+                if (c.parentKey) {
+                    const parentL1 = level1Map.get(c.parentKey.toLowerCase());
+                    if (parentL1) {
+                        const existingL2 = parentL1.children.some(ch => ch.key.toLowerCase() === c.key.toLowerCase());
+                        if (!existingL2) {
+                            parentL1.children.push({
+                                id: c.id,
+                                key: c.key,
+                                label: c.label || c.key,
+                                color: c.color || 'violet',
+                                icon: c.icon || 'folder',
+                                parentKey: parentL1.key,
+                                rootKey: catKey,
+                                level: 2
+                            });
+                        }
+                    }
+                }
+            });
+
+            // Also check Level 1 category objects' subFolders array for Level 2 children
+            level1Map.forEach(l1Obj => {
+                const taxL1Obj = taxonomyList.find(c => c.key.toLowerCase() === l1Obj.key.toLowerCase() && c.parentKey && c.parentKey.toLowerCase() === catLower);
+                if (taxL1Obj && Array.isArray(taxL1Obj.subFolders)) {
+                    taxL1Obj.subFolders.forEach(l2Name => {
+                        if (l2Name && !l1Obj.children.some(ch => ch.key.toLowerCase() === l2Name.toLowerCase())) {
+                            l1Obj.children.push({
+                                key: l2Name,
+                                label: l2Name,
+                                color: 'violet',
+                                icon: 'folder',
+                                parentKey: l1Obj.key,
+                                rootKey: catKey,
+                                level: 2
+                            });
+                        }
+                    });
+                }
+            });
+
+            // 3. Scan documents for any subFolder paths (e.g. "FY 2024" or "FY 2024/Q1")
+            if (typeof documentsList !== 'undefined' && Array.isArray(documentsList)) {
+                documentsList.forEach(d => {
+                    const docFolder = (d.folder || d.type || '').trim().toLowerCase();
+                    if (docFolder === catLower && d.subFolder) {
+                        const rawSub = d.subFolder.trim();
+                        if (rawSub.includes('/')) {
+                            const parts = rawSub.split('/').map(p => p.trim()).filter(Boolean);
+                            const p0 = parts[0];
+                            const p1 = parts[1];
+                            if (p0) {
+                                if (!level1Map.has(p0.toLowerCase())) {
+                                    level1Map.set(p0.toLowerCase(), {
+                                        key: p0,
+                                        label: p0,
+                                        color: 'indigo',
+                                        icon: 'folder',
+                                        parentKey: catKey,
+                                        rootKey: catKey,
+                                        level: 1,
+                                        children: []
+                                    });
+                                }
+                                if (p1) {
+                                    const l1 = level1Map.get(p0.toLowerCase());
+                                    if (l1 && !l1.children.some(ch => ch.key.toLowerCase() === p1.toLowerCase())) {
+                                        l1.children.push({
+                                            key: p1,
+                                            label: p1,
+                                            color: 'violet',
+                                            icon: 'folder',
+                                            parentKey: p0,
+                                            rootKey: catKey,
+                                            level: 2
+                                        });
+                                    }
+                                }
+                            }
+                        } else {
+                            if (!level1Map.has(rawSub.toLowerCase())) {
+                                level1Map.set(rawSub.toLowerCase(), {
+                                    key: rawSub,
+                                    label: rawSub,
+                                    color: 'indigo',
+                                    icon: 'folder',
+                                    parentKey: catKey,
+                                    rootKey: catKey,
+                                    level: 1,
+                                    children: []
+                                });
+                            }
+                        }
+                    }
+                });
+            }
+
+            return Array.from(level1Map.values());
+        };
+
+        window.getSubFoldersForCategory = function(catKey) {
+            if (!catKey) return [];
+            const tree = window.getSubFoldersTreeForCategory(catKey);
+            const list = [];
+            tree.forEach(l1 => {
+                list.push(l1.key);
+                if (Array.isArray(l1.children)) {
+                    l1.children.forEach(l2 => {
+                        list.push(l2.key);
+                    });
+                }
+            });
+            return Array.from(new Set(list));
         };
 
         window.getDocCategoriesList = function() {
@@ -3202,6 +3349,7 @@
                 color: cat.color || 'blue',
                 icon: cat.icon || 'folder',
                 parentKey: cat.parentKey || null,
+                level: cat.level || 0,
                 subFolders: cat.subFolders || []
             }));
 
@@ -3209,7 +3357,7 @@
                 documentsList.forEach(d => {
                     const cat = (d.folder || d.type || '').trim();
                     if (cat && !list.some(item => item.val.toLowerCase() === cat.toLowerCase())) {
-                        list.push({ val: cat, label: `${cat} (Custom Category)`, key: cat, color: 'blue', icon: 'folder', subFolders: [] });
+                        list.push({ val: cat, label: `${cat} (Custom Category)`, key: cat, color: 'blue', icon: 'folder', level: 0, subFolders: [] });
                     }
                 });
             }
@@ -3256,7 +3404,7 @@
 
             const rootCategories = window.getRootCategoriesList();
             const parentOptionsHtml = `
-                <option value="">📁 Root Folder / Main Category</option>
+                <option value="">📁 Root Folder / Main Category (Level 0)</option>
                 ${rootCategories.map(r => `<option value="${r.key}">${r.label || r.key}</option>`).join('')}
             `;
 
@@ -3332,11 +3480,29 @@
             if (oldModal) oldModal.remove();
 
             const rootCategories = window.getRootCategoriesList();
+            const level1Categories = window.getLevel1CategoriesList();
             const defaultParent = preselectedParentKey || (activeDocFolder && activeDocFolder !== 'All Documents' ? activeDocFolder : (rootCategories[0] ? rootCategories[0].key : 'KYC'));
 
-            const parentOptionsHtml = rootCategories.map(r => `
-                <option value="${r.key}" ${r.key.toLowerCase() === defaultParent.toLowerCase() ? 'selected' : ''}>${r.label || r.key}</option>
-            `).join('');
+            // Build hierarchical parent options allowing:
+            // 1. Root Category -> Creates Level 1 Subfolder
+            // 2. Level 1 Subfolder -> Creates Level 2 Nested Subfolder (Max Level)
+            // (Level 2 items are NOT in the dropdown to strictly enforce max 2 levels)
+            let parentOptionsHtml = `<optgroup label="📁 Main Categories (Creates Level 1 Sub-Folder)">`;
+            rootCategories.forEach(r => {
+                const isSel = r.key.toLowerCase() === defaultParent.toLowerCase();
+                parentOptionsHtml += `<option value="${r.key}" ${isSel ? 'selected' : ''}>📁 ${r.label || r.key} (Level 1 Target)</option>`;
+            });
+            parentOptionsHtml += `</optgroup>`;
+
+            if (level1Categories.length > 0) {
+                parentOptionsHtml += `<optgroup label="📂 Level 1 Sub-Folders (Creates Level 2 Nested Sub-Folder - Max Depth)">`;
+                level1Categories.forEach(l1 => {
+                    const isSel = l1.key.toLowerCase() === defaultParent.toLowerCase();
+                    const parentRoot = l1.parentKey || 'Category';
+                    parentOptionsHtml += `<option value="${l1.key}" ${isSel ? 'selected' : ''}>↳ 📁 ${parentRoot} / ${l1.label || l1.key} (Level 2 Target)</option>`;
+                });
+                parentOptionsHtml += `</optgroup>`;
+            }
 
             const colorSwatchesHtml = DOC_CAT_COLORS.map((c, i) => `
                 <label class="cursor-pointer">
@@ -3355,7 +3521,7 @@
                                 </div>
                                 <div>
                                     <h3 class="font-extrabold text-slate-900 text-sm">Create Sub-Folder</h3>
-                                    <p class="text-[10px] text-slate-500">Nest a subfolder inside a document category</p>
+                                    <p class="text-[10px] text-slate-500">Nest a subfolder up to 2 levels deep</p>
                                 </div>
                             </div>
                             <button type="button" onclick="document.getElementById('${modalId}').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-200/50 transition">
@@ -3364,18 +3530,19 @@
                         </div>
                         <form onsubmit="window.submitAddSubFolder(event, '${modalId}')" class="p-6 space-y-4 text-xs">
                             <div>
-                                <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Parent Category *</label>
+                                <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Parent Folder / Category *</label>
                                 <select id="add-sub-parent-select" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm cursor-pointer">
                                     ${parentOptionsHtml}
                                 </select>
+                                <p class="text-[10px] text-slate-400 mt-1">Select a Main Category (for Level 1) or a Level 1 Sub-Folder (for Level 2 nested folder).</p>
                             </div>
                             <div>
                                 <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Sub-Folder Name *</label>
-                                <input type="text" id="add-sub-name-input" required autofocus placeholder="e.g. Passports, FY 2024, Board Minutes, Proof of Address" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm">
+                                <input type="text" id="add-sub-name-input" required autofocus placeholder="e.g. FY 2024, Q1 Returns, Passports, Resolutions" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm">
                             </div>
                             <div>
                                 <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Description (Optional)</label>
-                                <input type="text" id="add-sub-desc-input" placeholder="e.g. Passports and identification cards" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm">
+                                <input type="text" id="add-sub-desc-input" placeholder="e.g. Quarterly tax documents and assessments" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm">
                             </div>
                             <div>
                                 <label class="block font-bold text-slate-700 mb-2 uppercase text-[10px] tracking-wider">Folder Color</label>
@@ -3422,12 +3589,11 @@
             }
 
             if (parentKey) {
-                // Delegate to subfolder creation
                 return window.executeCreateSubFolder(parentKey, name, desc, color, modalId, btn);
             }
 
             const currentTaxonomy = window.getCompanyDetailTaxonomy();
-            if (currentTaxonomy.some(c => !c.parentKey && c.key.toLowerCase() === name.toLowerCase())) {
+            if (currentTaxonomy.some(c => (!c.parentKey || c.parentKey === '') && c.key.toLowerCase() === name.toLowerCase())) {
                 alert(`A category named "${name}" already exists!`);
                 return;
             }
@@ -3449,6 +3615,9 @@
                         color: color,
                         icon: 'folder',
                         parentKey: null,
+                        level: 0,
+                        rootKey: name,
+                        fullPath: name,
                         sortOrder: currentTaxonomy.length + 1
                     })
                 });
@@ -3464,6 +3633,9 @@
                         color: saved.color || color,
                         icon: saved.icon || 'folder',
                         parentKey: null,
+                        level: 0,
+                        rootKey: saved.key || name,
+                        fullPath: saved.key || name,
                         subFolders: [],
                         sortOrder: saved.sortOrder || currentTaxonomy.length + 1,
                         isSystem: false
@@ -3477,6 +3649,9 @@
                         color: color,
                         icon: 'folder',
                         parentKey: null,
+                        level: 0,
+                        rootKey: name,
+                        fullPath: name,
                         subFolders: [],
                         sortOrder: currentTaxonomy.length + 1,
                         isSystem: false
@@ -3501,6 +3676,9 @@
                     color: color,
                     icon: 'folder',
                     parentKey: null,
+                    level: 0,
+                    rootKey: name,
+                    fullPath: name,
                     subFolders: [],
                     sortOrder: currentTaxonomy.length + 1,
                     isSystem: false
@@ -3528,7 +3706,7 @@
             const color = colorInput ? colorInput.value : 'indigo';
 
             if (!parentKey) {
-                alert("Please select a parent category.");
+                alert("Please select a parent category or sub-folder.");
                 return;
             }
             if (!name) {
@@ -3540,9 +3718,21 @@
         };
 
         window.executeCreateSubFolder = async function(parentKey, name, desc, color, modalId, btn) {
+            const taxonomy = window.getCompanyDetailTaxonomy();
+            const parentCat = taxonomy.find(c => c.key.toLowerCase() === parentKey.toLowerCase());
+            const parentLevel = parentCat && typeof parentCat.level === 'number' ? parentCat.level : (parentCat && parentCat.parentKey ? 1 : 0);
+
+            if (parentLevel >= 2) {
+                alert("Maximum subfolder depth of 2 levels reached. You cannot nest a subfolder inside a Level 2 folder.");
+                return;
+            }
+
+            const childLevel = parentLevel + 1;
+            const rootKey = parentCat ? (parentCat.rootKey || (parentLevel === 0 ? parentCat.key : parentCat.parentKey)) : parentKey;
+
             const existingSubs = window.getSubFoldersForCategory(parentKey);
             if (existingSubs.some(s => s.toLowerCase() === name.toLowerCase())) {
-                alert(`Sub-folder "${name}" already exists in ${parentKey}!`);
+                alert(`Sub-folder "${name}" already exists under "${parentKey}"!`);
                 return;
             }
 
@@ -3565,47 +3755,43 @@
                     })
                 });
 
-                // Update local parent subFolders array
-                const parentCat = (window.globalDocCategories || []).find(c => c.key.toLowerCase() === parentKey.toLowerCase());
                 if (parentCat) {
                     if (!parentCat.subFolders) parentCat.subFolders = [];
                     if (!parentCat.subFolders.includes(name)) parentCat.subFolders.push(name);
                 }
 
+                let savedObj = {
+                    key: name,
+                    label: name,
+                    desc: desc,
+                    description: desc,
+                    color: color,
+                    icon: 'folder',
+                    parentKey: parentKey,
+                    parentId: parentCat ? parentCat.id : null,
+                    rootKey: rootKey,
+                    level: childLevel,
+                    fullPath: `${parentCat ? (parentCat.fullPath || parentCat.key) : parentKey}/${name}`,
+                    subFolders: [],
+                    isSystem: false
+                };
+
                 if (res.ok) {
                     const saved = await res.json();
-                    window.globalDocCategories.push({
-                        id: saved.id,
-                        key: saved.key || name,
-                        label: saved.label || name,
-                        desc: desc,
-                        description: desc,
-                        color: color,
-                        icon: 'folder',
-                        parentKey: parentKey,
-                        subFolders: [],
-                        isSystem: false
-                    });
-                } else {
-                    window.globalDocCategories.push({
-                        key: name,
-                        label: name,
-                        desc: desc,
-                        description: desc,
-                        color: color,
-                        icon: 'folder',
-                        parentKey: parentKey,
-                        subFolders: [],
-                        isSystem: false
-                    });
+                    savedObj.id = saved.id;
+                    savedObj.key = saved.key || name;
+                    savedObj.label = saved.label || name;
+                    savedObj.level = typeof saved.level === 'number' ? saved.level : childLevel;
                 }
 
+                window.globalDocCategories.push(savedObj);
                 localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
-                window.showToast(`Sub-folder "${name}" created under "${parentKey}"!`, 'success');
+                window.showToast(`Sub-folder "${name}" (Level ${childLevel}) created under "${parentKey}"!`, 'success');
 
-                // Auto-expand parent and select the new subfolder
+                // Auto-expand tree and select
+                window.docFolderExpandedState[rootKey.toLowerCase()] = true;
                 window.docFolderExpandedState[parentKey.toLowerCase()] = true;
-                activeDocFolder = parentKey;
+                activeDocFolder = rootKey;
                 activeDocSubFolder = name;
 
                 const modal = document.getElementById(modalId);
@@ -3615,11 +3801,6 @@
                 renderDocTable();
             } catch(err) {
                 console.error("Error creating sub-folder:", err);
-                const parentCat = (window.globalDocCategories || []).find(c => c.key.toLowerCase() === parentKey.toLowerCase());
-                if (parentCat) {
-                    if (!parentCat.subFolders) parentCat.subFolders = [];
-                    if (!parentCat.subFolders.includes(name)) parentCat.subFolders.push(name);
-                }
                 window.globalDocCategories.push({
                     key: name,
                     label: name,
@@ -3628,13 +3809,16 @@
                     color: color,
                     icon: 'folder',
                     parentKey: parentKey,
+                    rootKey: rootKey,
+                    level: childLevel,
                     subFolders: [],
                     isSystem: false
                 });
                 localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
                 window.showToast(`Sub-folder "${name}" added locally.`, "info");
+                window.docFolderExpandedState[rootKey.toLowerCase()] = true;
                 window.docFolderExpandedState[parentKey.toLowerCase()] = true;
-                activeDocFolder = parentKey;
+                activeDocFolder = rootKey;
                 activeDocSubFolder = name;
 
                 const modal = document.getElementById(modalId);
@@ -3649,11 +3833,11 @@
             let cat;
             if (isSubFolder && parentKey) {
                 cat = currentTaxonomy.find(c => c.parentKey && c.parentKey.toLowerCase() === parentKey.toLowerCase() && c.key.toLowerCase() === catKey.toLowerCase()) || 
-                      { key: catKey, label: catKey, desc: '', color: 'indigo', parentKey: parentKey };
+                      { key: catKey, label: catKey, desc: '', color: 'indigo', parentKey: parentKey, level: 1 };
             } else {
                 cat = currentTaxonomy.find(c => (!c.parentKey || c.parentKey === '') && c.key.toLowerCase() === catKey.toLowerCase()) || 
                       currentTaxonomy.find(c => c.key.toLowerCase() === catKey.toLowerCase()) ||
-                      { key: catKey, label: catKey, desc: '', color: 'blue' };
+                      { key: catKey, label: catKey, desc: '', color: 'blue', level: 0 };
             }
 
             const modalId = 'modal-edit-doc-category';
@@ -3667,7 +3851,8 @@
                 </label>
             `).join('');
 
-            const title = isSubFolder ? `Edit Sub-Folder (${parentKey})` : `Edit Category / Folder`;
+            const levelLabel = cat.level === 2 ? 'Nested Sub-Folder (Level 2)' : (isSubFolder || cat.level === 1 ? 'Sub-Folder (Level 1)' : 'Main Category (Root)');
+            const title = `Edit ${levelLabel}`;
 
             const modalHtml = `
                 <div id="${modalId}" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 animate-fade-in">
@@ -3679,7 +3864,7 @@
                                 </div>
                                 <div>
                                     <h3 class="font-extrabold text-slate-900 text-sm">${title}</h3>
-                                    <p class="text-[10px] text-slate-400">Updates folder and all linked documents</p>
+                                    <p class="text-[10px] text-slate-400">${parentKey ? 'Inside: ' + parentKey : 'Root Category'}</p>
                                 </div>
                             </div>
                             <button type="button" onclick="document.getElementById('${modalId}').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-200/50 transition">
@@ -3703,7 +3888,7 @@
                             </div>
                             <div class="p-3 bg-blue-50/70 border border-blue-100 rounded-xl flex items-start gap-2 text-[11px] text-blue-800">
                                 <i data-lucide="info" class="w-4 h-4 text-blue-600 shrink-0 mt-0.5"></i>
-                                <span>Renaming this folder will automatically update all existing documents inside it.</span>
+                                <span>Renaming this folder will automatically update all existing documents and nested folders inside it.</span>
                             </div>
                             <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
                                 <button type="button" onclick="document.getElementById('${modalId}').remove()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 font-bold rounded-xl transition cursor-pointer">Cancel</button>
@@ -3781,14 +3966,27 @@
                         window.globalDocCategories[idx].description = newDesc;
                         window.globalDocCategories[idx].color = newColor;
                     }
+                    // Cascade child Level 2 subfolder parentKey updates
+                    window.globalDocCategories.forEach(c => {
+                        if (c.parentKey && c.parentKey.toLowerCase() === oldKey.toLowerCase()) {
+                            c.parentKey = newName;
+                        }
+                    });
                     localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
                 }
 
                 if (documentsList && Array.isArray(documentsList)) {
                     documentsList.forEach(d => {
-                        if (isSubFolder && parentKey) {
-                            if ((d.folder || '').toLowerCase() === parentKey.toLowerCase() && (d.subFolder || '').toLowerCase() === oldKey.toLowerCase()) {
-                                d.subFolder = newName;
+                        if (isSubFolder) {
+                            if (d.subFolder) {
+                                if (d.subFolder.toLowerCase() === oldKey.toLowerCase()) {
+                                    d.subFolder = newName;
+                                } else if (d.subFolder.toLowerCase().startsWith(oldKey.toLowerCase() + '/')) {
+                                    d.subFolder = newName + d.subFolder.substring(oldKey.length);
+                                } else if (d.subFolder.toLowerCase().endsWith('/' + oldKey.toLowerCase())) {
+                                    const lastSlash = d.subFolder.lastIndexOf('/');
+                                    d.subFolder = d.subFolder.substring(0, lastSlash + 1) + newName;
+                                }
                             }
                         } else {
                             if (d.folder && d.folder.toLowerCase() === oldKey.toLowerCase()) d.folder = newName;
@@ -3889,14 +4087,15 @@
                             parent.subFolders = parent.subFolders.filter(s => s.toLowerCase() !== catKey.toLowerCase());
                         }
                     }
-                    window.globalDocCategories = window.globalDocCategories.filter(c => !(c.key.toLowerCase() === catKey.toLowerCase() && (isSubFolder ? (c.parentKey && c.parentKey.toLowerCase() === parentKey.toLowerCase()) : true)));
+                    // Remove this item and any of its children
+                    window.globalDocCategories = window.globalDocCategories.filter(c => !(c.key.toLowerCase() === catKey.toLowerCase() && (isSubFolder ? (c.parentKey && c.parentKey.toLowerCase() === parentKey.toLowerCase()) : true)) && !(c.parentKey && c.parentKey.toLowerCase() === catKey.toLowerCase()));
                     localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
                 }
 
                 if (documentsList && Array.isArray(documentsList)) {
                     documentsList.forEach(d => {
-                        if (isSubFolder && parentKey) {
-                            if ((d.folder || '').toLowerCase() === parentKey.toLowerCase() && (d.subFolder || '').toLowerCase() === catKey.toLowerCase()) {
+                        if (isSubFolder) {
+                            if (d.subFolder && (d.subFolder.toLowerCase() === catKey.toLowerCase() || d.subFolder.toLowerCase().startsWith(catKey.toLowerCase() + '/') || d.subFolder.toLowerCase().endsWith('/' + catKey.toLowerCase()))) {
                                 d.subFolder = null;
                             }
                         } else {
@@ -3941,14 +4140,19 @@
             `).join('');
 
             const selectedCat = currentCat || (taxonomyRoots[0] ? taxonomyRoots[0].key : 'KYC');
-            const subFolders = window.getSubFoldersForCategory(selectedCat);
+            const subFoldersTree = window.getSubFoldersTreeForCategory(selectedCat);
 
-            const subOptionsHtml = `
-                <option value="">(No Sub-Folder / Root of Category)</option>
-                ${subFolders.map(s => `
-                    <option value="${s}" ${s.toLowerCase() === (currentSubFolder || '').toLowerCase() ? 'selected' : ''}>📁 ${s}</option>
-                `).join('')}
-            `;
+            let subOptionsHtml = `<option value="">(No Sub-Folder / Root of Category)</option>`;
+            subFoldersTree.forEach(l1 => {
+                const isL1Sel = (currentSubFolder || '').toLowerCase() === l1.key.toLowerCase();
+                subOptionsHtml += `<option value="${l1.key}" ${isL1Sel ? 'selected' : ''}>📁 ${l1.label || l1.key} (Level 1)</option>`;
+                if (Array.isArray(l1.children)) {
+                    l1.children.forEach(l2 => {
+                        const isL2Sel = (currentSubFolder || '').toLowerCase() === l2.key.toLowerCase() || (currentSubFolder || '').toLowerCase() === `${l1.key}/${l2.key}`.toLowerCase();
+                        subOptionsHtml += `<option value="${l2.key}" ${isL2Sel ? 'selected' : ''}>&nbsp;&nbsp;&nbsp;&nbsp;↳ 📁 ${l1.label || l1.key} / ${l2.label || l2.key} (Level 2)</option>`;
+                    });
+                }
+            });
 
             const modalHtml = `
                 <div id="${modalId}" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 animate-fade-in">
@@ -3960,7 +4164,7 @@
                                 </div>
                                 <div>
                                     <h3 class="font-extrabold text-slate-900 text-sm">Move Document</h3>
-                                    <p class="text-[10px] text-slate-500">Reassign document to folder / sub-folder</p>
+                                    <p class="text-[10px] text-slate-500">Reassign document to folder / nested sub-folder</p>
                                 </div>
                             </div>
                             <button type="button" onclick="document.getElementById('${modalId}').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-200/50 transition">
@@ -3979,7 +4183,7 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Target Sub-Folder (Optional)</label>
+                                <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Target Sub-Folder (Level 1 or Level 2)</label>
                                 <select id="move-sub-select" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm cursor-pointer">
                                     ${subOptionsHtml}
                                 </select>
@@ -4003,11 +4207,17 @@
         window.updateMoveSubFolderOptions = function(catKey) {
             const subSelect = document.getElementById('move-sub-select');
             if (!subSelect) return;
-            const subFolders = window.getSubFoldersForCategory(catKey);
-            subSelect.innerHTML = `
-                <option value="">(No Sub-Folder / Root of Category)</option>
-                ${subFolders.map(s => `<option value="${s}">📁 ${s}</option>`).join('')}
-            `;
+            const subFoldersTree = window.getSubFoldersTreeForCategory(catKey);
+            let subOptionsHtml = `<option value="">(No Sub-Folder / Root of Category)</option>`;
+            subFoldersTree.forEach(l1 => {
+                subOptionsHtml += `<option value="${l1.key}">📁 ${l1.label || l1.key} (Level 1)</option>`;
+                if (Array.isArray(l1.children)) {
+                    l1.children.forEach(l2 => {
+                        subOptionsHtml += `<option value="${l2.key}">&nbsp;&nbsp;&nbsp;&nbsp;↳ 📁 ${l1.label || l1.key} / ${l2.label || l2.key} (Level 2)</option>`;
+                    });
+                }
+            });
+            subSelect.innerHTML = subOptionsHtml;
         };
 
         window.submitMoveDocModal = async function(event, docId, modalId) {
@@ -9456,7 +9666,7 @@
 
             const rootCategories = window.getRootCategoriesList();
             const counts = {};
-            const subCounts = {}; // key: "catKey:subFolder"
+            const subCounts = {}; // key: "catKey:subFolder" (lowercase)
 
             (documentsList || []).forEach(d => {
                 const folderRaw = (d.folder || d.type || 'Others').trim();
@@ -9465,8 +9675,21 @@
                 counts[catKey] = (counts[catKey] || 0) + 1;
 
                 if (d.subFolder) {
-                    const subK = `${catKey.toLowerCase()}:${d.subFolder.toLowerCase()}`;
+                    const subRaw = d.subFolder.trim();
+                    // Match direct subFolder and split paths if any (e.g. "FY 2024/Q1")
+                    const subK = `${catKey.toLowerCase()}:${subRaw.toLowerCase()}`;
                     subCounts[subK] = (subCounts[subK] || 0) + 1;
+                    if (subRaw.includes('/')) {
+                        const parts = subRaw.split('/').map(p => p.trim());
+                        if (parts[0]) {
+                            const p0K = `${catKey.toLowerCase()}:${parts[0].toLowerCase()}`;
+                            subCounts[p0K] = (subCounts[p0K] || 0) + 1;
+                        }
+                        if (parts[1]) {
+                            const p1K = `${catKey.toLowerCase()}:${parts[1].toLowerCase()}`;
+                            subCounts[p1K] = (subCounts[p1K] || 0) + 1;
+                        }
+                    }
                 }
             });
 
@@ -9518,8 +9741,9 @@
             html += allRoots.map(f => {
                 const isParentSelected = activeDocFolder && (f.name.toLowerCase() === activeDocFolder.toLowerCase() || f.key.toLowerCase() === activeDocFolder.toLowerCase());
                 const isParentActive = isParentSelected && !activeDocSubFolder;
-                const subs = window.getSubFoldersForCategory(f.key);
-                const isExpanded = !!window.docFolderExpandedState[f.key.toLowerCase()] || (isParentSelected && subs.length > 0);
+                const subTree = window.getSubFoldersTreeForCategory(f.key);
+                const hasSubs = subTree.length > 0;
+                const isExpanded = !!window.docFolderExpandedState[f.key.toLowerCase()] || (isParentSelected && hasSubs);
 
                 const activeClasses = isParentActive 
                     ? 'bg-blue-50 text-blue-700 font-extrabold border-l-4 border-blue-600 shadow-sm' 
@@ -9529,9 +9753,10 @@
 
                 return `
                     <div class="space-y-0.5">
+                        <!-- Level 0: Main Category (Root) -->
                         <div class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded-2xl transition-all ${activeClasses} group hover:bg-slate-50 gap-1">
                             <div class="flex items-center gap-1.5 truncate flex-grow min-w-0">
-                                ${subs.length > 0 ? `
+                                ${hasSubs ? `
                                     <button type="button" onclick="window.toggleDocFolderExpand('${f.key.replace(/'/g, "\\'")}', event)" class="p-1 text-slate-400 hover:text-blue-600 rounded-md transition cursor-pointer shrink-0" title="${isExpanded ? 'Collapse' : 'Expand'}">
                                         <i data-lucide="${isExpanded ? 'chevron-down' : 'chevron-right'}" class="w-3.5 h-3.5"></i>
                                     </button>
@@ -9546,7 +9771,7 @@
                             </div>
                             <div class="flex items-center gap-0.5 shrink-0">
                                 <span class="px-2 py-0.5 rounded-full text-[9px] ${isParentActive ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'} font-black mr-0.5">${f.count}</span>
-                                <button type="button" onclick="event.stopPropagation(); openAddSubFolderModal('${f.key.replace(/'/g, "\\'")}')" class="p-1 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition cursor-pointer opacity-0 group-hover:opacity-100" title="Add Sub-Folder to '${f.name}'">
+                                <button type="button" onclick="event.stopPropagation(); openAddSubFolderModal('${f.key.replace(/'/g, "\\'")}')" class="p-1 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition cursor-pointer opacity-0 group-hover:opacity-100" title="Add Level 1 Sub-Folder under '${f.name}'">
                                     <i data-lucide="folder-plus" class="w-3 h-3"></i>
                                 </button>
                                 ${f.canEdit ? `
@@ -9559,27 +9784,78 @@
                                 ` : ''}
                             </div>
                         </div>
-                        ${isExpanded && subs.length > 0 ? `
-                            <div class="pl-6 pr-1 py-0.5 space-y-0.5 border-l-2 border-slate-100 ml-4">
-                                ${subs.map(subName => {
-                                    const isSubActive = isParentSelected && activeDocSubFolder && activeDocSubFolder.toLowerCase() === subName.toLowerCase();
-                                    const subCount = subCounts[`${f.key.toLowerCase()}:${subName.toLowerCase()}`] || 0;
+
+                        <!-- Nested Level 1 & Level 2 Sub-Folders -->
+                        ${isExpanded && hasSubs ? `
+                            <div class="pl-4 pr-0.5 py-0.5 space-y-1 border-l-2 border-slate-100 ml-3.5">
+                                ${subTree.map(l1 => {
+                                    const isL1Active = isParentSelected && activeDocSubFolder && (activeDocSubFolder.toLowerCase() === l1.key.toLowerCase() || activeDocSubFolder.toLowerCase() === (l1.label || '').toLowerCase());
+                                    const l1Count = subCounts[`${f.key.toLowerCase()}:${l1.key.toLowerCase()}`] || 0;
+                                    const hasL2 = Array.isArray(l1.children) && l1.children.length > 0;
+                                    const isL1Expanded = !!window.docFolderExpandedState[l1.key.toLowerCase()] || isL1Active;
+
                                     return `
-                                        <div class="w-full flex items-center justify-between px-2 py-1 text-[11px] rounded-xl transition-all ${isSubActive ? 'bg-indigo-50 text-indigo-700 font-extrabold border-l-2 border-indigo-600 shadow-xs' : 'text-slate-500 hover:bg-slate-50 font-medium'} group/sub gap-1">
-                                            <button type="button" onclick="selectDocSubFolder('${f.key.replace(/'/g, "\\'")}', '${subName.replace(/'/g, "\\'")}')" class="flex items-center gap-1.5 truncate text-left cursor-pointer flex-grow min-w-0" title="${subName}">
-                                                <i data-lucide="corner-down-right" class="w-3 h-3 text-slate-300 shrink-0"></i>
-                                                <i data-lucide="folder" class="w-3 h-3 ${isSubActive ? 'text-indigo-600' : 'text-slate-400 group-hover/sub:text-indigo-600'} shrink-0"></i>
-                                                <span class="truncate ${isSubActive ? 'text-indigo-900 font-bold' : 'text-slate-700 font-semibold'}">${subName}</span>
-                                            </button>
-                                            <div class="flex items-center gap-0.5 shrink-0">
-                                                <span class="px-1.5 py-0.2 rounded-full text-[8px] ${isSubActive ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400 font-bold'}">${subCount}</span>
-                                                <button type="button" onclick="event.stopPropagation(); openEditCategoryModal('${subName.replace(/'/g, "\\'")}', true, '${f.key.replace(/'/g, "\\'")}')" class="p-0.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded transition cursor-pointer opacity-0 group-hover/sub:opacity-100" title="Edit Sub-Folder">
-                                                    <i data-lucide="edit-2" class="w-2.5 h-2.5"></i>
-                                                </button>
-                                                <button type="button" onclick="event.stopPropagation(); openDeleteCategoryModal('${subName.replace(/'/g, "\\'")}', ${subCount}, true, '${f.key.replace(/'/g, "\\'")}')" class="p-0.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer opacity-0 group-hover/sub:opacity-100" title="Delete Sub-Folder">
-                                                    <i data-lucide="trash-2" class="w-2.5 h-2.5"></i>
-                                                </button>
+                                        <div class="space-y-0.5">
+                                            <!-- Level 1 Sub-Folder -->
+                                            <div class="w-full flex items-center justify-between px-2 py-1 text-[11px] rounded-xl transition-all ${isL1Active ? 'bg-indigo-50 text-indigo-700 font-extrabold border-l-2 border-indigo-600 shadow-xs' : 'text-slate-600 hover:bg-slate-50 font-semibold'} group/l1 gap-1">
+                                                <div class="flex items-center gap-1 truncate flex-grow min-w-0">
+                                                    ${hasL2 ? `
+                                                        <button type="button" onclick="window.toggleDocFolderExpand('${l1.key.replace(/'/g, "\\'")}', event)" class="p-0.5 text-slate-400 hover:text-indigo-600 rounded transition cursor-pointer shrink-0">
+                                                            <i data-lucide="${isL1Expanded ? 'chevron-down' : 'chevron-right'}" class="w-3 h-3"></i>
+                                                        </button>
+                                                    ` : `
+                                                        <i data-lucide="corner-down-right" class="w-3 h-3 text-slate-300 shrink-0"></i>
+                                                    `}
+                                                    <button type="button" onclick="selectDocSubFolder('${f.key.replace(/'/g, "\\'")}', '${l1.key.replace(/'/g, "\\'")}')" class="flex items-center gap-1.5 truncate text-left cursor-pointer flex-grow min-w-0" title="${l1.label || l1.key}">
+                                                        <i data-lucide="folder" class="w-3 h-3 ${isL1Active ? 'text-indigo-600' : 'text-slate-400 group-hover/l1:text-indigo-600'} shrink-0"></i>
+                                                        <span class="truncate ${isL1Active ? 'text-indigo-900 font-bold' : 'text-slate-700 font-semibold'}">${l1.label || l1.key}</span>
+                                                    </button>
+                                                </div>
+                                                <div class="flex items-center gap-0.5 shrink-0">
+                                                    <span class="px-1.5 py-0.2 rounded-full text-[8px] ${isL1Active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400 font-bold'}">${l1Count}</span>
+                                                    <button type="button" onclick="event.stopPropagation(); openAddSubFolderModal('${l1.key.replace(/'/g, "\\'")}')" class="p-0.5 text-violet-500 hover:text-violet-700 hover:bg-violet-50 rounded transition cursor-pointer opacity-0 group-hover/l1:opacity-100" title="Add Level 2 Nested Sub-Folder under '${l1.label || l1.key}'">
+                                                        <i data-lucide="folder-plus" class="w-2.5 h-2.5"></i>
+                                                    </button>
+                                                    <button type="button" onclick="event.stopPropagation(); openEditCategoryModal('${l1.key.replace(/'/g, "\\'")}', true, '${f.key.replace(/'/g, "\\'")}')" class="p-0.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded transition cursor-pointer opacity-0 group-hover/l1:opacity-100" title="Edit Sub-Folder (Level 1)">
+                                                        <i data-lucide="edit-2" class="w-2.5 h-2.5"></i>
+                                                    </button>
+                                                    <button type="button" onclick="event.stopPropagation(); openDeleteCategoryModal('${l1.key.replace(/'/g, "\\'")}', ${l1Count}, true, '${f.key.replace(/'/g, "\\'")}')" class="p-0.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer opacity-0 group-hover/l1:opacity-100" title="Delete Sub-Folder (Level 1)">
+                                                        <i data-lucide="trash-2" class="w-2.5 h-2.5"></i>
+                                                    </button>
+                                                </div>
                                             </div>
+
+                                            <!-- Level 2 Nested Sub-Folders (Max Depth) -->
+                                            ${hasL2 && isL1Expanded ? `
+                                                <div class="pl-4 pr-0.5 py-0.5 space-y-0.5 border-l-2 border-indigo-100 ml-3">
+                                                    ${l1.children.map(l2 => {
+                                                        const isL2Active = isParentSelected && activeDocSubFolder && (activeDocSubFolder.toLowerCase() === l2.key.toLowerCase() || activeDocSubFolder.toLowerCase() === `${l1.key}/${l2.key}`.toLowerCase());
+                                                        const l2Count = subCounts[`${f.key.toLowerCase()}:${l2.key.toLowerCase()}`] || 0;
+                                                        return `
+                                                            <div class="w-full flex items-center justify-between px-2 py-0.5 text-[10px] rounded-lg transition-all ${isL2Active ? 'bg-violet-50 text-violet-700 font-extrabold border-l-2 border-violet-600 shadow-xs' : 'text-slate-500 hover:bg-slate-50 font-medium'} group/l2 gap-1">
+                                                                <button type="button" onclick="selectDocSubFolder('${f.key.replace(/'/g, "\\'")}', '${l2.key.replace(/'/g, "\\'")}')" class="flex items-center gap-1.5 truncate text-left cursor-pointer flex-grow min-w-0" title="${l2.label || l2.key}">
+                                                                    <i data-lucide="corner-down-right" class="w-2.5 h-2.5 text-slate-300 shrink-0"></i>
+                                                                    <i data-lucide="folder" class="w-2.5 h-2.5 ${isL2Active ? 'text-violet-600' : 'text-slate-400 group-hover/l2:text-violet-600'} shrink-0"></i>
+                                                                    <span class="truncate ${isL2Active ? 'text-violet-900 font-bold' : 'text-slate-600 font-medium'}">${l2.label || l2.key}</span>
+                                                                </button>
+                                                                <div class="flex items-center gap-0.5 shrink-0">
+                                                                    <span class="px-1 py-0.1 rounded-full text-[8px] ${isL2Active ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-400 font-bold'}">${l2Count}</span>
+                                                                    <button type="button" onclick="event.stopPropagation(); openEditCategoryModal('${l2.key.replace(/'/g, "\\'")}', true, '${l1.key.replace(/'/g, "\\'")}')" class="p-0.5 text-slate-300 hover:text-violet-600 hover:bg-violet-50 rounded transition cursor-pointer opacity-0 group-hover/l2:opacity-100" title="Edit Nested Sub-Folder (Level 2)">
+                                                                        <i data-lucide="edit-2" class="w-2 h-2"></i>
+                                                                    </button>
+                                                                    <button type="button" onclick="event.stopPropagation(); openDeleteCategoryModal('${l2.key.replace(/'/g, "\\'")}', ${l2Count}, true, '${l1.key.replace(/'/g, "\\'")}')" class="p-0.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer opacity-0 group-hover/l2:opacity-100" title="Delete Nested Sub-Folder (Level 2)">
+                                                                        <i data-lucide="trash-2" class="w-2 h-2"></i>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        `;
+                                                    }).join('')}
+                                                    <button type="button" onclick="openAddSubFolderModal('${l1.key.replace(/'/g, "\\'")}')" class="w-full text-left px-2 py-0.5 text-[9px] font-bold text-violet-600 hover:bg-violet-50/80 rounded flex items-center gap-1 transition cursor-pointer">
+                                                        <i data-lucide="plus" class="w-2 h-2"></i>
+                                                        <span>Add Level 2 Folder</span>
+                                                    </button>
+                                                </div>
+                                            ` : ''}
                                         </div>
                                     `;
                                 }).join('')}
@@ -9667,9 +9943,32 @@
                         </div>
                     `;
                 } else {
-                    const currentCategorySubs = window.getSubFoldersForCategory(activeDocFolder);
+                    const subTree = window.getSubFoldersTreeForCategory(activeDocFolder);
                     const parentDocs = (documentsList || []).filter(d => (d.folder || d.type || '').toLowerCase() === activeDocFolder.toLowerCase());
                     const parentTotalCount = parentDocs.length;
+
+                    // Resolve Level 1 and Level 2 names for breadcrumbs
+                    let l1Breadcrumb = '';
+                    let l2Breadcrumb = '';
+                    if (activeDocSubFolder) {
+                        for (const l1 of subTree) {
+                            if (l1.key.toLowerCase() === activeDocSubFolder.toLowerCase() || (l1.label && l1.label.toLowerCase() === activeDocSubFolder.toLowerCase())) {
+                                l1Breadcrumb = l1.label || l1.key;
+                                break;
+                            }
+                            if (Array.isArray(l1.children)) {
+                                for (const l2 of l1.children) {
+                                    if (l2.key.toLowerCase() === activeDocSubFolder.toLowerCase() || (l2.label && l2.label.toLowerCase() === activeDocSubFolder.toLowerCase())) {
+                                        l1Breadcrumb = l1.label || l1.key;
+                                        l2Breadcrumb = l2.label || l2.key;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (l1Breadcrumb && l2Breadcrumb) break;
+                        }
+                        if (!l1Breadcrumb) l1Breadcrumb = activeDocSubFolder;
+                    }
 
                     subfoldersBar.innerHTML = `
                         <div class="space-y-2">
@@ -9685,11 +9984,18 @@
                                         <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>
                                         <span>${activeDocFolder}</span>
                                     </button>
-                                    ${activeDocSubFolder ? `
+                                    ${l1Breadcrumb ? `
                                         <span class="text-slate-300">/</span>
-                                        <span class="text-indigo-600 font-black flex items-center gap-1 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
-                                            <i data-lucide="folder-check" class="w-3.5 h-3.5 text-indigo-600"></i>
-                                            <span>${activeDocSubFolder}</span>
+                                        <button type="button" onclick="selectDocSubFolder('${activeDocFolder.replace(/'/g, "\\'")}', '${l1Breadcrumb.replace(/'/g, "\\'")}')" class="${!l2Breadcrumb ? 'text-indigo-600 font-black bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100' : 'text-slate-600 hover:text-indigo-600'} transition flex items-center gap-1 cursor-pointer">
+                                            <i data-lucide="folder" class="w-3.5 h-3.5 text-indigo-600"></i>
+                                            <span>${l1Breadcrumb}</span>
+                                        </button>
+                                    ` : ''}
+                                    ${l2Breadcrumb ? `
+                                        <span class="text-slate-300">/</span>
+                                        <span class="text-violet-700 font-black flex items-center gap-1 bg-violet-50 px-2 py-0.5 rounded-lg border border-violet-200">
+                                            <i data-lucide="folder-check" class="w-3.5 h-3.5 text-violet-600"></i>
+                                            <span>${l2Breadcrumb}</span>
                                         </span>
                                     ` : ''}
                                 </div>
@@ -9704,19 +10010,19 @@
                             <!-- Sub-Folder Filter Pills -->
                             <div class="flex items-center gap-1.5 flex-wrap pt-1">
                                 <span class="text-[10px] uppercase font-extrabold tracking-wider text-slate-400 mr-1 flex items-center gap-1">
-                                    <i data-lucide="filter" class="w-3 h-3"></i> Sub-Folders:
+                                    <i data-lucide="filter" class="w-3 h-3"></i> Folders:
                                 </span>
                                 <button type="button" onclick="selectDocFolder('${activeDocFolder.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${!activeDocSubFolder ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}">
                                     All in ${activeDocFolder} (${parentTotalCount})
                                 </button>
-                                ${currentCategorySubs.map(s => {
-                                    const isSubAct = activeDocSubFolder && activeDocSubFolder.toLowerCase() === s.toLowerCase();
-                                    const subCount = parentDocs.filter(d => (d.subFolder || '').toLowerCase() === s.toLowerCase()).length;
+                                ${subTree.map(l1 => {
+                                    const isL1Act = activeDocSubFolder && (activeDocSubFolder.toLowerCase() === l1.key.toLowerCase() || (l1.label && activeDocSubFolder.toLowerCase() === l1.label.toLowerCase()));
+                                    const l1DocsCount = parentDocs.filter(d => (d.subFolder || '').toLowerCase() === l1.key.toLowerCase() || (d.subFolder || '').toLowerCase().startsWith(l1.key.toLowerCase() + '/')).length;
                                     return `
-                                        <button type="button" onclick="selectDocSubFolder('${activeDocFolder.replace(/'/g, "\\'")}', '${s.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${isSubAct ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20' : 'bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700'}">
-                                            <i data-lucide="folder" class="w-3 h-3 ${isSubAct ? 'text-white' : 'text-indigo-500'}"></i>
-                                            <span>${s}</span>
-                                            <span class="text-[10px] ${isSubAct ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'} px-1.5 py-0.2 rounded-full font-black">${subCount}</span>
+                                        <button type="button" onclick="selectDocSubFolder('${activeDocFolder.replace(/'/g, "\\'")}', '${l1.key.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${isL1Act ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20' : 'bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700'}">
+                                            <i data-lucide="folder" class="w-3 h-3 ${isL1Act ? 'text-white' : 'text-indigo-500'}"></i>
+                                            <span>${l1.label || l1.key}</span>
+                                            <span class="text-[10px] ${isL1Act ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'} px-1.5 py-0.2 rounded-full font-black">${l1DocsCount}</span>
                                         </button>
                                     `;
                                 }).join('')}
