@@ -550,12 +550,12 @@
         let notifications = [];
         let socket = null;
 
-        async function fetchNotifications() {}
-        function renderNotificationsUI() {}
-        window.markAllAsRead = async function(event) {}
-        window.handleNotifClick = async function(notifId, type, relatedId) {}
-        function showToastNotification(n) {}
-        window.toggleNotifications = function(e) {}
+        async function fetchNotifications() { if (window._adminFetchNotifications) return window._adminFetchNotifications(); }
+        function renderNotificationsUI() { if (window._adminRenderNotifications) return window._adminRenderNotifications(); }
+        window.markAllAsRead = async function(event) { if (window._adminMarkAllRead) return window._adminMarkAllRead(event); };
+        window.handleNotifClick = async function(notifId, type, relatedId) { if (window._adminNotifClick) return window._adminNotifClick(notifId); };
+        function showToastNotification(n) { if (window._adminShowToast) return window._adminShowToast(n); }
+        window.toggleNotifications = function(e) { if (window._adminToggleBell) return window._adminToggleBell(e); };
 
         document.addEventListener('click', () => {
             const d = document.getElementById('notifications-dropdown');
@@ -567,11 +567,7 @@
             if (!authObj.id) return;
             let wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             let wsHost = window.location.host;
-            if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && window.location.hostname !== '[::1]') {
-                wsHost = 'globalisor-77d7da9fe8c7.herokuapp.com';
-                wsProtocol = 'wss:';
-            }
-            socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${authObj.id}&role=admin`);
+            socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${encodeURIComponent(authObj.id)}&role=admin`);
 
             socket.onmessage = function(event) {
                 // local page-specific messages, notifications handled by sidebar

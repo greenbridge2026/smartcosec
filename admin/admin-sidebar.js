@@ -1286,32 +1286,43 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window._adminMarkAllRead = async function(e) {
-        e.stopPropagation();
-        try {
-            const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
-            const adminId = auth.id || auth.userId || 'staff-admin';
-            await fetch(`/api/notifications/read-all?clientId=${adminId}`, { method: 'POST' });
-        } catch(err) { console.warn('Mark all read failed', err); }
+        if (e && e.stopPropagation) e.stopPropagation();
         const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
-        const adminId = auth.id || auth.userId || 'staff-admin';
-        window._adminNotifications = window._adminNotifications.map(n => {
-            const readBy = n.readBy || [];
-            if (!readBy.includes(adminId)) {
-                readBy.push(adminId);
-            }
+        const adminId = auth.id || auth.userId || 'admin';
+        const adminKeys = ['admin', 'staff', 'staff-admin', adminId, auth.userId, auth.email].filter(Boolean);
+
+        // Optimistically mark all in-memory notifications as read immediately
+        window._adminNotifications = (window._adminNotifications || []).map(n => {
+            const readBy = Array.isArray(n.readBy) ? [...n.readBy] : [];
+            adminKeys.forEach(k => {
+                if (!readBy.includes(k)) readBy.push(k);
+            });
             return { ...n, readBy };
         });
         window._adminRenderNotifications();
+
+        try {
+            await fetch(`/api/notifications/read-all?clientId=${encodeURIComponent(adminId)}&role=admin`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ clientId: adminId, role: 'admin' })
+            });
+        } catch(err) { console.warn('Mark all read failed', err); }
     };
+    window.markAllAsRead = window._adminMarkAllRead;
 
     window._adminRenderNotifications = function() {
         const list = document.getElementById('admin-notif-list');
         const badge = document.getElementById('admin-notif-badge');
         if (!list) return;
         const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
-        const adminId = auth.id || auth.userId || 'staff-admin';
+        const adminId = auth.id || auth.userId || 'admin';
+        const adminKeys = ['admin', 'staff', 'staff-admin', adminId, auth.userId, auth.email].filter(Boolean);
         const notifs = window._adminNotifications || [];
-        const unread = notifs.filter(n => !n.readBy || !n.readBy.includes(adminId)).length;
+        const unread = notifs.filter(n => {
+            if (!n.readBy || !Array.isArray(n.readBy)) return true;
+            return !n.readBy.some(k => adminKeys.includes(k));
+        }).length;
         if (badge) {
             if (unread > 0) {
                 badge.style.display = 'inline-flex';
@@ -1328,7 +1339,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         list.innerHTML = notifs.slice(0, 20).map(n => {
-            const isRead = n.readBy && n.readBy.includes(adminId);
+            const isRead = n.readBy && Array.isArray(n.readBy) && n.readBy.some(k => adminKeys.includes(k));
             const displayMsg = window._adminFormatNotifMessage(n.message || n.description || '');
             return `
             <div onclick="window._adminNotifClick('${n.id || ''}','${n.link || ''}')" style="padding:12px 16px;border-bottom:1px solid #f8fafc;cursor:pointer;background:${isRead ? '#fff' : '#eff6ff'};transition:background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='${isRead ? '#fff' : '#eff6ff'}'">
@@ -1347,21 +1358,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window._adminNotifClick = async function(id, link) {
         const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
-        const adminId = auth.id || auth.userId || 'staff-admin';
+        const adminId = auth.id || auth.userId || 'admin';
+        const adminKeys = ['admin', 'staff', 'staff-admin', adminId, auth.userId, auth.email].filter(Boolean);
         if (id) {
             try {
                 await fetch(`/api/notifications/read`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ notifId: id, clientId: adminId })
+                    body: JSON.stringify({ notifId: id, clientId: adminId, role: 'admin' })
                 });
             } catch(e) {}
             const notif = window._adminNotifications.find(n => n.id === id);
             if (notif) {
-                if (!notif.readBy) notif.readBy = [];
-                if (!notif.readBy.includes(adminId)) {
-                    notif.readBy.push(adminId);
-                }
+                if (!notif.readBy || !Array.isArray(notif.readBy)) notif.readBy = [];
+                adminKeys.forEach(k => {
+                    if (!notif.readBy.includes(k)) notif.readBy.push(k);
+                });
                 if (notif.type === 'CHANGE_OF_ADDRESS_REQUEST' || link === 'chat_request') {
                     window._adminRenderNotifications();
                     window.openAddressChangeRequestInChat(notif.relatedId || '', notif.message || '', notif.title || '');
@@ -1474,7 +1486,8 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
             const adminId = auth.id || auth.userId || 'admin';
-            const res = await fetch(`/api/notifications?clientId=${encodeURIComponent(adminId)}`);
+            const adminKeys = ['admin', 'staff', 'staff-admin', adminId, auth.userId, auth.email].filter(Boolean);
+            const res = await fetch(`/api/notifications?clientId=${encodeURIComponent(adminId)}&role=admin`);
             if (res.ok) {
                 const data = await res.json();
                 const fetched = Array.isArray(data) ? data : (data.notifications || []);
@@ -1496,7 +1509,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (!window._adminSeenNotifIds.has(n.id)) {
                             window._adminSeenNotifIds.add(n.id);
                             const ageMs = now - (n.timestamp || now);
-                            if (ageMs < 60000) {
+                            const isRead = n.readBy && Array.isArray(n.readBy) && n.readBy.some(k => adminKeys.includes(k));
+                            if (ageMs < 60000 && !isRead) {
                                 window._adminShowToast(n);
                             }
                         }
@@ -1522,17 +1536,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // WebSocket listener for real-time notifications
     if (!window._adminWsConnected) {
-        try {
             const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
-            const adminId = auth.id || auth.userId || 'staff-admin';
-            const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
-            let wsHost = location.host;
-            let wsProtocol = wsProto;
-            if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1' && location.hostname !== '[::1]') {
-                wsHost = 'globalisor-77d7da9fe8c7.herokuapp.com';
-                wsProtocol = 'wss';
-            }
-            const ws = new WebSocket(`${wsProtocol}://${wsHost}/api/ws/chat?userId=${adminId}&role=admin`);
+            const adminId = auth.id || auth.userId || 'admin';
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsHost = location.host;
+            const wsUrl = `${wsProtocol}//${wsHost}/api/ws/chat?userId=${encodeURIComponent(adminId)}&role=admin`;
+            const ws = new WebSocket(wsUrl);
             ws.onmessage = function(evt) {
                 try {
                     const msg = JSON.parse(evt.data);
@@ -1556,9 +1565,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     window._adminFetchUnreadMessagesCount();
                 } catch(e) {}
             };
-            ws.onerror = function() {};
-            window._adminWsConnected = true;
-        } catch(e) {}
+            ws.onopen = function() {
+                window._adminWsConnected = true;
+            };
+            ws.onclose = function() {
+                window._adminWsConnected = false;
+            };
+            ws.onerror = function() {
+                window._adminWsConnected = false;
+            };
     }
 
     window._adminShowToast = function(n) {

@@ -550,14 +550,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const auth = JSON.parse(localStorage.getItem('client_auth') || '{}');
             const clientId = auth.id || auth.userId || '';
             if (clientId) {
-                const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
-                let wsHost = location.host;
-                let wsProtocol = wsProto;
-                if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1' && location.hostname !== '[::1]') {
-                    wsHost = 'globalisor-77d7da9fe8c7.herokuapp.com';
-                    wsProtocol = 'wss';
-                }
-                const ws = new WebSocket(`${wsProtocol}://${wsHost}/api/ws/chat?userId=${clientId}&role=client`);
+                const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsHost = location.host;
+                const ws = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${encodeURIComponent(clientId)}&role=client`);
                 ws.onmessage = function(evt) {
                     try {
                         const msg = JSON.parse(evt.data);

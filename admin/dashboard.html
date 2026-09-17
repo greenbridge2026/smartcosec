@@ -3068,11 +3068,7 @@
             const userId = authObj.id || authObj.userId || 'staff-admin';
             let wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             let wsHost = window.location.host;
-            if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && window.location.hostname !== '[::1]') {
-                wsHost = 'globalisor-77d7da9fe8c7.herokuapp.com';
-                wsProtocol = 'wss:';
-            }
-            socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${userId}&role=admin`);
+            socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${encodeURIComponent(userId)}&role=admin`);
 
             socket.onmessage = function(event) {
                 try {
@@ -3139,13 +3135,13 @@
             return `${dateStr}, ${timeStr}`;
         }
 
-        async function fetchNotifications() {}
-        function renderNotificationsUI() {}
-        window.markAllAsRead = async function(event) {}
-        window.handleNotifClick = async function(notifId, type, relatedId) {}
-        function showToastNotification(n) {}
-        function updateNotifications() {}
-        function toggleNotifications(e) {}
+        async function fetchNotifications() { if (window._adminFetchNotifications) return window._adminFetchNotifications(); }
+        function renderNotificationsUI() { if (window._adminRenderNotifications) return window._adminRenderNotifications(); }
+        window.markAllAsRead = async function(event) { if (window._adminMarkAllRead) return window._adminMarkAllRead(event); };
+        window.handleNotifClick = async function(notifId, type, relatedId) { if (window._adminNotifClick) return window._adminNotifClick(notifId); };
+        function showToastNotification(n) { if (window._adminShowToast) return window._adminShowToast(n); }
+        function updateNotifications() { if (window._adminRenderNotifications) return window._adminRenderNotifications(); }
+        function toggleNotifications(e) { if (window._adminToggleBell) return window._adminToggleBell(e); }
 
         function switchTab(tab) {
             document.querySelectorAll('.module-nav-btn').forEach(btn => btn.classList.remove('active'));
