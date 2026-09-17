@@ -3589,7 +3589,7 @@ app.post('/api/tasks', (req, res) => {
     // Auto-generate notification
     if (!db.notifications) db.notifications = [];
     db.notifications.unshift({
-        id: `notif-${Date.now()}`,
+        id: `notif-${Date.now()}-client`,
         clientId: newTask.clientId,
         title: `Task Raised: ${newTask.ticketNumber}`,
         message: `Your request '${newTask.title}' has been submitted and is currently being routed.`,
@@ -3597,6 +3597,20 @@ app.post('/api/tasks', (req, res) => {
         relatedId: newTask.id,
         link: '/client/portal.html?tab=tasks',
         priority: 'Info',
+        timestamp: now,
+        readBy: []
+    });
+
+    const clientLabel = `${newTask.clientName || 'Client'}${newTask.companyName ? ` (${newTask.companyName})` : ''}`;
+    db.notifications.unshift({
+        id: `notif-${Date.now()}-admin`,
+        clientId: 'admin',
+        title: `New Task Raised: ${newTask.ticketNumber}`,
+        message: `${clientLabel} raised a new task: '${newTask.title}'`,
+        type: 'TASK_CREATED',
+        relatedId: newTask.id,
+        link: `tasks.html?id=${newTask.id}`,
+        priority: 'High',
         timestamp: now,
         readBy: []
     });
@@ -3758,15 +3772,29 @@ app.post('/api/tasks/:id/comments', (req, res) => {
     // Notify recipient if not internal
     if (!isInternal) {
         if (!db.notifications) db.notifications = [];
-        if (authorRole === 'CLIENT' && task.assignedTo && task.assignedTo.id) {
+        if (authorRole === 'CLIENT') {
+            if (task.assignedTo && task.assignedTo.id) {
+                db.notifications.unshift({
+                    id: `notif-${Date.now()}`,
+                    clientId: task.assignedTo.id,
+                    title: `Client Message on ${task.ticketNumber}`,
+                    message: `${authorName}: ${text}`,
+                    type: 'TASK_COMMENT',
+                    relatedId: task.id,
+                    link: `tasks.html?id=${task.id}`,
+                    priority: 'Info',
+                    timestamp: now,
+                    readBy: []
+                });
+            }
             db.notifications.unshift({
-                id: `notif-${Date.now()}`,
-                clientId: task.assignedTo.id,
+                id: `notif-${Date.now()}-adm`,
+                clientId: 'admin',
                 title: `Client Message on ${task.ticketNumber}`,
-                message: `${authorName}: ${text}`,
+                message: `${authorName} (${task.companyName || 'Client'}): ${text}`,
                 type: 'TASK_COMMENT',
                 relatedId: task.id,
-                link: '/staff/dashboard.html?tab=tasks',
+                link: `tasks.html?id=${task.id}`,
                 priority: 'Info',
                 timestamp: now,
                 readBy: []
@@ -3789,6 +3817,91 @@ app.post('/api/tasks/:id/comments', (req, res) => {
 
     saveDb(db);
     res.status(201).json(task);
+});
+
+app.post('/api/admin/intelligence/submit-address-change', (req, res) => {
+    const db = getDb();
+    if (!db.tasks) db.tasks = [];
+    if (!db.notifications) db.notifications = [];
+
+    const now = Date.now();
+    const taskCount = db.tasks.length;
+    const ticketNumber = `TSK-${1000 + taskCount + 1}`;
+    const { userId, companyName, newAddress, effectiveDate, officeHours, addressProofDoc } = req.body;
+
+    const displayCompName = companyName || '3B Trading & Consulting Pte. Ltd.';
+    const clientName = userId && !userId.includes('@') ? userId : (displayCompName || 'Client');
+
+    const newTask = {
+        id: `tsk-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        ticketNumber,
+        clientId: userId || 'C-1001',
+        clientName: clientName,
+        clientEmail: userId && userId.includes('@') ? userId : 'client@globalisor.com',
+        companyName: displayCompName,
+        title: `Change Registered Address to ${newAddress && newAddress.length > 35 ? newAddress.substring(0, 35) + '...' : (newAddress || 'New Address')}`,
+        description: `Client requested Change of Registered Office Address via AI Chat Agent.\n\n• Company: ${displayCompName}\n• New Registered Address: ${newAddress || 'N/A'}\n• Effective Date: ${effectiveDate || 'Date of Resolution'}\n• Office Hours: ${officeHours || 'No change'}\n• Address Proof Document: ${addressProofDoc || 'Attached File'}`,
+        type: 'CHANGE',
+        category: 'Registered Address Change',
+        priority: 'HIGH',
+        status: 'PENDING',
+        assignedTo: null,
+        dueDate: 'Within 24 Hours',
+        attachments: addressProofDoc ? [{ id: `att-${Date.now()}`, name: addressProofDoc, url: '', type: 'Address Proof', uploadedAt: now }] : [],
+        comments: [],
+        activityLog: [{
+            id: `act-${Date.now()}`,
+            action: 'CREATED',
+            details: `Task raised via AI Chat Agent: Change of Address to ${newAddress}`,
+            performedBy: clientName,
+            performedByRole: 'CLIENT',
+            timestamp: now
+        }],
+        createdAt: now,
+        updatedAt: now
+    };
+
+    db.tasks.unshift(newTask);
+
+    // Client notification
+    db.notifications.unshift({
+        id: `notif-${Date.now()}-client`,
+        clientId: newTask.clientId,
+        title: `Task Raised: ${ticketNumber}`,
+        message: `Your request for Change of Address has been submitted as task ${ticketNumber}.`,
+        type: 'TASK_CREATED',
+        relatedId: newTask.id,
+        link: '/client/portal.html?tab=tasks',
+        priority: 'Info',
+        timestamp: now,
+        readBy: []
+    });
+
+    // Admin notification
+    db.notifications.unshift({
+        id: `notif-${Date.now()}-adm`,
+        clientId: 'admin',
+        title: `New Task Raised: ${ticketNumber}`,
+        message: `${clientName} (${displayCompName}) requested Change of Registered Address: '${newAddress}'`,
+        type: 'TASK_CREATED',
+        relatedId: newTask.id,
+        link: `tasks.html?id=${newTask.id}`,
+        priority: 'High',
+        timestamp: now,
+        readBy: []
+    });
+
+    saveDb(db);
+    res.json({
+        status: 'SUCCESS',
+        message: 'Change of registered office address request submitted to Admin.',
+        ticketNumber: ticketNumber,
+        taskId: newTask.id,
+        newAddress,
+        effectiveDate,
+        officeHours,
+        addressProofDoc
+    });
 });
 
 app.delete('/api/tasks/:id', (req, res) => {

@@ -1467,6 +1467,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e) {}
     };
 
+    window._adminSeenNotifIds = window._adminSeenNotifIds || new Set();
+    let _adminInitialFetchDone = false;
+
     window._adminFetchNotifications = async function() {
         try {
             const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
@@ -1485,6 +1488,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 window._adminNotifications = Array.from(mergedMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
                 window._adminRenderNotifications();
+
+                // If not initial load, trigger toast for any newly fetched unread notification from last 60 seconds
+                if (_adminInitialFetchDone) {
+                    const now = Date.now();
+                    fetched.forEach(n => {
+                        if (!window._adminSeenNotifIds.has(n.id)) {
+                            window._adminSeenNotifIds.add(n.id);
+                            const ageMs = now - (n.timestamp || now);
+                            if (ageMs < 60000) {
+                                window._adminShowToast(n);
+                            }
+                        }
+                    });
+                } else {
+                    fetched.forEach(n => window._adminSeenNotifIds.add(n.id));
+                    _adminInitialFetchDone = true;
+                }
             }
         } catch(e) { /* silently fail */ }
         window._adminFetchUnreadMessagesCount();
@@ -1526,6 +1546,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const exists = window._adminNotifications.some(n => n.id === notif.id);
                                 if (!exists) {
                                     window._adminNotifications.unshift(notif);
+                                    window._adminSeenNotifIds.add(notif.id);
                                     window._adminRenderNotifications();
                                     window._adminShowToast(notif);
                                 }
@@ -1544,15 +1565,39 @@ document.addEventListener('DOMContentLoaded', () => {
         const title = n.title || 'Notification';
         const rawMsg = n.message || n.description || '';
         const msg = window._adminFormatNotifMessage(rawMsg);
+        
+        const isTaskNotif = n.type === 'TASK_CREATED' || n.type === 'TASK_COMMENT' || n.type === 'TASK_STATUS' || n.type === 'task' || (title && title.toLowerCase().includes('task'));
+        const icon = isTaskNotif ? '📋' : (n.type === 'message' ? '💬' : '🔔');
+        const accentColor = isTaskNotif ? '#3b82f6' : (n.priority === 'High' ? '#ef4444' : '#10b981');
+        
         const toast = document.createElement('div');
-        toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#0f172a;color:#fff;padding:12px 16px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);z-index:99999;font-family:Outfit,sans-serif;font-size:12px;max-width:280px;animation:slideInToast 0.3s ease;cursor:pointer;';
-        toast.innerHTML = `<div style="font-weight:700;margin-bottom:2px;">🔔 ${title}</div><div style="opacity:0.75;">${msg}</div>`;
+        toast.className = 'admin-live-toast';
+        toast.style.cssText = `position:fixed;bottom:24px;right:24px;background:#0f172a;color:#fff;padding:14px 18px;border-radius:16px;box-shadow:0 10px 35px rgba(0,0,0,0.35);border-left:4px solid ${accentColor};z-index:99999;font-family:Outfit,system-ui,sans-serif;font-size:12px;max-width:320px;animation:slideInToast 0.3s cubic-bezier(0.16, 1, 0.3, 1);cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;display:flex;flex-direction:column;gap:4px;border-top:1px solid rgba(255,255,255,0.08);border-right:1px solid rgba(255,255,255,0.08);border-bottom:1px solid rgba(255,255,255,0.08);`;
+        
+        toast.onmouseenter = () => { toast.style.transform = 'translateY(-2px)'; toast.style.boxShadow = '0 14px 40px rgba(0,0,0,0.45)'; };
+        toast.onmouseleave = () => { toast.style.transform = 'translateY(0)'; toast.style.boxShadow = '0 10px 35px rgba(0,0,0,0.35)'; };
+
+        let actionHtml = isTaskNotif ? `<div style="margin-top:4px;display:flex;align-items:center;gap:4px;color:#60a5fa;font-weight:700;font-size:11px;">View Task <span style="font-size:13px;">→</span></div>` : '';
+
+        toast.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:between;gap:6px;">
+                <div style="font-weight:800;font-size:13px;color:#f8fafc;display:flex;align-items:center;gap:6px;flex-grow:1;">
+                    <span>${icon}</span>
+                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title}</span>
+                </div>
+                <button type="button" onclick="event.stopPropagation(); this.closest('.admin-live-toast').remove();" style="background:none;border:none;color:#94a3b8;font-size:16px;cursor:pointer;line-height:1;padding:0 2px;margin-left:auto;" title="Close">&times;</button>
+            </div>
+            <div style="opacity:0.85;color:#cbd5e1;line-height:1.4;font-size:11.5px;margin-top:2px;">${msg}</div>
+            ${actionHtml}
+        `;
         
         toast.onclick = () => {
             toast.remove();
             let link = n.link;
             if (!link) {
-                if (n.type === 'message') {
+                if (isTaskNotif) {
+                    link = n.relatedId ? `tasks.html?id=${n.relatedId}` : 'tasks.html';
+                } else if (n.type === 'message') {
                     link = 'messages.html';
                 } else if (n.type === 'blog') {
                     link = 'blogs.html';
@@ -1568,13 +1613,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!document.getElementById('admin-toast-style')) {
             const s = document.createElement('style');
             s.id = 'admin-toast-style';
-            s.textContent = '@keyframes slideInToast{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}';
+            s.textContent = '@keyframes slideInToast{from{transform:translateY(24px) scale(0.95);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}';
             document.head.appendChild(s);
         }
         document.body.appendChild(toast);
         setTimeout(() => {
-            if (toast.parentNode) toast.remove();
-        }, 15000);
+            if (toast.parentNode) {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(10px)';
+                setTimeout(() => { if (toast.parentNode) toast.remove(); }, 300);
+            }
+        }, 12000);
     };
 
     // --- Quick Chat Popup Injector ---

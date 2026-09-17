@@ -7528,24 +7528,28 @@ async function finalizeChangeOfAddressFlow() {
     const typeEl = document.getElementById('ai-typing-indicator');
     if (typeEl) typeEl.remove();
 
+    const ticketNo = resData && resData.ticketNumber ? resData.ticketNumber : '';
     const completionText = `🎉 **Change of Registered Office Address Request Submitted!**
 
-Your request and address proof document have been sent to our Corporate Secretarial Admin team.
+An official task ${ticketNo ? `**${ticketNo}** ` : ''}has been automatically created and dispatched to our Corporate Secretarial Admin team.
 
 ---
 **Summary of Submitted Request:**
-• **New Address:** \`${data.newAddress}\`
+${ticketNo ? `• **Task Ticket:** \`${ticketNo}\`\n` : ''}• **New Address:** \`${data.newAddress}\`
 • **Effective Date:** \`${data.effectiveDate}\`
 • **Registered Office Hours:** \`${data.officeHours}\`
 • **Address Proof:** \`${data.addressProofDoc || 'Attached File'}\`
-• **Status:** \`Submitted to Admin (Pending Review & Draft Generation)\`
+• **Status:** \`Task Created & Dispatched (Pending Review & Draft Generation)\`
 
 ---
 🔔 **Next Steps:**
-Our Corporate Secretarial Admin team has received a high-priority notification. An officer will review your submitted details, generate the official draft DRIW resolution document, and send it directly to you here in the chat once prepared!`;
+Our Corporate Secretarial Admin team has received an instant real-time notification. An officer will review your submitted details, generate the official draft DRIW resolution document, and communicate updates directly via this chat and your **Requests & Tasks** tab!`;
 
     appendAIMessage('bot', completionText);
     state.clientChatFlow = null;
+    if (typeof fetchClientTasks === 'function') {
+        fetchClientTasks();
+    }
 }
 
 function appendAIMessageWithOptions(sender, text, options = [], customHtml = '') {
