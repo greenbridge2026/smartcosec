@@ -4024,8 +4024,8 @@
             if (oldModal) oldModal.remove();
 
             const countMsg = count > 0 
-                ? `<div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 font-medium mt-3 flex items-start gap-2"><i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i><span>This folder contains <strong>${count} document(s)</strong>. Deleting it will safely keep files under <strong>"${isSubFolder ? parentKey : 'Others'}"</strong>.</span></div>`
-                : `<p class="text-xs text-slate-500 mt-2">Are you sure you want to delete <strong>"${catKey}"</strong>?</p>`;
+                ? `<div class="p-3 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-800 font-medium mt-3 flex items-start gap-2"><i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600 shrink-0 mt-0.5"></i><span>This folder contains <strong>${count} document(s)</strong>. <strong class="text-rose-700 font-bold">Warning:</strong> Deleting this ${isSubFolder ? 'sub-folder' : 'category'} will permanently delete all <strong>${count} document(s)</strong> stored inside it.</span></div>`
+                : `<p class="text-xs text-slate-500 mt-2">Are you sure you want to delete <strong>"${catKey}"</strong>? All documents inside this folder will also be permanently deleted.</p>`;
 
             const modalHtml = `
                 <div id="${modalId}" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 animate-fade-in">
@@ -4037,7 +4037,7 @@
                                 </div>
                                 <h3 class="font-extrabold text-slate-900 text-sm">Delete ${isSubFolder ? 'Sub-Folder' : 'Category'}</h3>
                             </div>
-                            <button type="button" onclick="document.getElementById('${modalId}').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-200/50 transition">
+                            <button type="button" onclick="document.getElementById('${modalId}').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-200/50 transition cursor-pointer">
                                 <i data-lucide="x" class="w-4 h-4"></i>
                             </button>
                         </div>
@@ -4046,9 +4046,9 @@
                             ${countMsg}
                             <div class="pt-5 mt-5 border-t border-slate-100 flex items-center justify-end gap-2.5">
                                 <button type="button" onclick="document.getElementById('${modalId}').remove()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 font-bold rounded-xl transition text-xs cursor-pointer">Cancel</button>
-                                <button type="button" id="btn-confirm-delete-cat" onclick="window.submitDeleteCategory('${catKey.replace(/'/g, "\\'")}', '${modalId}', ${isSubFolder}, '${(parentKey || '').replace(/'/g, "\\'")}')" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl shadow-md shadow-rose-500/20 transition flex items-center gap-1 text-xs cursor-pointer">
+                                <button type="button" id="btn-confirm-delete-cat" onclick="window.submitDeleteCategory('${catKey.replace(/'/g, "\\'")}', '${modalId}', ${isSubFolder}, '${(parentKey || '').replace(/'/g, "\\'")}')" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl shadow-md shadow-rose-500/20 transition flex items-center gap-1.5 text-xs cursor-pointer">
                                     <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                                    <span>Delete</span>
+                                    <span>Delete Folder & Files</span>
                                 </button>
                             </div>
                         </div>
@@ -4092,16 +4092,19 @@
                     localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
                 }
 
+                // Delete all documents under this subfolder / category from active documentsList
                 if (documentsList && Array.isArray(documentsList)) {
-                    documentsList.forEach(d => {
+                    documentsList = documentsList.filter(d => {
                         if (isSubFolder) {
                             if (d.subFolder && (d.subFolder.toLowerCase() === catKey.toLowerCase() || d.subFolder.toLowerCase().startsWith(catKey.toLowerCase() + '/') || d.subFolder.toLowerCase().endsWith('/' + catKey.toLowerCase()))) {
-                                d.subFolder = null;
+                                return false; // Delete this document
                             }
+                            return true;
                         } else {
-                            if (d.folder && d.folder.toLowerCase() === catKey.toLowerCase()) d.folder = "Others";
-                            if (d.type && d.type.toLowerCase() === catKey.toLowerCase()) d.type = "Others";
-                            d.subFolder = null;
+                            if (d.folder && d.folder.toLowerCase() === catKey.toLowerCase()) return false;
+                            if (d.type && d.type.toLowerCase() === catKey.toLowerCase()) return false;
+                            if (d.category && d.category.toLowerCase() === catKey.toLowerCase()) return false;
+                            return true;
                         }
                     });
                 }
@@ -4113,7 +4116,7 @@
                     activeDocSubFolder = null;
                 }
 
-                window.showToast(`${isSubFolder ? 'Sub-folder' : 'Category'} "${catKey}" deleted.`, 'success');
+                window.showToast(`${isSubFolder ? 'Sub-folder' : 'Category'} "${catKey}" and all contained documents deleted.`, 'success');
                 const modal = document.getElementById(modalId);
                 if (modal) modal.remove();
 
@@ -4121,7 +4124,22 @@
                 renderDocTable();
             } catch(err) {
                 console.error("Error deleting folder:", err);
-                window.showToast("Removed locally: " + err.message, "info");
+                if (documentsList && Array.isArray(documentsList)) {
+                    documentsList = documentsList.filter(d => {
+                        if (isSubFolder) {
+                            if (d.subFolder && (d.subFolder.toLowerCase() === catKey.toLowerCase() || d.subFolder.toLowerCase().startsWith(catKey.toLowerCase() + '/') || d.subFolder.toLowerCase().endsWith('/' + catKey.toLowerCase()))) {
+                                return false;
+                            }
+                            return true;
+                        } else {
+                            if (d.folder && d.folder.toLowerCase() === catKey.toLowerCase()) return false;
+                            if (d.type && d.type.toLowerCase() === catKey.toLowerCase()) return false;
+                            if (d.category && d.category.toLowerCase() === catKey.toLowerCase()) return false;
+                            return true;
+                        }
+                    });
+                }
+                window.showToast("Folder and documents removed locally: " + err.message, "info");
                 const modal = document.getElementById(modalId);
                 if (modal) modal.remove();
                 renderDocFolders();
