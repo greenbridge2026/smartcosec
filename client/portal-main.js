@@ -8790,24 +8790,14 @@ function renderDocuments(container) {
         return docs.filter(d => (d.folder || '').toLowerCase() === name.toLowerCase()).length;
     };
 
+    const uniqueFolders = [];
+    docs.forEach(d => {
+        const f = (d.folder || d.type || '').trim();
+        if (f && !uniqueFolders.includes(f)) uniqueFolders.push(f);
+    });
     const folders = [
         { name: 'All Documents', count: countFor('All Documents'), active: true },
-        { name: 'KYC', count: countFor('KYC') },
-        { name: 'Invoice', count: countFor('Invoice') },
-        { name: 'Permanent folder', count: countFor('Permanent folder') },
-        { name: 'Incorporation', count: countFor('Incorporation') },
-        { name: 'All Signed', count: countFor('All Signed') },
-        { name: 'Change of Address', count: countFor('Change of Address') },
-        { name: 'Change of Directors', count: countFor('Change of Directors') },
-        { name: 'Change of CS', count: countFor('Change of CS') },
-        { name: 'Change of Auditors', count: countFor('Change of Auditors') },
-        { name: 'AGM AR', count: countFor('AGM AR') },
-        { name: 'Allotment of Shares', count: countFor('Allotment of Shares') },
-        { name: 'Final Demand', count: countFor('Final Demand') },
-        { name: 'Others', count: countFor('Others') },
-        { name: 'Tax', count: countFor('Tax') },
-        { name: 'RONS', count: countFor('RONS') },
-        { name: 'Bizfile & filing', count: countFor('Bizfile & filing') }
+        ...uniqueFolders.map(name => ({ name, count: countFor(name) }))
     ];
 
     container.innerHTML = `

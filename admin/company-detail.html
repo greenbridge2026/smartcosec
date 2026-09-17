@@ -889,22 +889,6 @@
                             <label class="block font-bold text-slate-400 mb-1.5 uppercase text-[9px] tracking-wider">Document Type</label>
                             <select id="doc-type-filter" onchange="renderDocTable()" class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer">
                                 <option value="all">All Types</option>
-                                <option value="KYC">KYC</option>
-                                <option value="Invoice">Invoice</option>
-                                <option value="Permanent folder">Permanent folder</option>
-                                <option value="Incorporation">Incorporation</option>
-                                <option value="All Signed">All Signed</option>
-                                <option value="Change of Address">Change of Address</option>
-                                <option value="Change of Directors">Change of Directors</option>
-                                <option value="Change of CS">Change of CS</option>
-                                <option value="Change of Auditors">Change of Auditors</option>
-                                <option value="AGM AR">AGM AR</option>
-                                <option value="Allotment of Shares">Allotment of Shares</option>
-                                <option value="Final Demand">Final Demand</option>
-                                <option value="Others">Others</option>
-                                <option value="Tax">Tax</option>
-                                <option value="RONS">RONS</option>
-                                <option value="Bizfile & filing">Bizfile & filing</option>
                             </select>
                         </div>
                         <div>
@@ -3099,27 +3083,7 @@
             };
         }
 
-        // ==========================================
-        // GLOBAL COMMON DOCUMENT TAXONOMY & CATEGORY MANAGEMENT
-        // ==========================================
-        const DEFAULT_GLOBAL_DOC_CATEGORIES = [
-            { key: "KYC", label: "KYC", icon: "shield-check", color: "blue", desc: "Passport, NRIC, Proof of Address", sortOrder: 1, isSystem: true },
-            { key: "Invoice", label: "Invoice", icon: "file-text", color: "emerald", desc: "Invoices, Billing & Receipts", sortOrder: 2, isSystem: true },
-            { key: "Permanent folder", label: "Permanent folder", icon: "folder-archive", color: "purple", desc: "Permanent Corporate Records", sortOrder: 3, isSystem: true },
-            { key: "Incorporation", label: "Incorporation", icon: "building", color: "indigo", desc: "BizFile, M&AA, Constitution", sortOrder: 4, isSystem: true },
-            { key: "All Signed", label: "All Signed", icon: "file-signature", color: "amber", desc: "Signed Agreements & Resolutions", sortOrder: 5, isSystem: true },
-            { key: "Change of Address", label: "Change of Address", icon: "map-pin", color: "rose", desc: "Form 44, Address Proofs", sortOrder: 6, isSystem: true },
-            { key: "Change of Directors", label: "Change of Directors", icon: "users", color: "sky", desc: "Form 45, Director Consents", sortOrder: 7, isSystem: true },
-            { key: "Change of CS", label: "Change of CS", icon: "user-cog", color: "violet", desc: "Secretary Appointment / Resignation", sortOrder: 8, isSystem: true },
-            { key: "Change of Auditors", label: "Change of Auditors", icon: "file-check", color: "teal", desc: "Auditor Appointment / Resignation", sortOrder: 9, isSystem: true },
-            { key: "AGM AR", label: "AGM AR", icon: "calendar", color: "cyan", desc: "AGM Minutes, Annual Return Filings", sortOrder: 10, isSystem: true },
-            { key: "Allotment of Shares", label: "Allotment of Shares", icon: "pie-chart", color: "orange", desc: "Return of Allotment, Share Certs", sortOrder: 11, isSystem: true },
-            { key: "Final Demand", label: "Final Demand", icon: "alert-triangle", color: "rose", desc: "Final Demand Notices & Reminders", sortOrder: 12, isSystem: true },
-            { key: "Tax", label: "Tax", icon: "receipt", color: "emerald", desc: "Tax Returns, Filings & Assessments", sortOrder: 13, isSystem: true },
-            { key: "RONS", label: "RONS", icon: "file-text", color: "indigo", desc: "Register of Nominee Directors / Officers", sortOrder: 14, isSystem: true },
-            { key: "Bizfile & filing", label: "Bizfile & filing", icon: "file-check-2", color: "blue", desc: "ACRA BizFile Reports & Filings", sortOrder: 15, isSystem: true },
-            { key: "Others", label: "Others", icon: "folder", color: "slate", desc: "Miscellaneous Documents", sortOrder: 16, isSystem: true }
-        ];
+        // ==============================        const DEFAULT_GLOBAL_DOC_CATEGORIES = [];
 
         window.docFolderExpandedState = {};
         window.activeDocSubFolder = null;
@@ -3129,7 +3093,7 @@
                 const cached = localStorage.getItem('global_document_categories');
                 if (cached) return JSON.parse(cached);
             } catch(e){}
-            return [...DEFAULT_GLOBAL_DOC_CATEGORIES];
+            return [];
         })();
 
         window.loadGlobalDocCategories = async function() {
@@ -3137,7 +3101,7 @@
                 const res = await fetch('/api/documents/categories');
                 if (res.ok) {
                     const data = await res.json();
-                    if (Array.isArray(data) && data.length > 0) {
+                    if (Array.isArray(data)) {
                         window.globalDocCategories = data.map(d => ({
                             id: d.id,
                             key: d.key,
@@ -3159,20 +3123,19 @@
                     }
                 }
             } catch (e) {
-                console.warn("Using cached/default global document categories:", e);
+                console.warn("Using cached document categories:", e);
             }
         };
 
         window.getCompanyDetailTaxonomy = function() {
-            return (window.globalDocCategories && window.globalDocCategories.length > 0) 
+            return (window.globalDocCategories && Array.isArray(window.globalDocCategories)) 
                 ? window.globalDocCategories 
-                : DEFAULT_GLOBAL_DOC_CATEGORIES;
+                : [];
         };
 
         window.getRootCategoriesList = function() {
             const taxonomyList = window.getCompanyDetailTaxonomy();
-            const roots = taxonomyList.filter(c => !c.parentKey || c.parentKey.trim() === '' || c.level === 0);
-            return roots.length > 0 ? roots : taxonomyList;
+            return taxonomyList.filter(c => !c.parentKey || c.parentKey.trim() === '' || c.level === 0);
         };
 
         window.getLevel1CategoriesList = function() {
@@ -9746,7 +9709,7 @@
             if (!container) return;
 
             const taxonomyRoots = window.getRootCategoriesList();
-            const rootCategories = (taxonomyRoots && taxonomyRoots.length > 0) ? taxonomyRoots : DEFAULT_GLOBAL_DOC_CATEGORIES;
+            const rootCategories = (taxonomyRoots && taxonomyRoots.length > 0) ? taxonomyRoots : [];
 
             const counts = {};
             const subCounts = {}; // key: "catKey:subFolder" (lowercase)
@@ -9821,7 +9784,18 @@
                 </div>
             `;
 
-            html += allRoots.map(f => {
+            if (allRoots.length === 0) {
+                html += `
+                    <div class="px-3 py-6 text-center text-xs text-slate-400">
+                        <div class="w-10 h-10 mx-auto mb-2 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                            ${window.getDocSvgIcon('folder', 'w-5 h-5')}
+                        </div>
+                        <p class="font-bold text-slate-600 text-xs">No folders yet</p>
+                        <p class="text-[10px] text-slate-400 mt-0.5">Click <strong>+ New Folder</strong> above to create your custom folders.</p>
+                    </div>
+                `;
+            } else {
+                html += allRoots.map(f => {
                 const isParentSelected = activeDocFolder && (f.name.toLowerCase() === activeDocFolder.toLowerCase() || f.key.toLowerCase() === activeDocFolder.toLowerCase());
                 const isParentActive = isParentSelected && !activeDocSubFolder;
                 const subTree = window.getSubFoldersTreeForCategory(f.key);
@@ -9951,6 +9925,7 @@
                     </div>
                 `;
             }).join('');
+            }
 
             container.innerHTML = html;
             if (window.lucide) window.lucide.createIcons();
