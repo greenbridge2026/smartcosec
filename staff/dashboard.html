@@ -1876,14 +1876,16 @@
                     const docRes = await fetch('/api/documents');
                     if (docRes.ok) {
                         const allDocs = await docRes.json();
-                        const assignedClientNames = new Set(staffData.applications.map(a => a.client.toLowerCase()));
+                        const assignedClientNames = new Set((staffData.applications || []).map(a => (a.client || '').toLowerCase()));
                         staffData.documents = (Array.isArray(allDocs) ? allDocs : []).filter(d => {
                             const clientName = d.clientName || (d.client ? d.client.split(' - ')[0] : '');
                             return assignedClientNames.has((clientName || '').toLowerCase());
                         });
+                    } else {
+                        staffData.documents = [];
                     }
                 } catch (err) {
-                    console.warn('Documents fetch skipped/failed:', err);
+                    staffData.documents = [];
                 }
 
                 // Calculate local stats based on actual data assigned to this staff member
@@ -4272,23 +4274,25 @@
 
         function setStaffTaskViewMode(mode) {
             staffTaskViewMode = mode;
-            const btnTable = document.getElementById('staff-btn-view-table');
-            const btnKanban = document.getElementById('staff-btn-view-kanban');
+            const btnTable = document.getElementById('staff-view-mode-table') || document.getElementById('staff-btn-view-table');
+            const btnKanban = document.getElementById('staff-view-mode-kanban') || document.getElementById('staff-btn-view-kanban');
             const tableContainer = document.getElementById('staff-tasks-table-container');
             const kanbanContainer = document.getElementById('staff-tasks-kanban-container');
 
             if (mode === 'table') {
-                btnTable.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-900 text-white flex items-center gap-1.5 cursor-pointer';
-                btnKanban.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center gap-1.5 cursor-pointer';
-                tableContainer.classList.remove('hidden');
-                kanbanContainer.classList.add('hidden');
+                if (btnTable) btnTable.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-900 text-white flex items-center gap-1.5 cursor-pointer';
+                if (btnKanban) btnKanban.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center gap-1.5 cursor-pointer';
+                if (tableContainer) tableContainer.classList.remove('hidden');
+                if (kanbanContainer) kanbanContainer.classList.add('hidden');
             } else {
-                btnTable.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center gap-1.5 cursor-pointer';
-                btnKanban.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-900 text-white flex items-center gap-1.5 cursor-pointer';
-                tableContainer.classList.add('hidden');
-                kanbanContainer.classList.remove('hidden');
+                if (btnTable) btnTable.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center gap-1.5 cursor-pointer';
+                if (btnKanban) btnKanban.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-900 text-white flex items-center gap-1.5 cursor-pointer';
+                if (tableContainer) tableContainer.classList.add('hidden');
+                if (kanbanContainer) kanbanContainer.classList.remove('hidden');
             }
             updateStaffTasksView();
+            if (typeof safeCreateIcons === 'function') safeCreateIcons();
+            else if (window.lucide) window.lucide.createIcons();
         }
 
         function showStaffToastNotification(message, taskId) {
@@ -5633,24 +5637,31 @@
                 const res = await fetch('/api/documents');
                 if (res.ok) {
                     const allDocs = await res.json();
-                    const assignedClientNames = new Set(staffData.applications.map(a => a.client.toLowerCase()));
+                    const assignedClientNames = new Set((staffData.applications || []).map(a => (a.client || '').toLowerCase()));
                     allStaffVaultDocuments = (Array.isArray(allDocs) ? allDocs : []).filter(d => {
                         const clientName = d.clientName || (d.client ? d.client.split(' - ')[0] : '');
                         return assignedClientNames.has((clientName || '').toLowerCase());
                     });
-                    renderStaffVault(allStaffVaultDocuments);
-                    updateStaffVaultStats(allStaffVaultDocuments);
+                } else {
+                    allStaffVaultDocuments = [];
                 }
             } catch (e) {
-                console.warn("Failed to load staff vault documents:", e);
+                allStaffVaultDocuments = [];
             }
+            renderStaffVault(allStaffVaultDocuments);
+            updateStaffVaultStats(allStaffVaultDocuments);
         }
 
         function updateStaffVaultStats(docs) {
-            document.getElementById('staff-vault-total').innerText = docs.length;
-            document.getElementById('staff-vault-pending').innerText = docs.filter(d => d.status === 'pending').length;
-            document.getElementById('staff-vault-approved').innerText = docs.filter(d => d.status === 'approved' || d.status === 'Approved').length;
-            document.getElementById('staff-vault-rejected').innerText = docs.filter(d => d.status === 'rejected' || d.status === 'Rejected').length;
+            docs = Array.isArray(docs) ? docs : [];
+            const elTotal = document.getElementById('staff-vault-total');
+            const elPending = document.getElementById('staff-vault-pending');
+            const elApproved = document.getElementById('staff-vault-approved');
+            const elRejected = document.getElementById('staff-vault-rejected');
+            if (elTotal) elTotal.innerText = docs.length;
+            if (elPending) elPending.innerText = docs.filter(d => (d.status || '').toLowerCase() === 'pending').length;
+            if (elApproved) elApproved.innerText = docs.filter(d => (d.status || '').toLowerCase() === 'approved').length;
+            if (elRejected) elRejected.innerText = docs.filter(d => (d.status || '').toLowerCase() === 'rejected').length;
         }
 
         function renderStaffVault(docs) {
