@@ -987,13 +987,57 @@
             }
         });
 
+        let recentlyAddedTaskIds = new Set();
+        let _initialTasksLoaded = false;
+
         async function refreshTasks() {
             try {
                 const res = await fetch('/api/tasks');
                 if (res.ok) {
-                    allTasks = await res.json();
+                    const newTasks = await res.json();
+
+                    if (_initialTasksLoaded && Array.isArray(newTasks)) {
+                        const prevIds = new Set((allTasks || []).map(t => t.id));
+                        newTasks.forEach(t => {
+                            if (t && t.id && !prevIds.has(t.id)) {
+                                recentlyAddedTaskIds.add(t.id);
+                                setTimeout(() => {
+                                    recentlyAddedTaskIds.delete(t.id);
+                                    applyFilters();
+                                }, 8000);
+                            }
+                        });
+                    } else if (Array.isArray(newTasks)) {
+                        _initialTasksLoaded = true;
+                    }
+
+                    allTasks = newTasks;
                     applyFilters();
                     updateKpiMetrics();
+
+                    // If modal is currently open and viewing a task, refresh its data silently
+                    if (currentTask && currentTask.id) {
+                        const updatedCurrent = allTasks.find(t => t.id === currentTask.id);
+                        if (updatedCurrent) {
+                            const modal = document.getElementById('task-modal');
+                            if (modal && !modal.classList.contains('hidden')) {
+                                const hadDifferentComments = (updatedCurrent.comments || []).length !== (currentTask.comments || []).length;
+                                const hadDifferentStatus = updatedCurrent.status !== currentTask.status;
+                                currentTask = updatedCurrent;
+                                if (hadDifferentComments && typeof renderCommentsList === 'function') {
+                                    renderCommentsList(currentTask.comments || []);
+                                    if (typeof renderTimeline === 'function') renderTimeline(currentTask.activities || []);
+                                }
+                                if (hadDifferentStatus) {
+                                    if (typeof renderStepper === 'function') renderStepper(currentTask.status);
+                                    const statusSelect = document.getElementById('detail-status-select');
+                                    if (statusSelect && document.activeElement !== statusSelect) {
+                                        statusSelect.value = currentTask.status || 'PENDING';
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             } catch (e) {
                 console.error('Error fetching tasks:', e);
@@ -1073,6 +1117,7 @@
             }
 
             tbody.innerHTML = tasks.map(t => {
+                const isNew = recentlyAddedTaskIds && recentlyAddedTaskIds.has(t.id);
                 const priorityBadge = getPriorityBadgeHtml(t.priority);
                 const statusBadge = getStatusBadgeHtml(t.status);
                 const assigneeHtml = t.assignedTo && t.assignedTo.name
@@ -1082,10 +1127,17 @@
                        </div>`
                     : `<span class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Unassigned</span>`;
 
+                const rowClass = isNew 
+                    ? 'bg-blue-50/70 hover:bg-blue-100/70 border-l-4 border-l-blue-600 transition duration-500 cursor-pointer'
+                    : 'hover:bg-slate-50 transition cursor-pointer';
+
                 return `
-                    <tr class="hover:bg-slate-50 transition cursor-pointer" onclick="openTaskDetail('${t.id}')">
+                    <tr class="${rowClass}" onclick="openTaskDetail('${t.id}')">
                         <td>
-                            <span class="font-mono font-bold text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">${t.ticketNumber || t.id}</span>
+                            <div class="flex items-center gap-1">
+                                <span class="font-mono font-bold text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">${t.ticketNumber || t.id}</span>
+                                ${isNew ? '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-blue-600 text-white animate-pulse">NEW</span>' : ''}
+                            </div>
                         </td>
                         <td>
                             <div class="font-bold text-slate-900 text-xs">${t.companyName || 'Entity'}</div>
@@ -1273,6 +1325,7 @@
             const renderCards = (list) => {
                 if (list.length === 0) return `<div class="p-8 text-center text-slate-400 text-xs italic font-sans border-2 border-dashed border-slate-200/80 rounded-2xl">Drop tasks here</div>`;
                 return list.map(t => {
+                    const isNew = recentlyAddedTaskIds && recentlyAddedTaskIds.has(t.id);
                     const assigneeAvatar = t.assignedTo?.name
                         ? `<div class="flex items-center gap-1.5">
                             <div class="w-5 h-5 rounded-full bg-slate-900 text-white font-bold text-[9px] flex items-center justify-center">${t.assignedTo.avatar || t.assignedTo.name.slice(0,2).toUpperCase()}</div>
@@ -1280,13 +1333,18 @@
                            </div>`
                         : `<span class="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Unassigned</span>`;
 
+                    const cardExtraClass = isNew ? 'ring-2 ring-blue-500 shadow-lg shadow-blue-500/20 bg-blue-50/20 animate-pulse' : '';
+
                     return `
-                        <div class="kanban-card group relative" draggable="true" 
+                        <div class="kanban-card group relative ${cardExtraClass}" draggable="true" 
                              ondragstart="handleDragStart(event, '${t.id}')" 
                              ondragend="handleDragEnd(event)" 
                              onclick="openTaskDetail('${t.id}')">
                             <div class="flex items-center justify-between mb-2">
-                                <span class="font-mono text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">${t.ticketNumber || t.id}</span>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="font-mono text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">${t.ticketNumber || t.id}</span>
+                                    ${isNew ? '<span class="px-1.5 py-0.2 text-[9px] font-extrabold bg-blue-600 text-white rounded animate-pulse">NEW</span>' : ''}
+                                </div>
                                 <div class="flex items-center gap-1.5">
                                     ${getPriorityBadgeHtml(t.priority)}
                                     <div class="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity p-0.5" title="Drag to reassign status">
@@ -1752,6 +1810,23 @@
         window.setViewMode = setViewMode;
         window.applyFilters = applyFilters;
         window.refreshTasks = refreshTasks;
+
+        // Auto-populate task board on real-time task events without manual refresh
+        window.addEventListener('task_updated', () => refreshTasks());
+        window.addEventListener('admin_task_event', () => refreshTasks());
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'task_sync_event' || e.key === 'task_created_sync' || e.key === 'task_updated') {
+                refreshTasks();
+            }
+        });
+
+        // Background poller interval (every 4 seconds) to guarantee real-time sync across any network condition
+        setInterval(() => {
+            const isCreateModalOpen = !document.getElementById('create-task-modal')?.classList.contains('hidden');
+            if (!isCreateModalOpen) {
+                refreshTasks();
+            }
+        }, 4000);
 
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {

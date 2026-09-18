@@ -1505,6 +1505,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // If not initial load, trigger toast for any newly fetched unread notification from last 60 seconds
                 if (_adminInitialFetchDone) {
                     const now = Date.now();
+                    let hasNewTaskNotif = false;
                     fetched.forEach(n => {
                         if (!window._adminSeenNotifIds.has(n.id)) {
                             window._adminSeenNotifIds.add(n.id);
@@ -1513,8 +1514,18 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (ageMs < 60000 && !isRead) {
                                 window._adminShowToast(n);
                             }
+                            const isTaskNotif = n.type === 'TASK_CREATED' || n.type === 'TASK_STATUS' || n.type === 'TASK_COMMENT' || n.type === 'task' || (n.title && n.title.toLowerCase().includes('task'));
+                            if (isTaskNotif) {
+                                hasNewTaskNotif = true;
+                            }
                         }
                     });
+                    if (hasNewTaskNotif) {
+                        window.dispatchEvent(new CustomEvent('task_updated'));
+                        if (typeof window.refreshTasks === 'function') {
+                            window.refreshTasks();
+                        }
+                    }
                 } else {
                     fetched.forEach(n => window._adminSeenNotifIds.add(n.id));
                     _adminInitialFetchDone = true;
@@ -1560,6 +1571,22 @@ document.addEventListener('DOMContentLoaded', () => {
                                     window._adminShowToast(notif);
                                 }
                             }
+
+                            // Trigger real-time task board auto-populate if notification is task-related
+                            const isTaskNotif = notif.type === 'TASK_CREATED' || notif.type === 'TASK_STATUS' || notif.type === 'TASK_COMMENT' || notif.type === 'task' || (notif.title && notif.title.toLowerCase().includes('task'));
+                            if (isTaskNotif) {
+                                window.dispatchEvent(new CustomEvent('admin_task_event', { detail: notif }));
+                                window.dispatchEvent(new CustomEvent('task_updated', { detail: notif }));
+                                if (typeof window.refreshTasks === 'function') {
+                                    window.refreshTasks();
+                                }
+                            }
+                        }
+                    } else if (msg.type === 'TASK_CREATED' || msg.type === 'TASK_STATUS' || msg.type === 'TASK_COMMENT' || msg.type === 'task_sync') {
+                        window.dispatchEvent(new CustomEvent('admin_task_event', { detail: msg }));
+                        window.dispatchEvent(new CustomEvent('task_updated', { detail: msg }));
+                        if (typeof window.refreshTasks === 'function') {
+                            window.refreshTasks();
                         }
                     }
                     window._adminFetchUnreadMessagesCount();

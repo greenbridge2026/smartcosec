@@ -8174,6 +8174,9 @@ async function sendClientTaskMessage(taskId) {
         });
         if (res.ok) {
             input.value = '';
+            try {
+                localStorage.setItem('task_sync_event', JSON.stringify({ action: 'COMMENT', taskId, timestamp: Date.now() }));
+            } catch(e) {}
             await fetchClientTasks();
             updateClientTasksCards();
             // keep comments open
@@ -8387,6 +8390,11 @@ async function handleClientSubmitRequest(e) {
             body: JSON.stringify(payload)
         });
         if (res.ok) {
+            const created = await res.json();
+            try {
+                localStorage.setItem('task_sync_event', JSON.stringify({ action: 'CREATED', taskId: created.id, timestamp: Date.now() }));
+                localStorage.setItem('task_created_sync', JSON.stringify({ id: created.id, timestamp: Date.now() }));
+            } catch(e) {}
             closeModal();
             renderTasksClientView(document.getElementById('main-view'));
         }
