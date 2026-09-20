@@ -61,6 +61,7 @@ export default defineConfig(({ mode }) => {
           adminMessages: resolve(__dirname, 'admin/messages.html'),
           adminPackages: resolve(__dirname, 'admin/packages.html'),
           adminReports: resolve(__dirname, 'admin/reports.html'),
+          adminStaff: resolve(__dirname, 'admin/staff.html'),
           adminUsers: resolve(__dirname, 'admin/users.html'),
           adminSsic: resolve(__dirname, 'admin/ssic.html'),
           adminOnboardingManager: resolve(__dirname, 'admin/onboarding-manager.html'),

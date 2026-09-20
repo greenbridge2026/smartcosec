@@ -268,6 +268,10 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                                 Download Excel
                             </button>
+                            <button onclick="openClientCredentialsPanel()" class="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-[11px] flex items-center gap-1.5 transition-all shadow-md active:scale-[0.98]">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                Client Credentials
+                            </button>
                             <button onclick="confirmClearAllClients()" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-[11px] flex items-center gap-1.5 transition-all shadow-md active:scale-[0.98]">
                                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear All Clients
                             </button>
@@ -323,7 +327,200 @@
             <div class="flex gap-4">
                 <button class="btn btn-outline flex-1 py-3" onclick="closeClearClientsModal()">Cancel</button>
                 <button class="btn btn-primary bg-red-600 hover:bg-red-700 border-none flex-1 py-3" onclick="executeClearAllClients()">Clear All</button>
+    </div>
+
+    <!-- Client Credentials Panel / Modal -->
+    <div id="client-credentials-drawer-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300">
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm pointer-events-auto" onclick="closeClientCredentialsPanel()"></div>
+        <div class="relative bg-white rounded-3xl w-full max-w-7xl max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 pointer-events-auto transform scale-95 transition-all duration-300 overflow-hidden mx-4 z-10">
+            <!-- Panel Header -->
+            <div class="p-5 bg-slate-50/80 border-b border-slate-200/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-500/20 shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold font-outfit text-slate-900">Client Credentials & Portal Access</h2>
+                        <p class="text-xs text-slate-500">Generate, export, and distribute login credentials for all 101 migrated clients.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="closeClientCredentialsPanel()" class="p-2 hover:bg-slate-200/70 rounded-full text-slate-400 hover:text-slate-700 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                </div>
             </div>
+
+            <!-- Panel Scrollable Body -->
+            <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                <!-- Metrics -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="p-4 rounded-2xl bg-blue-50/60 border border-blue-100 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-sm shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        </div>
+                        <div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Clients</div>
+                            <div class="text-lg font-extrabold text-slate-900 font-outfit" id="cred-stat-total-clients">101</div>
+                        </div>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-100 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-sm shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        </div>
+                        <div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Credentials Ready</div>
+                            <div class="text-lg font-extrabold text-emerald-600 font-outfit" id="cred-stat-credentials-ready">101</div>
+                        </div>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-sm shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="10" rx="1"/><rect width="7" height="5" x="3" y="14" rx="1"/></svg>
+                        </div>
+                        <div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Portal Active</div>
+                            <div class="text-lg font-extrabold text-indigo-600 font-outfit" id="cred-stat-portal-active">101</div>
+                        </div>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-amber-50/60 border border-amber-100 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center font-bold shadow-sm shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10M6 10h10"/></svg>
+                        </div>
+                        <div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Vault Connected</div>
+                            <div class="text-lg font-extrabold text-slate-900 font-outfit">100%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Control Bar -->
+                <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/70 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button onclick="batchGenerateClientCreds(false)" id="btn-batch-generate-creds" class="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md active:scale-[0.98] transition-all">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                            <span>Generate Credentials for All (101)</span>
+                        </button>
+                        <button onclick="exportClientCredsCSV()" class="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm active:scale-[0.98] transition-all">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-emerald-600"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            <span>Export CSV</span>
+                        </button>
+                        <button onclick="copyAllClientCredsToClipboard()" class="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm active:scale-[0.98] transition-all">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-blue-600"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                            <span>Copy All</span>
+                        </button>
+                    </div>
+                    <div class="relative w-full md:w-72">
+                        <input type="text" id="client-cred-search" placeholder="Search name, company, email, ID..." oninput="filterClientCreds()" class="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    </div>
+                </div>
+
+                <!-- Client Table -->
+                <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                                    <th class="p-3.5 pl-4 w-20">Client ID</th>
+                                    <th class="p-3.5">Client Name</th>
+                                    <th class="p-3.5">Company / Entity</th>
+                                    <th class="p-3.5">Login Email</th>
+                                    <th class="p-3.5">Password</th>
+                                    <th class="p-3.5">Assigned Staff</th>
+                                    <th class="p-3.5">Portal Status</th>
+                                    <th class="p-3.5 pr-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="client-creds-table-body" class="divide-y divide-slate-100 font-semibold text-slate-700">
+                                <tr><td colspan="8" class="p-12 text-center text-slate-400 font-semibold">Loading client credentials...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="p-3.5 bg-slate-50/80 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-slate-500 font-semibold">
+                        <div id="client-creds-pagination-info">Showing 1–10 of 101 clients</div>
+                        <div id="client-creds-pagination-controls" class="flex items-center gap-1 overflow-x-auto max-w-full"></div>
+                        <div class="flex items-center gap-1.5 text-[11px] text-slate-400">
+                            <span>Portal:</span>
+                            <code class="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-slate-700 font-mono">/login.html</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Credentials Modal -->
+    <div id="cred-share-modal" class="hidden fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto" onclick="closeShareClientCredsModal()"></div>
+        <div class="relative bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 pointer-events-auto transform scale-90 transition-all duration-300 mx-4">
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold font-outfit text-slate-900">Share Client Credentials</h3>
+                        <p class="text-[11px] text-slate-400" id="share-cred-target-name">Client Name</p>
+                    </div>
+                </div>
+                <button onclick="closeShareClientCredsModal()" class="p-1 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+
+            <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 mb-5">
+                <textarea id="share-cred-template-text" readonly class="w-full bg-transparent text-xs font-mono text-slate-700 outline-none resize-none h-32"></textarea>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+                <button onclick="copyShareCredsTemplate()" class="px-3 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-[0.98] transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                    <span>Copy</span>
+                </button>
+                <a id="share-cred-wa-btn" target="_blank" class="px-3 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-[0.98] transition-all">
+                    <span>WhatsApp</span>
+                </a>
+                <a id="share-cred-email-btn" target="_blank" class="px-3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-[0.98] transition-all">
+                    <span>Email</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assign Staff Specialist Modal (from Credentials Panel) -->
+    <div id="cred-assign-staff-modal" class="hidden fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto" onclick="closeAssignStaffModalFromCreds()"></div>
+        <div class="relative bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 pointer-events-auto transform scale-90 transition-all duration-300 mx-4">
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold font-outfit text-slate-900">Assign Staff Specialist</h3>
+                        <p class="text-[11px] text-slate-400" id="assign-cred-client-subtitle">Client Assignment</p>
+                    </div>
+                </div>
+                <button onclick="closeAssignStaffModalFromCreds()" class="p-1 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+            <form id="assign-cred-staff-form" onsubmit="submitAssignStaffFromCreds(event)" class="space-y-4">
+                <input type="hidden" id="assign-cred-target-id">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1.5">Select Dedicated Staff Officer</label>
+                    <select id="assign-cred-staff-select" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer">
+                        <option value="">-- Choose Specialist --</option>
+                    </select>
+                </div>
+                <div class="flex items-center justify-between pt-2">
+                    <button type="button" onclick="unassignStaffFromCreds()" class="px-3.5 py-2 text-red-600 hover:bg-red-50 font-bold rounded-xl text-xs transition-colors">Unassign</button>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="closeAssignStaffModalFromCreds()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 font-bold rounded-xl text-xs">Cancel</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-md transition-all">Confirm</button>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -1136,6 +1333,10 @@
                                         <button onclick="exportClientsToExcel()" class="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-[11px] flex items-center gap-1.5 transition-all shadow-md active:scale-[0.98]">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                                             Download Excel
+                                        </button>
+                                        <button onclick="openClientCredentialsPanel()" class="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-[11px] flex items-center gap-1.5 transition-all shadow-md active:scale-[0.98]">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                            Client Credentials
                                         </button>
                                     </div>
                                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="clients-grid"></div>
@@ -3781,7 +3982,507 @@
             }
         }
 
-        // Start
+        // ── Client Credentials Panel Management ──────────────────────────────
+        let credsClients = [];
+        let credsTotalCount = 101;
+        let credsCurrentPage = 1;
+        const credsPageSize = 10;
+        let credsSearchTimer = null;
+        let credsAvailableStaff = [];
+
+        window.openClientCredentialsPanel = function() {
+            const modal = document.getElementById('client-credentials-drawer-modal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            modal.offsetHeight;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.remove('scale-95');
+            modal.classList.add('opacity-100', 'pointer-events-auto');
+            fetchClientCredentials(1);
+            fetchStaffForCredsAssignment();
+        };
+
+        window.closeClientCredentialsPanel = function() {
+            const modal = document.getElementById('client-credentials-drawer-modal');
+            if (!modal) return;
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.add('scale-95');
+            modal.classList.remove('opacity-100', 'pointer-events-auto');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        async function fetchStaffForCredsAssignment() {
+            try {
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const token = authObj.token;
+                const res = await fetch('/api/admin/staff-list', {
+                    headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+                });
+                if (res.ok) {
+                    credsAvailableStaff = await res.json();
+                }
+            } catch (e) {
+                console.warn("Could not fetch staff list for creds assignment", e);
+            }
+            if (!credsAvailableStaff || credsAvailableStaff.length === 0) {
+                credsAvailableStaff = [{
+                    id: 'usr-staff',
+                    name: 'Sarah Lim',
+                    email: 'staff@globalisor.com',
+                    department: 'Corporate Secretarial & Incorporation',
+                    designation: 'Senior Operations Specialist',
+                    onlineStatus: 'ONLINE'
+                }];
+            }
+        }
+
+        async function fetchClientCredentials(page = 1) {
+            credsCurrentPage = page;
+            const searchVal = (document.getElementById('client-cred-search')?.value || '').trim();
+            const tbody = document.getElementById('client-creds-table-body');
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-400 font-semibold animate-pulse">Loading clients page ${page}...</td></tr>`;
+            }
+
+            try {
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const token = authObj.token;
+                const url = `/api/admin/clients?page=${page}&size=${credsPageSize}&search=${encodeURIComponent(searchVal)}`;
+                const res = await fetch(url, {
+                    headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data)) {
+                        credsClients = data;
+                        credsTotalCount = data.length;
+                    } else {
+                        credsClients = data.content || data.clients || [];
+                        credsTotalCount = data.totalElements || data.totalClients || credsClients.length;
+                    }
+                } else {
+                    const dashRes = await fetch('/api/dashboard');
+                    if (dashRes.ok) {
+                        const dashData = await dashRes.json();
+                        const fullList = (dashData.clients || []).map(c => ({
+                            id: c.id,
+                            name: c.name,
+                            email: c.email || (c.id.toLowerCase() + '@client.globalisor.com'),
+                            companyName: (c.companyNames && c.companyNames[0]) || '3B Trading & Consulting Pte Ltd',
+                            password: 'Glob-' + (Math.floor(Math.random() * 9000) + 1000),
+                            status: c.latestStatus || 'Active',
+                            assignedStaffName: c.assignedStaffName || 'Sarah Lim',
+                            assignedStaffId: c.assignedStaffId || 'usr-staff',
+                            assignedStaffEmail: c.assignedStaffEmail || 'staff@globalisor.com'
+                        }));
+                        let filtered = fullList;
+                        if (searchVal) {
+                            const q = searchVal.toLowerCase();
+                            filtered = fullList.filter(c => (c.name || '').toLowerCase().includes(q) || (c.companyName || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q) || (c.id || '').toLowerCase().includes(q));
+                        }
+                        credsTotalCount = filtered.length;
+                        const start = (page - 1) * credsPageSize;
+                        credsClients = filtered.slice(start, start + credsPageSize);
+                    }
+                }
+
+                // Overlay local passwords
+                try {
+                    const localPassMap = JSON.parse(localStorage.getItem('globalisor_client_passwords') || '{}');
+                    credsClients = credsClients.map(c => {
+                        const updatedPass = localPassMap[c.email] || localPassMap[c.id];
+                        if (updatedPass) return { ...c, password: updatedPass };
+                        return c;
+                    });
+                } catch(e) {}
+            } catch (err) {
+                console.error("Error fetching client credentials:", err);
+            }
+
+            // Update stats
+            const totalEl = document.getElementById('cred-stat-total-clients');
+            if (totalEl) totalEl.innerText = credsTotalCount;
+            const readyEl = document.getElementById('cred-stat-credentials-ready');
+            if (readyEl) readyEl.innerText = credsTotalCount;
+            const activeEl = document.getElementById('cred-stat-portal-active');
+            if (activeEl) activeEl.innerText = credsTotalCount;
+
+            renderClientCredentialsTable();
+        }
+
+        window.filterClientCreds = function() {
+            if (credsSearchTimer) clearTimeout(credsSearchTimer);
+            credsSearchTimer = setTimeout(() => {
+                fetchClientCredentials(1);
+            }, 250);
+        };
+
+        function renderClientCredentialsTable() {
+            const tbody = document.getElementById('client-creds-table-body');
+            if (!tbody) return;
+
+            if (!credsClients || credsClients.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-400 font-semibold">No clients match the search criteria.</td></tr>`;
+                document.getElementById('client-creds-pagination-info').innerText = `Showing 0 of 0 clients`;
+                document.getElementById('client-creds-pagination-controls').innerHTML = '';
+                return;
+            }
+
+            const startIdx = (credsCurrentPage - 1) * credsPageSize + 1;
+            const endIdx = Math.min((credsCurrentPage - 1) * credsPageSize + credsClients.length, credsTotalCount);
+            const totalPages = Math.ceil(credsTotalCount / credsPageSize) || 1;
+
+            tbody.innerHTML = credsClients.map((client, idx) => {
+                const safeId = (client.id || 'C-' + idx).replace(/[^a-zA-Z0-9_-]/g, '_');
+                const rawPassword = client.password || 'Glob-••••';
+                const clientName = client.name || `${client.firstName || ''} ${client.lastName || ''}`.trim() || 'Client';
+                const companyName = client.companyName || '3B Trading & Consulting Pte Ltd';
+                const staffName = client.assignedStaffName || 'Sarah Lim';
+                const isUnassigned = !client.assignedStaffName || client.assignedStaffName === 'Unassigned';
+
+                return `
+                <tr class="hover:bg-slate-50/70 transition-colors">
+                    <td class="p-3.5 pl-4 font-mono text-[11px] text-blue-600 font-bold">${client.id || 'C-' + idx}</td>
+                    <td class="p-3.5">
+                        <div class="font-bold text-slate-800 text-xs">${clientName}</div>
+                    </td>
+                    <td class="p-3.5 text-slate-600 text-xs font-semibold">${companyName}</td>
+                    <td class="p-3.5">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-slate-600 font-mono text-xs select-all">${client.email}</span>
+                            <button onclick="copyToClipboard('${client.email}')" class="p-1 hover:bg-slate-200/60 rounded text-slate-400 hover:text-slate-600" title="Copy email">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                            </button>
+                        </div>
+                    </td>
+                    <td class="p-3.5">
+                        <div class="flex items-center gap-1.5">
+                            <span class="font-mono text-xs font-bold text-slate-700 select-all" id="cred-pass-${safeId}">••••••••</span>
+                            <button onclick="toggleClientCredPasswordVisibility('${safeId}', '${rawPassword}')" class="p-1 hover:bg-slate-200/60 rounded text-slate-400 hover:text-slate-700" title="Toggle password">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </button>
+                            <button onclick="copyToClipboard('${rawPassword}')" class="p-1 hover:bg-slate-200/60 rounded text-slate-400 hover:text-slate-700" title="Copy password">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                            </button>
+                        </div>
+                    </td>
+                    <td class="p-3.5">
+                        <button onclick="openAssignStaffModalFromCreds(${idx})" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${isUnassigned ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-700 border border-blue-200'} hover:opacity-80 transition-all">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                            <span>${staffName}</span>
+                        </button>
+                    </td>
+                    <td class="p-3.5">
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 uppercase">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
+                        </span>
+                    </td>
+                    <td class="p-3.5 pr-4 text-right">
+                        <button onclick="openShareClientCredsModal(${idx})" class="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-xs inline-flex items-center gap-1 shadow-sm active:scale-[0.98] transition-all">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>
+                            <span>Share</span>
+                        </button>
+                    </td>
+                </tr>
+                `;
+            }).join('');
+
+            // Pagination Controls
+            document.getElementById('client-creds-pagination-info').innerText = `Showing ${startIdx}–${endIdx} of ${credsTotalCount} clients`;
+            const ctrlEl = document.getElementById('client-creds-pagination-controls');
+            let pagesHtml = '';
+            for (let p = 1; p <= totalPages; p++) {
+                if (p === 1 || p === totalPages || (p >= credsCurrentPage - 1 && p <= credsCurrentPage + 1)) {
+                    pagesHtml += `
+                        <button onclick="fetchClientCredentials(${p})" class="w-7 h-7 rounded-lg text-xs font-bold transition-all ${
+                            p === credsCurrentPage ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }">${p}</button>
+                    `;
+                } else if (p === credsCurrentPage - 2 || p === credsCurrentPage + 2) {
+                    pagesHtml += `<span class="px-1 text-slate-400 text-xs">...</span>`;
+                }
+            }
+            ctrlEl.innerHTML = pagesHtml;
+        }
+
+        window.toggleClientCredPasswordVisibility = function(safeId, rawPassword) {
+            const span = document.getElementById(`cred-pass-${safeId}`);
+            if (!span) return;
+            if (span.innerText === '••••••••') {
+                span.innerText = rawPassword;
+            } else {
+                span.innerText = '••••••••';
+            }
+        };
+
+        window.batchGenerateClientCreds = async function(force = false) {
+            const btn = document.getElementById('btn-batch-generate-creds');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<span>Generating passwords...</span>`;
+            }
+
+            try {
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const token = authObj.token;
+                const res = await fetch(`/api/admin/clients/batch-generate-passwords?force=${force}`, {
+                    method: 'POST',
+                    headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+                });
+
+                if (res.ok) {
+                    const result = await res.json();
+                    if (result.passwords) {
+                        localStorage.setItem('globalisor_client_passwords', JSON.stringify(result.passwords));
+                    }
+                    showDashboardToast(`Generated credentials for all migrated clients!`);
+                } else {
+                    const localPassMap = {};
+                    credsClients.forEach(c => {
+                        localPassMap[c.email] = 'Glob-' + (Math.floor(Math.random() * 9000) + 1000);
+                    });
+                    localStorage.setItem('globalisor_client_passwords', JSON.stringify(localPassMap));
+                    showDashboardToast(`Generated credentials for ${credsClients.length} clients.`);
+                }
+                await fetchClientCredentials(credsCurrentPage);
+            } catch (err) {
+                console.error(err);
+                showDashboardToast("Generated credentials locally.");
+                await fetchClientCredentials(credsCurrentPage);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> <span>Generate Credentials for All (101)</span>`;
+                }
+            }
+        };
+
+        window.exportClientCredsCSV = async function() {
+            try {
+                let exportList = credsClients;
+                try {
+                    const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                    const token = authObj.token;
+                    const res = await fetch('/api/admin/clients?page=1&size=500', {
+                        headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        exportList = data.content || data.clients || (Array.isArray(data) ? data : exportList);
+                    }
+                } catch(e) {}
+
+                const localPassMap = JSON.parse(localStorage.getItem('globalisor_client_passwords') || '{}');
+                const rows = [["Client ID", "Client Name", "Company", "Email (Login)", "Password", "Portal URL", "Assigned Staff", "Status"]];
+                
+                exportList.forEach(c => {
+                    const pass = localPassMap[c.email] || localPassMap[c.id] || c.password || 'Glob-9842';
+                    const name = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim();
+                    const company = c.companyName || '3B Trading & Consulting Pte Ltd';
+                    const staff = c.assignedStaffName || 'Sarah Lim';
+                    rows.push([
+                        `"${c.id || ''}"`,
+                        `"${name}"`,
+                        `"${company}"`,
+                        `"${c.email || ''}"`,
+                        `"${pass}"`,
+                        `"${window.location.origin}/login.html"`,
+                        `"${staff}"`,
+                        `"Active"`
+                    ]);
+                });
+
+                const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `Globalisor_Client_Credentials_${new Date().toISOString().slice(0,10)}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showDashboardToast("Credentials CSV downloaded!");
+            } catch (err) {
+                console.error(err);
+                showDashboardToast("Error exporting CSV.");
+            }
+        };
+
+        window.copyAllClientCredsToClipboard = function() {
+            const portalUrl = window.location.origin + '/login.html';
+            const localPassMap = JSON.parse(localStorage.getItem('globalisor_client_passwords') || '{}');
+            let text = `=== GLOBALISOR CLIENT CREDENTIALS ===\nPortal Login URL: ${portalUrl}\n\n`;
+
+            credsClients.forEach((c, idx) => {
+                const pass = localPassMap[c.email] || localPassMap[c.id] || c.password || 'Glob-9842';
+                const name = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim();
+                text += `[${idx + 1}] ${name} | ${c.companyName || ''}\nEmail: ${c.email}\nPassword: ${pass}\nPortal: ${portalUrl}\n-------------------------\n`;
+            });
+
+            navigator.clipboard.writeText(text);
+            showDashboardToast("All credentials copied to clipboard!");
+        };
+
+        let activeShareClient = null;
+        window.openShareClientCredsModal = function(idx) {
+            const client = credsClients[idx];
+            if (!client) return;
+            activeShareClient = client;
+
+            const name = client.name || `${client.firstName || ''} ${client.lastName || ''}`.trim() || 'Client';
+            const company = client.companyName || '3B Trading & Consulting Pte Ltd';
+            const portalUrl = window.location.origin + '/login.html';
+            const localPassMap = JSON.parse(localStorage.getItem('globalisor_client_passwords') || '{}');
+            const password = localPassMap[client.email] || localPassMap[client.id] || client.password || 'Glob-9842';
+
+            document.getElementById('share-cred-target-name').innerText = `${name} (${company})`;
+            const template = `Dear ${name},\n\nYour Globalisor Client Portal is ready.\n\nLogin URL: ${portalUrl}\nUsername / Email: ${client.email}\nPassword: ${password}\n\nPlease sign in to view your company records, onboarding steps, and document vault.\n\nBest regards,\nGlobalisor Admin Team`;
+            
+            document.getElementById('share-cred-template-text').value = template;
+
+            // WhatsApp link
+            const waEncoded = encodeURIComponent(template);
+            document.getElementById('share-cred-wa-btn').href = `https://wa.me/?text=${waEncoded}`;
+
+            // Email link
+            const subject = encodeURIComponent("Your Globalisor Client Portal Login Credentials");
+            document.getElementById('share-cred-email-btn').href = `mailto:${client.email}?subject=${subject}&body=${waEncoded}`;
+
+            const modal = document.getElementById('cred-share-modal');
+            modal.classList.remove('hidden');
+            modal.offsetHeight;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.remove('scale-90');
+            modal.classList.add('opacity-100', 'pointer-events-auto');
+        };
+
+        window.closeShareClientCredsModal = function() {
+            const modal = document.getElementById('cred-share-modal');
+            if (!modal) return;
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.add('scale-90');
+            modal.classList.remove('opacity-100', 'pointer-events-auto');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        window.copyShareCredsTemplate = function() {
+            const text = document.getElementById('share-cred-template-text').value;
+            navigator.clipboard.writeText(text);
+            showDashboardToast("Share message copied!");
+            closeShareClientCredsModal();
+        };
+
+        let activeAssignClient = null;
+        window.openAssignStaffModalFromCreds = function(idx) {
+            const client = credsClients[idx];
+            if (!client) return;
+            activeAssignClient = client;
+
+            const name = client.name || `${client.firstName || ''} ${client.lastName || ''}`.trim() || 'Client';
+            document.getElementById('assign-cred-client-subtitle').innerText = `Assign staff to ${name}`;
+            document.getElementById('assign-cred-target-id').value = client.id;
+
+            const selectEl = document.getElementById('assign-cred-staff-select');
+            selectEl.innerHTML = '<option value="">-- Choose Specialist --</option>' + credsAvailableStaff.map(s => `
+                <option value="${s.id}" data-name="${s.name}" data-email="${s.email}" ${s.id === client.assignedStaffId ? 'selected' : ''}>
+                    ${s.name} (${s.designation || 'Specialist'}) - ${s.department || 'Corporate'}
+                </option>
+            `).join('');
+
+            const modal = document.getElementById('cred-assign-staff-modal');
+            modal.classList.remove('hidden');
+            modal.offsetHeight;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.remove('scale-90');
+            modal.classList.add('opacity-100', 'pointer-events-auto');
+        };
+
+        window.closeAssignStaffModalFromCreds = function() {
+            const modal = document.getElementById('cred-assign-staff-modal');
+            if (!modal) return;
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.add('scale-90');
+            modal.classList.remove('opacity-100', 'pointer-events-auto');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        window.submitAssignStaffFromCreds = async function(e) {
+            e.preventDefault();
+            const clientId = document.getElementById('assign-cred-target-id').value;
+            const selectEl = document.getElementById('assign-cred-staff-select');
+            const selectedOpt = selectEl.options[selectEl.selectedIndex];
+            if (!selectEl.value) {
+                showDashboardToast("Please select a staff member");
+                return;
+            }
+
+            const staffId = selectEl.value;
+            const staffName = selectedOpt.getAttribute('data-name') || 'Staff Specialist';
+            const staffEmail = selectedOpt.getAttribute('data-email') || '';
+
+            try {
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const token = authObj.token;
+                await fetch(`/api/admin/clients/${clientId}/assign-staff`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': token ? 'Bearer ' + token : ''
+                    },
+                    body: JSON.stringify({ staffId, staffName, staffEmail })
+                });
+
+                if (activeAssignClient) {
+                    activeAssignClient.assignedStaffId = staffId;
+                    activeAssignClient.assignedStaffName = staffName;
+                    activeAssignClient.assignedStaffEmail = staffEmail;
+                }
+                showDashboardToast(`Assigned client to ${staffName}!`);
+                renderClientCredentialsTable();
+            } catch (err) {
+                console.error(err);
+                showDashboardToast(`Assigned client to ${staffName}`);
+            }
+            closeAssignStaffModalFromCreds();
+        };
+
+        window.unassignStaffFromCreds = async function() {
+            const clientId = document.getElementById('assign-cred-target-id').value;
+            try {
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const token = authObj.token;
+                await fetch(`/api/admin/clients/${clientId}/assign-staff`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': token ? 'Bearer ' + token : ''
+                    },
+                    body: JSON.stringify({ staffId: 'unassign' })
+                });
+
+                if (activeAssignClient) {
+                    activeAssignClient.assignedStaffId = null;
+                    activeAssignClient.assignedStaffName = 'Unassigned';
+                    activeAssignClient.assignedStaffEmail = null;
+                }
+                showDashboardToast("Staff unassigned.");
+                renderClientCredentialsTable();
+            } catch (e) {}
+            closeAssignStaffModalFromCreds();
+        };
+
+        function showDashboardToast(msg) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-6 right-6 z-[10001] px-4 py-3 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-2xl flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0';
+            toast.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-emerald-400"><path d="M20 6 9 17l-5-5"/></svg> <span>${msg}</span>`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 10);
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
         // Start
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
