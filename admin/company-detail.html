@@ -12,16 +12,26 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
-        // Authentication Check
-        if (!localStorage.getItem('admin_auth')) {
-            window.location.href = '/admin/index.html';
-        } else {
+        // Authentication Check (Supports Admin and Staff)
+        const adminAuthStr = localStorage.getItem('admin_auth');
+        const staffAuthStr = localStorage.getItem('staff_auth');
+        let isAuthenticated = false;
+
+        if (adminAuthStr) {
             try {
-                const auth = JSON.parse(localStorage.getItem('admin_auth'));
-                if (auth.role !== 'admin') window.location.href = '/admin/index.html';
-            } catch(e) {
-                window.location.href = '/admin/index.html';
-            }
+                const auth = JSON.parse(adminAuthStr);
+                if (auth.role === 'admin' || auth.email) isAuthenticated = true;
+            } catch(e) {}
+        }
+        if (!isAuthenticated && staffAuthStr) {
+            try {
+                const auth = JSON.parse(staffAuthStr);
+                if (auth.role === 'staff' || auth.email || auth.id) isAuthenticated = true;
+            } catch(e) {}
+        }
+
+        if (!isAuthenticated) {
+            window.location.href = '/staff/index.html';
         }
 
         tailwind.config = {
@@ -95,9 +105,9 @@
     <!-- Top Navigation with module switcher interceptor -->
     <nav class="top-nav">
         <div class="flex items-center gap-4">
-            <div class="flex flex-col leading-none cursor-pointer" onclick="window.location.href='dashboard.html'">
-                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Admin</span>
-                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider">Portal</span>
+            <div class="flex flex-col leading-none cursor-pointer" onclick="if(localStorage.getItem('staff_auth') && !localStorage.getItem('admin_auth')){window.location.href='/staff/dashboard.html';}else{window.location.href='dashboard.html';}">
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider" id="nav-portal-title-1">Admin</span>
+                <span class="font-outfit font-bold text-slate-900 text-sm uppercase tracking-wider" id="nav-portal-title-2">Portal</span>
             </div>
         </div>
         <div id="module-switcher" class="flex items-center gap-1 bg-white/60 p-1 rounded-xl border border-white/80">
@@ -110,7 +120,7 @@
             <button onclick="window.location.href='content.html'" class="module-nav-btn" id="btn-content">Content</button>
         </div>
         <div class="flex items-center justify-end gap-3 relative">
-            <button onclick="window.location.href='dashboard.html'" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all">
+            <button onclick="if(localStorage.getItem('staff_auth') && !localStorage.getItem('admin_auth')){window.location.href='/staff/dashboard.html';}else{window.location.href='dashboard.html';}" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Back to Dashboard
             </button>
         </div>
@@ -1525,12 +1535,16 @@
             const clientId = urlParams.get('clientId');
             if (!clientId) {
                 alert("Client ID is missing in URL parameters!");
-                window.location.href = '/admin/dashboard.html';
+                if (localStorage.getItem('staff_auth') && !localStorage.getItem('admin_auth')) {
+                    window.location.href = '/staff/dashboard.html';
+                } else {
+                    window.location.href = '/admin/dashboard.html';
+                }
                 return;
             }
 
             try {
-                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
                 const token = authObj.token;
                 const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
 
@@ -1833,7 +1847,7 @@
                 currentDetails.excelData = excelData;
                 if (service) service.details = currentDetails;
 
-                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
                 const token = authObj.token;
                 const headers = {
                     'Content-Type': 'application/json',
@@ -4974,7 +4988,7 @@
             }
 
             try {
-                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
                 const token = authObj.token;
                 const headers = { 
                     'Content-Type': 'application/json',
@@ -5016,7 +5030,7 @@
             if (!service) return;
             
             try {
-                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
                 const token = authObj.token;
                 const headers = { 
                     'Content-Type': 'application/json',
@@ -10801,7 +10815,7 @@
                     return;
                 }
 
-                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
                 const token = authObj.token;
                 const headers = {
                     'Content-Type': 'application/json',
