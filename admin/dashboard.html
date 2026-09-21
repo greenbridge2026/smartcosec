@@ -336,6 +336,22 @@
         </div>
     </div>
 
+    <!-- Delete Single Client Confirmation Modal -->
+    <div class="hidden fixed inset-0 z-[3000] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300" id="delete-single-client-modal">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto" onclick="closeDeleteSingleClientModal()"></div>
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl relative z-10 pointer-events-auto transform scale-90 transition-transform">
+            <div class="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mb-4 shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900 mb-1">Delete Client?</h3>
+            <p class="text-xs text-slate-500 mb-5">Are you sure you want to delete <strong id="delete-single-client-target-name" class="text-slate-800 font-bold">this client</strong>? This will permanently remove the client, their requirements, documents, and credentials.</p>
+            <div class="flex gap-3">
+                <button class="flex-1 py-2.5 rounded-xl font-bold text-xs border border-slate-200 text-slate-700 hover:bg-slate-100 transition-all" onclick="closeDeleteSingleClientModal()">Cancel</button>
+                <button id="btn-confirm-single-delete" class="flex-1 py-2.5 rounded-xl font-bold text-xs bg-red-600 hover:bg-red-700 text-white shadow-md active:scale-[0.98] transition-all" onclick="executeDeleteSingleClient()">Delete Client</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Client Credentials Panel / Modal -->
     <div id="client-credentials-drawer-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300">
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm pointer-events-auto" onclick="closeClientCredentialsPanel()"></div>
@@ -2130,6 +2146,11 @@
                                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg> Edit
                                 </button>
 
+                                <!-- Delete Button -->
+                                <button onclick="event.stopPropagation(); openDeleteSingleClientModal('${c.clientId}', '${(businessHeader || c.name || 'Client').replace(/'/g, "\\'")}', event)" class="px-2.5 py-1 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-all flex items-center gap-1 shrink-0 shadow-sm" title="Delete Client">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg> Delete
+                                </button>
+
                                 <!-- Chevron right -->
                                 <div class="text-slate-300 ml-1">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><polyline points="9 18 15 12 9 6"/></svg>
@@ -2164,6 +2185,9 @@
                                 </button>
                                 <button onclick="event.stopPropagation(); openEditClientModal('${c.clientId}')" class="px-2 py-0.5 text-[11px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md transition-all flex items-center gap-1 shrink-0" title="Edit Client">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg> Edit
+                                </button>
+                                <button onclick="event.stopPropagation(); openDeleteSingleClientModal('${c.clientId}', '${(businessHeader || c.name || 'Client').replace(/'/g, "\\'")}', event)" class="p-1 text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-md transition-all flex items-center justify-center shrink-0 shadow-sm" title="Delete Client">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                                 </button>
                             </div>
                         </div>
@@ -3324,6 +3348,80 @@
                 modal.classList.add('hidden');
             }, 300);
         }
+
+        let pendingDeleteClientId = null;
+
+        window.openDeleteSingleClientModal = function(clientId, clientName, e) {
+            if (e) e.stopPropagation();
+            pendingDeleteClientId = clientId;
+            const targetEl = document.getElementById('delete-single-client-target-name');
+            if (targetEl) targetEl.innerText = clientName || 'Client #' + clientId;
+
+            const modal = document.getElementById('delete-single-client-modal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            modal.offsetHeight;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.remove('scale-90');
+            modal.classList.add('opacity-100', 'pointer-events-auto');
+        };
+
+        window.closeDeleteSingleClientModal = function() {
+            const modal = document.getElementById('delete-single-client-modal');
+            if (!modal) return;
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.add('scale-90');
+            modal.classList.remove('opacity-100', 'pointer-events-auto');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                pendingDeleteClientId = null;
+            }, 300);
+        };
+
+        window.executeDeleteSingleClient = async function() {
+            if (!pendingDeleteClientId) return;
+            const clientId = pendingDeleteClientId;
+            const btn = document.getElementById('btn-confirm-single-delete');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = 'Deleting...';
+            }
+
+            try {
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const token = authObj.token;
+                const res = await fetch(`/api/admin/clients/${clientId}`, {
+                    method: 'DELETE',
+                    headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+                });
+
+                if (res.ok) {
+                    if (Array.isArray(clientsData)) {
+                        clientsData = clientsData.filter(c => c && c.clientId !== clientId && c.id !== clientId);
+                    }
+                    if (typeof credsClients !== 'undefined' && Array.isArray(credsClients)) {
+                        credsClients = credsClients.filter(c => c && c.clientId !== clientId && c.id !== clientId);
+                    }
+                    showDashboardToast("Client deleted successfully.");
+                    closeDeleteSingleClientModal();
+                    if (typeof populateStaffFilterDropdown === 'function') {
+                        populateStaffFilterDropdown();
+                    }
+                    renderClients();
+                } else {
+                    const errData = await res.json().catch(() => ({}));
+                    alert(errData.message || "Failed to delete client.");
+                }
+            } catch (err) {
+                console.error("Error deleting client:", err);
+                alert("An error occurred while deleting the client.");
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = 'Delete Client';
+                }
+            }
+        };
 
         window.openEditClientModal = function(clientId) {
             const client = (clientsData || []).find(c => c && (c.clientId === clientId || c.id === clientId));
