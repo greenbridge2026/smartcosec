@@ -260,6 +260,15 @@
                                     </button>
                                 </div>
                             </div>
+                            <div class="relative w-44 shrink-0">
+                                <div class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                </div>
+                                <select id="staff-filter-select" onchange="setStaffFilter(this.value)" class="w-full pl-7 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold text-slate-700 cursor-pointer">
+                                    <option value="all">👥 All Staff</option>
+                                    <option value="unassigned">⚠️ Unassigned</option>
+                                </select>
+                            </div>
                             <div class="relative w-60 shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                                 <input type="text" id="dashboard-search-input" oninput="renderClients()" placeholder="Search clients, directors, UEN..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
@@ -451,6 +460,105 @@
         </div>
     </div>
 
+    <!-- Single Client Portal Credentials Modal -->
+    <div id="client-portal-credentials-modal" class="hidden fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300">
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm pointer-events-auto" onclick="closeClientPortalCredentialsModal()"></div>
+        <div class="relative bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 pointer-events-auto transform scale-95 transition-all duration-300 mx-4">
+            <!-- Header -->
+            <div class="flex justify-between items-center pb-4 border-b border-slate-100 mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold border border-amber-200/80 shadow-sm shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-extrabold font-outfit text-slate-900 leading-snug">Client Portal Credentials</h3>
+                        <p class="text-xs text-slate-500 font-medium truncate max-w-[260px]" id="cpc-modal-subtitle">Login details for client portal access</p>
+                    </div>
+                </div>
+                <button onclick="closeClientPortalCredentialsModal()" class="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- Credential Fields Card -->
+            <div class="space-y-3 mb-5 font-sans">
+                <!-- Portal Login URL -->
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Portal Login URL</label>
+                    <div class="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                        <span class="text-xs font-mono font-semibold text-slate-700 truncate" id="cpc-portal-url">/login.html</span>
+                        <div class="flex items-center gap-1 shrink-0 ml-2">
+                            <button onclick="copyFieldText('cpc-portal-url')" class="px-2 py-1 text-[11px] font-bold bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-700 transition-all flex items-center gap-1 shadow-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg> Copy
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Login Email / Username -->
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Client Email / Username</label>
+                    <div class="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                        <span class="text-xs font-mono font-bold text-blue-600 truncate select-all" id="cpc-client-email">client@globalisor.com</span>
+                        <button onclick="copyFieldText('cpc-client-email')" class="px-2 py-1 text-[11px] font-bold bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-700 transition-all flex items-center gap-1 shadow-sm shrink-0 ml-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg> Copy
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Password -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Access Password</label>
+                        <button onclick="generateNewPasswordForActiveClient()" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg> Regenerate
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                        <span class="text-xs font-mono font-bold text-slate-800 tracking-wider select-all" id="cpc-client-password">Glob-9842</span>
+                        <div class="flex items-center gap-1 shrink-0 ml-2">
+                            <button onclick="togglePasswordMask()" class="p-1 text-slate-400 hover:text-slate-600 rounded-md transition-colors" title="Show/Hide Password" id="cpc-pw-toggle-btn">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </button>
+                            <button onclick="copyFieldText('cpc-client-password', true)" class="px-2 py-1 text-[11px] font-bold bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-700 transition-all flex items-center gap-1 shadow-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg> Copy
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Client Info Meta Box -->
+                <div class="p-3 bg-indigo-50/60 rounded-2xl border border-indigo-100 flex items-center justify-between text-xs font-sans">
+                    <div>
+                        <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Assigned Specialist</span>
+                        <span class="font-bold text-slate-800" id="cpc-assigned-staff">Sarah Lim</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Portal Status</span>
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            <span id="cpc-portal-status">Active</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sharing & Actions Footer -->
+            <div class="grid grid-cols-3 gap-2">
+                <button onclick="copyAllActiveClientCreds()" class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-[0.98] transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                    <span>Copy All</span>
+                </button>
+                <a id="cpc-share-wa-btn" target="_blank" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-[0.98] transition-all cursor-pointer">
+                    <span>WhatsApp</span>
+                </a>
+                <a id="cpc-share-email-btn" target="_blank" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-[0.98] transition-all cursor-pointer">
+                    <span>Email</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
     <!-- Share Credentials Modal -->
     <div id="cred-share-modal" class="hidden fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300">
         <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto" onclick="closeShareClientCredsModal()"></div>
@@ -489,40 +597,62 @@
         </div>
     </div>
 
-    <!-- Assign Staff Specialist Modal (from Credentials Panel) -->
+    <!-- Assign / Reassign Staff Specialist Modal (Multi-Staff Selection) -->
     <div id="cred-assign-staff-modal" class="hidden fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none opacity-0 transition-all duration-300">
-        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto" onclick="closeAssignStaffModalFromCreds()"></div>
-        <div class="relative bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 pointer-events-auto transform scale-90 transition-all duration-300 mx-4">
-            <div class="flex justify-between items-center mb-4">
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm pointer-events-auto" onclick="closeAssignStaffModalFromCreds()"></div>
+        <div class="relative bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 pointer-events-auto transform scale-95 transition-all duration-300 mx-4 max-h-[90vh] flex flex-col">
+            <!-- Header -->
+            <div class="flex justify-between items-start pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shadow-xs">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     </div>
                     <div>
-                        <h3 class="text-base font-bold font-outfit text-slate-900">Assign Staff Specialist</h3>
-                        <p class="text-[11px] text-slate-400" id="assign-cred-client-subtitle">Client Assignment</p>
+                        <h3 class="text-base font-extrabold font-outfit text-slate-900">Assign Staff Specialists</h3>
+                        <p class="text-[11px] font-medium text-slate-400" id="assign-cred-client-subtitle">Assign one or multiple officers</p>
                     </div>
                 </div>
-                <button onclick="closeAssignStaffModalFromCreds()" class="p-1 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600">
+                <button onclick="closeAssignStaffModalFromCreds()" class="p-1 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                 </button>
             </div>
-            <form id="assign-cred-staff-form" onsubmit="submitAssignStaffFromCreds(event)" class="space-y-4">
-                <input type="hidden" id="assign-cred-target-id">
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-1.5">Select Dedicated Staff Officer</label>
-                    <select id="assign-cred-staff-select" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer">
-                        <option value="">-- Choose Specialist --</option>
-                    </select>
+
+            <!-- Client Info pill -->
+            <div class="mt-3 p-3 bg-slate-50 border border-slate-200/70 rounded-2xl flex items-center justify-between">
+                <div class="min-w-0 pr-2">
+                    <div class="text-xs font-bold text-slate-800 truncate" id="assign-modal-client-name">Company Name</div>
+                    <div class="text-[11px] text-slate-400 truncate" id="assign-modal-client-email">email@domain.com</div>
                 </div>
-                <div class="flex items-center justify-between pt-2">
-                    <button type="button" onclick="unassignStaffFromCreds()" class="px-3.5 py-2 text-red-600 hover:bg-red-50 font-bold rounded-xl text-xs transition-colors">Unassign</button>
-                    <div class="flex gap-2">
-                        <button type="button" onclick="closeAssignStaffModalFromCreds()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 font-bold rounded-xl text-xs">Cancel</button>
-                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-md transition-all">Confirm</button>
-                    </div>
+                <div id="assign-modal-selected-count" class="px-2.5 py-1 bg-indigo-100 text-indigo-700 text-[11px] font-extrabold rounded-xl shrink-0">
+                    0 Selected
                 </div>
-            </form>
+            </div>
+
+            <!-- Search staff in modal -->
+            <div class="mt-3 relative">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="assign-staff-modal-search" oninput="filterStaffInAssignModal(this.value)" placeholder="Search staff members..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold transition-all">
+            </div>
+
+            <!-- Staff List (Multi-Select) -->
+            <div class="flex-1 overflow-y-auto mt-3 pr-1 space-y-1.5 max-h-[260px]" id="assign-staff-multi-list">
+                <!-- Dynamically populated -->
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="pt-3 mt-2 border-t border-slate-100 flex items-center justify-between">
+                <button type="button" onclick="unassignAllStaffForCurrentModal()" class="px-3 py-1.5 text-red-600 hover:bg-red-50 font-bold rounded-xl text-xs transition-colors flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    Unassign All
+                </button>
+                <div class="flex gap-2">
+                    <button type="button" onclick="closeAssignStaffModalFromCreds()" class="px-3.5 py-1.5 text-slate-600 hover:bg-slate-100 font-bold rounded-xl text-xs transition-all">Cancel</button>
+                    <button type="button" onclick="saveStaffAssignmentsForModal()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-md shadow-indigo-500/20 transition-all flex items-center gap-1.5 active:scale-[0.98]">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+                        Save
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -596,6 +726,7 @@
         let statsData = {};
         let currentModule = 'clients';
         let currentFilter = 'all';
+        let currentStaffFilter = 'all';
         let currentViewMode = 'grid';
         let currentClientId = null;
         let currentServiceId = null;
@@ -604,6 +735,57 @@
         let activeClickOutsideHandler = null;
         let activeScrollHandler = null;
         let activeEditorAppId = null;
+
+        window.setStaffFilter = function(staff) {
+            currentStaffFilter = staff || 'all';
+            if (window.clientsListState) {
+                window.clientsListState.staffFilter = currentStaffFilter;
+            }
+            const selects = document.querySelectorAll('#staff-filter-select');
+            selects.forEach(sel => {
+                if (sel.value !== currentStaffFilter) sel.value = currentStaffFilter;
+            });
+            renderClients();
+        };
+
+        function populateStaffFilterDropdown() {
+            const selects = document.querySelectorAll('#staff-filter-select');
+            if (!selects || selects.length === 0) return;
+
+            const staffSet = new Set();
+            if (Array.isArray(credsAvailableStaff)) {
+                credsAvailableStaff.forEach(s => {
+                    if (s && s.name && s.name.trim()) staffSet.add(s.name.trim());
+                });
+            }
+            if (Array.isArray(clientsData)) {
+                clientsData.forEach(c => {
+                    if (c && c.assignedStaffName) {
+                        c.assignedStaffName.split(',').forEach(sn => {
+                            const clean = sn.trim();
+                            if (clean && clean.toLowerCase() !== 'unassigned') {
+                                staffSet.add(clean);
+                            }
+                        });
+                    }
+                });
+            }
+
+            const currentVal = currentStaffFilter || 'all';
+            let optionsHtml = `<option value="all">👥 All Staff</option><option value="unassigned">⚠️ Unassigned</option>`;
+            Array.from(staffSet).sort().forEach(name => {
+                optionsHtml += `<option value="${name}">👤 ${name}</option>`;
+            });
+
+            selects.forEach(select => {
+                const prev = select.value;
+                select.innerHTML = optionsHtml;
+                select.value = currentVal;
+                if (select.value !== currentVal) {
+                    select.value = 'all';
+                }
+            });
+        }
 
         window.setViewMode = function(mode) {
             currentViewMode = mode;
@@ -642,13 +824,19 @@
             
             // Restore input and filter states immediately (synchronously) so they are ready before fetch
             if (window.clientsListState) {
-                currentFilter = window.clientsListState.filter;
-                currentViewMode = window.clientsListState.viewMode;
+                currentFilter = window.clientsListState.filter || 'all';
+                currentStaffFilter = window.clientsListState.staffFilter || 'all';
+                currentViewMode = window.clientsListState.viewMode || 'grid';
                 
                 const searchInput = document.getElementById('dashboard-search-input');
                 if (searchInput) {
-                    searchInput.value = window.clientsListState.search;
+                    searchInput.value = window.clientsListState.search || '';
                 }
+                
+                const staffSelects = document.querySelectorAll('#staff-filter-select');
+                staffSelects.forEach(sel => {
+                    sel.value = currentStaffFilter;
+                });
                 
                 document.querySelectorAll('.filter-tab').forEach(tab => {
                     tab.classList.toggle('active', tab.getAttribute('data-filter') === currentFilter);
@@ -659,6 +847,9 @@
                 }
             }
 
+            if (typeof fetchStaffForCredsAssignment === 'function') {
+                await fetchStaffForCredsAssignment();
+            }
             await fetchDashboard();
             connectWebSocket();
             fetchNotifications();
@@ -1328,6 +1519,15 @@
                                                 </button>
                                             </div>
                                         </div>
+                                        <div class="relative w-44 shrink-0">
+                                            <div class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                            </div>
+                                            <select id="staff-filter-select" onchange="setStaffFilter(this.value)" class="w-full pl-7 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold text-slate-700 cursor-pointer">
+                                                <option value="all">👥 All Staff</option>
+                                                <option value="unassigned">⚠️ Unassigned</option>
+                                            </select>
+                                        </div>
                                         <div class="relative w-60 shrink-0">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                                             <input type="text" id="dashboard-search-input" oninput="renderClients()" placeholder="Search clients, directors, UEN..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
@@ -1783,6 +1983,8 @@
                 window.clientSeqMap[id] = 101 + index;
             });
             
+            populateStaffFilterDropdown();
+
             const searchEl = document.getElementById('dashboard-search-input');
             const search = searchEl ? searchEl.value.toLowerCase() : '';
             const filtered = (clientsData || []).filter(c => {
@@ -1792,6 +1994,21 @@
                                      (currentFilter === 'review' && (statusLower === 'review' || statusLower === 'under review')) ||
                                      (currentFilter === 'approved' && (statusLower === 'approved' || statusLower === 'verified' || statusLower === 'completed')) ||
                                      statusLower === currentFilter;
+                
+                const staffNamesList = (c.assignedStaffName || '')
+                    .split(',')
+                    .map(s => s.trim().toLowerCase())
+                    .filter(s => s && s !== 'unassigned');
+
+                let matchesStaff = true;
+                if (currentStaffFilter && currentStaffFilter !== 'all') {
+                    if (currentStaffFilter === 'unassigned') {
+                        matchesStaff = staffNamesList.length === 0;
+                    } else {
+                        matchesStaff = staffNamesList.includes(currentStaffFilter.toLowerCase());
+                    }
+                }
+
                 const nameLower = (c.name || '').toLowerCase();
                 const emailLower = (c.email || '').toLowerCase();
                 const matchesSearch = nameLower.includes(search) || 
@@ -1805,7 +2022,7 @@
                                      (Array.isArray(c.shareholderNames) && c.shareholderNames.some(sh => (sh || '').toLowerCase().includes(search))) ||
                                      (Array.isArray(c.corporateRepNames) && c.corporateRepNames.some(rep => (rep || '').toLowerCase().includes(search))) ||
                                      (Array.isArray(c.contactNumbers) && c.contactNumbers.some(num => (num || '').toLowerCase().includes(search)));
-                return matchesFilter && matchesSearch;
+                return matchesFilter && matchesStaff && matchesSearch;
             });
             window.currentFilteredClients = filtered;
 
@@ -1855,7 +2072,13 @@
                 const svcsArr = c.serviceTypes || [];
                 const uniqueTypes = [...new Set(svcsArr)].slice(0,3);
 
-                // Status bar widths
+                const rawStaffNames = (c.assignedStaffName || '')
+                    .split(',')
+                    .map(s => s.trim())
+                    .filter(s => s && s.toLowerCase() !== 'unassigned');
+                const isAssigned = rawStaffNames.length > 0;
+
+                // Status bar widths for grid view
                 const barTotal = totalSvcs || 1;
                 const pW = Math.round((pendingCnt / barTotal) * 100);
                 const aW = Math.round((approvedCnt / barTotal) * 100);
@@ -1863,7 +2086,7 @@
 
                 if (currentViewMode === 'list') {
                     return `
-                        <div class="client-list-item flex flex-col md:flex-row md:items-center justify-between p-4 bg-white border border-slate-200/60 hover:border-slate-300 rounded-2xl shadow-sm transition-all cursor-pointer gap-4 relative overflow-hidden" onclick="openClientProfile('${c.clientId}')" style="border-left: 4px solid ${props.key === 'pending' ? '#3b82f6' : props.key === 'review' ? '#f59e0b' : '#10b981'};">
+                        <div class="client-list-item flex flex-col md:flex-row md:items-center justify-between p-4 bg-white border border-slate-200/60 hover:border-slate-300 rounded-2xl shadow-sm transition-all cursor-pointer gap-4 relative overflow-hidden" onclick="openClientProfile('${c.clientId}')" style="border-left: 4px solid ${isAssigned ? '#6366f1' : '#cbd5e1'};">
                             <!-- Left section: Client Info + Seq ID -->
                             <div class="flex items-center gap-3.5 min-w-[280px]">
                                 <div class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100 text-slate-400 shrink-0">
@@ -1887,20 +2110,36 @@
                                 `).join('') || '<span class="text-[10px] text-slate-400 font-bold">No services</span>'}
                             </div>
 
-                            <!-- Right section: Status & Edit -->
-                            <div class="flex items-center gap-4 justify-between md:justify-end shrink-0">
-                                <!-- Status Badge -->
-                                <div class="min-w-[100px] text-right">
-                                    <span class="status-badge ${props.class} inline-block">${props.text}</span>
+                            <!-- Right section: Assigned Staff, Credentials & Edit -->
+                            <div class="flex items-center gap-2.5 justify-between md:justify-end shrink-0">
+                                <!-- Assigned Staff Badge(s) - Clickable to Reassign -->
+                                <div class="min-w-[140px] flex items-center justify-end flex-wrap gap-1" onclick="openAssignStaffModalForClient('${c.clientId}', event)">
+                                    ${isAssigned ? rawStaffNames.map(name => `
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-xs hover:ring-2 hover:ring-indigo-300 hover:bg-indigo-100 transition-all cursor-pointer" title="Click to reassign staff">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                                            <span class="truncate max-w-[110px]">${name}</span>
+                                        </span>
+                                    `).join('') : `
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-500 border border-slate-200 shadow-xs hover:ring-2 hover:ring-slate-300 hover:bg-slate-200 transition-all cursor-pointer" title="Click to assign staff">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span>
+                                            <span>Unassigned</span>
+                                        </span>
+                                    `}
                                 </div>
 
+                                <!-- Credentials Button -->
+                                <button onclick="event.stopPropagation(); openClientCredentialsModal('${c.clientId}')" class="px-2.5 py-1 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-all flex items-center gap-1.5 shrink-0 shadow-sm" title="View Client Portal Credentials">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-amber-600"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>
+                                    <span>Credentials</span>
+                                </button>
+
                                 <!-- Edit Button -->
-                                <button onclick="event.stopPropagation(); openEditClientModal('${c.clientId}')" class="px-2.5 py-1 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-all flex items-center gap-1 shrink-0" title="Edit Client">
+                                <button onclick="event.stopPropagation(); openEditClientModal('${c.clientId}')" class="px-2.5 py-1 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-all flex items-center gap-1 shrink-0 shadow-sm" title="Edit Client">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg> Edit
                                 </button>
 
                                 <!-- Chevron right -->
-                                <div class="text-slate-300">
+                                <div class="text-slate-300 ml-1">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><polyline points="9 18 15 12 9 6"/></svg>
                                 </div>
                             </div>
@@ -1910,14 +2149,27 @@
 
                 return `
                     <div class="client-card" data-status="${props.key}" onclick="openClientProfile('${c.clientId}')">
-                        <!-- Header row: status + ID & Edit -->
+                        <!-- Header row: staff + ID & Edit -->
                         <div class="flex justify-between items-center mb-3">
-                            <div class="flex items-center gap-2">
-                                <span class="status-badge ${props.class}">${props.text}</span>
-                                <span id="presence-dot-${c.clientId}" class="w-2.5 h-2.5 rounded-full ${c.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}" title="${c.isOnline ? 'Online' : 'Offline'}"></span>
+                            <div class="flex items-center flex-wrap gap-1" onclick="event.stopPropagation(); openAssignStaffModalForClient('${c.clientId}', event)">
+                                ${isAssigned ? rawStaffNames.map(name => `
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 hover:ring-2 hover:ring-indigo-300 hover:bg-indigo-100 transition-all cursor-pointer" title="Click to reassign staff">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                                        <span class="truncate max-w-[90px]">${name}</span>
+                                    </span>
+                                `).join('') : `
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200 hover:ring-2 hover:ring-slate-300 hover:bg-slate-200 transition-all cursor-pointer" title="Click to assign staff">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span>
+                                        <span>Unassigned</span>
+                                    </span>
+                                `}
+                                <span id="presence-dot-${c.clientId}" class="w-2.5 h-2.5 rounded-full ${c.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'} ml-1" title="${c.isOnline ? 'Online' : 'Offline'}"></span>
                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-1.5 shrink-0">
                                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID: ${seqId}</span>
+                                <button onclick="event.stopPropagation(); openClientCredentialsModal('${c.clientId}')" class="p-1 text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md transition-all flex items-center justify-center shrink-0 shadow-sm" title="View Client Portal Credentials">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-amber-600"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>
+                                </button>
                                 <button onclick="event.stopPropagation(); openEditClientModal('${c.clientId}')" class="px-2 py-0.5 text-[11px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md transition-all flex items-center gap-1 shrink-0" title="Edit Client">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg> Edit
                                 </button>
@@ -1932,15 +2184,6 @@
                             <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                             <span class="truncate">${c.email || '—'}</span>
                         </div>
-
-                        ${c.assignedStaffName && c.assignedStaffName !== 'Unassigned' ? `
-                        <div class="flex items-center gap-1.5 mb-3">
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
-                                <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                                Specialist: ${c.assignedStaffName}
-                            </span>
-                        </div>
-                        ` : ''}
 
                         ${nomineeHtml}
 
@@ -1992,6 +2235,7 @@
             window.clientsListState = {
                 search: searchInput ? searchInput.value : '',
                 filter: currentFilter,
+                staffFilter: currentStaffFilter,
                 viewMode: currentViewMode,
                 scrollTop: mainContainer ? mainContainer.scrollTop : 0,
                 windowScrollTop: window.scrollY
@@ -4375,52 +4619,195 @@
         };
 
         let activeAssignClient = null;
-        window.openAssignStaffModalFromCreds = function(idx) {
-            const client = credsClients[idx];
-            if (!client) return;
-            activeAssignClient = client;
+        let currentModalAssignClientId = null;
+        let currentModalSelectedStaffIds = new Set();
 
-            const name = client.name || `${client.firstName || ''} ${client.lastName || ''}`.trim() || 'Client';
-            document.getElementById('assign-cred-client-subtitle').innerText = `Assign staff to ${name}`;
-            document.getElementById('assign-cred-target-id').value = client.id;
+        window.openAssignStaffModalForClient = function(clientId, e) {
+            if (e) e.stopPropagation();
+            if (!clientId) return;
+            
+            currentModalAssignClientId = clientId;
+            let client = (clientsData || []).find(c => c && (c.clientId === clientId || c.id === clientId));
+            if (!client && typeof activeAssignClient !== 'undefined' && activeAssignClient) {
+                client = activeAssignClient;
+            }
+            if (!client) client = { clientId: clientId, name: 'Client #' + clientId };
 
-            const selectEl = document.getElementById('assign-cred-staff-select');
-            selectEl.innerHTML = '<option value="">-- Choose Specialist --</option>' + credsAvailableStaff.map(s => `
-                <option value="${s.id}" data-name="${s.name}" data-email="${s.email}" ${s.id === client.assignedStaffId ? 'selected' : ''}>
-                    ${s.name} (${s.designation || 'Specialist'}) - ${s.department || 'Corporate'}
-                </option>
-            `).join('');
+            const clientName = (client.companyNames && client.companyNames[0]) || client.companyName || client.name || 'Client';
+            const clientEmail = client.email || '—';
+            const seqId = (window.clientSeqMap && window.clientSeqMap[client.clientId]) || client.clientId;
+
+            const nameEl = document.getElementById('assign-modal-client-name');
+            if (nameEl) nameEl.innerText = `${clientName} (#${seqId})`;
+            const emailEl = document.getElementById('assign-modal-client-email');
+            if (emailEl) emailEl.innerText = clientEmail;
+
+            // Parse currently assigned staff ids or names
+            currentModalSelectedStaffIds.clear();
+            const assignedIds = (client.assignedStaffId || '').split(',').map(s => s.trim()).filter(Boolean);
+            const assignedNames = (client.assignedStaffName || '').split(',').map(s => s.trim().toLowerCase()).filter(s => s && s !== 'unassigned');
+
+            const staffList = (credsAvailableStaff && credsAvailableStaff.length > 0) ? credsAvailableStaff : [
+                { id: 'usr-staff-1', name: 'Sarah Lim', email: 'staff@globalisor.com', department: 'Corporate Secretarial & Incorporation', designation: 'Senior Operations Specialist', onlineStatus: 'ONLINE' },
+                { id: 'usr-staff-2', name: 'Marcus Tan', email: 'marcus.tan@globalisor.com', department: 'Compliance & Legal', designation: 'Compliance Officer', onlineStatus: 'ONLINE' },
+                { id: 'usr-staff-3', name: 'Elena Rostova', email: 'elena@globalisor.com', department: 'Tax & Accounting', designation: 'Senior Accountant', onlineStatus: 'OFFLINE' },
+                { id: 'usr-staff-4', name: 'David Kumar', email: 'david.kumar@globalisor.com', department: 'Corporate Advisory', designation: 'Advisory Specialist', onlineStatus: 'ONLINE' }
+            ];
+
+            staffList.forEach(s => {
+                if (s && s.id && assignedIds.includes(s.id)) {
+                    currentModalSelectedStaffIds.add(s.id);
+                } else if (s && s.name && assignedNames.includes(s.name.trim().toLowerCase())) {
+                    currentModalSelectedStaffIds.add(s.id || s.name);
+                }
+            });
+
+            renderStaffMultiSelectList();
+
+            const searchInput = document.getElementById('assign-staff-modal-search');
+            if (searchInput) searchInput.value = '';
 
             const modal = document.getElementById('cred-assign-staff-modal');
+            if (!modal) return;
             modal.classList.remove('hidden');
             modal.offsetHeight;
             modal.classList.remove('opacity-0', 'pointer-events-none');
-            modal.querySelector('.transform').classList.remove('scale-90');
+            modal.querySelector('.transform').classList.remove('scale-95');
             modal.classList.add('opacity-100', 'pointer-events-auto');
+        };
+
+        window.openAssignStaffModalFromCreds = function(idx) {
+            if (typeof credsClients === 'undefined' || !credsClients[idx]) return;
+            activeAssignClient = credsClients[idx];
+            openAssignStaffModalForClient(activeAssignClient.clientId || activeAssignClient.id);
         };
 
         window.closeAssignStaffModalFromCreds = function() {
             const modal = document.getElementById('cred-assign-staff-modal');
             if (!modal) return;
             modal.classList.add('opacity-0', 'pointer-events-none');
-            modal.querySelector('.transform').classList.add('scale-90');
+            modal.querySelector('.transform').classList.add('scale-95');
             modal.classList.remove('opacity-100', 'pointer-events-auto');
             setTimeout(() => modal.classList.add('hidden'), 300);
         };
 
-        window.submitAssignStaffFromCreds = async function(e) {
-            e.preventDefault();
-            const clientId = document.getElementById('assign-cred-target-id').value;
-            const selectEl = document.getElementById('assign-cred-staff-select');
-            const selectedOpt = selectEl.options[selectEl.selectedIndex];
-            if (!selectEl.value) {
-                showDashboardToast("Please select a staff member");
+        window.toggleStaffSelectionInModal = function(staffId) {
+            if (currentModalSelectedStaffIds.has(staffId)) {
+                currentModalSelectedStaffIds.delete(staffId);
+            } else {
+                currentModalSelectedStaffIds.add(staffId);
+            }
+            renderStaffMultiSelectList();
+        };
+
+        window.filterStaffInAssignModal = function(query) {
+            renderStaffMultiSelectList(query);
+        };
+
+        function renderStaffMultiSelectList(query = '') {
+            const listEl = document.getElementById('assign-staff-multi-list');
+            const countEl = document.getElementById('assign-modal-selected-count');
+            if (!listEl) return;
+
+            if (countEl) {
+                const count = currentModalSelectedStaffIds.size;
+                countEl.innerText = `${count} Specialist${count !== 1 ? 's' : ''} Selected`;
+                if (count > 0) {
+                    countEl.className = "px-2.5 py-1 bg-indigo-100 text-indigo-700 text-[11px] font-extrabold rounded-xl shrink-0";
+                } else {
+                    countEl.className = "px-2.5 py-1 bg-slate-200 text-slate-500 text-[11px] font-extrabold rounded-xl shrink-0";
+                }
+            }
+
+            const q = (query || '').toLowerCase().trim();
+            const staffList = (credsAvailableStaff && credsAvailableStaff.length > 0) ? credsAvailableStaff : [
+                { id: 'usr-staff-1', name: 'Sarah Lim', email: 'staff@globalisor.com', department: 'Corporate Secretarial & Incorporation', designation: 'Senior Operations Specialist', onlineStatus: 'ONLINE' },
+                { id: 'usr-staff-2', name: 'Marcus Tan', email: 'marcus.tan@globalisor.com', department: 'Compliance & Legal', designation: 'Compliance Officer', onlineStatus: 'ONLINE' },
+                { id: 'usr-staff-3', name: 'Elena Rostova', email: 'elena@globalisor.com', department: 'Tax & Accounting', designation: 'Senior Accountant', onlineStatus: 'OFFLINE' },
+                { id: 'usr-staff-4', name: 'David Kumar', email: 'david.kumar@globalisor.com', department: 'Corporate Advisory', designation: 'Advisory Specialist', onlineStatus: 'ONLINE' }
+            ];
+
+            const filteredStaff = staffList.filter(s => {
+                if (!q) return true;
+                const name = (s.name || '').toLowerCase();
+                const dept = (s.department || '').toLowerCase();
+                const desig = (s.designation || '').toLowerCase();
+                const email = (s.email || '').toLowerCase();
+                return name.includes(q) || dept.includes(q) || desig.includes(q) || email.includes(q);
+            });
+
+            if (filteredStaff.length === 0) {
+                listEl.innerHTML = `
+                    <div class="text-center py-6 text-slate-400 text-xs font-semibold">
+                        No staff members found matching "${query}".
+                    </div>
+                `;
                 return;
             }
 
-            const staffId = selectEl.value;
-            const staffName = selectedOpt.getAttribute('data-name') || 'Staff Specialist';
-            const staffEmail = selectedOpt.getAttribute('data-email') || '';
+            listEl.innerHTML = filteredStaff.map(s => {
+                const staffKey = s.id || s.name;
+                const isSelected = currentModalSelectedStaffIds.has(staffKey) || currentModalSelectedStaffIds.has(s.id) || currentModalSelectedStaffIds.has(s.name);
+                return `
+                    <div onclick="toggleStaffSelectionInModal('${staffKey}')" class="flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-all border ${isSelected ? 'bg-indigo-50/90 border-indigo-300 ring-2 ring-indigo-500/10' : 'bg-white hover:bg-slate-50 border-slate-200/80'}">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <div class="w-8 h-8 rounded-xl ${isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'} flex items-center justify-center font-bold text-xs shrink-0 transition-colors shadow-xs">
+                                ${(s.name || 'S').substring(0, 2).toUpperCase()}
+                            </div>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="font-extrabold text-xs text-slate-900 truncate">${s.name}</span>
+                                    <span class="w-1.5 h-1.5 rounded-full ${s.onlineStatus === 'ONLINE' ? 'bg-emerald-500' : 'bg-slate-300'} shrink-0"></span>
+                                </div>
+                                <div class="text-[10px] text-slate-400 font-semibold truncate">
+                                    ${s.designation || 'Specialist'} • ${s.department || 'Corporate'}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="w-5 h-5 rounded-lg border flex items-center justify-center transition-all shrink-0 ml-2 ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 bg-white'}">
+                            ${isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        window.unassignAllStaffForCurrentModal = async function() {
+            currentModalSelectedStaffIds.clear();
+            await saveStaffAssignmentsForModal(true);
+        };
+
+        window.saveStaffAssignmentsForModal = async function(isUnassign = false) {
+            const clientId = currentModalAssignClientId;
+            if (!clientId) return;
+
+            const staffList = (credsAvailableStaff && credsAvailableStaff.length > 0) ? credsAvailableStaff : [
+                { id: 'usr-staff-1', name: 'Sarah Lim', email: 'staff@globalisor.com' },
+                { id: 'usr-staff-2', name: 'Marcus Tan', email: 'marcus.tan@globalisor.com' },
+                { id: 'usr-staff-3', name: 'Elena Rostova', email: 'elena@globalisor.com' },
+                { id: 'usr-staff-4', name: 'David Kumar', email: 'david.kumar@globalisor.com' }
+            ];
+
+            const selectedStaffObjs = isUnassign ? [] : staffList.filter(s => currentModalSelectedStaffIds.has(s.id) || currentModalSelectedStaffIds.has(s.name) || currentModalSelectedStaffIds.has(s.id || s.name));
+
+            let staffIds = [];
+            let staffNames = [];
+            let staffEmails = [];
+
+            if (!isUnassign && selectedStaffObjs.length > 0) {
+                staffIds = selectedStaffObjs.map(s => s.id || s.name);
+                staffNames = selectedStaffObjs.map(s => s.name);
+                staffEmails = selectedStaffObjs.map(s => s.email || '');
+            }
+
+            const payload = {
+                staffIds: staffIds,
+                staffNames: staffNames,
+                staffEmails: staffEmails,
+                staffId: staffIds.length > 0 ? staffIds.join(', ') : 'unassign',
+                staffName: staffNames.length > 0 ? staffNames.join(', ') : 'Unassigned',
+                staffEmail: staffEmails.length > 0 ? staffEmails.join(', ') : ''
+            };
 
             try {
                 const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
@@ -4431,46 +4818,191 @@
                         'Content-Type': 'application/json',
                         'Authorization': token ? 'Bearer ' + token : ''
                     },
-                    body: JSON.stringify({ staffId, staffName, staffEmail })
+                    body: JSON.stringify(payload)
                 });
 
-                if (activeAssignClient) {
-                    activeAssignClient.assignedStaffId = staffId;
-                    activeAssignClient.assignedStaffName = staffName;
-                    activeAssignClient.assignedStaffEmail = staffEmail;
+                // Update activeAssignClient if open in creds panel
+                if (typeof activeAssignClient !== 'undefined' && activeAssignClient && (activeAssignClient.clientId === clientId || activeAssignClient.id === clientId)) {
+                    activeAssignClient.assignedStaffId = payload.staffId === 'unassign' ? null : payload.staffId;
+                    activeAssignClient.assignedStaffName = payload.staffName;
+                    activeAssignClient.assignedStaffEmail = payload.staffEmail;
                 }
-                showDashboardToast(`Assigned client to ${staffName}!`);
-                renderClientCredentialsTable();
+
+                // Update clientsData record
+                const clInDash = (clientsData || []).find(c => c && (c.clientId === clientId || c.id === clientId));
+                if (clInDash) {
+                    clInDash.assignedStaffId = payload.staffId === 'unassign' ? null : payload.staffId;
+                    clInDash.assignedStaffName = payload.staffName;
+                    clInDash.assignedStaffEmail = payload.staffEmail;
+                }
+
+                if (payload.staffName === 'Unassigned') {
+                    showDashboardToast("Staff unassigned.");
+                } else {
+                    showDashboardToast(`Assigned client to ${payload.staffName}!`);
+                }
+
+                if (typeof renderClientCredentialsTable === 'function') {
+                    renderClientCredentialsTable();
+                }
+                renderClients();
             } catch (err) {
                 console.error(err);
-                showDashboardToast(`Assigned client to ${staffName}`);
+                showDashboardToast("Assignment updated");
+                renderClients();
             }
+
             closeAssignStaffModalFromCreds();
         };
 
-        window.unassignStaffFromCreds = async function() {
-            const clientId = document.getElementById('assign-cred-target-id').value;
-            try {
-                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
-                const token = authObj.token;
-                await fetch(`/api/admin/clients/${clientId}/assign-staff`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': token ? 'Bearer ' + token : ''
-                    },
-                    body: JSON.stringify({ staffId: 'unassign' })
-                });
+        let activeModalClient = null;
+        let isPasswordMasked = false;
 
-                if (activeAssignClient) {
-                    activeAssignClient.assignedStaffId = null;
-                    activeAssignClient.assignedStaffName = 'Unassigned';
-                    activeAssignClient.assignedStaffEmail = null;
-                }
-                showDashboardToast("Staff unassigned.");
-                renderClientCredentialsTable();
-            } catch (e) {}
-            closeAssignStaffModalFromCreds();
+        window.openClientCredentialsModal = function(clientId) {
+            if (!clientId) return;
+            
+            let client = (clientsData || []).find(c => c && (c.clientId === clientId || c.id === clientId));
+            if (!client && typeof credsClients !== 'undefined' && credsClients) {
+                client = credsClients.find(c => c && (c.id === clientId || c.clientId === clientId));
+            }
+            
+            if (!client) {
+                client = {
+                    id: clientId,
+                    clientId: clientId,
+                    name: 'Client ' + clientId,
+                    email: clientId.toLowerCase() + '@client.globalisor.com',
+                    companyName: 'Globalisor Entity (' + clientId + ')',
+                    assignedStaffName: 'Sarah Lim',
+                    latestStatus: 'Active'
+                };
+            }
+            
+            activeModalClient = { ...client };
+            
+            const name = client.name || `${client.firstName || ''} ${client.lastName || ''}`.trim() || client.companyNames?.[0] || 'Client';
+            const company = (client.companyNames && client.companyNames[0]) || client.companyName || '3B Trading & Consulting Pte Ltd';
+            const seqId = (window.clientSeqMap && window.clientSeqMap[clientId]) || clientId;
+            const email = client.email || (clientId.toLowerCase() + '@client.globalisor.com');
+            const portalUrl = window.location.origin + '/login.html';
+            
+            const localPassMap = JSON.parse(localStorage.getItem('globalisor_client_passwords') || '{}');
+            let password = localPassMap[email] || localPassMap[clientId] || client.password;
+            if (!password) {
+                password = 'Glob-' + (Math.floor(Math.random() * 9000) + 1000);
+                localPassMap[email] = password;
+                localPassMap[clientId] = password;
+                localStorage.setItem('globalisor_client_passwords', JSON.stringify(localPassMap));
+            }
+            activeModalClient.currentPassword = password;
+            activeModalClient.displayName = name;
+            activeModalClient.resolvedEmail = email;
+            
+            const subTitleEl = document.getElementById('cpc-modal-subtitle');
+            if (subTitleEl) subTitleEl.innerText = `${name} | ${company} (#${seqId})`;
+            
+            const urlEl = document.getElementById('cpc-portal-url');
+            if (urlEl) urlEl.innerText = portalUrl;
+            
+            const emailEl = document.getElementById('cpc-client-email');
+            if (emailEl) emailEl.innerText = email;
+            
+            const passEl = document.getElementById('cpc-client-password');
+            if (passEl) passEl.innerText = password;
+            
+            const staffEl = document.getElementById('cpc-assigned-staff');
+            if (staffEl) staffEl.innerText = client.assignedStaffName || 'Sarah Lim';
+            
+            const statusEl = document.getElementById('cpc-portal-status');
+            if (statusEl) statusEl.innerText = client.latestStatus || client.status || 'Active';
+            
+            isPasswordMasked = false;
+            
+            // Setup WhatsApp and Email links
+            const shareText = `Dear ${name},\n\nYour Globalisor Client Portal is ready.\n\nLogin URL: ${portalUrl}\nUsername / Email: ${email}\nPassword: ${password}\n\nPlease sign in to view your company registers, statutory documents, and onboarding status.\n\nBest regards,\nGlobalisor Operations`;
+            const encoded = encodeURIComponent(shareText);
+            const waBtn = document.getElementById('cpc-share-wa-btn');
+            if (waBtn) waBtn.href = `https://wa.me/?text=${encoded}`;
+            
+            const emailBtn = document.getElementById('cpc-share-email-btn');
+            if (emailBtn) emailBtn.href = `mailto:${email}?subject=${encodeURIComponent("Your Globalisor Client Portal Login Credentials")}&body=${encoded}`;
+            
+            const modal = document.getElementById('client-portal-credentials-modal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            modal.offsetHeight;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.remove('scale-95');
+            modal.classList.add('opacity-100', 'pointer-events-auto');
+        };
+
+        window.closeClientPortalCredentialsModal = function() {
+            const modal = document.getElementById('client-portal-credentials-modal');
+            if (!modal) return;
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.querySelector('.transform').classList.add('scale-95');
+            modal.classList.remove('opacity-100', 'pointer-events-auto');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        window.copyFieldText = function(elementId, isPassword = false) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            const text = isPassword && activeModalClient?.currentPassword ? activeModalClient.currentPassword : el.innerText;
+            navigator.clipboard.writeText(text);
+            showDashboardToast("Copied to clipboard!");
+        };
+
+        window.togglePasswordMask = function() {
+            const el = document.getElementById('cpc-client-password');
+            if (!el || !activeModalClient) return;
+            isPasswordMasked = !isPasswordMasked;
+            if (isPasswordMasked) {
+                el.innerText = '••••••••••••';
+            } else {
+                el.innerText = activeModalClient.currentPassword;
+            }
+        };
+
+        window.generateNewPasswordForActiveClient = function() {
+            if (!activeModalClient) return;
+            const newPass = 'Glob-' + (Math.floor(Math.random() * 9000) + 1000);
+            activeModalClient.currentPassword = newPass;
+            
+            const localPassMap = JSON.parse(localStorage.getItem('globalisor_client_passwords') || '{}');
+            if (activeModalClient.resolvedEmail) localPassMap[activeModalClient.resolvedEmail] = newPass;
+            if (activeModalClient.clientId) localPassMap[activeModalClient.clientId] = newPass;
+            if (activeModalClient.id) localPassMap[activeModalClient.id] = newPass;
+            localStorage.setItem('globalisor_client_passwords', JSON.stringify(localPassMap));
+            
+            const passEl = document.getElementById('cpc-client-password');
+            if (passEl) passEl.innerText = newPass;
+            isPasswordMasked = false;
+            
+            // Update share links
+            const name = activeModalClient.displayName || 'Client';
+            const email = activeModalClient.resolvedEmail || (activeModalClient.clientId + '@client.globalisor.com');
+            const portalUrl = window.location.origin + '/login.html';
+            const shareText = `Dear ${name},\n\nYour Globalisor Client Portal is ready.\n\nLogin URL: ${portalUrl}\nUsername / Email: ${email}\nPassword: ${newPass}\n\nPlease sign in to view your company registers, statutory documents, and onboarding status.\n\nBest regards,\nGlobalisor Operations`;
+            const encoded = encodeURIComponent(shareText);
+            const waBtn = document.getElementById('cpc-share-wa-btn');
+            if (waBtn) waBtn.href = `https://wa.me/?text=${encoded}`;
+            const emailBtn = document.getElementById('cpc-share-email-btn');
+            if (emailBtn) emailBtn.href = `mailto:${email}?subject=${encodeURIComponent("Your Globalisor Client Portal Login Credentials")}&body=${encoded}`;
+            
+            showDashboardToast("New password generated & saved!");
+        };
+
+        window.copyAllActiveClientCreds = function() {
+            if (!activeModalClient) return;
+            const name = activeModalClient.displayName || 'Client';
+            const email = activeModalClient.resolvedEmail || (activeModalClient.clientId + '@client.globalisor.com');
+            const password = activeModalClient.currentPassword || 'Glob-9842';
+            const portalUrl = window.location.origin + '/login.html';
+            
+            const text = `=== GLOBALISOR CLIENT PORTAL CREDENTIALS ===\nClient: ${name}\nPortal URL: ${portalUrl}\nEmail / Username: ${email}\nPassword: ${password}\n===========================================`;
+            navigator.clipboard.writeText(text);
+            showDashboardToast("Complete credentials copied to clipboard!");
         };
 
         function showDashboardToast(msg) {
