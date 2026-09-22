@@ -3112,7 +3112,9 @@
 
         window.loadGlobalDocCategories = async function() {
             try {
-                const res = await fetch('/api/documents/categories');
+                const urlParams = new URLSearchParams(window.location.search);
+                const activeClientId = urlParams.get('clientId') || (window.clientData?.client?.id || window.clientData?.client?.clientId || 'C-1001');
+                const res = await fetch(`/api/documents/categories?clientId=${encodeURIComponent(activeClientId)}`);
                 if (res.ok) {
                     const data = await res.json();
                     if (Array.isArray(data)) {
@@ -3131,6 +3133,9 @@
                             rootKey: d.rootKey || (d.parentKey ? null : d.key),
                             level: typeof d.level === 'number' ? d.level : (d.parentKey ? 1 : 0),
                             fullPath: d.fullPath || d.key,
+                            scope: d.scope || 'COMMON',
+                            clientId: d.clientId || null,
+                            clientName: d.clientName || null,
                             subFolders: Array.isArray(d.subFolders) ? d.subFolders : []
                         }));
                         localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
@@ -3182,6 +3187,8 @@
                             parentKey: catKey,
                             rootKey: catKey,
                             level: 1,
+                            scope: c.scope || 'COMMON',
+                            clientId: c.clientId || null,
                             children: []
                         });
                     }
@@ -3201,28 +3208,32 @@
                             parentKey: catKey,
                             rootKey: catKey,
                             level: 1,
+                            scope: rootObj.scope || 'COMMON',
+                            clientId: rootObj.clientId || null,
                             children: []
                         });
                     }
                 });
             }
 
-            // 2. Find Level 2 items under each Level 1
+            // 2. Direct Level 2 nested children of Level 1 folders
             taxonomyList.forEach(c => {
                 if (c.parentKey) {
-                    const parentL1 = level1Map.get(c.parentKey.toLowerCase());
-                    if (parentL1) {
-                        const existingL2 = parentL1.children.some(ch => ch.key.toLowerCase() === c.key.toLowerCase());
-                        if (!existingL2) {
-                            parentL1.children.push({
+                    const parentKeyLower = c.parentKey.toLowerCase();
+                    if (level1Map.has(parentKeyLower)) {
+                        const l1Node = level1Map.get(parentKeyLower);
+                        if (!l1Node.children.some(child => child.key.toLowerCase() === c.key.toLowerCase())) {
+                            l1Node.children.push({
                                 id: c.id,
                                 key: c.key,
                                 label: c.label || c.key,
-                                color: c.color || 'violet',
+                                color: c.color || 'purple',
                                 icon: c.icon || 'folder',
-                                parentKey: parentL1.key,
+                                parentKey: l1Node.key,
                                 rootKey: catKey,
-                                level: 2
+                                level: 2,
+                                scope: c.scope || l1Node.scope || 'COMMON',
+                                clientId: c.clientId || l1Node.clientId || null
                             });
                         }
                     }
@@ -3230,19 +3241,21 @@
             });
 
             // Also check Level 1 category objects' subFolders array for Level 2 children
-            level1Map.forEach(l1Obj => {
-                const taxL1Obj = taxonomyList.find(c => c.key.toLowerCase() === l1Obj.key.toLowerCase() && c.parentKey && c.parentKey.toLowerCase() === catLower);
+            level1Map.forEach(l1Node => {
+                const taxL1Obj = taxonomyList.find(c => c.key.toLowerCase() === l1Node.key.toLowerCase());
                 if (taxL1Obj && Array.isArray(taxL1Obj.subFolders)) {
                     taxL1Obj.subFolders.forEach(l2Name => {
-                        if (l2Name && !l1Obj.children.some(ch => ch.key.toLowerCase() === l2Name.toLowerCase())) {
-                            l1Obj.children.push({
+                        if (l2Name && !l1Node.children.some(child => child.key.toLowerCase() === l2Name.toLowerCase())) {
+                            l1Node.children.push({
                                 key: l2Name,
                                 label: l2Name,
-                                color: 'violet',
+                                color: 'purple',
                                 icon: 'folder',
-                                parentKey: l1Obj.key,
+                                parentKey: l1Node.key,
                                 rootKey: catKey,
-                                level: 2
+                                level: 2,
+                                scope: l1Node.scope || 'COMMON',
+                                clientId: l1Node.clientId || null
                             });
                         }
                     });
@@ -3256,38 +3269,36 @@
                     if (docFolder === catLower && d.subFolder) {
                         const rawSub = d.subFolder.trim();
                         if (rawSub.includes('/')) {
-                            const parts = rawSub.split('/').map(p => p.trim()).filter(Boolean);
-                            const p0 = parts[0];
-                            const p1 = parts[1];
-                            if (p0) {
-                                if (!level1Map.has(p0.toLowerCase())) {
-                                    level1Map.set(p0.toLowerCase(), {
-                                        key: p0,
-                                        label: p0,
-                                        color: 'indigo',
+                            const [p1, p2] = rawSub.split('/').map(p => p.trim());
+                            if (p1 && !level1Map.has(p1.toLowerCase())) {
+                                level1Map.set(p1.toLowerCase(), {
+                                    key: p1,
+                                    label: p1,
+                                    color: 'indigo',
+                                    icon: 'folder',
+                                    parentKey: catKey,
+                                    rootKey: catKey,
+                                    level: 1,
+                                    scope: 'COMMON',
+                                    children: []
+                                });
+                            }
+                            if (p1 && p2) {
+                                const l1 = level1Map.get(p1.toLowerCase());
+                                if (l1 && !l1.children.some(c => c.key.toLowerCase() === p2.toLowerCase())) {
+                                    l1.children.push({
+                                        key: p2,
+                                        label: p2,
+                                        color: 'purple',
                                         icon: 'folder',
-                                        parentKey: catKey,
+                                        parentKey: p1,
                                         rootKey: catKey,
-                                        level: 1,
-                                        children: []
+                                        level: 2,
+                                        scope: 'COMMON'
                                     });
                                 }
-                                if (p1) {
-                                    const l1 = level1Map.get(p0.toLowerCase());
-                                    if (l1 && !l1.children.some(ch => ch.key.toLowerCase() === p1.toLowerCase())) {
-                                        l1.children.push({
-                                            key: p1,
-                                            label: p1,
-                                            color: 'violet',
-                                            icon: 'folder',
-                                            parentKey: p0,
-                                            rootKey: catKey,
-                                            level: 2
-                                        });
-                                    }
-                                }
                             }
-                        } else {
+                        } else if (rawSub) {
                             if (!level1Map.has(rawSub.toLowerCase())) {
                                 level1Map.set(rawSub.toLowerCase(), {
                                     key: rawSub,
@@ -3297,6 +3308,7 @@
                                     parentKey: catKey,
                                     rootKey: catKey,
                                     level: 1,
+                                    scope: 'COMMON',
                                     children: []
                                 });
                             }
@@ -3333,6 +3345,8 @@
                 icon: cat.icon || 'folder',
                 parentKey: cat.parentKey || null,
                 level: cat.level || 0,
+                scope: cat.scope || 'COMMON',
+                clientId: cat.clientId || null,
                 subFolders: cat.subFolders || []
             }));
 
@@ -3340,7 +3354,7 @@
                 documentsList.forEach(d => {
                     const cat = (d.folder || d.type || '').trim();
                     if (cat && !list.some(item => item.val.toLowerCase() === cat.toLowerCase())) {
-                        list.push({ val: cat, label: `${cat} (Custom Category)`, key: cat, color: 'blue', icon: 'folder', level: 0, subFolders: [] });
+                        list.push({ val: cat, label: `${cat} (Custom Category)`, key: cat, color: 'blue', icon: 'folder', level: 0, scope: 'COMMON', subFolders: [] });
                     }
                 });
             }
@@ -3385,6 +3399,10 @@
             const oldModal = document.getElementById(modalId);
             if (oldModal) oldModal.remove();
 
+            const urlParams = new URLSearchParams(window.location.search);
+            const activeClientId = urlParams.get('clientId') || (window.clientData?.client?.id || window.clientData?.client?.clientId || 'C-1001');
+            const clientCompanyName = window.clientData?.client?.companyName || (window.currentCompany ? window.currentCompany.companyName : '') || `Client ${activeClientId}`;
+
             const rootCategories = window.getRootCategoriesList();
             const parentOptionsHtml = `
                 <option value="">📁 Root Folder / Main Category (Level 0)</option>
@@ -3416,6 +3434,28 @@
                             </button>
                         </div>
                         <form onsubmit="window.submitAddCategory(event, '${modalId}')" class="p-6 space-y-4 text-xs">
+                            <!-- Scope Selector: Common Folder vs Client Specific -->
+                            <div class="space-y-1.5">
+                                <label class="block font-bold text-slate-700 uppercase text-[10px] tracking-wider">Folder Availability & Scope *</label>
+                                <div class="grid grid-cols-2 gap-2 p-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+                                    <label class="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition has-[:checked]:bg-white has-[:checked]:shadow-sm has-[:checked]:text-blue-700 font-bold text-slate-600 text-xs">
+                                        <input type="radio" name="add-cat-scope" value="COMMON" checked class="text-blue-600 focus:ring-0">
+                                        <div class="flex flex-col">
+                                            <span class="leading-tight">🌐 Common Folder</span>
+                                            <span class="text-[9px] font-normal text-slate-400">All Clients</span>
+                                        </div>
+                                    </label>
+                                    <label class="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition has-[:checked]:bg-white has-[:checked]:shadow-sm has-[:checked]:text-blue-700 font-bold text-slate-600 text-xs">
+                                        <input type="radio" name="add-cat-scope" value="CLIENT_SPECIFIC" class="text-blue-600 focus:ring-0">
+                                        <div class="flex flex-col">
+                                            <span class="leading-tight">🏢 Client Specific</span>
+                                            <span class="text-[9px] font-normal text-slate-400">This Client Only</span>
+                                        </div>
+                                    </label>
+                                </div>
+                                <p class="text-[10px] text-slate-400">"Common Folder" will be available for all clients. "Client Specific" is restricted to ${clientCompanyName}.</p>
+                            </div>
+
                             <div>
                                 <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Parent Folder (Optional)</label>
                                 <select id="add-cat-parent-select" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm cursor-pointer">
@@ -3461,6 +3501,10 @@
             const modalId = 'modal-add-doc-subfolder';
             const oldModal = document.getElementById(modalId);
             if (oldModal) oldModal.remove();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const activeClientId = urlParams.get('clientId') || (window.clientData?.client?.id || window.clientData?.client?.clientId || 'C-1001');
+            const clientCompanyName = window.clientData?.client?.companyName || (window.currentCompany ? window.currentCompany.companyName : '') || `Client ${activeClientId}`;
 
             const rootCategories = window.getRootCategoriesList();
             const level1Categories = window.getLevel1CategoriesList();
@@ -3512,6 +3556,27 @@
                             </button>
                         </div>
                         <form onsubmit="window.submitAddSubFolder(event, '${modalId}')" class="p-6 space-y-4 text-xs">
+                            <!-- Scope Selector -->
+                            <div class="space-y-1.5">
+                                <label class="block font-bold text-slate-700 uppercase text-[10px] tracking-wider">Sub-Folder Scope *</label>
+                                <div class="grid grid-cols-2 gap-2 p-1.5 bg-indigo-50/50 border border-indigo-100 rounded-xl">
+                                    <label class="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition has-[:checked]:bg-white has-[:checked]:shadow-sm has-[:checked]:text-indigo-700 font-bold text-slate-600 text-xs">
+                                        <input type="radio" name="add-sub-scope" value="COMMON" checked class="text-indigo-600 focus:ring-0">
+                                        <div class="flex flex-col">
+                                            <span class="leading-tight">🌐 Common Folder</span>
+                                            <span class="text-[9px] font-normal text-slate-400">All Clients</span>
+                                        </div>
+                                    </label>
+                                    <label class="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition has-[:checked]:bg-white has-[:checked]:shadow-sm has-[:checked]:text-indigo-700 font-bold text-slate-600 text-xs">
+                                        <input type="radio" name="add-sub-scope" value="CLIENT_SPECIFIC" class="text-indigo-600 focus:ring-0">
+                                        <div class="flex flex-col">
+                                            <span class="leading-tight">🏢 Client Specific</span>
+                                            <span class="text-[9px] font-normal text-slate-400">This Client Only</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
                             <div>
                                 <label class="block font-bold text-slate-700 mb-1.5 uppercase text-[10px] tracking-wider">Parent Folder / Category *</label>
                                 <select id="add-sub-parent-select" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm cursor-pointer">
@@ -3559,12 +3624,18 @@
             const nameInput = document.getElementById('add-cat-name-input');
             const descInput = document.getElementById('add-cat-desc-input');
             const colorInput = document.querySelector('input[name="add-cat-color"]:checked');
+            const scopeInput = document.querySelector('input[name="add-cat-scope"]:checked');
             const btn = document.getElementById('btn-save-add-cat');
 
             const parentKey = parentSelect ? parentSelect.value.trim() : '';
             const name = nameInput ? nameInput.value.trim() : '';
             const desc = descInput ? descInput.value.trim() : '';
             const color = colorInput ? colorInput.value : 'blue';
+            const scope = scopeInput ? scopeInput.value : 'COMMON';
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const activeClientId = urlParams.get('clientId') || (window.clientData?.client?.id || window.clientData?.client?.clientId || 'C-1001');
+            const clientCompanyName = window.clientData?.client?.companyName || (window.currentCompany ? window.currentCompany.companyName : '') || `Client ${activeClientId}`;
 
             if (!name) {
                 alert("Please enter a folder name.");
@@ -3572,7 +3643,7 @@
             }
 
             if (parentKey) {
-                return window.executeCreateSubFolder(parentKey, name, desc, color, modalId, btn);
+                return window.executeCreateSubFolder(parentKey, name, desc, color, scope, modalId, btn);
             }
 
             const currentTaxonomy = window.getCompanyDetailTaxonomy();
@@ -3601,6 +3672,9 @@
                         level: 0,
                         rootKey: name,
                         fullPath: name,
+                        scope: scope,
+                        clientId: scope === 'CLIENT_SPECIFIC' ? activeClientId : null,
+                        clientName: scope === 'CLIENT_SPECIFIC' ? clientCompanyName : null,
                         sortOrder: currentTaxonomy.length + 1
                     })
                 });
@@ -3619,6 +3693,9 @@
                         level: 0,
                         rootKey: saved.key || name,
                         fullPath: saved.key || name,
+                        scope: saved.scope || scope,
+                        clientId: saved.clientId || (scope === 'CLIENT_SPECIFIC' ? activeClientId : null),
+                        clientName: saved.clientName || (scope === 'CLIENT_SPECIFIC' ? clientCompanyName : null),
                         subFolders: [],
                         sortOrder: saved.sortOrder || currentTaxonomy.length + 1,
                         isSystem: false
@@ -3635,6 +3712,9 @@
                         level: 0,
                         rootKey: name,
                         fullPath: name,
+                        scope: scope,
+                        clientId: scope === 'CLIENT_SPECIFIC' ? activeClientId : null,
+                        clientName: scope === 'CLIENT_SPECIFIC' ? clientCompanyName : null,
                         subFolders: [],
                         sortOrder: currentTaxonomy.length + 1,
                         isSystem: false
@@ -3642,7 +3722,7 @@
                 }
 
                 localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
-                window.showToast(`Category "${name}" created successfully!`, 'success');
+                window.showToast(`${scope === 'CLIENT_SPECIFIC' ? 'Client-Specific' : 'Common'} folder "${name}" created successfully!`, 'success');
 
                 const modal = document.getElementById(modalId);
                 if (modal) modal.remove();
@@ -3662,6 +3742,9 @@
                     level: 0,
                     rootKey: name,
                     fullPath: name,
+                    scope: scope,
+                    clientId: scope === 'CLIENT_SPECIFIC' ? activeClientId : null,
+                    clientName: scope === 'CLIENT_SPECIFIC' ? clientCompanyName : null,
                     subFolders: [],
                     sortOrder: currentTaxonomy.length + 1,
                     isSystem: false
@@ -3681,12 +3764,14 @@
             const nameInput = document.getElementById('add-sub-name-input');
             const descInput = document.getElementById('add-sub-desc-input');
             const colorInput = document.querySelector('input[name="add-sub-color"]:checked');
+            const scopeInput = document.querySelector('input[name="add-sub-scope"]:checked');
             const btn = document.getElementById('btn-save-add-sub');
 
             const parentKey = parentSelect ? parentSelect.value.trim() : '';
             const name = nameInput ? nameInput.value.trim() : '';
             const desc = descInput ? descInput.value.trim() : '';
             const color = colorInput ? colorInput.value : 'indigo';
+            const scope = scopeInput ? scopeInput.value : 'COMMON';
 
             if (!parentKey) {
                 alert("Please select a parent category or sub-folder.");
@@ -3697,10 +3782,10 @@
                 return;
             }
 
-            return window.executeCreateSubFolder(parentKey, name, desc, color, modalId, btn);
+            return window.executeCreateSubFolder(parentKey, name, desc, color, scope, modalId, btn);
         };
 
-        window.executeCreateSubFolder = async function(parentKey, name, desc, color, modalId, btn) {
+        window.executeCreateSubFolder = async function(parentKey, name, desc, color, scope, modalId, btn) {
             const taxonomy = window.getCompanyDetailTaxonomy();
             const parentCat = taxonomy.find(c => c.key.toLowerCase() === parentKey.toLowerCase());
             const parentLevel = parentCat && typeof parentCat.level === 'number' ? parentCat.level : (parentCat && parentCat.parentKey ? 1 : 0);
@@ -3719,6 +3804,11 @@
                 return;
             }
 
+            const urlParams = new URLSearchParams(window.location.search);
+            const activeClientId = urlParams.get('clientId') || (window.clientData?.client?.id || window.clientData?.client?.clientId || 'C-1001');
+            const clientCompanyName = window.clientData?.client?.companyName || (window.currentCompany ? window.currentCompany.companyName : '') || `Client ${activeClientId}`;
+            const finalScope = scope || (parentCat ? parentCat.scope : 'COMMON') || 'COMMON';
+
             if (btn) {
                 btn.disabled = true;
                 btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Creating...`;
@@ -3734,7 +3824,10 @@
                         key: name,
                         description: desc,
                         color: color,
-                        icon: 'folder'
+                        icon: 'folder',
+                        scope: finalScope,
+                        clientId: finalScope === 'CLIENT_SPECIFIC' ? activeClientId : null,
+                        clientName: finalScope === 'CLIENT_SPECIFIC' ? clientCompanyName : null
                     })
                 });
 
@@ -3755,6 +3848,9 @@
                     rootKey: rootKey,
                     level: childLevel,
                     fullPath: `${parentCat ? (parentCat.fullPath || parentCat.key) : parentKey}/${name}`,
+                    scope: finalScope,
+                    clientId: finalScope === 'CLIENT_SPECIFIC' ? activeClientId : null,
+                    clientName: finalScope === 'CLIENT_SPECIFIC' ? clientCompanyName : null,
                     subFolders: [],
                     isSystem: false
                 };
@@ -3765,11 +3861,13 @@
                     savedObj.key = saved.key || name;
                     savedObj.label = saved.label || name;
                     savedObj.level = typeof saved.level === 'number' ? saved.level : childLevel;
+                    savedObj.scope = saved.scope || finalScope;
+                    savedObj.clientId = saved.clientId || savedObj.clientId;
                 }
 
                 window.globalDocCategories.push(savedObj);
                 localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
-                window.showToast(`Sub-folder "${name}" (Level ${childLevel}) created under "${parentKey}"!`, 'success');
+                window.showToast(`Sub-folder "${name}" (${finalScope === 'CLIENT_SPECIFIC' ? 'Client-Specific' : 'Common'}) created under "${parentKey}"!`, 'success');
 
                 // Auto-expand tree and select
                 window.docFolderExpandedState[rootKey.toLowerCase()] = true;
@@ -3794,6 +3892,9 @@
                     parentKey: parentKey,
                     rootKey: rootKey,
                     level: childLevel,
+                    scope: finalScope,
+                    clientId: finalScope === 'CLIENT_SPECIFIC' ? activeClientId : null,
+                    clientName: finalScope === 'CLIENT_SPECIFIC' ? clientCompanyName : null,
                     subFolders: [],
                     isSystem: false
                 });
@@ -9753,16 +9854,7 @@
                 }
             });
 
-            // Extra root categories that might have documents but not in taxonomy
-            const extraCategories = [];
-            (documentsList || []).forEach(d => {
-                const folderRaw = (d.folder || d.type || 'Others').trim();
-                if (!rootCategories.some(r => r.key.toLowerCase() === folderRaw.toLowerCase()) && !extraCategories.includes(folderRaw)) {
-                    extraCategories.push(folderRaw);
-                }
-            });
-
-            const allRoots = [
+            // Extra root categories that might have documents but not in ta            const allRoots = [
                 ...rootCategories.map(k => ({
                     id: k.id,
                     key: k.key,
@@ -9772,6 +9864,9 @@
                     color: k.color || 'blue',
                     count: counts[k.key] || 0,
                     isCustom: !k.isSystem,
+                    scope: k.scope || 'COMMON',
+                    clientId: k.clientId || null,
+                    clientName: k.clientName || null,
                     canEdit: true
                 })),
                 ...extraCategories.map(c => ({
@@ -9782,6 +9877,7 @@
                     color: 'blue',
                     count: counts[c] || 0,
                     isCustom: true,
+                    scope: 'COMMON',
                     canEdit: true
                 }))
             ];
@@ -9833,10 +9929,15 @@
                                     </button>
                                 ` : `
                                     <span class="w-3.5 h-3.5 shrink-0 ml-1"></span>
-                                `}
+                                `)}
                                 <button type="button" onclick="selectDocFolder('${f.name.replace(/'/g, "\\'")}')" class="flex items-center gap-1.5 truncate text-left cursor-pointer flex-grow min-w-0" title="${f.name}">
                                     ${window.getDocSvgIcon(isExpanded ? 'folder-open' : 'folder', `w-3.5 h-3.5 ${isParentSelected ? 'text-blue-600' : 'text-slate-400 group-hover:text-blue-600'} shrink-0`)}
                                     <span class="truncate ${isParentActive ? 'text-blue-700 font-bold' : 'text-slate-700 font-semibold'}">${f.name}</span>
+                                    ${f.scope === 'CLIENT_SPECIFIC' 
+                                        ? '<span class="text-[8px] px-1 py-0.2 bg-amber-100 text-amber-800 font-bold rounded shrink-0" title="Client Specific Folder">🏢 Client</span>' 
+                                        : '<span class="text-[8px] px-1 py-0.2 bg-slate-100 text-slate-500 font-medium rounded shrink-0" title="Common Folder for all clients">🌐 Common</span>'}
+                                </button>
+                            </div>          <span class="truncate ${isParentActive ? 'text-blue-700 font-bold' : 'text-slate-700 font-semibold'}">${f.name}</span>
                                     ${f.isCustom ? '<span class="text-[8px] px-1 py-0.2 bg-blue-100/80 text-blue-700 font-black rounded uppercase tracking-wider shrink-0">Custom</span>' : ''}
                                 </button>
                             </div>

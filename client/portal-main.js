@@ -8802,14 +8802,58 @@ function renderDocuments(container) {
         return docs.filter(d => (d.folder || '').toLowerCase() === name.toLowerCase()).length;
     };
 
+    // Load common + client-specific categories from backend API
+    const clientId = (state.user && (state.user.id || state.user.clientId)) || '';
+    if (!window._clientCategoriesLoaded && clientId) {
+        window._clientCategoriesLoaded = true;
+        fetch(`/api/documents/categories?clientId=${encodeURIComponent(clientId)}`)
+            .then(res => res.json())
+            .then(cats => {
+                if (Array.isArray(cats)) {
+                    window._clientCategoriesList = cats;
+                    const docContainer = document.getElementById('documents-view') || document.querySelector('[data-view="documents"]') || container;
+                    if (docContainer && docContainer.innerHTML) {
+                        renderDocuments(docContainer);
+                    }
+                }
+            })
+            .catch(err => console.warn('Could not load scoped categories for client:', err));
+    }
+
+    const categoriesList = window._clientCategoriesList || [];
     const uniqueFolders = [];
+    
+    // Add taxonomy root categories (both Common and Client-Specific for this client)
+    categoriesList.forEach(c => {
+        if (!c.parentKey || c.parentKey.trim() === '' || c.level === 0) {
+            const name = c.label || c.key;
+            if (name && !uniqueFolders.some(f => f.name.toLowerCase() === name.toLowerCase())) {
+                uniqueFolders.push({
+                    name: name,
+                    key: c.key,
+                    scope: c.scope || 'COMMON',
+                    clientId: c.clientId || null
+                });
+            }
+        }
+    });
+
+    // Add any existing doc folders not already in categories
     docs.forEach(d => {
         const f = (d.folder || d.type || '').trim();
-        if (f && !uniqueFolders.includes(f)) uniqueFolders.push(f);
+        if (f && !uniqueFolders.some(item => item.name.toLowerCase() === f.toLowerCase())) {
+            uniqueFolders.push({
+                name: f,
+                key: f,
+                scope: 'COMMON',
+                clientId: null
+            });
+        }
     });
+
     const folders = [
-        { name: 'All Documents', count: countFor('All Documents'), active: true },
-        ...uniqueFolders.map(name => ({ name, count: countFor(name) }))
+        { name: 'All Documents', count: countFor('All Documents'), active: true, scope: 'COMMON' },
+        ...uniqueFolders.map(f => ({ ...f, count: countFor(f.name) }))
     ];
 
     container.innerHTML = `
@@ -8824,8 +8868,11 @@ function renderDocuments(container) {
                             const isAct = f.name === window._activeDocFolder;
                             return `
                                 <button onclick="filterDocumentFolder('${f.name}')" data-folder="${f.name}" class="doc-folder-btn w-full flex justify-between items-center px-3 py-2 rounded-xl text-xs font-bold transition-all ${isAct ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}">
-                                    <span>${f.name}</span>
-                                    <span class="doc-badge px-2 py-0.5 rounded-full text-[9px] font-extrabold ${isAct ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}">${f.count}</span>
+                                    <div class="flex items-center gap-1.5 truncate min-w-0">
+                                        <span class="truncate">${f.name}</span>
+                                        ${f.scope === 'CLIENT_SPECIFIC' ? '<span class="text-[8px] px-1 py-0.2 bg-amber-100 text-amber-800 font-bold rounded shrink-0">Client</span>' : ''}
+                                    </div>
+                                    <span class="doc-badge px-2 py-0.5 rounded-full text-[9px] font-extrabold ${isAct ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'} shrink-0">${f.count}</span>
                                 </button>
                             `;
                         }).join('')}
