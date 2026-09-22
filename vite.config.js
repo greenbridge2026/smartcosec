@@ -16,6 +16,10 @@ function cleanUrls() {
           req.url = '/admin/index.html';
         } else if (url.pathname === '/staff' || url.pathname === '/staff/') {
           req.url = '/staff/index.html';
+        } else if (url.pathname === '/staff/company-detail' || url.pathname === '/staff/company-detail.html') {
+          const search = url.search || '';
+          const hasFrom = search.includes('from=');
+          req.url = '/admin/company-detail.html' + (search ? (hasFrom ? search : search + '&from=staff') : '?from=staff');
         }
         // Only append .html to clean page paths (not Vite internals, not APIs, not files with extensions)
         if (

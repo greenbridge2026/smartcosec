@@ -102,6 +102,22 @@ function cleanupPageResources() {
     delete window.switchDashboardModule;
 }
 
+window.isStaffPortalContext = function() {
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const fromParam = urlParams.get('from');
+        if (fromParam === 'staff') return true;
+        if (fromParam === 'admin') return false;
+        const portal = localStorage.getItem('current_portal');
+        if (portal === 'staff') return true;
+        if (portal === 'admin') return false;
+        if (document.referrer && document.referrer.includes('/staff/')) return true;
+        if (localStorage.getItem('staff_auth') && !localStorage.getItem('admin_auth')) return true;
+        if (localStorage.getItem('staff_auth')) return true;
+    } catch(e){}
+    return false;
+};
+
 function isLocalAdminLink(url) {
     if (!url) return false;
     const loc = window.location;
@@ -222,7 +238,7 @@ function updateActiveSidebarItem(url) {
 
         const breadcrumbEl = document.getElementById('top-nav-page-header');
         if (breadcrumbEl) {
-            const isStaff = !!localStorage.getItem('staff_auth') && !localStorage.getItem('admin_auth');
+            const isStaff = window.isStaffPortalContext();
             const menuNames = {
                 'nav-dashboard': 'Dashboard',
                 'nav-staffs': 'Staffs',
@@ -435,10 +451,12 @@ Object.defineProperty(window, 'toggleSubmenu', {
 });
 
 window.logout = function() {
+    const isStaff = window.isStaffPortalContext ? window.isStaffPortalContext() : !!localStorage.getItem('staff_auth');
     localStorage.removeItem('admin_auth');
     localStorage.removeItem('staff_auth');
+    localStorage.removeItem('current_portal');
     localStorage.removeItem('token');
-    window.location.href = '/admin';
+    window.location.href = isStaff ? '/staff' : '/admin';
 };
 
 window.toggleMobileSidebar = function() {
@@ -883,7 +901,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 4. Inject switcher innerHTML
     const switcher = document.getElementById('module-switcher');
-    const isStaffUser = !!localStorage.getItem('staff_auth') && !localStorage.getItem('admin_auth');
+    const isStaffUser = window.isStaffPortalContext();
 
     // Update portal title if staff
     if (isStaffUser) {
@@ -1315,7 +1333,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 Back
             `;
             backBtn.onclick = function() {
-                const isStaff = !!localStorage.getItem('staff_auth') && !localStorage.getItem('admin_auth');
+                const isStaff = window.isStaffPortalContext();
                 if (isStaff) {
                     window.location.href = '/staff/dashboard.html?tab=clients';
                 } else if (window.navigateTo) {
@@ -1329,7 +1347,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const isDetailsPage = window.location.pathname.includes('company-detail.html') || window.location.search.includes('clientId=');
         backBtn.style.display = isDetailsPage ? 'flex' : 'none';
-        const isStaff = !!localStorage.getItem('staff_auth') && !localStorage.getItem('admin_auth');
+        const isStaff = window.isStaffPortalContext();
         if (backBtn && isDetailsPage && isStaff) {
             backBtn.innerHTML = `
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
