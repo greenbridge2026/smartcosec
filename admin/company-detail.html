@@ -3104,7 +3104,9 @@
 
         window.globalDocCategories = (() => {
             try {
-                const cached = localStorage.getItem('global_document_categories');
+                const urlParams = new URLSearchParams(window.location.search);
+                const activeClientId = urlParams.get('clientId') || 'C-1001';
+                const cached = localStorage.getItem('global_document_categories_' + activeClientId) || localStorage.getItem('global_document_categories');
                 if (cached) return JSON.parse(cached);
             } catch(e){}
             return [];
@@ -3138,7 +3140,7 @@
                             clientName: d.clientName || null,
                             subFolders: Array.isArray(d.subFolders) ? d.subFolders : []
                         }));
-                        localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
+                        localStorage.setItem('global_document_categories_' + activeClientId, JSON.stringify(window.globalDocCategories));
                     }
                 }
             } catch (e) {
@@ -3195,27 +3197,6 @@
                 }
             });
 
-            // Also check subFolders array on root category object
-            const rootObj = taxonomyList.find(c => c.key.toLowerCase() === catLower && (!c.parentKey || c.parentKey === ''));
-            if (rootObj && Array.isArray(rootObj.subFolders)) {
-                rootObj.subFolders.forEach(subName => {
-                    if (subName && !level1Map.has(subName.toLowerCase())) {
-                        level1Map.set(subName.toLowerCase(), {
-                            key: subName,
-                            label: subName,
-                            color: 'indigo',
-                            icon: 'folder',
-                            parentKey: catKey,
-                            rootKey: catKey,
-                            level: 1,
-                            scope: rootObj.scope || 'COMMON',
-                            clientId: rootObj.clientId || null,
-                            children: []
-                        });
-                    }
-                });
-            }
-
             // 2. Direct Level 2 nested children of Level 1 folders
             taxonomyList.forEach(c => {
                 if (c.parentKey) {
@@ -3240,29 +3221,7 @@
                 }
             });
 
-            // Also check Level 1 category objects' subFolders array for Level 2 children
-            level1Map.forEach(l1Node => {
-                const taxL1Obj = taxonomyList.find(c => c.key.toLowerCase() === l1Node.key.toLowerCase());
-                if (taxL1Obj && Array.isArray(taxL1Obj.subFolders)) {
-                    taxL1Obj.subFolders.forEach(l2Name => {
-                        if (l2Name && !l1Node.children.some(child => child.key.toLowerCase() === l2Name.toLowerCase())) {
-                            l1Node.children.push({
-                                key: l2Name,
-                                label: l2Name,
-                                color: 'purple',
-                                icon: 'folder',
-                                parentKey: l1Node.key,
-                                rootKey: catKey,
-                                level: 2,
-                                scope: l1Node.scope || 'COMMON',
-                                clientId: l1Node.clientId || null
-                            });
-                        }
-                    });
-                }
-            });
-
-            // 3. Scan documents for any subFolder paths (e.g. "FY 2024" or "FY 2024/Q1")
+            // 3. Scan active client documents for any subFolder paths (e.g. "FY 2024" or "FY 2024/Q1")
             if (typeof documentsList !== 'undefined' && Array.isArray(documentsList)) {
                 documentsList.forEach(d => {
                     const docFolder = (d.folder || d.type || '').trim().toLowerCase();
@@ -3680,26 +3639,7 @@
                 });
 
                 if (res.ok) {
-                    const saved = await res.json();
-                    window.globalDocCategories.push({
-                        id: saved.id,
-                        key: saved.key || name,
-                        label: saved.label || name,
-                        desc: saved.description || desc,
-                        description: saved.description || desc,
-                        color: saved.color || color,
-                        icon: saved.icon || 'folder',
-                        parentKey: null,
-                        level: 0,
-                        rootKey: saved.key || name,
-                        fullPath: saved.key || name,
-                        scope: saved.scope || scope,
-                        clientId: saved.clientId || (scope === 'CLIENT_SPECIFIC' ? activeClientId : null),
-                        clientName: saved.clientName || (scope === 'CLIENT_SPECIFIC' ? clientCompanyName : null),
-                        subFolders: [],
-                        sortOrder: saved.sortOrder || currentTaxonomy.length + 1,
-                        isSystem: false
-                    });
+                    await window.loadGlobalDocCategories();
                 } else {
                     window.globalDocCategories.push({
                         key: name,
@@ -3719,9 +3659,9 @@
                         sortOrder: currentTaxonomy.length + 1,
                         isSystem: false
                     });
+                    localStorage.setItem('global_document_categories_' + activeClientId, JSON.stringify(window.globalDocCategories));
                 }
 
-                localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
                 window.showToast(`${scope === 'CLIENT_SPECIFIC' ? 'Client-Specific' : 'Common'} folder "${name}" created successfully!`, 'success');
 
                 const modal = document.getElementById(modalId);
@@ -3749,7 +3689,7 @@
                     sortOrder: currentTaxonomy.length + 1,
                     isSystem: false
                 });
-                localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
+                localStorage.setItem('global_document_categories_' + activeClientId, JSON.stringify(window.globalDocCategories));
                 window.showToast(`Category "${name}" added.`, "info");
                 const modal = document.getElementById(modalId);
                 if (modal) modal.remove();
@@ -3831,42 +3771,31 @@
                     })
                 });
 
-                if (parentCat) {
-                    if (!parentCat.subFolders) parentCat.subFolders = [];
-                    if (!parentCat.subFolders.includes(name)) parentCat.subFolders.push(name);
-                }
-
-                let savedObj = {
-                    key: name,
-                    label: name,
-                    desc: desc,
-                    description: desc,
-                    color: color,
-                    icon: 'folder',
-                    parentKey: parentKey,
-                    parentId: parentCat ? parentCat.id : null,
-                    rootKey: rootKey,
-                    level: childLevel,
-                    fullPath: `${parentCat ? (parentCat.fullPath || parentCat.key) : parentKey}/${name}`,
-                    scope: finalScope,
-                    clientId: finalScope === 'CLIENT_SPECIFIC' ? activeClientId : null,
-                    clientName: finalScope === 'CLIENT_SPECIFIC' ? clientCompanyName : null,
-                    subFolders: [],
-                    isSystem: false
-                };
-
                 if (res.ok) {
-                    const saved = await res.json();
-                    savedObj.id = saved.id;
-                    savedObj.key = saved.key || name;
-                    savedObj.label = saved.label || name;
-                    savedObj.level = typeof saved.level === 'number' ? saved.level : childLevel;
-                    savedObj.scope = saved.scope || finalScope;
-                    savedObj.clientId = saved.clientId || savedObj.clientId;
+                    await window.loadGlobalDocCategories();
+                } else {
+                    let savedObj = {
+                        key: name,
+                        label: name,
+                        desc: desc,
+                        description: desc,
+                        color: color,
+                        icon: 'folder',
+                        parentKey: parentKey,
+                        parentId: parentCat ? parentCat.id : null,
+                        rootKey: rootKey,
+                        level: childLevel,
+                        fullPath: `${parentCat ? (parentCat.fullPath || parentCat.key) : parentKey}/${name}`,
+                        scope: finalScope,
+                        clientId: finalScope === 'CLIENT_SPECIFIC' ? activeClientId : null,
+                        clientName: finalScope === 'CLIENT_SPECIFIC' ? clientCompanyName : null,
+                        subFolders: [],
+                        isSystem: false
+                    };
+                    window.globalDocCategories.push(savedObj);
+                    localStorage.setItem('global_document_categories_' + activeClientId, JSON.stringify(window.globalDocCategories));
                 }
 
-                window.globalDocCategories.push(savedObj);
-                localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
                 window.showToast(`Sub-folder "${name}" (${finalScope === 'CLIENT_SPECIFIC' ? 'Client-Specific' : 'Common'}) created under "${parentKey}"!`, 'success');
 
                 // Auto-expand tree and select
@@ -3898,7 +3827,7 @@
                     subFolders: [],
                     isSystem: false
                 });
-                localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
+                localStorage.setItem('global_document_categories_' + activeClientId, JSON.stringify(window.globalDocCategories));
                 window.showToast(`Sub-folder "${name}" added locally.`, "info");
                 window.docFolderExpandedState[rootKey.toLowerCase()] = true;
                 window.docFolderExpandedState[parentKey.toLowerCase()] = true;
@@ -4056,7 +3985,9 @@
                             c.parentKey = newName;
                         }
                     });
-                    localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const activeClientId = urlParams.get('clientId') || 'C-1001';
+                    localStorage.setItem('global_document_categories_' + activeClientId, JSON.stringify(window.globalDocCategories));
                 }
 
                 if (documentsList && Array.isArray(documentsList)) {
@@ -4173,7 +4104,9 @@
                     }
                     // Remove this item and any of its children
                     window.globalDocCategories = window.globalDocCategories.filter(c => !(c.key.toLowerCase() === catKey.toLowerCase() && (isSubFolder ? (c.parentKey && c.parentKey.toLowerCase() === parentKey.toLowerCase()) : true)) && !(c.parentKey && c.parentKey.toLowerCase() === catKey.toLowerCase()));
-                    localStorage.setItem('global_document_categories', JSON.stringify(window.globalDocCategories));
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const activeClientId = urlParams.get('clientId') || 'C-1001';
+                    localStorage.setItem('global_document_categories_' + activeClientId, JSON.stringify(window.globalDocCategories));
                 }
 
                 // Delete all documents under this subfolder / category from active documentsList

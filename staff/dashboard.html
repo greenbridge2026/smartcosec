@@ -1933,11 +1933,15 @@
                 window.Calling.init('staff');
             } catch(e) { console.error('Calling init failed:', e); }
 
-            // Restore active tab across page refreshes
+            // Restore active tab across page refreshes or URL query parameter
             try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlTab = urlParams.get('tab') || urlParams.get('view');
                 const savedTab = localStorage.getItem('staff_active_tab');
-                const validTabs = ['dashboard', 'applications', 'kyc', 'tasks', 'documents', 'vault', 'guidance', 'messages', 'hr'];
-                if (savedTab && validTabs.includes(savedTab)) {
+                const validTabs = ['dashboard', 'clients', 'applications', 'kyc', 'tasks', 'documents', 'vault', 'guidance', 'messages', 'hr'];
+                if (urlTab && validTabs.includes(urlTab)) {
+                    switchTab(urlTab);
+                } else if (savedTab && validTabs.includes(savedTab)) {
                     switchTab(savedTab);
                 } else {
                     switchTab('dashboard');

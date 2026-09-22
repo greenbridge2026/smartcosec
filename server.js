@@ -3243,7 +3243,25 @@ app.get('/api/documents/categories', (req, res) => {
             return isCommon || (c.clientId && c.clientId.toLowerCase() === targetId);
         });
     }
-    res.json(list);
+
+    // Clone and build subFolders per client dynamically
+    const cloned = list.map(c => ({ ...c, subFolders: [] }));
+    const catMap = {};
+    cloned.forEach(c => {
+        catMap[c.key.toLowerCase()] = c;
+    });
+    cloned.forEach(c => {
+        if (c.parentKey) {
+            const parent = catMap[c.parentKey.toLowerCase()];
+            if (parent) {
+                if (!parent.subFolders.includes(c.key)) {
+                    parent.subFolders.push(c.key);
+                }
+            }
+        }
+    });
+
+    res.json(cloned);
 });
 
 app.post('/api/documents/categories', (req, res) => {
@@ -3312,7 +3330,7 @@ app.post('/api/documents/categories/:parentKey/subfolders', (req, res) => {
         clientName: finalClientName
     };
 
-    if (parent) {
+    if (parent && finalScope === 'COMMON') {
         if (!parent.subFolders) parent.subFolders = [];
         if (!parent.subFolders.includes(name.trim())) parent.subFolders.push(name.trim());
     }
