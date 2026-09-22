@@ -8868,10 +8868,7 @@ function renderDocuments(container) {
                             const isAct = f.name === window._activeDocFolder;
                             return `
                                 <button onclick="filterDocumentFolder('${f.name}')" data-folder="${f.name}" class="doc-folder-btn w-full flex justify-between items-center px-3 py-2 rounded-xl text-xs font-bold transition-all ${isAct ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}">
-                                    <div class="flex items-center gap-1.5 truncate min-w-0">
-                                        <span class="truncate">${f.name}</span>
-                                        ${f.scope === 'CLIENT_SPECIFIC' ? '<span class="text-[8px] px-1 py-0.2 bg-amber-100 text-amber-800 font-bold rounded shrink-0">Client</span>' : ''}
-                                    </div>
+                                    <span class="truncate">${f.name}</span>
                                     <span class="doc-badge px-2 py-0.5 rounded-full text-[9px] font-extrabold ${isAct ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'} shrink-0">${f.count}</span>
                                 </button>
                             `;
