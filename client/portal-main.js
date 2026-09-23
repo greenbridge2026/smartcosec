@@ -7719,12 +7719,12 @@ async function fetchClientTasks() {
         const activeCompId = (entityInfo.companyId || '').trim();
         const activeClientId = (entityInfo.clientId || '').trim();
 
-        // Query backend for tasks
-        let fetchUrl = `/api/tasks`;
+        // Query backend for tasks (Client tasks only)
+        let fetchUrl = `/api/tasks?taskScope=CLIENT&isInternal=false`;
         if (activeCompName) {
-            fetchUrl += `?companyName=${encodeURIComponent(activeCompName)}`;
+            fetchUrl += `&companyName=${encodeURIComponent(activeCompName)}`;
         } else if (activeClientId) {
-            fetchUrl += `?clientId=${encodeURIComponent(activeClientId)}`;
+            fetchUrl += `&clientId=${encodeURIComponent(activeClientId)}`;
         }
 
         const res = await fetch(fetchUrl);
@@ -7732,8 +7732,12 @@ async function fetchClientTasks() {
             const data = await res.json();
             const allTasks = data || [];
 
-            // Strict Tenant Isolation: Only show tasks matching the active company or client
+            // Strict Tenant Isolation: Only show non-internal tasks matching the active company or client
             window.clientTasksList = allTasks.filter(t => {
+                if (t.isInternal === true || (t.taskScope || '').toUpperCase() === 'INTERNAL') {
+                    return false;
+                }
+
                 const taskCompName = (t.companyName || '').trim().toLowerCase();
                 const taskCompId = (t.companyId || '').trim().toLowerCase();
                 const taskClientId = (t.clientId || '').trim().toLowerCase();
@@ -7946,7 +7950,7 @@ function updateClientTasksCards() {
                             ${priorityHtml}
                         </div>
                         <h3 class="text-lg font-bold text-slate-900">${t.title}</h3>
-                        <p class="text-xs text-slate-400 font-sans">Entity: <strong class="text-slate-700 font-semibold">${t.companyName || 'Corporate Entity'}</strong> • Created: <span class="text-slate-600">${new Date(t.createdAt || Date.now()).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })}</span></p>
+                        <p class="text-xs text-slate-400 font-sans">Entity: <strong class="text-slate-700 font-semibold">${t.companyName || 'Corporate Entity'}</strong> • Created: <span class="text-blue-700 font-semibold">${new Date(t.createdAt || Date.now()).toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' })}, ${new Date(t.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>${t.createdBy?.name ? ` • <span class="text-slate-500 font-medium">Raised by: ${t.createdBy.name}</span>` : ''}</p>
                     </div>
                     <div class="flex items-center gap-3 shrink-0">
                         ${statusHtml}
@@ -7955,17 +7959,44 @@ function updateClientTasksCards() {
 
                 <!-- Visual Stepper Progress Bar -->
                 <div class="p-4 bg-slate-50/80 rounded-2xl border border-slate-100">
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                         ${stepperSteps.map((step, idx) => {
                             const stepRank = idx + 1;
                             const isStepPassed = currentRank >= stepRank;
                             const isCurrent = currentRank === stepRank;
+
+                            let stepTs = null;
+                            const logs = t.activityLog || [];
+                            if (step.key === 'PENDING') {
+                                stepTs = t.createdAt || logs.find(l => l.action === 'CREATED')?.timestamp;
+                            } else if (step.key === 'ASSIGNED') {
+                                const assignLog = [...logs].reverse().find(l => l.action === 'ASSIGNED' || (l.action === 'STATUS_CHANGED' && (l.details || '').includes('ASSIGNED')));
+                                stepTs = assignLog ? assignLog.timestamp : (t.assignedTo && t.assignedTo.id && t.status !== 'PENDING' ? t.createdAt : null);
+                            } else if (step.key === 'IN_PROGRESS') {
+                                const progLog = [...logs].reverse().find(l => l.action === 'STATUS_CHANGED' && (l.details || '').includes('IN_PROGRESS'));
+                                stepTs = progLog ? progLog.timestamp : (['IN_PROGRESS', 'WAITING_CLIENT_INPUT', 'UNDER_REVIEW', 'COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase()) ? (t.updatedAt || t.createdAt) : null);
+                            } else if (step.key === 'COMPLETED') {
+                                stepTs = t.resolvedAt || logs.find(l => l.action === 'RESOLVED' || (l.action === 'STATUS_CHANGED' && (l.details || '').includes('COMPLETED')))?.timestamp;
+                                if (!stepTs && ['COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase())) stepTs = t.updatedAt;
+                            }
+
+                            let timeText = '--';
+                            if (isStepPassed && stepTs) {
+                                const d = new Date(stepTs);
+                                if (!isNaN(d.getTime())) {
+                                    timeText = d.toLocaleDateString('en-SG', { day: '2-digit', month: 'short' }) + ', ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                }
+                            }
+
                             return `
-                                <div class="flex items-center gap-2.5">
-                                    <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${isCurrent ? 'bg-blue-600 text-white ring-4 ring-blue-100' : (isStepPassed ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500')}">
+                                <div class="flex items-start gap-2.5">
+                                    <div class="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${isCurrent ? 'bg-blue-600 text-white ring-4 ring-blue-100 shadow-sm' : (isStepPassed ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500')}">
                                         ${isStepPassed && !isCurrent ? '✓' : stepRank}
                                     </div>
-                                    <span class="text-[11px] font-bold truncate ${isCurrent ? 'text-blue-600 font-extrabold' : (isStepPassed ? 'text-slate-800' : 'text-slate-400')}">${step.label}</span>
+                                    <div class="flex flex-col min-w-0">
+                                        <span class="text-[11px] font-bold truncate ${isCurrent ? 'text-blue-600 font-extrabold' : (isStepPassed ? 'text-slate-800' : 'text-slate-400')}">${step.label}</span>
+                                        <span class="text-[10px] font-medium font-mono ${isCurrent ? 'text-blue-600 font-semibold' : (isStepPassed ? 'text-slate-500' : 'text-slate-300')}">${timeText}</span>
+                                    </div>
                                 </div>
                             `;
                         }).join('')}

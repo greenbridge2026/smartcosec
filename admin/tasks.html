@@ -273,24 +273,24 @@
 
         <!-- View 2: Kanban Board View (Default) -->
         <div id="kanban-view-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            <!-- Col 1: Pending & Unassigned -->
+            <!-- Col 1: Pending & Unassigned Pool -->
             <div class="kanban-col" id="lane-pending" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event, this)" ondragleave="handleDragLeave(event, this)" ondrop="handleDrop(event, 'PENDING', this)">
                 <div class="flex items-center justify-between pb-2 border-b border-slate-200">
                     <div class="flex items-center gap-2">
                         <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                        <span class="text-xs font-bold text-slate-800">Pending / Unassigned</span>
+                        <span class="text-xs font-bold text-slate-800">Unassigned Pool / Pending</span>
                     </div>
                     <span class="text-[11px] font-bold px-2 py-0.5 bg-white rounded-full text-slate-600 shadow-2xs" id="count-col-pending">0</span>
                 </div>
                 <div id="col-pending-cards" class="space-y-3 overflow-y-auto max-h-[700px] custom-scrollbar pr-1 flex-1"></div>
             </div>
 
-            <!-- Col 2: In Progress -->
+            <!-- Col 2: In Progress & Assigned -->
             <div class="kanban-col" id="lane-progress" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event, this)" ondragleave="handleDragLeave(event, this)" ondrop="handleDrop(event, 'IN_PROGRESS', this)">
                 <div class="flex items-center justify-between pb-2 border-b border-slate-200">
                     <div class="flex items-center gap-2">
                         <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-                        <span class="text-xs font-bold text-slate-800">In Progress</span>
+                        <span class="text-xs font-bold text-slate-800">In Progress (Active)</span>
                     </div>
                     <span class="text-[11px] font-bold px-2 py-0.5 bg-white rounded-full text-slate-600 shadow-2xs" id="count-col-progress">0</span>
                 </div>
@@ -357,6 +357,8 @@
                     <div class="flex flex-wrap items-center gap-4 mt-2 text-xs text-slate-500 font-sans">
                         <div><strong class="text-slate-700">Company:</strong> <span id="detail-company">LionPath Pte Ltd</span></div>
                         <div><strong class="text-slate-700">Client:</strong> <span id="detail-client">Ethan Tan</span></div>
+                        <div><strong class="text-slate-700">Created:</strong> <span id="detail-created" class="text-blue-700 font-semibold">--</span></div>
+                        <div><strong class="text-slate-700">Created By:</strong> <span id="detail-creator" class="text-slate-700 font-medium">--</span></div>
                         <div><strong class="text-slate-700">Due:</strong> <span id="detail-due">2026-09-20</span></div>
                         <div><strong class="text-slate-700">Category:</strong> <span id="detail-category">Registered Address</span></div>
                     </div>
@@ -449,19 +451,32 @@
     </div>
 
     <!-- Create Task Modal -->
-    <div id="create-task-modal" onclick="if(event.target === this) closeCreateTaskModal()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[99999] hidden opacity-0 transition-opacity duration-200">
+    <div id="create-task-modal" onclick="if(event.target === this) closeCreateTaskModal()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[99999] hidden opacity-0 transition-opacity duration-200 font-outfit">
         <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 overflow-hidden transform scale-95 transition-transform duration-200" onclick="event.stopPropagation()">
             <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
                 <div>
                     <h3 class="text-lg font-bold text-slate-900">Create New Operational Task</h3>
-                    <p class="text-[11px] text-slate-500 font-sans mt-0.5">Assign requests and corporate actions to client entities and staff specialists</p>
+                    <p class="text-[11px] text-slate-500 font-sans mt-0.5">Assign requests to client entities or create internal management to-dos</p>
                 </div>
                 <button type="button" onclick="closeCreateTaskModal()" class="flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer" title="Close">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
+
+            <!-- Type Selector Switcher -->
+            <div class="grid grid-cols-2 gap-2 p-1.5 bg-slate-100 rounded-2xl mb-4">
+                <button type="button" id="admin-task-type-client" onclick="setAdminTaskCreationScope('CLIENT')" class="py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all bg-white text-blue-600 shadow-xs cursor-pointer">
+                    <span>🏢 Client Task</span>
+                </button>
+                <button type="button" id="admin-task-type-internal" onclick="setAdminTaskCreationScope('INTERNAL')" class="py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all text-slate-600 hover:text-slate-900 cursor-pointer">
+                    <span>📋 Internal To-Do</span>
+                </button>
+            </div>
+
             <form id="create-task-form" onsubmit="handleCreateTask(event)" class="space-y-4 font-sans text-xs">
-                <!-- Searchable Company / Entity Combobox -->
+                <input type="hidden" id="admin-task-scope" value="CLIENT">
+
+                <!-- Searchable Company / Entity Combobox (Client tasks only) -->
                 <div class="relative" id="company-combobox-wrapper">
                     <div class="flex items-center justify-between mb-1">
                         <label class="block font-bold text-slate-700">Company / Entity <span class="text-rose-500">*</span></label>
@@ -529,7 +544,7 @@
                     </div>
                 </div>
                 <div>
-                    <label class="block font-bold text-slate-700 mb-1">Task Title / Subject</label>
+                    <label class="block font-bold text-slate-700 mb-1">Task Title / Subject <span class="text-rose-500">*</span></label>
                     <input type="text" id="new-task-title" required placeholder="e.g. Change Registered Address, Director Consent, Tax Filing..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20">
                 </div>
                 <div class="grid grid-cols-2 gap-3">
@@ -1140,8 +1155,11 @@
                             </div>
                         </td>
                         <td>
-                            <div class="font-bold text-slate-900 text-xs">${t.companyName || 'Entity'}</div>
-                            <div class="text-[11px] text-slate-400 font-sans">${t.clientName || 'Client'}</div>
+                            ${(t.isInternal || (t.taskScope || '').toUpperCase() === 'INTERNAL') 
+                                ? `<div class="font-bold text-purple-700 text-xs flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-purple-500"></span> <span>Internal Assignment</span></div>
+                                   <div class="text-[11px] text-slate-400 font-sans">Staff / Management Directive</div>`
+                                : `<div class="font-bold text-slate-900 text-xs">${t.companyName || 'Entity'}</div>
+                                   <div class="text-[11px] text-slate-400 font-sans">${t.clientName || 'Client'}</div>`}
                         </td>
                         <td>
                             <div class="font-bold text-slate-900 text-xs max-w-xs truncate">${t.title}</div>
@@ -1154,7 +1172,8 @@
                         <td>${assigneeHtml}</td>
                         <td>${statusBadge}</td>
                         <td>
-                            <span class="text-xs font-semibold text-slate-600">${t.dueDate || 'Standard SLA'}</span>
+                            <div class="text-xs font-semibold text-slate-700">${t.dueDate || 'Standard SLA'}</div>
+                            <div class="text-[10px] text-slate-400 font-sans">Created: ${formatTaskDateTime(t.createdAt)}</div>
                         </td>
                         <td class="text-right" onclick="event.stopPropagation()">
                             <button onclick="openTaskDetail('${t.id}')" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition">
@@ -1312,8 +1331,8 @@
             const waitingCol = document.getElementById('col-waiting-cards');
             const completedCol = document.getElementById('col-completed-cards');
 
-            const pending = tasks.filter(t => ['PENDING', 'ASSIGNED'].includes((t.status || '').toUpperCase()));
-            const progress = tasks.filter(t => (t.status || '').toUpperCase() === 'IN_PROGRESS');
+            const pending = tasks.filter(t => !t.assignedTo || !t.assignedTo.id || (t.status || '').toUpperCase() === 'PENDING');
+            const progress = tasks.filter(t => ['IN_PROGRESS', 'ASSIGNED'].includes((t.status || '').toUpperCase()) && (t.assignedTo && t.assignedTo.id && (t.status || '').toUpperCase() !== 'PENDING'));
             const waiting = tasks.filter(t => ['WAITING_CLIENT_INPUT', 'UNDER_REVIEW'].includes((t.status || '').toUpperCase()));
             const completed = tasks.filter(t => ['COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase()));
 
@@ -1357,7 +1376,11 @@
                                 <span class="font-medium text-slate-700 truncate max-w-[140px]">${t.companyName || 'Entity'}</span>
                                 <span class="text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">${t.category || t.type}</span>
                             </div>
-                            <div class="flex items-center justify-between pt-2.5 border-t border-slate-100 text-[11px]">
+                            <div class="flex items-center justify-between text-[10px] text-slate-400 font-sans mb-2">
+                                <span class="truncate max-w-[150px]">🕒 ${formatTaskDateTime(t.createdAt)}</span>
+                                <span class="text-slate-500 font-medium">${t.createdBy?.name ? 'by ' + t.createdBy.name.split(' ')[0] : ''}</span>
+                            </div>
+                            <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px]">
                                 ${assigneeAvatar}
                                 <span class="font-semibold text-slate-500 text-[10px]">${t.dueDate || 'SLA Standard'}</span>
                             </div>
@@ -1370,6 +1393,14 @@
             progressCol.innerHTML = renderCards(progress);
             waitingCol.innerHTML = renderCards(waiting);
             completedCol.innerHTML = renderCards(completed);
+        }
+
+        function formatTaskDateTime(ts) {
+            if (!ts) return 'Just now';
+            const date = new Date(ts);
+            if (isNaN(date.getTime())) return ts;
+            return date.toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' +
+                   date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
 
         function getPriorityBadgeHtml(priority) {
@@ -1414,6 +1445,10 @@
             document.getElementById('detail-title').innerText = t.title;
             document.getElementById('detail-company').innerText = t.companyName || 'N/A';
             document.getElementById('detail-client').innerText = t.clientName || 'N/A';
+            const createdEl = document.getElementById('detail-created');
+            if (createdEl) createdEl.innerText = formatTaskDateTime(t.createdAt);
+            const creatorEl = document.getElementById('detail-creator');
+            if (creatorEl) creatorEl.innerText = (t.createdBy?.name || 'Staff') + (t.createdBy?.role ? ` (${t.createdBy.role})` : '');
             document.getElementById('detail-due').innerText = t.dueDate || 'Standard SLA';
             document.getElementById('detail-category').innerText = t.category || 'General';
             document.getElementById('detail-description').innerText = t.description || 'No additional description provided.';
@@ -1481,32 +1516,86 @@
             if (window.lucide) window.lucide.createIcons();
         }
 
-        function renderStepper(status) {
+        function formatStepTime(ts) {
+            if (!ts) return '--';
+            const d = new Date(ts);
+            if (isNaN(d.getTime())) return '--';
+            const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const date = d.toLocaleDateString('en-SG', { day: '2-digit', month: 'short' });
+            return `${date}, ${time}`;
+        }
+
+        function getTaskStepTimestamp(t, stepKey) {
+            if (!t) return null;
+            const logs = t.activityLog || [];
+            if (stepKey === 'PENDING') {
+                return t.createdAt || logs.find(l => l.action === 'CREATED')?.timestamp;
+            }
+            if (stepKey === 'ASSIGNED') {
+                const assignLog = [...logs].reverse().find(l => l.action === 'ASSIGNED' || (l.action === 'STATUS_CHANGED' && (l.details || '').includes('ASSIGNED')));
+                if (assignLog) return assignLog.timestamp;
+                if (t.assignedTo && t.assignedTo.id && t.status !== 'PENDING') return t.createdAt;
+                return null;
+            }
+            if (stepKey === 'IN_PROGRESS') {
+                const progLog = [...logs].reverse().find(l => l.action === 'STATUS_CHANGED' && (l.details || '').includes('IN_PROGRESS'));
+                if (progLog) return progLog.timestamp;
+                if (['IN_PROGRESS', 'WAITING_CLIENT_INPUT', 'UNDER_REVIEW', 'COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase()) && t.assignedTo) {
+                    return t.updatedAt || t.createdAt;
+                }
+                return null;
+            }
+            if (stepKey === 'UNDER_REVIEW' || stepKey === 'WAITING_CLIENT_INPUT') {
+                const waitLog = [...logs].reverse().find(l => l.action === 'STATUS_CHANGED' && ((l.details || '').includes('WAITING') || (l.details || '').includes('REVIEW')));
+                if (waitLog) return waitLog.timestamp;
+                if (['WAITING_CLIENT_INPUT', 'UNDER_REVIEW'].includes((t.status || '').toUpperCase())) return t.updatedAt;
+                return null;
+            }
+            if (stepKey === 'COMPLETED') {
+                if (t.resolvedAt) return t.resolvedAt;
+                const compLog = [...logs].reverse().find(l => l.action === 'RESOLVED' || (l.action === 'STATUS_CHANGED' && (l.details || '').includes('COMPLETED')));
+                if (compLog) return compLog.timestamp;
+                if (['COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase())) return t.updatedAt || t.resolvedAt;
+                return null;
+            }
+            return null;
+        }
+
+        function renderStepper(param) {
+            const task = (typeof param === 'object' && param !== null) ? param : currentTask;
+            const status = (typeof param === 'string') ? param : (task ? task.status : 'PENDING');
+
             const steps = [
-                { key: 'PENDING', label: 'Raised' },
-                { key: 'ASSIGNED', label: 'Assigned' },
-                { key: 'IN_PROGRESS', label: 'In Progress' },
-                { key: 'UNDER_REVIEW', label: 'Review' },
-                { key: 'COMPLETED', label: 'Completed' }
+                { key: 'PENDING', label: '1. Raised' },
+                { key: 'ASSIGNED', label: '2. Assigned' },
+                { key: 'IN_PROGRESS', label: '3. In Progress' },
+                { key: 'UNDER_REVIEW', label: '4. Review' },
+                { key: 'COMPLETED', label: '5. Completed' }
             ];
 
             const statusOrder = ['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'WAITING_CLIENT_INPUT', 'UNDER_REVIEW', 'COMPLETED'];
             const currentIndex = statusOrder.indexOf(status);
 
             const stepperBar = document.getElementById('stepper-bar');
+            if (!stepperBar) return;
+
             stepperBar.innerHTML = steps.map((step, idx) => {
                 const stepIdx = statusOrder.indexOf(step.key);
                 const isPassed = currentIndex >= stepIdx && currentIndex !== -1;
                 const isCurrent = (step.key === status) || (step.key === 'UNDER_REVIEW' && status === 'WAITING_CLIENT_INPUT');
 
-                const circleBg = isCurrent ? 'bg-blue-600 text-white ring-4 ring-blue-100' : (isPassed ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500');
+                const circleBg = isCurrent ? 'bg-blue-600 text-white ring-4 ring-blue-100 shadow-md' : (isPassed ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500');
+
+                const stepTs = getTaskStepTimestamp(task, step.key);
+                const timeText = isPassed ? formatStepTime(stepTs) : '--';
 
                 return `
-                    <div class="flex flex-col items-center gap-1 z-10">
-                        <div class="w-6 h-6 rounded-full ${circleBg} flex items-center justify-center text-[10px] font-bold">
+                    <div class="flex flex-col items-center text-center gap-1 z-10 flex-1 px-1">
+                        <div class="w-7 h-7 rounded-full ${circleBg} flex items-center justify-center text-[10px] font-bold transition-all">
                             ${isPassed && !isCurrent ? '✓' : idx + 1}
                         </div>
-                        <span class="text-[10px] font-bold ${isCurrent ? 'text-blue-600' : (isPassed ? 'text-slate-800' : 'text-slate-400')}">${step.label}</span>
+                        <span class="text-[11px] font-bold ${isCurrent ? 'text-blue-600' : (isPassed ? 'text-slate-800' : 'text-slate-400')}">${step.label}</span>
+                        <span class="text-[10px] font-medium font-mono ${isCurrent ? 'text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded' : (isPassed ? 'text-slate-500' : 'text-slate-300')}">${timeText}</span>
                     </div>
                 `;
             }).join('');
@@ -1660,6 +1749,48 @@
             }
         }
 
+        function setAdminTaskCreationScope(scope) {
+            const scopeInput = document.getElementById('admin-task-scope');
+            if (scopeInput) scopeInput.value = scope;
+
+            const btnClient = document.getElementById('admin-task-type-client');
+            const btnInternal = document.getElementById('admin-task-type-internal');
+            const comboboxWrapper = document.getElementById('company-combobox-wrapper');
+            const catSelect = document.getElementById('new-task-category');
+            const dueDateInput = document.getElementById('new-task-duedate');
+
+            if (scope === 'INTERNAL') {
+                if (btnInternal) btnInternal.className = 'py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all bg-white text-purple-700 shadow-xs cursor-pointer';
+                if (btnClient) btnClient.className = 'py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all text-slate-600 hover:text-slate-900 cursor-pointer';
+                if (comboboxWrapper) comboboxWrapper.classList.add('hidden');
+
+                if (catSelect && taskFormOptions.internalCategories && taskFormOptions.internalCategories.length > 0) {
+                    catSelect.innerHTML = taskFormOptions.internalCategories.map(c => `<option value="${c}">${c}</option>`).join('');
+                }
+
+                if (dueDateInput) {
+                    const d = new Date();
+                    d.setDate(d.getDate() + 3);
+                    dueDateInput.value = d.toISOString().split('T')[0];
+                }
+            } else {
+                if (btnClient) btnClient.className = 'py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all bg-white text-blue-600 shadow-xs cursor-pointer';
+                if (btnInternal) btnInternal.className = 'py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all text-slate-600 hover:text-slate-900 cursor-pointer';
+                if (comboboxWrapper) comboboxWrapper.classList.remove('hidden');
+
+                if (catSelect && taskFormOptions.categories && taskFormOptions.categories.length > 0) {
+                    catSelect.innerHTML = taskFormOptions.categories.map(c => `<option value="${c}">${c}</option>`).join('');
+                }
+
+                if (dueDateInput) {
+                    const d = new Date();
+                    d.setDate(d.getDate() + 7);
+                    dueDateInput.value = d.toISOString().split('T')[0];
+                }
+            }
+        }
+        window.setAdminTaskCreationScope = setAdminTaskCreationScope;
+
         function openCreateTaskModal() {
             const modal = document.getElementById('create-task-modal');
             const form = document.getElementById('create-task-form');
@@ -1676,6 +1807,7 @@
             // Reset combobox
             clearSelectedCompany();
             closeCompanyDropdown();
+            setAdminTaskCreationScope('CLIENT');
 
             // Refresh options if needed
             if (!taskFormOptions.companies || taskFormOptions.companies.length === 0) {
@@ -1704,29 +1836,34 @@
 
         async function handleCreateTask(e) {
             e.preventDefault();
+            const scope = document.getElementById('admin-task-scope')?.value || 'CLIENT';
+            const isInternal = (scope === 'INTERNAL');
+
             const searchInput = document.getElementById('company-search-input');
             let companyName = (document.getElementById('new-task-company')?.value || '').trim();
             
-            // If user typed into the combobox but didn't click an item, auto-select the typed custom entity
-            if (!companyName && searchInput && searchInput.value.trim()) {
-                selectCustomCompanyFromInput();
-                companyName = (document.getElementById('new-task-company')?.value || '').trim();
-            }
-
-            if (!companyName) {
-                alert('Please search and select a Client / Company or enter a custom entity name.');
-                if (searchInput) {
-                    searchInput.focus();
-                    searchInput.classList.add('ring-2', 'ring-rose-500', 'border-rose-400');
-                    setTimeout(() => searchInput.classList.remove('ring-2', 'ring-rose-500', 'border-rose-400'), 2000);
+            if (!isInternal) {
+                // If user typed into the combobox but didn't click an item, auto-select the typed custom entity
+                if (!companyName && searchInput && searchInput.value.trim()) {
+                    selectCustomCompanyFromInput();
+                    companyName = (document.getElementById('new-task-company')?.value || '').trim();
                 }
-                return;
+
+                if (!companyName) {
+                    alert('Please search and select a Client / Company or enter a custom entity name.');
+                    if (searchInput) {
+                        searchInput.focus();
+                        searchInput.classList.add('ring-2', 'ring-rose-500', 'border-rose-400');
+                        setTimeout(() => searchInput.classList.remove('ring-2', 'ring-rose-500', 'border-rose-400'), 2000);
+                    }
+                    return;
+                }
             }
 
-            const companyId = document.getElementById('new-task-company-id')?.value || ('COMP-' + Math.floor(Math.random() * 900 + 100));
-            const clientId = document.getElementById('new-task-client-id')?.value || 'C-1001';
-            const clientName = document.getElementById('new-task-client-name')?.value || 'Client User';
-            const clientEmail = document.getElementById('new-task-client-email')?.value || 'client@globalisor.com';
+            const companyId = isInternal ? '' : (document.getElementById('new-task-company-id')?.value || ('COMP-' + Math.floor(Math.random() * 900 + 100)));
+            const clientId = isInternal ? '' : (document.getElementById('new-task-client-id')?.value || 'C-1001');
+            const clientName = isInternal ? '' : (document.getElementById('new-task-client-name')?.value || 'Client User');
+            const clientEmail = isInternal ? '' : (document.getElementById('new-task-client-email')?.value || 'client@globalisor.com');
 
             const title = document.getElementById('new-task-title').value.trim();
             const category = document.getElementById('new-task-category').value;
@@ -1750,14 +1887,16 @@
             }
 
             const payload = {
-                companyName,
+                taskScope: scope,
+                isInternal: isInternal,
+                companyName: isInternal ? 'INTERNAL OPERATIONS' : companyName,
                 companyId,
                 clientId,
                 clientName,
                 clientEmail,
                 title,
-                category: category || 'General Operations',
-                type: (category || '').toLowerCase().includes('change') ? 'CHANGE' : ((category || '').toLowerCase().includes('query') ? 'QUERY' : 'REQUEST'),
+                category: category || (isInternal ? 'Internal Operations' : 'General Operations'),
+                type: isInternal ? 'INTERNAL' : ((category || '').toLowerCase().includes('change') ? 'CHANGE' : ((category || '').toLowerCase().includes('query') ? 'QUERY' : 'REQUEST')),
                 priority: priority || 'MEDIUM',
                 status: assignedTo ? 'ASSIGNED' : 'PENDING',
                 assignedTo,
@@ -1783,9 +1922,9 @@
                     const err = await res.json();
                     alert('Error creating task: ' + (err.error || 'Server error'));
                 }
-            } catch (err) {
-                console.error(err);
-                alert('Failed to create task. Please check server connection.');
+            } catch (e) {
+                console.error("Error creating task:", e);
+                alert("Network error while creating task.");
             }
         }
 

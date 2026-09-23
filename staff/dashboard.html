@@ -1101,11 +1101,16 @@
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 class="text-3xl font-bold text-slate-900">Task & Request Operations</h1>
-                    <p class="text-xs text-slate-500 font-sans mt-0.5">Manage your assigned client requests, claim tasks from the open queue, and submit resolution updates.</p>
+                    <p class="text-xs text-slate-500 font-sans mt-0.5">Manage your assigned client requests, create tasks against clients, or manage internal to-dos from management.</p>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button onclick="renderTasks()" class="p-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg> Refresh Tasks
+                    <button onclick="openStaffCreateTaskModal()" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm shadow-blue-500/20 cursor-pointer">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        <span>+ Create Task</span>
+                    </button>
+                    <button onclick="renderTasks()" class="p-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+                        <span>Refresh</span>
                     </button>
                 </div>
             </div>
@@ -1122,40 +1127,42 @@
                     </div>
                 </div>
                 <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex items-center gap-4">
+                    <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M3 21h18"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M9 16h1"/><path d="M14 8h1"/><path d="M14 12h1"/><path d="M14 16h1"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></svg>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-indigo-600" id="staff-stat-client-tasks">0</div>
+                        <div class="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">Client Tasks</div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex items-center gap-4">
+                    <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center font-bold shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/></svg>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-purple-600" id="staff-stat-internal-tasks">0</div>
+                        <div class="text-[10px] font-bold text-purple-500 uppercase tracking-wider">Internal To-Dos</div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex items-center gap-4">
                     <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center font-bold shrink-0">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
                     </div>
                     <div>
                         <div class="text-2xl font-bold text-amber-600" id="staff-stat-unassigned">0</div>
-                        <div class="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Open Pool (Claimable)</div>
-                    </div>
-                </div>
-                <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex items-center gap-4">
-                    <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center font-bold shrink-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                    </div>
-                    <div>
-                        <div class="text-2xl font-bold text-purple-600" id="staff-stat-waiting">0</div>
-                        <div class="text-[10px] font-bold text-purple-500 uppercase tracking-wider">Awaiting Client</div>
-                    </div>
-                </div>
-                <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex items-center gap-4">
-                    <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center font-bold shrink-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-                    </div>
-                    <div>
-                        <div class="text-2xl font-bold text-emerald-600" id="staff-stat-completed">0</div>
-                        <div class="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Resolved Today</div>
+                        <div class="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Open Pool</div>
                     </div>
                 </div>
             </div>
 
             <!-- Tabs Filter & View Mode Switcher -->
             <div class="flex items-center justify-between flex-wrap gap-4 pb-2 border-b border-slate-200">
-                <div class="flex items-center gap-2">
-                    <button onclick="setStaffTaskTab('my')" id="staff-task-tab-my" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-white">My Worklist</button>
-                    <button onclick="setStaffTaskTab('pool')" id="staff-task-tab-pool" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100">Open Pool (Claim)</button>
-                    <button onclick="setStaffTaskTab('all')" id="staff-task-tab-all" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100">All Operations</button>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button onclick="setStaffTaskTab('my')" id="staff-task-tab-my" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-white cursor-pointer">My Worklist</button>
+                    <button onclick="setStaffTaskTab('client')" id="staff-task-tab-client" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer">Client Tasks</button>
+                    <button onclick="setStaffTaskTab('internal')" id="staff-task-tab-internal" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer">Internal To-Dos</button>
+                    <button onclick="setStaffTaskTab('pool')" id="staff-task-tab-pool" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer">Open Pool (Claim)</button>
+                    <button onclick="setStaffTaskTab('all')" id="staff-task-tab-all" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer">All Operations</button>
                 </div>
                 <div class="flex items-center gap-2">
                     <div class="bg-white border border-slate-200 p-1 rounded-xl flex items-center shadow-xs">
@@ -1254,12 +1261,146 @@
             </div>
         </div>
 
+        <!-- Staff Create Task Modal (Supports Client Tasks and Internal To-Dos) -->
+        <div id="staff-create-task-modal" onclick="if(event.target === this) closeStaffCreateTaskModal()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[99999] hidden opacity-0 transition-opacity duration-200 font-outfit">
+            <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden transform scale-95 transition-transform duration-200">
+                <!-- Modal Header with Segmented Switcher -->
+                <div class="p-6 border-b border-slate-100 bg-slate-50/70">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                <span>Create New Task</span>
+                            </h3>
+                            <p class="text-xs text-slate-500 font-sans mt-0.5">Create a task against a client or set an internal staff / management to-do item.</p>
+                        </div>
+                        <button type="button" onclick="closeStaffCreateTaskModal()" class="flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer" title="Close">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- Type Selector Switcher -->
+                    <div class="grid grid-cols-2 gap-2 p-1.5 bg-slate-200/80 rounded-2xl">
+                        <button type="button" id="staff-task-type-client" onclick="setStaffTaskCreationScope('CLIENT')" class="py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all bg-white text-blue-600 shadow-xs cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M9 16h1"/><path d="M14 8h1"/><path d="M14 12h1"/><path d="M14 16h1"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></svg>
+                            <span>🏢 Task Against Client</span>
+                        </button>
+                        <button type="button" id="staff-task-type-internal" onclick="setStaffTaskCreationScope('INTERNAL')" class="py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all text-slate-600 hover:text-slate-900 cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/></svg>
+                            <span>📋 Internal To-Do (Management)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Form Content -->
+                <form id="staff-create-task-form" onsubmit="handleStaffCreateTask(event)" class="flex-1 overflow-y-auto p-6 space-y-4 font-sans text-xs custom-scrollbar">
+                    <input type="hidden" id="staff-task-scope" value="CLIENT">
+
+                    <!-- Scope Info Banner -->
+                    <div id="staff-scope-info-client" class="p-3 bg-blue-50/70 border border-blue-200/80 rounded-2xl flex items-start gap-2.5">
+                        <span class="text-blue-600 text-sm">💡</span>
+                        <div class="text-[11px] text-blue-900">
+                            <strong>Client Task:</strong> Linked to the client entity. Visible on the client's portal task board & triggers real-time notification to the client.
+                        </div>
+                    </div>
+
+                    <div id="staff-scope-info-internal" class="hidden p-3 bg-purple-50/70 border border-purple-200/80 rounded-2xl flex items-start gap-2.5">
+                        <span class="text-purple-600 text-sm">🔒</span>
+                        <div class="text-[11px] text-purple-900">
+                            <strong>Internal To-Do:</strong> Private to staff and management. Used for internal assignments, checklists, and management requests. <em>Never visible to any client.</em>
+                        </div>
+                    </div>
+
+                    <!-- Client / Company Selection (Shown only for Client Tasks) -->
+                    <div id="staff-client-selection-group" class="space-y-1.5">
+                        <label class="block font-bold text-slate-700">Client / Company <span class="text-rose-500">*</span></label>
+                        <div class="relative">
+                            <input type="text" id="staff-company-search-input" placeholder="Search client company or enter entity name..." autocomplete="off" oninput="filterStaffCompanyDropdown(this.value)" onfocus="openStaffCompanyDropdown()" onkeydown="handleStaffCompanyInputKeydown(event)" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs font-semibold text-slate-800">
+                            <input type="hidden" id="staff-new-task-company">
+                            <input type="hidden" id="staff-new-task-company-id">
+                            <input type="hidden" id="staff-new-task-client-id">
+                            <input type="hidden" id="staff-new-task-client-name">
+                            <input type="hidden" id="staff-new-task-client-email">
+                            
+                            <!-- Searchable Dropdown -->
+                            <div id="staff-company-dropdown" class="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto hidden z-50 divide-y divide-slate-100">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+                        <div id="staff-selected-company-tag" class="hidden items-center justify-between px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-xl text-xs font-semibold text-blue-800">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                                <span id="staff-selected-company-name"></span>
+                                <span id="staff-selected-client-badge" class="text-[10px] text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded"></span>
+                            </div>
+                            <button type="button" onclick="clearStaffSelectedCompany()" class="text-blue-500 hover:text-rose-600 text-sm font-bold">&times;</button>
+                        </div>
+                    </div>
+
+                    <!-- Task Title -->
+                    <div class="space-y-1.5">
+                        <label class="block font-bold text-slate-700">Task Title <span class="text-rose-500">*</span></label>
+                        <input type="text" id="staff-new-task-title" required placeholder="e.g. Lodge Form 45 for Resident Director Appointment" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs font-semibold text-slate-800">
+                    </div>
+
+                    <!-- 2 Columns: Category & Priority -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="space-y-1.5">
+                            <label class="block font-bold text-slate-700">Category</label>
+                            <select id="staff-new-task-category" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs font-semibold text-slate-800 cursor-pointer">
+                                <!-- Populated dynamically based on scope -->
+                            </select>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="block font-bold text-slate-700">Priority</label>
+                            <select id="staff-new-task-priority" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs font-semibold text-slate-800 cursor-pointer">
+                                <option value="LOW">Low</option>
+                                <option value="MEDIUM" selected>Medium</option>
+                                <option value="HIGH">High</option>
+                                <option value="URGENT">Urgent (Immediate Action)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 2 Columns: Assignee & Due Date -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="space-y-1.5">
+                            <label class="block font-bold text-slate-700">Assign To</label>
+                            <select id="staff-new-task-assignee" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs font-semibold text-slate-800 cursor-pointer">
+                                <!-- Populated dynamically with current staff as default -->
+                            </select>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="block font-bold text-slate-700">Target Due Date</label>
+                            <input type="date" id="staff-new-task-duedate" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs font-semibold text-slate-800">
+                        </div>
+                    </div>
+
+                    <!-- Description / Instructions -->
+                    <div class="space-y-1.5">
+                        <label class="block font-bold text-slate-700">Description & Instructions</label>
+                        <textarea id="staff-new-task-description" rows="3" placeholder="Provide background details, requirements, checklist steps, or notes..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs font-sans text-slate-800"></textarea>
+                    </div>
+
+                    <!-- Footer Buttons -->
+                    <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                        <button type="button" onclick="closeStaffCreateTaskModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 rounded-xl transition cursor-pointer">Cancel</button>
+                        <button type="submit" id="staff-create-task-submit-btn" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition shadow-sm shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                            <span>Create Task</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <!-- Staff Task Workflow & Comment Modal -->
         <div id="staff-task-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-[99999] hidden opacity-0 transition-opacity duration-200">
             <div class="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden transform scale-95 transition-transform duration-200 font-outfit">
                 <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2.5 flex-wrap">
                         <span id="st-ticket-badge" class="px-2.5 py-1 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-xs font-mono font-bold">TSK-1001</span>
+                        <span id="st-scope-badge" class="text-[10px] font-bold px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded">CLIENT TASK</span>
                         <span id="st-type-badge" class="text-[10px] font-bold px-2 py-0.5 bg-slate-200 text-slate-700 rounded uppercase">CHANGE</span>
                         <span id="st-priority-badge" class="text-[10px] font-bold px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-200 rounded">HIGH</span>
                     </div>
@@ -1267,12 +1408,27 @@
                 </div>
 
                 <div class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                    <!-- Scope Notice Banner -->
+                    <div id="st-scope-banner" class="p-3 rounded-2xl flex items-center gap-2.5 text-xs font-semibold">
+                        <!-- Populated by JS -->
+                    </div>
+
                     <div>
                         <h2 id="st-title" class="text-xl font-bold text-slate-900">Task Title</h2>
                         <div class="flex flex-wrap items-center gap-4 mt-2 text-xs text-slate-500 font-sans">
-                            <div><strong class="text-slate-700">Company:</strong> <span id="st-company">LionPath Pte Ltd</span></div>
-                            <div><strong class="text-slate-700">Client:</strong> <span id="st-client">Ethan Tan</span></div>
+                            <div id="st-company-wrapper"><strong class="text-slate-700">Company:</strong> <span id="st-company">LionPath Pte Ltd</span></div>
+                            <div id="st-client-wrapper"><strong class="text-slate-700">Client:</strong> <span id="st-client">Ethan Tan</span></div>
+                            <div><strong class="text-slate-700">Created:</strong> <span id="st-created" class="text-blue-700 font-semibold">--</span></div>
+                            <div><strong class="text-slate-700">Created By:</strong> <span id="st-creator" class="text-slate-700 font-medium">--</span></div>
                             <div><strong class="text-slate-700">Target SLA:</strong> <span id="st-due">2026-09-20</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Status Stepper Bar -->
+                    <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Lifecycle Timeline</div>
+                        <div class="flex items-center justify-between relative" id="st-stepper-bar">
+                            <!-- Stepper items injected -->
                         </div>
                     </div>
 
@@ -4599,6 +4755,476 @@
         window.showStaffToastNotification = showStaffToastNotification;
         window.hideStaffToast = hideStaffToast;
 
+        let staffTaskFormOptions = {
+            companies: [],
+            assignees: [],
+            categories: [],
+            internalCategories: [],
+            priorities: []
+        };
+
+        async function fetchStaffTaskFormOptions() {
+            try {
+                const res = await fetch('/api/tasks/form-options');
+                if (res.ok) {
+                    staffTaskFormOptions = await res.json();
+                    populateStaffTaskFormDropdowns();
+                }
+            } catch (e) {
+                console.error("Failed to fetch task form options for staff", e);
+            }
+        }
+
+        function populateStaffTaskFormDropdowns() {
+            const scope = document.getElementById('staff-task-scope')?.value || 'CLIENT';
+            const catSelect = document.getElementById('staff-new-task-category');
+            if (catSelect) {
+                const categories = scope === 'INTERNAL'
+                    ? (staffTaskFormOptions.internalCategories && staffTaskFormOptions.internalCategories.length > 0
+                        ? staffTaskFormOptions.internalCategories
+                        : ["Management Directive & Request", "Internal Operations & SOP", "Compliance & Due Diligence Audit", "Staff Training & Onboarding", "General Internal To-Do"])
+                    : (staffTaskFormOptions.categories && staffTaskFormOptions.categories.length > 0
+                        ? staffTaskFormOptions.categories
+                        : ["Registered Address Change", "Director / Shareholder Change", "Share Capital & Allotment", "Corporate Secretarial", "Tax & Accounting Filing", "General Operations & Inquiries"]);
+
+                catSelect.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+            }
+
+            const assigneeSelect = document.getElementById('staff-new-task-assignee');
+            if (assigneeSelect) {
+                const currentStaff = getCurrentStaffAssignee();
+                let assignees = staffTaskFormOptions.assignees || [];
+                if (!assignees.some(s => s.id === currentStaff.id)) {
+                    assignees = [currentStaff, ...assignees];
+                }
+
+                assigneeSelect.innerHTML = `
+                    <option value="${currentStaff.id}">${currentStaff.name} (Me - Current Staff)</option>
+                    ${assignees.filter(s => s.id !== currentStaff.id).map(s => `<option value="${s.id}">${s.name} (${s.role || 'Staff'})</option>`).join('')}
+                    <option value="">-- Leave in Open Pool (Unassigned) --</option>
+                `;
+            }
+        }
+
+        function setStaffTaskCreationScope(scope) {
+            const scopeInput = document.getElementById('staff-task-scope');
+            if (scopeInput) scopeInput.value = scope;
+
+            const btnClient = document.getElementById('staff-task-type-client');
+            const btnInternal = document.getElementById('staff-task-type-internal');
+            const clientGroup = document.getElementById('staff-client-selection-group');
+            const infoClient = document.getElementById('staff-scope-info-client');
+            const infoInternal = document.getElementById('staff-scope-info-internal');
+            const titleInput = document.getElementById('staff-new-task-title');
+            const dueDateInput = document.getElementById('staff-new-task-duedate');
+
+            if (scope === 'INTERNAL') {
+                if (btnInternal) {
+                    btnInternal.className = 'py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all bg-white text-purple-700 shadow-xs cursor-pointer';
+                }
+                if (btnClient) {
+                    btnClient.className = 'py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all text-slate-600 hover:text-slate-900 cursor-pointer';
+                }
+                if (clientGroup) clientGroup.classList.add('hidden');
+                if (infoClient) infoClient.classList.add('hidden');
+                if (infoInternal) infoInternal.classList.remove('hidden');
+
+                if (titleInput && (!titleInput.value || titleInput.value.includes('Form 45'))) {
+                    titleInput.placeholder = 'e.g. Prepare Q3 Compliance Review Checklist / Management Task';
+                }
+
+                if (dueDateInput) {
+                    const d = new Date();
+                    d.setDate(d.getDate() + 3);
+                    dueDateInput.value = d.toISOString().split('T')[0];
+                }
+            } else {
+                if (btnClient) {
+                    btnClient.className = 'py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all bg-white text-blue-600 shadow-xs cursor-pointer';
+                }
+                if (btnInternal) {
+                    btnInternal.className = 'py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all text-slate-600 hover:text-slate-900 cursor-pointer';
+                }
+                if (clientGroup) clientGroup.classList.remove('hidden');
+                if (infoClient) infoClient.classList.remove('hidden');
+                if (infoInternal) infoInternal.classList.add('hidden');
+
+                if (titleInput && (!titleInput.value || titleInput.value.includes('Checklist'))) {
+                    titleInput.placeholder = 'e.g. Lodge Form 45 for Resident Director Appointment';
+                }
+
+                if (dueDateInput) {
+                    const d = new Date();
+                    d.setDate(d.getDate() + 7);
+                    dueDateInput.value = d.toISOString().split('T')[0];
+                }
+            }
+
+            populateStaffTaskFormDropdowns();
+        }
+
+        let staffHighlightedCompanyIndex = -1;
+
+        function openStaffCompanyDropdown() {
+            const dropdown = document.getElementById('staff-company-dropdown');
+            if (dropdown) dropdown.classList.remove('hidden');
+            filterStaffCompanyDropdown(document.getElementById('staff-company-search-input')?.value || '');
+        }
+
+        function closeStaffCompanyDropdown() {
+            const dropdown = document.getElementById('staff-company-dropdown');
+            if (dropdown) dropdown.classList.add('hidden');
+            staffHighlightedCompanyIndex = -1;
+        }
+
+        function updateStaffCompanyHighlight() {
+            const dropdown = document.getElementById('staff-company-dropdown');
+            if (!dropdown) return;
+            const options = dropdown.querySelectorAll('.staff-company-option');
+            options.forEach((opt, idx) => {
+                if (idx === staffHighlightedCompanyIndex) {
+                    opt.classList.add('bg-blue-50', 'text-blue-900', 'font-bold', 'border-l-4', 'border-l-blue-600');
+                    opt.classList.remove('hover:bg-slate-50', 'bg-white');
+                    opt.scrollIntoView({ block: 'nearest' });
+                } else {
+                    opt.classList.remove('bg-blue-50', 'text-blue-900', 'font-bold', 'border-l-4', 'border-l-blue-600');
+                }
+            });
+        }
+
+        function setStaffCompanyHighlightIndex(idx) {
+            staffHighlightedCompanyIndex = idx;
+            updateStaffCompanyHighlight();
+        }
+
+        function filterStaffCompanyDropdown(query) {
+            const dropdown = document.getElementById('staff-company-dropdown');
+            if (!dropdown) return;
+            const q = (query || '').toLowerCase().trim();
+            const companies = staffTaskFormOptions.companies || [];
+            const filtered = companies.filter(c => 
+                (c.companyName || '').toLowerCase().includes(q) || 
+                (c.clientName || '').toLowerCase().includes(q) ||
+                (c.clientEmail || '').toLowerCase().includes(q)
+            );
+
+            let html = '';
+            if (filtered.length > 0) {
+                html = filtered.map((c, idx) => `
+                    <div data-index="${idx}" onmouseenter="setStaffCompanyHighlightIndex(${idx})" onclick="selectStaffCompany('${encodeURIComponent(JSON.stringify(c))}')" class="staff-company-option p-3 hover:bg-slate-50 cursor-pointer transition">
+                        <div class="font-bold text-slate-900 text-xs">${c.companyName}</div>
+                        <div class="text-[11px] text-slate-500 font-sans">${c.clientName || 'Client User'} &bull; ${c.clientEmail || ''}</div>
+                    </div>
+                `).join('');
+                staffHighlightedCompanyIndex = 0;
+            } else if (q.length > 0) {
+                html = `
+                    <div data-index="0" onmouseenter="setStaffCompanyHighlightIndex(0)" onclick="selectStaffCustomCompanyFromInput()" class="staff-company-option p-3 hover:bg-blue-50 cursor-pointer text-blue-700 font-bold transition flex items-center justify-between">
+                        <span>Use Custom Entity: "${query}"</span>
+                        <span class="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">Custom</span>
+                    </div>
+                `;
+                staffHighlightedCompanyIndex = 0;
+            } else {
+                html = `<div class="p-3 text-slate-400 text-xs italic text-center">Type to search entities...</div>`;
+                staffHighlightedCompanyIndex = -1;
+            }
+
+            dropdown.innerHTML = html;
+            updateStaffCompanyHighlight();
+        }
+
+        function handleStaffCompanyInputKeydown(e) {
+            const dropdown = document.getElementById('staff-company-dropdown');
+            const isDropdownOpen = dropdown && !dropdown.classList.contains('hidden');
+            const options = dropdown ? dropdown.querySelectorAll('.staff-company-option') : [];
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!isDropdownOpen) {
+                    openStaffCompanyDropdown();
+                } else if (options.length > 0) {
+                    staffHighlightedCompanyIndex = (staffHighlightedCompanyIndex + 1) % options.length;
+                    updateStaffCompanyHighlight();
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (!isDropdownOpen) {
+                    openStaffCompanyDropdown();
+                } else if (options.length > 0) {
+                    staffHighlightedCompanyIndex = (staffHighlightedCompanyIndex - 1 + options.length) % options.length;
+                    updateStaffCompanyHighlight();
+                }
+            } else if (e.key === 'Enter') {
+                if (isDropdownOpen) {
+                    e.preventDefault();
+                    if (staffHighlightedCompanyIndex >= 0 && staffHighlightedCompanyIndex < options.length) {
+                        options[staffHighlightedCompanyIndex].click();
+                    } else if (options.length > 0) {
+                        options[0].click();
+                    } else {
+                        selectStaffCustomCompanyFromInput();
+                    }
+                }
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                closeStaffCompanyDropdown();
+            } else if (e.key === 'Tab') {
+                if (isDropdownOpen && staffHighlightedCompanyIndex >= 0 && staffHighlightedCompanyIndex < options.length) {
+                    options[staffHighlightedCompanyIndex].click();
+                }
+                closeStaffCompanyDropdown();
+            }
+        }
+
+        document.addEventListener('click', (e) => {
+            const group = document.getElementById('staff-client-selection-group');
+            if (group && !group.contains(e.target)) {
+                closeStaffCompanyDropdown();
+            }
+        });
+
+        window.handleStaffCompanyInputKeydown = handleStaffCompanyInputKeydown;
+        window.setStaffCompanyHighlightIndex = setStaffCompanyHighlightIndex;
+
+        function selectStaffCompany(encodedData) {
+            try {
+                const c = JSON.parse(decodeURIComponent(encodedData));
+                document.getElementById('staff-new-task-company').value = c.companyName || '';
+                document.getElementById('staff-new-task-company-id').value = c.companyId || '';
+                document.getElementById('staff-new-task-client-id').value = c.clientId || '';
+                document.getElementById('staff-new-task-client-name').value = c.clientName || '';
+                document.getElementById('staff-new-task-client-email').value = c.clientEmail || '';
+
+                const searchInput = document.getElementById('staff-company-search-input');
+                if (searchInput) {
+                    searchInput.value = '';
+                    searchInput.classList.add('hidden');
+                }
+
+                const tag = document.getElementById('staff-selected-company-tag');
+                const tagComp = document.getElementById('staff-selected-company-name');
+                const tagClient = document.getElementById('staff-selected-client-badge');
+                if (tag) {
+                    tag.classList.remove('hidden');
+                    tag.classList.add('flex');
+                }
+                if (tagComp) tagComp.innerText = c.companyName;
+                if (tagClient) tagClient.innerText = c.clientName || 'Client';
+
+                closeStaffCompanyDropdown();
+            } catch (e) {
+                console.error("Error selecting company", e);
+            }
+        }
+
+        function selectStaffCustomCompanyFromInput() {
+            const searchInput = document.getElementById('staff-company-search-input');
+            const customName = (searchInput?.value || '').trim();
+            if (!customName) return;
+
+            document.getElementById('staff-new-task-company').value = customName;
+            document.getElementById('staff-new-task-company-id').value = 'COMP-' + Math.floor(Math.random() * 900 + 100);
+            document.getElementById('staff-new-task-client-id').value = 'C-1001';
+            document.getElementById('staff-new-task-client-name').value = 'Client User';
+            document.getElementById('staff-new-task-client-email').value = 'client@globalisor.com';
+
+            if (searchInput) {
+                searchInput.value = '';
+                searchInput.classList.add('hidden');
+            }
+
+            const tag = document.getElementById('staff-selected-company-tag');
+            const tagComp = document.getElementById('staff-selected-company-name');
+            const tagClient = document.getElementById('staff-selected-client-badge');
+            if (tag) {
+                tag.classList.remove('hidden');
+                tag.classList.add('flex');
+            }
+            if (tagComp) tagComp.innerText = customName;
+            if (tagClient) tagClient.innerText = 'Custom Entity';
+
+            closeStaffCompanyDropdown();
+        }
+
+        function clearStaffSelectedCompany() {
+            document.getElementById('staff-new-task-company').value = '';
+            document.getElementById('staff-new-task-company-id').value = '';
+            document.getElementById('staff-new-task-client-id').value = '';
+            document.getElementById('staff-new-task-client-name').value = '';
+            document.getElementById('staff-new-task-client-email').value = '';
+
+            const searchInput = document.getElementById('staff-company-search-input');
+            if (searchInput) {
+                searchInput.value = '';
+                searchInput.classList.remove('hidden');
+                searchInput.focus();
+            }
+
+            const tag = document.getElementById('staff-selected-company-tag');
+            if (tag) {
+                tag.classList.add('hidden');
+                tag.classList.remove('flex');
+            }
+        }
+
+        function openStaffCreateTaskModal() {
+            const modal = document.getElementById('staff-create-task-modal');
+            const form = document.getElementById('staff-create-task-form');
+            if (form) form.reset();
+
+            clearStaffSelectedCompany();
+            closeStaffCompanyDropdown();
+            setStaffTaskCreationScope('CLIENT');
+
+            if (!staffTaskFormOptions.companies || staffTaskFormOptions.companies.length === 0) {
+                fetchStaffTaskFormOptions();
+            } else {
+                populateStaffTaskFormDropdowns();
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.firstElementChild.classList.remove('scale-95');
+            }, 10);
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function closeStaffCreateTaskModal() {
+            const modal = document.getElementById('staff-create-task-modal');
+            closeStaffCompanyDropdown();
+            modal.classList.add('opacity-0');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        async function handleStaffCreateTask(e) {
+            e.preventDefault();
+            const scope = document.getElementById('staff-task-scope')?.value || 'CLIENT';
+            const isInternal = (scope === 'INTERNAL');
+
+            let companyName = (document.getElementById('staff-new-task-company')?.value || '').trim();
+            const searchInput = document.getElementById('staff-company-search-input');
+
+            if (!isInternal) {
+                if (!companyName && searchInput && searchInput.value.trim()) {
+                    selectStaffCustomCompanyFromInput();
+                    companyName = (document.getElementById('staff-new-task-company')?.value || '').trim();
+                }
+
+                if (!companyName) {
+                    alert('Please select or enter a Client / Company for this client task.');
+                    if (searchInput) {
+                        searchInput.focus();
+                        searchInput.classList.add('ring-2', 'ring-rose-500', 'border-rose-400');
+                        setTimeout(() => searchInput.classList.remove('ring-2', 'ring-rose-500', 'border-rose-400'), 2000);
+                    }
+                    return;
+                }
+            }
+
+            const companyId = isInternal ? '' : (document.getElementById('staff-new-task-company-id')?.value || ('COMP-' + Math.floor(Math.random() * 900 + 100)));
+            const clientId = isInternal ? '' : (document.getElementById('staff-new-task-client-id')?.value || 'C-1001');
+            const clientName = isInternal ? '' : (document.getElementById('staff-new-task-client-name')?.value || 'Client User');
+            const clientEmail = isInternal ? '' : (document.getElementById('staff-new-task-client-email')?.value || 'client@globalisor.com');
+
+            const title = document.getElementById('staff-new-task-title').value.trim();
+            const category = document.getElementById('staff-new-task-category').value;
+            const priority = document.getElementById('staff-new-task-priority').value;
+            const assigneeId = document.getElementById('staff-new-task-assignee').value;
+            const dueDate = document.getElementById('staff-new-task-duedate').value;
+            const description = document.getElementById('staff-new-task-description').value.trim();
+
+            const currentStaff = getCurrentStaffAssignee();
+            let assignedTo = null;
+            if (assigneeId) {
+                if (assigneeId === currentStaff.id) {
+                    assignedTo = currentStaff;
+                } else {
+                    const found = (staffTaskFormOptions.assignees || []).find(s => s.id === assigneeId);
+                    if (found) {
+                        assignedTo = {
+                            id: found.id,
+                            name: found.name,
+                            role: found.role || 'STAFF',
+                            email: found.email || '',
+                            avatar: found.avatar || 'ST'
+                        };
+                    }
+                }
+            }
+
+            const payload = {
+                taskScope: scope,
+                isInternal: isInternal,
+                companyName: isInternal ? 'INTERNAL OPERATIONS' : companyName,
+                companyId,
+                clientId,
+                clientName,
+                clientEmail,
+                title,
+                category: category || (isInternal ? 'Internal Operations' : 'General Operations'),
+                type: isInternal ? 'INTERNAL' : ((category || '').toLowerCase().includes('change') ? 'CHANGE' : ((category || '').toLowerCase().includes('query') ? 'QUERY' : 'REQUEST')),
+                priority: priority || 'MEDIUM',
+                status: assignedTo ? 'ASSIGNED' : 'PENDING',
+                assignedTo,
+                dueDate: dueDate || '',
+                description,
+                createdBy: currentStaff
+            };
+
+            const submitBtn = document.getElementById('staff-create-task-submit-btn');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = `<span>Saving...</span>`;
+            }
+
+            try {
+                const res = await fetch('/api/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    const created = await res.json();
+                    closeStaffCreateTaskModal();
+                    await renderTasks();
+                    showToast(`Task ${created.ticketNumber || created.id} created successfully!`, 'success', isInternal ? 'Internal To-Do Created' : 'Client Task Created', {
+                        text: 'View Task',
+                        onClick: () => openStaffTaskModal(created.id)
+                    });
+                } else {
+                    const err = await res.json();
+                    alert('Error creating task: ' + (err.error || 'Server error'));
+                }
+            } catch (e) {
+                console.error("Error creating task", e);
+                alert('Network error creating task.');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                        <span>Create Task</span>
+                    `;
+                }
+            }
+        }
+
+        window.openStaffCreateTaskModal = openStaffCreateTaskModal;
+        window.closeStaffCreateTaskModal = closeStaffCreateTaskModal;
+        window.setStaffTaskCreationScope = setStaffTaskCreationScope;
+        window.openStaffCompanyDropdown = openStaffCompanyDropdown;
+        window.closeStaffCompanyDropdown = closeStaffCompanyDropdown;
+        window.filterStaffCompanyDropdown = filterStaffCompanyDropdown;
+        window.selectStaffCompany = selectStaffCompany;
+        window.selectStaffCustomCompanyFromInput = selectStaffCustomCompanyFromInput;
+        window.clearStaffSelectedCompany = clearStaffSelectedCompany;
+        window.handleStaffCreateTask = handleStaffCreateTask;
+
         async function renderTasks() {
             try {
                 const res = await fetch('/api/tasks');
@@ -4613,17 +5239,25 @@
 
         function setStaffTaskTab(tab) {
             staffTaskFilter = tab;
-            ['my', 'pool', 'all'].forEach(t => {
+            ['my', 'client', 'internal', 'pool', 'all'].forEach(t => {
                 const btn = document.getElementById(`staff-task-tab-${t}`);
                 if (btn) {
                     if (t === tab) {
-                        btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-white';
+                        btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-white cursor-pointer';
                     } else {
-                        btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100';
+                        btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer';
                     }
                 }
             });
             updateStaffTasksView();
+        }
+
+        function formatStaffTaskDateTime(ts) {
+            if (!ts) return 'Just now';
+            const date = new Date(ts);
+            if (isNaN(date.getTime())) return ts;
+            return date.toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' +
+                   date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
 
         function renderStaffKanban(tasks) {
@@ -4650,6 +5284,7 @@
             const renderCards = (list) => {
                 if (list.length === 0) return `<div class="p-8 text-center text-slate-400 text-xs italic font-sans border-2 border-dashed border-slate-200/80 rounded-2xl">Drop tasks here</div>`;
                 return list.map(t => {
+                    const isInternal = Boolean(t.isInternal || (t.taskScope || '').toUpperCase() === 'INTERNAL');
                     const isClaimable = !t.assignedTo || !t.assignedTo.id;
                     const assigneeDisplay = t.assignedTo?.name
                         ? `<div class="flex items-center gap-1.5">
@@ -4659,6 +5294,10 @@
                         : `<button onclick="event.stopPropagation(); claimStaffTask('${t.id}')" class="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded shadow-2xs">Claim</button>`;
 
                     const priorityBadge = `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${t.priority === 'URGENT' ? 'bg-rose-50 text-rose-600 border border-rose-200 animate-pulse' : (t.priority === 'HIGH' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-600')}">${t.priority || 'MEDIUM'}</span>`;
+
+                    const scopeBadge = isInternal
+                        ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1">🔒 Internal To-Do</span>`
+                        : `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200 truncate max-w-[130px] flex items-center gap-1">🏢 ${t.companyName || 'Client'}</span>`;
 
                     return `
                         <div class="kanban-card group relative" draggable="true" 
@@ -4676,10 +5315,14 @@
                             </div>
                             <h4 class="text-xs font-bold text-slate-900 leading-snug mb-1">${t.title}</h4>
                             <div class="flex items-center justify-between text-[11px] text-slate-500 font-sans mb-3">
-                                <span class="font-medium text-slate-700 truncate max-w-[130px]">${t.companyName || 'Entity'}</span>
+                                ${scopeBadge}
                                 <span class="text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">${t.category || t.type}</span>
                             </div>
-                            <div class="flex items-center justify-between pt-2.5 border-t border-slate-100 text-[11px]">
+                            <div class="flex items-center justify-between text-[10px] text-slate-400 font-sans mb-2">
+                                <span class="truncate max-w-[150px]">🕒 ${formatStaffTaskDateTime(t.createdAt)}</span>
+                                <span class="text-slate-500 font-medium">${t.createdBy?.name ? 'by ' + t.createdBy.name.split(' ')[0] : ''}</span>
+                            </div>
+                            <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px]">
                                 ${assigneeDisplay}
                                 <span class="font-semibold text-slate-500 text-[10px]">${t.dueDate || 'SLA Standard'}</span>
                             </div>
@@ -4697,22 +5340,26 @@
         function updateStaffTasksView() {
             const list = staffTaskList || [];
             const myTasks = list.filter(t => isTaskAssignedToMe(t));
+            const clientTasks = list.filter(t => !t.isInternal && (t.taskScope || '').toUpperCase() !== 'INTERNAL');
+            const internalTasks = list.filter(t => t.isInternal || (t.taskScope || '').toUpperCase() === 'INTERNAL');
             const unassigned = list.filter(t => !t.assignedTo || !t.assignedTo.id || (t.status || '').toUpperCase() === 'PENDING');
-            const waiting = list.filter(t => ['WAITING_CLIENT_INPUT', 'UNDER_REVIEW', 'WAITING'].includes((t.status || '').toUpperCase()));
-            const completed = list.filter(t => ['COMPLETED', 'RESOLVED', 'LODGED', 'CANCELLED'].includes((t.status || '').toUpperCase()));
 
             const elMy = document.getElementById('staff-stat-my-tasks');
+            const elClient = document.getElementById('staff-stat-client-tasks');
+            const elInternal = document.getElementById('staff-stat-internal-tasks');
             const elUn = document.getElementById('staff-stat-unassigned');
-            const elWait = document.getElementById('staff-stat-waiting');
-            const elComp = document.getElementById('staff-stat-completed');
             if (elMy) elMy.innerText = myTasks.length;
+            if (elClient) elClient.innerText = clientTasks.length;
+            if (elInternal) elInternal.innerText = internalTasks.length;
             if (elUn) elUn.innerText = unassigned.length;
-            if (elWait) elWait.innerText = waiting.length;
-            if (elComp) elComp.innerText = completed.length;
 
             let displayList = list;
             if (staffTaskFilter === 'my') {
                 displayList = myTasks;
+            } else if (staffTaskFilter === 'client') {
+                displayList = clientTasks;
+            } else if (staffTaskFilter === 'internal') {
+                displayList = internalTasks;
             } else if (staffTaskFilter === 'pool') {
                 displayList = unassigned;
             }
@@ -4723,11 +5370,12 @@
             if (!tbody) return;
 
             if (displayList.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-12 text-slate-400 text-xs italic">No tasks in this category.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-12 text-slate-400 text-xs italic">No tasks found in this section.</td></tr>`;
                 return;
             }
 
             tbody.innerHTML = displayList.map(t => {
+                const isInternal = Boolean(t.isInternal || (t.taskScope || '').toUpperCase() === 'INTERNAL');
                 const isMyTask = isTaskAssignedToMe(t);
                 const isClaimable = !t.assignedTo || !t.assignedTo.id;
 
@@ -4745,24 +5393,35 @@
                     `;
                 }
 
+                const entityCell = isInternal
+                    ? `<div class="font-bold text-purple-700 text-xs flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                            <span>Internal Assignment</span>
+                       </div>
+                       <div class="text-[11px] text-slate-400">Staff / Management Directive</div>`
+                    : `<div class="font-bold text-slate-900 text-xs">${t.companyName || 'Entity'}</div>
+                       <div class="text-[11px] text-slate-400">${t.clientName || 'Client'}</div>`;
+
                 return `
                     <tr class="hover:bg-slate-50 transition cursor-pointer" onclick="openStaffTaskModal('${t.id}')">
                         <td class="px-6 py-4 font-mono font-bold text-xs text-blue-600">${t.ticketNumber || t.id}</td>
-                        <td class="px-6 py-4">
-                            <div class="font-bold text-slate-900 text-xs">${t.companyName || 'Entity'}</div>
-                            <div class="text-[11px] text-slate-400">${t.clientName || 'Client'}</div>
-                        </td>
+                        <td class="px-6 py-4">${entityCell}</td>
                         <td class="px-6 py-4">
                             <div class="font-bold text-slate-900 text-xs max-w-xs truncate">${t.title}</div>
                         </td>
-                        <td class="px-6 py-4 text-xs font-semibold text-slate-600">${t.category || t.type}</td>
+                        <td class="px-6 py-4 text-xs font-semibold text-slate-600">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${isInternal ? 'bg-purple-50 text-purple-700' : 'bg-slate-100 text-slate-600'}">${t.category || t.type}</span>
+                        </td>
                         <td class="px-6 py-4">
                             <span class="px-2 py-0.5 rounded text-[10px] font-bold ${t.priority === 'URGENT' ? 'bg-rose-50 text-rose-600 border border-rose-200' : (t.priority === 'HIGH' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-600')}">${t.priority || 'MEDIUM'}</span>
                         </td>
                         <td class="px-6 py-4">
                             <span class="px-2 py-0.5 rounded text-[11px] font-bold ${t.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600' : (t.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600' : (t.status === 'ASSIGNED' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-600'))}">${t.status || 'PENDING'}</span>
                         </td>
-                        <td class="px-6 py-4 text-xs font-semibold text-slate-500">${t.dueDate || 'Standard SLA'}</td>
+                        <td class="px-6 py-4">
+                            <div class="text-xs font-semibold text-slate-700">${t.dueDate || 'Standard SLA'}</div>
+                            <div class="text-[10px] text-slate-400 font-sans">Created: ${formatStaffTaskDateTime(t.createdAt)}</div>
+                        </td>
                         <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">${actionBtn}</td>
                     </tr>
                 `;
@@ -4802,13 +5461,48 @@
                 if (!res.ok) return;
                 currentStaffTask = await res.json();
                 const t = currentStaffTask;
+                const isInternal = Boolean(t.isInternal || (t.taskScope || '').toUpperCase() === 'INTERNAL');
 
                 document.getElementById('st-ticket-badge').innerText = t.ticketNumber || t.id;
+                
+                const scopeBadge = document.getElementById('st-scope-badge');
+                if (scopeBadge) {
+                    scopeBadge.innerText = isInternal ? 'INTERNAL TO-DO' : 'CLIENT TASK';
+                    scopeBadge.className = isInternal 
+                        ? 'text-[10px] font-bold px-2 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded'
+                        : 'text-[10px] font-bold px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded';
+                }
+
+                const scopeBanner = document.getElementById('st-scope-banner');
+                if (scopeBanner) {
+                    if (isInternal) {
+                        scopeBanner.className = 'p-3 bg-purple-50 border border-purple-200 rounded-2xl flex items-center gap-2.5 text-xs font-semibold text-purple-900';
+                        scopeBanner.innerHTML = `<span>🔒</span> <span><strong>Internal To-Do:</strong> Private to staff & management. Not visible in any client portal.</span>`;
+                    } else {
+                        scopeBanner.className = 'p-3 bg-blue-50 border border-blue-200 rounded-2xl flex items-center gap-2.5 text-xs font-semibold text-blue-900';
+                        scopeBanner.innerHTML = `<span>🏢</span> <span><strong>Client Task:</strong> Linked to <em>${t.companyName || 'Client'}</em> and visible in their Client Portal Task Board.</span>`;
+                    }
+                }
+
                 document.getElementById('st-type-badge').innerText = t.category || t.type || 'REQUEST';
                 document.getElementById('st-priority-badge').innerText = t.priority || 'MEDIUM';
                 document.getElementById('st-title').innerText = t.title;
-                document.getElementById('st-company').innerText = t.companyName || 'N/A';
-                document.getElementById('st-client').innerText = t.clientName || 'N/A';
+
+                const compWrapper = document.getElementById('st-company-wrapper');
+                const clientWrapper = document.getElementById('st-client-wrapper');
+                if (isInternal) {
+                    if (compWrapper) compWrapper.innerHTML = `<strong class="text-slate-700">Scope:</strong> <span id="st-company" class="text-purple-700 font-bold">Internal Operations</span>`;
+                    if (clientWrapper) clientWrapper.innerHTML = `<strong class="text-slate-700">Client:</strong> <span id="st-client" class="text-slate-400">N/A (Internal)</span>`;
+                } else {
+                    if (compWrapper) compWrapper.innerHTML = `<strong class="text-slate-700">Company:</strong> <span id="st-company">${t.companyName || 'N/A'}</span>`;
+                    if (clientWrapper) clientWrapper.innerHTML = `<strong class="text-slate-700">Client:</strong> <span id="st-client">${t.clientName || 'N/A'}</span>`;
+                }
+
+                const createdEl = document.getElementById('st-created');
+                if (createdEl) createdEl.innerText = formatStaffTaskDateTime(t.createdAt);
+                const creatorEl = document.getElementById('st-creator');
+                if (creatorEl) creatorEl.innerText = (t.createdBy?.name || 'Staff') + (t.createdBy?.role ? ` (${t.createdBy.role})` : '');
+
                 document.getElementById('st-due').innerText = t.dueDate || 'Standard SLA';
                 document.getElementById('st-description').innerText = t.description || 'No instructions.';
 
@@ -4835,6 +5529,9 @@
                     attContainer.innerHTML = `<span class="text-xs text-slate-400 italic">No attachments</span>`;
                 }
 
+                // Stepper Lifecycle Timeline
+                renderStaffStepper(t);
+
                 // Comments
                 renderStaffComments();
 
@@ -4849,6 +5546,68 @@
             } catch (e) {
                 console.error(e);
             }
+        }
+
+        function renderStaffStepper(task) {
+            if (!task) return;
+            const status = (task.status || 'PENDING').toUpperCase();
+            const steps = [
+                { key: 'PENDING', label: '1. Raised' },
+                { key: 'ASSIGNED', label: '2. Assigned' },
+                { key: 'IN_PROGRESS', label: '3. In Progress' },
+                { key: 'UNDER_REVIEW', label: '4. Review' },
+                { key: 'COMPLETED', label: '5. Completed' }
+            ];
+
+            const statusOrder = ['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'WAITING_CLIENT_INPUT', 'UNDER_REVIEW', 'COMPLETED'];
+            const currentIndex = statusOrder.indexOf(status);
+
+            const stepperBar = document.getElementById('st-stepper-bar');
+            if (!stepperBar) return;
+
+            stepperBar.innerHTML = steps.map((step, idx) => {
+                const stepIdx = statusOrder.indexOf(step.key);
+                const isPassed = currentIndex >= stepIdx && currentIndex !== -1;
+                const isCurrent = (step.key === status) || (step.key === 'UNDER_REVIEW' && status === 'WAITING_CLIENT_INPUT');
+
+                const circleBg = isCurrent ? 'bg-blue-600 text-white ring-4 ring-blue-100 shadow-md' : (isPassed ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500');
+
+                let stepTs = null;
+                const logs = task.activityLog || [];
+                if (step.key === 'PENDING') {
+                    stepTs = task.createdAt || logs.find(l => l.action === 'CREATED')?.timestamp;
+                } else if (step.key === 'ASSIGNED') {
+                    const assignLog = [...logs].reverse().find(l => l.action === 'ASSIGNED' || (l.action === 'STATUS_CHANGED' && (l.details || '').includes('ASSIGNED')));
+                    stepTs = assignLog ? assignLog.timestamp : (task.assignedTo && task.assignedTo.id && task.status !== 'PENDING' ? task.createdAt : null);
+                } else if (step.key === 'IN_PROGRESS') {
+                    const progLog = [...logs].reverse().find(l => l.action === 'STATUS_CHANGED' && (l.details || '').includes('IN_PROGRESS'));
+                    stepTs = progLog ? progLog.timestamp : (['IN_PROGRESS', 'WAITING_CLIENT_INPUT', 'UNDER_REVIEW', 'COMPLETED', 'RESOLVED'].includes(status) && task.assignedTo ? (task.updatedAt || task.createdAt) : null);
+                } else if (step.key === 'UNDER_REVIEW') {
+                    const waitLog = [...logs].reverse().find(l => l.action === 'STATUS_CHANGED' && ((l.details || '').includes('WAITING') || (l.details || '').includes('REVIEW')));
+                    stepTs = waitLog ? waitLog.timestamp : (['WAITING_CLIENT_INPUT', 'UNDER_REVIEW'].includes(status) ? task.updatedAt : null);
+                } else if (step.key === 'COMPLETED') {
+                    stepTs = task.resolvedAt || logs.find(l => l.action === 'RESOLVED' || (l.action === 'STATUS_CHANGED' && (l.details || '').includes('COMPLETED')))?.timestamp;
+                    if (!stepTs && ['COMPLETED', 'RESOLVED'].includes(status)) stepTs = task.updatedAt || task.resolvedAt;
+                }
+
+                let timeText = '--';
+                if (isPassed && stepTs) {
+                    const d = new Date(stepTs);
+                    if (!isNaN(d.getTime())) {
+                        timeText = d.toLocaleDateString('en-SG', { day: '2-digit', month: 'short' }) + ', ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    }
+                }
+
+                return `
+                    <div class="flex flex-col items-center text-center gap-1 z-10 flex-1 px-1">
+                        <div class="w-7 h-7 rounded-full ${circleBg} flex items-center justify-center text-[10px] font-bold transition-all">
+                            ${isPassed && !isCurrent ? '✓' : idx + 1}
+                        </div>
+                        <span class="text-[11px] font-bold ${isCurrent ? 'text-blue-600' : (isPassed ? 'text-slate-800' : 'text-slate-400')}">${step.label}</span>
+                        <span class="text-[10px] font-medium font-mono ${isCurrent ? 'text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded' : (isPassed ? 'text-slate-500' : 'text-slate-300')}">${timeText}</span>
+                    </div>
+                `;
+            }).join('');
         }
 
         function renderStaffComments() {
