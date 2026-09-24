@@ -777,10 +777,10 @@ async function init() {
 
         localStorage.setItem('globalisor_master_v3', JSON.stringify(masterData));
 
-        // Delay redirect slightly so the click action is visually visible to the user
+        // Smooth fast transition
         setTimeout(() => {
-            window.location.href = isLocal ? '/requirements' : '/requirements-foreigner.html';
-        }, 500);
+            window.location.href = isLocal ? '/requirements.html' : '/requirements-foreigner.html';
+        }, 120);
     }
 
     if (btnLocalYes) {

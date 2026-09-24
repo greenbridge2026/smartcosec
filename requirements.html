@@ -25,8 +25,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
-    <!-- Tesseract.js for browser-based OCR -->
-    <script src="https://unpkg.com/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
+    <!-- Tesseract.js for browser-based OCR (deferred for fast page paint) -->
+    <script defer src="https://unpkg.com/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
     <style>
         :root {
             --brand-primary: #298486;
@@ -41,6 +41,12 @@
             --error: #ef4444;
             --warning: #f59e0b;
             --light-bg: #f1f5f9;
+        }
+
+        @keyframes progress {
+            0% { transform: translateX(-100%); }
+            50% { transform: translateX(50%); }
+            100% { transform: translateX(200%); }
         }
 
         body.requirements-page {
@@ -1612,6 +1618,23 @@
     </style>
 </head>
 <body class="requirements-page">
+    <!-- Instant Page Loading Skeleton & Spinner -->
+    <div id="page-initial-loader" style="position: fixed; inset: 0; background: #ffffff; z-index: 99999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.3s ease, visibility 0.3s ease;">
+        <div style="position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem;">
+            <div style="width: 4.5rem; height: 4.5rem; border-radius: 1.25rem; background: linear-gradient(135deg, #2563eb, #4f46e5); display: flex; align-items: center; justify-content: center; color: #ffffff; box-shadow: 0 12px 28px rgba(37, 99, 235, 0.25);">
+                <svg style="width: 2.25rem; height: 2.25rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+            </div>
+            <div style="position: absolute; inset: -8px; border: 3px solid rgba(37, 99, 235, 0.15); border-top-color: #2563eb; border-radius: 1.75rem; animation: spin 1s linear infinite;"></div>
+        </div>
+        <h3 style="font-size: 1.25rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #0f172a; margin: 0; letter-spacing: -0.02em;">Setting Up Pre-Registration</h3>
+        <p style="font-size: 0.85rem; font-family: 'Outfit', sans-serif; color: #64748b; margin: 6px 0 0; font-weight: 500;">Loading incorporation workflow...</p>
+        <div style="width: 12rem; height: 5px; background: #f1f5f9; border-radius: 9999px; overflow: hidden; margin-top: 1.5rem; position: relative;">
+            <div style="position: absolute; left: 0; top: 0; height: 100%; width: 50%; background: #2563eb; border-radius: 9999px; animation: progress 1.2s ease-in-out infinite;"></div>
+        </div>
+    </div>
+
     <!-- Preview Banner -->
     <div id="preview-banner" style="display: none; background: linear-gradient(90deg, #1e3a8a, #2563eb); color: white; text-align: center; padding: 0.75rem; font-weight: 700; font-size: 0.9rem; z-index: 10000; position: relative; box-shadow: 0 4px 6px rgba(0,0,0,0.1); align-items: center; justify-content: center; gap: 1rem;">
         <span>⚠️ Preview Mode: Onboarding modifications are not live. Submissions are disabled.</span>
@@ -1960,121 +1983,125 @@
                 return sectionsList;
             }
 
+            hideLoader() {
+                const loader = document.getElementById('page-initial-loader');
+                if (loader) {
+                    loader.style.opacity = '0';
+                    loader.style.visibility = 'hidden';
+                    setTimeout(() => { try { loader.remove(); } catch(e){} }, 350);
+                }
+            }
+
             async init() {
                 if (this.isPreview) {
-                    document.getElementById('preview-banner').style.display = 'flex';
+                    const pb = document.getElementById('preview-banner');
+                    if (pb) pb.style.display = 'flex';
                 }
 
-                // Load dynamic sections from backend
-                const endpoint = (this.isPreview ? '/api/prereg-sections/preview' : '/api/prereg-sections/published') + '?journeyType=LOCAL';
+                // 1. Instant Cache/Fallback Initialization (< 5ms)
+                let initialSections = null;
                 try {
-                    const token = localStorage.getItem('token');
-                    const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
-                    const res = await fetch(endpoint, { headers });
-                    if (res.ok) {
-                        const allSections = await res.json();
+                    const cached = localStorage.getItem('cached_prereg_sections_LOCAL');
+                    if (cached) initialSections = JSON.parse(cached);
+                } catch (e) {}
+
+                if (!initialSections || initialSections.length === 0) {
+                    initialSections = JSON.parse(JSON.stringify(DEFAULT_SECTIONS));
+                }
+                this.sections = this.preprocessSections(initialSections);
+
+                // Quick initial render so user sees content immediately
+                this.updateInfographic();
+                const savedStep = parseInt(localStorage.getItem('globalisor_requirements_current_step'));
+                if (savedStep && savedStep <= this.sections.length) {
+                    this.open(savedStep);
+                } else if (this.currentStep) {
+                    this.open(this.currentStep);
+                } else if (this.sections.length > 0) {
+                    this.open(1);
+                }
+                this.hideLoader();
+
+                // 2. Parallel Background Fetch & Sync
+                const endpoint = (this.isPreview ? '/api/prereg-sections/preview' : '/api/prereg-sections/published') + '?journeyType=LOCAL';
+                const token = localStorage.getItem('token');
+                const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+
+                const fetchSectionsPromise = fetch(endpoint, { headers }).then(r => r.ok ? r.json() : null).catch(() => null);
+                const fetchSsicPromise = fetch('/api/ssic-activities/published').then(r => r.ok ? r.json() : null).catch(() => null);
+                const fetchReqPromise = (!this.isPreview && token && !token.startsWith('mock-'))
+                    ? fetch('/api/requirements', { headers: { 'Authorization': 'Bearer ' + token } }).then(r => r.ok ? r.json() : null).catch(() => null)
+                    : Promise.resolve(null);
+
+                try {
+                    const [allSections, ssicData, reqResponse] = await Promise.all([fetchSectionsPromise, fetchSsicPromise, fetchReqPromise]);
+
+                    if (allSections && Array.isArray(allSections) && allSections.length > 0) {
+                        localStorage.setItem('cached_prereg_sections_LOCAL', JSON.stringify(allSections));
                         const filtered = allSections.filter(sec => this.isSectionApplicable(sec));
                         this.sections = this.preprocessSections(filtered);
-                    } else {
-                        throw new Error("Section configuration load failed.");
                     }
-                } catch (e) {
-                    console.warn("Failed to load pre-reg sections from backend. Using local fallback config.", e);
-                    this.sections = this.preprocessSections(JSON.parse(JSON.stringify(DEFAULT_SECTIONS)));
-                }
 
-                // Fallback: if no published sections were returned, use defaults
-                if (!this.sections || this.sections.length === 0) {
-                    console.warn("No published sections found from backend. Using local fallback config.");
-                    this.sections = this.preprocessSections(JSON.parse(JSON.stringify(DEFAULT_SECTIONS)));
-                }
-
-                // Load SSIC activities list
-                try {
-                    const res = await fetch('/api/ssic-activities/published');
-                    if (res.ok) {
-                        this.ssicActivities = await res.json();
+                    if (ssicData && Array.isArray(ssicData)) {
+                        this.ssicActivities = ssicData;
                     }
-                } catch (e) {
-                    console.error("Failed to load published SSIC activities:", e);
-                }
 
-                // Load client data from db (if not preview mode)
-                if (!this.isPreview) {
-                    try {
-                        const token = localStorage.getItem('token');
-                        if (token && !token.startsWith('mock-')) {
-                            const res = await fetch('/api/requirements', {
-                                headers: { 'Authorization': 'Bearer ' + token }
-                            });
-                            if (res.ok) {
-                                const response = await res.json();
-                                lastKnownStatus = response.status;
-                                
-                                if (response.data && Object.keys(response.data).length > 0) {
-                                    this.data = { ...this.data, ...response.data };
-                                    this.migrateActivitiesData();
-                                    this.save();
-                                }
-                                this.sectionStatuses = response.sectionStatuses || {};
-                                
-                                if (response.applicationId) {
-                                    localStorage.setItem('application_id', response.applicationId);
-                                }
-                                if (response.status && response.status !== 'pending' && response.status !== 'none') {
-                                    if (response.status === 'approved') {
-                                        localStorage.setItem('is_new_client', 'true');
-                                        window.location.href = '/client/portal.html';
-                                        return;
-                                    }
-                                    this.showStatusPage(response.status, response.data);
-                                    return;
-                                }
-                            }
+                    if (reqResponse) {
+                        lastKnownStatus = reqResponse.status;
+                        if (reqResponse.data && Object.keys(reqResponse.data).length > 0) {
+                            this.data = { ...this.data, ...reqResponse.data };
+                            this.migrateActivitiesData();
+                            this.save();
                         }
-                    } catch (e) {
-                        console.error("Failed to load client profile data:", e);
+                        this.sectionStatuses = reqResponse.sectionStatuses || {};
+                        if (reqResponse.applicationId) {
+                            localStorage.setItem('application_id', reqResponse.applicationId);
+                        }
+                        if (reqResponse.status && reqResponse.status !== 'pending' && reqResponse.status !== 'none') {
+                            if (reqResponse.status === 'approved') {
+                                localStorage.setItem('is_new_client', 'true');
+                                window.location.href = '/client/portal.html';
+                                return;
+                            }
+                            this.showStatusPage(reqResponse.status, reqResponse.data);
+                            return;
+                        }
                     }
-                }
 
-                // Pre-populate defaults for Globalisor Premium CBD Address if useService is active and fields are empty
-                if (this.data.office && this.data.office.useService !== false) {
-                    if (!this.data.office.block) {
-                        const officeSec = this.sections ? this.sections.find(s => s.key === 'office') : null;
-                        const fields = officeSec ? (officeSec.fields || []) : [];
-                        const getPlaceholderValue = (fieldKey) => {
-                            const f = fields.find(field => field.key === fieldKey);
-                            if (!f || !f.placeholder) return '';
-                            return f.placeholder.replace(/^e\.g\.\s*/i, '').trim();
-                        };
+                    // Re-sync office default placeholders
+                    if (this.data.office && this.data.office.useService !== false) {
+                        if (!this.data.office.block) {
+                            const officeSec = this.sections ? this.sections.find(s => s.key === 'office') : null;
+                            const fields = officeSec ? (officeSec.fields || []) : [];
+                            const getPlaceholderValue = (fieldKey) => {
+                                const f = fields.find(field => field.key === fieldKey);
+                                if (!f || !f.placeholder) return '';
+                                return f.placeholder.replace(/^e\.g\.\s*/i, '').trim();
+                            };
 
-                        this.data.office.block = getPlaceholderValue('office.block') || '10';
-                        this.data.office.streetName = getPlaceholderValue('office.streetName') || 'Anson Road';
-                        this.data.office.floor = getPlaceholderValue('office.floor') || '16';
-                        this.data.office.unit = getPlaceholderValue('office.unit') || '04';
-                        this.data.office.building = getPlaceholderValue('office.building') || 'International Plaza';
-                        this.data.office.country = getPlaceholderValue('office.country') || 'Singapore';
-                        this.data.office.postalCode = getPlaceholderValue('office.postalCode') || '079903';
-                        
-                        this.recompileOwnAddress();
-                        this.save();
+                            this.data.office.block = getPlaceholderValue('office.block') || '10';
+                            this.data.office.streetName = getPlaceholderValue('office.streetName') || 'Anson Road';
+                            this.data.office.floor = getPlaceholderValue('office.floor') || '16';
+                            this.data.office.unit = getPlaceholderValue('office.unit') || '04';
+                            this.data.office.building = getPlaceholderValue('office.building') || 'International Plaza';
+                            this.data.office.country = getPlaceholderValue('office.country') || 'Singapore';
+                            this.data.office.postalCode = getPlaceholderValue('office.postalCode') || '079903';
+                            this.recompileOwnAddress();
+                            this.save();
+                        }
                     }
-                }
 
-                // If all sections are completed, render dynamic final submit screen
-                if (this.data.completedSteps && this.data.completedSteps.length >= this.sections.length && this.sections.length > 0) {
-                    this.renderFinal();
-                } else {
-                    this.updateInfographic();
-                    const savedStep = parseInt(localStorage.getItem('globalisor_requirements_current_step'));
-                    if (savedStep && savedStep <= this.sections.length) {
-                        this.open(savedStep);
-                    } else if (this.currentStep) {
-                        this.open(this.currentStep);
-                    } else if (this.sections.length > 0) {
-                        // Auto-open step 1 in preview mode or fresh sessions with no prior step state
-                        this.open(1);
+                    if (this.data.completedSteps && this.data.completedSteps.length >= this.sections.length && this.sections.length > 0) {
+                        this.renderFinal();
+                    } else {
+                        this.updateInfographic();
+                        const curStep = parseInt(localStorage.getItem('globalisor_requirements_current_step')) || this.currentStep || 1;
+                        if (curStep <= this.sections.length) {
+                            this.open(curStep);
+                        }
                     }
+                } catch (e) {
+                    console.warn("Background sync completed with errors", e);
                 }
             }
 
@@ -6887,30 +6914,36 @@
             } catch(e) { console.error('Status fetch error'); }
         }
 
-        window.onload = () => {
+        const startWizard = () => {
             wizard.init();
             setInterval(checkClientStatus, 10000); // Polling for real-time status update
-
-            // Clear input-error when user changes the value
-            document.body.addEventListener('input', (e) => {
-                if (e.target.classList.contains('input-error')) {
-                    e.target.classList.remove('input-error');
-                }
-            });
-            document.body.addEventListener('change', (e) => {
-                if (e.target.classList.contains('input-error')) {
-                    e.target.classList.remove('input-error');
-                }
-                const slot = e.target.closest('.upload-slot');
-                if (slot && slot.classList.contains('input-error')) {
-                    slot.classList.remove('input-error');
-                }
-                if (e.target.name === 'office-service-option') {
-                    const container = document.getElementById('office-service-option-container');
-                    if (container) container.classList.remove('input-error');
-                }
-            });
         };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startWizard);
+        } else {
+            startWizard();
+        }
+
+        // Clear input-error when user changes the value
+        document.body.addEventListener('input', (e) => {
+            if (e.target.classList.contains('input-error')) {
+                e.target.classList.remove('input-error');
+            }
+        });
+        document.body.addEventListener('change', (e) => {
+            if (e.target.classList.contains('input-error')) {
+                e.target.classList.remove('input-error');
+            }
+            const slot = e.target.closest('.upload-slot');
+            if (slot && slot.classList.contains('input-error')) {
+                slot.classList.remove('input-error');
+            }
+            if (e.target.name === 'office-service-option') {
+                const container = document.getElementById('office-service-option-container');
+                if (container) container.classList.remove('input-error');
+            }
+        });
     </script>
 </body>
 </html>
