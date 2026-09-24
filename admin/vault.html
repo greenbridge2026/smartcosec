@@ -211,6 +211,24 @@
                             </tr>
                         </tbody>
                     </table>
+                    <div id="vault-pagination-container" class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200/80 mt-4 bg-white/80 rounded-xl px-4 py-3 shadow-2xs">
+                        <div class="flex items-center gap-2 text-xs text-slate-600 font-semibold" id="vault-pagination-info">
+                            Showing <span id="vault-showing-range" class="font-bold text-slate-900">0 - 0</span> of <span id="vault-total-count" class="font-bold text-slate-900">0</span> documents
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
+                                <span>Per page:</span>
+                                <select id="vault-per-page" onchange="changeVaultPerPage(this.value)" class="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-700 focus:outline-none cursor-pointer">
+                                    <option value="15">15</option>
+                                    <option value="30" selected>30</option>
+                                    <option value="60">60</option>
+                                    <option value="100">100</option>
+                                    <option value="all">All</option>
+                                </select>
+                            </div>
+                            <div id="vault-pagination-buttons" class="inline-flex items-center gap-1"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -395,8 +413,79 @@
             document.getElementById('stat-rejected').innerText = docs.filter(d => d.status === 'rejected' || d.status === 'Rejected').length;
         }
 
+        let vaultCurrentPage = 1;
+        let vaultPageSize = 30;
+
+        window.changeVaultPage = function(page) {
+            vaultCurrentPage = page;
+            renderDocuments(allDocs);
+            const table = document.getElementById('documents-tbody');
+            if (table) table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+
+        window.changeVaultPerPage = function(val) {
+            vaultPageSize = val === 'all' ? 'all' : parseInt(val, 10);
+            vaultCurrentPage = 1;
+            renderDocuments(allDocs);
+        };
+
+        function renderVaultPaginationButtons(currentPage, totalPages, onClickFuncName) {
+            if (totalPages <= 1) return '';
+            let html = `<div class="inline-flex items-center gap-1">`;
+            const prevDisabled = currentPage === 1;
+            html += `<button onclick="${onClickFuncName}(${currentPage - 1})" ${prevDisabled ? 'disabled' : ''} class="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold ${prevDisabled ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-white text-slate-700 hover:bg-slate-50 shadow-2xs'}">Prev</button>`;
+
+            for (let p = 1; p <= totalPages; p++) {
+                if (totalPages > 7) {
+                    if (p !== 1 && p !== totalPages && Math.abs(p - currentPage) > 1) {
+                        if (p === 2 && currentPage > 3) html += `<span class="px-1 text-slate-400 text-xs font-bold">...</span>`;
+                        if (p === totalPages - 1 && currentPage < totalPages - 2) html += `<span class="px-1 text-slate-400 text-xs font-bold">...</span>`;
+                        continue;
+                    }
+                }
+                const isActive = p === currentPage;
+                html += `<button onclick="${onClickFuncName}(${p})" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${isActive ? 'bg-slate-900 text-white shadow-2xs' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}">${p}</button>`;
+            }
+
+            const nextDisabled = currentPage === totalPages;
+            html += `<button onclick="${onClickFuncName}(${currentPage + 1})" ${nextDisabled ? 'disabled' : ''} class="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold ${nextDisabled ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-white text-slate-700 hover:bg-slate-50 shadow-2xs'}">Next</button>`;
+            html += `</div>`;
+            return html;
+        }
+
         function renderDocuments(docs) {
             const tbody = document.getElementById('documents-tbody');
+            if (!tbody) return;
+
+            const totalDocs = docs.length;
+            const pageSizeNum = vaultPageSize === 'all' ? totalDocs : parseInt(vaultPageSize, 10);
+            const totalPages = pageSizeNum > 0 ? Math.ceil(totalDocs / pageSizeNum) : 1;
+            if (vaultCurrentPage > totalPages) vaultCurrentPage = Math.max(1, totalPages);
+            if (vaultCurrentPage < 1) vaultCurrentPage = 1;
+
+            const startIndex = vaultPageSize === 'all' ? 0 : (vaultCurrentPage - 1) * pageSizeNum;
+            const endIndex = vaultPageSize === 'all' ? totalDocs : Math.min(startIndex + pageSizeNum, totalDocs);
+            const pagedDocs = docs.slice(startIndex, endIndex);
+
+            // Update pagination UI controls
+            const showRange = document.getElementById('vault-showing-range');
+            const totalCountEl = document.getElementById('vault-total-count');
+            const pagButtons = document.getElementById('vault-pagination-buttons');
+            const pagContainer = document.getElementById('vault-pagination-container');
+
+            if (pagContainer) {
+                pagContainer.style.display = totalDocs > 0 ? 'flex' : 'none';
+            }
+            if (showRange) {
+                showRange.innerText = totalDocs === 0 ? '0 - 0' : `${startIndex + 1} - ${endIndex}`;
+            }
+            if (totalCountEl) {
+                totalCountEl.innerText = totalDocs;
+            }
+            if (pagButtons) {
+                pagButtons.innerHTML = renderVaultPaginationButtons(vaultCurrentPage, totalPages, 'window.changeVaultPage');
+            }
+
             if (docs.length === 0) {
                 tbody.innerHTML = `
                     <tr>
@@ -410,7 +499,7 @@
                 return;
             }
 
-            tbody.innerHTML = docs.map(d => {
+            tbody.innerHTML = pagedDocs.map(d => {
                 let statusClass = 'bg-amber-50 text-amber-600 border border-amber-100';
                 if (d.status === 'approved' || d.status === 'Approved') {
                     statusClass = 'bg-emerald-50 text-emerald-600 border border-emerald-100';
@@ -765,10 +854,18 @@
         });
 
         // Connect WebSocket for real-time document synchronization
+        let wsReconnectDelay = 2000;
+        let wsReconnectTimeout = null;
+
         function connectWebSocket() {
+            if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
             let wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             let wsHost = window.location.host;
             socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${encodeURIComponent(myId)}&role=admin`);
+
+            socket.onopen = function() {
+                wsReconnectDelay = 2000;
+            };
 
             socket.onmessage = function(event) {
                 try {
@@ -790,7 +887,17 @@
             };
 
             socket.onclose = function() {
-                setTimeout(connectWebSocket, 5000);
+                socket = null;
+                if (wsReconnectTimeout) clearTimeout(wsReconnectTimeout);
+                const jitter = Math.floor(Math.random() * 1000);
+                wsReconnectTimeout = setTimeout(connectWebSocket, Math.min(wsReconnectDelay + jitter, 30000));
+                wsReconnectDelay = Math.min(wsReconnectDelay * 2, 30000);
+            };
+
+            socket.onerror = function() {
+                if (socket) {
+                    try { socket.close(); } catch (e) {}
+                }
             };
         }
 

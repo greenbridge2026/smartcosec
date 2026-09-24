@@ -9295,12 +9295,18 @@ window.filterGuidance = function (category) {
 
 let socket = null;
 let typingTimeout = null;
+let wsReconnectDelay = 2000;
+let wsReconnectTimeout = null;
 
 function connectWebSocket() {
-    if (!state.user || socket) return;
+    if (!state.user || (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING))) return;
     let wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     let wsHost = window.location.host;
     socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${encodeURIComponent(state.user.id)}&role=client`);
+
+    socket.onopen = function () {
+        wsReconnectDelay = 2000;
+    };
 
     socket.onmessage = async function (event) {
         try {
@@ -9358,7 +9364,16 @@ function connectWebSocket() {
 
     socket.onclose = function () {
         socket = null;
-        setTimeout(connectWebSocket, 5000);
+        if (wsReconnectTimeout) clearTimeout(wsReconnectTimeout);
+        const jitter = Math.floor(Math.random() * 1000);
+        wsReconnectTimeout = setTimeout(connectWebSocket, Math.min(wsReconnectDelay + jitter, 30000));
+        wsReconnectDelay = Math.min(wsReconnectDelay * 2, 30000);
+    };
+
+    socket.onerror = function () {
+        if (socket) {
+            try { socket.close(); } catch (e) {}
+        }
     };
 }
 

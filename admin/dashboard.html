@@ -272,7 +272,7 @@
                             </div>
                             <div class="relative w-60 shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                                <input type="text" id="dashboard-search-input" oninput="renderClients()" placeholder="Search clients, directors, UEN..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
+                                <input type="text" id="dashboard-search-input" oninput="clientCurrentPage = 1; renderClients()" placeholder="Search clients, directors, UEN..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
                             </div>
                             <button onclick="exportClientsToExcel()" class="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-[11px] flex items-center gap-1.5 transition-all shadow-md active:scale-[0.98]">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -281,8 +281,25 @@
                             <button onclick="confirmClearAllClients()" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-[11px] flex items-center gap-1.5 transition-all shadow-md active:scale-[0.98]">
                                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear All Clients
                             </button>
-                        </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="clients-grid"></div>
+                        <div id="clients-pagination-container" class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200/80 mt-4 bg-white/80 rounded-xl px-4 py-3 shadow-2xs">
+                            <div class="flex items-center gap-2 text-xs text-slate-600 font-semibold" id="clients-pagination-info">
+                                Showing <span id="clients-showing-range" class="font-bold text-slate-900">0 - 0</span> of <span id="clients-total-count" class="font-bold text-slate-900">0</span> clients
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
+                                    <span>Per page:</span>
+                                    <select id="clients-per-page" onchange="changeClientsPerPage(this.value)" class="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-700 focus:outline-none cursor-pointer">
+                                        <option value="12">12</option>
+                                        <option value="24" selected>24</option>
+                                        <option value="48">48</option>
+                                        <option value="96">96</option>
+                                        <option value="all">All</option>
+                                    </select>
+                                </div>
+                                <div id="clients-pagination-buttons" class="inline-flex items-center gap-1"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -751,6 +768,7 @@
 
         window.setStaffFilter = function(staff) {
             currentStaffFilter = staff || 'all';
+            clientCurrentPage = 1;
             if (window.clientsListState) {
                 window.clientsListState.staffFilter = currentStaffFilter;
             }
@@ -1543,7 +1561,7 @@
                                         </div>
                                         <div class="relative w-60 shrink-0">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                                            <input type="text" id="dashboard-search-input" oninput="renderClients()" placeholder="Search clients, directors, UEN..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
+                                            <input type="text" id="dashboard-search-input" oninput="clientCurrentPage = 1; renderClients()" placeholder="Search clients, directors, UEN..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
                                         </div>
                                         <button onclick="exportClientsToExcel()" class="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-[11px] flex items-center gap-1.5 transition-all shadow-md active:scale-[0.98]">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -1551,6 +1569,24 @@
                                         </button>
                                     </div>
                                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="clients-grid"></div>
+                                    <div id="clients-pagination-container" class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200/80 mt-4 bg-white/80 rounded-xl px-4 py-3 shadow-2xs">
+                                        <div class="flex items-center gap-2 text-xs text-slate-600 font-semibold" id="clients-pagination-info">
+                                            Showing <span id="clients-showing-range" class="font-bold text-slate-900">0 - 0</span> of <span id="clients-total-count" class="font-bold text-slate-900">0</span> clients
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <div class="flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
+                                                <span>Per page:</span>
+                                                <select id="clients-per-page" onchange="changeClientsPerPage(this.value)" class="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-700 focus:outline-none cursor-pointer">
+                                                    <option value="12">12</option>
+                                                    <option value="24" selected>24</option>
+                                                    <option value="48">48</option>
+                                                    <option value="96">96</option>
+                                                    <option value="all">All</option>
+                                                </select>
+                                            </div>
+                                            <div id="clients-pagination-buttons" class="inline-flex items-center gap-1"></div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1579,6 +1615,7 @@
 
         window.setFilter = function(filter) {
             currentFilter = filter;
+            clientCurrentPage = 1;
             document.querySelectorAll('.filter-tab').forEach(tab => {
                 tab.classList.toggle('active', tab.getAttribute('data-filter') === filter);
             });
@@ -1961,6 +1998,46 @@
             return { class: 'status-pending', text: s, key: 'pending' };
         }
 
+        let clientCurrentPage = 1;
+        let clientPageSize = 24;
+
+        window.changeClientPage = function(page) {
+            clientCurrentPage = page;
+            renderClients();
+            const grid = document.getElementById('clients-grid');
+            if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+
+        window.changeClientsPerPage = function(val) {
+            clientPageSize = val === 'all' ? 'all' : parseInt(val, 10);
+            clientCurrentPage = 1;
+            renderClients();
+        };
+
+        function renderPaginationButtons(currentPage, totalPages, onClickFuncName) {
+            if (totalPages <= 1) return '';
+            let html = `<div class="inline-flex items-center gap-1">`;
+            const prevDisabled = currentPage === 1;
+            html += `<button onclick="${onClickFuncName}(${currentPage - 1})" ${prevDisabled ? 'disabled' : ''} class="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold ${prevDisabled ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-white text-slate-700 hover:bg-slate-50 shadow-2xs'}">Prev</button>`;
+
+            for (let p = 1; p <= totalPages; p++) {
+                if (totalPages > 7) {
+                    if (p !== 1 && p !== totalPages && Math.abs(p - currentPage) > 1) {
+                        if (p === 2 && currentPage > 3) html += `<span class="px-1 text-slate-400 text-xs font-bold">...</span>`;
+                        if (p === totalPages - 1 && currentPage < totalPages - 2) html += `<span class="px-1 text-slate-400 text-xs font-bold">...</span>`;
+                        continue;
+                    }
+                }
+                const isActive = p === currentPage;
+                html += `<button onclick="${onClickFuncName}(${p})" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${isActive ? 'bg-slate-900 text-white shadow-2xs' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}">${p}</button>`;
+            }
+
+            const nextDisabled = currentPage === totalPages;
+            html += `<button onclick="${onClickFuncName}(${currentPage + 1})" ${nextDisabled ? 'disabled' : ''} class="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold ${nextDisabled ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-white text-slate-700 hover:bg-slate-50 shadow-2xs'}">Next</button>`;
+            html += `</div>`;
+            return html;
+        }
+
         function renderClients() {
             const grid = document.getElementById('clients-grid');
             if (!grid) return;
@@ -2035,6 +2112,36 @@
             });
             window.currentFilteredClients = filtered;
 
+            // Calculate pagination
+            const totalClients = filtered.length;
+            const pageSizeNum = clientPageSize === 'all' ? totalClients : parseInt(clientPageSize, 10);
+            const totalPages = pageSizeNum > 0 ? Math.ceil(totalClients / pageSizeNum) : 1;
+            if (clientCurrentPage > totalPages) clientCurrentPage = Math.max(1, totalPages);
+            if (clientCurrentPage < 1) clientCurrentPage = 1;
+
+            const startIndex = clientPageSize === 'all' ? 0 : (clientCurrentPage - 1) * pageSizeNum;
+            const endIndex = clientPageSize === 'all' ? totalClients : Math.min(startIndex + pageSizeNum, totalClients);
+            const pagedClients = filtered.slice(startIndex, endIndex);
+
+            // Update pagination UI controls
+            const showRange = document.getElementById('clients-showing-range');
+            const totalCountEl = document.getElementById('clients-total-count');
+            const pagButtons = document.getElementById('clients-pagination-buttons');
+            const pagContainer = document.getElementById('clients-pagination-container');
+
+            if (pagContainer) {
+                pagContainer.style.display = totalClients > 0 ? 'flex' : 'none';
+            }
+            if (showRange) {
+                showRange.innerText = totalClients === 0 ? '0 - 0' : `${startIndex + 1} - ${endIndex}`;
+            }
+            if (totalCountEl) {
+                totalCountEl.innerText = totalClients;
+            }
+            if (pagButtons) {
+                pagButtons.innerHTML = renderPaginationButtons(clientCurrentPage, totalPages, 'window.changeClientPage');
+            }
+
             // Toggle grid vs list wrapper class
             if (currentViewMode === 'list') {
                 grid.className = "flex flex-col gap-2.5";
@@ -2042,7 +2149,7 @@
                 grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4";
             }
 
-            grid.innerHTML = filtered.map(c => {
+            grid.innerHTML = pagedClients.map(c => {
                 const props = getStatusProps(c.latestStatus);
                 const nomineeDirs = c.nomineeDirectors || [];
                 const businessHeader = c.companyNames && c.companyNames.length > 0 

@@ -545,45 +545,67 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // WebSocket for real-time client notifications
-    if (!window._clientWsConnected) {
+    let clientWsReconnectDelay = 2000;
+    let clientWsReconnectTimeout = null;
+
+    function initClientSidebarWs() {
         try {
             const auth = JSON.parse(localStorage.getItem('client_auth') || '{}');
             const clientId = auth.id || auth.userId || '';
-            if (clientId) {
-                const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const wsHost = location.host;
-                const ws = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${encodeURIComponent(clientId)}&role=client`);
-                ws.onmessage = function(evt) {
-                    try {
-                        const msg = JSON.parse(evt.data);
-                        if (msg.type === 'notification' || msg.type === 'new_notification' || msg.type === 'new_message' || msg.type === 'chat_message') {
-                            const notif = msg.notification || msg;
-                            if (notif && notif.title) {
-                                if (!notif.readBy) notif.readBy = [];
-                                const myName = auth.name || 'Client User';
-                                const isMessageFromMe = notif.type === 'message' && notif.message && notif.message.startsWith(myName + ':');
-                                if (!isMessageFromMe) {
-                                    const exists = window._clientNotifications.some(n => n.id === notif.id);
-                                    if (!exists) {
-                                        window._clientNotifications.unshift(notif);
-                                        window._clientRenderNotifications();
-                                        const toast = document.createElement('div');
-                                        toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#0f172a;color:#fff;padding:12px 16px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);z-index:99999;font-family:Outfit,sans-serif;font-size:12px;max-width:280px;';
-                                        const displayMsg = window._clientFormatNotifMessage(notif.message || notif.description || '');
-                                        toast.innerHTML = `<div style="font-weight:700;margin-bottom:2px;">🔔 ${notif.title}</div><div style="opacity:0.75;">${displayMsg}</div>`;
-                                        document.body.appendChild(toast);
-                                        setTimeout(() => toast.remove(), 4000);
-                                    }
+            if (!clientId) return;
+
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsHost = location.host;
+            const ws = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${encodeURIComponent(clientId)}&role=client`);
+
+            ws.onopen = function() {
+                clientWsReconnectDelay = 2000;
+            };
+
+            ws.onmessage = function(evt) {
+                try {
+                    const msg = JSON.parse(evt.data);
+                    if (msg.type === 'notification' || msg.type === 'new_notification' || msg.type === 'new_message' || msg.type === 'chat_message') {
+                        const notif = msg.notification || msg;
+                        if (notif && notif.title) {
+                            if (!notif.readBy) notif.readBy = [];
+                            const myName = auth.name || 'Client User';
+                            const isMessageFromMe = notif.type === 'message' && notif.message && notif.message.startsWith(myName + ':');
+                            if (!isMessageFromMe) {
+                                const exists = window._clientNotifications.some(n => n.id === notif.id);
+                                if (!exists) {
+                                    window._clientNotifications.unshift(notif);
+                                    window._clientRenderNotifications();
+                                    const toast = document.createElement('div');
+                                    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#0f172a;color:#fff;padding:12px 16px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);z-index:99999;font-family:Outfit,sans-serif;font-size:12px;max-width:280px;';
+                                    const displayMsg = window._clientFormatNotifMessage(notif.message || notif.description || '');
+                                    toast.innerHTML = `<div style="font-weight:700;margin-bottom:2px;">🔔 ${notif.title}</div><div style="opacity:0.75;">${displayMsg}</div>`;
+                                    document.body.appendChild(toast);
+                                    setTimeout(() => toast.remove(), 4000);
                                 }
                             }
                         }
-                        window._clientFetchUnreadMessagesCount();
-                    } catch(e) {}
-                };
-                ws.onerror = function() {};
-                window._clientWsConnected = true;
-            }
+                    }
+                    window._clientFetchUnreadMessagesCount();
+                } catch(e) {}
+            };
+
+            ws.onclose = function() {
+                if (clientWsReconnectTimeout) clearTimeout(clientWsReconnectTimeout);
+                const jitter = Math.floor(Math.random() * 1000);
+                clientWsReconnectTimeout = setTimeout(initClientSidebarWs, Math.min(clientWsReconnectDelay + jitter, 30000));
+                clientWsReconnectDelay = Math.min(clientWsReconnectDelay * 2, 30000);
+            };
+
+            ws.onerror = function() {
+                try { ws.close(); } catch(e) {}
+            };
         } catch(e) {}
+    }
+
+    if (!window._clientWsConnected) {
+        window._clientWsConnected = true;
+        initClientSidebarWs();
     }
 });
 

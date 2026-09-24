@@ -1973,10 +1973,18 @@
         }
 
         // --- WebSocket connection setup ---
+        let wsReconnectDelay = 2000;
+        let wsReconnectTimeout = null;
+
         function connectWebSocket() {
+            if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
             let wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             let wsHost = window.location.host;
             socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${encodeURIComponent(myId)}&role=admin`);
+
+            socket.onopen = function() {
+                wsReconnectDelay = 2000;
+            };
 
             socket.onmessage = async function(event) {
                 try {
@@ -2027,7 +2035,17 @@
             };
 
             socket.onclose = function() {
-                setTimeout(connectWebSocket, 5000);
+                socket = null;
+                if (wsReconnectTimeout) clearTimeout(wsReconnectTimeout);
+                const jitter = Math.floor(Math.random() * 1000);
+                wsReconnectTimeout = setTimeout(connectWebSocket, Math.min(wsReconnectDelay + jitter, 30000));
+                wsReconnectDelay = Math.min(wsReconnectDelay * 2, 30000);
+            };
+
+            socket.onerror = function() {
+                if (socket) {
+                    try { socket.close(); } catch (e) {}
+                }
             };
         }
 

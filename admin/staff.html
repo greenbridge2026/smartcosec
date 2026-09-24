@@ -205,7 +205,7 @@
                         </div>
                     </div>
                     <div class="relative w-full sm:w-64">
-                        <input type="text" id="staff-search-input" oninput="filterStaffTable()" placeholder="Search staff name, email, department..." class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                        <input type="text" id="staff-search-input" oninput="staffCurrentPage = 1; filterStaffTable()" placeholder="Search staff name, email, department..." class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                     </div>
                 </div>
@@ -228,6 +228,23 @@
                                 <tr><td colspan="7" class="p-12 text-center text-slate-400 font-semibold">Loading staff directory...</td></tr>
                             </tbody>
                         </table>
+                    </div>
+                    <div id="staff-pagination-container" class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200/80 mt-4 bg-white/80 rounded-xl px-4 py-3 shadow-2xs">
+                        <div class="flex items-center gap-2 text-xs text-slate-600 font-semibold" id="staff-pagination-info">
+                            Showing <span id="staff-showing-range" class="font-bold text-slate-900">0 - 0</span> of <span id="staff-total-count" class="font-bold text-slate-900">0</span> staff
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
+                                <span>Per page:</span>
+                                <select id="staff-per-page" onchange="changeStaffPerPage(this.value)" class="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-700 focus:outline-none cursor-pointer">
+                                    <option value="10">10</option>
+                                    <option value="20" selected>20</option>
+                                    <option value="50">50</option>
+                                    <option value="all">All</option>
+                                </select>
+                            </div>
+                            <div id="staff-pagination-buttons" class="inline-flex items-center gap-1"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -387,16 +404,86 @@
             if (onlineStat) onlineStat.innerText = list.length;
         }
 
+        let staffCurrentPage = 1;
+        let staffPageSize = 20;
+
+        window.changeStaffPage = function(page) {
+            staffCurrentPage = page;
+            filterStaffTable();
+            const table = document.getElementById('staff-table-body');
+            if (table) table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+
+        window.changeStaffPerPage = function(val) {
+            staffPageSize = val === 'all' ? 'all' : parseInt(val, 10);
+            staffCurrentPage = 1;
+            filterStaffTable();
+        };
+
+        function renderStaffPaginationButtons(currentPage, totalPages, onClickFuncName) {
+            if (totalPages <= 1) return '';
+            let html = `<div class="inline-flex items-center gap-1">`;
+            const prevDisabled = currentPage === 1;
+            html += `<button onclick="${onClickFuncName}(${currentPage - 1})" ${prevDisabled ? 'disabled' : ''} class="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold ${prevDisabled ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-white text-slate-700 hover:bg-slate-50 shadow-2xs'}">Prev</button>`;
+
+            for (let p = 1; p <= totalPages; p++) {
+                if (totalPages > 7) {
+                    if (p !== 1 && p !== totalPages && Math.abs(p - currentPage) > 1) {
+                        if (p === 2 && currentPage > 3) html += `<span class="px-1 text-slate-400 text-xs font-bold">...</span>`;
+                        if (p === totalPages - 1 && currentPage < totalPages - 2) html += `<span class="px-1 text-slate-400 text-xs font-bold">...</span>`;
+                        continue;
+                    }
+                }
+                const isActive = p === currentPage;
+                html += `<button onclick="${onClickFuncName}(${p})" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${isActive ? 'bg-slate-900 text-white shadow-2xs' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}">${p}</button>`;
+            }
+
+            const nextDisabled = currentPage === totalPages;
+            html += `<button onclick="${onClickFuncName}(${currentPage + 1})" ${nextDisabled ? 'disabled' : ''} class="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold ${nextDisabled ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-white text-slate-700 hover:bg-slate-50 shadow-2xs'}">Next</button>`;
+            html += `</div>`;
+            return html;
+        }
+
         function renderStaffTable(list) {
             const tbody = document.getElementById('staff-table-body');
             if (!tbody) return;
+
+            const totalStaff = list.length;
+            const pageSizeNum = staffPageSize === 'all' ? totalStaff : parseInt(staffPageSize, 10);
+            const totalPages = pageSizeNum > 0 ? Math.ceil(totalStaff / pageSizeNum) : 1;
+            if (staffCurrentPage > totalPages) staffCurrentPage = Math.max(1, totalPages);
+            if (staffCurrentPage < 1) staffCurrentPage = 1;
+
+            const startIndex = staffPageSize === 'all' ? 0 : (staffCurrentPage - 1) * pageSizeNum;
+            const endIndex = staffPageSize === 'all' ? totalStaff : Math.min(startIndex + pageSizeNum, totalStaff);
+            const pagedList = list.slice(startIndex, endIndex);
+
+            // Update pagination UI controls
+            const showRange = document.getElementById('staff-showing-range');
+            const totalCountEl = document.getElementById('staff-total-count');
+            const pagButtons = document.getElementById('staff-pagination-buttons');
+            const pagContainer = document.getElementById('staff-pagination-container');
+
+            if (pagContainer) {
+                pagContainer.style.display = totalStaff > 0 ? 'flex' : 'none';
+            }
+            if (showRange) {
+                showRange.innerText = totalStaff === 0 ? '0 - 0' : `${startIndex + 1} - ${endIndex}`;
+            }
+            if (totalCountEl) {
+                totalCountEl.innerText = totalStaff;
+            }
+            if (pagButtons) {
+                pagButtons.innerHTML = renderStaffPaginationButtons(staffCurrentPage, totalPages, 'window.changeStaffPage');
+            }
 
             if (list.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-400 font-semibold">No staff members found matching search</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = list.map((staff, idx) => {
+            tbody.innerHTML = pagedList.map((staff, pageIdx) => {
+                const idx = startIndex + pageIdx;
                 const staffId = staff.id || `staff-${idx}`;
                 const fullName = `${staff.firstName || ''} ${staff.lastName || ''}`.trim() || 'Staff Specialist';
                 const email = staff.email || `staff${idx+1}@globalisor.com`;

@@ -268,6 +268,24 @@
                         <!-- Populated by JS -->
                     </tbody>
                 </table>
+                <div id="tasks-pagination-container" class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200/80 mt-4 bg-white/80 rounded-xl px-4 py-3 shadow-2xs">
+                    <div class="flex items-center gap-2 text-xs text-slate-600 font-semibold" id="tasks-pagination-info">
+                        Showing <span id="tasks-showing-range" class="font-bold text-slate-900">0 - 0</span> of <span id="tasks-total-count" class="font-bold text-slate-900">0</span> tasks
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
+                            <span>Per page:</span>
+                            <select id="tasks-per-page" onchange="changeTasksPerPage(this.value)" class="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-700 focus:outline-none cursor-pointer">
+                                <option value="10">10</option>
+                                <option value="25" selected>25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                                <option value="all">All</option>
+                            </select>
+                        </div>
+                        <div id="tasks-pagination-buttons" class="inline-flex items-center gap-1"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1122,16 +1140,85 @@
             if (window.lucide) window.lucide.createIcons();
         }
 
+        let taskCurrentPage = 1;
+        let taskPageSize = 25;
+
+        window.changeTaskPage = function(page) {
+            taskCurrentPage = page;
+            renderTasks();
+            const table = document.getElementById('table-view-container');
+            if (table) table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+
+        window.changeTasksPerPage = function(val) {
+            taskPageSize = val === 'all' ? 'all' : parseInt(val, 10);
+            taskCurrentPage = 1;
+            renderTasks();
+        };
+
+        function renderTaskPaginationButtons(currentPage, totalPages, onClickFuncName) {
+            if (totalPages <= 1) return '';
+            let html = `<div class="inline-flex items-center gap-1">`;
+            const prevDisabled = currentPage === 1;
+            html += `<button onclick="${onClickFuncName}(${currentPage - 1})" ${prevDisabled ? 'disabled' : ''} class="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold ${prevDisabled ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-white text-slate-700 hover:bg-slate-50 shadow-2xs'}">Prev</button>`;
+
+            for (let p = 1; p <= totalPages; p++) {
+                if (totalPages > 7) {
+                    if (p !== 1 && p !== totalPages && Math.abs(p - currentPage) > 1) {
+                        if (p === 2 && currentPage > 3) html += `<span class="px-1 text-slate-400 text-xs font-bold">...</span>`;
+                        if (p === totalPages - 1 && currentPage < totalPages - 2) html += `<span class="px-1 text-slate-400 text-xs font-bold">...</span>`;
+                        continue;
+                    }
+                }
+                const isActive = p === currentPage;
+                html += `<button onclick="${onClickFuncName}(${p})" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${isActive ? 'bg-slate-900 text-white shadow-2xs' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}">${p}</button>`;
+            }
+
+            const nextDisabled = currentPage === totalPages;
+            html += `<button onclick="${onClickFuncName}(${currentPage + 1})" ${nextDisabled ? 'disabled' : ''} class="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold ${nextDisabled ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-white text-slate-700 hover:bg-slate-50 shadow-2xs'}">Next</button>`;
+            html += `</div>`;
+            return html;
+        }
+
         function renderTable(tasks) {
             const tbody = document.getElementById('tasks-table-body');
             if (!tbody) return;
+
+            const totalTasks = tasks.length;
+            const pageSizeNum = taskPageSize === 'all' ? totalTasks : parseInt(taskPageSize, 10);
+            const totalPages = pageSizeNum > 0 ? Math.ceil(totalTasks / pageSizeNum) : 1;
+            if (taskCurrentPage > totalPages) taskCurrentPage = Math.max(1, totalPages);
+            if (taskCurrentPage < 1) taskCurrentPage = 1;
+
+            const startIndex = taskPageSize === 'all' ? 0 : (taskCurrentPage - 1) * pageSizeNum;
+            const endIndex = taskPageSize === 'all' ? totalTasks : Math.min(startIndex + pageSizeNum, totalTasks);
+            const pagedTasks = tasks.slice(startIndex, endIndex);
+
+            // Update pagination UI controls
+            const showRange = document.getElementById('tasks-showing-range');
+            const totalCountEl = document.getElementById('tasks-total-count');
+            const pagButtons = document.getElementById('tasks-pagination-buttons');
+            const pagContainer = document.getElementById('tasks-pagination-container');
+
+            if (pagContainer) {
+                pagContainer.style.display = totalTasks > 0 ? 'flex' : 'none';
+            }
+            if (showRange) {
+                showRange.innerText = totalTasks === 0 ? '0 - 0' : `${startIndex + 1} - ${endIndex}`;
+            }
+            if (totalCountEl) {
+                totalCountEl.innerText = totalTasks;
+            }
+            if (pagButtons) {
+                pagButtons.innerHTML = renderTaskPaginationButtons(taskCurrentPage, totalPages, 'window.changeTaskPage');
+            }
 
             if (tasks.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="9" class="text-center py-12 text-slate-400 font-sans text-xs">No tasks match the selected criteria.</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = tasks.map(t => {
+            tbody.innerHTML = pagedTasks.map(t => {
                 const isNew = recentlyAddedTaskIds && recentlyAddedTaskIds.has(t.id);
                 const priorityBadge = getPriorityBadgeHtml(t.priority);
                 const statusBadge = getStatusBadgeHtml(t.status);

@@ -1689,13 +1689,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // WebSocket listener for real-time notifications
-    if (!window._adminWsConnected) {
+    let adminWsReconnectDelay = 2000;
+    let adminWsReconnectTimeout = null;
+
+    function initAdminSidebarWs() {
+        try {
             const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
             const adminId = auth.id || auth.userId || 'admin';
             const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsHost = location.host;
             const wsUrl = `${wsProtocol}//${wsHost}/api/ws/chat?userId=${encodeURIComponent(adminId)}&role=admin`;
             const ws = new WebSocket(wsUrl);
+
+            ws.onopen = function() {
+                adminWsReconnectDelay = 2000;
+            };
+
             ws.onmessage = function(evt) {
                 try {
                     const msg = JSON.parse(evt.data);
@@ -1735,15 +1744,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     window._adminFetchUnreadMessagesCount();
                 } catch(e) {}
             };
-            ws.onopen = function() {
-                window._adminWsConnected = true;
-            };
+
             ws.onclose = function() {
-                window._adminWsConnected = false;
+                if (adminWsReconnectTimeout) clearTimeout(adminWsReconnectTimeout);
+                const jitter = Math.floor(Math.random() * 1000);
+                adminWsReconnectTimeout = setTimeout(initAdminSidebarWs, Math.min(adminWsReconnectDelay + jitter, 30000));
+                adminWsReconnectDelay = Math.min(adminWsReconnectDelay * 2, 30000);
             };
+
             ws.onerror = function() {
-                window._adminWsConnected = false;
+                try { ws.close(); } catch(e) {}
             };
+        } catch(e) {}
+    }
+
+    if (!window._adminWsConnected) {
+        window._adminWsConnected = true;
+        initAdminSidebarWs();
     }
 
     window._adminShowToast = function(n) {
