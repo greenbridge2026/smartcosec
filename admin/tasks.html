@@ -329,12 +329,21 @@
 
             <!-- Col 4: Completed -->
             <div class="kanban-col" id="lane-completed" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event, this)" ondragleave="handleDragLeave(event, this)" ondrop="handleDrop(event, 'COMPLETED', this)">
-                <div class="flex items-center justify-between pb-2 border-b border-slate-200">
-                    <div class="flex items-center gap-2">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200 gap-2">
+                    <div class="flex items-center gap-2 shrink-0">
                         <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
                         <span class="text-xs font-bold text-slate-800">Completed & Resolved</span>
                     </div>
-                    <span class="text-[11px] font-bold px-2 py-0.5 bg-white rounded-full text-slate-600 shadow-2xs" id="count-col-completed">0</span>
+                    <div class="flex items-center gap-1.5">
+                        <select id="admin-completed-days-select" onchange="changeAdminCompletedDays(this.value)" class="text-[10px] font-bold bg-white hover:bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 text-slate-700 outline-none cursor-pointer focus:ring-1 focus:ring-emerald-500 transition-all shadow-2xs" title="Filter completed tasks by period">
+                            <option value="7" selected>Last 7 days</option>
+                            <option value="15">Last 15 days</option>
+                            <option value="30">Last 30 days</option>
+                            <option value="45">Last 45 days</option>
+                            <option value="0">All Time</option>
+                        </select>
+                        <span class="text-[11px] font-bold px-2 py-0.5 bg-white rounded-full text-slate-600 shadow-2xs" id="count-col-completed">0</span>
+                    </div>
                 </div>
                 <div id="col-completed-cards" class="space-y-3 overflow-y-auto max-h-[700px] custom-scrollbar pr-1 flex-1"></div>
             </div>
@@ -1022,10 +1031,23 @@
 
         let recentlyAddedTaskIds = new Set();
         let _initialTasksLoaded = false;
+        let adminCompletedDays = localStorage.getItem('admin_completed_days') || '7';
+
+        async function changeAdminCompletedDays(days) {
+            adminCompletedDays = days;
+            try {
+                localStorage.setItem('admin_completed_days', days);
+            } catch(e) {}
+            const sel = document.getElementById('admin-completed-days-select');
+            if (sel) sel.value = days;
+            await refreshTasks();
+        }
+        window.changeAdminCompletedDays = changeAdminCompletedDays;
 
         async function refreshTasks() {
             try {
-                const res = await fetch('/api/tasks');
+                const daysParam = adminCompletedDays && adminCompletedDays !== '0' ? `?completedDays=${adminCompletedDays}` : '?completedDays=0';
+                const res = await fetch(`/api/tasks${daysParam}`);
                 if (res.ok) {
                     const newTasks = await res.json();
 
@@ -1114,6 +1136,8 @@
         }
 
         function applyFilters() {
+            const sel = document.getElementById('admin-completed-days-select');
+            if (sel && sel.value !== String(adminCompletedDays)) sel.value = String(adminCompletedDays);
             const q = (document.getElementById('task-search').value || '').toLowerCase();
             const status = document.getElementById('filter-status').value;
             const priority = document.getElementById('filter-priority').value;

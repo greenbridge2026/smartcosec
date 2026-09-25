@@ -7712,6 +7712,17 @@ function renderUpdates(container) {
 window.clientTasksList = [];
 window.clientTasksFilter = 'ALL';
 
+let clientCompletedDays = localStorage.getItem('client_completed_days') || '7';
+
+async function changeClientCompletedDays(days) {
+    clientCompletedDays = days;
+    try {
+        localStorage.setItem('client_completed_days', days);
+    } catch(e) {}
+    await renderTasksClientView(document.getElementById('main-view'));
+}
+window.changeClientCompletedDays = changeClientCompletedDays;
+
 async function fetchClientTasks() {
     try {
         const entityInfo = getClientPortalEntityInfo();
@@ -7720,7 +7731,8 @@ async function fetchClientTasks() {
         const activeClientId = (entityInfo.clientId || '').trim();
 
         // Query backend for tasks (Client tasks only)
-        let fetchUrl = `/api/tasks?taskScope=CLIENT&isInternal=false`;
+        const daysParam = clientCompletedDays && clientCompletedDays !== '0' ? clientCompletedDays : '0';
+        let fetchUrl = `/api/tasks?taskScope=CLIENT&isInternal=false&completedDays=${encodeURIComponent(daysParam)}`;
         if (activeCompName) {
             fetchUrl += `&companyName=${encodeURIComponent(activeCompName)}`;
         } else if (activeClientId) {
@@ -7843,17 +7855,29 @@ async function renderTasksClientView(container) {
                 </div>
             </div>
 
-            <!-- Filter Pills -->
+            <!-- Filter Pills & Completed Window -->
             <div class="flex items-center justify-between flex-wrap gap-4 pb-2 border-b border-slate-200">
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
                     <button onclick="filterClientTasks('ALL')" id="client-tab-ALL" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-white">All Tasks</button>
                     <button onclick="filterClientTasks('ACTIVE')" id="client-tab-ACTIVE" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100">In Progress</button>
                     <button onclick="filterClientTasks('WAITING')" id="client-tab-WAITING" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100">Awaiting Feedback</button>
                     <button onclick="filterClientTasks('COMPLETED')" id="client-tab-COMPLETED" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100">Resolved</button>
                 </div>
-                <button onclick="renderTasksClientView(document.getElementById('main-view'))" class="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1.5">
-                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
-                </button>
+                <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Completed:</span>
+                        <select id="client-completed-days-select" onchange="changeClientCompletedDays(this.value)" class="text-xs font-bold text-slate-700 bg-transparent outline-none cursor-pointer">
+                            <option value="7" ${clientCompletedDays === '7' ? 'selected' : ''}>Last 7 days</option>
+                            <option value="15" ${clientCompletedDays === '15' ? 'selected' : ''}>Last 15 days</option>
+                            <option value="30" ${clientCompletedDays === '30' ? 'selected' : ''}>Last 30 days</option>
+                            <option value="45" ${clientCompletedDays === '45' ? 'selected' : ''}>Last 45 days</option>
+                            <option value="0" ${clientCompletedDays === '0' ? 'selected' : ''}>All Time</option>
+                        </select>
+                    </div>
+                    <button onclick="renderTasksClientView(document.getElementById('main-view'))" class="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1.5 p-2 hover:bg-slate-50 rounded-xl transition cursor-pointer">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
+                    </button>
+                </div>
             </div>
 
             <!-- Task Cards Container -->

@@ -512,18 +512,6 @@
         </div>
 
         <div class="flex items-center justify-end gap-3 relative">
-            <!-- Clock Attendance buttons -->
-            <div id="attendance-clock-controls" class="flex items-center gap-2 mr-2 border-r border-slate-200 pr-3 shrink-0">
-                <button id="btn-signin" onclick="handleClockAction('signin')" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-sm">
-                    <i data-lucide="log-in" class="w-3.5 h-3.5"></i> Sign In
-                </button>
-                <button id="btn-break" onclick="handleClockAction('break')" class="hidden px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-sm">
-                    <i data-lucide="coffee" class="w-3.5 h-3.5"></i> Break In
-                </button>
-                <button id="btn-signout" onclick="handleClockAction('signout')" class="hidden px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-sm">
-                    <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Sign Out
-                </button>
-            </div>
 
             <div id="staff-presence-selector" class="relative mr-2">
                 <button onclick="togglePresenceMenu()" class="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors">
@@ -658,24 +646,6 @@
             </div>
         </div>
 
-        <!-- HR Accordion -->
-        <div class="category-group">
-            <button class="category-btn" id="cat-hr" onclick="toggleSubmenu('sub-hr', 'cat-hr')" title="HR Management" data-tooltip="HR Management">
-                <span class="flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    <span>HR Management</span>
-                </span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <div id="sub-hr" class="submenu-wrapper">
-                <div class="submenu-content">
-                    <button onclick="switchTab('hr')" class="submenu-item" id="btn-hr" title="HR Module" data-tooltip="HR Module">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-                        <span>My ID & Attendance</span>
-                    </button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <main class="main-container">
@@ -1239,12 +1209,21 @@
 
                 <!-- Col 4: Completed & Lodged -->
                 <div class="kanban-col" id="staff-lane-completed" ondragover="handleStaffDragOver(event)" ondragenter="handleStaffDragEnter(event, this)" ondragleave="handleStaffDragLeave(event, this)" ondrop="handleStaffDrop(event, 'COMPLETED', this)">
-                    <div class="flex items-center justify-between pb-2 border-b border-slate-200">
-                        <div class="flex items-center gap-2">
+                    <div class="flex items-center justify-between pb-2 border-b border-slate-200 gap-2">
+                        <div class="flex items-center gap-2 shrink-0">
                             <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
                             <span class="text-xs font-bold text-slate-800">Completed & Lodged</span>
                         </div>
-                        <span class="text-[11px] font-bold px-2 py-0.5 bg-white rounded-full text-slate-600 shadow-2xs" id="staff-count-col-completed">0</span>
+                        <div class="flex items-center gap-1.5">
+                            <select id="staff-completed-days-filter" onchange="changeStaffCompletedDays(this.value)" class="text-[10px] font-bold bg-white hover:bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 text-slate-700 outline-none cursor-pointer focus:ring-1 focus:ring-emerald-500 transition-all shadow-2xs" title="Filter completed tasks by period">
+                                <option value="7" selected>Last 7 days</option>
+                                <option value="15">Last 15 days</option>
+                                <option value="30">Last 30 days</option>
+                                <option value="45">Last 45 days</option>
+                                <option value="0">All Time</option>
+                            </select>
+                            <span class="text-[11px] font-bold px-2 py-0.5 bg-white rounded-full text-slate-600 shadow-2xs" id="staff-count-col-completed">0</span>
+                        </div>
                     </div>
                     <div id="staff-col-completed-cards" class="space-y-3 overflow-y-auto max-h-[700px] custom-scrollbar pr-1 flex-1"></div>
                 </div>
@@ -1576,88 +1555,6 @@
                     </div>
                 </div>
             </div>
-        <!-- HR / My ID & Attendance View -->
-        <div id="view-hr" class="hidden space-y-6">
-            <h1 class="text-3xl font-bold text-slate-900 font-outfit mb-8">My HR & Identification</h1>
-            
-            <!-- Sub tabs: ID Card / Attendance Summary -->
-            <div class="flex border-b border-slate-200 gap-6 mb-6">
-                <button onclick="switchHrSubTab('id-card')" id="hr-subtab-id-card" class="pb-3 text-sm font-bold border-b-2 border-emerald-500 text-emerald-600 outline-none cursor-pointer">Staff ID Card</button>
-                <button onclick="switchHrSubTab('attendance')" id="hr-subtab-attendance" class="pb-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-900 outline-none cursor-pointer">Attendance Log</button>
-            </div>
-
-            <!-- ID Card Section -->
-            <div id="hr-section-id-card" class="space-y-6 flex flex-col items-center justify-center p-6">
-                <p class="text-xs text-slate-400 text-center font-medium">Click on the card to flip between Front and Back design.</p>
-                
-                <div id="staff-personal-card-container">
-                    <!-- Personal Card HTML gets rendered here -->
-                </div>
-
-                <div class="flex items-center gap-3 w-full max-w-[320px] pt-4">
-                    <button onclick="downloadPersonalCardPNG()" class="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm">
-                        <i data-lucide="image" class="w-4 h-4"></i> PNG
-                    </button>
-                    <button onclick="downloadPersonalCardPDF()" class="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm">
-                        <i data-lucide="file-text" class="w-4 h-4"></i> PDF
-                    </button>
-                    <button onclick="printPersonalCard()" class="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md">
-                        <i data-lucide="printer" class="w-4 h-4"></i> Print
-                    </button>
-                </div>
-            </div>
-
-            <!-- Attendance Section -->
-            <div id="hr-section-attendance" class="hidden space-y-6">
-                <!-- Today's summary card -->
-                <div class="glass-card p-6 bg-slate-50/50 border border-slate-200/60 rounded-2xl flex flex-wrap justify-between items-center gap-4">
-                    <div>
-                        <h3 class="text-sm font-bold text-slate-800 mb-1">Today's Clock Summary</h3>
-                        <p class="text-[11px] text-slate-400 font-semibold" id="staff-today-date">Today</p>
-                    </div>
-                    <div class="flex gap-6 text-center text-xs">
-                        <div class="flex flex-col">
-                            <span class="text-slate-400 font-bold uppercase text-[9px] tracking-wider mb-1">Clock In</span>
-                            <span id="staff-summary-signin" class="font-extrabold text-slate-800">—</span>
-                        </div>
-                        <div class="flex flex-col">
-                            <span class="text-slate-400 font-bold uppercase text-[9px] tracking-wider mb-1">Clock Out</span>
-                            <span id="staff-summary-signout" class="font-extrabold text-slate-800">—</span>
-                        </div>
-                        <div class="flex flex-col">
-                            <span class="text-slate-400 font-bold uppercase text-[9px] tracking-wider mb-1">Hours Logged</span>
-                            <span id="staff-summary-hours" class="font-extrabold text-emerald-600">—</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Monthly History Table -->
-                <div class="glass-card overflow-hidden">
-                    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/30">
-                        <h3 class="text-xs font-bold text-slate-600 uppercase tracking-widest">Attendance History</h3>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-slate-50/50">
-                                    <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
-                                    <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Clock In</th>
-                                    <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Clock Out</th>
-                                    <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Breaks</th>
-                                    <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Hours Logged</th>
-                                    <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Audit Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="staff-attendance-history-body" class="divide-y divide-slate-50">
-                                <tr>
-                                    <td colspan="6" class="px-6 py-8 text-center text-slate-400 font-medium">No history logged for this user.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
     </main>
 
     <!-- Detail Slide-over (Matching Admin Panel) -->
@@ -2025,10 +1922,6 @@
             } catch (e) { console.error("connectWebSocket failed", e); }
 
             try {
-                checkTodayAttendanceStatus();
-            } catch (e) { console.error("checkTodayAttendanceStatus failed", e); }
-
-            try {
                 updateNotifications();
             } catch (e) { console.error("updateNotifications failed", e); }
 
@@ -2234,9 +2127,6 @@
             } else if (['messages'].includes(tab)) {
                 activeCatId = 'cat-communication';
                 activeSubId = 'sub-communication';
-            } else if (['hr'].includes(tab)) {
-                activeCatId = 'cat-hr';
-                activeSubId = 'sub-hr';
             }
 
             if (activeCatId && activeSubId) {
@@ -4121,15 +4011,6 @@
                         loadStarredWorkspaceMessages();
                     } else if (data.type === 'call_signal') {
                         window.Calling.handleSignal(data);
-                    } else if (data.type === 'attendance_update') {
-                        if (data.userId === myId) {
-                            checkTodayAttendanceStatus();
-                            fetchPersonalAttendanceHistory();
-                        }
-                    } else if (data.type === 'card_status_update') {
-                        if (data.userId === myId) {
-                            loadPersonalCard();
-                        }
                     }
                 } catch (e) { console.error('WS parsing error:', e); }
             };
@@ -5241,9 +5122,12 @@
         window.clearStaffSelectedCompany = clearStaffSelectedCompany;
         window.handleStaffCreateTask = handleStaffCreateTask;
 
+        let staffCompletedDays = localStorage.getItem('staff_completed_days') || '7';
+
         async function renderTasks() {
             try {
-                const res = await fetch('/api/tasks');
+                const daysParam = staffCompletedDays && staffCompletedDays !== '0' ? `?completedDays=${staffCompletedDays}` : '?completedDays=0';
+                const res = await fetch(`/api/tasks${daysParam}`);
                 if (res.ok) {
                     staffTaskList = await res.json();
                 }
@@ -5252,6 +5136,16 @@
             }
             updateStaffTasksView();
         }
+
+        window.changeStaffCompletedDays = async function(days) {
+            staffCompletedDays = days;
+            try {
+                localStorage.setItem('staff_completed_days', days);
+            } catch (e) {}
+            const selectEl = document.getElementById('staff-completed-days-filter');
+            if (selectEl) selectEl.value = days;
+            await renderTasks();
+        };
 
         function setStaffTaskTab(tab) {
             staffTaskFilter = tab;
@@ -5354,6 +5248,10 @@
         }
 
         function updateStaffTasksView() {
+            const selectEl = document.getElementById('staff-completed-days-filter');
+            if (selectEl && selectEl.value !== String(staffCompletedDays)) {
+                selectEl.value = String(staffCompletedDays);
+            }
             const list = staffTaskList || [];
             const myTasks = list.filter(t => isTaskAssignedToMe(t));
             const clientTasks = list.filter(t => !t.isInternal && (t.taskScope || '').toUpperCase() !== 'INTERNAL');
@@ -6192,7 +6090,6 @@
                 else if (n.type === 'assignment' || n.type === 'application') alertIcon = '👤';
                 else if (n.type === 'kyc' || n.type === 'kyc_review') alertIcon = '🛡️';
                 else if (n.type === 'task' || (n.type && n.type.startsWith('TASK_'))) alertIcon = '📋';
-                else if (n.type === 'attendance' || n.type === 'hr') alertIcon = '🕒';
 
                 return `
                     <div class="p-3.5 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-all ${isRead ? 'bg-white' : 'bg-emerald-50/20'}" onclick="handleNotifClick('${n.id || ''}', '${n.type || ''}', '${n.relatedId || ''}')">
@@ -6334,8 +6231,6 @@
                 if (relatedId) {
                     openDetail(relatedId);
                 }
-            } else if (lowerType === 'attendance' || lowerType === 'hr') {
-                switchTab('hr');
             } else {
                 switchTab('dashboard');
             }
@@ -6908,469 +6803,6 @@
                 console.error("Failed to upload manual document:", err);
             }
         };
-
-        // ==================== HR & ATTENDANCE LOGIC ====================
-        let personalCardData = null;
-
-        async function checkTodayAttendanceStatus() {
-            const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            try {
-                const res = await fetch(`/api/hr/attendance/today?userId=${myId}&timeZone=${encodeURIComponent(timeZone)}`);
-                if (res.ok) {
-                    const text = await res.text();
-                    const data = text ? JSON.parse(text) : null;
-                    updateAttendanceControls(data);
-                }
-            } catch (err) {
-                console.error("Failed to check today attendance status", err);
-            }
-        }
-        window.checkTodayAttendanceStatus = checkTodayAttendanceStatus;
-
-        function updateAttendanceControls(data) {
-            const btnSignIn = document.getElementById('btn-signin');
-            const btnBreak = document.getElementById('btn-break');
-            const btnSignOut = document.getElementById('btn-signout');
-
-            if (!btnSignIn || !btnBreak || !btnSignOut) return;
-
-            if (!data) {
-                btnSignIn.classList.remove('hidden');
-                btnBreak.classList.add('hidden');
-                btnSignOut.classList.add('hidden');
-                
-                document.getElementById('staff-summary-signin').innerText = '—';
-                document.getElementById('staff-summary-signout').innerText = '—';
-                document.getElementById('staff-summary-hours').innerText = '—';
-                document.getElementById('staff-today-date').innerText = new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-                return;
-            }
-
-            document.getElementById('staff-today-date').innerText = new Date(data.signInTime).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-            document.getElementById('staff-summary-signin').innerText = new Date(data.signInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            
-            if (data.signOutTime) {
-                document.getElementById('staff-summary-signout').innerText = new Date(data.signOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            } else {
-                document.getElementById('staff-summary-signout').innerText = '—';
-            }
-
-            if (data.totalWorkingHours !== null && data.totalWorkingHours !== undefined && data.totalWorkingHours > 0) {
-                document.getElementById('staff-summary-hours').innerText = data.totalWorkingHours + ' hrs';
-            } else {
-                document.getElementById('staff-summary-hours').innerText = '—';
-            }
-
-            if (data.status === 'SIGNED_IN') {
-                btnSignIn.classList.add('hidden');
-                btnBreak.classList.remove('hidden');
-                btnBreak.innerHTML = `<i data-lucide="coffee" class="w-3.5 h-3.5"></i> Break In`;
-                btnBreak.className = 'px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-sm';
-                btnSignOut.classList.remove('hidden');
-            } else if (data.status === 'BREAK_IN') {
-                btnSignIn.classList.add('hidden');
-                btnBreak.classList.remove('hidden');
-                btnBreak.innerHTML = `<i data-lucide="coffee" class="w-3.5 h-3.5"></i> Break Out`;
-                btnBreak.className = 'px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-sm';
-                btnSignOut.classList.remove('hidden');
-            } else if (data.status === 'SIGNED_OUT') {
-                btnSignIn.classList.add('hidden');
-                btnBreak.classList.add('hidden');
-                btnSignOut.classList.add('hidden');
-            }
-
-            if (window.lucide) window.lucide.createIcons();
-        }
-
-        window.handleClockAction = async function(action) {
-            const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            let ipAddress = '127.0.0.1';
-            try {
-                const ipRes = await fetch('https://api.ipify.org?format=json');
-                if (ipRes.ok) {
-                    const ipData = await ipRes.json();
-                    ipAddress = ipData.ip;
-                }
-            } catch(e) {
-                // fallback
-            }
-
-            const device = navigator.userAgent;
-            const payload = {
-                userId: myId,
-                timeZone,
-                ipAddress,
-                device
-            };
-
-            let endpoint = '/api/hr/attendance/signin';
-            if (action === 'break') {
-                const breakBtn = document.getElementById('btn-break');
-                const isBreakIn = breakBtn && breakBtn.innerText.toLowerCase().includes('in');
-                endpoint = isBreakIn ? '/api/hr/attendance/breakin' : '/api/hr/attendance/breakout';
-            } else if (action === 'signout') {
-                endpoint = '/api/hr/attendance/signout';
-            }
-
-            try {
-                const res = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (res.ok) {
-                    const data = await res.json();
-                    updateAttendanceControls(data);
-                    fetchPersonalAttendanceHistory();
-                    showToast(`Successfully clocked: ${action}`, 'success');
-                } else {
-                    const err = await res.json();
-                    showToast(err.error || 'Failed to update clock status', 'error');
-                }
-            } catch (err) {
-                console.error(err);
-                showToast('Failed to connect to servers', 'error');
-            }
-        }
-
-        async function fetchPersonalAttendanceHistory() {
-            try {
-                const res = await fetch(`/api/hr/attendance/history?userId=${myId}`);
-                if (res.ok) {
-                    const history = await res.json();
-                    renderPersonalAttendanceHistory(history);
-                }
-            } catch (err) {
-                console.error("Failed to load attendance history", err);
-            }
-        }
-        window.fetchPersonalAttendanceHistory = fetchPersonalAttendanceHistory;
-
-        function renderPersonalAttendanceHistory(history) {
-            const tbody = document.getElementById('staff-attendance-history-body');
-            if (!tbody) return;
-
-            if (history.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-400 font-medium">No history logged for this user.</td></tr>`;
-                return;
-            }
-
-            tbody.innerHTML = history.map(att => {
-                const signInStr = att.signInTime ? new Date(att.signInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-                const signOutStr = att.signOutTime ? new Date(att.signOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-                
-                let breakCount = 0;
-                let breakHours = 0.0;
-                if (att.breaks) {
-                    breakCount = att.breaks.length;
-                    breakHours = att.breaks.reduce((acc, b) => acc + (b.durationHours || 0.0), 0.0);
-                }
-                const breakStr = breakCount > 0 ? `${breakCount} breaks (${breakHours.toFixed(2)}h)` : 'None';
-                
-                const hoursStr = att.totalWorkingHours !== null && att.totalWorkingHours !== undefined ? `${att.totalWorkingHours} hrs` : '—';
-
-                let statusLabel = 'Auto-logged';
-                let statusClass = 'bg-slate-100 text-slate-600 border border-slate-200/50';
-                
-                if (att.auditLogs && att.auditLogs.some(log => log.action === 'MANUAL_CORRECTION')) {
-                    statusLabel = 'Corrected by Admin';
-                    statusClass = 'bg-amber-50 text-amber-600 border border-amber-100';
-                }
-
-                return `
-                    <tr class="hover:bg-slate-50/50 transition-colors">
-                        <td class="px-6 py-4 text-xs font-bold text-slate-800">${att.date}</td>
-                        <td class="px-6 py-4 text-xs font-medium text-slate-600">${signInStr}</td>
-                        <td class="px-6 py-4 text-xs font-medium text-slate-600">${signOutStr}</td>
-                        <td class="px-6 py-4 text-xs font-medium text-slate-500">${breakStr}</td>
-                        <td class="px-6 py-4 text-xs font-bold text-emerald-600">${hoursStr}</td>
-                        <td class="px-6 py-4">
-                            <span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${statusClass}">
-                                ${statusLabel}
-                            </span>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        window.switchHrSubTab = function(tab) {
-            const idCardBtn = document.getElementById('hr-subtab-id-card');
-            const attendanceBtn = document.getElementById('hr-subtab-attendance');
-            const idCardSec = document.getElementById('hr-section-id-card');
-            const attendanceSec = document.getElementById('hr-section-attendance');
-
-            if (tab === 'id-card') {
-                idCardBtn.className = 'pb-3 text-sm font-bold border-b-2 border-emerald-500 text-emerald-600 outline-none cursor-pointer';
-                attendanceBtn.className = 'pb-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-900 outline-none cursor-pointer';
-                idCardSec.classList.remove('hidden');
-                attendanceSec.classList.add('hidden');
-                loadPersonalCard();
-            } else {
-                idCardBtn.className = 'pb-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-900 outline-none cursor-pointer';
-                attendanceBtn.className = 'pb-3 text-sm font-bold border-b-2 border-emerald-500 text-emerald-600 outline-none cursor-pointer';
-                idCardSec.classList.add('hidden');
-                attendanceSec.classList.remove('hidden');
-                fetchPersonalAttendanceHistory();
-            }
-        }
-
-        async function loadPersonalCard() {
-            try {
-                const res = await fetch(`/api/hr/staff-cards/${myId}`);
-                if (res.ok) {
-                    personalCardData = await res.json();
-                    renderPersonalCard();
-                }
-            } catch (err) {
-                console.error("Failed to load personal card", err);
-            }
-        }
-        window.loadPersonalCard = loadPersonalCard;
-
-        function renderPersonalCard() {
-            const container = document.getElementById('staff-personal-card-container');
-            if (!container || !personalCardData) return;
-
-            const name = (personalCardData.firstName && personalCardData.lastName) 
-                ? (personalCardData.firstName + " " + personalCardData.lastName).trim() 
-                : (personalCardData.name || "Staff Member");
-            const initials = name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
-            
-            const activeLabel = personalCardData.cardStatus === 'ACTIVE'
-                ? `<span class="font-black uppercase tracking-wider text-[7px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Active</span>`
-                : `<span class="font-black uppercase tracking-wider text-[7px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">Inactive</span>`;
-
-            container.innerHTML = `
-                <div class="id-card-wrapper mx-auto" onclick="this.classList.toggle('flipped')" id="active-personal-card">
-                    <div class="id-card-inner">
-                        <!-- Front Side -->
-                        <div class="id-card-front p-6 flex flex-col justify-between select-none">
-                            <div class="glow-front"></div>
-                            
-                            <!-- Header logo & stamp -->
-                            <div class="flex justify-between items-start shrink-0">
-                                <div class="flex items-center gap-1.5">
-                                    <div class="w-6 h-6 rounded bg-emerald-500 flex items-center justify-center font-bold text-white text-xs">G</div>
-                                    <span class="font-outfit font-extrabold text-white text-xs tracking-wider uppercase">Globalisor</span>
-                                </div>
-                                <div class="text-[7px] border border-slate-700/50 bg-slate-800/40 px-2 py-0.5 rounded font-black text-slate-400 uppercase tracking-widest">Enterprise</div>
-                            </div>
- 
-                            <!-- Avatar -->
-                            <div class="flex flex-col items-center justify-center py-4 space-y-3 shrink-0">
-                                <div class="w-24 h-24 rounded-full overflow-hidden border-2 border-slate-700/40 bg-slate-800 flex items-center justify-center text-3xl font-bold font-outfit text-white shadow-xl shadow-black/10">
-                                    ${personalCardData.staffPhoto ? `<img src="${personalCardData.staffPhoto}" class="w-full h-full object-cover">` : initials}
-                                </div>
-                                <div class="text-center">
-                                    <h3 class="font-bold text-white text-sm tracking-wide leading-tight">${name}</h3>
-                                    <p class="text-[9px] font-bold text-emerald-400 uppercase tracking-widest mt-1">${personalCardData.designation || 'Compliance Officer'}</p>
-                                    <p class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">${personalCardData.department || 'AML Operations'}</p>
-                                </div>
-                            </div>
-
-                            <!-- QR Code & Emp details -->
-                            <div class="flex justify-between items-end border-t border-slate-800/60 pt-4 shrink-0 font-outfit">
-                                <div class="flex flex-col text-left">
-                                    <span class="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Employee ID</span>
-                                    <span class="text-[10px] font-bold font-mono text-white mt-0.5">${personalCardData.employeeId || 'GLOB-STF-TBD'}</span>
-                                </div>
-                                <div class="flex flex-col items-center">
-                                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&color=ffffff&bgcolor=0f172a&data=${encodeURIComponent(window.location.origin + '/verify-staff.html?id=' + personalCardData.id)}" class="w-14 h-14 rounded-lg bg-[#0f172a] p-1 border border-slate-800/80">
-                                    <span class="text-[5px] text-slate-500 font-extrabold uppercase mt-1">Scan to Verify</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Back Side -->
-                        <div class="id-card-back p-6 flex flex-col justify-between select-none">
-                            <div class="glow-back"></div>
-                            
-                            <!-- Header logo -->
-                            <div class="flex items-center gap-1.5 shrink-0 justify-center">
-                                <div class="w-6 h-6 rounded bg-emerald-500 flex items-center justify-center font-bold text-white text-xs">G</div>
-                                <span class="font-outfit font-extrabold text-white text-xs tracking-wider uppercase">Globalisor</span>
-                            </div>
-
-                            <!-- Term & Conditions and address -->
-                            <div class="text-center px-2 space-y-3">
-                                <p class="text-[7px] text-slate-400 font-bold uppercase tracking-widest">Official Identification Card</p>
-                                <p class="text-[8px] text-slate-300 leading-relaxed font-sans font-normal">This card remains property of Globalisor Pte. Ltd. If found, please return to: Globalisor HQ, Marina Bay Financial Centre, Singapore.</p>
-                            </div>
-
-                            <!-- Card dates and active status stamp -->
-                            <div class="border-t border-slate-800/80 pt-4 space-y-2 shrink-0">
-                                <div class="flex justify-between items-center text-[8px] text-slate-400 font-outfit">
-                                    <span>Issue Date:</span>
-                                    <span class="text-white font-bold">${personalCardData.cardIssueDate || '2026-01-01'}</span>
-                                </div>
-                                <div class="flex justify-between items-center text-[8px] text-slate-400 font-outfit">
-                                    <span>Valid Until:</span>
-                                    <span class="text-white font-bold">${personalCardData.cardValidUntil || '2028-01-01'}</span>
-                                </div>
-                                <div class="flex justify-between items-center text-[8px] text-slate-400 border-t border-slate-800/40 pt-2 font-outfit">
-                                    <span>Status:</span>
-                                    ${activeLabel}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            if (window.lucide) window.lucide.createIcons();
-        }
-
-        async function renderPersonalCardDomForExport() {
-            if (!personalCardData) return null;
-            const name = (personalCardData.firstName && personalCardData.lastName) 
-                ? (personalCardData.firstName + " " + personalCardData.lastName).trim() 
-                : (personalCardData.name || "Staff Member");
-            const initials = name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
-
-            const element = document.createElement('div');
-            element.style.position = 'fixed';
-            element.style.left = '-9999px';
-            element.style.top = '-9999px';
-            
-            element.innerHTML = `
-                <div style="display:flex;gap:40px;" id="export-personal-card-source">
-                    <div style="width:320px;height:500px;border-radius:24px;background:linear-gradient(145deg, #0f172a 0%, #1e1b4b 100%);color:#ffffff;padding:24px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 20px 40px rgba(0,0,0,0.2);position:relative;overflow:hidden;box-sizing:border-box;">
-                        <div style="position:absolute;top:-20%;left:-20%;width:140%;height:140%;background:radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, transparent 60%);"></div>
-                        <div style="display:flex;justify-content:between;align-items:center;z-index:2;box-sizing:border-box;justify-content:space-between;">
-                            <div style="display:flex;align-items:center;gap:6px;">
-                                <div style="width:24px;height:24px;border-radius:4px;background:#10b981;display:flex;align-items:center;justify-content:center;font-weight:bold;color:white;font-size:12px;">G</div>
-                                <span style="font-family:'Outfit',sans-serif;font-weight:800;color:white;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Globalisor</span>
-                            </div>
-                            <span style="font-size:8px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.05);padding:2px 6px;border-radius:4px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;">Enterprise</span>
-                        </div>
-                        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;margin:16px 0;z-index:2;">
-                            <div style="width:96px;height:96px;border-radius:50%;overflow:hidden;border:2px solid rgba(255,255,255,0.2);background:#1e293b;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:bold;color:white;margin-bottom:12px;box-shadow:0 10px 20px rgba(0,0,0,0.3);">
-                                ${personalCardData.staffPhoto ? `<img src="${personalCardData.staffPhoto}" style="width:100%;height:100%;object-cover:cover;object-fit:cover;">` : initials}
-                            </div>
-                            <div style="text-align:center;">
-                                <h3 style="font-weight:bold;color:white;font-size:14px;margin:0;letter-spacing:0.5px;">${name}</h3>
-                                <p style="font-size:9px;font-weight:bold;color:#34d399;text-transform:uppercase;letter-spacing:1px;margin:4px 0 0 0;">${personalCardData.designation || 'Compliance Officer'}</p>
-                                <p style="font-size:8px;color:#94a3b8;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;margin:2px 0 0 0;">${personalCardData.department || 'AML Operations'}</p>
-                            </div>
-                        </div>
-                        <div style="display:flex;justify-content:space-between;align-items:end;border-top:1px solid rgba(255,255,255,0.1);padding-top:16px;z-index:2;box-sizing:border-box;">
-                            <div style="display:flex;flex-direction:column;text-align:left;">
-                                <span style="font-size:7px;font-weight:bold;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Employee ID</span>
-                                <span style="font-size:11px;font-weight:bold;font-family:monospace;color:white;margin-top:2px;">${personalCardData.employeeId || 'GLOB-STF-TBD'}</span>
-                            </div>
-                            <div style="display:flex;flex-direction:column;align-items:center;">
-                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&color=ffffff&bgcolor=0f172a&data=${encodeURIComponent(window.location.origin + '/verify-staff.html?id=' + personalCardData.id)}" style="width:56px;height:56px;border-radius:6px;background:#0f172a;padding:4px;border:1px solid rgba(255,255,255,0.15);">
-                                <span style="font-size:5px;color:#64748b;font-weight:bold;text-transform:uppercase;margin-top:4px;">Scan to Verify</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style="width:320px;height:500px;border-radius:24px;background:linear-gradient(145deg, #1e1b4b 0%, #0f172a 100%);color:#ffffff;padding:24px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 20px 40px rgba(0,0,0,0.2);position:relative;overflow:hidden;box-sizing:border-box;">
-                        <div style="position:absolute;top:-20%;left:-20%;width:140%;height:140%;background:radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 60%);"></div>
-                        <div style="display:flex;align-items:center;gap:6px;justify-content:center;z-index:2;">
-                            <div style="width:24px;height:24px;border-radius:4px;background:#10b981;display:flex;align-items:center;justify-content:center;font-weight:bold;color:white;font-size:12px;">G</div>
-                            <span style="font-family:'Outfit',sans-serif;font-weight:800;color:white;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Globalisor</span>
-                        </div>
-                        <div style="text-align:center;padding:0 8px;z-index:2;">
-                            <p style="font-size:7px;color:#94a3b8;font-weight:bold;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px 0;">Official Identification Card</p>
-                            <p style="font-size:8px;color:#cbd5e1;line-height:1.5;font-weight:normal;margin:0;">This card remains property of Globalisor Pte. Ltd. If found, please return to: Globalisor HQ, Marina Bay Financial Centre, Singapore.</p>
-                        </div>
-                        <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:16px;z-index:2;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;">
-                            <div style="display:flex;justify-content:space-between;align-items:center;font-size:8px;color:#94a3b8;">
-                                <span>Issue Date:</span>
-                                <span style="color:white;font-weight:bold;">${personalCardData.cardIssueDate || '2026-01-01'}</span>
-                            </div>
-                            <div style="display:flex;justify-content:space-between;align-items:center;font-size:8px;color:#94a3b8;">
-                                <span>Valid Until:</span>
-                                <span style="color:white;font-weight:bold;">${personalCardData.cardValidUntil || '2028-01-01'}</span>
-                            </div>
-                            <div style="display:flex;justify-content:space-between;align-items:center;font-size:8px;color:#94a3b8;border-top:1px solid rgba(255,255,255,0.05);padding-top:8px;">
-                                <span>Status:</span>
-                                <span style="font-weight:900;text-transform:uppercase;font-size:7px;padding:2px 8px;border-radius:100px;${personalCardData.cardStatus === 'ACTIVE' ? 'background:rgba(16,185,129,0.1);color:#34d399;border:1px solid rgba(16,185,129,0.2);' : 'background:rgba(239,68,68,0.1);color:#f87171;border:1px solid rgba(239,68,68,0.2);'}">${personalCardData.cardStatus || 'ACTIVE'}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(element);
-            return element;
-        }
-
-        window.downloadPersonalCardPNG = async function() {
-            if (!personalCardData) return;
-            const container = await renderPersonalCardDomForExport();
-            const source = document.getElementById('export-personal-card-source');
-            
-            try {
-                const canvas = await html2canvas(source, {
-                    backgroundColor: null,
-                    useCORS: true,
-                    scale: 2
-                });
-                const link = document.createElement('a');
-                const name = (personalCardData.firstName && personalCardData.lastName) 
-                    ? (personalCardData.firstName + "_" + personalCardData.lastName) 
-                    : (personalCardData.name || "Staff");
-                link.download = `${name.replace(/\s+/g, '_')}_ID_Card.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-            } catch (err) {
-                console.error(err);
-            } finally {
-                container.remove();
-            }
-        }
-
-        window.downloadPersonalCardPDF = async function() {
-            if (!personalCardData) return;
-            const container = await renderPersonalCardDomForExport();
-            const source = document.getElementById('export-personal-card-source');
-
-            try {
-                const canvas = await html2canvas(source, {
-                    backgroundColor: null,
-                    useCORS: true,
-                    scale: 2
-                });
-                
-                const imgData = canvas.toDataURL('image/png');
-                const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF({
-                    orientation: 'landscape',
-                    unit: 'px',
-                    format: [canvas.width / 2, canvas.height / 2]
-                });
-                
-                pdf.addImage(imgData, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2);
-                const name = (personalCardData.firstName && personalCardData.lastName) 
-                    ? (personalCardData.firstName + "_" + personalCardData.lastName) 
-                    : (personalCardData.name || "Staff");
-                pdf.save(`${name.replace(/\s+/g, '_')}_ID_Card.pdf`);
-            } catch (err) {
-                console.error(err);
-            } finally {
-                container.remove();
-            }
-        }
-
-        window.printPersonalCard = async function() {
-            if (!personalCardData) return;
-            const container = await renderPersonalCardDomForExport();
-            const source = document.getElementById('export-personal-card-source');
-            
-            let printArea = document.getElementById('print-area');
-            if (!printArea) {
-                printArea = document.createElement('div');
-                printArea.id = 'print-area';
-                printArea.className = 'hidden';
-                document.body.appendChild(printArea);
-            }
-            printArea.innerHTML = source.outerHTML;
-            container.remove();
-
-            window.print();
-        }
 
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
