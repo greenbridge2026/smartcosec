@@ -3008,9 +3008,9 @@
                                 <span style="font-weight: 600;">Password:</span>
                                 <span style="font-family: monospace; font-weight: 700; color: #0f172a;">${clientPassword}</span>
                             </div>
-                            <a href="/login.html" style="display: block; width: 100%; text-align: center; text-decoration: none; font-size: 0.8rem; padding: 0.65rem; box-sizing: border-box; background: linear-gradient(135deg, #298486, #206769); border: none; border-radius: 10px; color: white; font-weight: 700; box-shadow: 0 4px 12px rgba(41, 132, 134, 0.25); cursor: pointer; transition: all 0.2s;">
-                                Access Client Portal →
-                            </a>
+                            <button onclick="wizard.autoLoginAndRedirect()" style="display: block; width: 100%; text-align: center; font-size: 0.85rem; padding: 0.75rem; box-sizing: border-box; background: linear-gradient(135deg, #2563eb, #1d4ed8); border: none; border-radius: 10px; color: white; font-weight: 700; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25); cursor: pointer; transition: all 0.2s;">
+                                Fill Onboarding Journey →
+                            </button>
                         </div>
                     `;
                 }
@@ -5210,32 +5210,44 @@
             async autoLoginAndRedirect() {
                 const email = this.data.contact ? this.data.contact.email : '';
                 const password = localStorage.getItem('signup_password') || 'password123';
-                if (!email) {
-                    window.location.href = '/login.html';
-                    return;
-                }
-                try {
-                    const res = await fetch('/api/auth/signin', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email, password })
-                    });
-                    if (res.ok) {
-                        const credentials = await res.json();
-                        localStorage.setItem('token', credentials.accessToken);
-                        localStorage.setItem('role', credentials.roles ? credentials.roles[0] : 'ROLE_USER');
-                        localStorage.setItem('username', credentials.username);
-                        localStorage.setItem('client_id', credentials.id);
-                        localStorage.setItem('client_email', credentials.email);
-                        localStorage.setItem('is_new_client', 'true');
-                        window.location.href = '/client/portal.html?tab=onboarding';
-                    } else {
-                        window.location.href = '/login.html?email=' + encodeURIComponent(email);
+                const authObj = JSON.parse(localStorage.getItem('client_auth') || '{}');
+                const clientId = authObj.id || localStorage.getItem('application_id') || ('usr-' + Date.now());
+                const clientName = authObj.name || (this.data.contact ? ((this.data.contact.firstName || '') + ' ' + (this.data.contact.lastName || '')).trim() : 'Client');
+
+                const clientAuth = {
+                    role: 'client',
+                    email: email || authObj.email || 'client@globalisor.com',
+                    name: clientName || 'Client',
+                    id: clientId
+                };
+                localStorage.setItem('client_auth', JSON.stringify(clientAuth));
+                localStorage.setItem('is_new_client', 'true');
+
+                if (email) {
+                    try {
+                        const res = await fetch('/api/auth/signin', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email, password })
+                        });
+                        if (res.ok) {
+                            const credentials = await res.json();
+                            const tokenVal = credentials.accessToken || credentials.token;
+                            if (tokenVal) localStorage.setItem('token', tokenVal);
+                            if (credentials.roles) localStorage.setItem('role', credentials.roles[0]);
+                            if (credentials.username) localStorage.setItem('username', credentials.username);
+                            if (credentials.id) localStorage.setItem('client_id', credentials.id);
+                            if (credentials.email) localStorage.setItem('client_email', credentials.email);
+                            clientAuth.token = tokenVal;
+                            clientAuth.id = credentials.id || clientId;
+                            clientAuth.email = credentials.email || email;
+                            localStorage.setItem('client_auth', JSON.stringify(clientAuth));
+                        }
+                    } catch(e) {
+                        console.error("Auto login error:", e);
                     }
-                } catch(e) {
-                    console.error("Auto login error:", e);
-                    window.location.href = '/login.html?email=' + encodeURIComponent(email);
                 }
+                window.location.href = '/client/portal.html?tab=onboarding';
             }
 
             getCheckoutHTML(rejectionBanner) {
@@ -7014,7 +7026,7 @@
                     
                     if (res.ok) {
                         const response = await res.json();
-                        showToast("Submission successful!");
+                        showToast("Submission successful! Transitioning to Onboarding Journey...");
                         lastKnownStatus = response.status;
                         
                         if (response.applicationId) {
@@ -7028,11 +7040,9 @@
                                 name: (response.firstName || '') + ' ' + (response.lastName || ''),
                                 id: response.clientId || ''
                             }));
-                            // Clear the mock guest token — client must sign in with real credentials
-                            localStorage.removeItem('token');
                         }
                         
-                        this.showStatusPage(response.status, response.data || this.data);
+                        await this.autoLoginAndRedirect();
                     } else {
                         if (res.status === 401) {
                             localStorage.removeItem('token');
@@ -7044,9 +7054,9 @@
                     }
                 } catch (error) {
                     console.warn("Submission failed (API offline), simulating local success:", error);
-                    showToast("Submission successful! (Demo Mode)");
+                    showToast("Submission successful! Transitioning to Onboarding Journey...");
                     lastKnownStatus = 'under review';
-                    this.showStatusPage('under review', this.data);
+                    await this.autoLoginAndRedirect();
                 }
             }
         }

@@ -1386,6 +1386,50 @@ function validateStep(stepKey, ob) {
 
     const isMultiItem = step && step.dynamicSection === true;
 
+    if (stepKey === 'shareholder_details') {
+        const indErrors = validateStep('individual_shareholder', ob).filter(e => !e.includes('At least one entry is required'));
+        const corpErrors = validateStep('corporate_shareholder', ob).filter(e => !e.includes('At least one entry is required'));
+        const combined = [...indErrors, ...corpErrors];
+
+        const currencies = (ob && ob.stepShareCapital && ob.stepShareCapital.data && ob.stepShareCapital.data.currencies) || [];
+        if (currencies.length > 0) {
+            const indStep = (ob && ob.step3IndividualShareholder) || { data: { list: [] } };
+            const indList = indStep.data.list || [];
+            const corpStep = (ob && ob.step4CorporateShareholder) || { data: { list: [] } };
+            const corpList = corpStep.data.list || [];
+
+            const usage = {};
+            const countUsage = (list) => {
+                list.forEach(sh => {
+                    const shCurr = (sh.currency || '').trim().toUpperCase();
+                    const shClass = (sh.shareClass || '').trim();
+                    if (shCurr && shCurr !== 'SELECT' && shClass && shClass.toUpperCase() !== 'SELECT') {
+                        const key = `${shCurr}_${shClass}`;
+                        if (!usage[key]) usage[key] = { shares: 0, capital: 0 };
+                        usage[key].shares += parseFloat(String(sh.numberOfShares || '0').replace(/,/g, '')) || 0;
+                        usage[key].capital += parseFloat(String(sh.shareCapitalAmount || '0').replace(/,/g, '')) || 0;
+                    }
+                });
+            };
+            countUsage(indList);
+            countUsage(corpList);
+
+            currencies.forEach(masterItem => {
+                const mCurr = masterItem.currency === 'Others' ? (masterItem.customCurrency || '').trim().toUpperCase() : (masterItem.currency || '').toUpperCase();
+                const mClass = (masterItem.shareClass || '').trim();
+                const mShares = parseFloat(String(masterItem.numberOfShares || '0').replace(/,/g, '')) || 0;
+
+                const key = `${mCurr}_${mClass}`;
+                const usedShares = usage[key] ? usage[key].shares : 0;
+
+                if (Math.abs(usedShares - mShares) > 0.001) {
+                    combined.push(`Allocation incomplete (${mCurr} - ${mClass}): Total allocated shares (${usedShares.toLocaleString()}) does not match configured total shares (${mShares.toLocaleString()}) in Share Capital Details.`);
+                }
+            });
+        }
+        return combined;
+    }
+
     if (stepKey === 'share_capital') {
         const currencies = data.currencies || [];
         if (currencies.length === 0) {
@@ -1809,6 +1853,24 @@ function getFriendlyStatus(stepKey, ob) {
     if (status === 'rejected') return 'rejected';
     if (status === 'additional_info_required') return 'rejected';
 
+    if (stepKey === 'shareholder_details') {
+        const indStep = ob && ob.step3IndividualShareholder ? ob.step3IndividualShareholder : {};
+        const corpStep = ob && ob.step4CorporateShareholder ? ob.step4CorporateShareholder : {};
+        const indList = (indStep.data && indStep.data.list) || [];
+        const corpList = (corpStep.data && corpStep.data.list) || [];
+        const hasIndData = indList.some(sh => (sh.fullName || sh.numberOfShares || sh.numberOfSharesPct || sh.idNumber));
+        const hasCorpData = corpList.some(sh => (sh.companyName || sh.numberOfShares || sh.numberOfSharesPct || sh.uen));
+
+        if (!hasIndData && !hasCorpData) {
+            return 'not_started';
+        }
+        const errors = validateStep('shareholder_details', ob);
+        if (errors.length === 0) {
+            return 'completed';
+        }
+        return 'in_progress';
+    }
+
     const data = stepData.data || {};
     const docs = stepData.documents || [];
 
@@ -1840,7 +1902,7 @@ async function selectObStep(stepKey, isFromContinue = false) {
             const step = ONBOARDING_STEPS.find(s => s.key === actualStepKey);
             if (!step) break;
             
-            const isAutomaticSection = ['individual_shareholder', 'corporate_shareholder', 'corporate_rep', 'rons'].includes(actualStepKey);
+            const isAutomaticSection = ['shareholder_details', 'individual_shareholder', 'corporate_shareholder', 'corporate_rep', 'rons'].includes(actualStepKey);
             if (isAutomaticSection) {
                 const stepField = step.field;
                 const stepData = ob[stepField] || { status: 'pending', data: {}, documents: [] };
@@ -1848,6 +1910,24 @@ async function selectObStep(stepKey, isFromContinue = false) {
                 if (errors.length === 0) {
                     stepData.status = 'completed';
                     ob[stepField] = stepData;
+
+                    if (actualStepKey === 'shareholder_details') {
+                        if (ob.step3IndividualShareholder) ob.step3IndividualShareholder.status = 'completed';
+                        if (ob.step4CorporateShareholder) ob.step4CorporateShareholder.status = 'completed';
+
+                        (async () => {
+                            await ensureOnboardingRecord();
+                            if (state.onboardingId) {
+                                ['shareholder_details', 'individual_shareholder', 'corporate_shareholder'].forEach(k => {
+                                    fetch(`/api/onboarding/${state.onboardingId}/step/${k}`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ status: 'completed' })
+                                    }).catch(() => {});
+                                });
+                            }
+                        })();
+                    }
                     
                     const nextIdx = ONBOARDING_STEPS.findIndex(s => s.key === actualStepKey) + 1;
                     if (nextIdx < ONBOARDING_STEPS.length) {
@@ -2771,6 +2851,8 @@ function updateWizardUIFeedback() {
             const missingEmail = errors.some(e => e.includes('Field "Email" is required'));
             const missingMobile = errors.some(e => e.includes('Field "Mobile Number" is required'));
             if (missingDirectorConfirmation || missingEmail || missingMobile) disableBtn = true;
+        } else if (state.activeObStepKey === 'shareholder_details') {
+            if (errors.length > 0) disableBtn = true;
         } else if (state.activeObStepKey === 'individual_shareholder') {
             const missingEmail = errors.some(e => e.includes('Field "Email" is required'));
             const missingMobile = errors.some(e => e.includes('Field "Mobile Number" is required'));
@@ -2891,18 +2973,39 @@ async function saveOnboardingDraft() {
     if (obAutoSaveTimeout) clearTimeout(obAutoSaveTimeout);
     obAutoSaveTimeout = setTimeout(async () => {
         try {
+            const errors = validateStep(stepKey, state.onboarding);
+            const statusToSave = (errors.length === 0 && (stepData.status !== 'approved' && stepData.status !== 'submitted' && stepData.status !== 'under_review')) ? 'completed' : (stepData.status || 'pending');
+            stepData.status = statusToSave;
+
             const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     data: stepData.data,
-                    status: stepData.status || 'pending'
+                    status: statusToSave
                 })
             });
             if (res.ok) {
                 const updated = await res.json();
                 state.onboarding = normalizeOnboardingData(updated);
                 console.log(`Auto-saved step ${stepKey}`);
+            }
+
+            if (stepKey === 'shareholder_details') {
+                ['individual_shareholder', 'corporate_shareholder'].forEach(k => {
+                    const childStep = ONBOARDING_STEPS.find(s => s.key === k);
+                    if (childStep && state.onboarding[childStep.field]) {
+                        state.onboarding[childStep.field].status = statusToSave;
+                        fetch(`/api/onboarding/${state.onboardingId}/step/${k}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                data: state.onboarding[childStep.field].data,
+                                status: statusToSave
+                            })
+                        }).catch(() => {});
+                    }
+                });
             }
         } catch (e) {
             console.error('Error auto-saving step draft:', e);
@@ -3163,17 +3266,38 @@ async function forceSaveActiveStep() {
         if (!state.onboardingId) return;
 
         try {
+            const errors = validateStep(stepKey, state.onboarding);
+            const statusToSave = (errors.length === 0 && (stepData.status !== 'approved' && stepData.status !== 'submitted' && stepData.status !== 'under_review')) ? 'completed' : (stepData.status || 'pending');
+            stepData.status = statusToSave;
+
             const res = await fetch(`/api/onboarding/${state.onboardingId}/step/${stepKey}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     data: stepData.data,
-                    status: stepData.status
+                    status: statusToSave
                 })
             });
             if (res.ok) {
                 const updated = await res.json();
                 state.onboarding = normalizeOnboardingData(updated);
+            }
+
+            if (stepKey === 'shareholder_details') {
+                ['individual_shareholder', 'corporate_shareholder'].forEach(k => {
+                    const childStep = ONBOARDING_STEPS.find(s => s.key === k);
+                    if (childStep && state.onboarding[childStep.field]) {
+                        state.onboarding[childStep.field].status = statusToSave;
+                        fetch(`/api/onboarding/${state.onboardingId}/step/${k}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                data: state.onboarding[childStep.field].data,
+                                status: statusToSave
+                            })
+                        }).catch(() => {});
+                    }
+                });
             }
         } catch (e) {
             console.error('Error flushing auto-save:', e);
@@ -10965,7 +11089,7 @@ async function obUploadMultiItemDoc(stepKey, docTypeWithIdx, docLabel, idx) {
                 if (extracted) {
                     const step = ONBOARDING_STEPS.find(s => s.key === stepKey);
                     if (step) {
-                        const item = state.onboarding[step.field].data.list[idx];
+                        const item = state.onboarding[step.field] && state.onboarding[step.field].data && state.onboarding[step.field].data.list ? state.onboarding[step.field].data.list[idx] : null;
                         if (item) {
                             Object.entries(extracted).forEach(([k, v]) => {
                                 if (v && k !== 'confidence' && k !== 'extractedAt') {
