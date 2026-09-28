@@ -102,6 +102,22 @@ function cleanupPageResources() {
     delete window.switchDashboardModule;
 }
 
+window.isStaffPortalContext = function() {
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const fromParam = urlParams.get('from');
+        if (fromParam === 'staff') return true;
+        if (fromParam === 'admin') return false;
+        const portal = localStorage.getItem('current_portal');
+        if (portal === 'staff') return true;
+        if (portal === 'admin') return false;
+        if (document.referrer && document.referrer.includes('/staff/')) return true;
+        if (localStorage.getItem('staff_auth') && !localStorage.getItem('admin_auth')) return true;
+        if (localStorage.getItem('staff_auth')) return true;
+    } catch(e){}
+    return false;
+};
+
 function isLocalAdminLink(url) {
     if (!url) return false;
     const loc = window.location;
@@ -131,7 +147,9 @@ function updateActiveSidebarItem(url) {
         let activeCatId = '';
         let activeSubId = '';
 
-        if (path.includes('dashboard.html')) {
+        if (path.includes('company-detail.html') || search.includes('clientId=')) {
+            activeId = 'nav-clients';
+        } else if (path.includes('dashboard.html')) {
             if (search.includes('view=clients') || search.includes('tab=clients')) {
                 activeId = 'nav-clients';
             } else {
@@ -220,8 +238,10 @@ function updateActiveSidebarItem(url) {
 
         const breadcrumbEl = document.getElementById('top-nav-page-header');
         if (breadcrumbEl) {
+            const isStaff = window.isStaffPortalContext();
             const menuNames = {
                 'nav-dashboard': 'Dashboard',
+                'nav-staffs': 'Staffs',
                 'nav-clients': 'Clients',
                 'nav-applications': 'Applications',
                 'nav-kyc': 'KYC Review',
@@ -251,7 +271,11 @@ function updateActiveSidebarItem(url) {
             };
 
             let breadcrumbHtml = '';
-            if (activeCatId && activeId) {
+            if (path.includes('company-detail.html') || search.includes('clientId=')) {
+                breadcrumbHtml = isStaff 
+                    ? `<span class="category">Staff</span> <span class="separator">/</span> <span class="category">Clients</span> <span class="separator">/</span> <span class="page">Company Profile</span>`
+                    : `<span class="category">Admin</span> <span class="separator">/</span> <span class="category">Clients</span> <span class="separator">/</span> <span class="page">Company Profile</span>`;
+            } else if (activeCatId && activeId) {
                 const catName = categoryNames[activeCatId] || '';
                 const pageName = menuNames[activeId] || '';
                 breadcrumbHtml = `<span class="category">${catName}</span> <span class="separator">/</span> <span class="page">${pageName}</span>`;
@@ -427,10 +451,12 @@ Object.defineProperty(window, 'toggleSubmenu', {
 });
 
 window.logout = function() {
+    const isStaff = window.isStaffPortalContext ? window.isStaffPortalContext() : !!localStorage.getItem('staff_auth');
     localStorage.removeItem('admin_auth');
     localStorage.removeItem('staff_auth');
+    localStorage.removeItem('current_portal');
     localStorage.removeItem('token');
-    window.location.href = '/admin';
+    window.location.href = isStaff ? '/staff' : '/admin';
 };
 
 window.toggleMobileSidebar = function() {
@@ -875,170 +901,275 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 4. Inject switcher innerHTML
     const switcher = document.getElementById('module-switcher');
+    const isStaffUser = window.isStaffPortalContext();
+
+    // Update portal title if staff
+    if (isStaffUser) {
+        const title1 = document.getElementById('nav-portal-title-1');
+        const title2 = document.getElementById('nav-portal-title-2');
+        if (title1) title1.textContent = 'Staff';
+        if (title2) title2.textContent = 'Portal';
+    }
+
     if (switcher) {
-        switcher.innerHTML = `
-            <!-- Dashboard (Direct Link) -->
-            <a href="dashboard.html" class="direct-link-btn" id="nav-dashboard" data-tooltip="Dashboard">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="10" rx="1"/><rect width="7" height="5" x="3" y="14" rx="1"/></svg>
-                <span>Dashboard</span>
-            </a>
+        if (isStaffUser) {
+            switcher.innerHTML = `
+                <!-- Dashboard (Direct Link) -->
+                <a href="/staff/dashboard.html?tab=dashboard" class="direct-link-btn" id="nav-dashboard" data-tooltip="Dashboard">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="10" rx="1"/><rect width="7" height="5" x="3" y="14" rx="1"/></svg>
+                    <span>Dashboard</span>
+                </a>
 
-            <!-- Clients (Direct Link) -->
-            <a href="dashboard.html?view=clients" class="direct-link-btn" id="nav-clients" data-tooltip="Clients">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                <span>Clients</span>
-            </a>
+                <!-- Clients (Direct Link) -->
+                <a href="/staff/dashboard.html?tab=clients" class="direct-link-btn" id="nav-clients" data-tooltip="Clients">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span>Clients</span>
+                </a>
 
-            <!-- Messages (Direct Link) -->
-            <a href="messages.html" class="direct-link-btn" id="nav-messages" data-tooltip="Messages">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                <span>Messages</span>
-                <span id="admin-messages-unread-badge" class="ml-auto px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-600 text-white leading-none hidden">0</span>
-            </a>
+                <!-- Tasks (Direct Link) -->
+                <a href="/staff/dashboard.html?tab=tasks" class="direct-link-btn" id="nav-tasks" data-tooltip="Tasks">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    <span>Tasks</span>
+                </a>
 
-            <!-- Tasks & Requests (Direct Link) -->
-            <a href="tasks.html" class="direct-link-btn" id="nav-tasks" data-tooltip="Tasks & Requests">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/></svg>
-                <span>Tasks</span>
-            </a>
-            
-            <div class="h-[1px] bg-slate-200/60 my-1 shrink-0"></div>
-            
-            <!-- Operations Accordion -->
-            <div class="category-group">
-                <button class="category-btn" id="cat-operations" onclick="window.toggleSubmenu('sub-operations', 'cat-operations')" data-tooltip="Operations">
-                    <span class="flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M20 7h-9M14 17H5M10 12H3M21 17h-3M17 7H7"/></svg>
-                        <span>Operations</span>
-                    </span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
-                </button>
-                <div id="sub-operations" class="submenu-wrapper">
-                    <div class="submenu-content">
-                        <a href="applications.html" class="submenu-item" id="nav-applications" data-tooltip="Applications">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
-                            <span>Applications</span>
-                        </a>
-                        <a href="kyc.html" class="submenu-item" id="nav-kyc" data-tooltip="KYC Review">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-                            <span>KYC Review</span>
-                        </a>
-                        <a href="onboarding.html" class="submenu-item" id="nav-onboarding" data-tooltip="Client Onboarding">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
-                            <span>Client Onboarding</span>
-                        </a>
-                        <a href="compliance.html" class="submenu-item" id="nav-compliance" data-tooltip="Compliance">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="m16 16 3-8 3 8c-.87.65-2.24.83-3 .83s-2.13-.18-3-.83Z"/><path d="m2 16 3-8 3 8c-.87.65-2.24.83-3 .83s-2.13-.18-3-.83Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h18"/></svg>
-                            <span>Compliance</span>
-                        </a>
+                <div class="h-[1px] bg-slate-200/60 my-1 shrink-0"></div>
+
+                <!-- Operations Accordion -->
+                <div class="category-group">
+                    <button class="category-btn" id="cat-operations" onclick="window.toggleSubmenu('sub-operations', 'cat-operations')" data-tooltip="Operations">
+                        <span class="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M20 7h-9M14 17H5M10 12H3M21 17h-3M17 7H7"/></svg>
+                            <span>Operations</span>
+                        </span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div id="sub-operations" class="submenu-wrapper">
+                        <div class="submenu-content">
+                            <a href="/staff/dashboard.html?tab=applications" class="submenu-item" id="nav-applications" data-tooltip="Assigned">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                <span>Assigned</span>
+                            </a>
+                            <a href="/staff/dashboard.html?tab=kyc" class="submenu-item" id="nav-kyc" data-tooltip="KYC Review">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                                <span>KYC Review</span>
+                            </a>
+                            <a href="/admin/onboarding.html" class="submenu-item" id="nav-onboarding" data-tooltip="Client Onboarding">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
+                                <span>Client Onboarding</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
-            </div>
-            
-            <!-- Services Accordion -->
-            <div class="category-group">
-                <button class="category-btn" id="cat-services" onclick="window.toggleSubmenu('sub-services', 'cat-services')" data-tooltip="Services">
-                    <span class="flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-                        <span>Services</span>
-                    </span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
-                </button>
-                <div id="sub-services" class="submenu-wrapper">
-                    <div class="submenu-content">
-                        <a href="content.html" class="submenu-item" id="nav-content" data-tooltip="Content">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                            <span>Content</span>
-                        </a>
-                        <a href="blogs.html" class="submenu-item" id="nav-blogs" data-tooltip="Blogs">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-                            <span>Blogs</span>
-                        </a>
-                        <a href="countries.html" class="submenu-item" id="nav-countries" data-tooltip="Countries">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
-                            <span>Countries</span>
-                        </a>
-                        <a href="users.html" class="submenu-item" id="nav-users" data-tooltip="Credentials & Users">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
-                            <span>Credentials & Users</span>
-                        </a>
-                        <a href="packages.html" class="submenu-item" id="nav-packages" data-tooltip="Requirements Page Manager">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-8M16 2v5M8 2v5M3 11h18"/></svg>
-                            <span>Requirements Page Manager</span>
-                        </a>
-                        <a href="ssic.html" class="submenu-item" id="nav-ssic" data-tooltip="SSIC Codes Manager">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5V2.5A2.5 2.5 0 0 1 6.5 0H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M6 6h10M6 10h10"/></svg>
-                            <span>SSIC Codes Manager</span>
-                        </a>
-                        <a href="onboarding-manager.html" class="submenu-item" id="nav-onboarding-manager" data-tooltip="Onboarding Manager">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect width="6" height="4" x="9" y="3" rx="1"/><path d="m9 12 2 2 4-4"/></svg>
-                            <span>Onboarding Manager</span>
-                        </a>
+
+                <!-- Documents Accordion -->
+                <div class="category-group">
+                    <button class="category-btn" id="cat-documents" onclick="window.toggleSubmenu('sub-documents', 'cat-documents')" data-tooltip="Documents">
+                        <span class="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10M6 10h10"/></svg>
+                            <span>Documents</span>
+                        </span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div id="sub-documents" class="submenu-wrapper">
+                        <div class="submenu-content">
+                            <a href="/staff/dashboard.html?tab=documents" class="submenu-item" id="nav-documents" data-tooltip="Documents">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                <span>Documents</span>
+                            </a>
+                            <a href="/staff/dashboard.html?tab=vault" class="submenu-item" id="nav-vault" data-tooltip="Document Vault">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                <span>Document Vault</span>
+                            </a>
+                            <a href="/staff/dashboard.html?tab=guidance" class="submenu-item" id="nav-guidance" data-tooltip="SOPs">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                                <span>SOPs</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
-            </div>
-            
-            <!-- Documents Accordion -->
-            <div class="category-group">
-                <button class="category-btn" id="cat-documents" onclick="window.toggleSubmenu('sub-documents', 'cat-documents')" data-tooltip="Documents">
-                    <span class="flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10M6 10h10"/></svg>
-                        <span>Documents</span>
-                    </span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
-                </button>
-                <div id="sub-documents" class="submenu-wrapper">
-                    <div class="submenu-content">
-                        <a href="vault.html" class="submenu-item" id="nav-vault" data-tooltip="Document Vault">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                            <span>Document Vault</span>
-                        </a>
+
+                <!-- Communication Accordion -->
+                <div class="category-group">
+                    <button class="category-btn" id="cat-communication" onclick="window.toggleSubmenu('sub-communication', 'cat-communication')" data-tooltip="Communication">
+                        <span class="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            <span>Communication</span>
+                        </span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div id="sub-communication" class="submenu-wrapper">
+                        <div class="submenu-content">
+                            <a href="/staff/dashboard.html?tab=messages" class="submenu-item" id="nav-messages" data-tooltip="Messages">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                <span>Messages</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
-            </div>
-            
-            <!-- Analytics Accordion -->
-            <div class="category-group">
-                <button class="category-btn" id="cat-analytics" onclick="window.toggleSubmenu('sub-analytics', 'cat-analytics')" data-tooltip="Analytics">
-                    <span class="flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-                        <span>Analytics</span>
-                    </span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
-                </button>
-                <div id="sub-analytics" class="submenu-wrapper">
-                    <div class="submenu-content">
-                        <a href="reports.html" class="submenu-item" id="nav-reports" data-tooltip="Reports">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
-                            <span>Reports</span>
-                        </a>
+
+                <!-- HR Accordion -->
+                <div class="category-group">
+                    <button class="category-btn" id="cat-hr" onclick="window.toggleSubmenu('sub-hr', 'cat-hr')" data-tooltip="HR Management">
+                        <span class="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            <span>HR Management</span>
+                        </span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div id="sub-hr" class="submenu-wrapper">
+                        <div class="submenu-content">
+                            <a href="/staff/dashboard.html?tab=hr" class="submenu-item" id="nav-hr" data-tooltip="My ID & Attendance">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                                <span>My ID & Attendance</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
-            </div>
-            
-            <!-- HR Accordion -->
-            <div class="category-group">
-                <button class="category-btn" id="cat-hr" onclick="window.toggleSubmenu('sub-hr', 'cat-hr')" data-tooltip="HR Management">
-                    <span class="flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                        <span>HR Management</span>
-                    </span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
-                </button>
-                <div id="sub-hr" class="submenu-wrapper">
-                    <div class="submenu-content">
-                        <a href="staff-id-cards.html" class="submenu-item" id="nav-staff-id-cards" data-tooltip="Staff ID Cards">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-                            <span>Staff ID Cards</span>
-                        </a>
-                        <a href="attendance.html" class="submenu-item" id="nav-attendance" data-tooltip="Attendance">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                            <span>Attendance</span>
-                        </a>
+            `;
+        } else {
+            switcher.innerHTML = `
+                <!-- Dashboard (Direct Link) -->
+                <a href="dashboard.html" class="direct-link-btn" id="nav-dashboard" data-tooltip="Dashboard">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="10" rx="1"/><rect width="7" height="5" x="3" y="14" rx="1"/></svg>
+                    <span>Dashboard</span>
+                </a>
+
+                <!-- Staffs (Direct Link) -->
+                <a href="staff.html" class="direct-link-btn" id="nav-staffs" data-tooltip="Staffs">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span>Staffs</span>
+                </a>
+
+                <!-- Clients (Direct Link) -->
+                <a href="dashboard.html?view=clients" class="direct-link-btn" id="nav-clients" data-tooltip="Clients">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span>Clients</span>
+                </a>
+
+                <!-- Messages (Direct Link) -->
+                <a href="messages.html" class="direct-link-btn" id="nav-messages" data-tooltip="Messages">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    <span>Messages</span>
+                    <span id="admin-messages-unread-badge" class="ml-auto px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-600 text-white leading-none hidden">0</span>
+                </a>
+
+                <!-- Tasks & Requests (Direct Link) -->
+                <a href="tasks.html" class="direct-link-btn" id="nav-tasks" data-tooltip="Tasks & Requests">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/></svg>
+                    <span>Tasks</span>
+                </a>
+                
+                <div class="h-[1px] bg-slate-200/60 my-1 shrink-0"></div>
+                
+                <!-- Operations Accordion -->
+                <div class="category-group">
+                    <button class="category-btn" id="cat-operations" onclick="window.toggleSubmenu('sub-operations', 'cat-operations')" data-tooltip="Operations">
+                        <span class="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M20 7h-9M14 17H5M10 12H3M21 17h-3M17 7H7"/></svg>
+                            <span>Operations</span>
+                        </span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div id="sub-operations" class="submenu-wrapper">
+                        <div class="submenu-content">
+                            <a href="applications.html" class="submenu-item" id="nav-applications" data-tooltip="Applications">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                                <span>Applications</span>
+                            </a>
+                            <a href="kyc.html" class="submenu-item" id="nav-kyc" data-tooltip="KYC Review">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                                <span>KYC Review</span>
+                            </a>
+                            <a href="onboarding.html" class="submenu-item" id="nav-onboarding" data-tooltip="Client Onboarding">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
+                                <span>Client Onboarding</span>
+                            </a>
+                            <a href="compliance.html" class="submenu-item" id="nav-compliance" data-tooltip="Compliance">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="m16 16 3-8 3 8c-.87.65-2.24.83-3 .83s-2.13-.18-3-.83Z"/><path d="m2 16 3-8 3 8c-.87.65-2.24.83-3 .83s-2.13-.18-3-.83Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h18"/></svg>
+                                <span>Compliance</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
-            </div>
-        `;
+                
+                <!-- Services Accordion -->
+                <div class="category-group">
+                    <button class="category-btn" id="cat-services" onclick="window.toggleSubmenu('sub-services', 'cat-services')" data-tooltip="Services">
+                        <span class="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                            <span>Services</span>
+                        </span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div id="sub-services" class="submenu-wrapper">
+                        <div class="submenu-content">
+                            <a href="content.html" class="submenu-item" id="nav-content" data-tooltip="Content">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                                <span>Content</span>
+                            </a>
+                            <a href="blogs.html" class="submenu-item" id="nav-blogs" data-tooltip="Blogs">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                                <span>Blogs</span>
+                            </a>
+                            <a href="countries.html" class="submenu-item" id="nav-countries" data-tooltip="Countries">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                                <span>Countries</span>
+                            </a>
+                            <a href="packages.html" class="submenu-item" id="nav-packages" data-tooltip="Requirements Page Manager">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-8M16 2v5M8 2v5M3 11h18"/></svg>
+                                <span>Requirements Page Manager</span>
+                            </a>
+                            <a href="ssic.html" class="submenu-item" id="nav-ssic" data-tooltip="SSIC Codes Manager">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5V2.5A2.5 2.5 0 0 1 6.5 0H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M6 6h10M6 10h10"/></svg>
+                                <span>SSIC Codes Manager</span>
+                            </a>
+                            <a href="onboarding-manager.html" class="submenu-item" id="nav-onboarding-manager" data-tooltip="Onboarding Manager">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect width="6" height="4" x="9" y="3" rx="1"/><path d="m9 12 2 2 4-4"/></svg>
+                                <span>Onboarding Manager</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Documents Accordion -->
+                <div class="category-group">
+                    <button class="category-btn" id="cat-documents" onclick="window.toggleSubmenu('sub-documents', 'cat-documents')" data-tooltip="Documents">
+                        <span class="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10M6 10h10"/></svg>
+                            <span>Documents</span>
+                        </span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div id="sub-documents" class="submenu-wrapper">
+                        <div class="submenu-content">
+                            <a href="vault.html" class="submenu-item" id="nav-vault" data-tooltip="Document Vault">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                <span>Document Vault</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Analytics Accordion -->
+                <div class="category-group">
+                    <button class="category-btn" id="cat-analytics" onclick="window.toggleSubmenu('sub-analytics', 'cat-analytics')" data-tooltip="Analytics">
+                        <span class="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                            <span>Analytics</span>
+                        </span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="category-arrow shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div id="sub-analytics" class="submenu-wrapper">
+                        <div class="submenu-content">
+                            <a href="reports.html" class="submenu-item" id="nav-reports" data-tooltip="Reports">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                                <span>Reports</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
     }
 
     // 5. Active category and submenu auto-expanding logic based on URL route
@@ -1048,7 +1179,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeCatId = '';
     let activeSubId = '';
     
-    if (path.includes('dashboard.html')) {
+    if (path.includes('staff.html')) {
+        activeId = 'nav-staffs';
+    } else if (path.includes('dashboard.html')) {
         if (search.includes('view=clients') || search.includes('tab=clients')) {
             activeId = 'nav-clients';
         } else {
@@ -1200,7 +1333,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 Back
             `;
             backBtn.onclick = function() {
-                if (window.navigateTo) {
+                const isStaff = window.isStaffPortalContext();
+                if (isStaff) {
+                    window.location.href = '/staff/dashboard.html?tab=clients';
+                } else if (window.navigateTo) {
                     window.navigateTo('/admin/dashboard.html?view=clients');
                 } else {
                     window.location.href = '/admin/dashboard.html?view=clients';
@@ -1211,6 +1347,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const isDetailsPage = window.location.pathname.includes('company-detail.html') || window.location.search.includes('clientId=');
         backBtn.style.display = isDetailsPage ? 'flex' : 'none';
+        const isStaff = window.isStaffPortalContext();
+        if (backBtn && isDetailsPage && isStaff) {
+            backBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                Back to Clients
+            `;
+        }
     };
 
     window._updateTopNavBackButton();
@@ -1286,32 +1429,43 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window._adminMarkAllRead = async function(e) {
-        e.stopPropagation();
-        try {
-            const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
-            const adminId = auth.id || auth.userId || 'staff-admin';
-            await fetch(`/api/notifications/read-all?clientId=${adminId}`, { method: 'POST' });
-        } catch(err) { console.warn('Mark all read failed', err); }
+        if (e && e.stopPropagation) e.stopPropagation();
         const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
-        const adminId = auth.id || auth.userId || 'staff-admin';
-        window._adminNotifications = window._adminNotifications.map(n => {
-            const readBy = n.readBy || [];
-            if (!readBy.includes(adminId)) {
-                readBy.push(adminId);
-            }
+        const adminId = auth.id || auth.userId || 'admin';
+        const adminKeys = ['admin', 'staff', 'staff-admin', adminId, auth.userId, auth.email].filter(Boolean);
+
+        // Optimistically mark all in-memory notifications as read immediately
+        window._adminNotifications = (window._adminNotifications || []).map(n => {
+            const readBy = Array.isArray(n.readBy) ? [...n.readBy] : [];
+            adminKeys.forEach(k => {
+                if (!readBy.includes(k)) readBy.push(k);
+            });
             return { ...n, readBy };
         });
         window._adminRenderNotifications();
+
+        try {
+            await fetch(`/api/notifications/read-all?clientId=${encodeURIComponent(adminId)}&role=admin`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ clientId: adminId, role: 'admin' })
+            });
+        } catch(err) { console.warn('Mark all read failed', err); }
     };
+    window.markAllAsRead = window._adminMarkAllRead;
 
     window._adminRenderNotifications = function() {
         const list = document.getElementById('admin-notif-list');
         const badge = document.getElementById('admin-notif-badge');
         if (!list) return;
         const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
-        const adminId = auth.id || auth.userId || 'staff-admin';
+        const adminId = auth.id || auth.userId || 'admin';
+        const adminKeys = ['admin', 'staff', 'staff-admin', adminId, auth.userId, auth.email].filter(Boolean);
         const notifs = window._adminNotifications || [];
-        const unread = notifs.filter(n => !n.readBy || !n.readBy.includes(adminId)).length;
+        const unread = notifs.filter(n => {
+            if (!n.readBy || !Array.isArray(n.readBy)) return true;
+            return !n.readBy.some(k => adminKeys.includes(k));
+        }).length;
         if (badge) {
             if (unread > 0) {
                 badge.style.display = 'inline-flex';
@@ -1328,7 +1482,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         list.innerHTML = notifs.slice(0, 20).map(n => {
-            const isRead = n.readBy && n.readBy.includes(adminId);
+            const isRead = n.readBy && Array.isArray(n.readBy) && n.readBy.some(k => adminKeys.includes(k));
             const displayMsg = window._adminFormatNotifMessage(n.message || n.description || '');
             return `
             <div onclick="window._adminNotifClick('${n.id || ''}','${n.link || ''}')" style="padding:12px 16px;border-bottom:1px solid #f8fafc;cursor:pointer;background:${isRead ? '#fff' : '#eff6ff'};transition:background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='${isRead ? '#fff' : '#eff6ff'}'">
@@ -1347,21 +1501,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window._adminNotifClick = async function(id, link) {
         const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
-        const adminId = auth.id || auth.userId || 'staff-admin';
+        const adminId = auth.id || auth.userId || 'admin';
+        const adminKeys = ['admin', 'staff', 'staff-admin', adminId, auth.userId, auth.email].filter(Boolean);
         if (id) {
             try {
                 await fetch(`/api/notifications/read`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ notifId: id, clientId: adminId })
+                    body: JSON.stringify({ notifId: id, clientId: adminId, role: 'admin' })
                 });
             } catch(e) {}
             const notif = window._adminNotifications.find(n => n.id === id);
             if (notif) {
-                if (!notif.readBy) notif.readBy = [];
-                if (!notif.readBy.includes(adminId)) {
-                    notif.readBy.push(adminId);
-                }
+                if (!notif.readBy || !Array.isArray(notif.readBy)) notif.readBy = [];
+                adminKeys.forEach(k => {
+                    if (!notif.readBy.includes(k)) notif.readBy.push(k);
+                });
                 if (notif.type === 'CHANGE_OF_ADDRESS_REQUEST' || link === 'chat_request') {
                     window._adminRenderNotifications();
                     window.openAddressChangeRequestInChat(notif.relatedId || '', notif.message || '', notif.title || '');
@@ -1467,11 +1622,15 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e) {}
     };
 
+    window._adminSeenNotifIds = window._adminSeenNotifIds || new Set();
+    let _adminInitialFetchDone = false;
+
     window._adminFetchNotifications = async function() {
         try {
             const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
             const adminId = auth.id || auth.userId || 'admin';
-            const res = await fetch(`/api/notifications?clientId=${encodeURIComponent(adminId)}`);
+            const adminKeys = ['admin', 'staff', 'staff-admin', adminId, auth.userId, auth.email].filter(Boolean);
+            const res = await fetch(`/api/notifications?clientId=${encodeURIComponent(adminId)}&role=admin`);
             if (res.ok) {
                 const data = await res.json();
                 const fetched = Array.isArray(data) ? data : (data.notifications || []);
@@ -1485,6 +1644,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 window._adminNotifications = Array.from(mergedMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
                 window._adminRenderNotifications();
+
+                // If not initial load, trigger toast for any newly fetched unread notification from last 60 seconds
+                if (_adminInitialFetchDone) {
+                    const now = Date.now();
+                    let hasNewTaskNotif = false;
+                    fetched.forEach(n => {
+                        if (!window._adminSeenNotifIds.has(n.id)) {
+                            window._adminSeenNotifIds.add(n.id);
+                            const ageMs = now - (n.timestamp || now);
+                            const isRead = n.readBy && Array.isArray(n.readBy) && n.readBy.some(k => adminKeys.includes(k));
+                            if (ageMs < 60000 && !isRead) {
+                                window._adminShowToast(n);
+                            }
+                            const isTaskNotif = n.type === 'TASK_CREATED' || n.type === 'TASK_STATUS' || n.type === 'TASK_COMMENT' || n.type === 'task' || (n.title && n.title.toLowerCase().includes('task'));
+                            if (isTaskNotif) {
+                                hasNewTaskNotif = true;
+                            }
+                        }
+                    });
+                    if (hasNewTaskNotif) {
+                        window.dispatchEvent(new CustomEvent('task_updated'));
+                        if (typeof window.refreshTasks === 'function') {
+                            window.refreshTasks();
+                        }
+                    }
+                } else {
+                    fetched.forEach(n => window._adminSeenNotifIds.add(n.id));
+                    _adminInitialFetchDone = true;
+                }
             }
         } catch(e) { /* silently fail */ }
         window._adminFetchUnreadMessagesCount();
@@ -1501,18 +1689,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // WebSocket listener for real-time notifications
-    if (!window._adminWsConnected) {
+    let adminWsReconnectDelay = 2000;
+    let adminWsReconnectTimeout = null;
+
+    function initAdminSidebarWs() {
         try {
             const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
-            const adminId = auth.id || auth.userId || 'staff-admin';
-            const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
-            let wsHost = location.host;
-            let wsProtocol = wsProto;
-            if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1' && location.hostname !== '[::1]') {
-                wsHost = 'globalisor-77d7da9fe8c7.herokuapp.com';
-                wsProtocol = 'wss';
-            }
-            const ws = new WebSocket(`${wsProtocol}://${wsHost}/api/ws/chat?userId=${adminId}&role=admin`);
+            const adminId = auth.id || auth.userId || 'admin';
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsHost = location.host;
+            const wsUrl = `${wsProtocol}//${wsHost}/api/ws/chat?userId=${encodeURIComponent(adminId)}&role=admin`;
+            const ws = new WebSocket(wsUrl);
+
+            ws.onopen = function() {
+                adminWsReconnectDelay = 2000;
+            };
+
             ws.onmessage = function(evt) {
                 try {
                     const msg = JSON.parse(evt.data);
@@ -1526,33 +1718,88 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const exists = window._adminNotifications.some(n => n.id === notif.id);
                                 if (!exists) {
                                     window._adminNotifications.unshift(notif);
+                                    window._adminSeenNotifIds.add(notif.id);
                                     window._adminRenderNotifications();
                                     window._adminShowToast(notif);
                                 }
                             }
+
+                            // Trigger real-time task board auto-populate if notification is task-related
+                            const isTaskNotif = notif.type === 'TASK_CREATED' || notif.type === 'TASK_STATUS' || notif.type === 'TASK_COMMENT' || notif.type === 'task' || (notif.title && notif.title.toLowerCase().includes('task'));
+                            if (isTaskNotif) {
+                                window.dispatchEvent(new CustomEvent('admin_task_event', { detail: notif }));
+                                window.dispatchEvent(new CustomEvent('task_updated', { detail: notif }));
+                                if (typeof window.refreshTasks === 'function') {
+                                    window.refreshTasks();
+                                }
+                            }
+                        }
+                    } else if (msg.type === 'TASK_CREATED' || msg.type === 'TASK_STATUS' || msg.type === 'TASK_COMMENT' || msg.type === 'task_sync') {
+                        window.dispatchEvent(new CustomEvent('admin_task_event', { detail: msg }));
+                        window.dispatchEvent(new CustomEvent('task_updated', { detail: msg }));
+                        if (typeof window.refreshTasks === 'function') {
+                            window.refreshTasks();
                         }
                     }
                     window._adminFetchUnreadMessagesCount();
                 } catch(e) {}
             };
-            ws.onerror = function() {};
-            window._adminWsConnected = true;
+
+            ws.onclose = function() {
+                if (adminWsReconnectTimeout) clearTimeout(adminWsReconnectTimeout);
+                const jitter = Math.floor(Math.random() * 1000);
+                adminWsReconnectTimeout = setTimeout(initAdminSidebarWs, Math.min(adminWsReconnectDelay + jitter, 30000));
+                adminWsReconnectDelay = Math.min(adminWsReconnectDelay * 2, 30000);
+            };
+
+            ws.onerror = function() {
+                try { ws.close(); } catch(e) {}
+            };
         } catch(e) {}
+    }
+
+    if (!window._adminWsConnected) {
+        window._adminWsConnected = true;
+        initAdminSidebarWs();
     }
 
     window._adminShowToast = function(n) {
         const title = n.title || 'Notification';
         const rawMsg = n.message || n.description || '';
         const msg = window._adminFormatNotifMessage(rawMsg);
+        
+        const isTaskNotif = n.type === 'TASK_CREATED' || n.type === 'TASK_COMMENT' || n.type === 'TASK_STATUS' || n.type === 'task' || (title && title.toLowerCase().includes('task'));
+        const icon = isTaskNotif ? '📋' : (n.type === 'message' ? '💬' : '🔔');
+        const accentColor = isTaskNotif ? '#3b82f6' : (n.priority === 'High' ? '#ef4444' : '#10b981');
+        
         const toast = document.createElement('div');
-        toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#0f172a;color:#fff;padding:12px 16px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);z-index:99999;font-family:Outfit,sans-serif;font-size:12px;max-width:280px;animation:slideInToast 0.3s ease;cursor:pointer;';
-        toast.innerHTML = `<div style="font-weight:700;margin-bottom:2px;">🔔 ${title}</div><div style="opacity:0.75;">${msg}</div>`;
+        toast.className = 'admin-live-toast';
+        toast.style.cssText = `position:fixed;bottom:24px;right:24px;background:#0f172a;color:#fff;padding:14px 18px;border-radius:16px;box-shadow:0 10px 35px rgba(0,0,0,0.35);border-left:4px solid ${accentColor};z-index:99999;font-family:Outfit,system-ui,sans-serif;font-size:12px;max-width:320px;animation:slideInToast 0.3s cubic-bezier(0.16, 1, 0.3, 1);cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;display:flex;flex-direction:column;gap:4px;border-top:1px solid rgba(255,255,255,0.08);border-right:1px solid rgba(255,255,255,0.08);border-bottom:1px solid rgba(255,255,255,0.08);`;
+        
+        toast.onmouseenter = () => { toast.style.transform = 'translateY(-2px)'; toast.style.boxShadow = '0 14px 40px rgba(0,0,0,0.45)'; };
+        toast.onmouseleave = () => { toast.style.transform = 'translateY(0)'; toast.style.boxShadow = '0 10px 35px rgba(0,0,0,0.35)'; };
+
+        let actionHtml = isTaskNotif ? `<div style="margin-top:4px;display:flex;align-items:center;gap:4px;color:#60a5fa;font-weight:700;font-size:11px;">View Task <span style="font-size:13px;">→</span></div>` : '';
+
+        toast.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:between;gap:6px;">
+                <div style="font-weight:800;font-size:13px;color:#f8fafc;display:flex;align-items:center;gap:6px;flex-grow:1;">
+                    <span>${icon}</span>
+                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title}</span>
+                </div>
+                <button type="button" onclick="event.stopPropagation(); this.closest('.admin-live-toast').remove();" style="background:none;border:none;color:#94a3b8;font-size:16px;cursor:pointer;line-height:1;padding:0 2px;margin-left:auto;" title="Close">&times;</button>
+            </div>
+            <div style="opacity:0.85;color:#cbd5e1;line-height:1.4;font-size:11.5px;margin-top:2px;">${msg}</div>
+            ${actionHtml}
+        `;
         
         toast.onclick = () => {
             toast.remove();
             let link = n.link;
             if (!link) {
-                if (n.type === 'message') {
+                if (isTaskNotif) {
+                    link = n.relatedId ? `tasks.html?id=${n.relatedId}` : 'tasks.html';
+                } else if (n.type === 'message') {
                     link = 'messages.html';
                 } else if (n.type === 'blog') {
                     link = 'blogs.html';
@@ -1568,13 +1815,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!document.getElementById('admin-toast-style')) {
             const s = document.createElement('style');
             s.id = 'admin-toast-style';
-            s.textContent = '@keyframes slideInToast{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}';
+            s.textContent = '@keyframes slideInToast{from{transform:translateY(24px) scale(0.95);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}';
             document.head.appendChild(s);
         }
         document.body.appendChild(toast);
         setTimeout(() => {
-            if (toast.parentNode) toast.remove();
-        }, 15000);
+            if (toast.parentNode) {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(10px)';
+                setTimeout(() => { if (toast.parentNode) toast.remove(); }, 300);
+            }
+        }, 12000);
     };
 
     // --- Quick Chat Popup Injector ---

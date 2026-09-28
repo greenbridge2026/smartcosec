@@ -768,17 +768,20 @@
 
         // WebSocket handling for status updates
         let socket = null;
+        let wsReconnectDelay = 2000;
+        let wsReconnectTimeout = null;
+
         function connectWebSocket() {
-            if (socket) return;
+            if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
             const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
             const adminId = authObj.id || 'admin';
             let wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             let wsHost = window.location.host;
-            if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && window.location.hostname !== '[::1]') {
-                wsHost = 'globalisor-77d7da9fe8c7.herokuapp.com';
-                wsProtocol = 'wss:';
-            }
-            socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${adminId}&role=admin`);
+            socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${encodeURIComponent(adminId)}&role=admin`);
+
+            socket.onopen = function() {
+                wsReconnectDelay = 2000;
+            };
 
             socket.onmessage = function(event) {
                 try {
@@ -793,7 +796,16 @@
 
             socket.onclose = function() {
                 socket = null;
-                setTimeout(connectWebSocket, 5000);
+                if (wsReconnectTimeout) clearTimeout(wsReconnectTimeout);
+                const jitter = Math.floor(Math.random() * 1000);
+                wsReconnectTimeout = setTimeout(connectWebSocket, Math.min(wsReconnectDelay + jitter, 30000));
+                wsReconnectDelay = Math.min(wsReconnectDelay * 2, 30000);
+            };
+
+            socket.onerror = function() {
+                if (socket) {
+                    try { socket.close(); } catch (e) {}
+                }
             };
         }
 

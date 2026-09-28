@@ -7528,24 +7528,28 @@ async function finalizeChangeOfAddressFlow() {
     const typeEl = document.getElementById('ai-typing-indicator');
     if (typeEl) typeEl.remove();
 
+    const ticketNo = resData && resData.ticketNumber ? resData.ticketNumber : '';
     const completionText = `🎉 **Change of Registered Office Address Request Submitted!**
 
-Your request and address proof document have been sent to our Corporate Secretarial Admin team.
+An official task ${ticketNo ? `**${ticketNo}** ` : ''}has been automatically created and dispatched to our Corporate Secretarial Admin team.
 
 ---
 **Summary of Submitted Request:**
-• **New Address:** \`${data.newAddress}\`
+${ticketNo ? `• **Task Ticket:** \`${ticketNo}\`\n` : ''}• **New Address:** \`${data.newAddress}\`
 • **Effective Date:** \`${data.effectiveDate}\`
 • **Registered Office Hours:** \`${data.officeHours}\`
 • **Address Proof:** \`${data.addressProofDoc || 'Attached File'}\`
-• **Status:** \`Submitted to Admin (Pending Review & Draft Generation)\`
+• **Status:** \`Task Created & Dispatched (Pending Review & Draft Generation)\`
 
 ---
 🔔 **Next Steps:**
-Our Corporate Secretarial Admin team has received a high-priority notification. An officer will review your submitted details, generate the official draft DRIW resolution document, and send it directly to you here in the chat once prepared!`;
+Our Corporate Secretarial Admin team has received an instant real-time notification. An officer will review your submitted details, generate the official draft DRIW resolution document, and communicate updates directly via this chat and your **Requests & Tasks** tab!`;
 
     appendAIMessage('bot', completionText);
     state.clientChatFlow = null;
+    if (typeof fetchClientTasks === 'function') {
+        fetchClientTasks();
+    }
 }
 
 function appendAIMessageWithOptions(sender, text, options = [], customHtml = '') {
@@ -7708,6 +7712,17 @@ function renderUpdates(container) {
 window.clientTasksList = [];
 window.clientTasksFilter = 'ALL';
 
+let clientCompletedDays = localStorage.getItem('client_completed_days') || '7';
+
+async function changeClientCompletedDays(days) {
+    clientCompletedDays = days;
+    try {
+        localStorage.setItem('client_completed_days', days);
+    } catch(e) {}
+    await renderTasksClientView(document.getElementById('main-view'));
+}
+window.changeClientCompletedDays = changeClientCompletedDays;
+
 async function fetchClientTasks() {
     try {
         const entityInfo = getClientPortalEntityInfo();
@@ -7715,12 +7730,13 @@ async function fetchClientTasks() {
         const activeCompId = (entityInfo.companyId || '').trim();
         const activeClientId = (entityInfo.clientId || '').trim();
 
-        // Query backend for tasks
-        let fetchUrl = `/api/tasks`;
+        // Query backend for tasks (Client tasks only)
+        const daysParam = clientCompletedDays && clientCompletedDays !== '0' ? clientCompletedDays : '0';
+        let fetchUrl = `/api/tasks?taskScope=CLIENT&isInternal=false&completedDays=${encodeURIComponent(daysParam)}`;
         if (activeCompName) {
-            fetchUrl += `?companyName=${encodeURIComponent(activeCompName)}`;
+            fetchUrl += `&companyName=${encodeURIComponent(activeCompName)}`;
         } else if (activeClientId) {
-            fetchUrl += `?clientId=${encodeURIComponent(activeClientId)}`;
+            fetchUrl += `&clientId=${encodeURIComponent(activeClientId)}`;
         }
 
         const res = await fetch(fetchUrl);
@@ -7728,8 +7744,12 @@ async function fetchClientTasks() {
             const data = await res.json();
             const allTasks = data || [];
 
-            // Strict Tenant Isolation: Only show tasks matching the active company or client
+            // Strict Tenant Isolation: Only show non-internal tasks matching the active company or client
             window.clientTasksList = allTasks.filter(t => {
+                if (t.isInternal === true || (t.taskScope || '').toUpperCase() === 'INTERNAL') {
+                    return false;
+                }
+
                 const taskCompName = (t.companyName || '').trim().toLowerCase();
                 const taskCompId = (t.companyId || '').trim().toLowerCase();
                 const taskClientId = (t.clientId || '').trim().toLowerCase();
@@ -7835,17 +7855,29 @@ async function renderTasksClientView(container) {
                 </div>
             </div>
 
-            <!-- Filter Pills -->
+            <!-- Filter Pills & Completed Window -->
             <div class="flex items-center justify-between flex-wrap gap-4 pb-2 border-b border-slate-200">
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
                     <button onclick="filterClientTasks('ALL')" id="client-tab-ALL" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-white">All Tasks</button>
                     <button onclick="filterClientTasks('ACTIVE')" id="client-tab-ACTIVE" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100">In Progress</button>
                     <button onclick="filterClientTasks('WAITING')" id="client-tab-WAITING" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100">Awaiting Feedback</button>
                     <button onclick="filterClientTasks('COMPLETED')" id="client-tab-COMPLETED" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:text-slate-900 hover:bg-slate-100">Resolved</button>
                 </div>
-                <button onclick="renderTasksClientView(document.getElementById('main-view'))" class="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1.5">
-                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
-                </button>
+                <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Completed:</span>
+                        <select id="client-completed-days-select" onchange="changeClientCompletedDays(this.value)" class="text-xs font-bold text-slate-700 bg-transparent outline-none cursor-pointer">
+                            <option value="7" ${clientCompletedDays === '7' ? 'selected' : ''}>Last 7 days</option>
+                            <option value="15" ${clientCompletedDays === '15' ? 'selected' : ''}>Last 15 days</option>
+                            <option value="30" ${clientCompletedDays === '30' ? 'selected' : ''}>Last 30 days</option>
+                            <option value="45" ${clientCompletedDays === '45' ? 'selected' : ''}>Last 45 days</option>
+                            <option value="0" ${clientCompletedDays === '0' ? 'selected' : ''}>All Time</option>
+                        </select>
+                    </div>
+                    <button onclick="renderTasksClientView(document.getElementById('main-view'))" class="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1.5 p-2 hover:bg-slate-50 rounded-xl transition cursor-pointer">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
+                    </button>
+                </div>
             </div>
 
             <!-- Task Cards Container -->
@@ -7942,7 +7974,7 @@ function updateClientTasksCards() {
                             ${priorityHtml}
                         </div>
                         <h3 class="text-lg font-bold text-slate-900">${t.title}</h3>
-                        <p class="text-xs text-slate-400 font-sans">Entity: <strong class="text-slate-700 font-semibold">${t.companyName || 'Corporate Entity'}</strong> • Created: <span class="text-slate-600">${new Date(t.createdAt || Date.now()).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })}</span></p>
+                        <p class="text-xs text-slate-400 font-sans">Entity: <strong class="text-slate-700 font-semibold">${t.companyName || 'Corporate Entity'}</strong> • Created: <span class="text-blue-700 font-semibold">${new Date(t.createdAt || Date.now()).toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' })}, ${new Date(t.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>${t.createdBy?.name ? ` • <span class="text-slate-500 font-medium">Raised by: ${t.createdBy.name}</span>` : ''}</p>
                     </div>
                     <div class="flex items-center gap-3 shrink-0">
                         ${statusHtml}
@@ -7951,17 +7983,44 @@ function updateClientTasksCards() {
 
                 <!-- Visual Stepper Progress Bar -->
                 <div class="p-4 bg-slate-50/80 rounded-2xl border border-slate-100">
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                         ${stepperSteps.map((step, idx) => {
                             const stepRank = idx + 1;
                             const isStepPassed = currentRank >= stepRank;
                             const isCurrent = currentRank === stepRank;
+
+                            let stepTs = null;
+                            const logs = t.activityLog || [];
+                            if (step.key === 'PENDING') {
+                                stepTs = t.createdAt || logs.find(l => l.action === 'CREATED')?.timestamp;
+                            } else if (step.key === 'ASSIGNED') {
+                                const assignLog = [...logs].reverse().find(l => l.action === 'ASSIGNED' || (l.action === 'STATUS_CHANGED' && (l.details || '').includes('ASSIGNED')));
+                                stepTs = assignLog ? assignLog.timestamp : (t.assignedTo && t.assignedTo.id && t.status !== 'PENDING' ? t.createdAt : null);
+                            } else if (step.key === 'IN_PROGRESS') {
+                                const progLog = [...logs].reverse().find(l => l.action === 'STATUS_CHANGED' && (l.details || '').includes('IN_PROGRESS'));
+                                stepTs = progLog ? progLog.timestamp : (['IN_PROGRESS', 'WAITING_CLIENT_INPUT', 'UNDER_REVIEW', 'COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase()) ? (t.updatedAt || t.createdAt) : null);
+                            } else if (step.key === 'COMPLETED') {
+                                stepTs = t.resolvedAt || logs.find(l => l.action === 'RESOLVED' || (l.action === 'STATUS_CHANGED' && (l.details || '').includes('COMPLETED')))?.timestamp;
+                                if (!stepTs && ['COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase())) stepTs = t.updatedAt;
+                            }
+
+                            let timeText = '--';
+                            if (isStepPassed && stepTs) {
+                                const d = new Date(stepTs);
+                                if (!isNaN(d.getTime())) {
+                                    timeText = d.toLocaleDateString('en-SG', { day: '2-digit', month: 'short' }) + ', ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                }
+                            }
+
                             return `
-                                <div class="flex items-center gap-2.5">
-                                    <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${isCurrent ? 'bg-blue-600 text-white ring-4 ring-blue-100' : (isStepPassed ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500')}">
+                                <div class="flex items-start gap-2.5">
+                                    <div class="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${isCurrent ? 'bg-blue-600 text-white ring-4 ring-blue-100 shadow-sm' : (isStepPassed ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500')}">
                                         ${isStepPassed && !isCurrent ? '✓' : stepRank}
                                     </div>
-                                    <span class="text-[11px] font-bold truncate ${isCurrent ? 'text-blue-600 font-extrabold' : (isStepPassed ? 'text-slate-800' : 'text-slate-400')}">${step.label}</span>
+                                    <div class="flex flex-col min-w-0">
+                                        <span class="text-[11px] font-bold truncate ${isCurrent ? 'text-blue-600 font-extrabold' : (isStepPassed ? 'text-slate-800' : 'text-slate-400')}">${step.label}</span>
+                                        <span class="text-[10px] font-medium font-mono ${isCurrent ? 'text-blue-600 font-semibold' : (isStepPassed ? 'text-slate-500' : 'text-slate-300')}">${timeText}</span>
+                                    </div>
                                 </div>
                             `;
                         }).join('')}
@@ -8170,6 +8229,9 @@ async function sendClientTaskMessage(taskId) {
         });
         if (res.ok) {
             input.value = '';
+            try {
+                localStorage.setItem('task_sync_event', JSON.stringify({ action: 'COMMENT', taskId, timestamp: Date.now() }));
+            } catch(e) {}
             await fetchClientTasks();
             updateClientTasksCards();
             // keep comments open
@@ -8383,6 +8445,11 @@ async function handleClientSubmitRequest(e) {
             body: JSON.stringify(payload)
         });
         if (res.ok) {
+            const created = await res.json();
+            try {
+                localStorage.setItem('task_sync_event', JSON.stringify({ action: 'CREATED', taskId: created.id, timestamp: Date.now() }));
+                localStorage.setItem('task_created_sync', JSON.stringify({ id: created.id, timestamp: Date.now() }));
+            } catch(e) {}
             closeModal();
             renderTasksClientView(document.getElementById('main-view'));
         }
@@ -8790,24 +8857,58 @@ function renderDocuments(container) {
         return docs.filter(d => (d.folder || '').toLowerCase() === name.toLowerCase()).length;
     };
 
+    // Load common + client-specific categories from backend API
+    const clientId = (state.user && (state.user.id || state.user.clientId)) || '';
+    if (!window._clientCategoriesLoaded && clientId) {
+        window._clientCategoriesLoaded = true;
+        fetch(`/api/documents/categories?clientId=${encodeURIComponent(clientId)}`)
+            .then(res => res.json())
+            .then(cats => {
+                if (Array.isArray(cats)) {
+                    window._clientCategoriesList = cats;
+                    const docContainer = document.getElementById('documents-view') || document.querySelector('[data-view="documents"]') || container;
+                    if (docContainer && docContainer.innerHTML) {
+                        renderDocuments(docContainer);
+                    }
+                }
+            })
+            .catch(err => console.warn('Could not load scoped categories for client:', err));
+    }
+
+    const categoriesList = window._clientCategoriesList || [];
+    const uniqueFolders = [];
+    
+    // Add taxonomy root categories (both Common and Client-Specific for this client)
+    categoriesList.forEach(c => {
+        if (!c.parentKey || c.parentKey.trim() === '' || c.level === 0) {
+            const name = c.label || c.key;
+            if (name && !uniqueFolders.some(f => f.name.toLowerCase() === name.toLowerCase())) {
+                uniqueFolders.push({
+                    name: name,
+                    key: c.key,
+                    scope: c.scope || 'COMMON',
+                    clientId: c.clientId || null
+                });
+            }
+        }
+    });
+
+    // Add any existing doc folders not already in categories
+    docs.forEach(d => {
+        const f = (d.folder || d.type || '').trim();
+        if (f && !uniqueFolders.some(item => item.name.toLowerCase() === f.toLowerCase())) {
+            uniqueFolders.push({
+                name: f,
+                key: f,
+                scope: 'COMMON',
+                clientId: null
+            });
+        }
+    });
+
     const folders = [
-        { name: 'All Documents', count: countFor('All Documents'), active: true },
-        { name: 'KYC', count: countFor('KYC') },
-        { name: 'Invoice', count: countFor('Invoice') },
-        { name: 'Permanent folder', count: countFor('Permanent folder') },
-        { name: 'Incorporation', count: countFor('Incorporation') },
-        { name: 'All Signed', count: countFor('All Signed') },
-        { name: 'Change of Address', count: countFor('Change of Address') },
-        { name: 'Change of Directors', count: countFor('Change of Directors') },
-        { name: 'Change of CS', count: countFor('Change of CS') },
-        { name: 'Change of Auditors', count: countFor('Change of Auditors') },
-        { name: 'AGM AR', count: countFor('AGM AR') },
-        { name: 'Allotment of Shares', count: countFor('Allotment of Shares') },
-        { name: 'Final Demand', count: countFor('Final Demand') },
-        { name: 'Others', count: countFor('Others') },
-        { name: 'Tax', count: countFor('Tax') },
-        { name: 'RONS', count: countFor('RONS') },
-        { name: 'Bizfile & filing', count: countFor('Bizfile & filing') }
+        { name: 'All Documents', count: countFor('All Documents'), active: true, scope: 'COMMON' },
+        ...uniqueFolders.map(f => ({ ...f, count: countFor(f.name) }))
     ];
 
     container.innerHTML = `
@@ -8822,8 +8923,8 @@ function renderDocuments(container) {
                             const isAct = f.name === window._activeDocFolder;
                             return `
                                 <button onclick="filterDocumentFolder('${f.name}')" data-folder="${f.name}" class="doc-folder-btn w-full flex justify-between items-center px-3 py-2 rounded-xl text-xs font-bold transition-all ${isAct ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}">
-                                    <span>${f.name}</span>
-                                    <span class="doc-badge px-2 py-0.5 rounded-full text-[9px] font-extrabold ${isAct ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}">${f.count}</span>
+                                    <span class="truncate">${f.name}</span>
+                                    <span class="doc-badge px-2 py-0.5 rounded-full text-[9px] font-extrabold ${isAct ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'} shrink-0">${f.count}</span>
                                 </button>
                             `;
                         }).join('')}
@@ -9218,16 +9319,18 @@ window.filterGuidance = function (category) {
 
 let socket = null;
 let typingTimeout = null;
+let wsReconnectDelay = 2000;
+let wsReconnectTimeout = null;
 
 function connectWebSocket() {
-    if (!state.user || socket) return;
+    if (!state.user || (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING))) return;
     let wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     let wsHost = window.location.host;
-    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && window.location.hostname !== '[::1]') {
-        wsHost = 'globalisor-77d7da9fe8c7.herokuapp.com';
-        wsProtocol = 'wss:';
-    }
-    socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${state.user.id}&role=client`);
+    socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${encodeURIComponent(state.user.id)}&role=client`);
+
+    socket.onopen = function () {
+        wsReconnectDelay = 2000;
+    };
 
     socket.onmessage = async function (event) {
         try {
@@ -9285,7 +9388,16 @@ function connectWebSocket() {
 
     socket.onclose = function () {
         socket = null;
-        setTimeout(connectWebSocket, 5000);
+        if (wsReconnectTimeout) clearTimeout(wsReconnectTimeout);
+        const jitter = Math.floor(Math.random() * 1000);
+        wsReconnectTimeout = setTimeout(connectWebSocket, Math.min(wsReconnectDelay + jitter, 30000));
+        wsReconnectDelay = Math.min(wsReconnectDelay * 2, 30000);
+    };
+
+    socket.onerror = function () {
+        if (socket) {
+            try { socket.close(); } catch (e) {}
+        }
     };
 }
 

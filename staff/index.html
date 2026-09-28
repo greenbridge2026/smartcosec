@@ -76,6 +76,8 @@
                 const localAccounts = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]');
                 const acc = localAccounts.find(a => a.email.toLowerCase() === email.toLowerCase() && a.password === password);
                 if (acc) {
+                    localStorage.setItem('current_portal', 'staff');
+                    localStorage.removeItem('admin_auth');
                     localStorage.setItem('staff_auth', JSON.stringify({
                         id: acc.id || ('staff-' + acc.email.split('@')[0].replace('.', '-')),
                         role: 'staff',
@@ -108,6 +110,8 @@
                 if (response.ok) {
                     const data = await response.json();
                     if (data.role === 'STAFF') {
+                        localStorage.setItem('current_portal', 'staff');
+                        localStorage.removeItem('admin_auth');
                         localStorage.setItem('staff_auth', JSON.stringify({ 
                             id: data.id || ('staff-' + data.email.split('@')[0].replace('.', '-')),
                             role: 'staff', 
@@ -129,6 +133,8 @@
                         const nameParts = email.split('@')[0].split('.');
                         const name = nameParts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ') || 'Staff Member';
                         const id = 'staff-' + email.split('@')[0].replace('.', '-');
+                        localStorage.setItem('current_portal', 'staff');
+                        localStorage.removeItem('admin_auth');
                         localStorage.setItem('staff_auth', JSON.stringify({ id: id, role: 'staff', email: email, name: name }));
                         window.location.href = '/staff/dashboard.html';
                     }
@@ -142,6 +148,8 @@
                     const nameParts = email.split('@')[0].split('.');
                     const name = nameParts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ') || 'Staff Member';
                     const id = 'staff-' + email.split('@')[0].replace('.', '-');
+                    localStorage.setItem('current_portal', 'staff');
+                    localStorage.removeItem('admin_auth');
                     localStorage.setItem('staff_auth', JSON.stringify({ id: id, role: 'staff', email: email, name: name }));
                     window.location.href = '/staff/dashboard.html';
                 }

@@ -16,6 +16,10 @@ function cleanUrls() {
           req.url = '/admin/index.html';
         } else if (url.pathname === '/staff' || url.pathname === '/staff/') {
           req.url = '/staff/index.html';
+        } else if (url.pathname === '/staff/company-detail' || url.pathname === '/staff/company-detail.html') {
+          const search = url.search || '';
+          const hasFrom = search.includes('from=');
+          req.url = '/admin/company-detail.html' + (search ? (hasFrom ? search : search + '&from=staff') : '?from=staff');
         }
         // Only append .html to clean page paths (not Vite internals, not APIs, not files with extensions)
         if (
@@ -61,6 +65,7 @@ export default defineConfig(({ mode }) => {
           adminMessages: resolve(__dirname, 'admin/messages.html'),
           adminPackages: resolve(__dirname, 'admin/packages.html'),
           adminReports: resolve(__dirname, 'admin/reports.html'),
+          adminStaff: resolve(__dirname, 'admin/staff.html'),
           adminUsers: resolve(__dirname, 'admin/users.html'),
           adminSsic: resolve(__dirname, 'admin/ssic.html'),
           adminOnboardingManager: resolve(__dirname, 'admin/onboarding-manager.html'),
@@ -76,6 +81,7 @@ export default defineConfig(({ mode }) => {
           portal: resolve(__dirname, 'client/portal.html'),
           messages: resolve(__dirname, 'client/messages.html'),
           staffLogin: resolve(__dirname, 'staff/index.html'),
+          staffCompanyDetail: resolve(__dirname, 'staff/company-detail.html'),
           blogs: resolve(__dirname, 'blogs.html'),
           chooseService: resolve(__dirname, 'choose-service.html'),
           adminStaffIdCards: resolve(__dirname, 'admin/staff-id-cards.html'),

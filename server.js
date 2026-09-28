@@ -3073,70 +3073,122 @@ app.post('/api/prereg-sections/reorder', (req, res) => {
 // --- STAFF ENDPOINTS ---
 app.get('/api/admin/staff', (req, res) => {
     const db = getDb();
-    const staffList = db.users
+    const staffList = (db.users || [])
         .filter(u => u.role === 'STAFF')
         .map(u => ({
             id: u.id,
             firstName: u.firstName,
             lastName: u.lastName,
             email: u.email,
-            password: u.password // plain password, in mock it's raw
+            password: u.password || 'password123',
+            department: u.department || 'Corporate Secretarial & Incorporation',
+            designation: u.designation || 'Senior Operations Specialist',
+            onlineStatus: u.onlineStatus || 'ONLINE',
+            phone: u.phone || ''
         }));
     res.json(staffList);
 });
 
 app.post('/api/admin/staff', (req, res) => {
     const db = getDb();
-    const { firstName, lastName } = req.body;
-    
-    // Generate email: firstname.lastname@globalisor.com
-    const baseEmail = (firstName + "." + lastName).toLowerCase().replace(/[^a-z0-9]/g, "");
-    let email = baseEmail + "@globalisor.com";
-    
-    let suffix = 1;
-    while (db.users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
-        email = baseEmail + suffix + "@globalisor.com";
-        suffix++;
+    const { firstName, lastName, department, designation, phone } = req.body;
+    let email = (req.body.email || '').trim();
+    let password = (req.body.password || '').trim();
+
+    if (!email) {
+        // Generate email: firstname.lastname@globalisor.com
+        const baseEmail = ((firstName || '') + "." + (lastName || '')).toLowerCase().replace(/[^a-z0-9]/g, "") || "staff";
+        email = baseEmail + "@globalisor.com";
+        let suffix = 1;
+        while ((db.users || []).some(u => u.email && u.email.toLowerCase() === email.toLowerCase())) {
+            email = baseEmail + suffix + "@globalisor.com";
+            suffix++;
+        }
+    } else {
+        if ((db.users || []).some(u => u.email && u.email.toLowerCase() === email.toLowerCase())) {
+            return res.status(400).json({ message: "Error: Email is already registered." });
+        }
     }
-    
-    const randomNum = Math.floor(Math.random() * 9000) + 1000;
-    const password = "Glob-" + randomNum;
-    
+
+    if (!password) {
+        const randomNum = Math.floor(Math.random() * 9000) + 1000;
+        password = "Glob-" + randomNum;
+    }
+
     const newStaff = {
         id: "usr-" + Date.now(),
-        firstName: firstName,
-        lastName: lastName,
+        firstName: firstName || '',
+        lastName: lastName || '',
         email: email,
         password: password,
+        department: department || 'Corporate Secretarial & Incorporation',
+        designation: designation || 'Senior Operations Specialist',
+        phone: phone || '',
+        onlineStatus: 'ONLINE',
+        cardStatus: 'ACTIVE',
         role: "STAFF"
     };
-    
+
+    if (!db.users) db.users = [];
     db.users.push(newStaff);
     saveDb(db);
-    
+
     res.status(201).json({
         id: newStaff.id,
         email: newStaff.email,
         password: newStaff.password,
         firstName: newStaff.firstName,
-        lastName: newStaff.lastName
+        lastName: newStaff.lastName,
+        department: newStaff.department,
+        designation: newStaff.designation,
+        onlineStatus: newStaff.onlineStatus,
+        phone: newStaff.phone
     });
 });
 
 app.put('/api/admin/staff/update', (req, res) => {
     const db = getDb();
-    const { email, firstName, lastName } = req.body;
-    
-    const index = db.users.findIndex(u => u.email.toLowerCase() === email.toLowerCase() && u.role === 'STAFF');
+    const { id, origEmail, email, firstName, lastName, password, department, designation, onlineStatus, phone } = req.body;
+
+    if (!db.users) db.users = [];
+    let index = -1;
+    if (id) {
+        index = db.users.findIndex(u => u.id === id && u.role === 'STAFF');
+    }
+    if (index === -1 && origEmail) {
+        index = db.users.findIndex(u => u.email && u.email.toLowerCase() === origEmail.toLowerCase() && u.role === 'STAFF');
+    }
+    if (index === -1 && email) {
+        index = db.users.findIndex(u => u.email && u.email.toLowerCase() === email.toLowerCase() && u.role === 'STAFF');
+    }
+
     if (index !== -1) {
-        if (firstName) db.users[index].firstName = firstName;
-        if (lastName) db.users[index].lastName = lastName;
+        if (firstName !== undefined) db.users[index].firstName = firstName;
+        if (lastName !== undefined) db.users[index].lastName = lastName;
+        if (department !== undefined) db.users[index].department = department;
+        if (designation !== undefined) db.users[index].designation = designation;
+        if (onlineStatus !== undefined) db.users[index].onlineStatus = onlineStatus;
+        if (phone !== undefined) db.users[index].phone = phone;
+        if (password) db.users[index].password = password;
+        if (email && email.toLowerCase() !== db.users[index].email.toLowerCase()) {
+            const conflict = db.users.some(u => u.id !== db.users[index].id && u.email && u.email.toLowerCase() === email.toLowerCase());
+            if (conflict) {
+                return res.status(400).json({ message: "Error: Email already in use." });
+            }
+            db.users[index].email = email;
+        }
+
         saveDb(db);
         res.json({
             id: db.users[index].id,
             email: db.users[index].email,
             firstName: db.users[index].firstName,
-            lastName: db.users[index].lastName
+            lastName: db.users[index].lastName,
+            department: db.users[index].department,
+            designation: db.users[index].designation,
+            password: db.users[index].password,
+            onlineStatus: db.users[index].onlineStatus,
+            phone: db.users[index].phone
         });
     } else {
         res.status(404).json({ error: 'Staff not found' });
@@ -3146,7 +3198,7 @@ app.put('/api/admin/staff/update', (req, res) => {
 app.delete('/api/admin/staff/:id', (req, res) => {
     const db = getDb();
     const id = req.params.id;
-    const index = db.users.findIndex(u => u.id === id && u.role === 'STAFF');
+    const index = (db.users || []).findIndex(u => u.id === id && u.role === 'STAFF');
     if (index !== -1) {
         db.users.splice(index, 1);
         saveDb(db);
@@ -3154,6 +3206,138 @@ app.delete('/api/admin/staff/:id', (req, res) => {
     } else {
         res.status(404).json({ error: 'Staff not found' });
     }
+});
+
+// --- DOCUMENT CATEGORIES & FOLDERS (COMMON & CLIENT-SPECIFIC) ---
+const DEFAULT_SERVER_CATEGORIES = [
+    { id: "cat-1", key: "KYC", label: "KYC", description: "Passport, NRIC, Proof of Address", icon: "shield-check", color: "blue", sortOrder: 1, isSystem: true, scope: "COMMON", clientId: null, subFolders: [] },
+    { id: "cat-2", key: "Invoice", label: "Invoice", description: "Invoices, Billing & Receipts", icon: "file-text", color: "emerald", sortOrder: 2, isSystem: true, scope: "COMMON", clientId: null, subFolders: [] },
+    { id: "cat-3", key: "Permanent folder", label: "Permanent folder", description: "Permanent Corporate Records", icon: "folder-archive", color: "purple", sortOrder: 3, isSystem: true, scope: "COMMON", clientId: null, subFolders: [] },
+    { id: "cat-4", key: "Incorporation", label: "Incorporation", description: "BizFile, M&AA, Constitution", icon: "building", color: "indigo", sortOrder: 4, isSystem: true, scope: "COMMON", clientId: null, subFolders: [] },
+    { id: "cat-5", key: "All Signed", label: "All Signed", description: "Signed Agreements & Resolutions", icon: "file-signature", color: "amber", sortOrder: 5, isSystem: true, scope: "COMMON", clientId: null, subFolders: [] },
+    { id: "cat-6", key: "Change of Address", label: "Change of Address", description: "Form 44, Address Proofs", icon: "map-pin", color: "rose", sortOrder: 6, isSystem: true, scope: "COMMON", clientId: null, subFolders: [] },
+    { id: "cat-7", key: "Change of Directors", label: "Change of Directors", description: "Form 45, Director Consents", icon: "users", color: "sky", sortOrder: 7, isSystem: true, scope: "COMMON", clientId: null, subFolders: [] },
+    { id: "cat-8", key: "Change of CS", label: "Change of CS", description: "Secretary Appointment / Resignation", icon: "user-cog", color: "violet", sortOrder: 8, isSystem: true, scope: "COMMON", clientId: null, subFolders: [] },
+    { id: "cat-9", key: "Change of Auditors", label: "Change of Auditors", description: "Auditor Appointment / Resignation", icon: "file-check", color: "teal", sortOrder: 9, isSystem: true, scope: "COMMON", clientId: null, subFolders: [] },
+    { id: "cat-10", key: "AGM AR", label: "AGM AR", description: "AGM Minutes, Annual Return Filings", icon: "calendar", color: "cyan", sortOrder: 10, isSystem: true, scope: "COMMON", clientId: null, subFolders: [] },
+    { id: "cat-11", key: "Allotment of Shares", label: "Allotment of Shares", description: "Return of Allotment, Share Certs", icon: "pie-chart", color: "orange", sortOrder: 11, isSystem: true, scope: "COMMON", clientId: null, subFolders: [] },
+    { id: "cat-12", key: "Final Demand", label: "Final Demand", description: "Final Demand Notices & Reminders", icon: "alert-triangle", color: "rose", sortOrder: 12, isSystem: true, scope: "COMMON", clientId: null, subFolders: [] },
+    { id: "cat-13", key: "Tax", label: "Tax", description: "Tax Returns, Filings & Assessments", icon: "receipt", color: "emerald", sortOrder: 13, isSystem: true, scope: "COMMON", clientId: null, subFolders: [] },
+    { id: "cat-14", key: "RONS", label: "RONS", description: "Register of Nominee Directors / Officers", icon: "file-text", color: "indigo", sortOrder: 14, isSystem: true, scope: "COMMON", clientId: null, subFolders: [] },
+    { id: "cat-15", key: "Bizfile & filing", label: "Bizfile & filing", description: "ACRA BizFile Reports & Filings", icon: "file-check-2", color: "blue", sortOrder: 15, isSystem: true, scope: "COMMON", clientId: null, subFolders: [] },
+    { id: "cat-16", key: "Others", label: "Others", description: "Miscellaneous Documents", icon: "folder", color: "slate", sortOrder: 16, isSystem: true, scope: "COMMON", clientId: null, subFolders: [] }
+];
+
+app.get('/api/documents/categories', (req, res) => {
+    const db = getDb();
+    if (!db.documentCategories || db.documentCategories.length === 0) {
+        db.documentCategories = [...DEFAULT_SERVER_CATEGORIES];
+        saveDb(db);
+    }
+    const { clientId } = req.query;
+    let list = db.documentCategories;
+    if (clientId) {
+        const targetId = clientId.trim().toLowerCase();
+        list = list.filter(c => {
+            const isCommon = !c.scope || c.scope === 'COMMON' || !c.clientId;
+            return isCommon || (c.clientId && c.clientId.toLowerCase() === targetId);
+        });
+    }
+
+    // Clone and build subFolders per client dynamically
+    const cloned = list.map(c => ({ ...c, subFolders: [] }));
+    const catMap = {};
+    cloned.forEach(c => {
+        catMap[c.key.toLowerCase()] = c;
+    });
+    cloned.forEach(c => {
+        if (c.parentKey) {
+            const parent = catMap[c.parentKey.toLowerCase()];
+            if (parent) {
+                if (!parent.subFolders.includes(c.key)) {
+                    parent.subFolders.push(c.key);
+                }
+            }
+        }
+    });
+
+    res.json(cloned);
+});
+
+app.post('/api/documents/categories', (req, res) => {
+    const db = getDb();
+    if (!db.documentCategories) db.documentCategories = [...DEFAULT_SERVER_CATEGORIES];
+    const cat = req.body;
+    const name = (cat.key || cat.label || '').trim();
+    if (!name) return res.status(400).json({ error: 'Category name is required' });
+
+    const scope = (cat.scope || 'COMMON').toUpperCase() === 'CLIENT_SPECIFIC' ? 'CLIENT_SPECIFIC' : 'COMMON';
+    const clientId = scope === 'CLIENT_SPECIFIC' ? (cat.clientId || null) : null;
+    const clientName = scope === 'CLIENT_SPECIFIC' ? (cat.clientName || null) : null;
+
+    const newCat = {
+        id: 'cat-' + Date.now(),
+        key: name,
+        label: name,
+        description: cat.description || '',
+        icon: cat.icon || 'folder',
+        color: cat.color || 'blue',
+        sortOrder: db.documentCategories.length + 1,
+        isSystem: false,
+        parentKey: cat.parentKey || null,
+        level: cat.level || 0,
+        rootKey: cat.rootKey || name,
+        fullPath: cat.fullPath || name,
+        subFolders: [],
+        scope: scope,
+        clientId: clientId,
+        clientName: clientName
+    };
+
+    db.documentCategories.push(newCat);
+    saveDb(db);
+    res.status(201).json(newCat);
+});
+
+app.post('/api/documents/categories/:parentKey/subfolders', (req, res) => {
+    const db = getDb();
+    if (!db.documentCategories) db.documentCategories = [...DEFAULT_SERVER_CATEGORIES];
+    const parentKey = req.params.parentKey;
+    const { name, scope, clientId, clientName, description, color, icon } = req.body;
+    if (!name) return res.status(400).json({ error: 'Sub-folder name is required' });
+
+    const parent = db.documentCategories.find(c => c.key.toLowerCase() === parentKey.toLowerCase());
+    const finalScope = (scope || (parent ? parent.scope : 'COMMON') || 'COMMON').toUpperCase() === 'CLIENT_SPECIFIC' ? 'CLIENT_SPECIFIC' : 'COMMON';
+    const finalClientId = finalScope === 'CLIENT_SPECIFIC' ? (clientId || (parent ? parent.clientId : null)) : null;
+    const finalClientName = finalScope === 'CLIENT_SPECIFIC' ? (clientName || (parent ? parent.clientName : null)) : null;
+
+    const subCat = {
+        id: 'cat-' + Date.now(),
+        key: name.trim(),
+        label: name.trim(),
+        parentKey: parentKey,
+        rootKey: parent ? (parent.rootKey || parent.key) : parentKey,
+        level: (parent && parent.level ? parent.level : 0) + 1,
+        fullPath: (parent ? (parent.fullPath || parent.key) : parentKey) + '/' + name.trim(),
+        description: description || '',
+        icon: icon || 'folder',
+        color: color || (parent ? parent.color : 'blue'),
+        isSystem: false,
+        subFolders: [],
+        sortOrder: db.documentCategories.length + 1,
+        scope: finalScope,
+        clientId: finalClientId,
+        clientName: finalClientName
+    };
+
+    if (parent && finalScope === 'COMMON') {
+        if (!parent.subFolders) parent.subFolders = [];
+        if (!parent.subFolders.includes(name.trim())) parent.subFolders.push(name.trim());
+    }
+
+    db.documentCategories.push(subCat);
+    saveDb(db);
+    res.status(201).json(subCat);
 });
 
 // --- ADDITIONAL COLLABORATION ENDPOINTS (PRESENCE, USER DIRECTORY, GROUP CHATS) ---
@@ -3589,7 +3773,7 @@ app.post('/api/tasks', (req, res) => {
     // Auto-generate notification
     if (!db.notifications) db.notifications = [];
     db.notifications.unshift({
-        id: `notif-${Date.now()}`,
+        id: `notif-${Date.now()}-client`,
         clientId: newTask.clientId,
         title: `Task Raised: ${newTask.ticketNumber}`,
         message: `Your request '${newTask.title}' has been submitted and is currently being routed.`,
@@ -3597,6 +3781,20 @@ app.post('/api/tasks', (req, res) => {
         relatedId: newTask.id,
         link: '/client/portal.html?tab=tasks',
         priority: 'Info',
+        timestamp: now,
+        readBy: []
+    });
+
+    const clientLabel = `${newTask.clientName || 'Client'}${newTask.companyName ? ` (${newTask.companyName})` : ''}`;
+    db.notifications.unshift({
+        id: `notif-${Date.now()}-admin`,
+        clientId: 'admin',
+        title: `New Task Raised: ${newTask.ticketNumber}`,
+        message: `${clientLabel} raised a new task: '${newTask.title}'`,
+        type: 'TASK_CREATED',
+        relatedId: newTask.id,
+        link: `tasks.html?id=${newTask.id}`,
+        priority: 'High',
         timestamp: now,
         readBy: []
     });
@@ -3758,15 +3956,29 @@ app.post('/api/tasks/:id/comments', (req, res) => {
     // Notify recipient if not internal
     if (!isInternal) {
         if (!db.notifications) db.notifications = [];
-        if (authorRole === 'CLIENT' && task.assignedTo && task.assignedTo.id) {
+        if (authorRole === 'CLIENT') {
+            if (task.assignedTo && task.assignedTo.id) {
+                db.notifications.unshift({
+                    id: `notif-${Date.now()}`,
+                    clientId: task.assignedTo.id,
+                    title: `Client Message on ${task.ticketNumber}`,
+                    message: `${authorName}: ${text}`,
+                    type: 'TASK_COMMENT',
+                    relatedId: task.id,
+                    link: `tasks.html?id=${task.id}`,
+                    priority: 'Info',
+                    timestamp: now,
+                    readBy: []
+                });
+            }
             db.notifications.unshift({
-                id: `notif-${Date.now()}`,
-                clientId: task.assignedTo.id,
+                id: `notif-${Date.now()}-adm`,
+                clientId: 'admin',
                 title: `Client Message on ${task.ticketNumber}`,
-                message: `${authorName}: ${text}`,
+                message: `${authorName} (${task.companyName || 'Client'}): ${text}`,
                 type: 'TASK_COMMENT',
                 relatedId: task.id,
-                link: '/staff/dashboard.html?tab=tasks',
+                link: `tasks.html?id=${task.id}`,
                 priority: 'Info',
                 timestamp: now,
                 readBy: []
@@ -3789,6 +4001,91 @@ app.post('/api/tasks/:id/comments', (req, res) => {
 
     saveDb(db);
     res.status(201).json(task);
+});
+
+app.post('/api/admin/intelligence/submit-address-change', (req, res) => {
+    const db = getDb();
+    if (!db.tasks) db.tasks = [];
+    if (!db.notifications) db.notifications = [];
+
+    const now = Date.now();
+    const taskCount = db.tasks.length;
+    const ticketNumber = `TSK-${1000 + taskCount + 1}`;
+    const { userId, companyName, newAddress, effectiveDate, officeHours, addressProofDoc } = req.body;
+
+    const displayCompName = companyName || '3B Trading & Consulting Pte. Ltd.';
+    const clientName = userId && !userId.includes('@') ? userId : (displayCompName || 'Client');
+
+    const newTask = {
+        id: `tsk-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        ticketNumber,
+        clientId: userId || 'C-1001',
+        clientName: clientName,
+        clientEmail: userId && userId.includes('@') ? userId : 'client@globalisor.com',
+        companyName: displayCompName,
+        title: `Change Registered Address to ${newAddress && newAddress.length > 35 ? newAddress.substring(0, 35) + '...' : (newAddress || 'New Address')}`,
+        description: `Client requested Change of Registered Office Address via AI Chat Agent.\n\n• Company: ${displayCompName}\n• New Registered Address: ${newAddress || 'N/A'}\n• Effective Date: ${effectiveDate || 'Date of Resolution'}\n• Office Hours: ${officeHours || 'No change'}\n• Address Proof Document: ${addressProofDoc || 'Attached File'}`,
+        type: 'CHANGE',
+        category: 'Registered Address Change',
+        priority: 'HIGH',
+        status: 'PENDING',
+        assignedTo: null,
+        dueDate: 'Within 24 Hours',
+        attachments: addressProofDoc ? [{ id: `att-${Date.now()}`, name: addressProofDoc, url: '', type: 'Address Proof', uploadedAt: now }] : [],
+        comments: [],
+        activityLog: [{
+            id: `act-${Date.now()}`,
+            action: 'CREATED',
+            details: `Task raised via AI Chat Agent: Change of Address to ${newAddress}`,
+            performedBy: clientName,
+            performedByRole: 'CLIENT',
+            timestamp: now
+        }],
+        createdAt: now,
+        updatedAt: now
+    };
+
+    db.tasks.unshift(newTask);
+
+    // Client notification
+    db.notifications.unshift({
+        id: `notif-${Date.now()}-client`,
+        clientId: newTask.clientId,
+        title: `Task Raised: ${ticketNumber}`,
+        message: `Your request for Change of Address has been submitted as task ${ticketNumber}.`,
+        type: 'TASK_CREATED',
+        relatedId: newTask.id,
+        link: '/client/portal.html?tab=tasks',
+        priority: 'Info',
+        timestamp: now,
+        readBy: []
+    });
+
+    // Admin notification
+    db.notifications.unshift({
+        id: `notif-${Date.now()}-adm`,
+        clientId: 'admin',
+        title: `New Task Raised: ${ticketNumber}`,
+        message: `${clientName} (${displayCompName}) requested Change of Registered Address: '${newAddress}'`,
+        type: 'TASK_CREATED',
+        relatedId: newTask.id,
+        link: `tasks.html?id=${newTask.id}`,
+        priority: 'High',
+        timestamp: now,
+        readBy: []
+    });
+
+    saveDb(db);
+    res.json({
+        status: 'SUCCESS',
+        message: 'Change of registered office address request submitted to Admin.',
+        ticketNumber: ticketNumber,
+        taskId: newTask.id,
+        newAddress,
+        effectiveDate,
+        officeHours,
+        addressProofDoc
+    });
 });
 
 app.delete('/api/tasks/:id', (req, res) => {
