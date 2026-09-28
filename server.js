@@ -826,6 +826,82 @@ app.get('/api/dashboard', (req, res) => {
     });
 });
 
+// GET /api/applications → return list of applications for admin applications portal
+app.get('/api/applications', (req, res) => {
+    const db = getDb();
+    if (!db.applications) {
+        db.applications = [
+            {
+                id: 'APP-101',
+                rawId: 'APP-101',
+                business: 'Alpha Tech Solutions Pte. Ltd.',
+                client: 'John Doe',
+                clientId: 'C-1001',
+                clientFirstName: 'John',
+                clientLastName: 'Doe',
+                clientEmail: 'john.doe@alphatech.sg',
+                clientPhone: '+65 9123 4567',
+                assignedStaffName: 'Sarah Lim',
+                status: 'pending_review',
+                priority: 'High',
+                data: {
+                    names: ['Alpha Tech Solutions Pte. Ltd.', 'Alpha Cloud Systems Pte. Ltd.'],
+                    nameChecks: {
+                        'names[0]': { status: 'available' },
+                        'names[1]': { status: 'similar' }
+                    },
+                    primaryActivity: '62011 - Development of software & digital media',
+                    secondaryActivity: '62021 - Information technology consultancy',
+                    shareCapital: 'SGD 100,000',
+                    totalShares: '100,000',
+                    fye: '31 December',
+                    officers: [
+                        { name: 'John Doe', role: 'Director & Shareholder', nationality: 'Singaporean', passport: 'S9876543A', shares: '100%' }
+                    ]
+                }
+            },
+            {
+                id: 'APP-102',
+                rawId: 'APP-102',
+                business: 'SG Trading & Consulting Pte. Ltd.',
+                client: 'Jane Smith',
+                clientId: 'C-1002',
+                clientFirstName: 'Jane',
+                clientLastName: 'Smith',
+                clientEmail: 'jane.smith@sgtrading.com',
+                clientPhone: '+65 8234 5678',
+                assignedStaffName: 'Unassigned',
+                status: 'pending_review',
+                priority: 'Normal',
+                data: {
+                    names: ['SG Trading & Consulting Pte. Ltd.'],
+                    nameChecks: {
+                        'names[0]': { status: 'available' }
+                    },
+                    primaryActivity: '46900 - General wholesale trade',
+                    secondaryActivity: '70201 - Management consultancy services',
+                    shareCapital: 'SGD 50,000',
+                    totalShares: '50,000',
+                    fye: '31 December',
+                    officers: [
+                        { name: 'Jane Smith', role: 'Director & Shareholder', nationality: 'British', passport: 'GB9876541', shares: '100%' }
+                    ]
+                }
+            }
+        ];
+        saveDb(db);
+    }
+    res.json(db.applications);
+});
+
+// GET /api/admin/applications/:id → return detailed application record
+app.get('/api/admin/applications/:id', (req, res) => {
+    const db = getDb();
+    const appRecord = (db.applications || []).find(a => String(a.id || a.rawId) === String(req.params.id));
+    if (!appRecord) return res.status(404).json({ error: 'Application not found' });
+    res.json(appRecord);
+});
+
 // GET /api/clients/:id/services → get client and all their services
 app.get('/api/clients/:id/services', (req, res) => {
     const db = getDb();
