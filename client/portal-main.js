@@ -375,6 +375,8 @@ async function checkPortalActivation() {
             state.onboardingStatus = data.status || 'not_started';
             state.onboardingProgress = data.progressPercent || 0;
             state.onboardingId = data.onboardingId;
+        } else {
+            state.portalActivated = false;
         }
     } catch (e) {
         state.portalActivated = false;
@@ -383,26 +385,35 @@ async function checkPortalActivation() {
 }
 
 function applyPortalFreezeUI(activated) {
-    const LOCKED_TABS = ['services', 'billing', 'guidance', 'updates'];
-    LOCKED_TABS.forEach(tab => {
-        const btn = document.getElementById('nav-' + tab);
+    const OTHER_NAV_IDS = [
+        'nav-home', 'nav-profile', 'nav-compliance', 'nav-messages', 
+        'nav-documents', 'nav-directors', 'nav-tasks', 'nav-billing', 
+        'nav-blogs', 'nav-settings'
+    ];
+
+    OTHER_NAV_IDS.forEach(id => {
+        const btn = document.getElementById(id);
         if (!btn) return;
         if (activated) {
-            btn.classList.remove('portal-locked-btn');
-            btn.style.opacity = '';
-            btn.style.cursor = '';
-            btn.title = '';
+            btn.classList.remove('hidden');
+            btn.style.display = '';
         } else {
-            btn.classList.add('portal-locked-btn');
-            btn.style.opacity = '0.45';
-            btn.style.cursor = 'not-allowed';
-            btn.title = 'Available after portal activation';
+            btn.classList.add('hidden');
+            btn.style.display = 'none';
         }
     });
 
-    const existing = document.getElementById('portal-freeze-banner');
-    if (existing) {
-        existing.remove();
+    const obBtn = document.getElementById('nav-onboarding');
+    if (obBtn) {
+        obBtn.classList.remove('hidden');
+        obBtn.style.display = '';
+        if (!activated) {
+            obBtn.classList.add('active');
+        }
+    }
+
+    if (!activated && state.currentTab !== 'onboarding') {
+        switchTab('onboarding');
     }
 }
 
@@ -418,25 +429,9 @@ function obSetShareholderTab(tabKey) {
 }
 
 function switchTab(tab) {
-    // Block locked tabs if portal not yet activated
-    const LOCKED_TABS = ['services', 'billing', 'guidance', 'updates'];
-    if (!state.portalActivated && LOCKED_TABS.includes(tab)) {
-        const view = document.getElementById('main-view');
-        view.innerHTML = `
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px;text-align:center;">
-                <div style="width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,#eff6ff,#dbeafe);display:flex;align-items:center;justify-content:center;margin-bottom:24px;">
-                    <svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='none' stroke='#3b82f6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='18' height='11' x='3' y='11' rx='2'/><path d='M7 11V7a5 5 0 0 1 10 0v4'/></svg>
-                </div>
-                <h2 style="font-family:Outfit,sans-serif;font-size:22px;font-weight:800;color:#0f172a;margin-bottom:12px;">Section Locked</h2>
-                <p style="font-size:14px;color:#64748b;max-width:420px;line-height:1.7;margin-bottom:28px;">
-                    The remaining portal sections will be available after Globalisor completes verification and activation.
-                </p>
-                <button onclick="obStartOnboarding()" style="padding:12px 28px;background:linear-gradient(135deg,#3b82f6,#06b6d4);color:#fff;border:none;border-radius:14px;font-family:Outfit,sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(59,130,246,0.3);">
-                    Complete Your Onboarding
-                </button>
-            </div>`;
-        if (window.lucide) window.lucide.createIcons();
-        return;
+    // If portal is not activated, restrict strictly to onboarding
+    if (!state.portalActivated && tab !== 'onboarding') {
+        tab = 'onboarding';
     }
 
     state.currentTab = tab;

@@ -1693,9 +1693,20 @@
             } else {
                 // Fallback to onboarding details layout
                 const office = details.office || {};
-                const officeStr = office.postalCode 
-                    ? `Block ${office.block || '—'} ${office.streetName || '—'}, Floor ${office.floor || '—'} Unit ${office.unit || '—'}, ${office.building || ''} Singapore ${office.postalCode}`
-                    : "—";
+                let officeStr = "—";
+                if (office.useService === true) {
+                    officeStr = "10 Anson Road, #16-04 International Plaza, Singapore 079903 (Globalisor CBD Registered Address)";
+                } else if (office.fullAddress || office.address) {
+                    officeStr = office.fullAddress || office.address;
+                    if (office.premiseType) {
+                        officeStr += ` (${office.premiseType}${office.hdbApproval ? ' • HDB Approval: ' + office.hdbApproval : ''}${office.uraApproval ? ' • URA Approval: ' + office.uraApproval : ''})`;
+                    }
+                } else if (office.postalCode) {
+                    officeStr = `Block ${office.block || office.blockNo || '—'} ${office.streetName || '—'}, ${office.unitNo || (office.floor ? 'Floor ' + office.floor + ' Unit ' + office.unit : '—')}, ${office.building || office.buildingName || ''} Singapore ${office.postalCode}`;
+                    if (office.premiseType) {
+                        officeStr += ` (${office.premiseType})`;
+                    }
+                }
                 
                 const actPri = details.activities && details.activities.primary ? details.activities.primary : "—";
                 let actSec = details.activities && details.activities.secondary ? details.activities.secondary : "—";
