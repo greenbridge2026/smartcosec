@@ -883,13 +883,26 @@
                                 </div>
                                 <div>
                                     <span class="text-slate-400 block text-[10px] uppercase font-bold">Beneficial Owner (UBO)</span>
-                                    <strong>${sh.ubo === 'No' ? 'No' : 'Yes (UBO)'}</strong>
+                                    <strong>${sh.ubo === 'No' ? 'No (Separate UBO)' : 'Yes (Direct UBO)'}</strong>
                                 </div>
                                 <div>
                                     <span class="text-slate-400 block text-[10px] uppercase font-bold">Nominee Status</span>
                                     <strong>${sh.isNominee ? '⚠️ Nominee Shareholder' : 'Direct Legal Owner'}</strong>
                                 </div>
                             </div>
+                            ${sh.ubo === 'No' && (sh.selectedUbos || sh.ubos) && (sh.selectedUbos || sh.ubos).length > 0 ? `
+                                <div class="p-2.5 bg-blue-50/60 rounded-xl border border-blue-100 text-xs">
+                                    <span class="text-[10px] font-bold text-blue-700 uppercase tracking-wider block mb-1">Linked Ultimate Beneficial Owner(s)</span>
+                                    <div class="space-y-1">
+                                        ${(sh.selectedUbos || sh.ubos).map(u => `
+                                            <div class="flex items-center justify-between text-slate-700">
+                                                <span class="font-semibold">👤 ${u.name || 'Unnamed UBO'} (${u.nationality || 'Singaporean'})</span>
+                                                <span class="text-slate-400 font-mono text-[11px]">${u.idNum || u.idNumber || 'ID on file'}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
                             ${isCorp && sh.rep ? `
                                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
                                     <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Corporate Authorized Representative</span>
@@ -928,6 +941,79 @@
                 }).join('');
             } else {
                 shareholdersHtml = `<p class="text-xs text-slate-400 italic">No shareholders submitted</p>`;
+            }
+
+            // --- Section 4b: Ultimate Beneficial Owners (UBOs) HTML ---
+            const rawUbos = Array.isArray(d.ubos) ? d.ubos : (Array.isArray(d.controllers) ? d.controllers : []);
+            let allUbos = [...rawUbos];
+            if (allUbos.length === 0 && shareholders.length > 0) {
+                shareholders.forEach((sh, sIdx) => {
+                    if (sh.ubo !== 'No') {
+                        const isCorp = sh.type === 'corporate';
+                        allUbos.push({
+                            name: isCorp ? (sh.rep?.fullName || 'Corporate Representative') : (sh.name || `Shareholder #${sIdx+1}`),
+                            idNum: isCorp ? (sh.rep?.idNum || '') : (sh.idNum || ''),
+                            nationality: isCorp ? (sh.rep?.nationality || 'Singaporean') : (sh.nationality || 'Singaporean'),
+                            role: 'Ultimate Beneficial Owner',
+                            ownershipPct: sh.percent || 0,
+                            source: isCorp ? 'Corporate Representative' : 'Direct Shareholder',
+                            shareholders: [sh.name || `Shareholder #${sIdx+1}`]
+                        });
+                    } else if (Array.isArray(sh.selectedUbos) || Array.isArray(sh.ubos)) {
+                        const selected = sh.selectedUbos || sh.ubos || [];
+                        selected.forEach(u => allUbos.push({ ...u, shareholders: [sh.name || `Shareholder #${sIdx+1}`] }));
+                    }
+                });
+            }
+
+            let ubosHtml = '';
+            if (allUbos.length > 0) {
+                ubosHtml = allUbos.map((u, i) => {
+                    const shText = Array.isArray(u.shareholders) ? u.shareholders.join(', ') : (u.shareholderName || 'Direct');
+                    return `
+                        <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
+                                        🛡️
+                                    </div>
+                                    <div>
+                                        <div class="font-bold text-slate-900 text-sm">${u.name || 'Unnamed UBO'}</div>
+                                        <div class="text-[11px] text-slate-400 font-medium">Ultimate Beneficial Owner • Nationality: ${u.nationality || 'Singaporean'}</div>
+                                    </div>
+                                </div>
+                                <span class="px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold uppercase border border-blue-200/50">
+                                    ${u.ownershipPct ? u.ownershipPct + '% Ownership' : 'Controller'}
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-slate-700">
+                                <div>
+                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">ID / Passport</span>
+                                    <strong>${u.idNum || u.idNumber || 'On file'}</strong>
+                                </div>
+                                <div>
+                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Linked Shareholder(s)</span>
+                                    <strong>${shText}</strong>
+                                </div>
+                                <div>
+                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Designation / Role</span>
+                                    <strong>${u.role || 'Ultimate Beneficial Owner'}</strong>
+                                </div>
+                                <div>
+                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Source / Type</span>
+                                    <strong>${u.source || 'Pre-Registration'}</strong>
+                                </div>
+                            </div>
+                            ${u.addr || u.address ? `
+                                <div class="text-[11px] text-slate-500 pt-1 border-t border-slate-50">
+                                    <span class="text-slate-400 font-bold uppercase text-[9px]">Address:</span> ${u.addr || u.address}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                ubosHtml = `<p class="text-xs text-slate-400 italic">No UBOs identified</p>`;
             }
 
             // --- Section 5: Corporate Governance & Appointments ---
@@ -1159,6 +1245,18 @@
                     </div>
                 </div>
 
+                <!-- Section 4b: Ultimate Beneficial Owners (UBOs) -->
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                            <i data-lucide="shield-alert" class="w-4 h-4 text-blue-600"></i> Section 4b: Ultimate Beneficial Owners (UBOs) (${allUbos.length})
+                        </h4>
+                    </div>
+                    <div class="space-y-3">
+                        ${ubosHtml}
+                    </div>
+                </div>
+
                 <!-- Section 5: Governance & Appointments -->
                 <div class="space-y-3">
                     <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-2">
@@ -1172,12 +1270,40 @@
                             </div>
                             <p class="text-[11px] text-slate-400">Section 171 Companies Act requirement.</p>
                         </div>
-                        <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-1">
-                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nominee Resident Director (RONS)</span>
+                        <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Register of Nominee Shareholders (RONS)</span>
                             <div class="font-bold text-slate-900 text-xs">
-                                ${hasNomineeDirector ? '⚠️ Nominee Resident Director Service Requested' : 'Local Resident Director Appointed'}
+                                ${rons.hasNominee === 'Yes' ? '⚠️ Nominee Shareholders Declared' : '✅ No Nominees (Direct Ownership)'}
                             </div>
-                            <p class="text-[11px] text-slate-400">Statutory requirement for Singapore Pte Ltd.</p>
+                            ${rons.hasNominee === 'Yes' && Array.isArray(rons.nomineeList) && rons.nomineeList.length > 0 ? `
+                                <div class="space-y-2 pt-2 border-t border-slate-100 text-xs">
+                                    ${rons.nomineeList.map((nom, ni) => `
+                                        <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                                            <div class="flex justify-between font-bold text-slate-800">
+                                                <span>Nominee: ${nom.nomineeName || 'Shareholder'}</span>
+                                                <span class="text-blue-600 font-mono text-[11px]">${nom.dateOfEntry ? 'Entry: ' + nom.dateOfEntry : ''}</span>
+                                            </div>
+                                            <div class="text-[11px] text-slate-600">
+                                                <strong>Nominator:</strong> ${nom.nominatorName || '—'} ${nom.nominatorIdNumber ? '(' + nom.nominatorIdNumber + ')' : ''} • ${nom.nominatorNationality || 'Singaporean'}
+                                            </div>
+                                            ${nom.nominatorAddress ? `<div class="text-[10px] text-slate-400">Address: ${nom.nominatorAddress}</div>` : ''}
+                                            ${nom.docs && Object.keys(nom.docs).length > 0 ? `
+                                                <div class="flex flex-wrap gap-1.5 pt-1">
+                                                    ${Object.keys(nom.docs).map(dk => {
+                                                        const doc = nom.docs[dk];
+                                                        if (!doc || !doc.name) return '';
+                                                        return `
+                                                            <button type="button" onclick="window.previewAppDoc('${doc.data || ''}', '${doc.name}')" class="inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-slate-200 rounded text-[10px] text-slate-600 hover:text-blue-600">
+                                                                📄 ${doc.name}
+                                                            </button>
+                                                        `;
+                                                    }).join('')}
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : '<p class="text-[11px] text-slate-400">All registered members hold shares on their own behalf.</p>'}
                         </div>
                     </div>
                 </div>
