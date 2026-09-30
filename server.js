@@ -549,25 +549,12 @@ const getDb = () => {
                 attachments: [],
                 faqs: [],
                 publishedData: null
-            },
-            {
-                id: "sec-checkout",
-                key: "checkout",
-                title: "Package Summary & Payment",
-                description: "Review your details, select packages, and complete payment",
-                type: "form",
-                sortOrder: 6,
-                status: "PUBLISHED",
-                lastUpdatedBy: "System",
-                lastUpdatedAt: Date.now(),
-                fields: [],
-                documents: [],
-                checklists: [],
-                attachments: [],
-                faqs: [],
-                publishedData: null
             }
         ];
+
+        if (Array.isArray(db.preregSections)) {
+            db.preregSections = db.preregSections.filter(s => s.id !== 'sec-checkout' && s.id !== 'sec-checkout-foreigner' && s.key !== 'checkout');
+        }
 
         db.preregSections.forEach(s => {
             s.publishedData = {
@@ -2324,6 +2311,15 @@ app.post('/api/onboarding/:id/activate', (req, res) => {
 
     if (!ob.auditLogs) ob.auditLogs = [];
     ob.auditLogs.push(`Client portal activated by ${ob.activatedBy} at ${new Date()}`);
+
+    // Activate user if present
+    if (db.users) {
+        const user = db.users.find(u => u.id === ob.clientId || u.email === ob.clientEmail);
+        if (user) {
+            user.status = 'ACTIVE';
+            console.log(`[EMAIL DISPATCH] Dispatched welcome email with portal link and credentials to: ${user.email} (Password: ${user.plainPassword || 'password123'})`);
+        }
+    }
 
     saveDb(db);
     res.json(ob);

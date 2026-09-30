@@ -1825,13 +1825,6 @@
                     { key: "contact.phone", label: "Contact Number", type: "text", required: true, placeholder: "1234 5678" },
                     { key: "contact.email", label: "Email ID", type: "text", required: true, placeholder: "email@example.com" }
                 ]
-            },
-            {
-                id: "sec-checkout",
-                key: "checkout",
-                title: "Summary & Payment",
-                description: "Review details and complete payment",
-                type: "custom"
             }
         ];
 
@@ -1960,11 +1953,6 @@
                         title: 'Package Review',
                         description: 'Provide contact information for package processing',
                         order: 5
-                    },
-                    'checkout': {
-                        title: 'Summary & Payment',
-                        description: 'Review details and complete payment',
-                        order: 6
                     }
                 };
 
@@ -2008,6 +1996,7 @@
                 if (!initialSections || initialSections.length === 0) {
                     initialSections = JSON.parse(JSON.stringify(DEFAULT_SECTIONS));
                 }
+                initialSections = initialSections.filter(s => s.id !== 'sec-checkout' && s.id !== 'sec-checkout-foreigner' && s.key !== 'checkout');
                 this.sections = this.preprocessSections(initialSections);
 
                 // Quick initial render so user sees content immediately
@@ -2016,7 +2005,7 @@
                 if (savedStep && savedStep <= this.sections.length) {
                     this.open(savedStep);
                 } else if (this.currentStep) {
-                    this.open(this.currentStep);
+                    this.open(Math.min(this.currentStep, this.sections.length));
                 } else if (this.sections.length > 0) {
                     this.open(1);
                 }
@@ -2037,8 +2026,9 @@
                     const [allSections, ssicData, reqResponse] = await Promise.all([fetchSectionsPromise, fetchSsicPromise, fetchReqPromise]);
 
                     if (allSections && Array.isArray(allSections) && allSections.length > 0) {
-                        localStorage.setItem('cached_prereg_sections_LOCAL', JSON.stringify(allSections));
-                        const filtered = allSections.filter(sec => this.isSectionApplicable(sec));
+                        const cleanedSections = allSections.filter(s => s.id !== 'sec-checkout' && s.id !== 'sec-checkout-foreigner' && s.key !== 'checkout');
+                        localStorage.setItem('cached_prereg_sections_LOCAL', JSON.stringify(cleanedSections));
+                        const filtered = cleanedSections.filter(sec => this.isSectionApplicable(sec));
                         this.sections = this.preprocessSections(filtered);
                     }
 
@@ -2468,11 +2458,15 @@
                 this.recompileOwnAddress();
                 this.save();
                 
-                const previewEl = document.getElementById('office-address-preview');
-                if (previewEl) {
-                    previewEl.innerText = this.data.office.useService !== false
-                        ? '10 Anson Road, #16-04 International Plaza, Singapore 079903'
-                        : this.getFormattedOwnAddressPreview();
+                if (field === 'premiseType' || field === 'hdbApproval' || field === 'uraApproval') {
+                    this.render();
+                } else {
+                    const previewEl = document.getElementById('office-address-preview');
+                    if (previewEl) {
+                        previewEl.innerText = this.data.office.useService !== false
+                            ? '10 Anson Road, #16-04 International Plaza, Singapore 079903'
+                            : this.getFormattedOwnAddressPreview();
+                    }
                 }
                 this.updateContinueButtonState();
             }
@@ -2861,25 +2855,17 @@
                 `;
 
                 let credentialsHtml = '';
-                if (status === 'review' || status === 'under review' || status === 'approved' || status === 'pending') {
+                if (status === 'review' || status === 'under review' || status === 'pending') {
+                    const contact = (data && data.contact) || {};
                     const authObj = JSON.parse(localStorage.getItem('client_auth') || '{}');
-                    const clientEmail = authObj.email || 'guest@globalisor.com';
-                    const clientPassword = localStorage.getItem('signup_password') || 'password123';
+                    const clientEmail = contact.email || authObj.email || 'your registered email';
                     
                     credentialsHtml = `
-                        <div style="margin-top: 20px; background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 1px solid #cbd5e1; border-radius: 16px; padding: 18px; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
-                            <div style="font-size: 0.72rem; font-weight: 800; color: var(--brand-primary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">🔑 Client Portal Access</div>
-                            <div style="font-size: 0.85rem; color: #334155; margin-bottom: 6px; display: flex; justify-content: space-between;">
-                                <span style="font-weight: 600;">Email:</span>
-                                <span style="font-family: monospace; font-weight: 700; color: #0f172a;">${clientEmail}</span>
-                            </div>
-                            <div style="font-size: 0.85rem; color: #334155; margin-bottom: 12px; display: flex; justify-content: space-between;">
-                                <span style="font-weight: 600;">Password:</span>
-                                <span style="font-family: monospace; font-weight: 700; color: #0f172a;">${clientPassword}</span>
-                            </div>
-                            <button onclick="wizard.autoLoginAndRedirect()" style="display: block; width: 100%; text-align: center; font-size: 0.85rem; padding: 0.75rem; box-sizing: border-box; background: linear-gradient(135deg, #2563eb, #1d4ed8); border: none; border-radius: 10px; color: white; font-weight: 700; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25); cursor: pointer; transition: all 0.2s;">
-                                Fill Onboarding Journey →
-                            </button>
+                        <div style="margin-top: 18px; background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 14px; padding: 16px; text-align: left;">
+                            <div style="font-size: 0.75rem; font-weight: 800; color: #1e40af; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">⏳ Verification in Progress</div>
+                            <p style="font-size: 0.8rem; color: #334155; line-height: 1.5; margin: 0;">
+                                Our administration team is reviewing your requirements and assigning a dedicated Corporate Specialist. Once your application is validated, login credentials and portal access will be sent to <strong>${clientEmail}</strong>.
+                            </p>
                         </div>
                     `;
                 }
@@ -2890,7 +2876,7 @@
                     <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:5px;">Service: Company Incorporation</div>
                     <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:5px;">Status: ${displayStatusText}</div>
                     <div style="font-size:0.85rem; color:var(--text-muted); padding-top:10px; border-top:1px solid #eee;">
-                        We will notify you by email if any additional documents are required. Keep this page open for live updates.
+                        We will notify you by email if any additional documents are required.
                     </div>
                     ${credentialsHtml}
                     ${actionButtonHtml}
@@ -2951,13 +2937,7 @@
                 let isValid = true;
                 let errorMessages = [];
 
-                if (sec.id === 'sec-checkout' || sec.id === 'sec-checkout-foreigner') {
-                    const isPaid = this.data.paymentStatus === 'paid';
-                    if (!isPaid) {
-                        isValid = false;
-                        errorMessages.push("Payment Required: Please complete your package payment to proceed.");
-                    }
-                } else if (sec.id === 'sec-office' || sec.id === 'sec-office-foreigner') {
+                if (sec.id === 'sec-office' || sec.id === 'sec-office-foreigner') {
                     const useService = this.data.office ? this.data.office.useService : null;
                     if (useService === null || useService === undefined || useService === "") {
                         isValid = false;
@@ -2981,20 +2961,131 @@
                             }
                         });
                     }
-                } else if (sec.id === 'sec-directors-shareholders') {
-                    const shs = this.data.shareholders || [];
-                    const indCount = shs.filter(s => s.type === 'individual').length;
-                    const corpCount = shs.filter(s => s.type === 'corporate').length;
-                    if (indCount + corpCount === 0) {
-                        isValid = false;
-                        errorMessages.push("At least one shareholder (Individual or Corporate) is required.");
-                        this.showShareholderError = true;
-                    }
+                } else if (sec.id === 'sec-directors-shareholders' || sec.key === 'directors-shareholders') {
                     const dirs = this.data.directors || [];
+                    const shs = this.data.shareholders || [];
+                    const cap = this.data.capital || {};
+
                     if (dirs.length === 0) {
                         isValid = false;
                         errorMessages.push("At least one director is required.");
                     }
+
+                    dirs.forEach((dir, i) => {
+                        const num = i + 1;
+                        if (!dir.name || dir.name.trim() === '') {
+                            isValid = false;
+                            errorMessages.push(`Director #${num}: Full Name is required.`);
+                        }
+                        if (!dir.idNum || dir.idNum.trim() === '') {
+                            isValid = false;
+                            errorMessages.push(`Director #${num}: ID / Passport Number is required.`);
+                        }
+                        if (!dir.dob || dir.dob.trim() === '') {
+                            isValid = false;
+                            errorMessages.push(`Director #${num}: Date of Birth is required.`);
+                        }
+                        if (!dir.email || dir.email.trim() === '') {
+                            isValid = false;
+                            errorMessages.push(`Director #${num}: Email Address is required.`);
+                        }
+                        if (!dir.phone || dir.phone.trim() === '') {
+                            isValid = false;
+                            errorMessages.push(`Director #${num}: Mobile Number is required.`);
+                        }
+                        if (!dir.addr || dir.addr.trim() === '') {
+                            isValid = false;
+                            errorMessages.push(`Director #${num}: Residential Address is required.`);
+                        }
+                        if (dir.disqualificationAcknowledge === false) {
+                            isValid = false;
+                            errorMessages.push(`Director #${num}: Please confirm the non-disqualification declaration.`);
+                        }
+                        if (!dir.docs || !dir.docs.idDoc) {
+                            isValid = false;
+                            errorMessages.push(`Director #${num}: NRIC / Passport document upload is required.`);
+                        }
+                        if (!dir.docs || !dir.docs.addressDoc) {
+                            isValid = false;
+                            errorMessages.push(`Director #${num}: Proof of Address document upload is required.`);
+                        }
+                    });
+
+                    if (!cap.issued || parseFloat(cap.issued) <= 0) {
+                        isValid = false;
+                        errorMessages.push("Share Capital: Total Issued Capital must be greater than 0.");
+                    }
+                    if (!cap.numShares || parseFloat(cap.numShares) <= 0) {
+                        isValid = false;
+                        errorMessages.push("Share Capital: Total Number of Shares must be greater than 0.");
+                    }
+
+                    if (shs.length === 0) {
+                        isValid = false;
+                        errorMessages.push("At least one shareholder is required.");
+                        this.showShareholderError = true;
+                    }
+
+                    shs.forEach((sh, j) => {
+                        const snum = j + 1;
+                        if (sh.type === 'individual') {
+                            if (!sh.name || sh.name.trim() === '') {
+                                isValid = false;
+                                errorMessages.push(`Individual Shareholder #${snum}: Full Name is required.`);
+                            }
+                            if (!sh.idNum || sh.idNum.trim() === '') {
+                                isValid = false;
+                                errorMessages.push(`Individual Shareholder #${snum}: ID / Passport Number is required.`);
+                            }
+                            if (!sh.shares || parseFloat(sh.shares) <= 0) {
+                                isValid = false;
+                                errorMessages.push(`Individual Shareholder #${snum}: Allocated shares must be greater than 0.`);
+                            }
+                            if (!sh.docs || !sh.docs.idDoc) {
+                                isValid = false;
+                                errorMessages.push(`Individual Shareholder #${snum}: ID / Passport document upload is required.`);
+                            }
+                            if (!sh.docs || !sh.docs.addressDoc) {
+                                isValid = false;
+                                errorMessages.push(`Individual Shareholder #${snum}: Proof of Address document upload is required.`);
+                            }
+                        } else if (sh.type === 'corporate') {
+                            if (!sh.name || sh.name.trim() === '') {
+                                isValid = false;
+                                errorMessages.push(`Corporate Shareholder #${snum}: Company Legal Name is required.`);
+                            }
+                            if ((!sh.regNum || sh.regNum.trim() === '') && (!sh.uen || sh.uen.trim() === '')) {
+                                isValid = false;
+                                errorMessages.push(`Corporate Shareholder #${snum}: UEN / Registration Number is required.`);
+                            }
+                            if (!sh.shares || parseFloat(sh.shares) <= 0) {
+                                isValid = false;
+                                errorMessages.push(`Corporate Shareholder #${snum}: Allocated shares must be greater than 0.`);
+                            }
+                            if (!sh.docs || !sh.docs.bizfileDoc) {
+                                isValid = false;
+                                errorMessages.push(`Corporate Shareholder #${snum}: ACRA Bizfile / Cert of Incorporation document is required.`);
+                            }
+                            if (!sh.docs || !sh.docs.constitutionDoc) {
+                                isValid = false;
+                                errorMessages.push(`Corporate Shareholder #${snum}: Constitution / M&AA document is required.`);
+                            }
+                            const rep = sh.rep || {};
+                            if (!rep.fullName || rep.fullName.trim() === '') {
+                                isValid = false;
+                                errorMessages.push(`Corporate Shareholder #${snum}: Corporate Representative Full Name is required.`);
+                            }
+                            if (!rep.idNum || rep.idNum.trim() === '') {
+                                isValid = false;
+                                errorMessages.push(`Corporate Shareholder #${snum}: Representative ID / Passport Number is required.`);
+                            }
+                            if (!rep.docs || !rep.docs.idDoc) {
+                                isValid = false;
+                                errorMessages.push(`Corporate Shareholder #${snum}: Representative ID / Passport document is required.`);
+                            }
+                        }
+                    });
+
                     if (!isValid) {
                         this.render();
                     }
@@ -3534,12 +3625,7 @@
                     nextBtn.style.display = 'none';
                     backStatusBtn.style.display = 'block';
                 } else {
-                    if (sec.id === 'sec-checkout' || sec.id === 'sec-checkout-foreigner') {
-                        const isPaid = this.data.paymentStatus === 'paid';
-                        nextBtn.style.display = isPaid ? 'block' : 'none';
-                    } else {
-                        nextBtn.style.display = 'block';
-                    }
+                    nextBtn.style.display = 'block';
                     backStatusBtn.style.display = 'none';
                 }
             }
@@ -3762,88 +3848,9 @@
                 }
 
                 if (sec.id === 'sec-directors-shareholders' || sec.key === 'directors-shareholders') {
-                    const directors = this.data.directors || [];
-                    const shareholders = this.data.shareholders || [];
-                    
-                    const officeChecked = (this.data.office && this.data.office.useService !== false);
-                    const secretaryChecked = (this.data.secretary && this.data.secretary.required !== false);
-                    
-                    return `
-                        <div>
-                            ${rejectionBanner}
-                            
-                            <!-- Counter cards grid -->
-                            <div class="counters-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                                <div class="counter-card">
-                                    <h3>👥 Directors</h3>
-                                    <p>People who legally direct the company.</p>
-                                    <div class="counter-controls">
-                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('directors', -1)">-</button>
-                                        <div class="counter-val" id="directors-count-val">${directors.length}</div>
-                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('directors', 1)">+</button>
-                                    </div>
-                                </div>
-                                <div class="counter-card">
-                                    <h3>👤 Individual Shareholders</h3>
-                                    <p>Natural persons who hold shares in the company.</p>
-                                    <div class="counter-controls">
-                                        <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('individual', -1)">-</button>
-                                        <div class="counter-val" id="ind-shareholders-count-val">${shareholders.filter(s => s.type === 'individual').length}</div>
-                                        <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('individual', 1)">+</button>
-                                    </div>
-                                </div>
-                                 ${(() => {
-                                    const shs = shareholders || [];
-                                    const indCount = shs.filter(s => s.type === 'individual').length;
-                                    const corpCount = shs.filter(s => s.type === 'corporate').length;
-                                    const dirsCount = directors.length;
-                                    
-                                    const errors = [];
-                                    if (dirsCount === 0) {
-                                        errors.push("At least one director is required.");
-                                    }
-                                    if (this.showShareholderError && indCount + corpCount === 0) {
-                                        errors.push("At least one shareholder is required.");
-                                    }
-                                    
-                                    if (errors.length > 0) {
-                                        return `
-                                            <div style="grid-column: 1 / -1; width: 100%; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 12px; padding: 12px 16px; margin-bottom: 0.5rem; display: flex; flex-direction: column; gap: 4px;">
-                                                <div style="font-size: 0.8rem; font-weight: 700; color: #b45309; display: flex; align-items: center; gap: 6px;">
-                                                    ⚠️ Setup Pending: Mandatory Details Required
-                                                </div>
-                                                <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.72rem; color: #d97706; font-weight: 600; line-height: 1.4;">
-                                                    ${errors.map(e => `<li>${e}</li>`).join('')}
-                                                </ul>
-                                            </div>
-                                        `;
-                                    }
-                                    return '';
-                                })()}
-                                
-                                <div class="counter-card" style="grid-column: span 1;">
-                                    <h3>🏢 Corporate Shareholders</h3>
-                                    <p>Corporate entities that hold shares in the company.</p>
-                                    <div class="counter-controls">
-                                        <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('corporate', -1)">-</button>
-                                        <div class="counter-val" id="corp-shareholders-count-val">${shareholders.filter(s => s.type === 'corporate').length}</div>
-                                        <button type="button" class="counter-btn" onclick="wizard.adjustShareholderCount('corporate', 1)">+</button>
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- Additional Services Toggles -->
-                            <div class="service-toggle-container" style="display: flex; flex-direction: column; gap: 1.5rem; width: 100%;">
-                                ${(sec.fields || []).filter(f => f.type === 'switch').map(f => this.renderField(f, f.key)).join('')}
-                            </div>
-                            <!-- Other custom fields -->
-                            <div class="form-grid" style="margin-top: 1.5rem;">
-                                ${(sec.fields || []).filter(f => f.type !== 'switch').map(f => this.renderField(f, f.key)).join('')}
-                            </div>
-
-                        </div>
-                    `;
-
+                    return this.renderDirectorsAndShareholdersStep(sec, rejectionBanner);
                 }
+
                 if (sec.id === 'sec-addons') {
                     return `
                         <div>
@@ -3939,7 +3946,79 @@
                                                     Subscription Pricing: <span style="font-weight: bold;">SGD 480 / year</span>. This includes mail scanning and notifications. The address will be registered with ACRA for your company.
                                                 </div>
                                             </div>
-                                        ` : ''}
+                                        ` : `
+                                            <!-- Type of Premise Selection -->
+                                            <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 1.25rem; margin-bottom: 1.5rem;">
+                                                <div class="form-group" style="margin-bottom: 0;">
+                                                    <label class="form-label" style="font-size: 0.88rem; font-weight: 700; color: #0f172a; margin-bottom: 0.35rem; display: block;">
+                                                        Type of Premise <span style="color:#ef4444;">*</span>
+                                                    </label>
+                                                    <p style="font-size: 0.78rem; color: #64748b; margin: 0 0 0.75rem; line-height: 1.4;">
+                                                        Select the category of property used as your company's registered address in Singapore.
+                                                    </p>
+                                                    <select id="office-input-premiseType" style="width: 100%; min-height: 44px; height: 44px; padding: 0.5rem 0.85rem; font-weight: 600; font-size: 0.88rem; color: #1e293b; background-color: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 10px; cursor: pointer; outline: none; box-sizing: border-box; line-height: 1.4; transition: border-color 0.2s;" onchange="wizard.updateOfficeField('premiseType', this.value)">
+                                                        <option value="">-- Select Type of Premise --</option>
+                                                        <option value="Commercial" ${(this.data.office?.premiseType === 'Commercial') ? 'selected' : ''}>🏢 Commercial (Office Building, Shophouse, Industrial)</option>
+                                                        <option value="HDB" ${(this.data.office?.premiseType === 'HDB') ? 'selected' : ''}>🏢 HDB (Public Residential Flat)</option>
+                                                        <option value="Private Property" ${(this.data.office?.premiseType === 'Private Property') ? 'selected' : ''}>🏡 Private Property (Condo, Landed, Terrace, Bungalow)</option>
+                                                    </select>
+                                                </div>
+
+                                                <!-- Conditional: HDB Home Office Scheme Question -->
+                                                ${this.data.office?.premiseType === 'HDB' ? `
+                                                    <div style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px dashed #cbd5e1;">
+                                                        <label style="font-size: 0.88rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.35rem;">
+                                                            Has the approval under HDB Home Office Scheme been obtained? <span style="color:#ef4444;">*</span>
+                                                        </label>
+                                                        <p style="font-size: 0.76rem; color: #64748b; margin: 0 0 0.85rem; line-height: 1.4;">
+                                                            Under Singapore HDB regulations, flat owners and tenants must obtain prior approval from HDB under the Home Office Scheme before using their residential flat as a registered business address.
+                                                        </p>
+                                                        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                                                            <label style="flex: 1 1 220px; display: flex; align-items: center; gap: 0.6rem; cursor: pointer; padding: 0.75rem 1rem; background: ${this.data.office?.hdbApproval === 'Yes' ? '#eff6ff' : '#ffffff'}; border: 1.5px solid ${this.data.office?.hdbApproval === 'Yes' ? '#3b82f6' : '#cbd5e1'}; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #1e293b; transition: all 0.2s;">
+                                                                <input type="radio" name="office-hdb-approval" value="Yes" ${this.data.office?.hdbApproval === 'Yes' ? 'checked' : ''} onchange="wizard.updateOfficeField('hdbApproval', 'Yes')" style="accent-color: #2563eb; width: 1.15rem; height: 1.15rem;">
+                                                                <span>Yes, approval has been obtained</span>
+                                                            </label>
+                                                            <label style="flex: 1 1 220px; display: flex; align-items: center; gap: 0.6rem; cursor: pointer; padding: 0.75rem 1rem; background: ${this.data.office?.hdbApproval === 'No' ? '#fef2f2' : '#ffffff'}; border: 1.5px solid ${this.data.office?.hdbApproval === 'No' ? '#ef4444' : '#cbd5e1'}; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #1e293b; transition: all 0.2s;">
+                                                                <input type="radio" name="office-hdb-approval" value="No" ${this.data.office?.hdbApproval === 'No' ? 'checked' : ''} onchange="wizard.updateOfficeField('hdbApproval', 'No')" style="accent-color: #2563eb; width: 1.15rem; height: 1.15rem;">
+                                                                <span>No, not yet obtained</span>
+                                                            </label>
+                                                        </div>
+                                                        ${this.data.office?.hdbApproval === 'No' ? `
+                                                            <div style="margin-top: 0.85rem; font-size: 0.76rem; color: #b91c1c; background: #fef2f2; border: 1px solid #fee2e2; border-radius: 8px; padding: 0.65rem 0.85rem; line-height: 1.45;">
+                                                                ⚠️ <strong>Important:</strong> ACRA requires HDB approval prior to registering the business. Please ensure the HDB Home Office Scheme approval is submitted/approved before final incorporation or select the <em>Globalisor Address</em> option above.
+                                                            </div>
+                                                        ` : ''}
+                                                    </div>
+                                                ` : ''}
+
+                                                <!-- Conditional: URA Home Office Scheme Question -->
+                                                ${this.data.office?.premiseType === 'Private Property' ? `
+                                                    <div style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px dashed #cbd5e1;">
+                                                        <label style="font-size: 0.88rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.35rem;">
+                                                            Has the approval under URA Home Office Scheme been obtained? <span style="color:#ef4444;">*</span>
+                                                        </label>
+                                                        <p style="font-size: 0.76rem; color: #64748b; margin: 0 0 0.85rem; line-height: 1.4;">
+                                                            Under Urban Redevelopment Authority (URA) regulations, owners or authorized tenants of private residential properties must obtain approval under the URA Home Office Scheme to operate a business.
+                                                        </p>
+                                                        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                                                            <label style="flex: 1 1 220px; display: flex; align-items: center; gap: 0.6rem; cursor: pointer; padding: 0.75rem 1rem; background: ${this.data.office?.uraApproval === 'Yes' ? '#eff6ff' : '#ffffff'}; border: 1.5px solid ${this.data.office?.uraApproval === 'Yes' ? '#3b82f6' : '#cbd5e1'}; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #1e293b; transition: all 0.2s;">
+                                                                <input type="radio" name="office-ura-approval" value="Yes" ${this.data.office?.uraApproval === 'Yes' ? 'checked' : ''} onchange="wizard.updateOfficeField('uraApproval', 'Yes')" style="accent-color: #2563eb; width: 1.15rem; height: 1.15rem;">
+                                                                <span>Yes, approval has been obtained</span>
+                                                            </label>
+                                                            <label style="flex: 1 1 220px; display: flex; align-items: center; gap: 0.6rem; cursor: pointer; padding: 0.75rem 1rem; background: ${this.data.office?.uraApproval === 'No' ? '#fef2f2' : '#ffffff'}; border: 1.5px solid ${this.data.office?.uraApproval === 'No' ? '#ef4444' : '#cbd5e1'}; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #1e293b; transition: all 0.2s;">
+                                                                <input type="radio" name="office-ura-approval" value="No" ${this.data.office?.uraApproval === 'No' ? 'checked' : ''} onchange="wizard.updateOfficeField('uraApproval', 'No')" style="accent-color: #2563eb; width: 1.15rem; height: 1.15rem;">
+                                                                <span>No, not yet obtained</span>
+                                                            </label>
+                                                        </div>
+                                                        ${this.data.office?.uraApproval === 'No' ? `
+                                                            <div style="margin-top: 0.85rem; font-size: 0.76rem; color: #b91c1c; background: #fef2f2; border: 1px solid #fee2e2; border-radius: 8px; padding: 0.65rem 0.85rem; line-height: 1.45;">
+                                                                ⚠️ <strong>Important:</strong> ACRA requires URA approval prior to registering the business. Please ensure the URA Home Office Scheme approval is registered before final incorporation or select the <em>Globalisor Address</em> option above.
+                                                            </div>
+                                                        ` : ''}
+                                                    </div>
+                                                ` : ''}
+                                            </div>
+                                        `}
 
                                         <!-- Inputs Grid -->
                                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
@@ -4022,10 +4101,6 @@
                     `;
                 }
 
-                if (sec.id === 'sec-checkout' || sec.id === 'sec-checkout-foreigner') {
-                    return this.getCheckoutHTML(rejectionBanner);
-                }
-
                 if (sec.type === 'repeater') {
                     // Fetch list
                     let list = getVal(this.data, sec.key);
@@ -4066,28 +4141,927 @@
                 }
             }
 
+            renderDirectorsAndShareholdersStep(sec, rejectionBanner = '') {
+                if (!this.data.directors || !Array.isArray(this.data.directors) || this.data.directors.length === 0) {
+                    this.data.directors = [{ name: '', idType: 'nric', idNum: '', nationality: 'Singaporean', dob: '', gender: 'Male', phone: '', email: '', addr: '', passportExpiry: '', disqualificationAcknowledge: true, docs: {} }];
+                }
+                if (!this.data.capital) {
+                    this.data.capital = { issued: 1000, numShares: 1000, paidUp: 1000, currency: 'SGD', type: 'Ordinary' };
+                }
+                if (!this.data.shareholders || !Array.isArray(this.data.shareholders) || this.data.shareholders.length === 0) {
+                    this.data.shareholders = [{ type: 'individual', name: '', idType: 'nric', idNum: '', nationality: 'Singaporean', dob: '', phone: '', email: '', addr: '', shares: 1000, shareAmount: 1000, percent: 100, ubo: 'Yes', isNominee: false, docs: {} }];
+                }
+                if (!this.data.secretary) {
+                    this.data.secretary = { required: true };
+                }
+                if (!this.data.rons) {
+                    this.data.rons = { hasNominee: 'No', nomineeList: [] };
+                }
+
+                const directors = this.data.directors;
+                const shareholders = this.data.shareholders;
+                const capital = this.data.capital;
+                const indShareholders = shareholders.filter(s => s.type === 'individual');
+                const corpShareholders = shareholders.filter(s => s.type === 'corporate');
+                const secretaryChecked = this.data.secretary.required !== false;
+                const rons = this.data.rons;
+
+                const nationalities = [
+                    'Singaporean', 'Malaysian', 'Indonesian', 'Indian', 'Chinese', 
+                    'British', 'American', 'Australian', 'Canadian', 'French', 
+                    'German', 'Japanese', 'South Korean', 'Filipino', 'Vietnamese', 
+                    'Thai', 'New Zealander', 'Swiss', 'Dutch', 'Other'
+                ];
+
+                const renderDocZone = (entityType, index, docKey, label, docObj) => {
+                    const uploadId = `upload-${entityType}-${index}-${docKey}`;
+                    if (docObj && docObj.name) {
+                        const sizeStr = docObj.size ? (docObj.size > 1024 * 1024 ? (docObj.size / (1024*1024)).toFixed(1) + ' MB' : Math.round(docObj.size / 1024) + ' KB') : 'Document';
+                        return `
+                            <div style="border: 1.5px solid #86efac; border-radius: 12px; padding: 0.85rem 1rem; background: #f0fdf4; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+                                <div style="display: flex; align-items: center; gap: 0.75rem; min-width: 0;">
+                                    <div style="width: 34px; height: 34px; border-radius: 8px; background: #dcfce7; color: #15803d; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 800;">
+                                        ✓
+                                    </div>
+                                    <div style="min-width: 0;">
+                                        <div style="font-size: 0.82rem; font-weight: 700; color: #166534; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;" title="${docObj.name}">${docObj.name}</div>
+                                        <div style="font-size: 0.72rem; color: #15803d; font-weight: 600;">${label} &bull; ${sizeStr}</div>
+                                    </div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0;">
+                                    <button type="button" onclick="wizard.previewDoc('${entityType}', ${index}, '${docKey}')" style="padding: 4px 10px; font-size: 0.72rem; font-weight: 700; background: #ffffff; border: 1px solid #bbf7d0; border-radius: 6px; color: #15803d; cursor: pointer; transition: all 0.2s;">Preview</button>
+                                    <button type="button" onclick="wizard.removeDoc('${entityType}', ${index}, '${docKey}')" style="padding: 4px 8px; font-size: 0.72rem; font-weight: 700; background: #fee2e2; border: 1px solid #fecaca; border-radius: 6px; color: #b91c1c; cursor: pointer; transition: all 0.2s;">&times;</button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    return `
+                        <div class="doc-upload-box" style="border: 2px dashed #cbd5e1; border-radius: 12px; padding: 1.1rem 0.85rem; text-align: center; background: #f8fafc; cursor: pointer; transition: all 0.2s;" onclick="document.getElementById('${uploadId}').click()">
+                            <input type="file" id="${uploadId}" style="display:none;" accept="image/*,application/pdf" onchange="wizard.handleDocUpload(event, '${entityType}', ${index}, '${docKey}')">
+                            <div style="width: 32px; height: 32px; border-radius: 8px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.4rem;">
+                                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                            </div>
+                            <div style="font-size: 0.8rem; font-weight: 700; color: #1e293b;">${label} <span style="color:#ef4444;">*</span></div>
+                            <div style="font-size: 0.7rem; color: #64748b; margin-top: 2px;">PDF, PNG, JPG (Max 15MB)</div>
+                        </div>
+                    `;
+                };
+
+                return `
+                    <div style="display: flex; flex-direction: column; gap: 2rem;">
+                        ${rejectionBanner}
+
+                        <!-- TOP CARD: HOW MANY DIRECTORS & SHAREHOLDERS (STRUCTURE OVERVIEW) -->
+                        <div style="background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%); border: 1.5px solid #cbd5e1; border-radius: 18px; padding: 1.75rem; box-shadow: 0 6px 20px rgba(0,0,0,0.04);">
+                            <div style="margin-bottom: 1.25rem;">
+                                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                                    <span style="background: #2563eb; color: #ffffff; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1rem;">🏛️</span>
+                                    <h3 style="font-size: 1.25rem; font-weight: 800; color: #0f172a; margin: 0;">Company Officers & Ownership Structure</h3>
+                                </div>
+                                <p style="font-size: 0.825rem; color: #64748b; margin: 0.4rem 0 0; line-height: 1.5;">
+                                    Set how many directors and shareholders you have. Use the <strong>-</strong> and <strong>+</strong> counter buttons to adjust officer counts. Then complete each officer's details and document uploads below.
+                                </p>
+                            </div>
+
+                            <!-- 3 Responsive Counter Cards Grid -->
+                            <div class="counters-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+                                <!-- Directors Counter -->
+                                <div class="counter-card" style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 1.25rem; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.02); transition: all 0.2s;">
+                                    <div style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin-bottom: 0.25rem;">👥 Directors</div>
+                                    <p style="font-size: 0.72rem; color: #64748b; margin: 0 0 0.85rem 0; min-height: 2rem;">People who legally manage the company (Min. 1 required).</p>
+                                    <div class="counter-controls" style="display: flex; align-items: center; justify-content: center; gap: 1rem;">
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('directors', -1)" style="width: 34px; height: 34px; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-size: 1.1rem; font-weight: 800; cursor: pointer; color: #334155; transition: all 0.2s;">-</button>
+                                        <div class="counter-val" id="directors-count-val" style="font-size: 1.35rem; font-weight: 800; color: #2563eb; min-width: 32px;">${directors.length}</div>
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('directors', 1)" style="width: 34px; height: 34px; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-size: 1.1rem; font-weight: 800; cursor: pointer; color: #334155; transition: all 0.2s;">+</button>
+                                    </div>
+                                </div>
+
+                                <!-- Individual Shareholders Counter -->
+                                <div class="counter-card" style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 1.25rem; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.02); transition: all 0.2s;">
+                                    <div style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin-bottom: 0.25rem;">👤 Individual Shareholders</div>
+                                    <p style="font-size: 0.72rem; color: #64748b; margin: 0 0 0.85rem 0; min-height: 2rem;">Natural persons holding company shares.</p>
+                                    <div class="counter-controls" style="display: flex; align-items: center; justify-content: center; gap: 1rem;">
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('shareholders_individual', -1)" style="width: 34px; height: 34px; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-size: 1.1rem; font-weight: 800; cursor: pointer; color: #334155; transition: all 0.2s;">-</button>
+                                        <div class="counter-val" id="shareholders-ind-count-val" style="font-size: 1.35rem; font-weight: 800; color: #2563eb; min-width: 32px;">${indShareholders.length}</div>
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('shareholders_individual', 1)" style="width: 34px; height: 34px; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-size: 1.1rem; font-weight: 800; cursor: pointer; color: #334155; transition: all 0.2s;">+</button>
+                                    </div>
+                                </div>
+
+                                <!-- Corporate Shareholders Counter -->
+                                <div class="counter-card" style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 1.25rem; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.02); transition: all 0.2s;">
+                                    <div style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin-bottom: 0.25rem;">🏢 Corporate Shareholders</div>
+                                    <p style="font-size: 0.72rem; color: #64748b; margin: 0 0 0.85rem 0; min-height: 2rem;">Companies or holding entities owning shares.</p>
+                                    <div class="counter-controls" style="display: flex; align-items: center; justify-content: center; gap: 1rem;">
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('shareholders_corporate', -1)" style="width: 34px; height: 34px; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-size: 1.1rem; font-weight: 800; cursor: pointer; color: #334155; transition: all 0.2s;">-</button>
+                                        <div class="counter-val" id="shareholders-corp-count-val" style="font-size: 1.35rem; font-weight: 800; color: #2563eb; min-width: 32px;">${corpShareholders.length}</div>
+                                        <button type="button" class="counter-btn" onclick="wizard.adjustCount('shareholders_corporate', 1)" style="width: 34px; height: 34px; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-size: 1.1rem; font-weight: 800; cursor: pointer; color: #334155; transition: all 0.2s;">+</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Corporate Secretary Toggle Card -->
+                            <div style="background: #ffffff; border: 1.5px solid #bfdbfe; border-radius: 14px; padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                    <div style="width: 40px; height: 40px; border-radius: 10px; background: #eff6ff; display: flex; align-items: center; justify-content: center; color: #2563eb; font-size: 1.2rem; flex-shrink: 0;">
+                                        📋
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 0.9rem; font-weight: 800; color: #0f172a;">Corporate Secretary Package (SGD 720 / year)</div>
+                                        <div style="font-size: 0.75rem; color: #64748b;">Statutorily mandatory under ACRA within 6 months. Covers annual filings, AGM resolutions & registers.</div>
+                                    </div>
+                                </div>
+                                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                    <input type="checkbox" ${secretaryChecked ? 'checked' : ''} onchange="wizard.updateSecretaryRequired(this.checked)" style="accent-color: #2563eb; width: 1.25rem; height: 1.25rem;">
+                                    <span style="font-size: 0.8rem; font-weight: 700; color: #1e293b;">Include Secretary</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 1. DIRECTORS SECTION -->
+                        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
+                            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem;">
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <span style="background: #dbeafe; color: #1d4ed8; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800;">1</span>
+                                        <h3 style="font-size: 1.15rem; font-weight: 800; color: #0f172a; margin: 0;">Director Details & KYC Verification</h3>
+                                    </div>
+                                    <p style="font-size: 0.8rem; color: #64748b; margin: 0.35rem 0 0; line-height: 1.4;">
+                                        Singapore requires at least one locally resident director (Citizen, PR, or Pass Holder). Provide details and KYC documents for each director.
+                                    </p>
+                                </div>
+                                <button type="button" onclick="wizard.adjustCount('directors', 1)" style="padding: 0.55rem 1rem; background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; font-size: 0.8rem; font-weight: 700; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; transition: all 0.2s;">
+                                    + Add Another Director
+                                </button>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                                ${directors.map((dir, i) => {
+                                    const dirDocs = dir.docs || {};
+                                    return `
+                                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1.25rem;">
+                                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                    <span style="font-size: 0.75rem; font-weight: 800; background: #0f172a; color: #ffffff; padding: 3px 9px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.05em;">Director #${i+1}</span>
+                                                    <span style="font-size: 0.85rem; font-weight: 700; color: #334155;">${dir.name || 'New Director'}</span>
+                                                </div>
+                                                ${directors.length > 1 ? `
+                                                    <button type="button" onclick="wizard.removeDirector(${i})" style="background: none; border: none; color: #ef4444; font-size: 0.75rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                                        🗑️ Remove
+                                                    </button>
+                                                ` : ''}
+                                            </div>
+
+                                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
+                                                <div class="form-group" style="margin-bottom:0;">
+                                                    <label class="form-label">Full Legal Name (as in NRIC/Passport) <span style="color:#ef4444;">*</span></label>
+                                                    <input type="text" class="input-box" value="${dir.name || ''}" placeholder="e.g. Tan Ah Seng" oninput="wizard.updateDirectorField(${i}, 'name', this.value)">
+                                                </div>
+
+                                                <div class="form-group" style="margin-bottom:0;">
+                                                    <label class="form-label">ID Type <span style="color:#ef4444;">*</span></label>
+                                                    <select class="input-box" onchange="wizard.updateDirectorField(${i}, 'idType', this.value)">
+                                                        <option value="nric" ${dir.idType === 'nric' ? 'selected' : ''}>NRIC (Singapore Citizen / PR)</option>
+                                                        <option value="fin" ${dir.idType === 'fin' ? 'selected' : ''}>FIN (EP / S-Pass / LTVP Holder)</option>
+                                                        <option value="passport" ${dir.idType === 'passport' ? 'selected' : ''}>Passport (Foreigner / Non-Resident)</option>
+                                                    </select>
+                                                </div>
+
+                                                <div class="form-group" style="margin-bottom:0;">
+                                                    <label class="form-label">ID / Passport Number <span style="color:#ef4444;">*</span></label>
+                                                    <input type="text" class="input-box" value="${dir.idNum || ''}" placeholder="e.g. S1234567A / Passport No" oninput="wizard.updateDirectorField(${i}, 'idNum', this.value)">
+                                                </div>
+
+                                                ${dir.idType === 'passport' || dir.idType === 'fin' ? `
+                                                    <div class="form-group" style="margin-bottom:0;">
+                                                        <label class="form-label">Passport Expiry Date</label>
+                                                        <input type="date" class="input-box" value="${dir.passportExpiry || ''}" onchange="wizard.updateDirectorField(${i}, 'passportExpiry', this.value)">
+                                                    </div>
+                                                ` : ''}
+
+                                                <div class="form-group" style="margin-bottom:0;">
+                                                    <label class="form-label">Nationality <span style="color:#ef4444;">*</span></label>
+                                                    <select class="input-box" onchange="wizard.updateDirectorField(${i}, 'nationality', this.value)">
+                                                        ${nationalities.map(n => `<option value="${n}" ${(dir.nationality || 'Singaporean') === n ? 'selected' : ''}>${n}</option>`).join('')}
+                                                    </select>
+                                                </div>
+
+                                                <div class="form-group" style="margin-bottom:0;">
+                                                    <label class="form-label">Date of Birth <span style="color:#ef4444;">*</span></label>
+                                                    <input type="date" class="input-box" value="${dir.dob || ''}" onchange="wizard.updateDirectorField(${i}, 'dob', this.value)">
+                                                </div>
+
+                                                <div class="form-group" style="margin-bottom:0;">
+                                                    <label class="form-label">Gender</label>
+                                                    <select class="input-box" onchange="wizard.updateDirectorField(${i}, 'gender', this.value)">
+                                                        <option value="Male" ${(dir.gender || 'Male') === 'Male' ? 'selected' : ''}>Male</option>
+                                                        <option value="Female" ${dir.gender === 'Female' ? 'selected' : ''}>Female</option>
+                                                        <option value="Other" ${dir.gender === 'Other' ? 'selected' : ''}>Other</option>
+                                                    </select>
+                                                </div>
+
+                                                <div class="form-group" style="margin-bottom:0;">
+                                                    <label class="form-label">Email Address <span style="color:#ef4444;">*</span></label>
+                                                    <input type="email" class="input-box" value="${dir.email || ''}" placeholder="director@example.com" oninput="wizard.updateDirectorField(${i}, 'email', this.value)">
+                                                </div>
+
+                                                <div class="form-group" style="margin-bottom:0;">
+                                                    <label class="form-label">Mobile Number <span style="color:#ef4444;">*</span></label>
+                                                    <input type="tel" class="input-box" value="${dir.phone || ''}" placeholder="+65 9123 4567" oninput="wizard.updateDirectorField(${i}, 'phone', this.value)">
+                                                </div>
+
+                                                <div class="form-group" style="grid-column: 1 / -1; margin-bottom:0;">
+                                                    <label class="form-label">Residential Address <span style="color:#ef4444;">*</span></label>
+                                                    <input type="text" class="input-box" value="${dir.addr || ''}" placeholder="Blk / Street Name, Unit, Postal Code, Country" oninput="wizard.updateDirectorField(${i}, 'addr', this.value)">
+                                                </div>
+                                            </div>
+
+                                            <!-- Document Uploads for Director -->
+                                            <div style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px dashed #cbd5e1;">
+                                                <div style="font-size: 0.8rem; font-weight: 800; color: #334155; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">
+                                                    Required KYC Verification Documents
+                                                </div>
+                                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;">
+                                                    ${renderDocZone('director', i, 'idDoc', 'NRIC / Passport Copy', dirDocs.idDoc)}
+                                                    ${renderDocZone('director', i, 'addressDoc', 'Proof of Address (Utility / Bank)', dirDocs.addressDoc)}
+                                                </div>
+                                            </div>
+
+                                            <div style="margin-top: 1rem; display: flex; align-items: flex-start; gap: 0.5rem;">
+                                                <input type="checkbox" id="dir-disq-${i}" ${dir.disqualificationAcknowledge !== false ? 'checked' : ''} onchange="wizard.updateDirectorField(${i}, 'disqualificationAcknowledge', this.checked)" style="accent-color: #2563eb; width: 16px; height: 16px; margin-top: 2px;">
+                                                <label for="dir-disq-${i}" style="font-size: 0.75rem; color: #475569; font-weight: 500; line-height: 1.4; cursor: pointer;">
+                                                    I confirm that this director is not disqualified from acting as a director under the Singapore Companies Act and has not been convicted of any fraudulent offences.
+                                                </label>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+
+                        <!-- 2. SHARE CAPITAL SECTION -->
+                        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
+                            <div style="border-bottom: 1px solid #f1f5f9; padding-bottom: 1rem; margin-bottom: 1.5rem;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <span style="background: #dbeafe; color: #1d4ed8; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800;">2</span>
+                                    <h3 style="font-size: 1.15rem; font-weight: 800; color: #0f172a; margin: 0;">Share Capital Configuration</h3>
+                                </div>
+                                <p style="font-size: 0.8rem; color: #64748b; margin: 0.35rem 0 0; line-height: 1.4;">
+                                    Configure corporate share capital structure and allocate shares to shareholders. Standard initial capital is 1,000 shares at $1 SGD each.
+                                </p>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label class="form-label">Currency <span style="color:#ef4444;">*</span></label>
+                                    <select class="input-box" onchange="wizard.updateCapitalField('currency', this.value)">
+                                        <option value="SGD" ${(capital.currency || 'SGD') === 'SGD' ? 'selected' : ''}>SGD - Singapore Dollar</option>
+                                        <option value="USD" ${capital.currency === 'USD' ? 'selected' : ''}>USD - US Dollar</option>
+                                        <option value="EUR" ${capital.currency === 'EUR' ? 'selected' : ''}>EUR - Euro</option>
+                                        <option value="GBP" ${capital.currency === 'GBP' ? 'selected' : ''}>GBP - British Pound</option>
+                                        <option value="AUD" ${capital.currency === 'AUD' ? 'selected' : ''}>AUD - Australian Dollar</option>
+                                        <option value="HKD" ${capital.currency === 'HKD' ? 'selected' : ''}>HKD - Hong Kong Dollar</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label class="form-label">Total Issued Capital <span style="color:#ef4444;">*</span></label>
+                                    <input type="number" min="1" class="input-box" value="${capital.issued || 1000}" oninput="wizard.updateCapitalField('issued', parseFloat(this.value) || 0)">
+                                </div>
+
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label class="form-label">Total Number of Shares <span style="color:#ef4444;">*</span></label>
+                                    <input type="number" min="1" class="input-box" value="${capital.numShares || 1000}" oninput="wizard.updateCapitalField('numShares', parseFloat(this.value) || 0)">
+                                </div>
+
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label class="form-label">Paid-Up Capital</label>
+                                    <input type="number" min="0" class="input-box" value="${capital.paidUp || 1000}" oninput="wizard.updateCapitalField('paidUp', parseFloat(this.value) || 0)">
+                                </div>
+
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label class="form-label">Share Class</label>
+                                    <select class="input-box" onchange="wizard.updateCapitalField('type', this.value)">
+                                        <option value="Ordinary" ${(capital.type || 'Ordinary') === 'Ordinary' ? 'selected' : ''}>Ordinary Shares</option>
+                                        <option value="Preference" ${capital.type === 'Preference' ? 'selected' : ''}>Preference Shares</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. SHAREHOLDERS SECTION -->
+                        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
+                            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem;">
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <span style="background: #dbeafe; color: #1d4ed8; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800;">3</span>
+                                        <h3 style="font-size: 1.15rem; font-weight: 800; color: #0f172a; margin: 0;">Shareholders & Ownership Distribution</h3>
+                                    </div>
+                                    <p style="font-size: 0.8rem; color: #64748b; margin: 0.35rem 0 0; line-height: 1.4;">
+                                        Add natural persons or corporate entities holding shares. Allocate shares to equal 100% ownership.
+                                    </p>
+                                </div>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button type="button" onclick="wizard.addShareholder('individual')" style="padding: 0.55rem 1rem; background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; font-size: 0.8rem; font-weight: 700; border-radius: 10px; cursor: pointer; transition: all 0.2s;">
+                                        + Individual Shareholder
+                                    </button>
+                                    <button type="button" onclick="wizard.addShareholder('corporate')" style="padding: 0.55rem 1rem; background: #f8fafc; border: 1px solid #cbd5e1; color: #334155; font-size: 0.8rem; font-weight: 700; border-radius: 10px; cursor: pointer; transition: all 0.2s;">
+                                        + Corporate Shareholder
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                                ${shareholders.map((sh, idx) => {
+                                    const isInd = sh.type === 'individual';
+                                    const shDocs = sh.docs || {};
+                                    const totalShares = parseFloat(capital.numShares) || 1000;
+                                    const allocatedShares = parseFloat(sh.shares) || 0;
+                                    const pct = totalShares > 0 ? Math.round((allocatedShares / totalShares) * 100) : 0;
+
+                                    if (isInd) {
+                                        return `
+                                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1.25rem;">
+                                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+                                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                        <span style="font-size: 0.75rem; font-weight: 800; background: #2563eb; color: #ffffff; padding: 3px 9px; border-radius: 6px; text-transform: uppercase;">Individual Shareholder #${idx+1}</span>
+                                                        <span style="font-size: 0.85rem; font-weight: 700; color: #334155;">${sh.name || 'New Shareholder'}</span>
+                                                        <span style="font-size: 0.75rem; font-weight: 700; color: #2563eb; background: #eff6ff; border: 1px solid #dbeafe; padding: 2px 8px; border-radius: 99px;">${pct}% Ownership</span>
+                                                    </div>
+                                                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                                        <div style="display: flex; align-items: center; gap: 0.4rem; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 3px 8px;">
+                                                            <span style="font-size: 0.72rem; font-weight: 700; color: #64748b;">Copy from:</span>
+                                                            <select onchange="wizard.autoFillShareholderFromDirector(${idx}, this.value)" style="border: none; background: transparent; font-size: 0.75rem; font-weight: 600; color: #1e293b; outline: none; cursor: pointer;">
+                                                                <option value="">Select Director...</option>
+                                                                ${directors.map((d, dIdx) => `<option value="${dIdx}">Director #${dIdx+1}: ${d.name || 'Unnamed'}</option>`).join('')}
+                                                            </select>
+                                                        </div>
+                                                        ${shareholders.length > 1 ? `
+                                                            <button type="button" onclick="wizard.removeShareholder(${idx})" style="background: none; border: none; color: #ef4444; font-size: 0.75rem; font-weight: 700; cursor: pointer;">
+                                                                🗑️ Remove
+                                                            </button>
+                                                        ` : ''}
+                                                    </div>
+                                                </div>
+
+                                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
+                                                    <div class="form-group" style="margin-bottom:0;">
+                                                        <label class="form-label">Full Legal Name <span style="color:#ef4444;">*</span></label>
+                                                        <input type="text" class="input-box" value="${sh.name || ''}" placeholder="Full name as in ID" oninput="wizard.updateShareholderField(${idx}, 'name', this.value)">
+                                                    </div>
+
+                                                    <div class="form-group" style="margin-bottom:0;">
+                                                        <label class="form-label">ID Type <span style="color:#ef4444;">*</span></label>
+                                                        <select class="input-box" onchange="wizard.updateShareholderField(${idx}, 'idType', this.value)">
+                                                            <option value="nric" ${(sh.idType || 'nric') === 'nric' ? 'selected' : ''}>NRIC (Singapore Citizen / PR)</option>
+                                                            <option value="fin" ${sh.idType === 'fin' ? 'selected' : ''}>FIN (Pass Holder)</option>
+                                                            <option value="passport" ${sh.idType === 'passport' ? 'selected' : ''}>Passport (Foreigner)</option>
+                                                        </select>
+                                                    </div>
+
+                                                    <div class="form-group" style="margin-bottom:0;">
+                                                        <label class="form-label">ID / Passport Number <span style="color:#ef4444;">*</span></label>
+                                                        <input type="text" class="input-box" value="${sh.idNum || ''}" placeholder="ID or Passport Number" oninput="wizard.updateShareholderField(${idx}, 'idNum', this.value)">
+                                                    </div>
+
+                                                    <div class="form-group" style="margin-bottom:0;">
+                                                        <label class="form-label">Nationality <span style="color:#ef4444;">*</span></label>
+                                                        <select class="input-box" onchange="wizard.updateShareholderField(${idx}, 'nationality', this.value)">
+                                                            ${nationalities.map(n => `<option value="${n}" ${(sh.nationality || 'Singaporean') === n ? 'selected' : ''}>${n}</option>`).join('')}
+                                                        </select>
+                                                    </div>
+
+                                                    <div class="form-group" style="margin-bottom:0;">
+                                                        <label class="form-label">Date of Birth</label>
+                                                        <input type="date" class="input-box" value="${sh.dob || ''}" onchange="wizard.updateShareholderField(${idx}, 'dob', this.value)">
+                                                    </div>
+
+                                                    <div class="form-group" style="margin-bottom:0;">
+                                                        <label class="form-label">Email Address</label>
+                                                        <input type="email" class="input-box" value="${sh.email || ''}" placeholder="shareholder@example.com" oninput="wizard.updateShareholderField(${idx}, 'email', this.value)">
+                                                    </div>
+
+                                                    <div class="form-group" style="margin-bottom:0;">
+                                                        <label class="form-label">Mobile Number</label>
+                                                        <input type="tel" class="input-box" value="${sh.phone || ''}" placeholder="+65 9123 4567" oninput="wizard.updateShareholderField(${idx}, 'phone', this.value)">
+                                                    </div>
+
+                                                    <div class="form-group" style="margin-bottom:0;">
+                                                        <label class="form-label">Number of Shares Allocated <span style="color:#ef4444;">*</span></label>
+                                                        <input type="number" min="1" class="input-box" value="${sh.shares || 1000}" oninput="wizard.updateShareholderField(${idx}, 'shares', parseFloat(this.value) || 0); wizard.calculateShareholderAllocations();">
+                                                    </div>
+
+                                                    <div class="form-group" style="grid-column: 1 / -1; margin-bottom:0;">
+                                                        <label class="form-label">Residential Address <span style="color:#ef4444;">*</span></label>
+                                                        <input type="text" class="input-box" value="${sh.addr || ''}" placeholder="Full residential address" oninput="wizard.updateShareholderField(${idx}, 'addr', this.value)">
+                                                    </div>
+                                                </div>
+
+                                                <!-- Documents for Individual Shareholder -->
+                                                <div style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px dashed #cbd5e1;">
+                                                    <div style="font-size: 0.8rem; font-weight: 800; color: #334155; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">
+                                                        Individual Shareholder KYC Documents
+                                                    </div>
+                                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;">
+                                                        ${renderDocZone('ind_shareholder', idx, 'idDoc', 'ID / Passport Copy', shDocs.idDoc)}
+                                                        ${renderDocZone('ind_shareholder', idx, 'addressDoc', 'Proof of Address', shDocs.addressDoc)}
+                                                    </div>
+                                                </div>
+
+                                                <div style="margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 1.5rem;">
+                                                    <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; font-weight: 600; color: #334155; cursor: pointer;">
+                                                        <span>Ultimate Beneficial Owner (UBO)?</span>
+                                                        <select class="input-box" style="width: auto; padding: 4px 8px; font-size: 0.75rem;" onchange="wizard.updateShareholderField(${idx}, 'ubo', this.value)">
+                                                            <option value="Yes" ${(sh.ubo || 'Yes') === 'Yes' ? 'selected' : ''}>Yes</option>
+                                                            <option value="No" ${sh.ubo === 'No' ? 'selected' : ''}>No</option>
+                                                        </select>
+                                                    </label>
+                                                    <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; font-weight: 600; color: #334155; cursor: pointer;">
+                                                        <input type="checkbox" ${sh.isNominee ? 'checked' : ''} onchange="wizard.updateShareholderField(${idx}, 'isNominee', this.checked)" style="accent-color: #2563eb;">
+                                                        <span>Nominee Shareholder (holding shares for another beneficial owner)</span>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        `;
+                                    } else {
+                                        // Corporate Shareholder
+                                        const rep = sh.rep || {};
+                                        const repDocs = rep.docs || {};
+                                        return `
+                                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1.25rem;">
+                                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+                                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                        <span style="font-size: 0.75rem; font-weight: 800; background: #475569; color: #ffffff; padding: 3px 9px; border-radius: 6px; text-transform: uppercase;">Corporate Shareholder #${idx+1}</span>
+                                                        <span style="font-size: 0.85rem; font-weight: 700; color: #334155;">${sh.name || 'New Corporate Shareholder'}</span>
+                                                        <span style="font-size: 0.75rem; font-weight: 700; color: #2563eb; background: #eff6ff; border: 1px solid #dbeafe; padding: 2px 8px; border-radius: 99px;">${pct}% Ownership</span>
+                                                    </div>
+                                                    ${shareholders.length > 1 ? `
+                                                        <button type="button" onclick="wizard.removeShareholder(${idx})" style="background: none; border: none; color: #ef4444; font-size: 0.75rem; font-weight: 700; cursor: pointer;">
+                                                            🗑️ Remove
+                                                        </button>
+                                                    ` : ''}
+                                                </div>
+
+                                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
+                                                    <div class="form-group" style="margin-bottom:0;">
+                                                        <label class="form-label">Company Legal Name <span style="color:#ef4444;">*</span></label>
+                                                        <input type="text" class="input-box" value="${sh.name || ''}" placeholder="e.g. Acme Holdings Pte Ltd" oninput="wizard.updateShareholderField(${idx}, 'name', this.value)">
+                                                    </div>
+
+                                                    <div class="form-group" style="margin-bottom:0;">
+                                                        <label class="form-label">UEN / Registration Number <span style="color:#ef4444;">*</span></label>
+                                                        <input type="text" class="input-box" value="${sh.regNum || sh.uen || ''}" placeholder="e.g. 202012345K" oninput="wizard.updateShareholderField(${idx}, 'regNum', this.value); wizard.updateShareholderField(${idx}, 'uen', this.value)">
+                                                    </div>
+
+                                                    <div class="form-group" style="margin-bottom:0;">
+                                                        <label class="form-label">Country of Incorporation <span style="color:#ef4444;">*</span></label>
+                                                        <input type="text" class="input-box" value="${sh.regPlace || 'Singapore'}" placeholder="e.g. Singapore" oninput="wizard.updateShareholderField(${idx}, 'regPlace', this.value)">
+                                                    </div>
+
+                                                    <div class="form-group" style="margin-bottom:0;">
+                                                        <label class="form-label">Date of Incorporation</label>
+                                                        <input type="date" class="input-box" value="${sh.regDate || ''}" onchange="wizard.updateShareholderField(${idx}, 'regDate', this.value)">
+                                                    </div>
+
+                                                    <div class="form-group" style="margin-bottom:0;">
+                                                        <label class="form-label">Number of Shares Allocated <span style="color:#ef4444;">*</span></label>
+                                                        <input type="number" min="1" class="input-box" value="${sh.shares || 1000}" oninput="wizard.updateShareholderField(${idx}, 'shares', parseFloat(this.value) || 0); wizard.calculateShareholderAllocations();">
+                                                    </div>
+
+                                                    <div class="form-group" style="grid-column: 1 / -1; margin-bottom:0;">
+                                                        <label class="form-label">Registered Office Address <span style="color:#ef4444;">*</span></label>
+                                                        <input type="text" class="input-box" value="${sh.addr || ''}" placeholder="Full corporate registered address" oninput="wizard.updateShareholderField(${idx}, 'addr', this.value)">
+                                                    </div>
+                                                </div>
+
+                                                <!-- Documents for Corporate Shareholder -->
+                                                <div style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px dashed #cbd5e1;">
+                                                    <div style="font-size: 0.8rem; font-weight: 800; color: #334155; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">
+                                                        Corporate Entity Documents
+                                                    </div>
+                                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;">
+                                                        ${renderDocZone('corp_shareholder', idx, 'bizfileDoc', 'ACRA Bizfile / Cert of Inc', shDocs.bizfileDoc)}
+                                                        ${renderDocZone('corp_shareholder', idx, 'constitutionDoc', 'Constitution / M&AA', shDocs.constitutionDoc)}
+                                                    </div>
+                                                </div>
+
+                                                <!-- Corporate Representative -->
+                                                <div style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px dashed #cbd5e1;">
+                                                    <div style="font-size: 0.8rem; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">
+                                                        Authorized Corporate Representative (Signatory)
+                                                    </div>
+                                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+                                                        <div class="form-group" style="margin-bottom:0;">
+                                                            <label class="form-label">Representative Full Name <span style="color:#ef4444;">*</span></label>
+                                                            <input type="text" class="input-box" value="${rep.fullName || ''}" placeholder="Full legal name" oninput="wizard.updateCorporateRepField(${idx}, 'fullName', this.value)">
+                                                        </div>
+                                                        <div class="form-group" style="margin-bottom:0;">
+                                                            <label class="form-label">ID / Passport Number <span style="color:#ef4444;">*</span></label>
+                                                            <input type="text" class="input-box" value="${rep.idNum || ''}" placeholder="Passport or NRIC No" oninput="wizard.updateCorporateRepField(${idx}, 'idNum', this.value)">
+                                                        </div>
+                                                        <div class="form-group" style="margin-bottom:0;">
+                                                            <label class="form-label">Nationality</label>
+                                                            <select class="input-box" onchange="wizard.updateCorporateRepField(${idx}, 'nationality', this.value)">
+                                                                ${nationalities.map(n => `<option value="${n}" ${(rep.nationality || 'Singaporean') === n ? 'selected' : ''}>${n}</option>`).join('')}
+                                                            </select>
+                                                        </div>
+                                                        <div class="form-group" style="margin-bottom:0;">
+                                                            <label class="form-label">Email</label>
+                                                            <input type="email" class="input-box" value="${rep.email || ''}" placeholder="rep@example.com" oninput="wizard.updateCorporateRepField(${idx}, 'email', this.value)">
+                                                        </div>
+                                                    </div>
+                                                    <div style="margin-top: 1rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;">
+                                                        ${renderDocZone('corp_rep', idx, 'idDoc', 'Representative ID / Passport', repDocs.idDoc)}
+                                                        ${renderDocZone('corp_rep', idx, 'addressDoc', 'Representative Address Proof', repDocs.addressDoc)}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        `;
+                                    }
+                                }).join('')}
+                            </div>
+                        </div>
+
+                        <!-- 4. REGISTER OF NOMINEE SHAREHOLDERS (RONS) SECTION -->
+                        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.75rem; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
+                            <div style="border-bottom: 1px solid #f1f5f9; padding-bottom: 1rem; margin-bottom: 1.25rem;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <span style="background: #dbeafe; color: #1d4ed8; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800;">4</span>
+                                    <h3 style="font-size: 1.15rem; font-weight: 800; color: #0f172a; margin: 0;">Register of Nominee Shareholders (RONS)</h3>
+                                </div>
+                                <p style="font-size: 0.8rem; color: #64748b; margin: 0.35rem 0 0; line-height: 1.4;">
+                                    Under Singapore ACRA regulations, companies must maintain a register of nominee shareholders and their nominators.
+                                </p>
+                            </div>
+
+                            <div style="margin-bottom: 1rem;">
+                                <label style="font-size: 0.82rem; font-weight: 700; color: #1e293b; display: block; margin-bottom: 0.5rem;">
+                                    Does your company have any Nominee Shareholders?
+                                </label>
+                                <div style="display: flex; gap: 1.5rem;">
+                                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: #334155;">
+                                        <input type="radio" name="rons-has-nominee" value="No" ${rons.hasNominee !== 'Yes' ? 'checked' : ''} onchange="wizard.updateRonsField('hasNominee', 'No')" style="accent-color: #2563eb;">
+                                        No, all shareholders hold shares for themselves
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: #334155;">
+                                        <input type="radio" name="rons-has-nominee" value="Yes" ${rons.hasNominee === 'Yes' ? 'checked' : ''} onchange="wizard.updateRonsField('hasNominee', 'Yes')" style="accent-color: #2563eb;">
+                                        Yes, there are nominee shareholders
+                                    </label>
+                                </div>
+                            </div>
+
+                            ${rons.hasNominee === 'Yes' ? `
+                                <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; padding: 1.25rem; margin-top: 1rem;">
+                                    <div style="font-size: 0.85rem; font-weight: 700; color: #0f172a; margin-bottom: 0.5rem;">Nominee Declaration & Nominator Details</div>
+                                    <p style="font-size: 0.75rem; color: #64748b; margin: 0 0 1rem;">Please specify the details of the nominator (the ultimate beneficial controller behind the nominee).</p>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+                                        <div class="form-group" style="margin-bottom:0;">
+                                            <label class="form-label">Nominator Full Legal Name <span style="color:#ef4444;">*</span></label>
+                                            <input type="text" class="input-box" value="${rons.nominatorName || ''}" placeholder="Full name of nominator" oninput="wizard.updateRonsField('nominatorName', this.value)">
+                                        </div>
+                                        <div class="form-group" style="margin-bottom:0;">
+                                            <label class="form-label">Nominator ID / Passport No <span style="color:#ef4444;">*</span></label>
+                                            <input type="text" class="input-box" value="${rons.nominatorId || ''}" placeholder="ID / Passport number" oninput="wizard.updateRonsField('nominatorId', this.value)">
+                                        </div>
+                                        <div class="form-group" style="margin-bottom:0;">
+                                            <label class="form-label">Nominator Nationality</label>
+                                            <select class="input-box" onchange="wizard.updateRonsField('nominatorNationality', this.value)">
+                                                ${nationalities.map(n => `<option value="${n}" ${(rons.nominatorNationality || 'Singaporean') === n ? 'selected' : ''}>${n}</option>`).join('')}
+                                            </select>
+                                        </div>
+                                        <div class="form-group" style="grid-column: 1 / -1; margin-bottom:0;">
+                                            <label class="form-label">Nominator Residential / Registered Address <span style="color:#ef4444;">*</span></label>
+                                            <input type="text" class="input-box" value="${rons.nominatorAddress || ''}" placeholder="Full residential address" oninput="wizard.updateRonsField('nominatorAddress', this.value)">
+                                        </div>
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            handleDocUpload(event, entityType, index, docKey) {
+                const file = event.target.files && event.target.files[0];
+                if (!file) return;
+
+                if (file.size > 15 * 1024 * 1024) {
+                    showToast("File is too large. Maximum file size is 15MB.", "error");
+                    return;
+                }
+
+                showToast(`Reading ${file.name}...`, "info");
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const fileData = {
+                        name: file.name,
+                        size: file.size,
+                        type: file.type,
+                        data: e.target.result,
+                        uploadedAt: Date.now()
+                    };
+
+                    if (entityType === 'director') {
+                        if (!this.data.directors[index]) this.data.directors[index] = {};
+                        if (!this.data.directors[index].docs) this.data.directors[index].docs = {};
+                        this.data.directors[index].docs[docKey] = fileData;
+                    } else if (entityType === 'ind_shareholder') {
+                        if (this.data.shareholders[index]) {
+                            if (!this.data.shareholders[index].docs) this.data.shareholders[index].docs = {};
+                            this.data.shareholders[index].docs[docKey] = fileData;
+                        }
+                    } else if (entityType === 'corp_shareholder') {
+                        if (this.data.shareholders[index]) {
+                            if (!this.data.shareholders[index].docs) this.data.shareholders[index].docs = {};
+                            this.data.shareholders[index].docs[docKey] = fileData;
+                        }
+                    } else if (entityType === 'corp_rep') {
+                        if (this.data.shareholders[index]) {
+                            if (!this.data.shareholders[index].rep) this.data.shareholders[index].rep = {};
+                            if (!this.data.shareholders[index].rep.docs) this.data.shareholders[index].rep.docs = {};
+                            this.data.shareholders[index].rep.docs[docKey] = fileData;
+                        }
+                    }
+
+                    this.save();
+                    this.render();
+                    showToast(`Uploaded ${file.name} successfully!`, "success");
+                };
+                reader.onerror = () => {
+                    showToast("Failed to read file.", "error");
+                };
+                reader.readAsDataURL(file);
+            }
+
+            removeDoc(entityType, index, docKey) {
+                if (entityType === 'director' && this.data.directors?.[index]?.docs) {
+                    delete this.data.directors[index].docs[docKey];
+                } else if (entityType === 'ind_shareholder' && this.data.shareholders?.[index]?.docs) {
+                    delete this.data.shareholders[index].docs[docKey];
+                } else if (entityType === 'corp_shareholder' && this.data.shareholders?.[index]?.docs) {
+                    delete this.data.shareholders[index].docs[docKey];
+                } else if (entityType === 'corp_rep' && this.data.shareholders?.[index]?.rep?.docs) {
+                    delete this.data.shareholders[index].rep.docs[docKey];
+                }
+                this.save();
+                this.render();
+                showToast("Document removed.", "info");
+            }
+
+            previewDoc(entityType, index, docKey) {
+                let doc = null;
+                if (entityType === 'director') doc = this.data.directors?.[index]?.docs?.[docKey];
+                else if (entityType === 'ind_shareholder' || entityType === 'corp_shareholder') doc = this.data.shareholders?.[index]?.docs?.[docKey];
+                else if (entityType === 'corp_rep') doc = this.data.shareholders?.[index]?.rep?.docs?.[docKey];
+
+                if (!doc || !doc.data) {
+                    showToast("No document preview available.", "error");
+                    return;
+                }
+
+                const win = window.open();
+                if (doc.data.startsWith('data:application/pdf')) {
+                    win.document.write(`<iframe src="${doc.data}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+                } else {
+                    win.document.write(`<div style="display:flex;justify-content:center;align-items:center;min-height:100vh;background:#0f172a;"><img src="${doc.data}" style="max-width:95vw;max-height:95vh;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.5);"/></div>`);
+                }
+            }
+
+            autoFillShareholderFromDirector(shIdx, dirIdxStr) {
+                if (dirIdxStr === '') return;
+                const dirIdx = parseInt(dirIdxStr);
+                const dir = this.data.directors?.[dirIdx];
+                if (!dir || !this.data.shareholders?.[shIdx]) return;
+
+                const sh = this.data.shareholders[shIdx];
+                sh.name = dir.name || '';
+                sh.idType = dir.idType || 'nric';
+                sh.idNum = dir.idNum || '';
+                sh.nationality = dir.nationality || 'Singaporean';
+                sh.dob = dir.dob || '';
+                sh.email = dir.email || '';
+                sh.phone = dir.phone || '';
+                sh.addr = dir.addr || '';
+                if (dir.docs) {
+                    sh.docs = JSON.parse(JSON.stringify(dir.docs));
+                }
+                this.save();
+                this.render();
+                showToast(`Shareholder details copied from Director #${dirIdx+1}!`, "success");
+            }
+
+            updateDirectorField(index, field, value) {
+                if (!this.data.directors) this.data.directors = [];
+                if (!this.data.directors[index]) this.data.directors[index] = {};
+                this.data.directors[index][field] = value;
+                this.save();
+                this.updateContinueButtonState();
+            }
+
+            updateShareholderField(index, field, value) {
+                if (!this.data.shareholders) this.data.shareholders = [];
+                if (!this.data.shareholders[index]) this.data.shareholders[index] = {};
+                this.data.shareholders[index][field] = value;
+                this.save();
+                this.updateContinueButtonState();
+            }
+
+            updateCorporateRepField(index, field, value) {
+                if (!this.data.shareholders) this.data.shareholders = [];
+                if (!this.data.shareholders[index]) this.data.shareholders[index] = {};
+                if (!this.data.shareholders[index].rep) this.data.shareholders[index].rep = {};
+                this.data.shareholders[index].rep[field] = value;
+                this.save();
+                this.updateContinueButtonState();
+            }
+
+            updateCapitalField(field, value) {
+                if (!this.data.capital) this.data.capital = {};
+                this.data.capital[field] = value;
+                this.calculateShareholderAllocations();
+                this.save();
+                this.updateContinueButtonState();
+            }
+
+            updateSecretaryRequired(checked) {
+                if (!this.data.secretary) this.data.secretary = {};
+                this.data.secretary.required = checked;
+                this.save();
+                this.render();
+            }
+
+            updateRonsField(field, value) {
+                if (!this.data.rons) this.data.rons = { hasNominee: 'No', nomineeList: [] };
+                this.data.rons[field] = value;
+                this.save();
+                this.render();
+            }
+
+            calculateShareholderAllocations() {
+                const totalShares = parseFloat(this.data.capital?.numShares) || 1000;
+                const totalCapital = parseFloat(this.data.capital?.issued) || 1000;
+                if (!this.data.shareholders) return;
+                this.data.shareholders.forEach(sh => {
+                    const shares = parseFloat(sh.shares) || 0;
+                    sh.percent = totalShares > 0 ? Math.round((shares / totalShares) * 100) : 0;
+                    sh.shareAmount = totalShares > 0 ? Math.round((shares / totalShares) * totalCapital) : shares;
+                });
+            }
+
+            removeDirector(index) {
+                if (this.data.directors && this.data.directors.length > 1) {
+                    this.data.directors.splice(index, 1);
+                    this.save();
+                    this.render();
+                } else {
+                    showToast("At least one director is required.", "error");
+                }
+            }
+
+            addShareholder(type = 'individual') {
+                if (!this.data.shareholders) this.data.shareholders = [];
+                if (type === 'corporate') {
+                    this.data.shareholders.push({
+                        type: 'corporate',
+                        name: '',
+                        regNum: '',
+                        uen: '',
+                        regPlace: 'Singapore',
+                        regDate: '',
+                        addr: '',
+                        shares: 0,
+                        shareAmount: 0,
+                        percent: 0,
+                        ubo: 'No',
+                        isNominee: false,
+                        docs: {},
+                        rep: { fullName: '', idNum: '', nationality: 'Singaporean', email: '', phone: '', docs: {} }
+                    });
+                } else {
+                    this.data.shareholders.push({
+                        type: 'individual',
+                        name: '',
+                        idType: 'nric',
+                        idNum: '',
+                        nationality: 'Singaporean',
+                        dob: '',
+                        phone: '',
+                        email: '',
+                        addr: '',
+                        shares: 0,
+                        shareAmount: 0,
+                        percent: 0,
+                        ubo: 'Yes',
+                        isNominee: false,
+                        docs: {}
+                    });
+                }
+                this.calculateShareholderAllocations();
+                this.save();
+                this.render();
+            }
+
+            removeShareholder(index) {
+                if (this.data.shareholders && this.data.shareholders.length > 1) {
+                    this.data.shareholders.splice(index, 1);
+                    this.calculateShareholderAllocations();
+                    this.save();
+                    this.render();
+                } else {
+                    showToast("At least one shareholder is required.", "error");
+                }
+            }
+
             adjustCount(key, change) {
-                let list = getVal(this.data, key);
-                if (!list || !Array.isArray(list)) {
-                    list = [];
-                }
-                
-                if (change > 0) {
-                    let defaultObj = {};
-                    if (key === 'directors') {
-                        defaultObj = { name: '', idType: 'local', idNum: '', dob: '', phone: '', passportExpiry: '', docs: {} };
+                if (key === 'directors') {
+                    if (!this.data.directors) this.data.directors = [];
+                    if (change > 0) {
+                        this.data.directors.push({
+                            name: '',
+                            idType: 'nric',
+                            idNum: '',
+                            nationality: 'Singaporean',
+                            dob: '',
+                            gender: 'Male',
+                            phone: '',
+                            email: '',
+                            addr: '',
+                            passportExpiry: '',
+                            disqualificationAcknowledge: true,
+                            docs: {}
+                        });
+                    } else if (change < 0) {
+                        if (this.data.directors.length > 1) {
+                            this.data.directors.pop();
+                        } else {
+                            showToast("At least one director is required.", "error");
+                            return;
+                        }
                     }
-                    list.push(defaultObj);
-                } else if (change < 0) {
-                    if (list.length > 1) {
-                        list.pop();
-                    } else {
-                        showToast(`At least one director is required.`, "error");
-                        return;
+                } else if (key === 'shareholders_individual') {
+                    if (!this.data.shareholders) this.data.shareholders = [];
+                    if (change > 0) {
+                        this.data.shareholders.push({
+                            type: 'individual',
+                            name: '',
+                            idType: 'nric',
+                            idNum: '',
+                            nationality: 'Singaporean',
+                            dob: '',
+                            phone: '',
+                            email: '',
+                            addr: '',
+                            shares: 0,
+                            shareAmount: 0,
+                            percent: 0,
+                            ubo: 'Yes',
+                            isNominee: false,
+                            docs: {}
+                        });
+                        this.calculateShareholderAllocations();
+                    } else if (change < 0) {
+                        const indIdxs = [];
+                        this.data.shareholders.forEach((s, idx) => { if (s.type === 'individual') indIdxs.push(idx); });
+                        if (this.data.shareholders.length > 1 && indIdxs.length > 0) {
+                            const lastIndIdx = indIdxs[indIdxs.length - 1];
+                            this.data.shareholders.splice(lastIndIdx, 1);
+                            this.calculateShareholderAllocations();
+                        } else {
+                            showToast("At least one shareholder is required.", "error");
+                            return;
+                        }
+                    }
+                } else if (key === 'shareholders_corporate') {
+                    if (!this.data.shareholders) this.data.shareholders = [];
+                    if (change > 0) {
+                        this.data.shareholders.push({
+                            type: 'corporate',
+                            name: '',
+                            regNum: '',
+                            uen: '',
+                            regPlace: 'Singapore',
+                            regDate: '',
+                            addr: '',
+                            shares: 0,
+                            shareAmount: 0,
+                            percent: 0,
+                            ubo: 'No',
+                            isNominee: false,
+                            docs: {},
+                            rep: { fullName: '', idNum: '', nationality: 'Singaporean', email: '', phone: '', docs: {} }
+                        });
+                        this.calculateShareholderAllocations();
+                    } else if (change < 0) {
+                        const corpIdxs = [];
+                        this.data.shareholders.forEach((s, idx) => { if (s.type === 'corporate') corpIdxs.push(idx); });
+                        if (corpIdxs.length > 0) {
+                            const lastCorpIdx = corpIdxs[corpIdxs.length - 1];
+                            this.data.shareholders.splice(lastCorpIdx, 1);
+                            this.calculateShareholderAllocations();
+                        } else {
+                            return;
+                        }
                     }
                 }
-                
-                setVal(this.data, key, list);
                 this.save();
                 this.render();
             }
@@ -5609,15 +6583,29 @@
                         const unit = this.data.office ? this.data.office.unit : '';
                         const postal = this.data.office ? this.data.office.postalCode : '';
                         const country = this.data.office ? this.data.office.country : '';
+                        const premiseType = this.data.office ? this.data.office.premiseType : '';
+                        const hdbApproval = this.data.office ? this.data.office.hdbApproval : '';
+                        const uraApproval = this.data.office ? this.data.office.uraApproval : '';
                         
                         if (!block || block.trim() === '' ||
                             !street || street.trim() === '' ||
                             !floor || floor.trim() === '' ||
                             !unit || unit.trim() === '' ||
                             !postal || postal.trim() === '' ||
-                            !country || country.trim() === '') {
+                            !country || country.trim() === '' ||
+                            !premiseType || premiseType.trim() === '') {
                             isValid = false;
-                            validationReasons.push(`office address fields incomplete`);
+                            validationReasons.push(`office address or premise type incomplete`);
+                        }
+
+                        if (premiseType === 'HDB' && (!hdbApproval || hdbApproval.trim() === '')) {
+                            isValid = false;
+                            validationReasons.push(`office.hdbApproval is empty`);
+                        }
+
+                        if (premiseType === 'Private Property' && (!uraApproval || uraApproval.trim() === '')) {
+                            isValid = false;
+                            validationReasons.push(`office.uraApproval is empty`);
                         }
                     }
                 }
@@ -5873,6 +6861,9 @@
                     const residency = this.data.office ? this.data.office.residency : 'local';
                     const useService = this.data.office ? this.data.office.useService : null;
                     const address = this.data.office ? this.data.office.address : '';
+                    const premiseType = this.data.office ? this.data.office.premiseType : '';
+                    const hdbApproval = this.data.office ? this.data.office.hdbApproval : '';
+                    const uraApproval = this.data.office ? this.data.office.uraApproval : '';
                     
                     const residencyText = residency === 'local' ? 'Local (Singapore Resident)' : 'Foreigner (Non-Resident)';
                     let serviceText = 'Not selected';
@@ -5880,6 +6871,11 @@
                         serviceText = 'Globalisor Premium CBD Address ($480/yr)';
                     } else if (useService === false) {
                         serviceText = 'Use my own local address';
+                        if (premiseType) {
+                            serviceText += ` &bull; ${premiseType}`;
+                            if (premiseType === 'HDB' && hdbApproval) serviceText += ` (HDB Approval: ${hdbApproval})`;
+                            if (premiseType === 'Private Property' && uraApproval) serviceText += ` (URA Approval: ${uraApproval})`;
+                        }
                     }
                     
                     titleEl.innerText = 'Registered Office Selection';
@@ -5906,14 +6902,10 @@
                     ` + this.getHelperExtraHTML(sec);
                 } else {
                     const titleMap = {
-                        'sec-package-next': 'Package details',
-                        'sec-checkout': 'Package summary & payment',
-                        'sec-checkout-foreigner': 'Package summary & payment'
+                        'sec-package-next': 'Package details'
                     };
                     const descMap = {
-                        'sec-package-next': 'Provide your contact information so we can prepare and process your package setup.',
-                        'sec-checkout': 'Review your selected services and enter card details to complete payment. We will email you a complete receipt and confirmation summary.',
-                        'sec-checkout-foreigner': 'Review your selected services and enter card details to complete payment. We will email you a complete receipt and confirmation summary.'
+                        'sec-package-next': 'Provide your contact information so we can prepare and process your package setup.'
                     };
                     titleEl.innerText = sec.title || titleMap[sec.id] || '';
                     textEl.innerHTML = (sec.description || descMap[sec.id] || '') + this.getHelperExtraHTML(sec);
@@ -6633,7 +7625,7 @@
                 
                 const stepIndicator = document.getElementById('step-indicator');
                 if (stepIndicator) {
-                    stepIndicator.innerText = `Step 6 of 6 (100% Completed)`;
+                    stepIndicator.innerText = `Step ${this.sections.length} of ${this.sections.length} (100% Completed)`;
                     stepIndicator.style.textTransform = 'none';
                     stepIndicator.style.fontSize = '0.85rem';
                 }
@@ -6678,7 +7670,7 @@
                 if (token.startsWith('mock-') && !isGuest) {
                     showToast("Submission successful! (Demo Mode)");
                     lastKnownStatus = 'under review';
-                    this.showStatusPage('under review', this.data);
+                    this.renderAcknowledgmentReceipt({ applicationId: localStorage.getItem('application_id') || 'APP-2026-DEMO' });
                     return;
                 }
 
@@ -6722,8 +7714,8 @@
                     
                     if (res.ok) {
                         const response = await res.json();
-                        showToast("Submission successful! Transitioning to Onboarding Journey...");
-                        lastKnownStatus = response.status;
+                        showToast("Pre-registration submitted successfully!");
+                        lastKnownStatus = response.status || 'under review';
                         
                         if (response.applicationId) {
                             localStorage.setItem('application_id', response.applicationId);
@@ -6738,7 +7730,7 @@
                             }));
                         }
                         
-                        await this.autoLoginAndRedirect();
+                        this.renderAcknowledgmentReceipt(response);
                     } else {
                         if (res.status === 401) {
                             localStorage.removeItem('token');
@@ -6749,11 +7741,159 @@
                         }
                     }
                 } catch (error) {
-                    console.warn("Submission failed (API offline), simulating local success:", error);
-                    showToast("Submission successful! Transitioning to Onboarding Journey...");
+                    console.warn("Submission fallback:", error);
+                    showToast("Pre-registration submitted successfully!");
                     lastKnownStatus = 'under review';
-                    await this.autoLoginAndRedirect();
+                    this.renderAcknowledgmentReceipt({});
                 }
+            }
+
+            renderAcknowledgmentReceipt(response = {}) {
+                const data = this.data || {};
+                const contact = data.contact || {};
+                const companyName1 = getVal(data, 'names[0]') || 'Proposed Company Option 1';
+                const companyName2 = getVal(data, 'names[1]') || '';
+                const applicantName = `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || 'Applicant';
+                const applicantEmail = contact.email || response.email || 'Registered Email';
+                const appId = response.applicationId || localStorage.getItem('application_id') || ('APP-' + new Date().getFullYear() + '-' + Math.floor(100000 + Math.random() * 900000));
+                localStorage.setItem('application_id', appId);
+
+                let primaryActivity = 'Not specified';
+                const act = data.activities?.primary;
+                if (act) {
+                    primaryActivity = typeof act === 'object' ? `${act.code ? act.code + ' - ' : ''}${act.name || ''}` : act;
+                }
+
+                const submissionDate = new Date().toLocaleString('en-SG', { 
+                    dateStyle: 'medium', 
+                    timeStyle: 'short'
+                });
+
+                document.getElementById('empty-state').style.display = 'none';
+                document.getElementById('status-state').style.display = 'none';
+                const wizContainer = document.getElementById('wizard-container');
+                if (wizContainer) wizContainer.classList.add('active');
+
+                const stepIndicator = document.getElementById('step-indicator');
+                if (stepIndicator) stepIndicator.innerText = 'Application Acknowledgment Copy';
+                const stepTitle = document.getElementById('step-title');
+                if (stepTitle) stepTitle.innerText = 'Application Submitted for Verification';
+
+                const nextBtn = document.getElementById('next-btn');
+                if (nextBtn) nextBtn.style.display = 'none';
+                const backBtn = document.getElementById('back-to-status');
+                if (backBtn) backBtn.style.display = 'none';
+
+                document.getElementById('wizard-body').innerHTML = `
+                    <div class="ack-receipt-container" style="max-width: 780px; margin: 0 auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 20px; box-shadow: 0 10px 35px rgba(15, 23, 42, 0.06); padding: 2.5rem; font-family: 'Outfit', sans-serif;">
+                        
+                        <!-- Header Badge & Title -->
+                        <div style="text-align: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 1.75rem; margin-bottom: 2rem;">
+                            <div style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 50%; color: white; font-size: 2rem; margin-bottom: 1rem; box-shadow: 0 8px 20px rgba(16, 185, 129, 0.25);">
+                                ✓
+                            </div>
+                            <h2 style="font-size: 1.75rem; font-weight: 800; color: #0f172a; margin: 0 0 0.5rem 0; letter-spacing: -0.02em;">
+                                Application Submitted Successfully
+                            </h2>
+                            <p style="color: #64748b; font-size: 0.95rem; margin: 0; line-height: 1.5;">
+                                Your pre-registration request has been officially recorded and queued for specialist verification.
+                            </p>
+                        </div>
+
+                        <!-- Reference & Status Box -->
+                        <div style="background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.25rem 1.5rem; margin-bottom: 2rem; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem;">
+                            <div>
+                                <div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
+                                    Application Reference No.
+                                </div>
+                                <div style="font-size: 1.25rem; font-weight: 800; color: #2563eb; font-family: monospace;">
+                                    ${appId}
+                                </div>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
+                                    Submission Date
+                                </div>
+                                <div style="font-size: 0.9rem; font-weight: 700; color: #334155;">
+                                    ${submissionDate}
+                                </div>
+                            </div>
+                            <div>
+                                <span style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.9rem; background: #fef3c7; color: #92400e; font-size: 0.8rem; font-weight: 700; border-radius: 9999px; border: 1px solid #fde68a;">
+                                    <span style="width: 8px; height: 8px; background: #f59e0b; border-radius: 50%; display: inline-block;"></span>
+                                    Under Review (Pending Assignment)
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Application Summary Grid -->
+                        <div style="border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; margin-bottom: 2rem;">
+                            <div style="background: #f8fafc; padding: 0.85rem 1.25rem; font-weight: 700; font-size: 0.85rem; color: #334155; border-bottom: 1px solid #e2e8f0;">
+                                📋 Submitted Application Summary
+                            </div>
+                            <div style="padding: 1.25rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; font-size: 0.85rem;">
+                                <div>
+                                    <span style="color: #64748b; display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem;">Proposed Company Name:</span>
+                                    <strong style="color: #0f172a;">${companyName1}</strong>
+                                    ${companyName2 ? `<div style="font-size: 0.75rem; color: #64748b; margin-top: 0.15rem;">Backup: ${companyName2}</div>` : ''}
+                                </div>
+                                <div>
+                                    <span style="color: #64748b; display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem;">Primary Business Activity:</span>
+                                    <strong style="color: #0f172a;">${primaryActivity}</strong>
+                                </div>
+                                <div>
+                                    <span style="color: #64748b; display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem;">Applicant / Contact Person:</span>
+                                    <strong style="color: #0f172a;">${applicantName}</strong>
+                                </div>
+                                <div>
+                                    <span style="color: #64748b; display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem;">Registered Email:</span>
+                                    <strong style="color: #0f172a; word-break: break-all;">${applicantEmail}</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Next Steps Flow Roadmap -->
+                        <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 16px; padding: 1.5rem; margin-bottom: 2rem;">
+                            <h4 style="margin: 0 0 1rem 0; color: #1e40af; font-weight: 800; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem;">
+                                <span>📌</span> What Happens Next?
+                            </h4>
+                            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                                <div style="display: flex; gap: 0.85rem; align-items: flex-start;">
+                                    <div style="width: 26px; height: 26px; border-radius: 50%; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; flex-shrink: 0;">1</div>
+                                    <div>
+                                        <div style="font-weight: 700; color: #1e293b; font-size: 0.85rem;">Admin Review & Specialist Assignment</div>
+                                        <div style="color: #475569; font-size: 0.8rem; line-height: 1.4; margin-top: 0.15rem;">Our administration team reviews your incorporation requirements and assigns a dedicated corporate specialist to your file.</div>
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 0.85rem; align-items: flex-start;">
+                                    <div style="width: 26px; height: 26px; border-radius: 50%; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; flex-shrink: 0;">2</div>
+                                    <div>
+                                        <div style="font-weight: 700; color: #1e293b; font-size: 0.85rem;">Specialist Validation & Compliance Review</div>
+                                        <div style="color: #475569; font-size: 0.8rem; line-height: 1.4; margin-top: 0.15rem;">Your assigned specialist will verify the proposed company names, SSIC activities, and officer residency rules for ACRA compliance.</div>
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 0.85rem; align-items: flex-start;">
+                                    <div style="width: 26px; height: 26px; border-radius: 50%; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; flex-shrink: 0;">3</div>
+                                    <div>
+                                        <div style="font-weight: 700; color: #1e293b; font-size: 0.85rem;">Email Dispatch of Portal Credentials</div>
+                                        <div style="color: #475569; font-size: 0.8rem; line-height: 1.4; margin-top: 0.15rem;">Once validated, an official welcome email containing your <strong>Client Portal login credentials</strong> and onboarding instructions will be dispatched to <strong>${applicantEmail}</strong>.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div style="display: flex; gap: 1rem; justify-content: center;">
+                            <button type="button" onclick="window.print()" class="btn btn-outline" style="padding: 0.75rem 1.75rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; border-color: #cbd5e1; color: #334155; font-weight: 700;">
+                                🖨️ Print / Save Acknowledgment Receipt
+                            </button>
+                            <button type="button" onclick="window.location.href='/choose-service'" class="btn btn-primary" style="padding: 0.75rem 2rem; font-size: 0.85rem; font-weight: 700;">
+                                Back to Home
+                            </button>
+                        </div>
+                    </div>
+                `;
+                window.scrollTo(0, 0);
             }
         }
 

@@ -360,6 +360,38 @@
         </div>
     </div>
 
+    <!-- Document Preview Modal -->
+    <div id="doc-preview-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[10030] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
+            <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                        <i data-lucide="file-text" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <span id="doc-preview-title" class="font-bold text-sm block">Document Preview</span>
+                        <span id="doc-preview-subtitle" class="text-[11px] text-slate-400 block">Uploaded verification document</span>
+                    </div>
+                </div>
+                <button onclick="closeDocPreviewModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <div id="doc-preview-body" class="p-6 flex-1 overflow-auto flex items-center justify-center bg-slate-100 min-h-[360px]">
+                <!-- Document preview injected dynamically -->
+            </div>
+            <div class="px-6 py-3.5 bg-white border-t border-slate-200 flex items-center justify-between gap-3">
+                <span class="text-xs text-slate-400 font-medium">Verify that the document is legible and matches registered details.</span>
+                <div class="flex items-center gap-2">
+                    <a id="doc-preview-download-btn" href="#" download="document" target="_blank" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm transition-all">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i> Download Document
+                    </a>
+                    <button onclick="closeDocPreviewModal()" class="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold rounded-xl transition-all">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification Container -->
     <div id="toast-container" class="fixed bottom-6 right-6 z-[10020] flex flex-col gap-2"></div>
 
@@ -625,18 +657,77 @@
             currentReviewingApp = null;
         };
 
+        // Document Preview Helpers
+        window.previewAppDoc = function(docData, docName) {
+            const modal = document.getElementById('doc-preview-modal');
+            const titleEl = document.getElementById('doc-preview-title');
+            const bodyEl = document.getElementById('doc-preview-body');
+            const downloadBtn = document.getElementById('doc-preview-download-btn');
+
+            titleEl.innerText = docName || 'Uploaded Document';
+            downloadBtn.href = docData || '#';
+            downloadBtn.download = docName || 'document';
+
+            if (!docData) {
+                bodyEl.innerHTML = `<div class="text-slate-400 text-xs italic">No document data available.</div>`;
+            } else if (docData.startsWith('data:image/') || docData.match(/\.(jpeg|jpg|gif|png|webp)($|\?)/i)) {
+                bodyEl.innerHTML = `<img src="${docData}" alt="${docName}" class="max-h-[60vh] max-w-full object-contain rounded-xl shadow-md">`;
+            } else if (docData.startsWith('data:application/pdf') || docData.match(/\.pdf($|\?)/i)) {
+                bodyEl.innerHTML = `<iframe src="${docData}" class="w-full h-[60vh] rounded-xl border border-slate-300"></iframe>`;
+            } else {
+                bodyEl.innerHTML = `
+                    <div class="text-center p-8 bg-white rounded-2xl border border-slate-200">
+                        <i data-lucide="file-check" class="w-12 h-12 mx-auto text-blue-600 mb-3"></i>
+                        <h4 class="font-bold text-slate-800 text-sm mb-1">${docName}</h4>
+                        <p class="text-xs text-slate-500 mb-4">Click download to view this file locally.</p>
+                        <a href="${docData}" download="${docName}" target="_blank" class="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-sm">Download File</a>
+                    </div>
+                `;
+            }
+
+            modal.classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        };
+
+        window.closeDocPreviewModal = function() {
+            document.getElementById('doc-preview-modal').classList.add('hidden');
+        };
+
         function renderReviewModalContent(app) {
             const d = app.data || {};
+            const contact = d.contact || {};
             const names = Array.isArray(d.names) ? d.names : [];
             const checks = d.nameChecks || {};
-            const primaryActivity = d.primaryActivity || d.activity || 'Not specified';
-            const secondaryActivity = d.secondaryActivity || 'None';
-            const capital = d.capital || d.shareCapital || 'SGD 10,000';
-            const totalShares = d.totalShares || d.shares || '10,000';
+            const suffix = d.companySuffix || 'Pte. Ltd.';
+
+            // SSIC & Activities
+            const priSsic = d.primarySsic || (typeof d.primaryActivity === 'object' ? d.primaryActivity : null) || {};
+            const secSsic = d.secondarySsic || (typeof d.secondaryActivity === 'object' ? d.secondaryActivity : null) || {};
+            const primaryTitle = (typeof d.primaryActivity === 'string' ? d.primaryActivity : '') || priSsic.title || priSsic.name || priSsic.description || d.activity || 'Not specified';
+            const primaryCode = priSsic.code || priSsic.ssic || (typeof d.primaryActivity === 'string' && d.primaryActivity.match(/^\d{5}/) ? d.primaryActivity.match(/^\d{5}/)[0] : '');
+            const primaryCustom = d.customPrimaryActivity || priSsic.customDescription || '';
+
+            const secondaryTitle = (typeof d.secondaryActivity === 'string' ? d.secondaryActivity : '') || secSsic.title || secSsic.name || secSsic.description || 'None';
+            const secondaryCode = secSsic.code || secSsic.ssic || (typeof d.secondaryActivity === 'string' && d.secondaryActivity.match(/^\d{5}/) ? d.secondaryActivity.match(/^\d{5}/)[0] : '');
+            const secondaryCustom = d.customSecondaryActivity || secSsic.customDescription || '';
+
+            // Capital Structure
+            const capitalObj = (typeof d.capital === 'object' && d.capital !== null) ? d.capital : {};
+            const currency = capitalObj.currency || 'SGD';
+            const issuedCapital = capitalObj.issued || capitalObj.shareCapital || d.shareCapital || 10000;
+            const totalShares = capitalObj.numShares || capitalObj.shares || d.totalShares || d.shares || 10000;
+            const paidUpCapital = capitalObj.paidUp || capitalObj.paidUpCapital || issuedCapital;
+            const shareType = capitalObj.type || 'Ordinary';
             const fye = d.fye || d.financialYearEnd || '31 December';
 
-            document.getElementById('modal-company-title').innerText = names[0] || 'Proposed Singapore Company';
-            document.getElementById('modal-applicant-subtitle').innerText = `Applicant: ${app.clientFirstName || ''} ${app.clientLastName || ''} (${app.clientEmail || 'N/A'}) • Phone: ${app.clientPhone || 'N/A'}`;
+            // Applicant Info
+            const applicantName = `${contact.firstName || app.clientFirstName || ''} ${contact.lastName || app.clientLastName || ''}`.trim() || 'Applicant';
+            const applicantEmail = contact.email || app.clientEmail || 'N/A';
+            const applicantPhone = contact.phone ? `${contact.countryCode || ''} ${contact.phone}`.trim() : (app.clientPhone || 'N/A');
+            const journeyType = d.journeyType === 'FOREIGNER' ? 'Foreign Entrepreneur Journey' : 'Singapore Resident Journey';
+
+            document.getElementById('modal-company-title').innerText = `${names[0] || 'Proposed Singapore Company'} ${suffix}`.trim();
+            document.getElementById('modal-applicant-subtitle').innerText = `Applicant: ${applicantName} (${applicantEmail}) • Phone: ${applicantPhone} • ${journeyType}`;
 
             const status = (app.status || 'pending').toLowerCase();
             const badge = document.getElementById('modal-status-badge');
@@ -651,64 +742,360 @@
                 badge.innerText = 'Pending Review';
             }
 
-            // Names list HTML
+            // --- Section 1: Names HTML ---
             let namesHtml = names.map((name, i) => {
+                if (!name) return '';
                 const c = checks[`names[${i}]`] || {};
                 const s = c.status || 'pending';
-                let tag = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">Pending ACRA check</span>`;
-                if (s === 'available') tag = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">✅ Available in ACRA</span>`;
-                else if (s === 'taken') tag = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800">❌ Name Taken</span>`;
-                else if (s === 'similar') tag = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">⚠️ Similar Name Exists</span>`;
+                let tag = `<span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">⚪ Pending ACRA Check</span>`;
+                if (s === 'available') tag = `<span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">🟢 Available in ACRA</span>`;
+                else if (s === 'taken') tag = `<span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-red-50 text-red-700 border border-red-200">🔴 Taken / Rejected</span>`;
+                else if (s === 'similar') tag = `<span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">🟡 Similar Name Exists</span>`;
 
-                return `<div class="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200">
-                    <div>
-                        <span class="text-[10px] font-bold text-slate-400 uppercase">Option ${i + 1}${i === 0 ? ' (Primary Choice)' : ''}</span>
-                        <div class="font-bold text-slate-900 text-sm">${name}</div>
+                return `
+                    <div class="flex items-center justify-between p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                        <div>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Option ${i + 1}${i === 0 ? ' (Primary Preferred Choice)' : ''}</span>
+                            <div class="font-bold text-slate-900 text-sm mt-0.5">${name} <span class="text-xs text-slate-500 font-semibold">${suffix}</span></div>
+                        </div>
+                        ${tag}
                     </div>
-                    ${tag}
-                </div>`;
-            }).join('');
+                `;
+            }).filter(Boolean).join('');
 
-            // Directors / Shareholders list HTML
-            const officers = Array.isArray(d.officers) ? d.officers : (Array.isArray(d.directors) ? d.directors : []);
-            let officersHtml = '';
-            if (officers.length > 0) {
-                officersHtml = officers.map((off, i) => `
-                    <div class="p-4 bg-white rounded-2xl border border-slate-200 space-y-2">
-                        <div class="flex items-center justify-between">
-                            <div class="font-bold text-slate-900 text-sm">${off.name || off.fullName || `Person ${i+1}`}</div>
-                            <span class="px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold uppercase">${off.role || 'Director & Shareholder'}</span>
+            // --- Section 3: Directors HTML ---
+            const directors = Array.isArray(d.directors) ? d.directors : (Array.isArray(d.officers) ? d.officers : []);
+            let directorsHtml = '';
+            if (directors.length > 0) {
+                directorsHtml = directors.map((dir, i) => {
+                    const docs = dir.docs || {};
+                    const docKeys = Object.keys(docs);
+                    return `
+                        <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
+                                        D${i + 1}
+                                    </div>
+                                    <div>
+                                        <div class="font-bold text-slate-900 text-sm">${dir.name || `Director #${i+1}`}</div>
+                                        <div class="text-[11px] text-slate-400 font-medium">${dir.gender || 'Gender N/A'} • DOB: ${dir.dob || 'N/A'}</div>
+                                    </div>
+                                </div>
+                                <span class="px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold uppercase border border-blue-200/50">Director</span>
+                            </div>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-slate-700">
+                                <div>
+                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Nationality</span>
+                                    <strong>${dir.nationality || 'Singaporean'}</strong>
+                                </div>
+                                <div>
+                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">ID (${dir.idType || 'NRIC/Passport'})</span>
+                                    <strong class="font-mono">${dir.idNum || dir.idNumber || dir.passport || '—'}</strong>
+                                </div>
+                                <div>
+                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Email</span>
+                                    <strong class="truncate block" title="${dir.email || '—'}">${dir.email || '—'}</strong>
+                                </div>
+                                <div>
+                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Phone</span>
+                                    <strong>${dir.phone || '—'}</strong>
+                                </div>
+                            </div>
+                            <div class="pt-2 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                                <div>
+                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Residential Address</span>
+                                    <p class="font-medium text-slate-700 mt-0.5">${dir.addr || dir.address || '—'}</p>
+                                </div>
+                                <div>
+                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Disqualification Declaration</span>
+                                    <span class="inline-flex items-center gap-1 font-semibold text-emerald-700 text-xs mt-0.5">
+                                        ✓ ${dir.disqualificationAcknowledge !== false ? 'Confirmed not disqualified' : 'Pending'}
+                                    </span>
+                                    ${dir.passportExpiry ? `<div class="text-[11px] text-slate-500 mt-0.5">Passport Expiry: <strong>${dir.passportExpiry}</strong></div>` : ''}
+                                </div>
+                            </div>
+                            ${docKeys.length > 0 ? `
+                                <div class="pt-2 border-t border-slate-100">
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">KYC Documents Uploaded</span>
+                                    <div class="flex flex-wrap gap-2">
+                                        ${docKeys.map(k => {
+                                            const doc = docs[k];
+                                            if (!doc || !doc.name) return '';
+                                            const label = k === 'nricFront' ? 'NRIC Front' : (k === 'nricBack' ? 'NRIC Back' : (k === 'passport' ? 'Passport Copy' : (k === 'proofOfAddress' ? 'Proof of Address' : doc.name)));
+                                            return `
+                                                <div class="inline-flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden shadow-xs hover:border-blue-300 transition-all">
+                                                    <button type="button" onclick="window.previewAppDoc('${doc.data || ''}', '${doc.name}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 hover:bg-blue-50 text-slate-700 hover:text-blue-700 text-xs font-semibold transition-all">
+                                                        <i data-lucide="eye" class="w-3.5 h-3.5 text-blue-600"></i>
+                                                        <span>${label}</span>
+                                                        <span class="text-[10px] text-slate-400 font-mono">(${doc.size ? Math.round(doc.size/1024) + 'KB' : 'File'})</span>
+                                                    </button>
+                                                    <a href="${doc.data || '#'}" download="${doc.name || 'document'}" target="_blank" title="Download ${doc.name}" class="px-2.5 py-1.5 border-l border-slate-200 hover:bg-blue-100 text-slate-500 hover:text-blue-700 flex items-center justify-center transition-all">
+                                                        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                                    </a>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
                         </div>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-slate-600">
-                            <div><span class="text-slate-400 block text-[10px]">Nationality:</span> <strong>${off.nationality || 'Singaporean / Foreign'}</strong></div>
-                            <div><span class="text-slate-400 block text-[10px]">ID / Passport:</span> <strong>${off.idNumber || off.passport || 'Verified'}</strong></div>
-                            <div><span class="text-slate-400 block text-[10px]">Shareholding:</span> <strong>${off.shares || off.sharePercentage || '100%'} (${off.numberOfShares || totalShares} shares)</strong></div>
-                            <div><span class="text-slate-400 block text-[10px]">Email:</span> <strong>${off.email || app.clientEmail || 'N/A'}</strong></div>
-                        </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
             } else {
-                officersHtml = `
-                    <div class="p-4 bg-white rounded-2xl border border-slate-200 space-y-2">
-                        <div class="flex items-center justify-between">
-                            <div class="font-bold text-slate-900 text-sm">${app.clientFirstName || 'Applicant'} ${app.clientLastName || ''}</div>
-                            <span class="px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold uppercase">Sole Director & 100% Shareholder</span>
+                directorsHtml = `<p class="text-xs text-slate-400 italic">No directors submitted</p>`;
+            }
+
+            // --- Section 4: Shareholders HTML ---
+            const shareholders = Array.isArray(d.shareholders) ? d.shareholders : [];
+            let shareholdersHtml = '';
+            if (shareholders.length > 0) {
+                shareholdersHtml = shareholders.map((sh, i) => {
+                    const isCorp = sh.type === 'corporate';
+                    const docs = sh.docs || {};
+                    const docKeys = Object.keys(docs);
+                    return `
+                        <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-8 h-8 rounded-xl ${isCorp ? 'bg-purple-50 text-purple-600' : 'bg-emerald-50 text-emerald-600'} flex items-center justify-center font-bold text-xs">
+                                        ${isCorp ? '🏢' : '👤'}
+                                    </div>
+                                    <div>
+                                        <div class="font-bold text-slate-900 text-sm">${sh.name || (isCorp ? 'Corporate Entity' : 'Individual Shareholder')}</div>
+                                        <div class="text-[11px] text-slate-400 font-medium">${isCorp ? `Corporate Shareholder • UEN/Reg: ${sh.regNumber || sh.idNum || '—'}` : `Individual • Nationality: ${sh.nationality || 'Singaporean'}`}</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold uppercase border border-emerald-200/50">
+                                        ${sh.percent || Math.round(((sh.shares || totalShares) / (totalShares || 1)) * 100)}% Ownership
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-slate-700">
+                                <div>
+                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Allocated Shares</span>
+                                    <strong>${Number(sh.shares || 0).toLocaleString()} Shares (${currency} ${Number(sh.shareAmount || sh.shares || 0).toLocaleString()})</strong>
+                                </div>
+                                <div>
+                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Ownership Percentage</span>
+                                    <strong class="text-emerald-700">${sh.percent || 100}%</strong>
+                                </div>
+                                <div>
+                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Beneficial Owner (UBO)</span>
+                                    <strong>${sh.ubo === 'No' ? 'No' : 'Yes (UBO)'}</strong>
+                                </div>
+                                <div>
+                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Nominee Status</span>
+                                    <strong>${sh.isNominee ? '⚠️ Nominee Shareholder' : 'Direct Legal Owner'}</strong>
+                                </div>
+                            </div>
+                            ${isCorp && sh.rep ? `
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Corporate Authorized Representative</span>
+                                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                        <div><span class="text-slate-400 text-[10px]">Name:</span> <strong>${sh.rep.name || '—'}</strong></div>
+                                        <div><span class="text-slate-400 text-[10px]">ID:</span> <strong>${sh.rep.idNum || '—'}</strong></div>
+                                        <div><span class="text-slate-400 text-[10px]">Email:</span> <strong>${sh.rep.email || '—'}</strong></div>
+                                    </div>
+                                </div>
+                            ` : ''}
+                            ${docKeys.length > 0 ? `
+                                <div class="pt-2 border-t border-slate-100">
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Shareholder Documents Uploaded</span>
+                                    <div class="flex flex-wrap gap-2">
+                                        ${docKeys.map(k => {
+                                            const doc = docs[k];
+                                            if (!doc || !doc.name) return '';
+                                            return `
+                                                <div class="inline-flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden shadow-xs hover:border-emerald-300 transition-all">
+                                                    <button type="button" onclick="window.previewAppDoc('${doc.data || ''}', '${doc.name}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 text-xs font-semibold transition-all">
+                                                        <i data-lucide="eye" class="w-3.5 h-3.5 text-emerald-600"></i>
+                                                        <span>${doc.name}</span>
+                                                        <span class="text-[10px] text-slate-400 font-mono">(${doc.size ? Math.round(doc.size/1024) + 'KB' : 'File'})</span>
+                                                    </button>
+                                                    <a href="${doc.data || '#'}" download="${doc.name || 'document'}" target="_blank" title="Download ${doc.name}" class="px-2.5 py-1.5 border-l border-slate-200 hover:bg-emerald-100 text-slate-500 hover:text-emerald-700 flex items-center justify-center transition-all">
+                                                        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                                    </a>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
                         </div>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-slate-600">
-                            <div><span class="text-slate-400 block text-[10px]">Contact:</span> <strong>${app.clientEmail || 'N/A'}</strong></div>
-                            <div><span class="text-slate-400 block text-[10px]">Phone:</span> <strong>${app.clientPhone || 'N/A'}</strong></div>
-                            <div><span class="text-slate-400 block text-[10px]">Shares:</span> <strong>100% (${totalShares} Ordinary Shares)</strong></div>
-                            <div><span class="text-slate-400 block text-[10px]">Capital:</span> <strong>${capital}</strong></div>
+                    `;
+                }).join('');
+            } else {
+                shareholdersHtml = `<p class="text-xs text-slate-400 italic">No shareholders submitted</p>`;
+            }
+
+            // --- Section 5: Corporate Governance & Appointments ---
+            const secretary = d.secretary || {};
+            const secretaryRequired = secretary.required !== false;
+            const rons = d.rons || {};
+            const hasNomineeDirector = rons.hasNominee === 'Yes';
+
+            // --- Section 6: Registered Office & Premise Details ---
+            const office = d.office || {};
+            const isGlobalisorAddress = office.useService !== false;
+            const premiseType = office.premiseType || 'Not specified';
+            const hdbApproval = office.hdbApproval;
+            const uraApproval = office.uraApproval;
+
+            let officeHtml = '';
+            if (isGlobalisorAddress) {
+                officeHtml = `
+                    <div class="p-4 bg-blue-50/70 rounded-2xl border border-blue-200/80 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg">🏢</span>
+                                <div class="font-bold text-blue-950 text-sm">Globalisor Premium CBD Registered Office Service</div>
+                            </div>
+                            <span class="px-2.5 py-1 bg-blue-600 text-white rounded-lg text-xs font-bold shadow-sm">SGD 480 / year</span>
+                        </div>
+                        <p class="text-xs text-blue-900 font-semibold leading-relaxed">
+                            📍 10 Anson Road, #16-04 International Plaza, Singapore 079903
+                        </p>
+                        <p class="text-[11px] text-blue-700">
+                            Statutorily compliant ACRA registered office address in prime CBD with weekly mail scanning, digital notifications, and official notice management.
+                        </p>
+                    </div>
+                `;
+            } else {
+                let premiseBadge = `<span class="px-2.5 py-1 bg-slate-100 text-slate-800 rounded-lg text-xs font-bold border border-slate-200">${premiseType}</span>`;
+                if (premiseType === 'Commercial') {
+                    premiseBadge = `<span class="px-2.5 py-1 bg-emerald-50 text-emerald-800 rounded-lg text-xs font-bold border border-emerald-200">🏢 Commercial Property</span>`;
+                } else if (premiseType === 'HDB') {
+                    premiseBadge = `<span class="px-2.5 py-1 bg-amber-50 text-amber-800 rounded-lg text-xs font-bold border border-amber-200">🏢 HDB Public Residential Flat</span>`;
+                } else if (premiseType === 'Private Property') {
+                    premiseBadge = `<span class="px-2.5 py-1 bg-indigo-50 text-indigo-800 rounded-lg text-xs font-bold border border-indigo-200">🏡 Private Residential Property</span>`;
+                }
+
+                let schemeApprovalHtml = '';
+                if (premiseType === 'HDB') {
+                    if (hdbApproval === 'Yes') {
+                        schemeApprovalHtml = `
+                            <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between text-xs">
+                                <div>
+                                    <span class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">HDB Home Office Scheme</span>
+                                    <strong class="text-emerald-900">✅ Prior HDB Approval Obtained</strong>
+                                </div>
+                                <span class="px-2 py-0.5 bg-emerald-600 text-white rounded-full text-[10px] font-bold">Approved</span>
+                            </div>
+                        `;
+                    } else {
+                        schemeApprovalHtml = `
+                            <div class="p-3 bg-red-50 rounded-xl border border-red-200 text-xs space-y-1">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[10px] font-bold text-red-600 uppercase tracking-wider block">HDB Home Office Scheme</span>
+                                    <span class="px-2 py-0.5 bg-red-600 text-white rounded-full text-[10px] font-bold">Not Yet Obtained</span>
+                                </div>
+                                <p class="text-red-800 text-[11px] leading-relaxed">
+                                    ⚠️ <strong>Action Required:</strong> ACRA regulations require prior approval under HDB Home Office Scheme before using HDB as business address.
+                                </p>
+                            </div>
+                        `;
+                    }
+                } else if (premiseType === 'Private Property') {
+                    if (uraApproval === 'Yes') {
+                        schemeApprovalHtml = `
+                            <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between text-xs">
+                                <div>
+                                    <span class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">URA Home Office Scheme</span>
+                                    <strong class="text-emerald-900">✅ Prior URA Approval Obtained</strong>
+                                </div>
+                                <span class="px-2 py-0.5 bg-emerald-600 text-white rounded-full text-[10px] font-bold">Approved</span>
+                            </div>
+                        `;
+                    } else {
+                        schemeApprovalHtml = `
+                            <div class="p-3 bg-red-50 rounded-xl border border-red-200 text-xs space-y-1">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[10px] font-bold text-red-600 uppercase tracking-wider block">URA Home Office Scheme</span>
+                                    <span class="px-2 py-0.5 bg-red-600 text-white rounded-full text-[10px] font-bold">Not Yet Obtained</span>
+                                </div>
+                                <p class="text-red-800 text-[11px] leading-relaxed">
+                                    ⚠️ <strong>Action Required:</strong> ACRA regulations require approval under URA Home Office Scheme before using private residential property as registered address.
+                                </p>
+                            </div>
+                        `;
+                    }
+                }
+
+                const fullAddressStr = office.fullAddress || office.address || [
+                    office.blockNo ? `Blk ${office.blockNo}` : (office.block ? `Blk ${office.block}` : ''),
+                    office.streetName || '',
+                    office.unitNo ? `#${office.unitNo}` : (office.floor && office.unit ? `#${office.floor}-${office.unit}` : ''),
+                    office.buildingName || office.building || '',
+                    office.postalCode ? `Singapore ${office.postalCode}` : ''
+                ].filter(Boolean).join(', ') || 'Address not provided';
+
+                officeHtml = `
+                    <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                            <div>
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Address Option</span>
+                                <strong class="text-slate-900 text-sm">Client's Own Registered Office Address</strong>
+                            </div>
+                            ${premiseBadge}
+                        </div>
+                        ${schemeApprovalHtml}
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-slate-700">
+                            <div>
+                                <span class="text-slate-400 block text-[10px] uppercase font-bold">Postal Code</span>
+                                <strong class="font-mono">${office.postalCode || '—'}</strong>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 block text-[10px] uppercase font-bold">Block / House No</span>
+                                <strong>${office.blockNo || office.block || '—'}</strong>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 block text-[10px] uppercase font-bold">Unit Number</span>
+                                <strong class="font-mono">${office.unitNo || (office.floor && office.unit ? `#${office.floor}-${office.unit}` : '—')}</strong>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 block text-[10px] uppercase font-bold">Building Name</span>
+                                <strong>${office.buildingName || office.building || '—'}</strong>
+                            </div>
+                        </div>
+                        <div class="pt-2 border-t border-slate-100">
+                            <span class="text-slate-400 block text-[10px] uppercase font-bold">Formatted Full Address</span>
+                            <p class="font-semibold text-slate-800 text-xs mt-0.5">${fullAddressStr}</p>
                         </div>
                     </div>
                 `;
             }
 
-            // Registered Office & Services
-            const address = d.registeredAddress || d.address || 'Globalisor Standard Registered Office Service (Singapore CBD)';
-            const addOns = d.addOns || d.selectedServices || ['Corporate Secretarial (1 Year)', 'ACRA Annual Return Filing Support'];
+            // --- Section 7: Add-on Packages ---
+            const addOns = d.addOns || d.selectedServices || [
+                'Corporate Secretarial Package (1 Year)',
+                'ACRA Annual Return Filing Support',
+                'Statutory Registers & Common Seal Preparation'
+            ];
 
             const contentHtml = `
+                <!-- Applicant Banner -->
+                <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-blue-500/20">
+                            ${applicantName.charAt(0) || 'A'}
+                        </div>
+                        <div>
+                            <div class="text-sm font-bold text-slate-900">${applicantName}</div>
+                            <div class="text-xs text-slate-500">${applicantEmail} • ${applicantPhone}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="px-3 py-1 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold">
+                            ${journeyType}
+                        </span>
+                        <span class="px-3 py-1 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold border border-blue-100">
+                            ID: ${app.id || app.rawId || 'APP'}
+                        </span>
+                    </div>
+                </div>
+
                 <!-- Section 1: Proposed Names -->
                 <div class="space-y-3">
                     <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-2">
@@ -725,50 +1112,96 @@
                         <i data-lucide="briefcase" class="w-4 h-4 text-blue-600"></i> Section 2: Business Activities & Share Capital
                     </h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="p-4 bg-white rounded-2xl border border-slate-200">
-                            <span class="text-[10px] font-bold text-slate-400 uppercase">Primary SSIC Activity</span>
-                            <p class="font-bold text-slate-800 text-xs mt-1">${primaryActivity}</p>
+                        <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-1">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Primary SSIC Activity</span>
+                            <div class="font-bold text-slate-900 text-xs">${primaryCode ? `<span class="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded font-mono mr-1">${primaryCode}</span>` : ''}${primaryTitle}</div>
+                            ${primaryCustom ? `<p class="text-[11px] text-slate-500 italic mt-1 bg-slate-50 p-2 rounded-lg border border-slate-100">"${primaryCustom}"</p>` : ''}
                         </div>
-                        <div class="p-4 bg-white rounded-2xl border border-slate-200">
-                            <span class="text-[10px] font-bold text-slate-400 uppercase">Secondary Activity</span>
-                            <p class="font-bold text-slate-800 text-xs mt-1">${secondaryActivity}</p>
+                        <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-1">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Secondary SSIC Activity</span>
+                            <div class="font-bold text-slate-900 text-xs">${secondaryCode ? `<span class="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded font-mono mr-1">${secondaryCode}</span>` : ''}${secondaryTitle}</div>
+                            ${secondaryCustom ? `<p class="text-[11px] text-slate-500 italic mt-1 bg-slate-50 p-2 rounded-lg border border-slate-100">"${secondaryCustom}"</p>` : ''}
                         </div>
-                        <div class="p-4 bg-white rounded-2xl border border-slate-200">
-                            <span class="text-[10px] font-bold text-slate-400 uppercase">Issued Share Capital</span>
-                            <p class="font-bold text-slate-800 text-xs mt-1">${capital} (${totalShares} Shares)</p>
+                        <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-1">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Issued Share Capital</span>
+                            <p class="font-bold text-slate-900 text-xs">${currency} ${Number(issuedCapital).toLocaleString()} (${Number(totalShares).toLocaleString()} ${shareType} Shares)</p>
+                            <p class="text-[11px] text-slate-400">Paid-up Capital: ${currency} ${Number(paidUpCapital).toLocaleString()}</p>
                         </div>
-                        <div class="p-4 bg-white rounded-2xl border border-slate-200">
-                            <span class="text-[10px] font-bold text-slate-400 uppercase">Financial Year End (FYE)</span>
-                            <p class="font-bold text-slate-800 text-xs mt-1">${fye}</p>
+                        <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-1">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Financial Year End (FYE)</span>
+                            <p class="font-bold text-slate-900 text-xs">${fye}</p>
+                            <p class="text-[11px] text-slate-400">First financial year ending date</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Section 3: Officers & Shareholders -->
+                <!-- Section 3: Appointed Directors -->
                 <div class="space-y-3">
-                    <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                        <i data-lucide="users" class="w-4 h-4 text-blue-600"></i> Section 3: Directors & Shareholders Structure
-                    </h4>
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                            <i data-lucide="users" class="w-4 h-4 text-blue-600"></i> Section 3: Appointed Directors (${directors.length})
+                        </h4>
+                    </div>
                     <div class="space-y-3">
-                        ${officersHtml}
+                        ${directorsHtml}
                     </div>
                 </div>
 
-                <!-- Section 4: Address & Add-on Services -->
+                <!-- Section 4: Shareholders & Shareholding Structure -->
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                            <i data-lucide="pie-chart" class="w-4 h-4 text-blue-600"></i> Section 4: Shareholders & Cap Table (${shareholders.length})
+                        </h4>
+                    </div>
+                    <div class="space-y-3">
+                        ${shareholdersHtml}
+                    </div>
+                </div>
+
+                <!-- Section 5: Governance & Appointments -->
                 <div class="space-y-3">
                     <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                        <i data-lucide="map-pin" class="w-4 h-4 text-blue-600"></i> Section 4: Registered Office & Subscribed Services
+                        <i data-lucide="shield-check" class="w-4 h-4 text-blue-600"></i> Section 5: Corporate Governance & Appointments
                     </h4>
-                    <div class="p-4 bg-white rounded-2xl border border-slate-200 space-y-3">
-                        <div>
-                            <span class="text-[10px] font-bold text-slate-400 uppercase">Registered Address</span>
-                            <p class="font-bold text-slate-800 text-xs mt-0.5">${typeof address === 'string' ? address : JSON.stringify(address)}</p>
-                        </div>
-                        <div>
-                            <span class="text-[10px] font-bold text-slate-400 uppercase">Selected Packages & Add-on Services</span>
-                            <div class="flex flex-wrap gap-1.5 mt-1.5">
-                                ${(Array.isArray(addOns) ? addOns : [addOns]).map(a => `<span class="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold border border-blue-100">${a}</span>`).join('')}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-1">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Company Secretary</span>
+                            <div class="font-bold text-slate-900 text-xs">
+                                ${secretaryRequired ? 'Globalisor Annual Corporate Secretarial Package (SGD 360/yr)' : 'Appointing Own Company Secretary'}
                             </div>
+                            <p class="text-[11px] text-slate-400">Section 171 Companies Act requirement.</p>
+                        </div>
+                        <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-1">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nominee Resident Director (RONS)</span>
+                            <div class="font-bold text-slate-900 text-xs">
+                                ${hasNomineeDirector ? '⚠️ Nominee Resident Director Service Requested' : 'Local Resident Director Appointed'}
+                            </div>
+                            <p class="text-[11px] text-slate-400">Statutory requirement for Singapore Pte Ltd.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 6: Registered Office & Premise Details -->
+                <div class="space-y-3">
+                    <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                        <i data-lucide="map-pin" class="w-4 h-4 text-blue-600"></i> Section 6: Registered Office Address & Premise Category
+                    </h4>
+                    ${officeHtml}
+                </div>
+
+                <!-- Section 7: Selected Services & Packages -->
+                <div class="space-y-3">
+                    <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                        <i data-lucide="package" class="w-4 h-4 text-blue-600"></i> Section 7: Subscribed Incorporation Packages
+                    </h4>
+                    <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                        <div class="flex flex-wrap gap-2">
+                            ${(Array.isArray(addOns) ? addOns : [addOns]).map(a => `
+                                <span class="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold border border-blue-100 flex items-center gap-1.5">
+                                    <i data-lucide="check" class="w-3.5 h-3.5 text-blue-600"></i> ${a}
+                                </span>
+                            `).join('')}
                         </div>
                     </div>
                 </div>
