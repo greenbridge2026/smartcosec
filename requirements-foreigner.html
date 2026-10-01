@@ -1902,7 +1902,7 @@
                         { name: '', idType: 'foreign', idNum: '', dob: '', phone: '', email: '', addr: '', source: 'self', docs: {} }
                     ],
                     shareholders: [],
-                    capital: { issued: 10000, numShares: 10000, paidUp: 10000, currency: 'SGD', type: 'Ordinary' },
+                    capital: { currencies: [{ currency: 'SGD', customCurrency: '', shareClass: 'Ordinary', numberOfShares: '', shareCapitalAmount: '', isCollapsed: false }], issued: '', numShares: '', currency: 'SGD', type: 'Ordinary', isConfirmed: false },
                     office: { useService: true, address: '', hasOwnAddress: false, residency: 'foreigner' },
                     contact: { firstName: '', lastName: '', phone: '', email: '' },
                     paymentStatus: 'pending',
@@ -1913,6 +1913,7 @@
                 
                 this.data = savedData ? { ...defaultData, ...savedData, completedSteps: savedData.completedSteps || [] } : defaultData;
                 this.data.journeyType = 'FOREIGNER';
+                this.syncAllUbos();
                 this.migrateActivitiesData();
                 this.syncDirectorsList();
                 this.syncShareholdersList();
@@ -2201,6 +2202,7 @@
             }
 
             save() {
+                this.syncAllUbos();
                 localStorage.setItem('globalisor_master_v3', JSON.stringify(this.data));
                 this.updateInfographic();
                 this.triggerAutoSave();
@@ -3141,13 +3143,35 @@
                         }
                     });
 
-                    if (!cap.issued || parseFloat(cap.issued) <= 0) {
-                        isValid = false;
-                        errorMessages.push("Share Capital: Total Issued Capital must be greater than 0.");
+                    const capCurrencies = cap.currencies || [];
+                    if (capCurrencies.length === 0) {
+                        if (!cap.issued || parseFloat(cap.issued) <= 0) {
+                            isValid = false;
+                            errorMessages.push("Share Capital: Total Issued Capital must be greater than 0.");
+                        }
+                        if (!cap.numShares || parseFloat(cap.numShares) <= 0) {
+                            isValid = false;
+                            errorMessages.push("Share Capital: Total Number of Shares must be greater than 0.");
+                        }
+                    } else {
+                        capCurrencies.forEach((c, idx) => {
+                            const cNum = idx + 1;
+                            const shares = parseFloat(c.numberOfShares) || 0;
+                            const amount = parseFloat(c.shareCapitalAmount) || 0;
+                            if (shares <= 0) {
+                                isValid = false;
+                                errorMessages.push(`Currency Section #${cNum}: Total Number of Shares is required and must be greater than 0.`);
+                            }
+                            if (amount <= 0) {
+                                isValid = false;
+                                errorMessages.push(`Currency Section #${cNum}: Total Issued Capital is required and must be greater than 0.`);
+                            }
+                        });
                     }
-                    if (!cap.numShares || parseFloat(cap.numShares) <= 0) {
+
+                    if (cap.isConfirmed !== true) {
                         isValid = false;
-                        errorMessages.push("Share Capital: Total Number of Shares must be greater than 0.");
+                        errorMessages.push("Please confirm that the Share Capital details are correct by checking the review box.");
                     }
 
                     if (shs.length === 0) {
@@ -3994,18 +4018,22 @@
 
                     const useServiceField = (sec.fields || []).find(f => f.key === 'office.useService') || {
                         label: 'Registered Address Option *',
-                        options: ['false:Yes I have Office Address', 'true:Globalisor Address']
+                        options: ['false:Yes I have Office Address', 'true:Corporate Secretary Address']
                     };
                     const optionLabel = useServiceField.label || 'Registered Address Option *';
                     const parsedOptions = (useServiceField.options || []).map(opt => {
                         const parts = opt.split(':');
+                        let label = parts.slice(1).join(':');
+                        if (label === 'Globalisor Address') {
+                            label = 'Corporate Secretary Address';
+                        }
                         return {
                             value: parts[0],
-                            label: parts.slice(1).join(':')
+                            label: label
                         };
                     });
                     const opt1 = parsedOptions[0] || { value: 'false', label: 'Yes I have Office Address' };
-                    const opt2 = parsedOptions[1] || { value: 'true', label: 'Globalisor Address' };
+                    const opt2 = parsedOptions[1] || { value: 'true', label: 'Corporate Secretary Address' };
 
                     const serviceTitle = useServiceField.label || 'Registered office address';
                     const serviceDesc = useServiceField.hint || 'Statutorily required. Real address in Singapore, mail scanned weekly.';
@@ -4058,7 +4086,7 @@
                                             <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 1rem; display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 1.5rem;">
                                                 <div style="color: #2563eb; font-size: 1.25rem; line-height: 1;">ℹ️</div>
                                                 <div style="font-size: 0.825rem; color: #1e3a8a; line-height: 1.5;">
-                                                    <div style="font-weight: 600; margin-bottom: 0.25rem;">Globalisor Premium CBD Registered Address Service</div>
+                                                    <div style="font-weight: 600; margin-bottom: 0.25rem;">Corporate Secretary Premium CBD Registered Address Service</div>
                                                     Subscription Pricing: <span style="font-weight: bold;">SGD 480 / year</span>. This includes mail scanning and notifications. The address will be registered with ACRA for your company.
                                                 </div>
                                             </div>
@@ -4101,7 +4129,7 @@
                                                         </div>
                                                         ${this.data.office?.hdbApproval === 'No' ? `
                                                             <div style="margin-top: 0.85rem; font-size: 0.76rem; color: #b91c1c; background: #fef2f2; border: 1px solid #fee2e2; border-radius: 8px; padding: 0.65rem 0.85rem; line-height: 1.45;">
-                                                                ⚠️ <strong>Important:</strong> ACRA requires HDB approval prior to registering the business. Please ensure the HDB Home Office Scheme approval is submitted/approved before final incorporation or select the <em>Globalisor Address</em> option above.
+                                                                ⚠️ <strong>Important:</strong> ACRA requires HDB approval prior to registering the business. Please ensure the HDB Home Office Scheme approval is submitted/approved before final incorporation or select the <em>Corporate Secretary Address</em> option above.
                                                             </div>
                                                         ` : ''}
                                                     </div>
@@ -4128,7 +4156,7 @@
                                                         </div>
                                                         ${this.data.office?.uraApproval === 'No' ? `
                                                             <div style="margin-top: 0.85rem; font-size: 0.76rem; color: #b91c1c; background: #fef2f2; border: 1px solid #fee2e2; border-radius: 8px; padding: 0.65rem 0.85rem; line-height: 1.45;">
-                                                                ⚠️ <strong>Important:</strong> ACRA requires URA approval prior to registering the business. Please ensure the URA Home Office Scheme approval is registered before final incorporation or select the <em>Globalisor Address</em> option above.
+                                                                ⚠️ <strong>Important:</strong> ACRA requires URA approval prior to registering the business. Please ensure the URA Home Office Scheme approval is registered before final incorporation or select the <em>Corporate Secretary Address</em> option above.
                                                             </div>
                                                         ` : ''}
                                                     </div>
@@ -4262,10 +4290,31 @@
                     this.data.directors = [{ name: '', idType: 'passport', idNum: '', nationality: 'British', dob: '', gender: 'Male', phone: '', email: '', addr: '', passportExpiry: '', disqualificationAcknowledge: true, docs: {} }];
                 }
                 if (!this.data.capital) {
-                    this.data.capital = { issued: 1000, numShares: 1000, paidUp: 1000, currency: 'SGD', type: 'Ordinary' };
+                    this.data.capital = {
+                        currencies: [{ currency: 'SGD', customCurrency: '', shareClass: 'Ordinary', numberOfShares: '', shareCapitalAmount: '', isCollapsed: false }],
+                        issued: '',
+                        numShares: '',
+                        currency: 'SGD',
+                        type: 'Ordinary',
+                        isConfirmed: false
+                    };
+                } else {
+                    if (this.data.capital.paidUp !== undefined) {
+                        delete this.data.capital.paidUp;
+                    }
+                    if (!this.data.capital.currencies || !Array.isArray(this.data.capital.currencies) || this.data.capital.currencies.length === 0) {
+                        this.data.capital.currencies = [{
+                            currency: this.data.capital.currency || 'SGD',
+                            customCurrency: '',
+                            shareClass: this.data.capital.type || 'Ordinary',
+                            numberOfShares: (this.data.capital.numShares && this.data.capital.numShares !== 1000 && this.data.capital.numShares !== 10000) ? this.data.capital.numShares : '',
+                            shareCapitalAmount: (this.data.capital.issued && this.data.capital.issued !== 1000 && this.data.capital.issued !== 10000) ? this.data.capital.issued : '',
+                            isCollapsed: false
+                        }];
+                    }
                 }
                 if (!this.data.shareholders || !Array.isArray(this.data.shareholders) || this.data.shareholders.length === 0) {
-                    this.data.shareholders = [{ type: 'individual', name: '', idType: 'passport', idNum: '', nationality: 'British', dob: '', phone: '', email: '', addr: '', shares: 1000, shareAmount: 1000, percent: 100, ubo: 'Yes', isNominee: false, docs: {} }];
+                    this.data.shareholders = [{ type: 'individual', name: '', idType: 'passport', idNum: '', nationality: 'British', dob: '', phone: '', email: '', addr: '', shares: '', shareAmount: '', percent: 0, ubo: 'Yes', isNominee: false, docs: {} }];
                 }
                 if (!this.data.rons) {
                     this.data.rons = { hasNominee: 'No', nominatorName: '', nominatorId: '', nominatorNationality: 'British', nominatorAddress: '' };
@@ -4536,48 +4585,35 @@
                             <div style="border-bottom: 1px solid #f1f5f9; padding-bottom: 1rem; margin-bottom: 1.5rem;">
                                 <div style="display: flex; align-items: center; gap: 0.5rem;">
                                     <span style="background: #dbeafe; color: #1d4ed8; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800;">2</span>
-                                    <h3 style="font-size: 1.15rem; font-weight: 800; color: #0f172a; margin: 0;">Share Capital Configuration</h3>
+                                    <h3 style="font-size: 1.15rem; font-weight: 800; color: #0f172a; margin: 0;">Share Capital Details</h3>
                                 </div>
                                 <p style="font-size: 0.8rem; color: #64748b; margin: 0.35rem 0 0; line-height: 1.4;">
-                                    Configure corporate share capital structure and allocate shares to shareholders. Standard initial capital is 1,000 shares at $1 SGD each.
+                                    Configure corporate share capital structure and allocate shares to shareholders.
                                 </p>
                             </div>
 
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                                <div class="form-group" style="margin-bottom:0;">
-                                    <label class="form-label">Currency <span style="color:#ef4444;">*</span></label>
-                                    <select class="input-box" onchange="wizard.updateCapitalField('currency', this.value)">
-                                        <option value="SGD" ${(capital.currency || 'SGD') === 'SGD' ? 'selected' : ''}>SGD - Singapore Dollar</option>
-                                        <option value="USD" ${capital.currency === 'USD' ? 'selected' : ''}>USD - US Dollar</option>
-                                        <option value="EUR" ${capital.currency === 'EUR' ? 'selected' : ''}>EUR - Euro</option>
-                                        <option value="GBP" ${capital.currency === 'GBP' ? 'selected' : ''}>GBP - British Pound</option>
-                                        <option value="AUD" ${capital.currency === 'AUD' ? 'selected' : ''}>AUD - Australian Dollar</option>
-                                        <option value="HKD" ${capital.currency === 'HKD' ? 'selected' : ''}>HKD - Hong Kong Dollar</option>
-                                    </select>
-                                </div>
+                            <div id="currency-sections-container">
+                                ${this.renderCurrencySectionsHtml()}
+                            </div>
 
-                                <div class="form-group" style="margin-bottom:0;">
-                                    <label class="form-label">Total Issued Capital <span style="color:#ef4444;">*</span></label>
-                                    <input type="number" min="1" class="input-box" value="${capital.issued || 1000}" oninput="wizard.updateCapitalField('issued', parseFloat(this.value) || 0)">
-                                </div>
+                            <div style="margin: 1.25rem 0 1.5rem; display: flex; justify-content: center;">
+                                <button type="button" onclick="wizard.addCurrencySection()" style="padding: 10px 22px; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 12px; color: #2563eb; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s;" onmouseover="this.style.background='#eff6ff'; this.style.borderColor='#93c5fd';" onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#cbd5e1';">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                    Add Currency Section
+                                </button>
+                            </div>
 
-                                <div class="form-group" style="margin-bottom:0;">
-                                    <label class="form-label">Total Number of Shares <span style="color:#ef4444;">*</span></label>
-                                    <input type="number" min="1" class="input-box" value="${capital.numShares || 1000}" oninput="wizard.updateCapitalField('numShares', parseFloat(this.value) || 0)">
-                                </div>
+                            <div id="share-capital-summary-card">
+                                ${this.renderShareCapitalSummaryHtml()}
+                            </div>
 
-                                <div class="form-group" style="margin-bottom:0;">
-                                    <label class="form-label">Paid-Up Capital</label>
-                                    <input type="number" min="0" class="input-box" value="${capital.paidUp || 1000}" oninput="wizard.updateCapitalField('paidUp', parseFloat(this.value) || 0)">
-                                </div>
-
-                                <div class="form-group" style="margin-bottom:0;">
-                                    <label class="form-label">Share Class</label>
-                                    <select class="input-box" onchange="wizard.updateCapitalField('type', this.value)">
-                                        <option value="Ordinary" ${(capital.type || 'Ordinary') === 'Ordinary' ? 'selected' : ''}>Ordinary Shares</option>
-                                        <option value="Preference" ${capital.type === 'Preference' ? 'selected' : ''}>Preference Shares</option>
-                                    </select>
-                                </div>
+                            <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px dashed #cbd5e1;">
+                                <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; background: #f8fafc; padding: 14px 16px; border-radius: 12px; border: 1px solid #e2e8f0; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
+                                    <input type="checkbox" id="capital-is-confirmed" ${capital.isConfirmed ? 'checked' : ''} onchange="wizard.updateCapitalConfirm(this.checked)" style="width: 17px; height: 17px; accent-color: #2563eb; margin-top: 2px; cursor: pointer;">
+                                    <span style="font-size: 0.85rem; color: #334155; font-weight: 600; line-height: 1.5;">
+                                        I have reviewed and confirmed that the Share Capital details above are correct.
+                                    </span>
+                                </label>
                             </div>
                         </div>
 
@@ -4607,7 +4643,7 @@
                                 ${shareholders.map((sh, idx) => {
                                     const isInd = sh.type === 'individual';
                                     const shDocs = sh.docs || {};
-                                    const totalShares = parseFloat(capital.numShares) || 1000;
+                                    const totalShares = parseFloat(capital.numShares) || 0;
                                     const allocatedShares = parseFloat(sh.shares) || 0;
                                     const pct = totalShares > 0 ? Math.round((allocatedShares / totalShares) * 100) : 0;
 
@@ -4680,7 +4716,7 @@
 
                                                     <div class="form-group" style="margin-bottom:0;">
                                                         <label class="form-label">Number of Shares Allocated <span style="color:#ef4444;">*</span></label>
-                                                        <input type="number" min="1" class="input-box" value="${sh.shares || 1000}" oninput="wizard.updateShareholderField(${idx}, 'shares', parseFloat(this.value) || 0); wizard.calculateShareholderAllocations();">
+                                                        <input type="number" min="1" class="input-box" value="${sh.shares !== undefined && sh.shares !== null && sh.shares !== '' ? sh.shares : ''}" placeholder="Number of shares" oninput="wizard.updateShareholderField(${idx}, 'shares', this.value === '' ? '' : (parseFloat(this.value) || 0)); wizard.calculateShareholderAllocations();">
                                                     </div>
 
                                                     <div class="form-group" style="grid-column: 1 / -1; margin-bottom:0;">
@@ -4700,18 +4736,58 @@
                                                     </div>
                                                 </div>
 
-                                                <div style="margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 1.5rem;">
-                                                    <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; font-weight: 600; color: #334155; cursor: pointer;">
-                                                        <span>Ultimate Beneficial Owner (UBO)?</span>
-                                                        <select class="input-box" style="width: auto; padding: 4px 8px; font-size: 0.75rem;" onchange="wizard.updateShareholderField(${idx}, 'ubo', this.value)">
-                                                            <option value="Yes" ${(sh.ubo || 'Yes') === 'Yes' ? 'selected' : ''}>Yes</option>
-                                                            <option value="No" ${sh.ubo === 'No' ? 'selected' : ''}>No</option>
-                                                        </select>
-                                                    </label>
-                                                    <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; font-weight: 600; color: #334155; cursor: pointer;">
-                                                        <input type="checkbox" ${sh.isNominee ? 'checked' : ''} onchange="wizard.updateShareholderField(${idx}, 'isNominee', this.checked)" style="accent-color: #2563eb;">
-                                                        <span>Nominee Shareholder (holding shares for another beneficial owner)</span>
-                                                    </label>
+                                                <!-- Ultimate Beneficial Owner (UBO) Section -->
+                                                <div style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px dashed #cbd5e1;">
+                                                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.75rem;">
+                                                        <div>
+                                                            <div style="font-size: 0.8rem; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 0.4rem;">
+                                                                <span>🛡️ Ultimate Beneficial Ownership (UBO)</span>
+                                                            </div>
+                                                            <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.15rem;">
+                                                                Under ACRA regulations, identify the natural person(s) who ultimately own or control these shares.
+                                                            </div>
+                                                        </div>
+                                                        <div style="display: flex; align-items: center; gap: 0.85rem; background: #ffffff; padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1;">
+                                                            <span style="font-size: 0.78rem; font-weight: 700; color: #334155;">Is the Shareholder the Ultimate Beneficial Owner?</span>
+                                                            <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; font-weight: 700; color: #0f172a; cursor: pointer;">
+                                                                <input type="radio" name="ind_ubo_${idx}" value="Yes" ${(sh.ubo || 'Yes') === 'Yes' ? 'checked' : ''} onchange="wizard.setShareholderUbo(${idx}, 'Yes')" style="accent-color: #2563eb; width: 15px; height: 15px;">
+                                                                Yes
+                                                            </label>
+                                                            <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; font-weight: 700; color: #0f172a; cursor: pointer;">
+                                                                <input type="radio" name="ind_ubo_${idx}" value="No" ${sh.ubo === 'No' ? 'checked' : ''} onchange="wizard.setShareholderUbo(${idx}, 'No')" style="accent-color: #2563eb; width: 15px; height: 15px;">
+                                                                No
+                                                            </label>
+                                                        </div>
+                                                    </div>
+
+                                                    ${sh.ubo !== 'No' ? `
+                                                        <div style="display: flex; align-items: center; gap: 0.6rem; padding: 0.65rem 0.9rem; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; font-size: 0.78rem; color: #065f46;">
+                                                            <span style="font-size: 1.1rem; line-height: 1;">✓</span>
+                                                            <span><strong>${sh.name || 'This individual'}</strong> is designated as the Ultimate Beneficial Owner (holding ${pct}% beneficial interest).</span>
+                                                        </div>
+                                                    ` : `
+                                                        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem; margin-top: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+                                                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+                                                                <div style="font-size: 0.78rem; font-weight: 700; color: #1e293b;">
+                                                                    Identify / Select Actual Ultimate Beneficial Owner(s):
+                                                                </div>
+                                                                <button type="button" onclick="wizard.toggleCustomUboForm(${idx})" style="font-size: 0.75rem; font-weight: 700; color: #2563eb; background: #eff6ff; border: 1px solid #bfdbfe; padding: 4px 10px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem;">
+                                                                    <span>＋</span> Enter External UBO
+                                                                </button>
+                                                            </div>
+                                                            <div style="font-size: 0.72rem; color: #64748b; margin-bottom: 0.75rem;">
+                                                                Select from relevant persons already entered in Pre-Registration, or add external beneficial controllers (multiple selections supported):
+                                                            </div>
+                                                            ${wizard.renderUboSelector(idx, sh)}
+                                                        </div>
+                                                    `}
+
+                                                    <div style="margin-top: 0.75rem;">
+                                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; font-weight: 600; color: #334155; cursor: pointer;">
+                                                            <input type="checkbox" ${sh.isNominee ? 'checked' : ''} onchange="wizard.updateShareholderField(${idx}, 'isNominee', this.checked)" style="accent-color: #2563eb; width: 15px; height: 15px;">
+                                                            <span>Nominee Shareholder (holding shares for another beneficial owner)</span>
+                                                        </label>
+                                                    </div>
                                                 </div>
                                             </div>
                                         `;
@@ -4757,7 +4833,7 @@
 
                                                     <div class="form-group" style="margin-bottom:0;">
                                                         <label class="form-label">Number of Shares Allocated <span style="color:#ef4444;">*</span></label>
-                                                        <input type="number" min="1" class="input-box" value="${sh.shares || 1000}" oninput="wizard.updateShareholderField(${idx}, 'shares', parseFloat(this.value) || 0); wizard.calculateShareholderAllocations();">
+                                                        <input type="number" min="1" class="input-box" value="${sh.shares !== undefined && sh.shares !== null && sh.shares !== '' ? sh.shares : ''}" placeholder="Number of shares" oninput="wizard.updateShareholderField(${idx}, 'shares', this.value === '' ? '' : (parseFloat(this.value) || 0)); wizard.calculateShareholderAllocations();">
                                                     </div>
 
                                                     <div class="form-group" style="grid-column: 1 / -1; margin-bottom:0;">
@@ -4807,6 +4883,53 @@
                                                         ${renderDocZone('corp_rep', idx, 'addressDoc', 'Representative Address Proof', repDocs.addressDoc)}
                                                     </div>
                                                 </div>
+
+                                                <!-- Ultimate Beneficial Owner (UBO) Section for Corporate Shareholder -->
+                                                <div style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px dashed #cbd5e1;">
+                                                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.75rem;">
+                                                        <div>
+                                                            <div style="font-size: 0.8rem; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 0.4rem;">
+                                                                <span>🛡️ Ultimate Beneficial Ownership (UBO) / Controller</span>
+                                                            </div>
+                                                            <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.15rem;">
+                                                                Identify the individual(s) who ultimately hold effective control or >25% beneficial interest in this corporate entity.
+                                                            </div>
+                                                        </div>
+                                                        <div style="display: flex; align-items: center; gap: 0.85rem; background: #ffffff; padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1;">
+                                                            <span style="font-size: 0.78rem; font-weight: 700; color: #334155;">Is the Corporate Representative the Ultimate Beneficial Owner?</span>
+                                                            <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; font-weight: 700; color: #0f172a; cursor: pointer;">
+                                                                <input type="radio" name="corp_ubo_${idx}" value="Yes" ${sh.ubo === 'Yes' ? 'checked' : ''} onchange="wizard.setShareholderUbo(${idx}, 'Yes')" style="accent-color: #2563eb; width: 15px; height: 15px;">
+                                                                Yes
+                                                            </label>
+                                                            <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; font-weight: 700; color: #0f172a; cursor: pointer;">
+                                                                <input type="radio" name="corp_ubo_${idx}" value="No" ${(sh.ubo || 'No') === 'No' ? 'checked' : ''} onchange="wizard.setShareholderUbo(${idx}, 'No')" style="accent-color: #2563eb; width: 15px; height: 15px;">
+                                                                No
+                                                            </label>
+                                                        </div>
+                                                    </div>
+
+                                                    ${sh.ubo === 'Yes' ? `
+                                                        <div style="display: flex; align-items: center; gap: 0.6rem; padding: 0.65rem 0.9rem; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; font-size: 0.78rem; color: #065f46;">
+                                                            <span style="font-size: 1.1rem; line-height: 1;">✓</span>
+                                                            <span>Authorized Representative <strong>${rep.fullName || 'Corporate Representative'}</strong> is designated as the primary Ultimate Beneficial Owner for this entity (${pct}% ownership).</span>
+                                                        </div>
+                                                    ` : `
+                                                        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem; margin-top: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+                                                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+                                                                <div style="font-size: 0.78rem; font-weight: 700; color: #1e293b;">
+                                                                    Identify / Select Actual Ultimate Beneficial Owner(s) / Controller:
+                                                                </div>
+                                                                <button type="button" onclick="wizard.toggleCustomUboForm(${idx})" style="font-size: 0.75rem; font-weight: 700; color: #2563eb; background: #eff6ff; border: 1px solid #bfdbfe; padding: 4px 10px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem;">
+                                                                    <span>＋</span> Enter External UBO
+                                                                </button>
+                                                            </div>
+                                                            <div style="font-size: 0.72rem; color: #64748b; margin-bottom: 0.75rem;">
+                                                                Select from relevant persons already entered in Pre-Registration, or add external beneficial controllers (multiple selections supported):
+                                                            </div>
+                                                            ${wizard.renderUboSelector(idx, sh)}
+                                                        </div>
+                                                    `}
+                                                </div>
                                             </div>
                                         `;
                                     }
@@ -4828,7 +4951,7 @@
 
                             <div style="margin-bottom: 1rem;">
                                 <label style="font-size: 0.82rem; font-weight: 700; color: #1e293b; display: block; margin-bottom: 0.5rem;">
-                                    Does your company have any Nominee Shareholders?
+                                    Does the company have any Nominee Shareholders?
                                 </label>
                                 <div style="display: flex; gap: 1.5rem;">
                                     <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: #334155;">
@@ -4843,29 +4966,130 @@
                             </div>
 
                             ${rons.hasNominee === 'Yes' ? `
-                                <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; padding: 1.25rem; margin-top: 1rem;">
-                                    <div style="font-size: 0.85rem; font-weight: 700; color: #0f172a; margin-bottom: 0.5rem;">Nominee Declaration & Nominator Details</div>
-                                    <p style="font-size: 0.75rem; color: #64748b; margin: 0 0 1rem;">Please specify the details of the nominator (the ultimate beneficial controller behind the nominee).</p>
-                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
-                                        <div class="form-group" style="margin-bottom:0;">
-                                            <label class="form-label">Nominator Full Legal Name <span style="color:#ef4444;">*</span></label>
-                                            <input type="text" class="input-box" value="${rons.nominatorName || ''}" placeholder="Full name of nominator" oninput="wizard.updateRonsField('nominatorName', this.value)">
+                                <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem; margin-top: 1rem;">
+                                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                                        <div>
+                                            <div style="font-size: 0.85rem; font-weight: 800; color: #0f172a;">Register of Nominee Shareholders (RONS) Details</div>
+                                            <p style="font-size: 0.75rem; color: #64748b; margin: 0.2rem 0 0;">ACRA statutory register of nominee shareholders and their nominators (beneficial owners).</p>
                                         </div>
-                                        <div class="form-group" style="margin-bottom:0;">
-                                            <label class="form-label">Nominator ID / Passport No <span style="color:#ef4444;">*</span></label>
-                                            <input type="text" class="input-box" value="${rons.nominatorId || ''}" placeholder="ID / Passport number" oninput="wizard.updateRonsField('nominatorId', this.value)">
-                                        </div>
-                                        <div class="form-group" style="margin-bottom:0;">
-                                            <label class="form-label">Nominator Nationality</label>
-                                            <select class="input-box" onchange="wizard.updateRonsField('nominatorNationality', this.value)">
-                                                ${nationalities.map(n => `<option value="${n}" ${(rons.nominatorNationality || 'British') === n ? 'selected' : ''}>${n}</option>`).join('')}
-                                            </select>
-                                        </div>
-                                        <div class="form-group" style="grid-column: 1 / -1; margin-bottom:0;">
-                                            <label class="form-label">Nominator Residential / Registered Address <span style="color:#ef4444;">*</span></label>
-                                            <input type="text" class="input-box" value="${rons.nominatorAddress || ''}" placeholder="Full residential address" oninput="wizard.updateRonsField('nominatorAddress', this.value)">
-                                        </div>
+                                        <button type="button" onclick="wizard.addRonsNominee()" style="font-size: 0.75rem; font-weight: 700; color: #2563eb; background: #eff6ff; border: 1px solid #bfdbfe; padding: 5px 12px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem;">
+                                            <span>➕</span> Add Another Nominee Entry
+                                        </button>
                                     </div>
+
+                                    ${((rons.nomineeList && rons.nomineeList.length > 0) ? rons.nomineeList : [{}]).map((nom, nomIdx) => {
+                                        const nomDocs = nom.docs || {};
+                                        return `
+                                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #f1f5f9; flex-wrap: wrap; gap: 0.5rem;">
+                                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                        <span style="font-size: 0.72rem; font-weight: 800; background: #3b82f6; color: #ffffff; padding: 2px 8px; border-radius: 6px; text-transform: uppercase;">
+                                                            Nominee Entry #${nomIdx + 1}
+                                                        </span>
+                                                        <span style="font-size: 0.85rem; font-weight: 700; color: #1e293b;">
+                                                            ${nom.nomineeName || 'Select Nominee Shareholder'}
+                                                        </span>
+                                                    </div>
+                                                    ${(rons.nomineeList && rons.nomineeList.length > 1) ? `
+                                                        <button type="button" onclick="wizard.removeRonsNominee(${nomIdx})" style="background: none; border: none; color: #ef4444; font-size: 0.75rem; font-weight: 700; cursor: pointer;">
+                                                            🗑️ Remove
+                                                        </button>
+                                                    ` : ''}
+                                                </div>
+
+                                                <!-- 1. Nominee Shareholder Selection & Info -->
+                                                <div style="margin-bottom: 1.25rem;">
+                                                    <div style="font-size: 0.78rem; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.65rem; display: flex; align-items: center; gap: 0.35rem;">
+                                                        <span>👤 1. Nominee Shareholder (Holding on behalf of nominator)</span>
+                                                    </div>
+                                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+                                                        <div class="form-group" style="margin-bottom:0;">
+                                                            <label class="form-label">Select Nominee Shareholder <span style="color:#ef4444;">*</span></label>
+                                                            <select class="input-box" onchange="wizard.updateRonsNomineeShareholder(${nomIdx}, this.value)">
+                                                                <option value="">-- Select Shareholder --</option>
+                                                                ${shareholders.map((s, sIdx) => {
+                                                                    const sVal = `sh_${sIdx}`;
+                                                                    const isSel = nom.nomineeShareholderId === sVal || nom.nomineeName === s.name;
+                                                                    return `<option value="${sVal}" ${isSel ? 'selected' : ''}>${s.name || 'Shareholder #' + (sIdx+1)} (${s.type === 'corporate' ? 'Corporate' : 'Individual'}, ${s.percent || 0}%)</option>`;
+                                                                }).join('')}
+                                                            </select>
+                                                        </div>
+                                                        <div class="form-group" style="margin-bottom:0;">
+                                                            <label class="form-label">Date of Entry in Register <span style="color:#ef4444;">*</span></label>
+                                                            <input type="date" class="input-box" value="${nom.dateOfEntry || ''}" onchange="wizard.updateRonsNomineeField(${nomIdx}, 'dateOfEntry', this.value)">
+                                                        </div>
+                                                        <div class="form-group" style="margin-bottom:0;">
+                                                            <label class="form-label">Nominee Email Address</label>
+                                                            <input type="email" class="input-box" value="${nom.nomineeEmail || ''}" placeholder="nominee@example.com" oninput="wizard.updateRonsNomineeField(${nomIdx}, 'nomineeEmail', this.value)">
+                                                        </div>
+                                                        <div class="form-group" style="margin-bottom:0;">
+                                                            <label class="form-label">Nominee Contact Number</label>
+                                                            <input type="tel" class="input-box" value="${nom.nomineePhone || ''}" placeholder="+65 9123 4567" oninput="wizard.updateRonsNomineeField(${nomIdx}, 'nomineePhone', this.value)">
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- 2. Nominator Details -->
+                                                <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px dashed #cbd5e1;">
+                                                    <div style="font-size: 0.78rem; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.65rem; display: flex; align-items: center; gap: 0.35rem;">
+                                                        <span>🛡️ 2. Nominator Details (The Ultimate Beneficial Controller)</span>
+                                                    </div>
+                                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+                                                        <div class="form-group" style="margin-bottom:0;">
+                                                            <label class="form-label">Nominator Full Legal Name <span style="color:#ef4444;">*</span></label>
+                                                            <input type="text" class="input-box" value="${nom.nominatorName || ''}" placeholder="Nominator's full legal name" oninput="wizard.updateRonsNomineeField(${nomIdx}, 'nominatorName', this.value)">
+                                                        </div>
+                                                        <div class="form-group" style="margin-bottom:0;">
+                                                            <label class="form-label">Former Name / Aliases</label>
+                                                            <input type="text" class="input-box" value="${nom.nominatorAliases || ''}" placeholder="Former names or aliases (if any)" oninput="wizard.updateRonsNomineeField(${nomIdx}, 'nominatorAliases', this.value)">
+                                                        </div>
+                                                        <div class="form-group" style="margin-bottom:0;">
+                                                            <label class="form-label">NRIC / Passport / FIN No. <span style="color:#ef4444;">*</span></label>
+                                                            <input type="text" class="input-box" value="${nom.nominatorIdNumber || nom.nominatorId || ''}" placeholder="e.g. S1234567A / Passport No" oninput="wizard.updateRonsNomineeField(${nomIdx}, 'nominatorIdNumber', this.value)">
+                                                        </div>
+                                                        <div class="form-group" style="margin-bottom:0;">
+                                                            <label class="form-label">Nominator Nationality <span style="color:#ef4444;">*</span></label>
+                                                            <select class="input-box" onchange="wizard.updateRonsNomineeField(${nomIdx}, 'nominatorNationality', this.value)">
+                                                                ${nationalities.map(n => `<option value="${n}" ${(nom.nominatorNationality || 'Singaporean') === n ? 'selected' : ''}>${n}</option>`).join('')}
+                                                            </select>
+                                                        </div>
+                                                        <div class="form-group" style="margin-bottom:0;">
+                                                            <label class="form-label">Date of Birth</label>
+                                                            <input type="date" class="input-box" value="${nom.nominatorDob || ''}" onchange="wizard.updateRonsNomineeField(${nomIdx}, 'nominatorDob', this.value)">
+                                                        </div>
+                                                        <div class="form-group" style="margin-bottom:0;">
+                                                            <label class="form-label">Nominator Email Address</label>
+                                                            <input type="email" class="input-box" value="${nom.nominatorEmail || ''}" placeholder="nominator@example.com" oninput="wizard.updateRonsNomineeField(${nomIdx}, 'nominatorEmail', this.value)">
+                                                        </div>
+                                                        <div class="form-group" style="margin-bottom:0;">
+                                                            <label class="form-label">Nominator Mobile Number</label>
+                                                            <input type="tel" class="input-box" value="${nom.nominatorPhone || ''}" placeholder="+65 9123 4567" oninput="wizard.updateRonsNomineeField(${nomIdx}, 'nominatorPhone', this.value)">
+                                                        </div>
+                                                        <div class="form-group" style="grid-column: 1 / -1; margin-bottom:0;">
+                                                            <label class="form-label">Residential / Registered Address <span style="color:#ef4444;">*</span></label>
+                                                            <input type="text" class="input-box" value="${nom.nominatorAddress || ''}" placeholder="Full residential or corporate registered address" oninput="wizard.updateRonsNomineeField(${nomIdx}, 'nominatorAddress', this.value)">
+                                                        </div>
+                                                        <div class="form-group" style="grid-column: 1 / -1; margin-bottom:0;">
+                                                            <label class="form-label">Remarks / Terms of Nominee Arrangement</label>
+                                                            <textarea rows="2" class="input-box" style="resize:vertical;" placeholder="Details of trust arrangement, declaration notes, or voting agreements..." oninput="wizard.updateRonsNomineeField(${nomIdx}, 'nominatorNotes', this.value)">${nom.nominatorNotes || ''}</textarea>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- 3. Supporting Documents -->
+                                                <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px dashed #cbd5e1;">
+                                                    <div style="font-size: 0.78rem; font-weight: 800; color: #334155; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.65rem;">
+                                                        📁 3. Nominator & Nominee KYC Documents
+                                                    </div>
+                                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
+                                                        ${renderDocZone('rons', nomIdx, 'idDoc', 'Nominator ID / Passport Copy', nomDocs.idDoc)}
+                                                        ${renderDocZone('rons', nomIdx, 'addressDoc', 'Nominator Proof of Address', nomDocs.addressDoc)}
+                                                        ${renderDocZone('rons', nomIdx, 'trustDoc', 'Nominee Agreement / Trust Deed', nomDocs.trustDoc)}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        `;
+                                    }).join('')}
                                 </div>
                             ` : ''}
                         </div>
@@ -4908,6 +5132,12 @@
                             if (!this.data.shareholders[index].rep.docs) this.data.shareholders[index].rep.docs = {};
                             this.data.shareholders[index].rep.docs[docKey] = fileData;
                         }
+                    } else if (entityType === 'rons') {
+                        if (!this.data.rons) this.data.rons = { hasNominee: 'Yes', nomineeList: [] };
+                        if (!this.data.rons.nomineeList) this.data.rons.nomineeList = [];
+                        if (!this.data.rons.nomineeList[index]) this.data.rons.nomineeList[index] = {};
+                        if (!this.data.rons.nomineeList[index].docs) this.data.rons.nomineeList[index].docs = {};
+                        this.data.rons.nomineeList[index].docs[docKey] = fileData;
                     }
 
                     this.save();
@@ -4926,6 +5156,8 @@
                     delete this.data.shareholders[index].docs[docKey];
                 } else if (entityType === 'corp_rep' && this.data.shareholders?.[index]?.rep?.docs) {
                     delete this.data.shareholders[index].rep.docs[docKey];
+                } else if (entityType === 'rons' && this.data.rons?.nomineeList?.[index]?.docs) {
+                    delete this.data.rons.nomineeList[index].docs[docKey];
                 }
                 this.save();
                 this.render();
@@ -4937,6 +5169,7 @@
                 if (entityType === 'director') doc = this.data.directors?.[index]?.docs?.[docKey];
                 else if (entityType === 'ind_shareholder' || entityType === 'corp_shareholder') doc = this.data.shareholders?.[index]?.docs?.[docKey];
                 else if (entityType === 'corp_rep') doc = this.data.shareholders?.[index]?.rep?.docs?.[docKey];
+                else if (entityType === 'rons') doc = this.data.rons?.nomineeList?.[index]?.docs?.[docKey];
 
                 if (!doc || !doc.data) {
                     showToast("No document preview available.", "error");
@@ -4999,10 +5232,278 @@
                 this.updateContinueButtonState();
             }
 
+            renderCurrencySectionsHtml() {
+                const currencies = (this.data.capital && Array.isArray(this.data.capital.currencies) && this.data.capital.currencies.length > 0)
+                    ? this.data.capital.currencies
+                    : [{ currency: 'SGD', customCurrency: '', shareClass: 'Ordinary', numberOfShares: '', shareCapitalAmount: '', isCollapsed: false }];
+
+                return currencies.map((c, idx) => {
+                    const isCollapsed = !!c.isCollapsed;
+                    const currCode = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : (c.currency || 'SGD');
+                    const numShares = parseFloat(c.numberOfShares) || 0;
+                    const amount = parseFloat(c.shareCapitalAmount) || 0;
+                    const headerSummary = `${currCode || 'SGD'} – ${numShares > 0 ? numShares.toLocaleString() : '0'} ${c.shareClass === 'Ordinary' ? 'ORD' : 'PREF'} – ${currCode || 'SGD'} ${amount > 0 ? amount.toLocaleString() : '0'} Issued`;
+
+                    if (isCollapsed) {
+                        return `
+                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-left: 4px solid #2563eb; border-radius: 12px; padding: 14px 20px; margin-bottom: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); display: flex; justify-content: space-between; align-items: center;">
+                                <div style="display: flex; align-items: center; gap: 14px;">
+                                    <div style="width: 36px; height: 36px; border-radius: 10px; background: #eff6ff; display: flex; align-items: center; justify-content: center; color: #2563eb;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg>
+                                    </div>
+                                    <span style="font-size: 0.92rem; font-weight: 700; color: #0f172a;">${headerSummary}</span>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button type="button" onclick="wizard.toggleCurrencyCollapse(${idx})" style="padding: 6px 14px; background: #f8fafc; color: #334155; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.75rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                        Expand
+                                    </button>
+                                    ${currencies.length > 1 ? `
+                                        <button type="button" onclick="wizard.removeCurrencySection(${idx})" style="padding: 6px 10px; background: #ffffff; color: #ef4444; border: 1px solid #fecaca; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Remove">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    return `
+                        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-left: 4px solid #2563eb; border-radius: 14px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.02);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; border-bottom: 1px solid #f1f5f9; padding-bottom: 14px;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div style="width: 36px; height: 36px; border-radius: 10px; background: #eff6ff; display: flex; align-items: center; justify-content: center; color: #2563eb;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg>
+                                    </div>
+                                    <h4 style="font-size: 1rem; font-weight: 800; color: #0f172a; margin: 0;">Currency Section #${idx + 1}</h4>
+                                </div>
+                                <div style="display: flex; gap: 10px;">
+                                    <button type="button" onclick="wizard.toggleCurrencyCollapse(${idx})" style="padding: 6px 14px; background: #ffffff; color: #475569; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.75rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                                        Collapse
+                                    </button>
+                                    ${currencies.length > 1 ? `
+                                        <button type="button" onclick="wizard.removeCurrencySection(${idx})" style="padding: 6px 12px; background: #ffffff; color: #ef4444; border: 1px solid #fca5a5; border-radius: 8px; font-size: 0.75rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px;" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='#ffffff'">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                                            Remove
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 14px;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label class="form-label" style="text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px;">Currency</label>
+                                    <select class="input-box" onchange="wizard.updateCurrencySectionField(${idx}, 'currency', this.value)">
+                                        <option value="SGD" ${(c.currency || 'SGD') === 'SGD' ? 'selected' : ''}>SGD</option>
+                                        <option value="USD" ${c.currency === 'USD' ? 'selected' : ''}>USD</option>
+                                        <option value="EUR" ${c.currency === 'EUR' ? 'selected' : ''}>EUR</option>
+                                        <option value="GBP" ${c.currency === 'GBP' ? 'selected' : ''}>GBP</option>
+                                        <option value="AUD" ${c.currency === 'AUD' ? 'selected' : ''}>AUD</option>
+                                        <option value="HKD" ${c.currency === 'HKD' ? 'selected' : ''}>HKD</option>
+                                        <option value="Others" ${c.currency === 'Others' ? 'selected' : ''}>Others</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label class="form-label" style="text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px;">Class of Shares</label>
+                                    <select class="input-box" onchange="wizard.updateCurrencySectionField(${idx}, 'shareClass', this.value)">
+                                        <option value="Ordinary" ${(c.shareClass || 'Ordinary') === 'Ordinary' ? 'selected' : ''}>Ordinary</option>
+                                        <option value="Preference" ${c.shareClass === 'Preference' ? 'selected' : ''}>Preference</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            ${c.currency === 'Others' ? `
+                                <div class="form-group" style="margin-bottom: 14px;">
+                                    <label class="form-label" style="text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px;">Specify Custom Currency Code</label>
+                                    <input type="text" class="input-box" value="${c.customCurrency || ''}" placeholder="e.g. CAD, JPY" oninput="wizard.updateCurrencySectionField(${idx}, 'customCurrency', this.value)">
+                                </div>
+                            ` : ''}
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label class="form-label">Total Number of Shares <span style="color:#ef4444;">*</span></label>
+                                    <input type="number" min="1" class="input-box" value="${c.numberOfShares !== undefined && c.numberOfShares !== null ? c.numberOfShares : ''}" placeholder="e.g. 1,000" oninput="wizard.updateCurrencySectionField(${idx}, 'numberOfShares', this.value)">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label class="form-label">Total Issued Capital <span style="color:#ef4444;">*</span></label>
+                                    <div style="position: relative; display: flex; align-items: center;">
+                                        <input type="number" min="1" class="input-box" value="${c.shareCapitalAmount !== undefined && c.shareCapitalAmount !== null ? c.shareCapitalAmount : ''}" placeholder="e.g. 1,000" style="padding-right: 65px;" oninput="wizard.updateCurrencySectionField(${idx}, 'shareCapitalAmount', this.value)">
+                                        <div style="position: absolute; right: 8px; background: #eff6ff; color: #2563eb; font-size: 0.75rem; font-weight: 700; padding: 4px 8px; border-radius: 6px;">
+                                            ${currCode || 'SGD'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            renderShareCapitalSummaryHtml() {
+                const currencies = (this.data.capital && Array.isArray(this.data.capital.currencies))
+                    ? this.data.capital.currencies
+                    : [];
+
+                const uniqueCurrencies = new Set();
+                let totalShares = 0;
+                const capitalByCurrency = {};
+
+                currencies.forEach(c => {
+                    const currCode = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : (c.currency || 'SGD');
+                    if (currCode) uniqueCurrencies.add(currCode);
+                    totalShares += parseFloat(c.numberOfShares) || 0;
+                    if (currCode) {
+                        capitalByCurrency[currCode] = (capitalByCurrency[currCode] || 0) + (parseFloat(c.shareCapitalAmount) || 0);
+                    }
+                });
+
+                const capitalStrings = Object.keys(capitalByCurrency).map(curr => {
+                    const amt = capitalByCurrency[curr];
+                    return `${curr} ${amt > 0 ? amt.toLocaleString() : '0'}`;
+                }).join(', ');
+
+                return `
+                    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px; margin-top: 20px;">
+                        <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 18px;">
+                            <div style="width: 44px; height: 44px; border-radius: 12px; background: #f0fdf4; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                <span style="color: #16a34a; font-size: 22px; font-weight: 800; font-family: 'Outfit', sans-serif;">$</span>
+                            </div>
+                            <div>
+                                <h5 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #0f172a;">Consolidated Summary</h5>
+                                <div style="font-size: 0.8rem; color: #64748b; margin-top: 2px;">Overview of your configured share capital</div>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;">
+                            <div style="background: #ffffff; border: 1px solid #f1f5f9; border-radius: 12px; padding: 16px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                                <div style="width: 44px; height: 44px; border-radius: 10px; background: #eff6ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #2563eb;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"></circle><path d="M18.09 10.37A6 6 0 1 1 10.34 18"></path><path d="M7 6h1v4"></path><path d="M16.7 16H16v-4"></path></svg>
+                                </div>
+                                <div>
+                                    <span style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Currencies</span>
+                                    <span style="font-size: 1.4rem; font-weight: 800; color: #0f172a; line-height: 1;">${uniqueCurrencies.size}</span>
+                                </div>
+                            </div>
+                            <div style="background: #ffffff; border: 1px solid #f1f5f9; border-radius: 12px; padding: 16px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                                <div style="width: 44px; height: 44px; border-radius: 10px; background: #f5f3ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #7c3aed;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
+                                </div>
+                                <div>
+                                    <span style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Total Shares</span>
+                                    <span style="font-size: 1.4rem; font-weight: 800; color: #0f172a; line-height: 1;">${totalShares > 0 ? totalShares.toLocaleString() : '0'}</span>
+                                </div>
+                            </div>
+                            <div style="background: #ffffff; border: 1px solid #f1f5f9; border-radius: 12px; padding: 16px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                                <div style="width: 44px; height: 44px; border-radius: 10px; background: #f0fdf4; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #16a34a;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M2 10h20"></path><path d="M12 2l10 5H2z"></path></svg>
+                                </div>
+                                <div>
+                                    <span style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Total Issued Capital</span>
+                                    <span style="font-size: 1.25rem; font-weight: 800; color: #0f172a; line-height: 1.2;">${capitalStrings || 'None'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            addCurrencySection() {
+                if (!this.data.capital) this.data.capital = {};
+                if (!this.data.capital.currencies) this.data.capital.currencies = [];
+                this.data.capital.currencies.push({
+                    currency: 'SGD',
+                    customCurrency: '',
+                    shareClass: 'Ordinary',
+                    numberOfShares: '',
+                    shareCapitalAmount: '',
+                    isCollapsed: false
+                });
+                this.syncCapitalTotals();
+                this.save();
+                this.render();
+            }
+
+            removeCurrencySection(idx) {
+                if (this.data.capital && this.data.capital.currencies && this.data.capital.currencies.length > 1) {
+                    this.data.capital.currencies.splice(idx, 1);
+                    this.syncCapitalTotals();
+                    this.save();
+                    this.render();
+                }
+            }
+
+            toggleCurrencyCollapse(idx) {
+                if (this.data.capital && this.data.capital.currencies && this.data.capital.currencies[idx]) {
+                    this.data.capital.currencies[idx].isCollapsed = !this.data.capital.currencies[idx].isCollapsed;
+                    this.save();
+                    this.render();
+                }
+            }
+
+            updateCurrencySectionField(idx, field, value) {
+                if (!this.data.capital) this.data.capital = {};
+                if (!this.data.capital.currencies) this.data.capital.currencies = [];
+                const c = this.data.capital.currencies[idx];
+                if (c) {
+                    c[field] = value;
+                    this.syncCapitalTotals();
+                    this.save();
+                    if (field === 'currency' || field === 'shareClass') {
+                        this.render();
+                    } else {
+                        this.updateShareCapitalSummaryDOM();
+                        this.updateContinueButtonState();
+                    }
+                }
+            }
+
+            updateCapitalConfirm(checked) {
+                if (!this.data.capital) this.data.capital = {};
+                this.data.capital.isConfirmed = checked;
+                this.save();
+                this.updateContinueButtonState();
+            }
+
+            syncCapitalTotals() {
+                if (!this.data.capital) this.data.capital = {};
+                const currencies = this.data.capital.currencies || [];
+                let totalShares = 0;
+                let totalCapital = 0;
+                currencies.forEach(c => {
+                    totalShares += parseFloat(c.numberOfShares) || 0;
+                    totalCapital += parseFloat(c.shareCapitalAmount) || 0;
+                });
+                this.data.capital.numShares = totalShares > 0 ? totalShares : '';
+                this.data.capital.issued = totalCapital > 0 ? totalCapital : '';
+                if (currencies.length > 0) {
+                    const first = currencies[0];
+                    this.data.capital.currency = first.currency === 'Others' ? (first.customCurrency || 'SGD') : (first.currency || 'SGD');
+                    this.data.capital.type = first.shareClass || 'Ordinary';
+                }
+                this.calculateShareholderAllocations();
+            }
+
+            updateShareCapitalSummaryDOM() {
+                const summaryCard = document.getElementById('share-capital-summary-card');
+                if (summaryCard) {
+                    summaryCard.innerHTML = this.renderShareCapitalSummaryHtml();
+                }
+                const totalShares = parseFloat(this.data.capital?.numShares) || 0;
+                if (this.data.shareholders && Array.isArray(this.data.shareholders)) {
+                    this.data.shareholders.forEach((sh, sIdx) => {
+                        const shares = parseFloat(sh.shares) || 0;
+                        const pct = totalShares > 0 ? Math.round((shares / totalShares) * 100) : 0;
+                        const pctBadge = document.getElementById(`sh-pct-badge-${sIdx}`);
+                        if (pctBadge) pctBadge.innerText = `${pct}% ownership`;
+                    });
+                }
+            }
+
             updateCapitalField(field, value) {
                 if (!this.data.capital) this.data.capital = {};
                 this.data.capital[field] = value;
                 this.calculateShareholderAllocations();
+                this.syncAllUbos();
                 this.save();
                 this.updateContinueButtonState();
             }
@@ -5017,13 +5518,116 @@
             updateRonsField(field, value) {
                 if (!this.data.rons) this.data.rons = { hasNominee: 'No', nomineeList: [] };
                 this.data.rons[field] = value;
+                if (field === 'hasNominee') {
+                    if (value === 'Yes') {
+                        if (!this.data.rons.nomineeList || this.data.rons.nomineeList.length === 0) {
+                            const nomSh = (this.data.shareholders || []).find(s => s.isNominee);
+                            this.data.rons.nomineeList = [{
+                                nomineeShareholderId: nomSh ? `sh_${this.data.shareholders.indexOf(nomSh)}` : '',
+                                nomineeName: nomSh ? nomSh.name : '',
+                                dateOfEntry: new Date().toISOString().split('T')[0],
+                                nomineeEmail: nomSh ? (nomSh.email || '') : '',
+                                nomineePhone: nomSh ? (nomSh.phone || '') : '',
+                                nominatorName: this.data.rons.nominatorName || '',
+                                nominatorAliases: this.data.rons.nominatorAliases || '',
+                                nominatorIdNumber: this.data.rons.nominatorId || this.data.rons.nominatorIdNumber || '',
+                                nominatorNationality: this.data.rons.nominatorNationality || 'Singaporean',
+                                nominatorDob: this.data.rons.nominatorDob || '',
+                                nominatorAddress: this.data.rons.nominatorAddress || '',
+                                nominatorEmail: this.data.rons.nominatorEmail || '',
+                                nominatorPhone: this.data.rons.nominatorPhone || '',
+                                nominatorNotes: this.data.rons.nominatorNotes || '',
+                                docs: this.data.rons.docs || {}
+                            }];
+                        }
+                    }
+                }
+                this.save();
+                if (field === 'hasNominee') {
+                    this.render();
+                } else {
+                    this.updateContinueButtonState();
+                }
+            }
+
+            updateRonsNomineeField(nomIdx, field, value) {
+                if (!this.data.rons) this.data.rons = { hasNominee: 'Yes', nomineeList: [] };
+                if (!this.data.rons.nomineeList) this.data.rons.nomineeList = [];
+                if (!this.data.rons.nomineeList[nomIdx]) this.data.rons.nomineeList[nomIdx] = {};
+                this.data.rons.nomineeList[nomIdx][field] = value;
+
+                if (nomIdx === 0) {
+                    if (field === 'nominatorName') this.data.rons.nominatorName = value;
+                    if (field === 'nominatorIdNumber') { this.data.rons.nominatorId = value; this.data.rons.nominatorIdNumber = value; }
+                    if (field === 'nominatorNationality') this.data.rons.nominatorNationality = value;
+                    if (field === 'nominatorAddress') this.data.rons.nominatorAddress = value;
+                    if (field === 'nominatorAliases') this.data.rons.nominatorAliases = value;
+                    if (field === 'nominatorDob') this.data.rons.nominatorDob = value;
+                    if (field === 'nominatorNotes') this.data.rons.nominatorNotes = value;
+                }
+                this.save();
+                this.updateContinueButtonState();
+            }
+
+            updateRonsNomineeShareholder(nomIdx, shVal) {
+                if (!this.data.rons) this.data.rons = { hasNominee: 'Yes', nomineeList: [] };
+                if (!this.data.rons.nomineeList) this.data.rons.nomineeList = [];
+                if (!this.data.rons.nomineeList[nomIdx]) this.data.rons.nomineeList[nomIdx] = {};
+
+                this.data.rons.nomineeList[nomIdx].nomineeShareholderId = shVal;
+                if (shVal && shVal.startsWith('sh_')) {
+                    const sIdx = parseInt(shVal.replace('sh_', ''));
+                    const sh = this.data.shareholders?.[sIdx];
+                    if (sh) {
+                        this.data.rons.nomineeList[nomIdx].nomineeName = sh.name || '';
+                        this.data.rons.nomineeList[nomIdx].nomineeEmail = sh.email || '';
+                        this.data.rons.nomineeList[nomIdx].nomineePhone = sh.phone || '';
+                        sh.isNominee = true;
+                    }
+                }
                 this.save();
                 this.render();
             }
 
+            addRonsNominee() {
+                if (!this.data.rons) this.data.rons = { hasNominee: 'Yes', nomineeList: [] };
+                if (!this.data.rons.nomineeList) this.data.rons.nomineeList = [];
+                this.data.rons.nomineeList.push({
+                    nomineeShareholderId: '',
+                    nomineeName: '',
+                    dateOfEntry: new Date().toISOString().split('T')[0],
+                    nomineeEmail: '',
+                    nomineePhone: '',
+                    nominatorName: '',
+                    nominatorAliases: '',
+                    nominatorIdNumber: '',
+                    nominatorNationality: 'Singaporean',
+                    nominatorDob: '',
+                    nominatorAddress: '',
+                    nominatorEmail: '',
+                    nominatorPhone: '',
+                    nominatorNotes: '',
+                    docs: {}
+                });
+                this.save();
+                this.render();
+            }
+
+            removeRonsNominee(nomIdx) {
+                if (this.data.rons?.nomineeList) {
+                    this.data.rons.nomineeList.splice(nomIdx, 1);
+                    if (this.data.rons.nomineeList.length === 0) {
+                        this.addRonsNominee();
+                    } else {
+                        this.save();
+                        this.render();
+                    }
+                }
+            }
+
             calculateShareholderAllocations() {
-                const totalShares = parseFloat(this.data.capital?.numShares) || 1000;
-                const totalCapital = parseFloat(this.data.capital?.issued) || 1000;
+                const totalShares = parseFloat(this.data.capital?.numShares) || 0;
+                const totalCapital = parseFloat(this.data.capital?.issued) || 0;
                 if (!this.data.shareholders) return;
                 this.data.shareholders.forEach(sh => {
                     const shares = parseFloat(sh.shares) || 0;
@@ -5053,8 +5657,8 @@
                         regPlace: 'United Kingdom',
                         regDate: '',
                         addr: '',
-                        shares: 0,
-                        shareAmount: 0,
+                        shares: '',
+                        shareAmount: '',
                         percent: 0,
                         ubo: 'No',
                         isNominee: false,
@@ -5072,8 +5676,8 @@
                         phone: '',
                         email: '',
                         addr: '',
-                        shares: 0,
-                        shareAmount: 0,
+                        shares: '',
+                        shareAmount: '',
                         percent: 0,
                         ubo: 'Yes',
                         isNominee: false,
@@ -5095,6 +5699,467 @@
                     showToast("At least one shareholder is required.", "error");
                 }
             }
+
+            // --- ULTIMATE BENEFICIAL OWNER (UBO) RESTORATION HELPERS ---
+            setShareholderUbo(index, value) {
+                if (!this.data.shareholders) this.data.shareholders = [];
+                if (!this.data.shareholders[index]) this.data.shareholders[index] = {};
+                const sh = this.data.shareholders[index];
+                sh.ubo = value;
+                if (value === 'Yes') {
+                    sh.selectedUbos = [];
+                } else {
+                    if (!sh.selectedUbos) sh.selectedUbos = [];
+                }
+                this.syncAllUbos();
+                this.save();
+                this.render();
+            }
+
+            getAvailableUboCandidates(excludeShIdx = null) {
+                const candidates = [];
+                const seen = new Set();
+
+                const addCandidate = (cand) => {
+                    if (!cand || !cand.name || cand.name.trim() === '') return;
+                    const key = (cand.idNum && cand.idNum.trim() !== '') 
+                        ? cand.idNum.trim().toUpperCase() 
+                        : cand.name.trim().toLowerCase();
+                    if (seen.has(key)) return;
+                    seen.add(key);
+                    candidates.push({
+                        key: key,
+                        id: cand.id || key,
+                        name: cand.name.trim(),
+                        idNum: cand.idNum || '',
+                        nationality: cand.nationality || 'Singaporean',
+                        dob: cand.dob || '',
+                        email: cand.email || '',
+                        phone: cand.phone || '',
+                        addr: cand.addr || '',
+                        sourceType: cand.sourceType || 'Person',
+                        label: cand.label || cand.name.trim()
+                    });
+                };
+
+                // 1. Directors
+                if (Array.isArray(this.data.directors)) {
+                    this.data.directors.forEach((d, dIdx) => {
+                        if (d && d.name && d.name.trim()) {
+                            addCandidate({
+                                id: `dir_${dIdx}`,
+                                name: d.name,
+                                idNum: d.idNum,
+                                nationality: d.nationality || 'Singaporean',
+                                dob: d.dob,
+                                email: d.email,
+                                phone: d.phone,
+                                addr: d.addr,
+                                sourceType: 'Director',
+                                label: `${d.name} (Director)`
+                            });
+                        }
+                    });
+                }
+
+                // 2. Individual Shareholders & Corporate Representatives
+                if (Array.isArray(this.data.shareholders)) {
+                    this.data.shareholders.forEach((s, sIdx) => {
+                        if (s && s.type === 'individual' && s.name && s.name.trim()) {
+                            if (excludeShIdx === null || excludeShIdx !== sIdx) {
+                                addCandidate({
+                                    id: `sh_${sIdx}`,
+                                    name: s.name,
+                                    idNum: s.idNum,
+                                    nationality: s.nationality || 'Singaporean',
+                                    dob: s.dob,
+                                    email: s.email,
+                                    phone: s.phone,
+                                    addr: s.addr,
+                                    sourceType: 'Individual Shareholder',
+                                    label: `${s.name} (Shareholder, ${s.percent || 0}%)`
+                                });
+                            }
+                        } else if (s && s.type === 'corporate' && s.rep && s.rep.fullName && s.rep.fullName.trim()) {
+                            addCandidate({
+                                id: `rep_${sIdx}`,
+                                name: s.rep.fullName,
+                                idNum: s.rep.idNum,
+                                nationality: s.rep.nationality || 'Singaporean',
+                                dob: s.rep.dob || '',
+                                email: s.rep.email,
+                                phone: s.rep.phone,
+                                addr: s.addr,
+                                sourceType: 'Corporate Representative',
+                                label: `${s.rep.fullName} (Rep for ${s.name || 'Corporate Entity'})`
+                            });
+                        }
+                    });
+                }
+
+                // 3. Contact person / Applicant
+                if (this.data.contact) {
+                    const contactName = `${this.data.contact.firstName || ''} ${this.data.contact.lastName || ''}`.trim();
+                    if (contactName) {
+                        addCandidate({
+                            id: 'contact_applicant',
+                            name: contactName,
+                            idNum: '',
+                            nationality: '',
+                            email: this.data.contact.email,
+                            phone: this.data.contact.phone,
+                            addr: '',
+                            sourceType: 'Applicant',
+                            label: `${contactName} (Applicant / Contact)`
+                        });
+                    }
+                }
+
+                // 4. Any previously entered UBOs
+                if (Array.isArray(this.data.ubos)) {
+                    this.data.ubos.forEach(u => {
+                        if (u && u.name) {
+                            addCandidate({
+                                id: `ubo_${u.idNum || u.name}`,
+                                name: u.name,
+                                idNum: u.idNum || u.idNumber,
+                                nationality: u.nationality,
+                                dob: u.dob,
+                                email: u.email,
+                                phone: u.phone || u.mobile,
+                                addr: u.addr || u.address,
+                                sourceType: 'Beneficial Owner',
+                                label: `${u.name} (Existing UBO)`
+                            });
+                        }
+                    });
+                }
+
+                return candidates;
+            }
+
+            toggleShareholderUboCandidate(shIdx, candKey, isChecked) {
+                if (!this.data.shareholders || !this.data.shareholders[shIdx]) return;
+                const sh = this.data.shareholders[shIdx];
+                sh.selectedUbos = Array.isArray(sh.selectedUbos) ? sh.selectedUbos : (Array.isArray(sh.ubos) ? [...sh.ubos] : []);
+
+                const candidates = this.getAvailableUboCandidates(sh.type === 'individual' ? shIdx : null);
+                const cand = candidates.find(c => c.key === candKey);
+
+                if (isChecked && cand) {
+                    const already = sh.selectedUbos.some(u => 
+                        (u.key && u.key === cand.key) || 
+                        (u.idNum && cand.idNum && u.idNum.trim().toUpperCase() === cand.idNum.trim().toUpperCase()) ||
+                        (u.name && cand.name && u.name.trim().toLowerCase() === cand.name.trim().toLowerCase())
+                    );
+                    if (!already) {
+                        sh.selectedUbos.push({
+                            key: cand.key,
+                            id: cand.id,
+                            name: cand.name,
+                            idNum: cand.idNum,
+                            nationality: cand.nationality,
+                            dob: cand.dob,
+                            email: cand.email,
+                            phone: cand.phone,
+                            addr: cand.addr,
+                            source: cand.sourceType
+                        });
+                    }
+                } else {
+                    sh.selectedUbos = sh.selectedUbos.filter(u => 
+                        u.key !== candKey && 
+                        !(cand && u.idNum && cand.idNum && u.idNum.trim().toUpperCase() === cand.idNum.trim().toUpperCase()) &&
+                        !(cand && u.name && cand.name && u.name.trim().toLowerCase() === cand.name.trim().toLowerCase())
+                    );
+                }
+                sh.ubos = sh.selectedUbos;
+                this.syncAllUbos();
+                this.save();
+                this.render();
+            }
+
+            toggleCustomUboForm(shIdx) {
+                if (!this.data.shareholders || !this.data.shareholders[shIdx]) return;
+                const sh = this.data.shareholders[shIdx];
+                sh._showCustomUboForm = !sh._showCustomUboForm;
+                this.render();
+            }
+
+            addCustomUbo(shIdx) {
+                if (!this.data.shareholders || !this.data.shareholders[shIdx]) return;
+                const sh = this.data.shareholders[shIdx];
+                const nameInput = document.getElementById(`custom-ubo-name-${shIdx}`);
+                const idInput = document.getElementById(`custom-ubo-id-${shIdx}`);
+                const natInput = document.getElementById(`custom-ubo-nat-${shIdx}`);
+                const emailInput = document.getElementById(`custom-ubo-email-${shIdx}`);
+                const addrInput = document.getElementById(`custom-ubo-addr-${shIdx}`);
+
+                const name = nameInput ? nameInput.value.trim() : '';
+                const idNum = idInput ? idInput.value.trim() : '';
+                const nationality = natInput ? natInput.value.trim() : 'Singaporean';
+                const email = emailInput ? emailInput.value.trim() : '';
+                const addr = addrInput ? addrInput.value.trim() : '';
+
+                if (!name) {
+                    showToast("Please enter the UBO's legal name.", "error");
+                    return;
+                }
+
+                sh.selectedUbos = Array.isArray(sh.selectedUbos) ? sh.selectedUbos : (Array.isArray(sh.ubos) ? [...sh.ubos] : []);
+                const key = (idNum !== '') ? idNum.toUpperCase() : name.toLowerCase();
+
+                sh.selectedUbos.push({
+                    key: key,
+                    id: `ubo_custom_${Date.now()}`,
+                    name: name,
+                    idNum: idNum,
+                    nationality: nationality || 'Singaporean',
+                    dob: '',
+                    email: email,
+                    phone: '',
+                    addr: addr,
+                    source: 'External UBO'
+                });
+                sh.ubos = sh.selectedUbos;
+                sh._showCustomUboForm = false;
+                this.syncAllUbos();
+                this.save();
+                this.render();
+                showToast("UBO linked successfully!");
+            }
+
+            removeCustomUbo(shIdx, keyOrName) {
+                if (!this.data.shareholders || !this.data.shareholders[shIdx]) return;
+                const sh = this.data.shareholders[shIdx];
+                sh.selectedUbos = (Array.isArray(sh.selectedUbos) ? sh.selectedUbos : (Array.isArray(sh.ubos) ? sh.ubos : [])).filter(u => 
+                    u.key !== keyOrName && u.name !== keyOrName
+                );
+                sh.ubos = sh.selectedUbos;
+                this.syncAllUbos();
+                this.save();
+                this.render();
+            }
+
+            renderUboSelector(idx, sh) {
+                const candidates = this.getAvailableUboCandidates(sh.type === 'individual' ? idx : null);
+                const selectedList = Array.isArray(sh.selectedUbos) ? sh.selectedUbos : (Array.isArray(sh.ubos) ? sh.ubos : []);
+
+                const customSelected = selectedList.filter(u => {
+                    return !candidates.some(c => 
+                        (c.key && u.key === c.key) || 
+                        (c.idNum && u.idNum && c.idNum.trim().toUpperCase() === u.idNum.trim().toUpperCase()) ||
+                        (c.name && u.name && c.name.trim().toLowerCase() === u.name.trim().toLowerCase())
+                    );
+                });
+
+                const candidateCardsHtml = candidates.map(c => {
+                    const isSelected = selectedList.some(u => 
+                        (u.key && u.key === c.key) || 
+                        (u.idNum && c.idNum && u.idNum.trim().toUpperCase() === c.idNum.trim().toUpperCase()) || 
+                        (u.name && c.name && u.name.trim().toLowerCase() === c.name.trim().toLowerCase())
+                    );
+                    return `
+                        <label style="display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0.85rem; background: ${isSelected ? '#eff6ff' : '#f8fafc'}; border: 1px solid ${isSelected ? '#93c5fd' : '#e2e8f0'}; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;">
+                            <div style="display: flex; align-items: center; gap: 0.65rem;">
+                                <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="wizard.toggleShareholderUboCandidate(${idx}, '${c.key}', this.checked)" style="accent-color: #2563eb; width: 16px; height: 16px;">
+                                <div>
+                                    <div style="font-size: 0.8rem; font-weight: 700; color: #1e293b;">
+                                        ${c.name}
+                                    </div>
+                                    <div style="font-size: 0.7rem; color: #64748b;">
+                                        ${c.sourceType} ${c.idNum ? `• ${c.idNum}` : ''} ${c.nationality ? `• ${c.nationality}` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            <span style="font-size: 0.68rem; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: ${isSelected ? '#dbeafe' : '#f1f5f9'}; color: ${isSelected ? '#1d4ed8' : '#475569'};">
+                                ${isSelected ? '✓ Selected UBO' : 'Select'}
+                            </span>
+                        </label>
+                    `;
+                }).join('');
+
+                const customCardsHtml = customSelected.map(u => `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0.85rem; background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px;">
+                        <div style="display: flex; align-items: center; gap: 0.65rem;">
+                            <span style="font-size: 1rem;">👤</span>
+                            <div>
+                                <div style="font-size: 0.8rem; font-weight: 700; color: #166534;">
+                                    ${u.name} <span style="font-size: 0.68rem; background: #dcfce7; color: #15803d; padding: 1px 6px; border-radius: 4px; font-weight: 600;">Custom UBO</span>
+                                </div>
+                                <div style="font-size: 0.7rem; color: #15803d;">
+                                    ${u.idNum ? `ID: ${u.idNum} • ` : ''}${u.nationality || 'Singaporean'} ${u.email ? `• ${u.email}` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" onclick="wizard.removeCustomUbo(${idx}, '${u.key || u.name}')" style="background: none; border: none; color: #ef4444; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
+                            ✕ Remove
+                        </button>
+                    </div>
+                `).join('');
+
+                const customFormHtml = sh._showCustomUboForm ? `
+                    <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 0.85rem; margin-top: 0.5rem;">
+                        <div style="font-size: 0.78rem; font-weight: 800; color: #1e293b; margin-bottom: 0.5rem;">
+                            Add External Ultimate Beneficial Owner
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <div>
+                                <label style="font-size: 0.7rem; font-weight: 700; color: #475569;">Full Legal Name <span style="color:#ef4444;">*</span></label>
+                                <input type="text" id="custom-ubo-name-${idx}" class="input-box" placeholder="e.g. John Tan" style="padding: 4px 8px; font-size: 0.75rem;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.7rem; font-weight: 700; color: #475569;">ID / Passport No <span style="color:#ef4444;">*</span></label>
+                                <input type="text" id="custom-ubo-id-${idx}" class="input-box" placeholder="e.g. S9876543A" style="padding: 4px 8px; font-size: 0.75rem;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.7rem; font-weight: 700; color: #475569;">Nationality</label>
+                                <input type="text" id="custom-ubo-nat-${idx}" class="input-box" placeholder="e.g. Singaporean" value="Singaporean" style="padding: 4px 8px; font-size: 0.75rem;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.7rem; font-weight: 700; color: #475569;">Email Address</label>
+                                <input type="email" id="custom-ubo-email-${idx}" class="input-box" placeholder="ubo@example.com" style="padding: 4px 8px; font-size: 0.75rem;">
+                            </div>
+                            <div style="grid-column: 1 / -1;">
+                                <label style="font-size: 0.7rem; font-weight: 700; color: #475569;">Residential Address</label>
+                                <input type="text" id="custom-ubo-addr-${idx}" class="input-box" placeholder="Full residential address" style="padding: 4px 8px; font-size: 0.75rem;">
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+                            <button type="button" onclick="wizard.toggleCustomUboForm(${idx})" style="padding: 4px 10px; font-size: 0.72rem; font-weight: 600; border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; cursor: pointer;">
+                                Cancel
+                            </button>
+                            <button type="button" onclick="wizard.addCustomUbo(${idx})" style="padding: 4px 12px; font-size: 0.72rem; font-weight: 700; border: none; background: #2563eb; color: #fff; border-radius: 6px; cursor: pointer;">
+                                Save & Link UBO
+                            </button>
+                        </div>
+                    </div>
+                ` : '';
+
+                return `
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        ${candidateCardsHtml}
+                        ${customCardsHtml}
+                        ${candidates.length === 0 && customSelected.length === 0 ? `
+                            <div style="font-size: 0.75rem; color: #94a3b8; font-style: italic; padding: 0.5rem;">
+                                No other persons entered yet in Pre-Registration. Click "+ Enter External UBO" above to add one.
+                            </div>
+                        ` : ''}
+                        ${customFormHtml}
+                    </div>
+                `;
+            }
+
+            syncAllUbos() {
+                if (!this.data) return;
+                if (!Array.isArray(this.data.shareholders)) {
+                    this.data.shareholders = [];
+                }
+
+                const masterMap = new Map();
+
+                const addToMaster = (uboItem, sh, shIdx) => {
+                    if (!uboItem || !uboItem.name || !uboItem.name.trim()) return;
+                    const key = (uboItem.idNum && uboItem.idNum.trim() !== '')
+                        ? uboItem.idNum.trim().toUpperCase()
+                        : uboItem.name.trim().toLowerCase();
+
+                    const shName = sh.name || (sh.type === 'corporate' ? 'Corporate Shareholder #' + (shIdx + 1) : 'Individual Shareholder #' + (shIdx + 1));
+                    const pct = parseFloat(sh.percent) || 0;
+
+                    if (masterMap.has(key)) {
+                        const existing = masterMap.get(key);
+                        if (!existing.shareholders.includes(shName)) {
+                            existing.shareholders.push(shName);
+                        }
+                        existing.ownershipPct = Math.min(100, (existing.ownershipPct || 0) + pct);
+                        if (!existing.idNum && uboItem.idNum) existing.idNum = uboItem.idNum;
+                        if (!existing.nationality && uboItem.nationality) existing.nationality = uboItem.nationality;
+                        if (!existing.addr && uboItem.addr) existing.addr = uboItem.addr;
+                        if (!existing.email && uboItem.email) existing.email = uboItem.email;
+                        if (!existing.phone && uboItem.phone) existing.phone = uboItem.phone;
+                    } else {
+                        masterMap.set(key, {
+                            id: uboItem.id || `ubo_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                            name: uboItem.name.trim(),
+                            idNum: uboItem.idNum || uboItem.idNumber || '',
+                            nationality: uboItem.nationality || 'Singaporean',
+                            dob: uboItem.dob || '',
+                            email: uboItem.email || '',
+                            phone: uboItem.phone || uboItem.mobile || '',
+                            addr: uboItem.addr || uboItem.address || '',
+                            role: 'Ultimate Beneficial Owner',
+                            status: 'Active',
+                            ownershipPct: pct,
+                            shareholders: [shName],
+                            source: uboItem.source || (sh.type === 'corporate' ? 'Corporate Shareholder' : 'Individual Shareholder')
+                        });
+                    }
+                };
+
+                this.data.shareholders.forEach((sh, idx) => {
+                    if (!sh) return;
+                    if (sh.type === 'individual') {
+                        if (sh.ubo === undefined || sh.ubo === null || sh.ubo === '') {
+                            sh.ubo = 'Yes';
+                        }
+                        if (sh.ubo === 'Yes') {
+                            addToMaster({
+                                name: sh.name,
+                                idNum: sh.idNum,
+                                nationality: sh.nationality,
+                                dob: sh.dob,
+                                email: sh.email,
+                                phone: sh.phone,
+                                addr: sh.addr,
+                                source: 'Direct Individual Shareholder'
+                            }, sh, idx);
+                        } else {
+                            const selected = Array.isArray(sh.selectedUbos) ? sh.selectedUbos : (Array.isArray(sh.ubos) ? sh.ubos : []);
+                            selected.forEach(u => addToMaster(u, sh, idx));
+                        }
+                    } else {
+                        // Corporate shareholder
+                        if (sh.ubo === undefined || sh.ubo === null || sh.ubo === '') {
+                            sh.ubo = (sh.rep && sh.rep.fullName) ? 'Yes' : 'No';
+                        }
+                        if (sh.ubo === 'Yes' && sh.rep && sh.rep.fullName) {
+                            addToMaster({
+                                name: sh.rep.fullName,
+                                idNum: sh.rep.idNum,
+                                nationality: sh.rep.nationality,
+                                dob: sh.rep.dob || '',
+                                email: sh.rep.email,
+                                phone: sh.rep.phone || '',
+                                addr: sh.addr || '',
+                                source: 'Corporate Authorized Representative'
+                            }, sh, idx);
+                        } else {
+                            const selected = Array.isArray(sh.selectedUbos) ? sh.selectedUbos : (Array.isArray(sh.ubos) ? sh.ubos : []);
+                            selected.forEach(u => addToMaster(u, sh, idx));
+                        }
+                    }
+                });
+
+                // Preserve existing UBOs from migration or backend
+                if (Array.isArray(this.data.ubos)) {
+                    this.data.ubos.forEach(u => {
+                        if (u && u.name) {
+                            const key = (u.idNum && u.idNum.trim() !== '')
+                                ? u.idNum.trim().toUpperCase()
+                                : u.name.trim().toLowerCase();
+                            if (!masterMap.has(key)) {
+                                masterMap.set(key, { ...u, role: u.role || 'Ultimate Beneficial Owner', status: u.status || 'Active' });
+                            }
+                        }
+                    });
+                }
+
+                this.data.ubos = Array.from(masterMap.values());
+                this.data.controllers = this.data.ubos;
+            }
+
+            
 
             adjustCount(key, change) {
                 if (key === 'directors') {
@@ -6424,7 +7489,22 @@
                                         <span class="summary-label">Corporate Shareholders:</span>
                                         <span class="summary-value">${corpShsCount} officer(s)</span>
                                     </div>
+                                    <div class="summary-row">
+                                        <span class="summary-label">Ultimate Beneficial Owners:</span>
+                                        <span class="summary-value">${(this.data.ubos && this.data.ubos.length > 0) ? this.data.ubos.map(u => u.name).join(', ') : 'Direct Shareholders'}</span>
+                                    </div>
                                 </div>
+                                ${(this.data.ubos && this.data.ubos.length > 0) ? `
+                                    <div class="summary-card">
+                                        <div class="summary-section-title">🛡️ Ultimate Beneficial Owners (UBOs)</div>
+                                        ${this.data.ubos.map(u => `
+                                            <div class="summary-row" style="margin-bottom: 0.35rem;">
+                                                <span class="summary-label" style="font-weight: 700; color: #1e293b;">${u.name}:</span>
+                                                <span class="summary-value">${u.nationality || 'Singaporean'} ${u.idNum ? `• ${u.idNum}` : ''} ${u.ownershipPct ? `• ${u.ownershipPct}%` : ''}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
                                 
                                 <div class="summary-card">
                                     <div class="summary-section-title">📍 Registered Office</div>
@@ -7909,7 +8989,22 @@
                     <div style="text-align: center; padding: 3rem 1rem;">
                         <div style="font-size: 4rem; margin-bottom: 1.5rem;">🚀</div>
                         <h2 style="font-size: 2rem; font-weight: 800; color: var(--text-main);">Verification Ready</h2>
-                        <p style="color: var(--text-muted); margin-bottom: 2rem;">All sections are completed. Submit now for review.</p>
+                        <p style="color: var(--text-muted); margin-bottom: 1.5rem;">All pre-registration details, shareholders, and ultimate beneficial owners are verified and ready.</p>
+                        ${(this.data.ubos && this.data.ubos.length > 0) ? `
+                            <div style="max-width: 500px; margin: 0 auto 1.75rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem; text-align: left;">
+                                <div style="font-size: 0.8rem; font-weight: 800; color: #1e293b; text-transform: uppercase; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
+                                    <span>🛡️ Verified Ultimate Beneficial Owners (${this.data.ubos.length})</span>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.8rem;">
+                                    ${this.data.ubos.map(u => `
+                                        <div style="display: flex; justify-content: space-between; color: #334155;">
+                                            <span style="font-weight: 600;">👤 ${u.name}</span>
+                                            <span style="color: #64748b;">${u.ownershipPct ? u.ownershipPct + '%' : 'Controller'} • ${u.nationality || 'Singaporean'}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
                         <button class="btn btn-primary" style="padding: 1rem 3rem;" onclick="wizard.submitVerification()">Submit for Verification</button>
                     </div>`;
                 document.getElementById('next-btn').style.display = 'none';
