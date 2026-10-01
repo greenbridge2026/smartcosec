@@ -1146,6 +1146,97 @@
                 </div>
             </div>
 
+            <!-- Staff Task Filter & Search Controls -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3.5">
+                <!-- Row 1: Search & Dropdown Filters -->
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex flex-wrap items-center gap-2.5 flex-1 min-w-[300px]">
+                        <div class="relative flex-1 min-w-[220px] max-w-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                            <input type="text" id="staff-task-search" oninput="updateStaffTasksView()" placeholder="Search ticket #, title, company, client, category..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-sans">
+                        </div>
+                        <!-- Status Filter -->
+                        <select id="staff-filter-status" onchange="updateStaffTasksView()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20">
+                            <option value="ALL">All Statuses</option>
+                            <option value="PENDING">Pending (Unassigned)</option>
+                            <option value="ASSIGNED">Assigned</option>
+                            <option value="IN_PROGRESS">In Progress</option>
+                            <option value="WAITING_CLIENT_INPUT">Waiting Client Input</option>
+                            <option value="UNDER_REVIEW">Under Review</option>
+                            <option value="COMPLETED">Completed</option>
+                            <option value="CANCELLED">Cancelled</option>
+                        </select>
+                        <!-- Priority Filter -->
+                        <select id="staff-filter-priority" onchange="updateStaffTasksView()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20">
+                            <option value="ALL">All Priorities</option>
+                            <option value="URGENT">🚨 Urgent</option>
+                            <option value="HIGH">🔥 High</option>
+                            <option value="MEDIUM">⚡ Medium</option>
+                            <option value="LOW">☕ Low</option>
+                        </select>
+                        <!-- Category Filter -->
+                        <select id="staff-filter-category" onchange="updateStaffTasksView()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 max-w-[170px] truncate">
+                            <option value="ALL">All Categories</option>
+                        </select>
+                        <!-- Due Date / SLA Filter -->
+                        <select id="staff-filter-due-date" onchange="updateStaffTasksView()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20">
+                            <option value="ALL">All Due Dates</option>
+                            <option value="OVERDUE">🚨 Overdue SLA</option>
+                            <option value="DUE_TODAY">⏰ Due Today</option>
+                            <option value="DUE_THIS_WEEK">📅 Due This Week</option>
+                            <option value="UPCOMING">⏳ Upcoming</option>
+                            <option value="NO_DUE_DATE">Standard SLA / No Date</option>
+                        </select>
+                        <!-- Sort Order -->
+                        <select id="staff-filter-sort" onchange="updateStaffTasksView()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20">
+                            <option value="CREATED_DESC">Sort: Newest First</option>
+                            <option value="CREATED_ASC">Sort: Oldest First</option>
+                            <option value="DUE_ASC">Sort: Due Date (Earliest)</option>
+                            <option value="PRIORITY_DESC">Sort: Priority (Urgent First)</option>
+                            <option value="TICKET_ASC">Sort: Ticket # (A-Z)</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="staff-clear-filters-btn" onclick="clearStaffFilters()" class="hidden items-center gap-1.5 px-3 py-2 text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-xl transition cursor-pointer" title="Reset all active filters">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                            <span>Reset</span>
+                            <span id="staff-active-filters-count" class="px-1.5 py-0.2 bg-rose-200 text-rose-800 text-[10px] rounded-full font-extrabold">0</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Row 2: Quick Filter Smart Chips (Pills) -->
+                <div class="flex items-center gap-2 flex-wrap pt-2.5 border-t border-slate-100 text-xs">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1 flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3 text-amber-500"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg> Quick:
+                    </span>
+                    <button type="button" onclick="toggleStaffQuickPill('URGENT_HIGH')" id="staff-pill-urgent-high" class="staff-quick-pill px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer">
+                        <span>🔥 Urgent & High</span>
+                        <span id="staff-pill-count-urgent" class="text-[10px] bg-white px-1.5 py-0.2 rounded-full font-bold text-slate-700 shadow-2xs">0</span>
+                    </button>
+                    <button type="button" onclick="toggleStaffQuickPill('OVERDUE')" id="staff-pill-overdue" class="staff-quick-pill px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer">
+                        <span>🚨 Overdue SLA</span>
+                        <span id="staff-pill-count-overdue" class="text-[10px] bg-white px-1.5 py-0.2 rounded-full font-bold text-slate-700 shadow-2xs">0</span>
+                    </button>
+                    <button type="button" onclick="toggleStaffQuickPill('WAITING')" id="staff-pill-waiting" class="staff-quick-pill px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer">
+                        <span>⏳ Waiting Client</span>
+                        <span id="staff-pill-count-waiting" class="text-[10px] bg-white px-1.5 py-0.2 rounded-full font-bold text-slate-700 shadow-2xs">0</span>
+                    </button>
+                    <button type="button" onclick="toggleStaffQuickPill('REVIEW')" id="staff-pill-review" class="staff-quick-pill px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer">
+                        <span>📋 Under Review</span>
+                        <span id="staff-pill-count-review" class="text-[10px] bg-white px-1.5 py-0.2 rounded-full font-bold text-slate-700 shadow-2xs">0</span>
+                    </button>
+                    <button type="button" onclick="toggleStaffQuickPill('CLIENT_ONLY')" id="staff-pill-client" class="staff-quick-pill px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer">
+                        <span>🏢 Client Tasks</span>
+                        <span id="staff-pill-count-client" class="text-[10px] bg-white px-1.5 py-0.2 rounded-full font-bold text-slate-700 shadow-2xs">0</span>
+                    </button>
+                    <button type="button" onclick="toggleStaffQuickPill('INTERNAL_ONLY')" id="staff-pill-internal" class="staff-quick-pill px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer">
+                        <span>🔒 Internal To-Dos</span>
+                        <span id="staff-pill-count-internal" class="text-[10px] bg-white px-1.5 py-0.2 rounded-full font-bold text-slate-700 shadow-2xs">0</span>
+                    </button>
+                </div>
+            </div>
+
             <!-- View 1: Tasks Table -->
             <div id="staff-tasks-table-container" class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
                 <div class="overflow-x-auto">
@@ -5123,6 +5214,164 @@
         window.handleStaffCreateTask = handleStaffCreateTask;
 
         let staffCompletedDays = localStorage.getItem('staff_completed_days') || '7';
+        let activeStaffQuickPill = 'ALL';
+
+        function toggleStaffQuickPill(pillKey) {
+            if (activeStaffQuickPill === pillKey) {
+                activeStaffQuickPill = 'ALL';
+            } else {
+                activeStaffQuickPill = pillKey;
+            }
+            updateStaffQuickPillStyles();
+            updateStaffTasksView();
+        }
+        window.toggleStaffQuickPill = toggleStaffQuickPill;
+
+        function updateStaffQuickPillStyles() {
+            const pills = [
+                { id: 'staff-pill-urgent-high', key: 'URGENT_HIGH', activeClass: 'bg-rose-600 text-white shadow-xs' },
+                { id: 'staff-pill-overdue', key: 'OVERDUE', activeClass: 'bg-amber-600 text-white shadow-xs' },
+                { id: 'staff-pill-waiting', key: 'WAITING', activeClass: 'bg-purple-600 text-white shadow-xs' },
+                { id: 'staff-pill-review', key: 'REVIEW', activeClass: 'bg-indigo-600 text-white shadow-xs' },
+                { id: 'staff-pill-client', key: 'CLIENT_ONLY', activeClass: 'bg-blue-600 text-white shadow-xs' },
+                { id: 'staff-pill-internal', key: 'INTERNAL_ONLY', activeClass: 'bg-purple-600 text-white shadow-xs' }
+            ];
+
+            pills.forEach(p => {
+                const el = document.getElementById(p.id);
+                if (el) {
+                    if (activeStaffQuickPill === p.key) {
+                        el.className = `staff-quick-pill px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${p.activeClass} cursor-pointer`;
+                    } else {
+                        el.className = 'staff-quick-pill px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer';
+                    }
+                }
+            });
+        }
+
+        function clearStaffFilters() {
+            const sInput = document.getElementById('staff-task-search');
+            if (sInput) sInput.value = '';
+            const statSel = document.getElementById('staff-filter-status');
+            if (statSel) statSel.value = 'ALL';
+            const prioSel = document.getElementById('staff-filter-priority');
+            if (prioSel) prioSel.value = 'ALL';
+            const catSelect = document.getElementById('staff-filter-category');
+            if (catSelect) catSelect.value = 'ALL';
+            const dueSel = document.getElementById('staff-filter-due-date');
+            if (dueSel) dueSel.value = 'ALL';
+            const sortSel = document.getElementById('staff-filter-sort');
+            if (sortSel) sortSel.value = 'CREATED_DESC';
+
+            activeStaffQuickPill = 'ALL';
+            updateStaffQuickPillStyles();
+            updateStaffTasksView();
+        }
+        window.clearStaffFilters = clearStaffFilters;
+
+        function populateStaffFilterCategories() {
+            const catSelect = document.getElementById('staff-filter-category');
+            if (!catSelect) return;
+            const currentVal = catSelect.value;
+            const categories = new Set();
+            (staffTaskList || []).forEach(t => {
+                const cat = (t.category || t.type || '').trim();
+                if (cat) categories.add(cat);
+            });
+            let html = `<option value="ALL">All Categories</option>`;
+            Array.from(categories).sort().forEach(c => {
+                html += `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`;
+            });
+            catSelect.innerHTML = html;
+            if (currentVal && categories.has(currentVal)) {
+                catSelect.value = currentVal;
+            }
+        }
+
+        function parseStaffTaskDueDate(dueDateStr) {
+            if (!dueDateStr) return null;
+            const str = String(dueDateStr).trim();
+            if (!str || str.toLowerCase().includes('standard') || str.toLowerCase().includes('n/a') || str.toLowerCase().includes('sla')) return null;
+            let d = new Date(str);
+            if (!isNaN(d.getTime())) return d;
+            const parts = str.split(/[\/\-\.]/);
+            if (parts.length === 3) {
+                if (parts[0].length === 4) {
+                    d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                    if (!isNaN(d.getTime())) return d;
+                } else if (parts[2].length === 4) {
+                    d = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+                    if (!isNaN(d.getTime())) return d;
+                }
+            }
+            return null;
+        }
+
+        function getStaffTaskSlaStatus(task) {
+            const statusUpper = (task.status || '').toUpperCase();
+            if (['COMPLETED', 'RESOLVED', 'LODGED', 'CANCELLED'].includes(statusUpper)) {
+                return 'COMPLETED';
+            }
+            const dueDate = parseStaffTaskDueDate(task.dueDate);
+            if (!dueDate) return 'NO_DUE_DATE';
+            const now = new Date();
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+            
+            const endOfWeek = new Date(todayStart);
+            const dayOfWeek = todayStart.getDay();
+            const daysUntilSunday = (7 - dayOfWeek) % 7;
+            endOfWeek.setDate(todayStart.getDate() + daysUntilSunday + 1);
+            endOfWeek.setHours(23, 59, 59, 999);
+
+            if (dueDate < todayStart) {
+                return 'OVERDUE';
+            } else if (dueDate >= todayStart && dueDate <= todayEnd) {
+                return 'DUE_TODAY';
+            } else if (dueDate <= endOfWeek) {
+                return 'DUE_THIS_WEEK';
+            } else {
+                return 'UPCOMING';
+            }
+        }
+
+        function updateStaffQuickPillCounts() {
+            const list = staffTaskList || [];
+            let urgentCount = 0;
+            let overdueCount = 0;
+            let waitingCount = 0;
+            let reviewCount = 0;
+            let clientCount = 0;
+            let internalCount = 0;
+
+            list.forEach(t => {
+                const p = (t.priority || '').toUpperCase();
+                const s = (t.status || '').toUpperCase();
+                const isInternal = Boolean(t.isInternal || (t.taskScope || '').toUpperCase() === 'INTERNAL');
+                const sla = getStaffTaskSlaStatus(t);
+
+                if (p === 'URGENT' || p === 'HIGH') urgentCount++;
+                if (sla === 'OVERDUE') overdueCount++;
+                if (s === 'WAITING_CLIENT_INPUT') waitingCount++;
+                if (s === 'UNDER_REVIEW') reviewCount++;
+                if (!isInternal) clientCount++;
+                if (isInternal) internalCount++;
+            });
+
+            const elU = document.getElementById('staff-pill-count-urgent');
+            const elO = document.getElementById('staff-pill-count-overdue');
+            const elW = document.getElementById('staff-pill-count-waiting');
+            const elR = document.getElementById('staff-pill-count-review');
+            const elC = document.getElementById('staff-pill-count-client');
+            const elI = document.getElementById('staff-pill-count-internal');
+
+            if (elU) elU.innerText = urgentCount;
+            if (elO) elO.innerText = overdueCount;
+            if (elW) elW.innerText = waitingCount;
+            if (elR) elR.innerText = reviewCount;
+            if (elC) elC.innerText = clientCount;
+            if (elI) elI.innerText = internalCount;
+        }
 
         async function renderTasks() {
             try {
@@ -5130,6 +5379,8 @@
                 const res = await fetch(`/api/tasks${daysParam}`);
                 if (res.ok) {
                     staffTaskList = await res.json();
+                    populateStaffFilterCategories();
+                    updateStaffQuickPillCounts();
                 }
             } catch (e) {
                 console.error("Failed to load staff tasks", e);
@@ -5267,24 +5518,132 @@
             if (elInternal) elInternal.innerText = internalTasks.length;
             if (elUn) elUn.innerText = unassigned.length;
 
-            let displayList = list;
+            // 1. Initial base filtering from Tab switcher
+            let baseList = list;
             if (staffTaskFilter === 'my') {
-                displayList = myTasks;
+                baseList = myTasks;
             } else if (staffTaskFilter === 'client') {
-                displayList = clientTasks;
+                baseList = clientTasks;
             } else if (staffTaskFilter === 'internal') {
-                displayList = internalTasks;
+                baseList = internalTasks;
             } else if (staffTaskFilter === 'pool') {
-                displayList = unassigned;
+                baseList = unassigned;
             }
 
+            // 2. Multi-Criteria filters
+            const q = (document.getElementById('staff-task-search')?.value || '').trim().toLowerCase();
+            const status = document.getElementById('staff-filter-status')?.value || 'ALL';
+            const priority = document.getElementById('staff-filter-priority')?.value || 'ALL';
+            const category = document.getElementById('staff-filter-category')?.value || 'ALL';
+            const dueDateFilter = document.getElementById('staff-filter-due-date')?.value || 'ALL';
+            const sortBy = document.getElementById('staff-filter-sort')?.value || 'CREATED_DESC';
+
+            // Active filters count
+            let activeFilterCount = 0;
+            if (q) activeFilterCount++;
+            if (status !== 'ALL') activeFilterCount++;
+            if (priority !== 'ALL') activeFilterCount++;
+            if (category !== 'ALL') activeFilterCount++;
+            if (dueDateFilter !== 'ALL') activeFilterCount++;
+            if (sortBy !== 'CREATED_DESC') activeFilterCount++;
+            if (activeStaffQuickPill !== 'ALL') activeFilterCount++;
+
+            const resetBtn = document.getElementById('staff-clear-filters-btn');
+            const badgeCount = document.getElementById('staff-active-filters-count');
+            if (resetBtn && badgeCount) {
+                if (activeFilterCount > 0) {
+                    resetBtn.classList.remove('hidden');
+                    resetBtn.classList.add('inline-flex');
+                    badgeCount.innerText = activeFilterCount;
+                } else {
+                    resetBtn.classList.add('hidden');
+                    resetBtn.classList.remove('inline-flex');
+                }
+            }
+
+            const priorityRank = { 'URGENT': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
+
+            let displayList = baseList.filter(t => {
+                const isInternal = Boolean(t.isInternal || (t.taskScope || '').toUpperCase() === 'INTERNAL');
+                const tStatus = (t.status || '').toUpperCase();
+                const tPriority = (t.priority || '').toUpperCase();
+                const sla = getStaffTaskSlaStatus(t);
+
+                // Status Filter
+                if (status !== 'ALL' && tStatus !== status) return false;
+
+                // Priority Filter
+                if (priority !== 'ALL' && tPriority !== priority) return false;
+
+                // Category Filter
+                if (category !== 'ALL') {
+                    const taskCat = (t.category || t.type || '').trim();
+                    if (taskCat !== category) return false;
+                }
+
+                // Due Date / SLA Filter
+                if (dueDateFilter === 'OVERDUE' && sla !== 'OVERDUE') return false;
+                if (dueDateFilter === 'DUE_TODAY' && sla !== 'DUE_TODAY') return false;
+                if (dueDateFilter === 'DUE_THIS_WEEK' && !['OVERDUE', 'DUE_TODAY', 'DUE_THIS_WEEK'].includes(sla)) return false;
+                if (dueDateFilter === 'UPCOMING' && sla !== 'UPCOMING') return false;
+                if (dueDateFilter === 'NO_DUE_DATE' && sla !== 'NO_DUE_DATE') return false;
+
+                // Quick Pills Matching
+                if (activeStaffQuickPill === 'URGENT_HIGH' && !['URGENT', 'HIGH'].includes(tPriority)) return false;
+                if (activeStaffQuickPill === 'OVERDUE' && sla !== 'OVERDUE') return false;
+                if (activeStaffQuickPill === 'WAITING' && tStatus !== 'WAITING_CLIENT_INPUT') return false;
+                if (activeStaffQuickPill === 'REVIEW' && tStatus !== 'UNDER_REVIEW') return false;
+                if (activeStaffQuickPill === 'CLIENT_ONLY' && isInternal) return false;
+                if (activeStaffQuickPill === 'INTERNAL_ONLY' && !isInternal) return false;
+
+                // Search query
+                if (q) {
+                    const match = (t.title || '').toLowerCase().includes(q) ||
+                                  (t.ticketNumber || '').toLowerCase().includes(q) ||
+                                  (t.companyName || '').toLowerCase().includes(q) ||
+                                  (t.clientName || '').toLowerCase().includes(q) ||
+                                  (t.category || '').toLowerCase().includes(q) ||
+                                  (t.type || '').toLowerCase().includes(q) ||
+                                  (t.description || '').toLowerCase().includes(q) ||
+                                  (t.assignedTo?.name || '').toLowerCase().includes(q);
+                    if (!match) return false;
+                }
+
+                return true;
+            });
+
+            // Sorting
+            displayList.sort((a, b) => {
+                if (sortBy === 'CREATED_ASC') {
+                    return (a.createdAt || 0) - (b.createdAt || 0);
+                } else if (sortBy === 'DUE_ASC') {
+                    const dateA = parseStaffTaskDueDate(a.dueDate);
+                    const dateB = parseStaffTaskDueDate(b.dueDate);
+                    if (dateA && dateB) return dateA.getTime() - dateB.getTime();
+                    if (dateA) return -1;
+                    if (dateB) return 1;
+                    return (b.createdAt || 0) - (a.createdAt || 0);
+                } else if (sortBy === 'PRIORITY_DESC') {
+                    const rankA = priorityRank[(a.priority || '').toUpperCase()] || 0;
+                    const rankB = priorityRank[(b.priority || '').toUpperCase()] || 0;
+                    if (rankB !== rankA) return rankB - rankA;
+                    return (b.createdAt || 0) - (a.createdAt || 0);
+                } else if (sortBy === 'TICKET_ASC') {
+                    return (a.ticketNumber || a.id || '').localeCompare(b.ticketNumber || b.id || '');
+                } else {
+                    // CREATED_DESC (default)
+                    return (b.createdAt || 0) - (a.createdAt || 0);
+                }
+            });
+
             renderStaffKanban(displayList);
+            updateStaffQuickPillCounts();
 
             const tbody = document.getElementById('staff-tasks-table-body');
             if (!tbody) return;
 
             if (displayList.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-12 text-slate-400 text-xs italic">No tasks found in this section.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-12 text-slate-400 text-xs italic">No tasks match the selected filter criteria.</td></tr>`;
                 return;
             }
 

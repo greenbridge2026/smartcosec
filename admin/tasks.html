@@ -213,38 +213,114 @@
         </div>
 
         <!-- Filter & Search Controls -->
-        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs mb-6 flex flex-wrap items-center justify-between gap-3">
-            <div class="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
-                <div class="relative flex-1 min-w-[200px] max-w-md">
-                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
-                    <input type="text" id="task-search" oninput="applyFilters()" placeholder="Search by ticket #, company, title, client..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-sans">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs mb-6 space-y-3.5">
+            <!-- Row 1: Search & Primary Dropdowns -->
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-2.5 flex-1 min-w-[300px]">
+                    <div class="relative flex-1 min-w-[220px] max-w-sm">
+                        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                        <input type="text" id="task-search" oninput="applyFilters()" placeholder="Search ticket #, title, company, client, category..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-sans">
+                    </div>
+                    <!-- Scope Filter -->
+                    <select id="filter-scope" onchange="applyFilters()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20">
+                        <option value="ALL">All Scopes</option>
+                        <option value="CLIENT">🏢 Client Tasks</option>
+                        <option value="INTERNAL">🔒 Internal To-Dos</option>
+                    </select>
+                    <!-- Status Filter -->
+                    <select id="filter-status" onchange="applyFilters()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20">
+                        <option value="ALL">All Statuses</option>
+                        <option value="PENDING">Pending (Unassigned)</option>
+                        <option value="ASSIGNED">Assigned</option>
+                        <option value="IN_PROGRESS">In Progress</option>
+                        <option value="WAITING_CLIENT_INPUT">Waiting Client Input</option>
+                        <option value="UNDER_REVIEW">Under Review</option>
+                        <option value="COMPLETED">Completed</option>
+                        <option value="CANCELLED">Cancelled</option>
+                    </select>
+                    <!-- Priority Filter -->
+                    <select id="filter-priority" onchange="applyFilters()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20">
+                        <option value="ALL">All Priorities</option>
+                        <option value="URGENT">🚨 Urgent</option>
+                        <option value="HIGH">🔥 High</option>
+                        <option value="MEDIUM">⚡ Medium</option>
+                        <option value="LOW">☕ Low</option>
+                    </select>
+                    <!-- Category Filter -->
+                    <select id="filter-category" onchange="applyFilters()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 max-w-[170px] truncate">
+                        <option value="ALL">All Categories</option>
+                    </select>
+                    <!-- Assignee Filter -->
+                    <select id="filter-assignee" onchange="applyFilters()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20">
+                        <option value="ALL">All Assignees</option>
+                        <option value="UNASSIGNED">Unassigned Only</option>
+                        <option value="usr-admin">Admin User</option>
+                        <option value="usr-staff">Sarah Lim</option>
+                    </select>
+                    <!-- Due Date / SLA Filter -->
+                    <select id="filter-due-date" onchange="applyFilters()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20">
+                        <option value="ALL">All Due Dates</option>
+                        <option value="OVERDUE">🚨 Overdue SLA</option>
+                        <option value="DUE_TODAY">⏰ Due Today</option>
+                        <option value="DUE_THIS_WEEK">📅 Due This Week</option>
+                        <option value="UPCOMING">⏳ Upcoming</option>
+                        <option value="NO_DUE_DATE">Standard SLA / No Date</option>
+                    </select>
+                    <!-- Sort Order -->
+                    <select id="filter-sort" onchange="applyFilters()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20">
+                        <option value="CREATED_DESC">Sort: Newest First</option>
+                        <option value="CREATED_ASC">Sort: Oldest First</option>
+                        <option value="DUE_ASC">Sort: Due Date (Earliest)</option>
+                        <option value="PRIORITY_DESC">Sort: Priority (Urgent First)</option>
+                        <option value="TICKET_ASC">Sort: Ticket # (A-Z)</option>
+                    </select>
                 </div>
-                <select id="filter-status" onchange="applyFilters()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none">
-                    <option value="ALL">All Statuses</option>
-                    <option value="PENDING">Pending (Unassigned)</option>
-                    <option value="ASSIGNED">Assigned</option>
-                    <option value="IN_PROGRESS">In Progress</option>
-                    <option value="WAITING_CLIENT_INPUT">Waiting Client Input</option>
-                    <option value="UNDER_REVIEW">Under Review</option>
-                    <option value="COMPLETED">Completed</option>
-                </select>
-                <select id="filter-priority" onchange="applyFilters()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none">
-                    <option value="ALL">All Priorities</option>
-                    <option value="URGENT">Urgent</option>
-                    <option value="HIGH">High</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="LOW">Low</option>
-                </select>
-                <select id="filter-assignee" onchange="applyFilters()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none">
-                    <option value="ALL">All Assignees</option>
-                    <option value="UNASSIGNED">Unassigned Only</option>
-                    <option value="usr-admin">Admin User</option>
-                    <option value="usr-staff">Sarah Lim</option>
-                </select>
+                <div class="flex items-center gap-2">
+                    <button id="admin-clear-filters-btn" onclick="clearAdminFilters()" class="hidden items-center gap-1.5 px-3 py-2 text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-xl transition cursor-pointer" title="Reset all active filters">
+                        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                        <span>Reset</span>
+                        <span id="admin-active-filters-count" class="px-1.5 py-0.2 bg-rose-200 text-rose-800 text-[10px] rounded-full font-extrabold">0</span>
+                    </button>
+                    <button onclick="refreshTasks()" class="p-2 hover:bg-slate-100 rounded-xl text-slate-600 transition" title="Refresh Tasks">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                    </button>
+                </div>
             </div>
-            <button onclick="refreshTasks()" class="p-2 hover:bg-slate-100 rounded-xl text-slate-600 transition" title="Refresh Tasks">
-                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-            </button>
+
+            <!-- Row 2: Quick Filter Smart Chips (Pills) -->
+            <div class="flex items-center gap-2 flex-wrap pt-2.5 border-t border-slate-100 text-xs">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1 flex items-center gap-1">
+                    <i data-lucide="sparkles" class="w-3 h-3 text-amber-500"></i> Quick:
+                </span>
+                <button type="button" onclick="toggleAdminQuickPill('URGENT_HIGH')" id="admin-pill-urgent-high" class="admin-quick-pill px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer">
+                    <span>🔥 Urgent & High</span>
+                    <span id="admin-pill-count-urgent" class="text-[10px] bg-white px-1.5 py-0.2 rounded-full font-bold text-slate-700 shadow-2xs">0</span>
+                </button>
+                <button type="button" onclick="toggleAdminQuickPill('OVERDUE')" id="admin-pill-overdue" class="admin-quick-pill px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer">
+                    <span>🚨 Overdue SLA</span>
+                    <span id="admin-pill-count-overdue" class="text-[10px] bg-white px-1.5 py-0.2 rounded-full font-bold text-slate-700 shadow-2xs">0</span>
+                </button>
+                <button type="button" onclick="toggleAdminQuickPill('WAITING')" id="admin-pill-waiting" class="admin-quick-pill px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer">
+                    <span>⏳ Waiting Client</span>
+                    <span id="admin-pill-count-waiting" class="text-[10px] bg-white px-1.5 py-0.2 rounded-full font-bold text-slate-700 shadow-2xs">0</span>
+                </button>
+                <button type="button" onclick="toggleAdminQuickPill('REVIEW')" id="admin-pill-review" class="admin-quick-pill px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer">
+                    <span>📋 Under Review</span>
+                    <span id="admin-pill-count-review" class="text-[10px] bg-white px-1.5 py-0.2 rounded-full font-bold text-slate-700 shadow-2xs">0</span>
+                </button>
+                <button type="button" onclick="toggleAdminQuickPill('POOL')" id="admin-pill-pool" class="admin-quick-pill px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer">
+                    <span>🙋 Open Pool</span>
+                    <span id="admin-pill-count-pool" class="text-[10px] bg-white px-1.5 py-0.2 rounded-full font-bold text-slate-700 shadow-2xs">0</span>
+                </button>
+                <button type="button" onclick="toggleAdminQuickPill('CLIENT_ONLY')" id="admin-pill-client" class="admin-quick-pill px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer">
+                    <span>🏢 Client Tasks</span>
+                    <span id="admin-pill-count-client" class="text-[10px] bg-white px-1.5 py-0.2 rounded-full font-bold text-slate-700 shadow-2xs">0</span>
+                </button>
+                <button type="button" onclick="toggleAdminQuickPill('INTERNAL_ONLY')" id="admin-pill-internal" class="admin-quick-pill px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer">
+                    <span>🔒 Internal To-Dos</span>
+                    <span id="admin-pill-count-internal" class="text-[10px] bg-white px-1.5 py-0.2 rounded-full font-bold text-slate-700 shadow-2xs">0</span>
+                </button>
+            </div>
         </div>
 
         <!-- View 1: Data Table View (Hidden by default) -->
@@ -1044,6 +1120,175 @@
         }
         window.changeAdminCompletedDays = changeAdminCompletedDays;
 
+        let activeAdminQuickPill = 'ALL';
+
+        function toggleAdminQuickPill(pillKey) {
+            if (activeAdminQuickPill === pillKey) {
+                activeAdminQuickPill = 'ALL';
+            } else {
+                activeAdminQuickPill = pillKey;
+            }
+            updateAdminQuickPillStyles();
+            applyFilters();
+        }
+        window.toggleAdminQuickPill = toggleAdminQuickPill;
+
+        function updateAdminQuickPillStyles() {
+            const pills = [
+                { id: 'admin-pill-urgent-high', key: 'URGENT_HIGH', activeClass: 'bg-rose-600 text-white shadow-xs' },
+                { id: 'admin-pill-overdue', key: 'OVERDUE', activeClass: 'bg-amber-600 text-white shadow-xs' },
+                { id: 'admin-pill-waiting', key: 'WAITING', activeClass: 'bg-purple-600 text-white shadow-xs' },
+                { id: 'admin-pill-review', key: 'REVIEW', activeClass: 'bg-indigo-600 text-white shadow-xs' },
+                { id: 'admin-pill-pool', key: 'POOL', activeClass: 'bg-amber-500 text-white shadow-xs' },
+                { id: 'admin-pill-client', key: 'CLIENT_ONLY', activeClass: 'bg-blue-600 text-white shadow-xs' },
+                { id: 'admin-pill-internal', key: 'INTERNAL_ONLY', activeClass: 'bg-purple-600 text-white shadow-xs' }
+            ];
+
+            pills.forEach(p => {
+                const el = document.getElementById(p.id);
+                if (el) {
+                    if (activeAdminQuickPill === p.key) {
+                        el.className = `admin-quick-pill px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${p.activeClass} cursor-pointer`;
+                    } else {
+                        el.className = 'admin-quick-pill px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer';
+                    }
+                }
+            });
+        }
+
+        function clearAdminFilters() {
+            const sInput = document.getElementById('task-search');
+            if (sInput) sInput.value = '';
+            const scopeSel = document.getElementById('filter-scope');
+            if (scopeSel) scopeSel.value = 'ALL';
+            const statSel = document.getElementById('filter-status');
+            if (statSel) statSel.value = 'ALL';
+            const prioSel = document.getElementById('filter-priority');
+            if (prioSel) prioSel.value = 'ALL';
+            const catSelect = document.getElementById('filter-category');
+            if (catSelect) catSelect.value = 'ALL';
+            const assSel = document.getElementById('filter-assignee');
+            if (assSel) assSel.value = 'ALL';
+            const dueSel = document.getElementById('filter-due-date');
+            if (dueSel) dueSel.value = 'ALL';
+            const sortSel = document.getElementById('filter-sort');
+            if (sortSel) sortSel.value = 'CREATED_DESC';
+
+            activeAdminQuickPill = 'ALL';
+            updateAdminQuickPillStyles();
+            applyFilters();
+        }
+        window.clearAdminFilters = clearAdminFilters;
+
+        function populateAdminFilterCategories() {
+            const catSelect = document.getElementById('filter-category');
+            if (!catSelect) return;
+            const currentVal = catSelect.value;
+            const categories = new Set();
+            (allTasks || []).forEach(t => {
+                const cat = (t.category || t.type || '').trim();
+                if (cat) categories.add(cat);
+            });
+            let html = `<option value="ALL">All Categories</option>`;
+            Array.from(categories).sort().forEach(c => {
+                html += `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`;
+            });
+            catSelect.innerHTML = html;
+            if (currentVal && categories.has(currentVal)) {
+                catSelect.value = currentVal;
+            }
+        }
+
+        function parseTaskDueDate(dueDateStr) {
+            if (!dueDateStr) return null;
+            const str = String(dueDateStr).trim();
+            if (!str || str.toLowerCase().includes('standard') || str.toLowerCase().includes('n/a') || str.toLowerCase().includes('sla')) return null;
+            let d = new Date(str);
+            if (!isNaN(d.getTime())) return d;
+            const parts = str.split(/[\/\-\.]/);
+            if (parts.length === 3) {
+                if (parts[0].length === 4) {
+                    d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                    if (!isNaN(d.getTime())) return d;
+                } else if (parts[2].length === 4) {
+                    d = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+                    if (!isNaN(d.getTime())) return d;
+                }
+            }
+            return null;
+        }
+
+        function getTaskSlaStatus(task) {
+            const statusUpper = (task.status || '').toUpperCase();
+            if (['COMPLETED', 'RESOLVED', 'LODGED', 'CANCELLED'].includes(statusUpper)) {
+                return 'COMPLETED';
+            }
+            const dueDate = parseTaskDueDate(task.dueDate);
+            if (!dueDate) return 'NO_DUE_DATE';
+            const now = new Date();
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+            
+            const endOfWeek = new Date(todayStart);
+            const dayOfWeek = todayStart.getDay();
+            const daysUntilSunday = (7 - dayOfWeek) % 7;
+            endOfWeek.setDate(todayStart.getDate() + daysUntilSunday + 1);
+            endOfWeek.setHours(23, 59, 59, 999);
+
+            if (dueDate < todayStart) {
+                return 'OVERDUE';
+            } else if (dueDate >= todayStart && dueDate <= todayEnd) {
+                return 'DUE_TODAY';
+            } else if (dueDate <= endOfWeek) {
+                return 'DUE_THIS_WEEK';
+            } else {
+                return 'UPCOMING';
+            }
+        }
+
+        function updateAdminQuickPillCounts() {
+            const list = allTasks || [];
+            let urgentCount = 0;
+            let overdueCount = 0;
+            let waitingCount = 0;
+            let reviewCount = 0;
+            let poolCount = 0;
+            let clientCount = 0;
+            let internalCount = 0;
+
+            list.forEach(t => {
+                const p = (t.priority || '').toUpperCase();
+                const s = (t.status || '').toUpperCase();
+                const isInternal = Boolean(t.isInternal || (t.taskScope || '').toUpperCase() === 'INTERNAL');
+                const isUnassigned = !t.assignedTo || !t.assignedTo.id || s === 'PENDING';
+                const sla = getTaskSlaStatus(t);
+
+                if (p === 'URGENT' || p === 'HIGH') urgentCount++;
+                if (sla === 'OVERDUE') overdueCount++;
+                if (s === 'WAITING_CLIENT_INPUT') waitingCount++;
+                if (s === 'UNDER_REVIEW') reviewCount++;
+                if (isUnassigned) poolCount++;
+                if (!isInternal) clientCount++;
+                if (isInternal) internalCount++;
+            });
+
+            const elU = document.getElementById('admin-pill-count-urgent');
+            const elO = document.getElementById('admin-pill-count-overdue');
+            const elW = document.getElementById('admin-pill-count-waiting');
+            const elR = document.getElementById('admin-pill-count-review');
+            const elP = document.getElementById('admin-pill-count-pool');
+            const elC = document.getElementById('admin-pill-count-client');
+            const elI = document.getElementById('admin-pill-count-internal');
+
+            if (elU) elU.innerText = urgentCount;
+            if (elO) elO.innerText = overdueCount;
+            if (elW) elW.innerText = waitingCount;
+            if (elR) elR.innerText = reviewCount;
+            if (elP) elP.innerText = poolCount;
+            if (elC) elC.innerText = clientCount;
+            if (elI) elI.innerText = internalCount;
+        }
+
         async function refreshTasks() {
             try {
                 const daysParam = adminCompletedDays && adminCompletedDays !== '0' ? `?completedDays=${adminCompletedDays}` : '?completedDays=0';
@@ -1067,6 +1312,8 @@
                     }
 
                     allTasks = newTasks;
+                    populateAdminFilterCategories();
+                    updateAdminQuickPillCounts();
                     applyFilters();
                     updateKpiMetrics();
 
@@ -1138,29 +1385,128 @@
         function applyFilters() {
             const sel = document.getElementById('admin-completed-days-select');
             if (sel && sel.value !== String(adminCompletedDays)) sel.value = String(adminCompletedDays);
-            const q = (document.getElementById('task-search').value || '').toLowerCase();
-            const status = document.getElementById('filter-status').value;
-            const priority = document.getElementById('filter-priority').value;
-            const assignee = document.getElementById('filter-assignee').value;
 
-            const filtered = allTasks.filter(t => {
-                if (status !== 'ALL' && (t.status || '').toUpperCase() !== status) return false;
-                if (priority !== 'ALL' && (t.priority || '').toUpperCase() !== priority) return false;
+            const q = (document.getElementById('task-search')?.value || '').trim().toLowerCase();
+            const scope = document.getElementById('filter-scope')?.value || 'ALL';
+            const status = document.getElementById('filter-status')?.value || 'ALL';
+            const priority = document.getElementById('filter-priority')?.value || 'ALL';
+            const category = document.getElementById('filter-category')?.value || 'ALL';
+            const assignee = document.getElementById('filter-assignee')?.value || 'ALL';
+            const dueDateFilter = document.getElementById('filter-due-date')?.value || 'ALL';
+            const sortBy = document.getElementById('filter-sort')?.value || 'CREATED_DESC';
+
+            // Calculate active filters count
+            let activeFilterCount = 0;
+            if (q) activeFilterCount++;
+            if (scope !== 'ALL') activeFilterCount++;
+            if (status !== 'ALL') activeFilterCount++;
+            if (priority !== 'ALL') activeFilterCount++;
+            if (category !== 'ALL') activeFilterCount++;
+            if (assignee !== 'ALL') activeFilterCount++;
+            if (dueDateFilter !== 'ALL') activeFilterCount++;
+            if (sortBy !== 'CREATED_DESC') activeFilterCount++;
+            if (activeAdminQuickPill !== 'ALL') activeFilterCount++;
+
+            const resetBtn = document.getElementById('admin-clear-filters-btn');
+            const badgeCount = document.getElementById('admin-active-filters-count');
+            if (resetBtn && badgeCount) {
+                if (activeFilterCount > 0) {
+                    resetBtn.classList.remove('hidden');
+                    resetBtn.classList.add('inline-flex');
+                    badgeCount.innerText = activeFilterCount;
+                } else {
+                    resetBtn.classList.add('hidden');
+                    resetBtn.classList.remove('inline-flex');
+                }
+            }
+
+            const priorityRank = { 'URGENT': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
+
+            let filtered = (allTasks || []).filter(t => {
+                const isInternal = Boolean(t.isInternal || (t.taskScope || '').toUpperCase() === 'INTERNAL');
+                const tStatus = (t.status || '').toUpperCase();
+                const tPriority = (t.priority || '').toUpperCase();
+                const sla = getTaskSlaStatus(t);
+
+                // Scope Filter
+                if (scope === 'CLIENT' && isInternal) return false;
+                if (scope === 'INTERNAL' && !isInternal) return false;
+
+                // Status Filter
+                if (status !== 'ALL' && tStatus !== status) return false;
+
+                // Priority Filter
+                if (priority !== 'ALL' && tPriority !== priority) return false;
+
+                // Category Filter
+                if (category !== 'ALL') {
+                    const taskCat = (t.category || t.type || '').trim();
+                    if (taskCat !== category) return false;
+                }
+
+                // Assignee Filter
                 if (assignee === 'UNASSIGNED' && t.assignedTo && t.assignedTo.id) return false;
                 if (assignee !== 'ALL' && assignee !== 'UNASSIGNED' && (!t.assignedTo || t.assignedTo.id !== assignee)) return false;
+
+                // Due Date / SLA Filter
+                if (dueDateFilter === 'OVERDUE' && sla !== 'OVERDUE') return false;
+                if (dueDateFilter === 'DUE_TODAY' && sla !== 'DUE_TODAY') return false;
+                if (dueDateFilter === 'DUE_THIS_WEEK' && !['OVERDUE', 'DUE_TODAY', 'DUE_THIS_WEEK'].includes(sla)) return false;
+                if (dueDateFilter === 'UPCOMING' && sla !== 'UPCOMING') return false;
+                if (dueDateFilter === 'NO_DUE_DATE' && sla !== 'NO_DUE_DATE') return false;
+
+                // Quick Pills Matching
+                if (activeAdminQuickPill === 'URGENT_HIGH' && !['URGENT', 'HIGH'].includes(tPriority)) return false;
+                if (activeAdminQuickPill === 'OVERDUE' && sla !== 'OVERDUE') return false;
+                if (activeAdminQuickPill === 'WAITING' && tStatus !== 'WAITING_CLIENT_INPUT') return false;
+                if (activeAdminQuickPill === 'REVIEW' && tStatus !== 'UNDER_REVIEW') return false;
+                if (activeAdminQuickPill === 'POOL' && (t.assignedTo?.id && tStatus !== 'PENDING')) return false;
+                if (activeAdminQuickPill === 'CLIENT_ONLY' && isInternal) return false;
+                if (activeAdminQuickPill === 'INTERNAL_ONLY' && !isInternal) return false;
+
+                // Search query
                 if (q) {
                     const match = (t.title || '').toLowerCase().includes(q) ||
                                   (t.ticketNumber || '').toLowerCase().includes(q) ||
                                   (t.companyName || '').toLowerCase().includes(q) ||
                                   (t.clientName || '').toLowerCase().includes(q) ||
-                                  (t.category || '').toLowerCase().includes(q);
+                                  (t.category || '').toLowerCase().includes(q) ||
+                                  (t.type || '').toLowerCase().includes(q) ||
+                                  (t.description || '').toLowerCase().includes(q) ||
+                                  (t.assignedTo?.name || '').toLowerCase().includes(q);
                     if (!match) return false;
                 }
+
                 return true;
+            });
+
+            // Sorting
+            filtered.sort((a, b) => {
+                if (sortBy === 'CREATED_ASC') {
+                    return (a.createdAt || 0) - (b.createdAt || 0);
+                } else if (sortBy === 'DUE_ASC') {
+                    const dateA = parseTaskDueDate(a.dueDate);
+                    const dateB = parseTaskDueDate(b.dueDate);
+                    if (dateA && dateB) return dateA.getTime() - dateB.getTime();
+                    if (dateA) return -1;
+                    if (dateB) return 1;
+                    return (b.createdAt || 0) - (a.createdAt || 0);
+                } else if (sortBy === 'PRIORITY_DESC') {
+                    const rankA = priorityRank[(a.priority || '').toUpperCase()] || 0;
+                    const rankB = priorityRank[(b.priority || '').toUpperCase()] || 0;
+                    if (rankB !== rankA) return rankB - rankA;
+                    return (b.createdAt || 0) - (a.createdAt || 0);
+                } else if (sortBy === 'TICKET_ASC') {
+                    return (a.ticketNumber || a.id || '').localeCompare(b.ticketNumber || b.id || '');
+                } else {
+                    // CREATED_DESC (default)
+                    return (b.createdAt || 0) - (a.createdAt || 0);
+                }
             });
 
             renderTable(filtered);
             renderKanban(filtered);
+            updateAdminQuickPillCounts();
             if (window.lucide) window.lucide.createIcons();
         }
 
