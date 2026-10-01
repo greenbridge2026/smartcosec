@@ -1887,11 +1887,20 @@
                 this.showShareholderError = false;
 
                 // Load initial client data structure
-                const savedData = JSON.parse(localStorage.getItem('globalisor_master_v3'));
+                const urlParams = new URLSearchParams(window.location.search);
+                const isNewForm = localStorage.getItem('start_new_form') === 'true' || urlParams.get('new') === 'true';
+                if (isNewForm) {
+                    localStorage.removeItem('start_new_form');
+                    localStorage.removeItem('globalisor_master_v3');
+                    localStorage.removeItem('globalisor_requirements_current_step');
+                    localStorage.removeItem('application_id');
+                }
+                const savedData = isNewForm ? null : JSON.parse(localStorage.getItem('globalisor_master_v3'));
                 const defaultData = {
                     hasLocalDirector: 'yes',
                     localDirectorsCount: 1,
-                    foreignDirectorsCount: 1,
+                    appointNomineeDirector: false,
+                    foreignDirectorsCount: 0,
                     individualShareholdersCount: 0,
                     corporateShareholdersCount: 0,
                     companyType: 'Pte Ltd',
@@ -1899,7 +1908,7 @@
                     activities: { primary: null, secondary: null },
                     directors: [{ name: '', idType: 'local', idNum: '', dob: '', phone: '', passportExpiry: '', docs: {} }],
                     shareholders: [],
-                    capital: { currencies: [{ currency: 'SGD', customCurrency: '', shareClass: 'Ordinary', numberOfShares: '', shareCapitalAmount: '', isCollapsed: false }], issued: '', numShares: '', currency: 'SGD', type: 'Ordinary', isConfirmed: false },
+                    capital: { currencies: [{ currency: 'SGD', customCurrency: '', shareClass: 'Ordinary', numberOfShares: '', shareCapitalAmount: '', isCollapsed: false }], issued: '', numShares: '', currency: 'SGD', type: 'Ordinary', isConfirmed: true },
                     office: { useService: true, address: '', hasOwnAddress: false, residency: 'local' },
                     contact: { firstName: '', lastName: '', phone: '', email: '' },
                     paymentStatus: 'pending',
@@ -1909,6 +1918,48 @@
                 };
                 
                 this.data = savedData ? { ...defaultData, ...savedData, completedSteps: savedData.completedSteps || [] } : defaultData;
+                this.data.foreignDirectorsCount = 0;
+                if (this.data.appointNomineeDirector === undefined) {
+                    this.data.appointNomineeDirector = (this.data.hasLocalDirector === 'no');
+                }
+                if (this.data.localDirectorsCount === undefined) {
+                    this.data.localDirectorsCount = this.data.appointNomineeDirector ? 0 : 1;
+                }
+
+                // Clean any legacy dummy prefilled details from drafts
+                if (this.data && this.data.directors) {
+                    this.data.directors = this.data.directors.filter(d => d.idType !== 'foreign');
+                    this.data.directors.forEach(d => {
+                        if (d.name === 'Marcus Ng' || d.idNum === 'S8812345Z' || d.email === 'marcus.ng@example.com') {
+                            d.name = '';
+                            d.idNum = '';
+                            d.dob = '';
+                            d.phone = '';
+                            d.email = '';
+                            d.addr = '';
+                            d.nationality = '';
+                        }
+                        if (d.name && (d.name.startsWith('Local Director #') || d.name === 'Foreign Director' || d.name.startsWith('Foreign Director #'))) {
+                            d.name = '';
+                        }
+                    });
+                }
+                if (this.data && this.data.shareholders) {
+                    this.data.shareholders.forEach(s => {
+                        if (s.name && (s.name.startsWith('Individual Shareholder #') || s.name.startsWith('Corporate Shareholder #') || s.name === 'Sarah Lim')) {
+                            s.name = '';
+                            s.email = '';
+                            s.phone = '';
+                            s.addr = '';
+                            s.shares = '';
+                            s.percent = '0';
+                        }
+                    });
+                }
+                if (this.data.step2SubStepIndex && this.data.step2SubStepIndex >= 11) {
+                    this.data.step2SubStepIndex = 0;
+                }
+
                 this.migrateActivitiesData();
                 this.syncAllUbos();
                 this.syncDirectorsAndShareholders();
@@ -2043,6 +2094,11 @@
                         this.ssicActivities = ssicData;
                     }
 
+                    const urlCheckNew = new URLSearchParams(window.location.search).get('new') === 'true' || localStorage.getItem('start_new_form') === 'true';
+                    if (urlCheckNew) {
+                        reqResponse = null;
+                        lastKnownStatus = 'pending';
+                    }
                     if (reqResponse) {
                         lastKnownStatus = reqResponse.status;
                         if (reqResponse.data && Object.keys(reqResponse.data).length > 0) {
@@ -2971,16 +3027,11 @@
                     }
                 } else if (sec.id === 'sec-directors-shareholders' || sec.key === 'directors-shareholders') {
                     this.syncDirectorsAndShareholders();
-                    const localDirs = this.data.localDirectorsCount !== undefined ? this.data.localDirectorsCount : 1;
-                    const foreignDirs = this.data.foreignDirectorsCount !== undefined ? this.data.foreignDirectorsCount : 1;
-                    const hasLocal = this.data.hasLocalDirector !== 'no';
+                    const totalLocal = (this.data.localDirectorsCount || 0) + (this.data.appointNomineeDirector ? 1 : 0);
 
-                    if (hasLocal && localDirs < 1) {
+                    if (totalLocal < 1) {
                         isValid = false;
-                        errorMessages.push("ACRA regulations require all Singapore companies to have at least one local resident director. Please set at least 1 Local Director, or select 'No' to have Corporate Secretary provide a Nominee Director.");
-                    } else if (!hasLocal && (localDirs + foreignDirs < 1)) {
-                        isValid = false;
-                        errorMessages.push("At least one director is required.");
+                        errorMessages.push("ACRA regulations require all Singapore companies to have at least one local resident director. Please appoint at least 1 Local Director from your side or select the Corporate Secretary Nominee Director Service.");
                     }
 
                     if (!isValid) {
@@ -4073,31 +4124,52 @@
                 if (wizBody) wizBody.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
 
+            getStep2SubSteps() {
+                return [
+                    { key: 'local_directors', title: 'Local Directors & Nominee Service', shortTitle: '01 Local Directors', desc: 'Appoint local resident directors from your company and/or select Corporate Secretary nominee director service.' },
+                    { key: 'doc_checklist', title: 'Document Checklist', shortTitle: '02 Document Checklist', desc: 'Review required identity documents and corporate records based on your appointments.' },
+                    { key: 'director_details', title: 'Director Details', shortTitle: '03 Director Details', desc: 'Provide full particulars, residential address, and upload verification KYC documents for directors.' },
+                    { key: 'share_capital', title: 'Share Capital Details', shortTitle: '04 Share Capital', desc: 'Configure initial corporate share capital amount, currency, and share classes.' },
+                    { key: 'shareholder_details', title: 'Shareholder Details', shortTitle: '05 Shareholders', desc: 'Overview of individual and corporate shareholders and share allocation pool.' },
+                    { key: 'ind_shareholder', title: 'Individual Shareholder Details', shortTitle: '06 Individual Shareholders', desc: 'Enter details and share allocations for each individual shareholder. You can copy from a director.' },
+                    { key: 'corp_shareholder', title: 'Corporate Shareholder Details', shortTitle: '07 Corporate Shareholders', desc: 'Company particulars and document verification for corporate entity shareholders.' },
+                    { key: 'corp_rep', title: 'Corporate Representatives', shortTitle: '08 Corporate Representatives', desc: 'Authorized individual appointed to represent corporate shareholders.' },
+                    { key: 'rons', title: 'Register of Nominee Shareholders (RONS)', shortTitle: '09 RONS', desc: 'Declare nominee holdings and upload nominator trust agreements if applicable.' },
+                    { key: 'ubo', title: 'Ultimate Beneficial Owner (UBO)', shortTitle: '10 UBO & Controllers', desc: 'Identify registrable controllers holding 25% or more effective company ownership.' },
+                    { key: 'final_declaration', title: 'Final Declaration & Consent', shortTitle: '11 Declaration', desc: 'Set Financial Year End (FYE), review corporate governance, and sign statutory consents.' }
+                ];
+            }
+
             nextStep2SubStep() {
                 this.syncDirectorsAndShareholders();
                 const cur = this.data.step2SubStepIndex || 0;
+                const substeps = this.getStep2SubSteps();
+                const activeKey = substeps[cur]?.key;
                 
                 // Validation for current sub-step
-                if (cur === 0) {
-                    const hasLocal = this.data.hasLocalDirector !== 'no';
-                    const localCount = this.data.localDirectorsCount !== undefined ? this.data.localDirectorsCount : 1;
-                    if (hasLocal && localCount < 1) {
-                        showToast("Please specify at least 1 Local Director or select Nominee Director.", "warning");
+                if (activeKey === 'local_directors') {
+                    const totalLocal = (this.data.localDirectorsCount || 0) + (this.data.appointNomineeDirector ? 1 : 0);
+                    if (totalLocal < 1) {
+                        showToast("Under ACRA regulations, please appoint at least 1 Local Director from your side or select the Nominee Director Service.", "warning");
                         return;
                     }
-                } else if (cur === 4) {
+                } else if (activeKey === 'share_capital') {
+                    this.syncCapitalTotals();
+                    if (this.data.capital.isConfirmed === undefined) {
+                        this.data.capital.isConfirmed = true;
+                    }
                     if (!this.data.capital?.isConfirmed) {
                         showToast("Please confirm the Share Capital configuration checkbox to proceed.", "warning");
                         return;
                     }
-                } else if (cur === 11) {
+                } else if (activeKey === 'final_declaration') {
                     if (!this.data.declaration?.confirmed) {
                         showToast("Please agree to the statutory declarations to proceed.", "warning");
                         return;
                     }
                 }
 
-                if (cur < 11) {
+                if (cur < substeps.length - 1) {
                     this.goToStep2SubStep(cur + 1);
                 } else {
                     // Completed Step 02, proceed to Step 03 Registered Office
@@ -4117,25 +4189,11 @@
 
             renderDirectorsAndShareholdersStep(sec, rejectionBanner = '') {
                 this.syncDirectorsAndShareholders();
-                if (this.data.step2SubStepIndex === undefined || this.data.step2SubStepIndex < 0) {
+                const SUBSTEPS = this.getStep2SubSteps();
+                if (this.data.step2SubStepIndex === undefined || this.data.step2SubStepIndex < 0 || this.data.step2SubStepIndex >= SUBSTEPS.length) {
                     this.data.step2SubStepIndex = 0;
                 }
                 const curIdx = this.data.step2SubStepIndex;
-
-                const SUBSTEPS = [
-                    { key: 'local_directors', title: 'Local Directors', shortTitle: '01 Local Directors', desc: 'Select if you have an ordinarily resident local director or require Corporate Secretary nominee services.' },
-                    { key: 'foreign_directors', title: 'Foreign Directors', shortTitle: '02 Foreign Directors', desc: 'Configure non-resident directors. Foreign directors are permitted without citizenship limits.' },
-                    { key: 'doc_checklist', title: 'Document Checklist', shortTitle: '03 Document Checklist', desc: 'Review required identity documents and corporate records based on your appointments.' },
-                    { key: 'director_details', title: 'Director Details', shortTitle: '04 Director Details', desc: 'Provide full particulars, residential address, and upload verification KYC documents for directors.' },
-                    { key: 'share_capital', title: 'Share Capital Details', shortTitle: '05 Share Capital', desc: 'Configure initial corporate share capital amount, currency, and share classes.' },
-                    { key: 'shareholder_details', title: 'Shareholder Details', shortTitle: '06 Shareholders', desc: 'Overview of individual and corporate shareholders and share allocation pool.' },
-                    { key: 'ind_shareholder', title: 'Individual Shareholder Details', shortTitle: '07 Individual SH', desc: 'Enter details and share allocations for each individual shareholder. You can copy from a director.' },
-                    { key: 'corp_shareholder', title: 'Corporate Shareholder Details', shortTitle: '08 Corporate SH', desc: 'Company particulars and document verification for corporate entity shareholders.' },
-                    { key: 'corp_rep', title: 'Corporate Representatives', shortTitle: '09 Corporate Reps', desc: 'Authorized individual appointed to represent corporate shareholders.' },
-                    { key: 'rons', title: 'Register of Nominee Shareholders (RONS)', shortTitle: '10 RONS', desc: 'Declare nominee holdings and upload nominator trust agreements if applicable.' },
-                    { key: 'ubo', title: 'Ultimate Beneficial Owner (UBO)', shortTitle: '11 UBO & Controllers', desc: 'Identify registrable controllers holding 25% or more effective company ownership.' },
-                    { key: 'final_declaration', title: 'Final Declaration & Consent', shortTitle: '12 Declaration', desc: 'Set Financial Year End (FYE), review corporate governance, and sign statutory consents.' }
-                ];
 
                 const activeSub = SUBSTEPS[curIdx] || SUBSTEPS[0];
 
@@ -4143,9 +4201,6 @@
                 switch (activeSub.key) {
                     case 'local_directors':
                         subStepContent = this.renderSubStepLocalDirectors();
-                        break;
-                    case 'foreign_directors':
-                        subStepContent = this.renderSubStepForeignDirectors();
                         break;
                     case 'doc_checklist':
                         subStepContent = this.renderSubStepDocChecklist();
@@ -4190,7 +4245,7 @@
                             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.85rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem;">
                                 <div style="display: flex; align-items: center; gap: 0.65rem;">
                                     <span style="background: #eff6ff; color: #2563eb; font-weight: 800; font-size: 0.72rem; padding: 3px 8px; border-radius: 6px; border: 1px solid #bfdbfe; letter-spacing: 0.04em;">
-                                        SECTION 2.${curIdx + 1} OF 12
+                                        SECTION 2.${curIdx + 1} OF ${SUBSTEPS.length}
                                     </span>
                                     <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0f172a;">${activeSub.title}</h3>
                                 </div>
@@ -4251,73 +4306,134 @@
             // SUB-STEP 01: LOCAL DIRECTORS
             // =========================================================================
             renderSubStepLocalDirectors() {
-                const hasLocal = this.data.hasLocalDirector !== 'no';
-                const localCount = this.data.localDirectorsCount !== undefined ? this.data.localDirectorsCount : 1;
+                const clientLocalCount = this.data.localDirectorsCount !== undefined ? Math.max(0, this.data.localDirectorsCount) : 1;
+                const appointNominee = !!this.data.appointNomineeDirector;
+                const totalLocal = clientLocalCount + (appointNominee ? 1 : 0);
 
                 return `
                     <div style="display: flex; flex-direction: column; gap: 1.25rem;">
-                        <!-- Do you have a Local Director Card -->
-                        <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.5rem 1.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                            <div style="margin-bottom: 0.5rem;">
-                                <label style="font-size: 0.95rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 4px;">
-                                    Do you have a Local Director? <span style="color: #ef4444; font-weight: 800;">*</span>
-                                </label>
-                                <p style="font-size: 0.8rem; color: #64748b; margin: 0.35rem 0 1.25rem 0; line-height: 1.5;">
-                                    Under Section 145(1) of the Singapore Companies Act, all companies must appoint at least one director who is ordinarily resident in Singapore (Singapore Citizen, Permanent Resident, or EntrePass / EP holder).
-                                </p>
-                            </div>
-
-                            <div style="display: flex; flex-direction: column; gap: 0.85rem;">
-                                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; font-size: 0.88rem; font-weight: 600; color: #1e293b; padding: 0.75rem 1rem; border-radius: 12px; border: 1.5px solid ${hasLocal ? '#2563eb' : '#e2e8f0'}; background: ${hasLocal ? '#eff6ff' : '#ffffff'}; transition: all 0.2s;">
-                                    <input type="radio" name="hasLocalDirector" value="yes" ${hasLocal ? 'checked' : ''} onchange="wizard.handleHasLocalDirectorChange('yes')" style="accent-color: #2563eb; width: 18px; height: 18px; cursor: pointer;">
-                                    <div>
-                                        <div style="font-weight: 700; color: #0f172a;">Yes, I have a Local Director</div>
-                                        <div style="font-size: 0.75rem; color: #64748b;">A Singapore Citizen, Permanent Resident, or eligible employment pass holder residing in Singapore.</div>
+                        <!-- Legal Advisory Header -->
+                        <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.25rem 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                            <div style="display: flex; align-items: flex-start; gap: 0.85rem;">
+                                <div style="width: 40px; height: 40px; border-radius: 10px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0;">
+                                    ⚖️
+                                </div>
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.3rem;">
+                                        <h4 style="font-size: 0.95rem; font-weight: 800; color: #0f172a; margin: 0;">
+                                            Statutory Resident Director Requirements (ACRA Section 145) <span style="color: #ef4444; font-weight: 800;">*</span>
+                                        </h4>
+                                        <span style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; font-size: 0.7rem; font-weight: 800; padding: 2px 8px; border-radius: 99px; letter-spacing: 0.03em;">
+                                            Required *
+                                        </span>
                                     </div>
-                                </label>
-                                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; font-size: 0.88rem; font-weight: 600; color: #1e293b; padding: 0.75rem 1rem; border-radius: 12px; border: 1.5px solid ${!hasLocal ? '#2563eb' : '#e2e8f0'}; background: ${!hasLocal ? '#eff6ff' : '#ffffff'}; transition: all 0.2s;">
-                                    <input type="radio" name="hasLocalDirector" value="no" ${!hasLocal ? 'checked' : ''} onchange="wizard.handleHasLocalDirectorChange('no')" style="accent-color: #2563eb; width: 18px; height: 18px; cursor: pointer;">
-                                    <div>
-                                        <div style="font-weight: 700; color: #0f172a;">No — I require Corporate Secretary Nominee Director Service</div>
-                                        <div style="font-size: 0.75rem; color: #64748b;">Corporate Secretary provides a licensed Singapore resident nominee director to satisfy statutory ACRA incorporation requirements (SGD 3,000/year).</div>
-                                    </div>
-                                </label>
+                                    <p style="font-size: 0.8rem; color: #64748b; margin: 0; line-height: 1.5;">
+                                        Under Section 145(1) of the Singapore Companies Act, all companies must appoint at least one director ordinarily resident in Singapore (Singapore Citizen, PR, or eligible EP holder). You can appoint directors from your <strong>client side</strong>, appoint from our <strong>service provider panel (Corporate Secretary Nominee Director)</strong>, or choose <strong>both</strong>.
+                                    </p>
+                                </div>
                             </div>
                         </div>
 
-                        ${hasLocal ? `
-                            <!-- Local Directors Counter Card -->
-                            <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.5rem; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                        <!-- Card 1: Client-Appointed Local Directors (Client Side) -->
+                        <div style="background: #ffffff; border: 1.5px solid ${clientLocalCount > 0 ? '#3b82f6' : '#e2e8f0'}; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02); transition: all 0.2s;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                                 <div style="display: flex; align-items: center; gap: 1rem;">
-                                    <div style="width: 44px; height: 44px; border-radius: 12px; background: #eff6ff; display: flex; align-items: center; justify-content: center; color: #2563eb;">
-                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                                    <div style="width: 48px; height: 48px; border-radius: 14px; background: ${clientLocalCount > 0 ? '#eff6ff' : '#f8fafc'}; color: ${clientLocalCount > 0 ? '#2563eb' : '#64748b'}; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0; border: 1px solid ${clientLocalCount > 0 ? '#bfdbfe' : '#e2e8f0'};">
+                                        🇸🇬
                                     </div>
                                     <div>
-                                        <div style="font-size: 1rem; font-weight: 800; color: #0f172a;">Number of Local Resident Directors</div>
-                                        <div style="font-size: 0.78rem; color: #64748b; margin-top: 2px;">Specify how many Singapore resident directors will be appointed. Minimum is 1.</div>
+                                        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                            <span style="font-size: 1rem; font-weight: 800; color: #0f172a;">Local Directors from Client Side</span>
+                                            ${clientLocalCount > 0 ? `<span style="background: #dcfce7; color: #166534; font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 99px;">${clientLocalCount} Appointed</span>` : `<span style="background: #f1f5f9; color: #64748b; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 99px;">Optional</span>`}
+                                        </div>
+                                        <div style="font-size: 0.78rem; color: #64748b; margin-top: 0.25rem; line-height: 1.45;">
+                                            Directors appointed from your company (Singapore Citizen, Permanent Resident, or eligible Employment Pass / EntrePass holder residing in Singapore).
+                                        </div>
                                     </div>
                                 </div>
+
+                                <!-- Counter -->
                                 <div style="display: flex; align-items: center; justify-content: space-between; border: 1.5px solid #cbd5e1; border-radius: 12px; width: 130px; height: 44px; padding: 0 8px; background: #ffffff;">
-                                    <button type="button" onclick="wizard.adjustCount('local_directors', -1)" style="border: none; background: none; font-size: 1.3rem; color: #1e293b; font-weight: 700; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px;">&minus;</button>
-                                    <span style="font-size: 1.15rem; font-weight: 800; color: #0f172a;">${localCount}</span>
-                                    <button type="button" onclick="wizard.adjustCount('local_directors', 1)" style="border: none; background: none; font-size: 1.3rem; color: #1e293b; font-weight: 700; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px;">&#43;</button>
+                                    <button type="button" onclick="wizard.adjustCount('local_directors', -1)" 
+                                        style="border: none; background: none; font-size: 1.3rem; color: #1e293b; font-weight: 700; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px;"
+                                        title="Decrease count">&minus;</button>
+                                    <span style="font-size: 1.15rem; font-weight: 800; color: #0f172a;">${clientLocalCount}</span>
+                                    <button type="button" onclick="wizard.adjustCount('local_directors', 1)" 
+                                        style="border: none; background: none; font-size: 1.3rem; color: #1e293b; font-weight: 700; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px;"
+                                        title="Increase count">&#43;</button>
                                 </div>
                             </div>
-                        ` : `
-                            <!-- Corporate Secretary Nominee Info Card -->
-                            <div style="background: linear-gradient(135deg, #eff6ff, #dbeafe); border: 1.5px solid #bfdbfe; border-radius: 16px; padding: 1.5rem; display: flex; align-items: flex-start; gap: 1rem;">
-                                <div style="width: 44px; height: 44px; border-radius: 12px; background: #2563eb; color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 1.25rem;">
-                                    🛡️
+                        </div>
+
+                        <!-- Card 2: Corporate Secretary Nominee Director Service (Service Provider Side) -->
+                        <div style="background: ${appointNominee ? '#f8fafc' : '#ffffff'}; border: 1.5px solid ${appointNominee ? '#2563eb' : '#e2e8f0'}; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02); transition: all 0.2s;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+                                <div style="display: flex; align-items: flex-start; gap: 1rem; flex: 1; min-width: 280px;">
+                                    <div style="width: 48px; height: 48px; border-radius: 14px; background: ${appointNominee ? '#eff6ff' : '#f8fafc'}; color: ${appointNominee ? '#2563eb' : '#64748b'}; display: flex; align-items: center; justify-content: center; font-size: 1.35rem; flex-shrink: 0; border: 1px solid ${appointNominee ? '#bfdbfe' : '#e2e8f0'};">
+                                        🛡️
+                                    </div>
+                                    <div>
+                                        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                            <span style="font-size: 1rem; font-weight: 800; color: #0f172a;">Nominee Director from Service Provider</span>
+                                            <span style="background: #eff6ff; color: #2563eb; font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 99px; border: 1px solid #bfdbfe;">
+                                                Corporate Secretary Service
+                                            </span>
+                                        </div>
+                                        <div style="font-size: 0.78rem; color: #64748b; margin-top: 0.35rem; line-height: 1.5;">
+                                            Corporate Secretary provides a licensed Singapore resident nominee director to satisfy statutory ACRA incorporation requirements or complement your board. Includes full regulatory compliance monitoring and execution of ACRA resolutions.
+                                        </div>
+                                        <div style="display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 0.65rem; background: #ffffff; padding: 4px 12px; border-radius: 99px; border: 1px solid #e2e8f0; font-size: 0.75rem; font-weight: 700; color: #475569;">
+                                            <span style="color: #1d4ed8; font-weight: 800;">SGD 3,000 / year</span> • <span>1 Panel Nominee Director</span>
+                                        </div>
+                                    </div>
                                 </div>
+
+                                <!-- Checkbox / Selection Toggle -->
                                 <div>
-                                    <div style="font-size: 1rem; font-weight: 800; color: #1e40af;">Corporate Secretary Nominee Resident Director Included</div>
-                                    <div style="font-size: 0.8rem; color: #3b82f6; margin-top: 0.35rem; line-height: 1.5;">
-                                        A qualified Singapore citizen nominee director will be appointed from Corporate Secretary's corporate panel to satisfy the statutory resident director requirement. Nominee service includes full regulatory compliance monitoring and execution of ACRA resolutions.
-                                    </div>
-                                    <div style="display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem; background: #ffffff; padding: 4px 12px; border-radius: 99px; border: 1px solid #bfdbfe; font-size: 0.75rem; font-weight: 800; color: #1d4ed8;">
-                                        <span>SGD 3,000 / year</span> • <span>Nominee count: 1</span>
+                                    <label style="display: flex; align-items: center; gap: 0.65rem; cursor: pointer; padding: 0.75rem 1.25rem; background: ${appointNominee ? '#eff6ff' : '#ffffff'}; border: 1.5px solid ${appointNominee ? '#2563eb' : '#cbd5e1'}; border-radius: 12px; font-weight: 700; font-size: 0.85rem; color: ${appointNominee ? '#1d4ed8' : '#334155'}; transition: all 0.2s; user-select: none; box-shadow: ${appointNominee ? '0 2px 8px rgba(37,99,235,0.15)' : 'none'};">
+                                        <input type="checkbox" ${appointNominee ? 'checked' : ''} onchange="wizard.toggleNomineeDirector(this.checked)" style="accent-color: #2563eb; width: 18px; height: 18px; cursor: pointer;">
+                                        <span>${appointNominee ? '✓ Nominee Appointed' : 'Appoint Nominee Director'}</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            ${appointNominee ? `
+                                <div style="margin-top: 1rem; padding: 0.85rem 1rem; background: #eff6ff; border-radius: 10px; border: 1px solid #bfdbfe; font-size: 0.78rem; color: #1e40af; line-height: 1.5;">
+                                    ℹ️ <strong>Service Included:</strong> Nominee director credentials and compliance KYC are pre-approved from Corporate Secretary panel. No identity documents required from your side for the nominee director.
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- Real-time ACRA Statutory Status Bar -->
+                        ${totalLocal >= 1 ? `
+                            <div style="background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 1.5px solid #86efac; border-radius: 14px; padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+                                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                    <span style="font-size: 1.25rem;">✅</span>
+                                    <div>
+                                        <div style="font-size: 0.88rem; font-weight: 800; color: #166534;">ACRA Statutory Requirement Satisfied</div>
+                                        <div style="font-size: 0.78rem; color: #15803d; margin-top: 1px;">
+                                            Total Local Resident Directors: <strong>${totalLocal}</strong> (${clientLocalCount} client-side${appointNominee ? ' + 1 service provider nominee' : ''})
+                                        </div>
                                     </div>
                                 </div>
+                                <span style="font-size: 0.75rem; font-weight: 800; color: #166534; background: #ffffff; padding: 4px 12px; border-radius: 99px; border: 1px solid #bbf7d0;">
+                                    ✓ Compliant
+                                </span>
+                            </div>
+                        ` : `
+                            <div style="background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1.5px solid #fcd34d; border-radius: 14px; padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+                                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                    <span style="font-size: 1.25rem;">⚠️</span>
+                                    <div>
+                                        <div style="font-size: 0.88rem; font-weight: 800; color: #92400e;">Statutory Requirement: At least 1 Resident Director Required</div>
+                                        <div style="font-size: 0.78rem; color: #b45309; margin-top: 1px;">
+                                            Please appoint at least 1 local director from your side or select the Corporate Secretary Nominee Director service.
+                                        </div>
+                                    </div>
+                                </div>
+                                <span style="font-size: 0.75rem; font-weight: 800; color: #92400e; background: #ffffff; padding: 4px 12px; border-radius: 99px; border: 1px solid #fde68a;">
+                                    Action Required
+                                </span>
                             </div>
                         `}
                     </div>
@@ -4325,64 +4441,11 @@
             }
 
             // =========================================================================
-            // SUB-STEP 02: FOREIGN DIRECTORS
-            // =========================================================================
-            renderSubStepForeignDirectors() {
-                const foreignCount = this.data.foreignDirectorsCount !== undefined ? this.data.foreignDirectorsCount : 0;
-                const localCount = this.data.hasLocalDirector === 'no' ? 1 : (this.data.localDirectorsCount || 1);
-                const totalDirs = localCount + foreignCount;
-
-                return `
-                    <div style="display: flex; flex-direction: column; gap: 1.25rem;">
-                        <!-- Foreign Directors Counter Card -->
-                        <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.5rem; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                            <div style="display: flex; align-items: center; gap: 1rem;">
-                                <div style="width: 44px; height: 44px; border-radius: 12px; background: #eff6ff; display: flex; align-items: center; justify-content: center; color: #2563eb;">
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                                </div>
-                                <div>
-                                    <div style="font-size: 1rem; font-weight: 800; color: #0f172a;">Number of Foreign (Non-Resident) Directors</div>
-                                    <div style="font-size: 0.78rem; color: #64748b; margin-top: 2px;">Appoint directors residing outside Singapore. Foreign directors may be of any nationality.</div>
-                                </div>
-                            </div>
-                            <div style="display: flex; align-items: center; justify-content: space-between; border: 1.5px solid #cbd5e1; border-radius: 12px; width: 130px; height: 44px; padding: 0 8px; background: #ffffff;">
-                                <button type="button" onclick="wizard.adjustCount('foreign_directors', -1)" style="border: none; background: none; font-size: 1.3rem; color: #1e293b; font-weight: 700; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px;">&minus;</button>
-                                <span style="font-size: 1.15rem; font-weight: 800; color: #0f172a;">${foreignCount}</span>
-                                <button type="button" onclick="wizard.adjustCount('foreign_directors', 1)" style="border: none; background: none; font-size: 1.3rem; color: #1e293b; font-weight: 700; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px;">&#43;</button>
-                            </div>
-                        </div>
-
-                        <!-- Board Composition Summary Box -->
-                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                            <div style="display: flex; align-items: center; gap: 2rem;">
-                                <div>
-                                    <span style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Local Directors:</span>
-                                    <div style="font-size: 1.15rem; font-weight: 800; color: #0f172a;">${localCount} ${this.data.hasLocalDirector === 'no' ? '(Nominee)' : ''}</div>
-                                </div>
-                                <div style="border-left: 1px solid #e2e8f0; padding-left: 2rem;">
-                                    <span style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Foreign Directors:</span>
-                                    <div style="font-size: 1.15rem; font-weight: 800; color: #0f172a;">${foreignCount}</div>
-                                </div>
-                                <div style="border-left: 1px solid #e2e8f0; padding-left: 2rem;">
-                                    <span style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Total Board Size:</span>
-                                    <div style="font-size: 1.15rem; font-weight: 800; color: #2563eb;">${totalDirs} Director${totalDirs > 1 ? 's' : ''}</div>
-                                </div>
-                            </div>
-                            <span style="font-size: 0.75rem; font-weight: 700; color: #16a34a; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 99px;">
-                                ✓ ACRA Section 145 Compliant
-                            </span>
-                        </div>
-                    </div>
-                `;
-            }
-
-            // =========================================================================
-            // SUB-STEP 03: DOCUMENT CHECKLIST
+            // SUB-STEP 02: DOCUMENT CHECKLIST (Locals Only)
             // =========================================================================
             renderSubStepDocChecklist() {
-                const localCount = this.data.hasLocalDirector === 'no' ? 1 : (this.data.localDirectorsCount || 1);
-                const foreignCount = this.data.foreignDirectorsCount || 0;
-                const hasForeign = foreignCount > 0;
+                const clientLocalCount = this.data.localDirectorsCount !== undefined ? Math.max(0, this.data.localDirectorsCount) : 1;
+                const hasNominee = !!this.data.appointNomineeDirector;
                 const indShCount = this.data.individualShareholdersCount || 0;
                 const corpShCount = this.data.corporateShareholdersCount || 0;
 
@@ -4396,7 +4459,7 @@
                                 Under Singapore AML/CFT regulations and ACRA CDD rules, please have the following documents ready for upload in the subsequent sections:
                             </p>
 
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
                                 <!-- Local Directors Checklist -->
                                 <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem;">
                                     <div style="font-size: 0.85rem; font-weight: 800; color: #0f172a; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
@@ -4405,18 +4468,7 @@
                                     <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.8rem; color: #475569; line-height: 1.6;">
                                         <li><strong>NRIC / FIN card</strong> (clear color copy of front and back)</li>
                                         <li><strong>Proof of Residential Address</strong> (utility bill, bank statement, or telecom bill dated within 3 months)</li>
-                                        <li>Signed director consent to act (Section 146 form)</li>
-                                    </ul>
-                                </div>
-
-                                <!-- Foreign Directors Checklist -->
-                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem;">
-                                    <div style="font-size: 0.85rem; font-weight: 800; color: #0f172a; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
-                                        <span>🌐</span> Foreign (Non-Resident) Directors
-                                    </div>
-                                    <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.8rem; color: #475569; line-height: 1.6;">
-                                        <li><strong>International Passport</strong> (clear bio-data page, minimum 6 months validity)</li>
-                                        <li><strong>Proof of Overseas Residential Address</strong> (utility bill, bank statement, or government letter with certified English translation)</li>
+                                        <li><strong>Contact Phone Number & Email Address</strong></li>
                                     </ul>
                                 </div>
 
@@ -4428,7 +4480,7 @@
                                     <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.8rem; color: #475569; line-height: 1.6;">
                                         <li><strong>NRIC or Passport</strong> (waived if already provided as director via Quick Copy)</li>
                                         <li><strong>Proof of Residential Address</strong></li>
-                                        <li>Ultimate Beneficial Owner (UBO) declaration if holding ≥ 25% shares</li>
+                                        <li><strong>Contact Phone Number & Email Address</strong></li>
                                     </ul>
                                 </div>
 
@@ -4440,8 +4492,9 @@
                                     <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.8rem; color: #475569; line-height: 1.6;">
                                         <li><strong>Certificate of Incorporation</strong> or ACRA Business Profile</li>
                                         <li><strong>Company Constitution / M&AA</strong></li>
-                                        <li>Register of Directors and Register of Members</li>
-                                        <li>Passport and Address proof for Corporate Representative</li>
+                                        <li><strong>Register of Directors and Register of Members</strong></li>
+                                        <li><strong>NRIC / Passport & Address Proof</strong> for Corporate Representative, email ID & contact number</li>
+                                        <li><strong>Organisation Structure Chart</strong></li>
                                     </ul>
                                 </div>
                             </div>
@@ -4459,7 +4512,7 @@
             }
 
             // =========================================================================
-            // SUB-STEP 04: DIRECTOR DETAILS & UPLOADS
+            // SUB-STEP 03: DIRECTOR DETAILS & UPLOADS
             // =========================================================================
             renderSubStepDirectorDetails() {
                 const dirs = this.data.directors || [];
@@ -4536,7 +4589,7 @@
                                             <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
                                                 Nationality <span style="color:#ef4444;">*</span>
                                             </label>
-                                            <input type="text" class="input-box" value="${dir.nationality || (isLocal ? 'Singaporean' : '')}" placeholder="e.g. Singaporean, Malaysian, American" 
+                                            <input type="text" class="input-box" value="${dir.nationality || ''}" placeholder="e.g. Singaporean, Malaysian, American" 
                                                 oninput="wizard.updateDirectorField(${idx}, 'nationality', this.value)" style="width: 100%;">
                                         </div>
                                         <div>
@@ -4658,6 +4711,19 @@
                         <div id="share-capital-summary-card">
                             ${this.renderShareCapitalSummaryHtml()}
                         </div>
+
+                        <!-- Share Capital Confirmation Card & Checkbox -->
+                        <div id="capital-confirm-card" style="background: ${(this.data.capital?.isConfirmed !== false) ? '#f0fdf4' : '#ffffff'}; border: 1.5px solid ${(this.data.capital?.isConfirmed !== false) ? '#86efac' : '#cbd5e1'}; border-radius: 16px; padding: 1.25rem 1.5rem; display: flex; align-items: flex-start; gap: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02); transition: all 0.2s;">
+                            <input type="checkbox" id="capital-confirmation-checkbox" ${(this.data.capital?.isConfirmed !== false) ? 'checked' : ''} onchange="wizard.updateCapitalConfirm(this.checked)" style="accent-color: #2563eb; width: 20px; height: 20px; margin-top: 3px; cursor: pointer; flex-shrink: 0;">
+                            <label for="capital-confirmation-checkbox" style="cursor: pointer; user-select: none;">
+                                <div style="font-size: 0.92rem; font-weight: 800; color: #0f172a;">
+                                    I confirm the Share Capital configuration, currency, and share class details above
+                                </div>
+                                <div style="font-size: 0.78rem; color: #64748b; margin-top: 3px; line-height: 1.5;">
+                                    The initial shareholder equity allocations in the subsequent steps will be distributed from this total corporate capital pool.
+                                </div>
+                            </label>
+                        </div>
                     </div>
                 `;
             }
@@ -4666,8 +4732,8 @@
             // SUB-STEP 06: SHAREHOLDER DETAILS (OVERVIEW & ALLOCATION TRACKER)
             // =========================================================================
             renderSubStepShareholderDetails() {
-                const totalShares = parseFloat(this.data.capital?.numShares) || 10000;
-                const totalCapital = parseFloat(this.data.capital?.issued) || 10000;
+                const totalShares = parseFloat(this.data.capital?.numShares) || 0;
+                const totalCapital = parseFloat(this.data.capital?.issued) || 0;
                 const currency = this.data.capital?.currency || 'SGD';
 
                 const indCount = this.data.individualShareholdersCount !== undefined ? this.data.individualShareholdersCount : 1;
@@ -4699,8 +4765,8 @@
                                 </div>
                                 <div>
                                     <span style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Remaining:</span>
-                                    <div style="font-size: 1.1rem; font-weight: 800; color: ${remainingShares === 0 ? '#16a34a' : '#ea580c'};">
-                                        ${remainingShares.toLocaleString()} ${remainingShares === 0 ? '✓ (100% Allocated)' : ''}
+                                    <div style="font-size: 1.1rem; font-weight: 800; color: ${remainingShares === 0 && totalShares > 0 ? '#16a34a' : (remainingShares > 0 ? '#ea580c' : '#64748b')};">
+                                        ${remainingShares.toLocaleString()} ${remainingShares === 0 && totalShares > 0 ? '✓ (100% Allocated)' : ''}
                                     </div>
                                 </div>
                             </div>
@@ -4752,7 +4818,7 @@
             // SUB-STEP 07: INDIVIDUAL SHAREHOLDER DETAILS
             // =========================================================================
             renderSubStepIndividualShareholders() {
-                const totalShares = parseFloat(this.data.capital?.numShares) || 10000;
+                const totalShares = parseFloat(this.data.capital?.numShares) || 0;
                 const currency = this.data.capital?.currency || 'SGD';
                 const indShareholders = (this.data.shareholders || []).map((sh, idx) => ({ ...sh, originalIdx: idx })).filter(sh => sh.type === 'individual');
                 const dirs = this.data.directors || [];
@@ -4826,7 +4892,7 @@
                                             <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
                                                 Nationality <span style="color:#ef4444;">*</span>
                                             </label>
-                                            <input type="text" class="input-box" value="${sh.nationality || 'Singaporean'}" placeholder="Nationality" 
+                                            <input type="text" class="input-box" value="${sh.nationality || ''}" placeholder="Nationality" 
                                                 oninput="wizard.updateShareholderField(${originalIdx}, 'nationality', this.value)" style="width: 100%;">
                                         </div>
                                         <div>
@@ -5075,7 +5141,7 @@
                                         </div>
                                         <div>
                                             <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">Nationality <span style="color:#ef4444;">*</span></label>
-                                            <input type="text" class="input-box" value="${rep.nationality || 'Singaporean'}" placeholder="Nationality" 
+                                            <input type="text" class="input-box" value="${rep.nationality || ''}" placeholder="Nationality" 
                                                 oninput="wizard.updateCorporateRepField(${originalIdx}, 'nationality', this.value)" style="width: 100%;">
                                         </div>
                                         <div>
@@ -5143,7 +5209,7 @@
             // SUB-STEP 11: ULTIMATE BENEFICIAL OWNER (UBO) / CONTROLLERS
             // =========================================================================
             renderSubStepUbo() {
-                const totalShares = parseFloat(this.data.capital?.numShares) || 10000;
+                const totalShares = parseFloat(this.data.capital?.numShares) || 0;
                 const shareholders = this.data.shareholders || [];
                 const uboShareholders = shareholders.filter(sh => {
                     const pct = totalShares > 0 ? ((parseFloat(sh.shares) || 0) / totalShares) * 100 : 0;
@@ -5352,7 +5418,7 @@
                 sh.name = dir.name || '';
                 sh.idType = dir.idType || 'nric';
                 sh.idNum = dir.idNum || '';
-                sh.nationality = dir.nationality || 'Singaporean';
+                sh.nationality = dir.nationality || '';
                 sh.dob = dir.dob || '';
                 sh.email = dir.email || '';
                 sh.phone = dir.phone || '';
@@ -5715,8 +5781,13 @@
 
             updateCapitalConfirm(checked) {
                 if (!this.data.capital) this.data.capital = {};
-                this.data.capital.isConfirmed = checked;
+                this.data.capital.isConfirmed = !!checked;
                 this.save();
+                const card = document.getElementById('capital-confirm-card');
+                if (card) {
+                    card.style.background = checked ? '#f0fdf4' : '#ffffff';
+                    card.style.borderColor = checked ? '#86efac' : '#cbd5e1';
+                }
                 this.updateContinueButtonState();
             }
 
@@ -5991,7 +6062,7 @@
                         id: cand.id || key,
                         name: cand.name.trim(),
                         idNum: cand.idNum || '',
-                        nationality: cand.nationality || 'Singaporean',
+                        nationality: cand.nationality || '',
                         dob: cand.dob || '',
                         email: cand.email || '',
                         phone: cand.phone || '',
@@ -6009,7 +6080,7 @@
                                 id: `dir_${dIdx}`,
                                 name: d.name,
                                 idNum: d.idNum,
-                                nationality: d.nationality || 'Singaporean',
+                                nationality: d.nationality || '',
                                 dob: d.dob,
                                 email: d.email,
                                 phone: d.phone,
@@ -6030,7 +6101,7 @@
                                     id: `sh_${sIdx}`,
                                     name: s.name,
                                     idNum: s.idNum,
-                                    nationality: s.nationality || 'Singaporean',
+                                    nationality: s.nationality || '',
                                     dob: s.dob,
                                     email: s.email,
                                     phone: s.phone,
@@ -6044,7 +6115,7 @@
                                 id: `rep_${sIdx}`,
                                 name: s.rep.fullName,
                                 idNum: s.rep.idNum,
-                                nationality: s.rep.nationality || 'Singaporean',
+                                nationality: s.rep.nationality || '',
                                 dob: s.rep.dob || '',
                                 email: s.rep.email,
                                 phone: s.rep.phone,
@@ -6156,7 +6227,7 @@
 
                 const name = nameInput ? nameInput.value.trim() : '';
                 const idNum = idInput ? idInput.value.trim() : '';
-                const nationality = natInput ? natInput.value.trim() : 'Singaporean';
+                const nationality = natInput ? natInput.value.trim() : '';
                 const email = emailInput ? emailInput.value.trim() : '';
                 const addr = addrInput ? addrInput.value.trim() : '';
 
@@ -6173,7 +6244,7 @@
                     id: `ubo_custom_${Date.now()}`,
                     name: name,
                     idNum: idNum,
-                    nationality: nationality || 'Singaporean',
+                    nationality: nationality || '',
                     dob: '',
                     email: email,
                     phone: '',
@@ -6273,7 +6344,7 @@
                             </div>
                             <div>
                                 <label style="font-size: 0.7rem; font-weight: 700; color: #475569;">Nationality</label>
-                                <input type="text" id="custom-ubo-nat-${idx}" class="input-box" placeholder="e.g. Singaporean" value="Singaporean" style="padding: 4px 8px; font-size: 0.75rem;">
+                                <input type="text" id="custom-ubo-nat-${idx}" class="input-box" placeholder="e.g. Singaporean" value="" style="padding: 4px 8px; font-size: 0.75rem;">
                             </div>
                             <div>
                                 <label style="font-size: 0.7rem; font-weight: 700; color: #475569;">Email Address</label>
@@ -6342,7 +6413,7 @@
                             id: uboItem.id || `ubo_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
                             name: uboItem.name.trim(),
                             idNum: uboItem.idNum || uboItem.idNumber || '',
-                            nationality: uboItem.nationality || 'Singaporean',
+                            nationality: uboItem.nationality || '',
                             dob: uboItem.dob || '',
                             email: uboItem.email || '',
                             phone: uboItem.phone || uboItem.mobile || '',
@@ -6419,19 +6490,26 @@
             }
 
             syncDirectorsAndShareholders() {
-                if (this.data.localDirectorsCount === undefined) this.data.localDirectorsCount = 1;
-                if (this.data.foreignDirectorsCount === undefined) this.data.foreignDirectorsCount = 1;
+                if (this.data.appointNomineeDirector === undefined) {
+                    this.data.appointNomineeDirector = (this.data.hasLocalDirector === 'no');
+                }
+                if (this.data.localDirectorsCount === undefined) {
+                    this.data.localDirectorsCount = this.data.appointNomineeDirector ? 0 : 1;
+                }
+                this.data.foreignDirectorsCount = 0;
                 if (this.data.individualShareholdersCount === undefined) this.data.individualShareholdersCount = 0;
                 if (this.data.corporateShareholdersCount === undefined) this.data.corporateShareholdersCount = 0;
-                if (!this.data.hasLocalDirector) this.data.hasLocalDirector = 'yes';
                 if (!this.data.secretary) this.data.secretary = { required: true };
 
-                const localCount = this.data.hasLocalDirector === 'no' ? 1 : this.data.localDirectorsCount;
-                const foreignCount = this.data.foreignDirectorsCount;
+                const clientLocalCount = Math.max(0, this.data.localDirectorsCount);
+                const hasNominee = !!this.data.appointNomineeDirector;
 
                 const dirs = [];
-                if (this.data.hasLocalDirector === 'no') {
-                    dirs.push({
+
+                // 1. Service Provider Nominee Resident Director (if selected)
+                if (hasNominee) {
+                    const existingNominee = (this.data.directors || []).find(d => d.source === 'corporate_secretary' || d.source === 'globalisor');
+                    dirs.push(existingNominee || {
                         name: 'Corporate Secretary Nominee Director',
                         idType: 'local',
                         idNum: 'Nominee',
@@ -6440,43 +6518,34 @@
                         addr: '10 Anson Road, #16-04 International Plaza, Singapore 079903',
                         docs: {}
                     });
-                } else {
-                    const existingLocals = (this.data.directors || []).filter(d => d.idType === 'local' && (d.source !== 'globalisor' && d.source !== 'corporate_secretary'));
-                    for (let i = 0; i < localCount; i++) {
-                        dirs.push(existingLocals[i] || {
-                            name: i === 0 ? 'Marcus Ng' : `Local Director #${i+1}`,
-                            idType: 'local',
-                            idNum: i === 0 ? 'S8812345Z' : '',
-                            dob: '1988-08-08',
-                            phone: '+65 9123 4567',
-                            email: 'marcus.ng@example.com',
-                            addr: 'Blk 123 Ang Mo Kio Ave 4 #05-67, Singapore 560123',
-                            source: 'self',
-                            docs: {}
-                        });
-                    }
                 }
 
-                const existingForeigns = (this.data.directors || []).filter(d => d.idType === 'foreign' || (d.idType !== 'local' && (d.source !== 'globalisor' && d.source !== 'corporate_secretary')));
-                for (let i = 0; i < foreignCount; i++) {
-                    dirs.push(existingForeigns[i] || {
-                        name: i === 0 ? 'Foreign Director' : `Foreign Director #${i+1}`,
-                        idType: 'foreign',
+                // 2. Client-Appointed Local Resident Directors
+                const existingLocals = (this.data.directors || []).filter(d => d.idType === 'local' && (d.source !== 'globalisor' && d.source !== 'corporate_secretary'));
+                for (let i = 0; i < clientLocalCount; i++) {
+                    dirs.push(existingLocals[i] || {
+                        name: '',
+                        idType: 'local',
                         idNum: '',
-                        nationality: 'Other',
+                        dob: '',
+                        phone: '',
+                        email: '',
+                        addr: '',
                         source: 'self',
                         docs: {}
                     });
                 }
+
                 this.data.directors = dirs;
+                this.data.hasLocalDirector = clientLocalCount > 0 ? 'yes' : (hasNominee ? 'no' : 'none');
 
                 const shs = [];
                 const existingInds = (this.data.shareholders || []).filter(s => s.type === 'individual');
                 for (let i = 0; i < this.data.individualShareholdersCount; i++) {
                     shs.push(existingInds[i] || {
                         type: 'individual',
-                        name: `Individual Shareholder #${i+1}`,
-                        shares: 1000,
+                        name: '',
+                        shares: '',
                         percent: 0,
                         docs: {}
                     });
@@ -6485,8 +6554,8 @@
                 for (let i = 0; i < this.data.corporateShareholdersCount; i++) {
                     shs.push(existingCorps[i] || {
                         type: 'corporate',
-                        name: `Corporate Shareholder #${i+1}`,
-                        shares: 1000,
+                        name: '',
+                        shares: '',
                         percent: 0,
                         docs: {}
                     });
@@ -6494,29 +6563,37 @@
                 this.data.shareholders = shs;
             }
 
+            toggleNomineeDirector(checked) {
+                this.data.appointNomineeDirector = !!checked;
+                this.syncDirectorsAndShareholders();
+                this.save();
+                this.render();
+                this.updateContinueButtonState();
+            }
+
             handleHasLocalDirectorChange(val) {
-                this.data.hasLocalDirector = val;
+                if (val === 'no') {
+                    this.data.appointNomineeDirector = true;
+                } else {
+                    if (!this.data.localDirectorsCount || this.data.localDirectorsCount < 1) {
+                        this.data.localDirectorsCount = 1;
+                    }
+                }
                 this.syncDirectorsAndShareholders();
                 this.save();
                 this.render();
             }
 
             adjustCount(key, change) {
-                if (key === 'local_directors') {
+                if (key === 'local_directors' || key === 'directors') {
                     const current = this.data.localDirectorsCount !== undefined ? this.data.localDirectorsCount : 1;
                     this.data.localDirectorsCount = Math.max(0, current + change);
-                } else if (key === 'foreign_directors') {
-                    const current = this.data.foreignDirectorsCount !== undefined ? this.data.foreignDirectorsCount : 1;
-                    this.data.foreignDirectorsCount = Math.max(0, current + change);
                 } else if (key === 'shareholders_individual') {
                     const current = this.data.individualShareholdersCount !== undefined ? this.data.individualShareholdersCount : 0;
                     this.data.individualShareholdersCount = Math.max(0, current + change);
                 } else if (key === 'shareholders_corporate') {
                     const current = this.data.corporateShareholdersCount !== undefined ? this.data.corporateShareholdersCount : 0;
                     this.data.corporateShareholdersCount = Math.max(0, current + change);
-                } else if (key === 'directors') {
-                    const current = this.data.foreignDirectorsCount !== undefined ? this.data.foreignDirectorsCount : 1;
-                    this.data.foreignDirectorsCount = Math.max(0, current + change);
                 }
                 this.syncDirectorsAndShareholders();
                 this.save();
@@ -7899,16 +7976,11 @@
                 const validationReasons = [];
 
                 if (sec.id === 'sec-directors-shareholders' || sec.key === 'directors-shareholders') {
-                    const localDirs = this.data.localDirectorsCount !== undefined ? this.data.localDirectorsCount : 1;
-                    const foreignDirs = this.data.foreignDirectorsCount !== undefined ? this.data.foreignDirectorsCount : 1;
-                    const hasLocal = this.data.hasLocalDirector !== 'no';
+                    const totalLocal = (this.data.localDirectorsCount || 0) + (this.data.appointNomineeDirector ? 1 : 0);
 
-                    if (hasLocal && localDirs < 1) {
+                    if (totalLocal < 1) {
                         isValid = false;
-                        validationReasons.push("Need at least 1 local director");
-                    } else if (!hasLocal && (localDirs + foreignDirs < 1)) {
-                        isValid = false;
-                        validationReasons.push("At least one director is required");
+                        validationReasons.push("Need at least 1 local resident director (client-provided or Nominee service)");
                     }
                 } else if (sec.fields && sec.fields.length > 0) {
                     if (sec.type === 'repeater') {
@@ -9221,6 +9293,11 @@
                         const response = await res.json();
                         showToast("Pre-registration submitted successfully!");
                         lastKnownStatus = response.status || 'under review';
+                        // Wipe draft so subsequent form selections are completely blank
+                        localStorage.removeItem('globalisor_master_v3');
+                        localStorage.removeItem('globalisor_requirements_current_step');
+                        localStorage.removeItem('application_id');
+                        localStorage.setItem('start_new_form', 'true');
                         
                         if (response.applicationId) {
                             localStorage.setItem('application_id', response.applicationId);
@@ -9249,6 +9326,10 @@
                     console.warn("Submission fallback:", error);
                     showToast("Pre-registration submitted successfully!");
                     lastKnownStatus = 'under review';
+                    localStorage.removeItem('globalisor_master_v3');
+                    localStorage.removeItem('globalisor_requirements_current_step');
+                    localStorage.removeItem('application_id');
+                    localStorage.setItem('start_new_form', 'true');
                     this.renderAcknowledgmentReceipt({});
                 }
             }
@@ -9389,10 +9470,7 @@
 
                         <!-- Action Buttons -->
                         <div style="display: flex; gap: 1rem; justify-content: center;">
-                            <button type="button" onclick="window.print()" class="btn btn-outline" style="padding: 0.75rem 1.75rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; border-color: #cbd5e1; color: #334155; font-weight: 700;">
-                                🖨️ Print / Save Acknowledgment Receipt
-                            </button>
-                            <button type="button" onclick="window.location.href='/choose-service'" class="btn btn-primary" style="padding: 0.75rem 2rem; font-size: 0.85rem; font-weight: 700;">
+                            <button type="button" onclick="localStorage.removeItem('globalisor_master_v3'); localStorage.removeItem('globalisor_requirements_current_step'); localStorage.removeItem('application_id'); localStorage.setItem('start_new_form', 'true'); window.location.href='/choose-service'" class="btn btn-primary" style="padding: 0.75rem 2.25rem; font-size: 0.85rem; font-weight: 700;">
                                 Back to Home
                             </button>
                         </div>

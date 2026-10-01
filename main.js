@@ -758,23 +758,16 @@ async function init() {
         localStorage.setItem('token', 'mock-guest-token-' + Math.random().toString(36).substring(2));
         localStorage.setItem('client_auth', JSON.stringify({ email: 'guest@globalisor.com', role: 'CLIENT' }));
 
-        // Update local wizard configurations
-        let masterData = {};
-        try {
-            masterData = JSON.parse(localStorage.getItem('globalisor_master_v3')) || {};
-        } catch (e) {
-            masterData = {};
-        }
+        // Always start completely fresh with a clean slate for a new form
+        localStorage.removeItem('globalisor_master_v3');
+        localStorage.removeItem('globalisor_requirements_current_step');
+        localStorage.removeItem('application_id');
+        localStorage.setItem('start_new_form', 'true');
         
-        masterData.serviceType = isLocal ? 'Incorporation for Locals' : 'Incorporation for Foreigners';
-        
-        // Also pre-configure first director's idType based on the choice
-        if (!masterData.directors || masterData.directors.length === 0) {
-            masterData.directors = [{ name: '', idType: isLocal ? 'local' : 'passport', idNum: '', dob: '', phone: '', passportExpiry: '', docs: {} }];
-        } else {
-            masterData.directors[0].idType = isLocal ? 'local' : 'passport';
-        }
-
+        const masterData = {
+            serviceType: isLocal ? 'Incorporation for Locals' : 'Incorporation for Foreigners',
+            directors: [{ name: '', idType: isLocal ? 'local' : 'passport', idNum: '', dob: '', phone: '', passportExpiry: '', docs: {} }]
+        };
         localStorage.setItem('globalisor_master_v3', JSON.stringify(masterData));
 
         // Smooth fast transition
