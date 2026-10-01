@@ -1299,46 +1299,126 @@ function drawOnboardingLayout(container) {
         <div class="wizard-main-col">
             <!-- Progress Banner -->
             ${isActivated ? `
-            <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0;border-radius:20px;padding:28px;margin-bottom:0;display:flex;align-items:center;gap:20px;box-shadow: 0 10px 25px rgba(22, 163, 74, 0.05);">
-                <div style="width:54px;height:54px;border-radius:16px;background:#16a34a;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow: 0 8px 20px rgba(22, 163, 74, 0.2);">
-                    <svg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>
+            <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #bbf7d0;border-radius:24px;padding:32px;margin-bottom:0;display:flex;align-items:center;gap:24px;box-shadow: 0 10px 25px rgba(22, 163, 74, 0.06);">
+                <div style="width:60px;height:60px;border-radius:18px;background:#16a34a;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow: 0 8px 20px rgba(22, 163, 74, 0.25);font-size:28px;">
+                    ✓
                 </div>
                 <div>
-                    <div style="font-family:Outfit,sans-serif;font-size:20px;font-weight:800;color:#14532d;">🎉 Your Client Portal is Fully Activated!</div>
-                    <div style="font-size:13px;color:#166534;margin-top:4px;line-height:1.6;">All onboarding steps are completed and approved. Explore all platform modules now.</div>
+                    <div style="display:inline-flex;align-items:center;gap:6px;background:#dcfce7;color:#15803d;font-size:11px;font-weight:800;text-transform:uppercase;padding:3px 10px;border-radius:99px;margin-bottom:6px;">
+                        Verified • Active Account
+                    </div>
+                    <div style="font-family:Outfit,sans-serif;font-size:22px;font-weight:800;color:#14532d;">🎉 Client Portal Access Activated!</div>
+                    <div style="font-size:13.5px;color:#166534;margin-top:4px;line-height:1.6;">Your Pre-Registration application has been verified and approved by Globalisor Admin. All corporate services, company compliance registers, and vaults are now available.</div>
                 </div>
-                <button onclick="switchTab('home')" style="margin-left:auto;padding:12px 24px;background:#16a34a;color:#fff;border:none;border-radius:14px;font-family:Outfit,sans-serif;font-size:13px;font-weight:700;cursor:pointer;box-shadow: 0 4px 15px rgba(22,163,74,0.3);">Go to Dashboard →</button>
-            </div>` : (allSubmitted ? `
-            <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fcd34d;border-radius:20px;padding:28px;margin-bottom:0;display:flex;align-items:center;gap:20px;box-shadow: 0 10px 25px rgba(217, 119, 6, 0.05);">
-                <div style="width:54px;height:54px;border-radius:16px;background:#d97706;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow: 0 8px 20px rgba(217, 119, 6, 0.2);">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                </div>
-                <div>
-                    <div style="font-family:Outfit,sans-serif;font-size:18px;font-weight:800;color:#92400e;">⏳ Onboarding Submitted & Under Review</div>
-                    <div style="font-size:13px;color:#b45309;margin-top:4px;line-height:1.6;">Your application is currently being verified and reviewed by the Globalisor team. You will receive full access to the portal once the review is completed and approved.</div>
+                <button onclick="switchTab('home')" style="margin-left:auto;padding:14px 28px;background:#16a34a;color:#fff;border:none;border-radius:14px;font-family:Outfit,sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow: 0 4px 15px rgba(22,163,74,0.3);white-space:nowrap;">Go to Dashboard →</button>
+            </div>` : (ob.status === 'rejected' || ob.status === 'additional_info_required' ? `
+            <div style="background:linear-gradient(135deg,#fff1f2,#ffe4e6);border:1.5px solid #fecdd3;border-radius:24px;padding:32px;margin-bottom:0;box-shadow: 0 10px 30px rgba(225, 29, 72, 0.05);">
+                <div style="display:flex;align-items:flex-start;gap:20px;">
+                    <div style="width:54px;height:54px;border-radius:16px;background:#e11d48;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow: 0 8px 20px rgba(225, 29, 72, 0.2);font-size:24px;">
+                        ⚠️
+                    </div>
+                    <div style="flex-grow:1;">
+                        <div style="display:inline-flex;align-items:center;gap:6px;background:#fee2e2;color:#be123c;font-size:11px;font-weight:800;text-transform:uppercase;padding:3px 10px;border-radius:99px;margin-bottom:6px;">
+                            Changes Required
+                        </div>
+                        <div style="font-family:Outfit,sans-serif;font-size:20px;font-weight:800;color:#9f1239;">Action Required: Updates Requested by Globalisor Admin</div>
+                        <div style="font-size:13.5px;color:#be123c;margin-top:6px;line-height:1.6;">
+                            Our compliance and legal team reviewed your Pre-Registration and requires updates or additional documentation before approval.
+                        </div>
+                        ${ob.reviewNotes ? `
+                        <div style="margin-top:14px;padding:14px 18px;background:#ffffff;border:1px solid #fecdd3;border-radius:14px;font-size:13px;color:#881337;line-height:1.6;">
+                            <strong style="display:block;margin-bottom:4px;font-size:12px;text-transform:uppercase;letter-spacing:0.04em;">Admin Remarks & Required Changes:</strong>
+                            ${ob.reviewNotes}
+                        </div>` : ''}
+                        <div style="margin-top:20px;display:flex;gap:12px;align-items:center;">
+                            <button onclick="window.location.href='/requirements.html?status=edit'" style="padding:12px 24px;background:#e11d48;color:#fff;border:none;border-radius:12px;font-family:Outfit,sans-serif;font-size:13.5px;font-weight:700;cursor:pointer;box-shadow: 0 4px 15px rgba(225,29,72,0.25);">
+                                ✏️ Update & Resubmit Pre-Registration →
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>` : `
-            <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;padding:20px 24px;margin-bottom:0;display:flex;align-items:center;justify-content:space-between;gap:32px;box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02); width:100%; box-sizing:border-box;">
-                <div style="display: flex; align-items: center; gap: 24px; flex-grow: 1; width:100%;">
-                    <div style="width: 56px; height: 56px; background-color: #eff6ff; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#0d6efd" stroke="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="8 12 11 15 16 9" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+            <div style="background:linear-gradient(135deg,#ffffff,#f8fafc);border:1.5px solid #e2e8f0;border-radius:24px;padding:32px;margin-bottom:0;box-shadow: 0 10px 30px rgba(0,0,0,0.03);">
+                <div style="display:flex;align-items:flex-start;gap:22px;margin-bottom:28px;">
+                    <div style="width:60px;height:60px;border-radius:18px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow: 0 8px 20px rgba(217, 119, 6, 0.25);font-size:26px;">
+                        ⏳
                     </div>
-                    
-                    <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 8px; min-width:0;">
-                        <div style="font-family: 'Inter', sans-serif; font-size: 14.5px; font-weight: 500; color: #334155; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                            Complete all steps to submit your onboarding for verification and unlock full access.
+                    <div style="flex-grow:1;">
+                        <div style="display:inline-flex;align-items:center;gap:6px;background:#fef3c7;color:#92400e;font-size:11px;font-weight:800;text-transform:uppercase;padding:3px 10px;border-radius:99px;margin-bottom:6px;border:1px solid #fde68a;">
+                            <span style="width:6px;height:6px;border-radius:50%;background:#d97706;display:inline-block;"></span>
+                            Verification Pending
                         </div>
-                        <div style="display: flex; align-items: center; gap: 16px;">
-                            <div class="ob-prog-bar" style="flex-grow: 1; height: 6px; background: #f1f5f9; border-radius: 4px; overflow: hidden; margin: 0; border: none; box-shadow: none;">
-                                <div id="ob-progress-fill" class="ob-prog-fill" style="width:${progress}%; height: 100%; background: #0d6efd; border-radius: 4px;"></div>
+                        <div style="font-family:Outfit,sans-serif;font-size:22px;font-weight:800;color:#0f172a;">Pre-Registration Submitted — Verification Pending</div>
+                        <div style="font-size:14px;color:#64748b;margin-top:6px;line-height:1.6;max-width:780px;">
+                            Your incorporation details and KYC documents have been submitted. Globalisor specialists are currently verifying all directors, shareholders, share capital, and statutory records. Full Client Portal access will be activated once your application is verified and approved.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Workflow Roadmap -->
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:18px;padding:24px;margin-bottom:24px;">
+                    <div style="font-size:12px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:16px;">
+                        Incorporation & Verification Workflow
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:16px;position:relative;">
+                        <div style="background:#ffffff;border:1.5px solid #bbf7d0;border-radius:14px;padding:16px;position:relative;">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                                <span style="width:22px;height:22px;border-radius:50%;background:#16a34a;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;">✓</span>
+                                <span style="font-size:13px;font-weight:800;color:#166534;">01. Submitted</span>
                             </div>
+                            <div style="font-size:11.5px;color:#64748b;line-height:1.4;">Pre-Registration completed with all officers & KYC.</div>
+                        </div>
+
+                        <div style="background:#eff6ff;border:1.5px solid #2563eb;border-radius:14px;padding:16px;box-shadow: 0 4px 14px rgba(37,99,235,0.12);">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                                <span style="width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;">⏳</span>
+                                <span style="font-size:13px;font-weight:800;color:#1d4ed8;">02. Pending Verification</span>
+                            </div>
+                            <div style="font-size:11.5px;color:#3b82f6;line-height:1.4;">Current Stage: Globalisor legal & compliance review.</div>
+                        </div>
+
+                        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;opacity:0.8;">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                                <span style="width:22px;height:22px;border-radius:50%;background:#e2e8f0;color:#64748b;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;">03</span>
+                                <span style="font-size:13px;font-weight:800;color:#475569;">03. Verified</span>
+                            </div>
+                            <div style="font-size:11.5px;color:#64748b;line-height:1.4;">Globalisor Admin approves and clears the application.</div>
+                        </div>
+
+                        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;opacity:0.8;">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                                <span style="width:22px;height:22px;border-radius:50%;background:#e2e8f0;color:#64748b;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;">🔒</span>
+                                <span style="font-size:13px;font-weight:800;color:#475569;">04. Portal Activated</span>
+                            </div>
+                            <div style="font-size:11.5px;color:#64748b;line-height:1.4;">Full Client Portal access unlocks immediately.</div>
                         </div>
                     </div>
-                    
-                    <span id="ob-progress-percent" style="font-size:28px;font-weight:800;color:#0d6efd;font-family: 'Outfit', sans-serif; flex-shrink: 0; min-width: 60px; text-align: right;">${progress}%</span>
+                </div>
+
+                <!-- Application Summary & Quick Links -->
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;border-top:1px solid #f1f5f9;padding-top:20px;">
+                    <div style="display:flex;align-items:center;gap:24px;font-size:13px;color:#64748b;">
+                        <div>
+                            <span style="font-weight:700;color:#0f172a;">Application ID:</span>
+                            <span style="font-family:monospace;color:#2563eb;font-weight:700;margin-left:4px;">${state.onboardingId || 'APP-' + new Date().getFullYear()}</span>
+                        </div>
+                        <div>
+                            <span style="font-weight:700;color:#0f172a;">Review Status:</span>
+                            <span style="color:#d97706;font-weight:700;margin-left:4px;">Under Review</span>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:12px;">
+                        <button onclick="window.location.href='/requirements.html'" style="padding:10px 20px;background:#ffffff;border:1.5px solid #cbd5e1;border-radius:12px;font-family:Outfit,sans-serif;font-size:13px;font-weight:700;color:#475569;cursor:pointer;">
+                            📄 View Submitted Pre-Registration
+                        </button>
+                        <a href="mailto:support@globalisor.com" style="padding:10px 20px;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;font-family:Outfit,sans-serif;font-size:13px;font-weight:700;color:#2563eb;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+                            ✉️ Contact Support
+                        </a>
+                    </div>
                 </div>
             </div>`)}
 
+            ${!isActivated ? '' : `
             <!-- Horizontal Stepper Progress Cards at the Top -->
             <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); width: 100%; box-sizing:border-box;">
                 <div style="font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 800; color: #0f172a; margin-bottom: 16px;">Your Progress</div>
@@ -1362,6 +1442,7 @@ function drawOnboardingLayout(container) {
             <div class="wizard-content" id="ob-form-workspace" style="width: 100%; box-sizing: border-box;">
                 <!-- Active step form rendered dynamically -->
             </div>
+            `}
         </div>
     </div>
     `;
