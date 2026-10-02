@@ -155,18 +155,15 @@
                     Pending Approval
                     <span id="badge-pending-count" class="px-2 py-0.5 bg-white/20 text-white rounded-full text-[10px] font-extrabold">0</span>
                 </button>
-                <button onclick="setTabFilter('all')" id="tab-all" class="badge-tab flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">
-                    <i data-lucide="layers" class="w-3.5 h-3.5"></i>
-                    All Applications
-                    <span id="badge-all-count" class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px] font-extrabold">0</span>
-                </button>
-                <button onclick="setTabFilter('approved')" id="tab-approved" class="badge-tab flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">
-                    <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
-                    Approved
-                </button>
                 <button onclick="setTabFilter('rejected')" id="tab-rejected" class="badge-tab flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">
                     <i data-lucide="x-circle" class="w-3.5 h-3.5"></i>
-                    Rejected
+                    Revision Needed / Rejected
+                    <span id="badge-rejected-count" class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px] font-extrabold">0</span>
+                </button>
+                <button onclick="setTabFilter('all')" id="tab-all" class="badge-tab flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">
+                    <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+                    All Review Queue
+                    <span id="badge-all-count" class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px] font-extrabold">0</span>
                 </button>
             </div>
             
@@ -174,7 +171,7 @@
             <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-600">
                 <div class="relative flex-1 min-w-[260px]">
                     <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                    <input id="app-search-input" oninput="filterApplications()" type="text" placeholder="Search by Company Name, Applicant, Email, or ID..." class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none text-slate-800">
+                    <input id="app-search-input" oninput="filterApplications()" type="text" placeholder="Search by Company Name, Applicant, Email, or Status..." class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none text-slate-800">
                 </div>
                 <div class="flex items-center gap-2">
                     <span class="text-slate-400">Status:</span>
@@ -182,8 +179,7 @@
                         <option value="All">All Statuses</option>
                         <option value="pending">Pending Approval / Review</option>
                         <option value="under review">Under Review</option>
-                        <option value="approved">Approved</option>
-                        <option value="rejected">Rejected</option>
+                        <option value="rejected">Revision Needed / Rejected</option>
                     </select>
                 </div>
                 <div class="flex items-center gap-2">
@@ -203,7 +199,6 @@
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="bg-slate-50 border-b border-slate-200">
-                            <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID</th>
                             <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proposed Company</th>
                             <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Applicant / Client</th>
                             <th class="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Assigned Staff</th>
@@ -214,7 +209,7 @@
                         </tr>
                     </thead>
                     <tbody id="applications-table-body" class="divide-y divide-slate-100">
-                        <tr><td colspan="8" class="p-12 text-center text-slate-400">Loading applications...</td></tr>
+                        <tr><td colspan="7" class="p-12 text-center text-slate-400">Loading applications...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -474,14 +469,24 @@
                         return String(b.id || b.rawId || '').localeCompare(String(a.id || a.rawId || ''));
                     });
 
-                    // Update tab counts: All non-approved/non-rejected count as pending review
+                    // Update tab counts
                     const pendingCount = allApplications.filter(a => {
                         const s = (a.status || 'pending').toLowerCase();
                         return !s.includes('approved') && !s.includes('completed') && !s.includes('rejected');
                     }).length;
+
+                    const rejectedCount = allApplications.filter(a => {
+                        const s = (a.status || 'pending').toLowerCase();
+                        return s.includes('rejected');
+                    }).length;
                     
-                    document.getElementById('badge-pending-count').innerText = pendingCount;
-                    document.getElementById('badge-all-count').innerText = allApplications.length;
+                    const badgePending = document.getElementById('badge-pending-count');
+                    const badgeRejected = document.getElementById('badge-rejected-count');
+                    const badgeAll = document.getElementById('badge-all-count');
+
+                    if (badgePending) badgePending.innerText = pendingCount;
+                    if (badgeRejected) badgeRejected.innerText = rejectedCount;
+                    if (badgeAll) badgeAll.innerText = allApplications.length;
 
                     filterApplications();
                 }
@@ -493,7 +498,7 @@
 
         window.setTabFilter = function(tab) {
             activeTabFilter = tab;
-            ['pending', 'all', 'approved', 'rejected'].forEach(t => {
+            ['pending', 'rejected', 'all'].forEach(t => {
                 const btn = document.getElementById(`tab-${t}`);
                 if (btn) {
                     if (t === tab) {
@@ -515,12 +520,13 @@
                 const s = (app.status || 'pending').toLowerCase();
                 const p = (app.priority || 'Normal').toLowerCase();
 
+                // Discard any approved/completed clients
+                if (s.includes('approved') || s.includes('completed')) return false;
+
                 // Tab Filter
                 if (activeTabFilter === 'pending') {
-                    // Show everything that is NOT already approved or rejected
-                    if (s.includes('approved') || s.includes('completed') || s.includes('rejected')) return false;
-                } else if (activeTabFilter === 'approved') {
-                    if (!s.includes('approved') && !s.includes('completed')) return false;
+                    // Show everything pending review / in-progress
+                    if (s.includes('rejected')) return false;
                 } else if (activeTabFilter === 'rejected') {
                     if (!s.includes('rejected')) return false;
                 }
@@ -577,7 +583,7 @@
         function renderTable(data) {
             const tbody = document.getElementById('applications-table-body');
             if (!data || data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-400 italic">No applications found matching criteria.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-400 italic">No applications found matching criteria.</td></tr>`;
                 return;
             }
 
@@ -597,18 +603,16 @@
 
                 const nameBadges = getNameBadges(app.data);
                 const appId = app.id || app.rawId;
-                const displayId = (app.id && app.id.startsWith('APP-')) ? app.id : ((app.id && app.id.startsWith('SRV-')) ? app.id.replace('SRV-', 'APP-') : (app.id || ('APP-' + String(idx + 101))));
 
                 return `
                 <tr class="hover:bg-slate-50/80 transition-colors group">
-                    <td class="px-6 py-4 font-bold text-blue-600 text-xs">${displayId}</td>
                     <td class="px-6 py-4">
                         <div class="font-bold text-slate-900 text-sm">${app.business || 'Singapore Pte Ltd'}</div>
                         <div class="text-[11px] text-slate-400">Incorporation Service</div>
                     </td>
                     <td class="px-6 py-4">
                         <div class="font-bold text-slate-800 text-xs">${app.client || 'Applicant'}</div>
-                        <div class="text-[11px] text-slate-400">${app.clientId || ''}</div>
+                        <div class="text-[11px] text-slate-400 font-medium">${app.date || ''}</div>
                     </td>
                     <td class="px-6 py-4">
                         <span class="inline-flex items-center gap-1.5 font-bold text-xs ${isUnassigned ? 'text-slate-400 italic' : 'text-slate-700'}">
@@ -1312,9 +1316,6 @@
                     <div class="flex items-center gap-2">
                         <span class="px-3 py-1 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold">
                             ${journeyType}
-                        </span>
-                        <span class="px-3 py-1 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold border border-blue-100">
-                            ID: ${app.id || app.rawId || 'APP'}
                         </span>
                     </div>
                 </div>
