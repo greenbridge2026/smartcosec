@@ -2174,7 +2174,7 @@
                     : Promise.resolve(null);
 
                 try {
-                    const [allSections, ssicData, reqResponse] = await Promise.all([fetchSectionsPromise, fetchSsicPromise, fetchReqPromise]);
+                    let [allSections, ssicData, reqResponse] = await Promise.all([fetchSectionsPromise, fetchSsicPromise, fetchReqPromise]);
 
                     if (allSections && Array.isArray(allSections) && allSections.length > 0) {
                         const cleanedSections = allSections.filter(s => s.id !== 'sec-checkout' && s.id !== 'sec-checkout-foreigner' && s.key !== 'checkout');
@@ -2191,6 +2191,7 @@
                     if (urlCheckNew) {
                         reqResponse = null;
                         lastKnownStatus = 'pending';
+                        localStorage.removeItem('start_new_form');
                     }
                     if (reqResponse) {
                         lastKnownStatus = reqResponse.status;
@@ -2338,6 +2339,311 @@
 
             manualSaveDraft() {
                 this.saveDraft(true);
+            }
+
+            migrateActivitiesData() {
+                let acts = getVal(this.data, 'activities');
+                if (Array.isArray(acts)) {
+                    const primary = acts[0] || null;
+                    const secondary = acts[1] || null;
+                    this.data.activities = {
+                        primary: primary,
+                        secondary: secondary
+                    };
+                } else if (!acts || typeof acts !== 'object') {
+                    this.data.activities = { primary: null, secondary: null };
+                }
+                if (this.data.activities && this.data.activities.primary) {
+                    const p = this.data.activities.primary;
+                    this.data.primarySsic = p;
+                    this.data.primaryActivity = typeof p === 'object' ? `${p.code ? p.code + ' - ' : ''}${p.name || p.description || ''}` : String(p);
+                }
+                if (this.data.activities && this.data.activities.secondary) {
+                    const s = this.data.activities.secondary;
+                    this.data.secondarySsic = s;
+                    this.data.secondaryActivity = typeof s === 'object' ? `${s.code ? s.code + ' - ' : ''}${s.name || s.description || ''}` : String(s);
+                }
+                this.save();
+            }
+
+            openSsicSingleDropdown(slot) {
+                if (!this._ssicSingleState) this._ssicSingleState = { primary:{index:-1,matches:[],query:''}, secondary:{index:-1,matches:[],query:''} };
+                const dd = document.getElementById(`ssic-dropdown-${slot}`);
+                if (dd) { dd.style.display = 'block'; this._ssicSingleState[slot].index = -1; this.filterSsicSingle(slot, this._ssicSingleState[slot].query || ''); }
+            }
+
+            closeSsicSingleDropdown(slot) {
+                setTimeout(() => {
+                    const dd = document.getElementById(`ssic-dropdown-${slot}`);
+                    if (dd) dd.style.display = 'none';
+                }, 200);
+            }
+
+            filterSsicSingle(slot, query) {
+                if (!this._ssicSingleState) this._ssicSingleState = { primary:{index:-1,matches:[],query:''}, secondary:{index:-1,matches:[],query:''} };
+                const q = query.toLowerCase().trim();
+                this._ssicSingleState[slot].query = query;
+                const dd = document.getElementById(`ssic-dropdown-${slot}`);
+                if (!dd) return;
+                dd.style.display = 'block';
+
+                const otherSlot = (slot === 'primary' ? 'secondary' : 'primary');
+                const otherCode = (this.data.activities && this.data.activities[otherSlot]) ? this.data.activities[otherSlot].code : null;
+
+                let list = this.ssicActivities || [];
+                if (otherCode) {
+                    list = list.filter(a => a.code !== otherCode);
+                }
+
+                const matches = q ? list.filter(a =>
+                    (a.code||'').toLowerCase().includes(q) ||
+                    (a.name||'').toLowerCase().includes(q) ||
+                    (a.category||'').toLowerCase().includes(q) ||
+                    (a.keywords||'').toLowerCase().includes(q) ||
+                    (a.synonyms||'').toLowerCase().includes(q) ||
+                    (a.abbreviations||'').toLowerCase().includes(q) ||
+                    (a.sectionName||'').toLowerCase().includes(q) ||
+                    (a.divisionName||'').toLowerCase().includes(q) ||
+                    (a.groupName||'').toLowerCase().includes(q) ||
+                    (a.className||'').toLowerCase().includes(q)
+                ) : list.slice(0, 80);
+                this._ssicSingleState[slot].matches = matches;
+                this._renderSsicSingleDropdown(slot, matches, q);
+            }
+
+            _renderSsicSingleDropdown(slot, matches, q) {
+                const dd = document.getElementById(`ssic-dropdown-${slot}`);
+                if (!dd) return;
+                dd.innerHTML = '';
+                const hl = (text, q) => {
+                    if (!q) return text;
+                    return text.replace(new RegExp(`(${q.replace(/[-\/\\^$*+?.()|[\]{}]/g,'\\$&')})`, 'gi'), '<mark style="background:#fef08a;color:#854d0e;padding:0 1px;border-radius:2px;">$1</mark>');
+                };
+                if (matches.length === 0) {
+                    dd.innerHTML = `<div style="padding:0.9rem;text-align:center;"><div style="font-size:0.72rem;color:#64748b;margin-bottom:0.4rem;">No matching activities found</div><button type="button" style="padding:0.35rem 0.8rem;font-size:0.7rem;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;" onmousedown="event.preventDefault();wizard._showManualSsicSingle('${slot}')">Manual entry</button></div>`;
+                    return;
+                }
+                matches.forEach((act, idx) => {
+                    const div = document.createElement('div');
+                    div.style.cssText = `padding:0.55rem 0.85rem;font-size:0.73rem;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;flex-direction:column;gap:0.1rem;background:${idx===this._ssicSingleState[slot].index?'#eff6ff':''};`;
+                    div.onmouseover = () => div.style.background = '#f8fafc';
+                    div.onmouseout = () => div.style.background = idx===this._ssicSingleState[slot].index?'#eff6ff':'';
+                    div.onmousedown = (e) => { e.preventDefault(); this.selectSsicSingle(slot, act); };
+                    
+                    let matchMetaHtml = '';
+                    if (q) {
+                        const matchedSynonyms = [];
+                        if ((act.synonyms || '').toLowerCase().includes(q)) {
+                            const listSyns = (act.synonyms || '').split(',').map(s => s.trim());
+                            listSyns.forEach(s => {
+                                if (s.toLowerCase().includes(q)) matchedSynonyms.push(s);
+                            });
+                        }
+                        const matchedKeywords = [];
+                        if ((act.keywords || '').toLowerCase().includes(q)) {
+                            const listKeys = (act.keywords || '').split(',').map(s => s.trim());
+                            listKeys.forEach(s => {
+                                if (s.toLowerCase().includes(q)) matchedKeywords.push(s);
+                            });
+                        }
+                        const matchedAbbrs = [];
+                        if ((act.abbreviations || '').toLowerCase().includes(q)) {
+                            const listAbbrs = (act.abbreviations || '').split(',').map(s => s.trim());
+                            listAbbrs.forEach(s => {
+                                if (s.toLowerCase().includes(q)) matchedAbbrs.push(s);
+                            });
+                        }
+                        
+                        const allMatches = [...matchedSynonyms, ...matchedKeywords, ...matchedAbbrs];
+                        if (allMatches.length > 0) {
+                            const matchesText = Array.from(new Set(allMatches)).join(', ');
+                            matchMetaHtml = `<div style="font-size:0.65rem;color:#4f46e5;margin-top:0.15rem;font-weight:600;">Matched keyword: ${hl(matchesText, q)}</div>`;
+                        }
+                    }
+
+                    div.innerHTML = `
+                        <div style="display:flex;gap:0.4rem;align-items:center;">
+                            <span style="font-weight:800;color:#1e293b;font-family:monospace;">${hl(act.code,q)}</span>
+                            <span style="font-size:0.65rem;color:#3b82f6;background:#eff6ff;font-weight:700;padding:0 4px;border-radius:4px;border:1px solid #dbeafe;">${hl(act.category||'',q)}</span>
+                        </div>
+                        <span style="color:#475569;font-weight:600;">${hl(act.name,q)}</span>
+                        ${matchMetaHtml}
+                    `;
+                    dd.appendChild(div);
+                });
+            }
+
+            handleSsicSingleKeydown(slot, event) {
+                if (!this._ssicSingleState) return;
+                const state = this._ssicSingleState[slot];
+                const matches = state.matches || [];
+                if (event.key === 'ArrowDown') { event.preventDefault(); state.index = (state.index+1)%matches.length; this._renderSsicSingleDropdown(slot, matches, state.query); }
+                else if (event.key === 'ArrowUp') { event.preventDefault(); state.index = (state.index-1+matches.length)%matches.length; this._renderSsicSingleDropdown(slot, matches, state.query); }
+                else if (event.key === 'Enter') { event.preventDefault(); const a = matches[state.index] || matches[0]; if (a) this.selectSsicSingle(slot, a); }
+                else if (event.key === 'Escape') { event.preventDefault(); this.closeSsicSingleDropdown(slot); }
+            }
+
+            selectSsicSingle(slot, activity) {
+                const otherSlot = (slot === 'primary' ? 'secondary' : 'primary');
+                const otherCode = (this.data.activities && this.data.activities[otherSlot]) ? this.data.activities[otherSlot].code : null;
+                if (otherCode && activity.code === otherCode) {
+                    showToast('Primary and Secondary activities cannot be the same SSIC code.', 'error');
+                    return;
+                }
+                if (!this.data.activities) this.data.activities = {};
+                this.data.activities[slot] = {
+                    code: activity.code,
+                    name: activity.name,
+                    category: activity.category || 'ACRA Activity',
+                    description: activity.description || activity.name
+                };
+                if (slot === 'primary') {
+                    this.data.primarySsic = this.data.activities.primary;
+                    this.data.primaryActivity = `${activity.code ? activity.code + ' - ' : ''}${activity.name || ''}`;
+                } else if (slot === 'secondary') {
+                    this.data.secondarySsic = this.data.activities.secondary;
+                    this.data.secondaryActivity = `${activity.code ? activity.code + ' - ' : ''}${activity.name || ''}`;
+                }
+                const input = document.getElementById(`ssic-search-${slot}`);
+                if (input) input.value = '';
+                const dd = document.getElementById(`ssic-dropdown-${slot}`);
+                if (dd) dd.style.display = 'none';
+                this.save(); this.render(); this.evaluateConditionalFields(); this.updateContinueButtonState();
+            }
+
+            removeSsicSingle(slot) {
+                if (this.data.activities) { delete this.data.activities[slot]; }
+                if (slot === 'primary') {
+                    delete this.data.primarySsic;
+                    delete this.data.primaryActivity;
+                } else if (slot === 'secondary') {
+                    delete this.data.secondarySsic;
+                    delete this.data.secondaryActivity;
+                }
+                this.save(); this.render(); this.evaluateConditionalFields(); this.updateContinueButtonState();
+            }
+
+            updateSsicSingleDescription(slot, value) {
+                if (this.data.activities && this.data.activities[slot]) {
+                    this.data.activities[slot].description = value;
+                    this.save();
+                    this.evaluateConditionalFields();
+                    this.updateContinueButtonState();
+                }
+            }
+
+            _showManualSsicSingle(slot) {
+                const dd = document.getElementById(`ssic-dropdown-${slot}`);
+                if (!dd) return;
+                dd.innerHTML = `<div style="padding:1rem;display:flex;flex-direction:column;gap:0.5rem;" onmousedown="event.stopPropagation()"><div style="font-size:0.72rem;font-weight:800;color:#1e293b;">MANUAL ENTRY</div><input type="text" id="manual-ssic-code-${slot}" placeholder="SSIC Code (optional)" style="width:100%;font-size:0.7rem;padding:0.35rem 0.6rem;border:1px solid #cbd5e1;border-radius:6px;outline:none;"><input type="text" id="manual-ssic-name-${slot}" placeholder="Business Activity Name" style="width:100%;font-size:0.7rem;padding:0.35rem 0.6rem;border:1px solid #cbd5e1;border-radius:6px;outline:none;"><div style="display:flex;gap:0.25rem;justify-content:flex-end;"><button type="button" style="padding:0.3rem 0.6rem;font-size:0.65rem;border:1px solid #e2e8f0;border-radius:4px;background:white;cursor:pointer;" onmousedown="event.preventDefault();wizard.filterSsicSingle('${slot}','')">Cancel</button><button type="button" style="padding:0.3rem 0.6rem;font-size:0.65rem;background:#2563eb;color:white;border:none;border-radius:4px;cursor:pointer;" onmousedown="event.preventDefault();wizard._addManualSsicSingle('${slot}')">Add</button></div></div>`;
+            }
+
+            _addManualSsicSingle(slot) {
+                const code = document.getElementById(`manual-ssic-code-${slot}`);
+                const name = document.getElementById(`manual-ssic-name-${slot}`);
+                if (!name || !name.value.trim()) { showToast('Name required', 'error'); return; }
+                this.selectSsicSingle(slot, { code: code.value.trim()||'MANUAL', name: name.value.trim(), category:'Manual Entry', description:name.value.trim() });
+            }
+
+            showStatusPage(status, data) {
+                const emptyEl = document.getElementById('empty-state');
+                if (emptyEl) emptyEl.style.display = 'none';
+                const wizEl = document.getElementById('wizard-container');
+                if (wizEl) wizEl.classList.remove('active');
+                const statusStateEl = document.getElementById('status-state');
+                if (statusStateEl) statusStateEl.style.display = 'flex';
+                
+                let badgeColor = '#f59e0b';
+                let badgeBg = '#fffbeb';
+                let displayStatusText = 'Pending Review';
+                
+                if (status === 'review' || status === 'under review') { badgeColor = '#2563eb'; badgeBg = '#eff6ff'; displayStatusText = 'Under Review'; }
+                else if (status === 'approved') { badgeColor = '#10b981'; badgeBg = '#ecfdf5'; displayStatusText = 'Approved'; }
+                else if (status === 'rejected') { badgeColor = '#ef4444'; badgeBg = '#fef2f2'; displayStatusText = 'Action Required'; }
+
+                const badge = document.getElementById('client-status-badge');
+                if (badge) {
+                    badge.innerText = displayStatusText;
+                    badge.style.color = badgeColor;
+                    badge.style.background = badgeBg;
+                    badge.style.border = '1px solid ' + badgeColor;
+                    badge.classList.remove('badge-animate');
+                    void badge.offsetWidth;
+                    badge.classList.add('badge-animate');
+                }
+                
+                const companyName = (data && data.names && data.names[0]) || 'New Foreign Incorporation';
+                const appId = localStorage.getItem('application_id') || 'Pending';
+                
+                let actionButtonHtml = '';
+                if (status === 'rejected') {
+                    actionButtonHtml = `
+                        <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+                            <button class="btn btn-primary" style="width: 100%; font-size: 0.8rem; padding: 0.6rem;" onclick="wizard.openCorrectionWizard()">Correct Rejected Sections</button>
+                        </div>
+                    `;
+                } else if (status === 'approved') {
+                    actionButtonHtml = `
+                        <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+                            <a href="/client/portal.html?tab=home" class="btn btn-primary" style="display: block; width: 100%; text-align: center; font-size: 0.85rem; padding: 0.75rem; text-decoration: none; border-radius: 8px; font-weight: 700; box-sizing: border-box;">🚀 Open Client Portal</a>
+                        </div>
+                    `;
+                }
+
+                let resetBtnHtml = `
+                    <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+                        <button class="btn btn-outline" style="width: 100%; font-size: 0.8rem; padding: 0.6rem; border-color: var(--brand-primary); color: var(--brand-primary); cursor: pointer;" onclick="wizard.startFreshApplication()">Start Another Application</button>
+                    </div>
+                `;
+
+                let credentialsHtml = '';
+                if (status === 'review' || status === 'under review' || status === 'pending') {
+                    const contact = (data && data.contact) || {};
+                    let authObj = {};
+                    try { authObj = JSON.parse(localStorage.getItem('client_auth') || '{}'); } catch(e) {}
+                    const clientEmail = contact.email || authObj.email || 'your registered email';
+                    
+                    credentialsHtml = `
+                        <div style="margin-top: 18px; background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 14px; padding: 16px; text-align: left;">
+                            <div style="font-size: 0.75rem; font-weight: 800; color: #1e40af; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">⏳ Verification in Progress</div>
+                            <p style="font-size: 0.8rem; color: #334155; line-height: 1.5; margin: 0;">
+                                Our administration team is reviewing your requirements and assigning a dedicated Corporate Specialist. Once your application is validated, login credentials and portal access will be sent to <strong>${clientEmail}</strong>.
+                            </p>
+                        </div>
+                    `;
+                }
+
+                const detailsEl = document.getElementById('client-status-details');
+                if (detailsEl) {
+                    detailsEl.innerHTML = `
+                        <div style="font-weight:700; margin-bottom:10px;">${companyName}</div>
+                        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:5px;">Application ID: <span style="font-weight:700; color:var(--brand-primary);">${appId}</span></div>
+                        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:5px;">Service: Foreign Entrepreneur Incorporation</div>
+                        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:5px;">Status: ${displayStatusText}</div>
+                        <div style="font-size:0.85rem; color:var(--text-muted); padding-top:10px; border-top:1px solid #eee;">
+                            We will notify you by email if any additional documents are required.
+                        </div>
+                        ${credentialsHtml}
+                        ${actionButtonHtml}
+                        ${resetBtnHtml}
+                    `;
+                }
+            }
+
+            async startFreshApplication() {
+                const token = localStorage.getItem('token');
+                if (token && !token.startsWith('mock-')) {
+                    try {
+                        await fetch('/api/requirements', {
+                            method: 'DELETE',
+                            headers: { 'Authorization': 'Bearer ' + token }
+                        });
+                    } catch (e) {}
+                }
+                localStorage.removeItem('globalisor_master_v3_foreigner');
+                localStorage.removeItem('globalisor_requirements_current_step');
+                localStorage.removeItem('application_id');
+                window.location.reload();
             }
 
             autofill() {
@@ -2602,7 +2908,7 @@
 
                 if (this.currentStep < this.sections.length) {
                     this.open(this.currentStep + 1);
-                } else if (this.data.completedSteps.length >= this.sections.length) {
+                } else {
                     this.renderFinal();
                 }
             }
@@ -3157,6 +3463,41 @@
                                     <div style="margin-top:1.1rem;padding:0.75rem 1rem;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;display:flex;align-items:flex-start;gap:0.6rem;">
                                         <span style="font-size:1rem;flex-shrink:0;">ℹ️</span>
                                         <p style="margin:0;font-size:0.72rem;color:#1d4ed8;font-weight:600;line-height:1.5;">ACRA allows up to 2 SSIC codes. The primary activity should represent the main business operation.</p>
+                                    </div>
+
+                                    <!-- Country of Business Operations Box -->
+                                    <div style="margin-top:1.5rem;border-top:1px solid #e2e8f0;padding-top:1.5rem;">
+                                        <div style="background:#ffffff;border:1.5px solid #e2e8f0;border-radius:14px;padding:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+                                            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">
+                                                <span style="font-size:1.15rem;">🌍</span>
+                                                <label style="font-size:0.85rem;font-weight:800;color:#0f172a;margin:0;">
+                                                    Country of Business Operations <span style="color:#ef4444;">*</span>
+                                                </label>
+                                            </div>
+                                            <p style="font-size:0.75rem;color:#64748b;margin:0 0 0.85rem 0;line-height:1.45;">
+                                                Select the primary country or jurisdiction where your company's day-to-day business operations will be conducted.
+                                            </p>
+                                            <div style="position:relative;max-width:440px;">
+                                                <select class="input-box" style="width:100%;font-size:0.85rem;font-weight:600;padding:0.65rem 0.85rem;" 
+                                                    onchange="wizard.updateCountryOfOperations(this.value)">
+                                                    <option value="">-- Select Country of Operations --</option>
+                                                    ${[
+                                                        "Singapore", "India", "Malaysia", "China", "United States", "United Kingdom", "Australia",
+                                                        "Indonesia", "Hong Kong", "Vietnam", "Japan", "Germany", "France", "Canada", "Thailand",
+                                                        "Philippines", "Taiwan", "South Korea", "United Arab Emirates", "Saudi Arabia", "South Africa",
+                                                        "New Zealand", "Netherlands", "Switzerland", "Spain", "Italy", "Sweden", "Brazil", "Mexico",
+                                                        "Afghanistan", "Albania", "Algeria", "Argentina", "Armenia", "Austria", "Bahrain", "Bangladesh",
+                                                        "Belgium", "Cambodia", "Chile", "Colombia", "Czech Republic", "Denmark", "Egypt", "Finland",
+                                                        "Greece", "Hungary", "Ireland", "Israel", "Kenya", "Kuwait", "Luxembourg", "Myanmar", "Nepal",
+                                                        "Nigeria", "Norway", "Oman", "Pakistan", "Poland", "Portugal", "Qatar", "Romania", "Saudi Arabia",
+                                                        "Sri Lanka", "Turkey", "Ukraine"
+                                                    ].map(c => {
+                                                        const current = (this.data.countryOfOperations || this.data.company?.countryOfOperations || 'Singapore').toLowerCase();
+                                                        return `<option value="${c}" ${current === c.toLowerCase() ? 'selected' : ''}>${c}</option>`;
+                                                    }).join('')}
+                                                </select>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -3931,11 +4272,11 @@
                 return `
                     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
                         ${dirs.map((dir, idx) => {
-                            const isNominee = (dir.source === 'globalisor' || dir.source === 'corporate_secretary');
+                            const isProvidedNominee = (dir.source === 'globalisor' || dir.source === 'corporate_secretary');
                             const isLocal = dir.idType === 'local';
                             const docs = dir.docs || {};
 
-                            if (isNominee) {
+                            if (isProvidedNominee) {
                                 return `
                                     <div style="background: #ffffff; border: 1.5px solid #bfdbfe; border-radius: 16px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(37,99,235,0.06);">
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem;">
@@ -3978,6 +4319,71 @@
                                         <span style="background: ${isLocal ? '#eff6ff' : '#f8fafc'}; color: ${isLocal ? '#2563eb' : '#64748b'}; border: 1px solid ${isLocal ? '#bfdbfe' : '#e2e8f0'}; font-size: 0.72rem; font-weight: 800; padding: 3px 10px; border-radius: 99px;">
                                             ${isLocal ? 'Local Resident' : 'Foreign Director'}
                                         </span>
+                                    </div>
+
+                                    <!-- KYC Document Upload Zones (ON TOP) -->
+                                    <div style="background: ${(docs.idDoc || docs.proofOfAddress) ? '#f0fdf4' : '#f8fafc'}; border: 1.5px dashed ${(docs.idDoc || docs.proofOfAddress) ? '#86efac' : '#cbd5e1'}; border-radius: 14px; padding: 1.25rem; margin-bottom: 1.25rem;">
+                                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <span style="font-size: 1.1rem;">🪪</span>
+                                                <span style="font-size: 0.8rem; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.03em;">
+                                                    Upload Identification & Verification Documents <span style="color:#ef4444;">*</span>
+                                                </span>
+                                            </div>
+                                            <span style="background: #eff6ff; color: #2563eb; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; border: 1px solid #bfdbfe;">
+                                                Auto-Fill Enabled
+                                            </span>
+                                        </div>
+                                        <p style="margin: 0 0 1rem 0; font-size: 0.78rem; color: #2563eb; background: #eff6ff; border-radius: 8px; padding: 0.6rem 0.85rem; border: 1px solid #bfdbfe; line-height: 1.45;">
+                                            ℹ️ <strong>Upload your document first</strong> — personal particulars will be automatically taken from the documents.
+                                        </p>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                            <!-- ID Document Upload -->
+                                            <div style="border: 1.5px dashed ${docs.idDoc ? '#86efac' : '#cbd5e1'}; border-radius: 12px; padding: 1rem; text-align: center; background: #ffffff;">
+                                                <input type="file" id="dir-doc-id-${idx}" style="display: none;" accept=".pdf,.png,.jpg,.jpeg" onchange="wizard.handleDocUpload(event, 'director', ${idx}, 'idDoc')">
+                                                ${docs.idDoc ? `
+                                                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                                                        <div style="display: flex; align-items: center; gap: 0.5rem; text-align: left;">
+                                                            <span>📄</span>
+                                                            <div style="overflow: hidden; max-width: 180px;">
+                                                                <div style="font-size: 0.78rem; font-weight: 700; color: #166534; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${docs.idDoc.name}</div>
+                                                                <span style="font-size: 0.68rem; color: #16a34a;">ID Document Uploaded</span>
+                                                            </div>
+                                                        </div>
+                                                        <button type="button" onclick="wizard.removeDoc('director', ${idx}, 'idDoc')" style="padding: 2px 8px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 6px; color: #dc2626; font-size: 0.7rem; font-weight: 700; cursor: pointer;">Remove</button>
+                                                    </div>
+                                                ` : `
+                                                    <button type="button" onclick="document.getElementById('dir-doc-id-${idx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
+                                                        <div style="font-size: 1.25rem; margin-bottom: 0.25rem;">🪪</div>
+                                                        <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload ${isLocal ? 'NRIC (Front & Back)' : 'Passport Bio Page'}</div>
+                                                        <div style="font-size: 0.68rem; color: #94a3b8; margin-top: 2px;">PDF, JPG, PNG up to 15MB</div>
+                                                    </button>
+                                                `}
+                                            </div>
+
+                                            <!-- Proof of Address Upload -->
+                                            <div style="border: 1.5px dashed ${docs.proofOfAddress ? '#86efac' : '#cbd5e1'}; border-radius: 12px; padding: 1rem; text-align: center; background: #ffffff;">
+                                                <input type="file" id="dir-doc-addr-${idx}" style="display: none;" accept=".pdf,.png,.jpg,.jpeg" onchange="wizard.handleDocUpload(event, 'director', ${idx}, 'proofOfAddress')">
+                                                ${docs.proofOfAddress ? `
+                                                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                                                        <div style="display: flex; align-items: center; gap: 0.5rem; text-align: left;">
+                                                            <span>🏠</span>
+                                                            <div style="overflow: hidden; max-width: 180px;">
+                                                                <div style="font-size: 0.78rem; font-weight: 700; color: #166534; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${docs.proofOfAddress.name}</div>
+                                                                <span style="font-size: 0.68rem; color: #16a34a;">Address Proof Uploaded</span>
+                                                            </div>
+                                                        </div>
+                                                        <button type="button" onclick="wizard.removeDoc('director', ${idx}, 'proofOfAddress')" style="padding: 2px 8px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 6px; color: #dc2626; font-size: 0.7rem; font-weight: 700; cursor: pointer;">Remove</button>
+                                                    </div>
+                                                ` : `
+                                                    <button type="button" onclick="document.getElementById('dir-doc-addr-${idx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
+                                                        <div style="font-size: 1.25rem; margin-bottom: 0.25rem;">📜</div>
+                                                        <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload Proof of Address</div>
+                                                        <div style="font-size: 0.68rem; color: #94a3b8; margin-top: 2px;">Utility bill / Bank statement within 3 mos</div>
+                                                    </button>
+                                                `}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <!-- Personal Details Form Grid -->
@@ -4033,66 +4439,26 @@
                                         </div>
                                     </div>
 
-                                    <!-- KYC Document Upload Zones -->
-                                    <div style="border-top: 1px solid #f1f5f9; padding-top: 1rem; margin-bottom: 1rem;">
-                                        <span style="font-size: 0.75rem; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 0.75rem;">
-                                            KYC Verification Documents
-                                        </span>
-                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                                            <!-- ID Document Upload -->
-                                            <div style="border: 2px dashed #cbd5e1; border-radius: 12px; padding: 1rem; text-align: center; background: ${docs.idDoc ? '#f0fdf4' : '#f8fafc'}; border-color: ${docs.idDoc ? '#86efac' : '#cbd5e1'};">
-                                                <input type="file" id="dir-doc-id-${idx}" style="display: none;" accept=".pdf,.png,.jpg,.jpeg" onchange="wizard.handleDocUpload(event, 'director', ${idx}, 'idDoc')">
-                                                ${docs.idDoc ? `
-                                                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                                                        <div style="display: flex; align-items: center; gap: 0.5rem; text-align: left;">
-                                                            <span>📄</span>
-                                                            <div style="overflow: hidden; max-width: 180px;">
-                                                                <div style="font-size: 0.78rem; font-weight: 700; color: #166534; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${docs.idDoc.name}</div>
-                                                                <span style="font-size: 0.68rem; color: #16a34a;">ID Document Uploaded</span>
-                                                            </div>
-                                                        </div>
-                                                        <button type="button" onclick="wizard.removeDoc('director', ${idx}, 'idDoc')" style="padding: 2px 8px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 6px; color: #dc2626; font-size: 0.7rem; font-weight: 700; cursor: pointer;">Remove</button>
-                                                    </div>
-                                                ` : `
-                                                    <button type="button" onclick="document.getElementById('dir-doc-id-${idx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
-                                                        <div style="font-size: 1.25rem; margin-bottom: 0.25rem;">🪪</div>
-                                                        <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload ${isLocal ? 'NRIC (Front & Back)' : 'Passport Bio Page'}</div>
-                                                        <div style="font-size: 0.68rem; color: #94a3b8; margin-top: 2px;">PDF, JPG, PNG up to 15MB</div>
-                                                    </button>
-                                                `}
-                                            </div>
+                                    <!-- Disqualification & Nominee Declarations & Controller Checkbox -->
+                                    <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.85rem;">
+                                        <label style="display: flex; align-items: flex-start; gap: 0.6rem; cursor: pointer; font-size: 0.78rem; color: #475569; line-height: 1.4;">
+                                            <input type="checkbox" ${dir.disqualificationAcknowledge ? 'checked' : ''} 
+                                                onchange="wizard.updateDirectorField(${idx}, 'disqualificationAcknowledge', this.checked)" style="margin-top: 2px; accent-color: #2563eb;">
+                                            <span>I confirm that this director is not disqualified from acting as a director under Sections 148, 149, or 154 of the Singapore Companies Act.</span>
+                                        </label>
 
-                                            <!-- Proof of Address Upload -->
-                                            <div style="border: 2px dashed #cbd5e1; border-radius: 12px; padding: 1rem; text-align: center; background: ${docs.proofOfAddress ? '#f0fdf4' : '#f8fafc'}; border-color: ${docs.proofOfAddress ? '#86efac' : '#cbd5e1'};">
-                                                <input type="file" id="dir-doc-addr-${idx}" style="display: none;" accept=".pdf,.png,.jpg,.jpeg" onchange="wizard.handleDocUpload(event, 'director', ${idx}, 'proofOfAddress')">
-                                                ${docs.proofOfAddress ? `
-                                                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                                                        <div style="display: flex; align-items: center; gap: 0.5rem; text-align: left;">
-                                                            <span>🏠</span>
-                                                            <div style="overflow: hidden; max-width: 180px;">
-                                                                <div style="font-size: 0.78rem; font-weight: 700; color: #166534; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${docs.proofOfAddress.name}</div>
-                                                                <span style="font-size: 0.68rem; color: #16a34a;">Address Proof Uploaded</span>
-                                                            </div>
-                                                        </div>
-                                                        <button type="button" onclick="wizard.removeDoc('director', ${idx}, 'proofOfAddress')" style="padding: 2px 8px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 6px; color: #dc2626; font-size: 0.7rem; font-weight: 700; cursor: pointer;">Remove</button>
-                                                    </div>
-                                                ` : `
-                                                    <button type="button" onclick="document.getElementById('dir-doc-addr-${idx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
-                                                        <div style="font-size: 1.25rem; margin-bottom: 0.25rem;">📜</div>
-                                                        <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload Proof of Address</div>
-                                                        <div style="font-size: 0.68rem; color: #94a3b8; margin-top: 2px;">Utility bill / Bank statement within 3 mos</div>
-                                                    </button>
-                                                `}
-                                            </div>
-                                        </div>
+                                        <label style="display: flex; align-items: flex-start; gap: 0.6rem; cursor: pointer; font-size: 0.78rem; color: #475569; line-height: 1.4;">
+                                            <input type="checkbox" ${dir.isNominee ? 'checked' : ''} 
+                                                onchange="wizard.updateDirectorField(${idx}, 'isNominee', this.checked)" style="margin-top: 2px; accent-color: #2563eb;">
+                                            <span>I confirm that I am acting as Nominee Director of the company</span>
+                                        </label>
+
+                                        <label style="display: flex; align-items: center; gap: 0.65rem; cursor: pointer; padding: 0.7rem 1rem; border-radius: 12px; background: ${dir.isController ? '#eff6ff' : '#f8fafc'}; border: 1.5px solid ${dir.isController ? '#2563eb' : '#cbd5e1'}; margin-top: 0.25rem; transition: all 0.2s;">
+                                            <input type="checkbox" ${dir.isController ? 'checked' : ''} 
+                                                onchange="wizard.updateDirectorField(${idx}, 'isController', this.checked)" style="accent-color: #2563eb; width: 18px; height: 18px; cursor: pointer;">
+                                            <span style="font-size: 0.82rem; font-weight: 700; color: #1e293b;">I'm the Controller of the company</span>
+                                        </label>
                                     </div>
-
-                                    <!-- Disqualification Acknowledgment -->
-                                    <label style="display: flex; align-items: flex-start; gap: 0.6rem; cursor: pointer; font-size: 0.78rem; color: #475569; line-height: 1.4;">
-                                        <input type="checkbox" ${dir.disqualificationAcknowledge ? 'checked' : ''} 
-                                            onchange="wizard.updateDirectorField(${idx}, 'disqualificationAcknowledge', this.checked)" style="margin-top: 2px; accent-color: #2563eb;">
-                                        <span>I confirm that this director is not disqualified from acting as a director under Sections 148, 149, or 154 of the Singapore Companies Act.</span>
-                                    </label>
                                 </div>
                             `;
                         }).join('')}
@@ -4143,8 +4509,8 @@
             // SUB-STEP 06: SHAREHOLDER DETAILS (OVERVIEW & ALLOCATION TRACKER)
             // =========================================================================
             renderSubStepShareholderDetails() {
-                const totalShares = parseFloat(this.data.capital?.numShares) || 0;
-                const totalCapital = parseFloat(this.data.capital?.issued) || 0;
+                const totalShares = this.getTotalCapitalShares();
+                const totalCapital = this.getTotalCapitalAmount();
                 const currency = this.data.capital?.currency || 'SGD';
 
                 const indCount = this.data.individualShareholdersCount !== undefined ? this.data.individualShareholdersCount : 1;
@@ -4229,7 +4595,7 @@
             // SUB-STEP 07: INDIVIDUAL SHAREHOLDER DETAILS
             // =========================================================================
             renderSubStepIndividualShareholders() {
-                const totalShares = parseFloat(this.data.capital?.numShares) || 0;
+                const totalShares = this.getTotalCapitalShares();
                 const currency = this.data.capital?.currency || 'SGD';
                 const indShareholders = (this.data.shareholders || []).map((sh, idx) => ({ ...sh, originalIdx: idx })).filter(sh => sh.type === 'individual');
                 const dirs = this.data.directors || [];
@@ -4253,7 +4619,7 @@
                             const originalIdx = sh.originalIdx;
                             const docs = sh.docs || {};
                             const shShares = parseFloat(sh.shares) || 0;
-                            const ownershipPct = totalShares > 0 ? Math.round((shShares / totalShares) * 100) : 0;
+                            const ownershipPct = this.formatOwnershipPct(shShares, totalShares);
 
                             return `
                                 <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
@@ -4264,7 +4630,7 @@
                                             </div>
                                             <div>
                                                 <h4 style="margin: 0; font-size: 1rem; font-weight: 800; color: #0f172a;">${sh.name || ('Individual Shareholder #' + (i + 1))}</h4>
-                                                <span style="font-size: 0.72rem; color: #64748b;">Individual Shareholder • ${ownershipPct}% Ownership</span>
+                                                <span id="sh-card-pct-badge-${originalIdx}" style="font-size: 0.72rem; color: #64748b;">Individual Shareholder • ${ownershipPct} Ownership</span>
                                             </div>
                                         </div>
 
@@ -4283,7 +4649,61 @@
                                         ` : ''}
                                     </div>
 
-                                    <!-- Personal Details Inputs -->
+                                    <!-- KYC Document Uploads (ON TOP) -->
+                                    <div style="background: ${(docs.idDoc || docs.proofOfAddress) ? '#f0fdf4' : '#f8fafc'}; border: 1.5px dashed ${(docs.idDoc || docs.proofOfAddress) ? '#86efac' : '#cbd5e1'}; border-radius: 14px; padding: 1.25rem; margin-bottom: 1.25rem;">
+                                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <span style="font-size: 1.1rem;">🪪</span>
+                                                <span style="font-size: 0.8rem; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.03em;">
+                                                    Identity & Address Verification Documents <span style="color:#ef4444;">*</span>
+                                                </span>
+                                            </div>
+                                            <span style="background: #eff6ff; color: #2563eb; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; border: 1px solid #bfdbfe;">
+                                                Auto-Fill Enabled
+                                            </span>
+                                        </div>
+                                        <p style="margin: 0 0 1rem 0; font-size: 0.78rem; color: #2563eb; background: #eff6ff; border-radius: 8px; padding: 0.6rem 0.85rem; border: 1px solid #bfdbfe; line-height: 1.45;">
+                                            ℹ️ <strong>Upload your document first</strong> — personal particulars will be automatically taken from the documents.
+                                        </p>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                            <div style="border: 1.5px dashed ${docs.idDoc ? '#86efac' : '#cbd5e1'}; border-radius: 12px; padding: 1rem; text-align: center; background: #ffffff;">
+                                                <input type="file" id="sh-doc-id-${originalIdx}" style="display: none;" accept=".pdf,.png,.jpg,.jpeg" onchange="wizard.handleDocUpload(event, 'ind_shareholder', ${originalIdx}, 'idDoc')">
+                                                ${docs.idDoc ? `
+                                                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                                                        <div style="text-align: left;">
+                                                            <div style="font-size: 0.78rem; font-weight: 700; color: #166534;">${docs.idDoc.name}</div>
+                                                            <span style="font-size: 0.68rem; color: #16a34a;">ID Document Uploaded</span>
+                                                        </div>
+                                                        <button type="button" onclick="wizard.removeDoc('ind_shareholder', ${originalIdx}, 'idDoc')" style="padding: 2px 8px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 6px; color: #dc2626; font-size: 0.7rem; font-weight: 700; cursor: pointer;">Remove</button>
+                                                    </div>
+                                                ` : `
+                                                    <button type="button" onclick="document.getElementById('sh-doc-id-${originalIdx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
+                                                        <div style="font-size: 1.25rem;">🪪</div>
+                                                        <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload NRIC or Passport</div>
+                                                    </button>
+                                                `}
+                                            </div>
+                                            <div style="border: 1.5px dashed ${docs.proofOfAddress ? '#86efac' : '#cbd5e1'}; border-radius: 12px; padding: 1rem; text-align: center; background: #ffffff;">
+                                                <input type="file" id="sh-doc-addr-${originalIdx}" style="display: none;" accept=".pdf,.png,.jpg,.jpeg" onchange="wizard.handleDocUpload(event, 'ind_shareholder', ${originalIdx}, 'proofOfAddress')">
+                                                ${docs.proofOfAddress ? `
+                                                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                                                        <div style="text-align: left;">
+                                                            <div style="font-size: 0.78rem; font-weight: 700; color: #166534;">${docs.proofOfAddress.name}</div>
+                                                            <span style="font-size: 0.68rem; color: #16a34a;">Address Proof Uploaded</span>
+                                                        </div>
+                                                        <button type="button" onclick="wizard.removeDoc('ind_shareholder', ${originalIdx}, 'proofOfAddress')" style="padding: 2px 8px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 6px; color: #dc2626; font-size: 0.7rem; font-weight: 700; cursor: pointer;">Remove</button>
+                                                    </div>
+                                                ` : `
+                                                    <button type="button" onclick="document.getElementById('sh-doc-addr-${originalIdx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
+                                                        <div style="font-size: 1.25rem;">📜</div>
+                                                        <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload Proof of Address</div>
+                                                    </button>
+                                                `}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Personal Details Form Grid -->
                                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
                                         <div>
                                             <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
@@ -4337,69 +4757,26 @@
                                     </div>
 
                                     <!-- Equity Allocation Fields -->
-                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem;">
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem;">
                                         <span style="font-size: 0.75rem; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 0.75rem;">
                                             Equity Share Allocation
                                         </span>
                                         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
                                             <div>
                                                 <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Allocated Shares <span style="color:#ef4444;">*</span></label>
-                                                <input type="number" class="input-box" value="${sh.shares || ''}" placeholder="e.g. 5000" 
-                                                    oninput="wizard.updateShareholderField(${originalIdx}, 'shares', this.value); wizard.calculateShareholderAllocations();" style="width: 100%;">
+                                                <input type="number" class="input-box" id="sh-shares-input-${originalIdx}" value="${sh.shares || ''}" placeholder="e.g. 5000" 
+                                                    oninput="wizard.updateShareholderField(${originalIdx}, 'shares', this.value);" style="width: 100%;">
                                             </div>
                                             <div>
                                                 <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Share Capital (${currency})</label>
-                                                <input type="number" class="input-box" value="${sh.shareAmount || sh.shares || ''}" placeholder="e.g. 5000" 
+                                                <input type="number" class="input-box" id="sh-share-amount-input-${originalIdx}" value="${sh.shareAmount || sh.shares || ''}" placeholder="e.g. 5000" 
                                                     oninput="wizard.updateShareholderField(${originalIdx}, 'shareAmount', this.value);" style="width: 100%;">
                                             </div>
                                             <div>
                                                 <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Ownership Percentage</label>
-                                                <div style="padding: 0.75rem 1rem; background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 10px; font-weight: 800; color: #16a34a; font-size: 0.95rem;">
-                                                    ${ownershipPct}%
+                                                <div id="sh-ownership-pct-display-${originalIdx}" style="padding: 0.75rem 1rem; background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 10px; font-weight: 800; color: #16a34a; font-size: 0.95rem;">
+                                                    ${ownershipPct}
                                                 </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- KYC Document Uploads -->
-                                    <div style="border-top: 1px solid #f1f5f9; padding-top: 1rem; margin-bottom: 1rem;">
-                                        <span style="font-size: 0.75rem; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 0.75rem;">
-                                            Identity & Address Verification
-                                        </span>
-                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                                            <div style="border: 2px dashed #cbd5e1; border-radius: 12px; padding: 1rem; text-align: center; background: ${docs.idDoc ? '#f0fdf4' : '#f8fafc'};">
-                                                <input type="file" id="sh-doc-id-${originalIdx}" style="display: none;" accept=".pdf,.png,.jpg,.jpeg" onchange="wizard.handleDocUpload(event, 'ind_shareholder', ${originalIdx}, 'idDoc')">
-                                                ${docs.idDoc ? `
-                                                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                                                        <div style="text-align: left;">
-                                                            <div style="font-size: 0.78rem; font-weight: 700; color: #166534;">${docs.idDoc.name}</div>
-                                                            <span style="font-size: 0.68rem; color: #16a34a;">ID Document Uploaded</span>
-                                                        </div>
-                                                        <button type="button" onclick="wizard.removeDoc('ind_shareholder', ${originalIdx}, 'idDoc')" style="padding: 2px 8px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 6px; color: #dc2626; font-size: 0.7rem; font-weight: 700; cursor: pointer;">Remove</button>
-                                                    </div>
-                                                ` : `
-                                                    <button type="button" onclick="document.getElementById('sh-doc-id-${originalIdx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
-                                                        <div style="font-size: 1.25rem;">🪪</div>
-                                                        <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload NRIC or Passport</div>
-                                                    </button>
-                                                `}
-                                            </div>
-                                            <div style="border: 2px dashed #cbd5e1; border-radius: 12px; padding: 1rem; text-align: center; background: ${docs.proofOfAddress ? '#f0fdf4' : '#f8fafc'};">
-                                                <input type="file" id="sh-doc-addr-${originalIdx}" style="display: none;" accept=".pdf,.png,.jpg,.jpeg" onchange="wizard.handleDocUpload(event, 'ind_shareholder', ${originalIdx}, 'proofOfAddress')">
-                                                ${docs.proofOfAddress ? `
-                                                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                                                        <div style="text-align: left;">
-                                                            <div style="font-size: 0.78rem; font-weight: 700; color: #166534;">${docs.proofOfAddress.name}</div>
-                                                            <span style="font-size: 0.68rem; color: #16a34a;">Address Proof Uploaded</span>
-                                                        </div>
-                                                        <button type="button" onclick="wizard.removeDoc('ind_shareholder', ${originalIdx}, 'proofOfAddress')" style="padding: 2px 8px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 6px; color: #dc2626; font-size: 0.7rem; font-weight: 700; cursor: pointer;">Remove</button>
-                                                    </div>
-                                                ` : `
-                                                    <button type="button" onclick="document.getElementById('sh-doc-addr-${originalIdx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
-                                                        <div style="font-size: 1.25rem;">📜</div>
-                                                        <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload Proof of Address</div>
-                                                    </button>
-                                                `}
                                             </div>
                                         </div>
                                     </div>
@@ -4414,6 +4791,7 @@
             // SUB-STEP 08: CORPORATE SHAREHOLDER DETAILS
             // =========================================================================
             renderSubStepCorporateShareholders() {
+                const totalShares = this.getTotalCapitalShares();
                 const corpShareholders = (this.data.shareholders || []).map((sh, idx) => ({ ...sh, originalIdx: idx })).filter(sh => sh.type === 'corporate');
                 const currency = this.data.capital?.currency || 'SGD';
 
@@ -4437,6 +4815,8 @@
                         ${corpShareholders.map((sh, i) => {
                             const originalIdx = sh.originalIdx;
                             const docs = sh.docs || {};
+                            const shShares = parseFloat(sh.shares) || 0;
+                            const ownershipPct = this.formatOwnershipPct(shShares, totalShares);
 
                             return `
                                 <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
@@ -4445,10 +4825,109 @@
                                             <div style="width: 32px; height: 32px; border-radius: 8px; background: #7c3aed; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem;">
                                                 🏢
                                             </div>
-                                            <h4 style="margin: 0; font-size: 1rem; font-weight: 800; color: #0f172a;">${sh.name || ('Corporate Shareholder #' + (i + 1))}</h4>
+                                            <div>
+                                                <h4 style="margin: 0; font-size: 1rem; font-weight: 800; color: #0f172a;">${sh.name || ('Corporate Shareholder #' + (i + 1))}</h4>
+                                                <span id="sh-card-pct-badge-${originalIdx}" style="font-size: 0.72rem; color: #64748b;">Corporate Shareholder • ${ownershipPct} Ownership</span>
+                                            </div>
+                                        </div>
+                                    <!-- Corporate Documents Upload (ON TOP) -->
+                                    <div style="background: ${(docs.bizfile || docs.constitution || docs.incumbency || docs.boardResolution) ? '#f0fdf4' : '#f8fafc'}; border: 1.5px dashed ${(docs.bizfile || docs.constitution || docs.incumbency || docs.boardResolution) ? '#86efac' : '#cbd5e1'}; border-radius: 14px; padding: 1.25rem; margin-bottom: 1.25rem;">
+                                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <span style="font-size: 1.1rem;">🏢</span>
+                                                <span style="font-size: 0.8rem; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.03em;">
+                                                    Corporate Documents & Statutory Registers <span style="color:#ef4444;">*</span>
+                                                </span>
+                                            </div>
+                                            <span style="background: #eff6ff; color: #2563eb; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; border: 1px solid #bfdbfe;">
+                                                Auto-Fill Enabled
+                                            </span>
+                                        </div>
+                                        <p style="margin: 0 0 1rem 0; font-size: 0.78rem; color: #2563eb; background: #eff6ff; border-radius: 8px; padding: 0.6rem 0.85rem; border: 1px solid #bfdbfe; line-height: 1.45;">
+                                            ℹ️ <strong>Upload corporate documents first</strong> — company particulars will be automatically taken from the documents.
+                                        </p>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                            <!-- Box 1: Bizfile / Cert of Inc -->
+                                            <div style="border: 1.5px dashed ${docs.bizfile ? '#86efac' : '#cbd5e1'}; border-radius: 12px; padding: 1rem; text-align: center; background: #ffffff;">
+                                                <input type="file" id="corp-doc-biz-${originalIdx}" style="display: none;" accept=".pdf,.png,.jpg,.jpeg" onchange="wizard.handleDocUpload(event, 'corp_shareholder', ${originalIdx}, 'bizfile')">
+                                                ${docs.bizfile ? `
+                                                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                                                        <div style="text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%;">
+                                                            <div style="font-size: 0.78rem; font-weight: 700; color: #166534;" class="truncate">${docs.bizfile.name}</div>
+                                                            <span style="font-size: 0.68rem; color: #16a34a;">ACRA Bizfile / Cert of Inc</span>
+                                                        </div>
+                                                        <button type="button" onclick="wizard.removeDoc('corp_shareholder', ${originalIdx}, 'bizfile')" style="padding: 2px 8px; background: #fee2e2; border-radius: 6px; color: #dc2626; font-size: 0.7rem; font-weight: 700; border: none; cursor: pointer;">Remove</button>
+                                                    </div>
+                                                ` : `
+                                                    <button type="button" onclick="document.getElementById('corp-doc-biz-${originalIdx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
+                                                        <div style="font-size: 1.25rem;">📄</div>
+                                                        <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload ACRA Bizfile / Cert of Inc</div>
+                                                    </button>
+                                                `}
+                                            </div>
+
+                                            <!-- Box 2: Constitution / M&AA -->
+                                            <div style="border: 1.5px dashed ${docs.constitution ? '#86efac' : '#cbd5e1'}; border-radius: 12px; padding: 1rem; text-align: center; background: #ffffff;">
+                                                <input type="file" id="corp-doc-const-${originalIdx}" style="display: none;" accept=".pdf,.png,.jpg,.jpeg" onchange="wizard.handleDocUpload(event, 'corp_shareholder', ${originalIdx}, 'constitution')">
+                                                ${docs.constitution ? `
+                                                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                                                        <div style="text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%;">
+                                                            <div style="font-size: 0.78rem; font-weight: 700; color: #166534;" class="truncate">${docs.constitution.name}</div>
+                                                            <span style="font-size: 0.68rem; color: #16a34a;">Company Constitution / M&AA</span>
+                                                        </div>
+                                                        <button type="button" onclick="wizard.removeDoc('corp_shareholder', ${originalIdx}, 'constitution')" style="padding: 2px 8px; background: #fee2e2; border-radius: 6px; color: #dc2626; font-size: 0.7rem; font-weight: 700; border: none; cursor: pointer;">Remove</button>
+                                                    </div>
+                                                ` : `
+                                                    <button type="button" onclick="document.getElementById('corp-doc-const-${originalIdx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
+                                                        <div style="font-size: 1.25rem;">📜</div>
+                                                        <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload Constitution / M&AA</div>
+                                                    </button>
+                                                `}
+                                            </div>
+
+                                            <!-- Box 3 (Optional): Certificate of Incumbency / Register of Members -->
+                                            <div style="border: 1.5px dashed ${docs.incumbency ? '#86efac' : '#cbd5e1'}; border-radius: 12px; padding: 1rem; text-align: center; background: #ffffff;">
+                                                <input type="file" id="corp-doc-incumbency-${originalIdx}" style="display: none;" accept=".pdf,.png,.jpg,.jpeg" onchange="wizard.handleDocUpload(event, 'corp_shareholder', ${originalIdx}, 'incumbency')">
+                                                ${docs.incumbency ? `
+                                                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                                                        <div style="text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%;">
+                                                            <div style="font-size: 0.78rem; font-weight: 700; color: #166534;" class="truncate">${docs.incumbency.name}</div>
+                                                            <span style="font-size: 0.68rem; color: #16a34a;">Cert of Incumbency / Register (Optional)</span>
+                                                        </div>
+                                                        <button type="button" onclick="wizard.removeDoc('corp_shareholder', ${originalIdx}, 'incumbency')" style="padding: 2px 8px; background: #fee2e2; border-radius: 6px; color: #dc2626; font-size: 0.7rem; font-weight: 700; border: none; cursor: pointer;">Remove</button>
+                                                    </div>
+                                                ` : `
+                                                    <button type="button" onclick="document.getElementById('corp-doc-incumbency-${originalIdx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
+                                                        <div style="font-size: 1.25rem;">📑</div>
+                                                        <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload Certificate of Incumbency / Register</div>
+                                                        <span style="display: inline-block; margin-top: 3px; font-size: 0.68rem; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 1px 6px; border-radius: 4px;">Optional</span>
+                                                    </button>
+                                                `}
+                                            </div>
+
+                                            <!-- Box 4 (Optional): Board Resolution / Power of Attorney -->
+                                            <div style="border: 1.5px dashed ${docs.boardResolution ? '#86efac' : '#cbd5e1'}; border-radius: 12px; padding: 1rem; text-align: center; background: #ffffff;">
+                                                <input type="file" id="corp-doc-board-${originalIdx}" style="display: none;" accept=".pdf,.png,.jpg,.jpeg" onchange="wizard.handleDocUpload(event, 'corp_shareholder', ${originalIdx}, 'boardResolution')">
+                                                ${docs.boardResolution ? `
+                                                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                                                        <div style="text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%;">
+                                                            <div style="font-size: 0.78rem; font-weight: 700; color: #166534;" class="truncate">${docs.boardResolution.name}</div>
+                                                            <span style="font-size: 0.68rem; color: #16a34a;">Board Resolution / Authorization (Optional)</span>
+                                                        </div>
+                                                        <button type="button" onclick="wizard.removeDoc('corp_shareholder', ${originalIdx}, 'boardResolution')" style="padding: 2px 8px; background: #fee2e2; border-radius: 6px; color: #dc2626; font-size: 0.7rem; font-weight: 700; border: none; cursor: pointer;">Remove</button>
+                                                    </div>
+                                                ` : `
+                                                    <button type="button" onclick="document.getElementById('corp-doc-board-${originalIdx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
+                                                        <div style="font-size: 1.25rem;">🏛️</div>
+                                                        <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload Board Resolution / Authorization</div>
+                                                        <span style="display: inline-block; margin-top: 3px; font-size: 0.68rem; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 1px 6px; border-radius: 4px;">Optional</span>
+                                                    </button>
+                                                `}
+                                            </div>
                                         </div>
                                     </div>
 
+                                    <!-- Company Details Form Grid -->
                                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
                                         <div>
                                             <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">Company Registered Name <span style="color:#ef4444;">*</span></label>
@@ -4466,41 +4945,34 @@
                                                 oninput="wizard.updateShareholderField(${originalIdx}, 'nationality', this.value)" style="width: 100%;">
                                         </div>
                                         <div>
-                                            <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">Allocated Shares <span style="color:#ef4444;">*</span></label>
-                                            <input type="number" class="input-box" value="${sh.shares || ''}" placeholder="e.g. 10000" 
-                                                oninput="wizard.updateShareholderField(${originalIdx}, 'shares', this.value); wizard.calculateShareholderAllocations();" style="width: 100%;">
+                                            <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">Corporate Registered Address</label>
+                                            <input type="text" class="input-box" value="${sh.addr || ''}" placeholder="e.g. 1 Wallich St, Singapore" 
+                                                oninput="wizard.updateShareholderField(${originalIdx}, 'addr', this.value)" style="width: 100%;">
                                         </div>
                                     </div>
 
-                                    <!-- Corporate Documents Upload -->
-                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                                        <div style="border: 2px dashed #cbd5e1; border-radius: 12px; padding: 1rem; text-align: center; background: ${docs.bizfile ? '#f0fdf4' : '#f8fafc'};">
-                                            <input type="file" id="corp-doc-biz-${originalIdx}" style="display: none;" accept=".pdf" onchange="wizard.handleDocUpload(event, 'corp_shareholder', ${originalIdx}, 'bizfile')">
-                                            ${docs.bizfile ? `
-                                                <div style="display: flex; align-items: center; justify-content: space-between;">
-                                                    <span style="font-size: 0.78rem; font-weight: 700; color: #166534;">${docs.bizfile.name}</span>
-                                                    <button type="button" onclick="wizard.removeDoc('corp_shareholder', ${originalIdx}, 'bizfile')" style="padding: 2px 8px; background: #fee2e2; border-radius: 6px; color: #dc2626; font-size: 0.7rem; font-weight: 700; border: none; cursor: pointer;">Remove</button>
+                                    <!-- Equity Allocation Fields -->
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem;">
+                                        <span style="font-size: 0.75rem; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 0.75rem;">
+                                            Equity Share Allocation
+                                        </span>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                                            <div>
+                                                <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Allocated Shares <span style="color:#ef4444;">*</span></label>
+                                                <input type="number" class="input-box" id="sh-shares-input-${originalIdx}" value="${sh.shares || ''}" placeholder="e.g. 5000" 
+                                                    oninput="wizard.updateShareholderField(${originalIdx}, 'shares', this.value);" style="width: 100%;">
+                                            </div>
+                                            <div>
+                                                <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Share Capital (${currency})</label>
+                                                <input type="number" class="input-box" id="sh-share-amount-input-${originalIdx}" value="${sh.shareAmount || sh.shares || ''}" placeholder="e.g. 5000" 
+                                                    oninput="wizard.updateShareholderField(${originalIdx}, 'shareAmount', this.value);" style="width: 100%;">
+                                            </div>
+                                            <div>
+                                                <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Ownership Percentage</label>
+                                                <div id="sh-ownership-pct-display-${originalIdx}" style="padding: 0.75rem 1rem; background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 10px; font-weight: 800; color: #16a34a; font-size: 0.95rem;">
+                                                    ${ownershipPct}
                                                 </div>
-                                            ` : `
-                                                <button type="button" onclick="document.getElementById('corp-doc-biz-${originalIdx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
-                                                    <div style="font-size: 1.25rem;">📄</div>
-                                                    <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload ACRA Bizfile / Cert of Inc</div>
-                                                </button>
-                                            `}
-                                        </div>
-                                        <div style="border: 2px dashed #cbd5e1; border-radius: 12px; padding: 1rem; text-align: center; background: ${docs.constitution ? '#f0fdf4' : '#f8fafc'};">
-                                            <input type="file" id="corp-doc-const-${originalIdx}" style="display: none;" accept=".pdf" onchange="wizard.handleDocUpload(event, 'corp_shareholder', ${originalIdx}, 'constitution')">
-                                            ${docs.constitution ? `
-                                                <div style="display: flex; align-items: center; justify-content: space-between;">
-                                                    <span style="font-size: 0.78rem; font-weight: 700; color: #166534;">${docs.constitution.name}</span>
-                                                    <button type="button" onclick="wizard.removeDoc('corp_shareholder', ${originalIdx}, 'constitution')" style="padding: 2px 8px; background: #fee2e2; border-radius: 6px; color: #dc2626; font-size: 0.7rem; font-weight: 700; border: none; cursor: pointer;">Remove</button>
-                                                </div>
-                                            ` : `
-                                                <button type="button" onclick="document.getElementById('corp-doc-const-${originalIdx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
-                                                    <div style="font-size: 1.25rem;">📜</div>
-                                                    <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload Constitution / M&AA</div>
-                                                </button>
-                                            `}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -4511,7 +4983,7 @@
             }
 
             // =========================================================================
-            // SUB-STEP 09: CORPORATE REPRESENTATIVES
+            // SUB-STEP 09: CORPORATE REPRESENTATIVE DETAILS
             // =========================================================================
             renderSubStepCorporateReps() {
                 const corpShareholders = (this.data.shareholders || []).map((sh, idx) => ({ ...sh, originalIdx: idx })).filter(sh => sh.type === 'corporate');
@@ -4533,12 +5005,50 @@
                         ${corpShareholders.map((sh, i) => {
                             const originalIdx = sh.originalIdx;
                             const rep = sh.rep || {};
+                            const repDocs = rep.docs || {};
 
                             return `
                                 <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                                     <h4 style="margin: 0 0 1rem 0; font-size: 1rem; font-weight: 800; color: #0f172a;">
                                         Corporate Representative for ${sh.name || ('Corporate Shareholder #' + (i + 1))}
                                     </h4>
+
+                                    <!-- Corporate Rep ID Document Upload on Top -->
+                                    <div style="background: ${repDocs.idDoc ? '#f0fdf4' : '#f8fafc'}; border: 1.5px dashed ${repDocs.idDoc ? '#86efac' : '#cbd5e1'}; border-radius: 14px; padding: 1.25rem; margin-bottom: 1.25rem;">
+                                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.5rem;">
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <span style="font-size: 1.1rem;">🪪</span>
+                                                <span style="font-size: 0.8rem; font-weight: 800; color: #0f172a; text-transform: uppercase;">
+                                                    Corporate Representative Identification Document <span style="color:#ef4444;">*</span>
+                                                </span>
+                                            </div>
+                                            <span style="background: #eff6ff; color: #2563eb; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; border: 1px solid #bfdbfe;">
+                                                Auto-Fill Enabled
+                                            </span>
+                                        </div>
+                                        <p style="margin: 0 0 0.85rem 0; font-size: 0.78rem; color: #2563eb; background: #eff6ff; border-radius: 8px; padding: 0.5rem 0.75rem; border: 1px solid #bfdbfe; line-height: 1.45;">
+                                            ℹ️ <strong>Upload representative ID / Passport first</strong> — representative particulars will be automatically taken from the documents.
+                                        </p>
+                                        <div style="border: 1.5px dashed ${repDocs.idDoc ? '#86efac' : '#cbd5e1'}; border-radius: 10px; padding: 0.85rem; text-align: center; background: #ffffff;">
+                                            <input type="file" id="corp-rep-doc-id-${originalIdx}" style="display: none;" accept=".pdf,.png,.jpg,.jpeg" onchange="wizard.handleDocUpload(event, 'corp_rep', ${originalIdx}, 'idDoc')">
+                                            ${repDocs.idDoc ? `
+                                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                                    <div style="text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%;">
+                                                        <div style="font-size: 0.78rem; font-weight: 700; color: #166534;" class="truncate">${repDocs.idDoc.name}</div>
+                                                        <span style="font-size: 0.68rem; color: #16a34a;">Representative ID Document Uploaded</span>
+                                                    </div>
+                                                    <button type="button" onclick="wizard.removeDoc('corp_rep', ${originalIdx}, 'idDoc')" style="padding: 2px 8px; background: #fee2e2; border-radius: 6px; color: #dc2626; font-size: 0.7rem; font-weight: 700; border: none; cursor: pointer;">Remove</button>
+                                                </div>
+                                            ` : `
+                                                <button type="button" onclick="document.getElementById('corp-rep-doc-id-${originalIdx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
+                                                    <div style="font-size: 1.25rem; margin-bottom: 2px;">🪪</div>
+                                                    <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload Representative NRIC / Passport Bio Page</div>
+                                                    <div style="font-size: 0.68rem; color: #94a3b8; margin-top: 2px;">PDF, JPG, PNG up to 15MB</div>
+                                                </button>
+                                            `}
+                                        </div>
+                                    </div>
+
                                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                                         <div>
                                             <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">Full Legal Name <span style="color:#ef4444;">*</span></label>
@@ -4574,6 +5084,8 @@
             renderSubStepRons() {
                 const rons = this.data.rons || { hasNominee: 'No' };
                 const hasNominee = rons.hasNominee === 'Yes';
+                const shareholders = this.data.shareholders || [];
+                const selectedShId = rons.nomineeShareholderId || rons.nomineeList?.[0]?.nomineeShareholderId || '';
 
                 return `
                     <div style="display: flex; flex-direction: column; gap: 1.25rem;">
@@ -4598,17 +5110,84 @@
                         </div>
 
                         ${hasNominee ? `
-                            <div style="background: #ffffff; border: 1.5px solid #bfdbfe; border-radius: 16px; padding: 1.5rem;">
-                                <div style="font-size: 0.95rem; font-weight: 800; color: #1e40af; margin-bottom: 1rem;">Nominator Particulars</div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <!-- 1. Select Nominee Shareholder Box -->
+                            <div style="background: #ffffff; border: 1.5px solid #bfdbfe; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                                <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem;">
+                                    <div style="width: 28px; height: 28px; border-radius: 8px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 800;">
+                                        1
+                                    </div>
+                                    <div style="font-size: 0.95rem; font-weight: 800; color: #1e40af;">
+                                        Select Nominee Shareholder
+                                    </div>
+                                </div>
+                                <p style="font-size: 0.8rem; color: #64748b; margin: 0 0 1rem 0; line-height: 1.4;">
+                                    Select which registered shareholder is acting as a nominee holding shares for an underlying nominator.
+                                </p>
+                                <div>
+                                    <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
+                                        Nominee Shareholder <span style="color:#ef4444;">*</span>
+                                    </label>
+                                    <select class="input-box" style="width: 100%; font-size: 0.85rem; font-weight: 600;" onchange="wizard.updateRonsNomineeShareholder(0, this.value)">
+                                        <option value="">-- Select Shareholder Acting as Nominee --</option>
+                                        ${shareholders.map((sh, idx) => {
+                                            const isSelected = selectedShId === `sh_${idx}` || (!selectedShId && sh.isNominee);
+                                            const shName = sh.name || (sh.type === 'corporate' ? `Corporate Shareholder #${idx+1}` : `Individual Shareholder #${idx+1}`);
+                                            const pctStr = sh.percent || (sh.shares && this.getTotalCapitalShares() > 0 ? this.formatOwnershipPct(sh.shares, this.getTotalCapitalShares()) : '');
+                                            return `<option value="sh_${idx}" ${isSelected ? 'selected' : ''}>${shName} (${sh.type === 'corporate' ? 'Corporate' : 'Individual'}${pctStr ? ' • ' + pctStr : ''})</option>`;
+                                        }).join('')}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- 2. Nominator Particulars Box -->
+                            <div style="background: #ffffff; border: 1.5px solid #bfdbfe; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                                <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem;">
+                                    <div style="width: 28px; height: 28px; border-radius: 8px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 800;">
+                                        2
+                                    </div>
+                                    <div style="font-size: 0.95rem; font-weight: 800; color: #1e40af;">
+                                        Nominator Particulars
+                                    </div>
+                                </div>
+                                <p style="font-size: 0.8rem; color: #64748b; margin: 0 0 1.25rem 0; line-height: 1.4;">
+                                    Provide the identity, contact, and address particulars of the nominator (underlying beneficial owner).
+                                </p>
+
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                                     <div>
-                                        <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">Nominator Full Legal Name <span style="color:#ef4444;">*</span></label>
-                                        <input type="text" class="input-box" value="${rons.nominatorName || ''}" placeholder="Nominator Legal Name" oninput="wizard.updateRonsField('nominatorName', this.value)" style="width: 100%;">
+                                        <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
+                                            Nominator Full Legal Name <span style="color:#ef4444;">*</span>
+                                        </label>
+                                        <input type="text" class="input-box" value="${rons.nominatorName || rons.nomineeList?.[0]?.nominatorName || ''}" placeholder="Nominator Legal Name" oninput="wizard.updateRonsField('nominatorName', this.value)" style="width: 100%;">
                                     </div>
                                     <div>
-                                        <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">Nominator Passport / ID Number <span style="color:#ef4444;">*</span></label>
-                                        <input type="text" class="input-box" value="${rons.nominatorId || ''}" placeholder="ID / Registration No." oninput="wizard.updateRonsField('nominatorId', this.value)" style="width: 100%;">
+                                        <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
+                                            Nominator Passport / ID Number <span style="color:#ef4444;">*</span>
+                                        </label>
+                                        <input type="text" class="input-box" value="${rons.nominatorId || rons.nominatorIdNumber || rons.nomineeList?.[0]?.nominatorIdNumber || ''}" placeholder="ID / Passport / Registration No." oninput="wizard.updateRonsField('nominatorId', this.value)" style="width: 100%;">
                                     </div>
+                                </div>
+
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                    <div>
+                                        <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
+                                            Nominator Email Address <span style="color:#ef4444;">*</span>
+                                        </label>
+                                        <input type="email" class="input-box" value="${rons.nominatorEmail || rons.nomineeList?.[0]?.nominatorEmail || ''}" placeholder="e.g. nominator@example.com" oninput="wizard.updateRonsField('nominatorEmail', this.value)" style="width: 100%;">
+                                    </div>
+                                    <div>
+                                        <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
+                                            Nominator Contact Number <span style="color:#ef4444;">*</span>
+                                        </label>
+                                        <input type="tel" class="input-box" value="${rons.nominatorPhone || rons.nomineeList?.[0]?.nominatorPhone || ''}" placeholder="e.g. +65 9123 4567" oninput="wizard.updateRonsField('nominatorPhone', this.value)" style="width: 100%;">
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
+                                        Nominator Residential / Registered Address <span style="color:#ef4444;">*</span>
+                                    </label>
+                                    <textarea class="input-box" rows="2" style="width: 100%; resize: vertical;" placeholder="e.g. 123 Orchard Road, #12-01, Singapore 238888" oninput="wizard.updateRonsField('nominatorAddress', this.value)">${rons.nominatorAddress || rons.nomineeList?.[0]?.nominatorAddress || ''}</textarea>
                                 </div>
                             </div>
                         ` : ''}
@@ -4672,7 +5251,36 @@
             // =========================================================================
             renderSubStepFinalDeclaration() {
                 if (!this.data.declaration) this.data.declaration = {};
-                const fye = this.data.declaration.fye || '31 December';
+                const rawFye = this.data.declaration.fye || this.data.fye || '31 December';
+                const curYear = new Date().getFullYear();
+                let fyeDateVal = this.data.declaration.fyeDate || '';
+                let fyeDisplay = rawFye;
+
+                if (!fyeDateVal && rawFye) {
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(rawFye)) {
+                        fyeDateVal = rawFye;
+                        const dt = new Date(rawFye + 'T00:00:00');
+                        if (!isNaN(dt.getTime())) {
+                            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                            fyeDisplay = `${dt.getDate()} ${monthNames[dt.getMonth()]}`;
+                        }
+                    } else {
+                        const parts = String(rawFye).trim().split(/\s+/);
+                        if (parts.length >= 2) {
+                            const day = parseInt(parts[0]);
+                            const monthNames = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+                            const mIdx = monthNames.indexOf(parts[1].toLowerCase());
+                            if (mIdx !== -1 && !isNaN(day)) {
+                                fyeDateVal = `${curYear}-${String(mIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                            }
+                        }
+                    }
+                }
+                if (!fyeDateVal) {
+                    fyeDateVal = `${curYear}-12-31`;
+                    fyeDisplay = '31 December';
+                }
+
                 const confirmed = this.data.declaration.confirmed === true;
                 const consent = this.data.declaration.consent === true;
 
@@ -4680,17 +5288,32 @@
                     <div style="display: flex; flex-direction: column; gap: 1.25rem;">
                         <!-- Corporate Governance FYE -->
                         <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                            <h4 style="margin: 0 0 1rem 0; font-size: 1rem; font-weight: 800; color: #0f172a;">Corporate Financial Year End</h4>
-                            <div style="max-width: 320px;">
+                            <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem;">
+                                <div style="width: 32px; height: 32px; border-radius: 10px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+                                    📅
+                                </div>
+                                <h4 style="margin: 0; font-size: 1rem; font-weight: 800; color: #0f172a;">Corporate Financial Year End</h4>
+                            </div>
+                            <p style="font-size: 0.8rem; color: #64748b; margin: 0 0 1.25rem 0; line-height: 1.4;">
+                                Select your company's Financial Year End (FYE) date from the calendar below. You may choose any custom date as desired.
+                            </p>
+                            <div style="max-width: 380px;">
                                 <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
                                     Financial Year End (FYE) <span style="color:#ef4444;">*</span>
                                 </label>
-                                <select class="input-box" onchange="wizard.data.declaration.fye = this.value; wizard.save();" style="width: 100%;">
-                                    <option value="31 December" ${fye === '31 December' ? 'selected' : ''}>31 December (Standard Calendar Year)</option>
-                                    <option value="31 March" ${fye === '31 March' ? 'selected' : ''}>31 March</option>
-                                    <option value="30 June" ${fye === '30 June' ? 'selected' : ''}>30 June</option>
-                                    <option value="30 September" ${fye === '30 September' ? 'selected' : ''}>30 September</option>
-                                </select>
+                                <div style="position: relative;">
+                                    <input type="date" class="input-box" id="declaration-fye-input" value="${fyeDateVal}" onchange="wizard.updateFyeDate(this.value)" style="width: 100%; font-family: 'Outfit', sans-serif; font-size: 0.9rem; font-weight: 700; cursor: pointer; color: #0f172a; padding: 0.75rem 1rem;">
+                                </div>
+                                <div id="fye-selected-display" style="margin-top: 0.6rem; font-size: 0.82rem; font-weight: 700; color: #2563eb; display: flex; align-items: center; gap: 0.4rem;">
+                                    <span>🗓️ Annual FYE: <strong>${fyeDisplay}</strong></span>
+                                </div>
+                                <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.85rem; align-items: center;">
+                                    <span style="font-size: 0.7rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;">Presets:</span>
+                                    <button type="button" onclick="wizard.setFyePreset(12, 31)" style="font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; cursor: pointer;">31 Dec (Standard)</button>
+                                    <button type="button" onclick="wizard.setFyePreset(3, 31)" style="font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; cursor: pointer;">31 Mar</button>
+                                    <button type="button" onclick="wizard.setFyePreset(6, 30)" style="font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; cursor: pointer;">30 Jun</button>
+                                    <button type="button" onclick="wizard.setFyePreset(9, 30)" style="font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; cursor: pointer;">30 Sep</button>
+                                </div>
                             </div>
                         </div>
 
@@ -4722,6 +5345,37 @@
                         </div>
                     </div>
                 `;
+            }
+
+            updateFyeDate(val) {
+                if (!this.data.declaration) this.data.declaration = {};
+                if (!val) return;
+                const dt = new Date(val + 'T00:00:00');
+                if (!isNaN(dt.getTime())) {
+                    const day = dt.getDate();
+                    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                    const formattedFye = `${day} ${monthNames[dt.getMonth()]}`;
+                    this.data.declaration.fye = formattedFye;
+                    this.data.declaration.fyeDate = val;
+                    this.data.fye = formattedFye;
+                } else {
+                    this.data.declaration.fye = val;
+                    this.data.fye = val;
+                }
+                this.save();
+                const disp = document.getElementById('fye-selected-display');
+                if (disp) disp.innerHTML = `<span>🗓️ Annual FYE: <strong>${this.data.declaration.fye}</strong></span>`;
+                this.updateContinueButtonState();
+            }
+
+            setFyePreset(month, day) {
+                const curYear = new Date().getFullYear();
+                const mStr = String(month).padStart(2, '0');
+                const dStr = String(day).padStart(2, '0');
+                const val = `${curYear}-${mStr}-${dStr}`;
+                const inp = document.getElementById('declaration-fye-input');
+                if (inp) inp.value = val;
+                this.updateFyeDate(val);
             }
 
             handleDocUpload(event, entityType, index, docKey) {
@@ -4846,7 +5500,11 @@
                 if (!this.data.shareholders) this.data.shareholders = [];
                 if (!this.data.shareholders[index]) this.data.shareholders[index] = {};
                 this.data.shareholders[index][field] = value;
-                this.save();
+                if (field === 'shares') {
+                    this.calculateShareholderAllocations();
+                } else {
+                    this.save();
+                }
                 this.updateContinueButtonState();
             }
 
@@ -5257,12 +5915,26 @@
             updateRonsField(field, value) {
                 if (!this.data.rons) this.data.rons = { hasNominee: 'No', nomineeList: [] };
                 this.data.rons[field] = value;
+                if (!this.data.rons.nomineeList) this.data.rons.nomineeList = [];
+                if (!this.data.rons.nomineeList[0]) this.data.rons.nomineeList[0] = {};
+
+                if (field === 'nominatorName') this.data.rons.nomineeList[0].nominatorName = value;
+                if (field === 'nominatorId' || field === 'nominatorIdNumber') {
+                    this.data.rons.nominatorId = value;
+                    this.data.rons.nominatorIdNumber = value;
+                    this.data.rons.nomineeList[0].nominatorIdNumber = value;
+                }
+                if (field === 'nominatorEmail') this.data.rons.nomineeList[0].nominatorEmail = value;
+                if (field === 'nominatorPhone') this.data.rons.nomineeList[0].nominatorPhone = value;
+                if (field === 'nominatorAddress') this.data.rons.nomineeList[0].nominatorAddress = value;
+
                 if (field === 'hasNominee') {
                     if (value === 'Yes') {
-                        if (!this.data.rons.nomineeList || this.data.rons.nomineeList.length === 0) {
+                        if (this.data.rons.nomineeList.length === 0 || !this.data.rons.nomineeList[0].nomineeName) {
                             const nomSh = (this.data.shareholders || []).find(s => s.isNominee);
-                            this.data.rons.nomineeList = [{
-                                nomineeShareholderId: nomSh ? `sh_${this.data.shareholders.indexOf(nomSh)}` : '',
+                            const nomIdx = nomSh ? this.data.shareholders.indexOf(nomSh) : -1;
+                            this.data.rons.nomineeList[0] = {
+                                nomineeShareholderId: nomIdx >= 0 ? `sh_${nomIdx}` : '',
                                 nomineeName: nomSh ? nomSh.name : '',
                                 dateOfEntry: new Date().toISOString().split('T')[0],
                                 nomineeEmail: nomSh ? (nomSh.email || '') : '',
@@ -5277,8 +5949,15 @@
                                 nominatorPhone: this.data.rons.nominatorPhone || '',
                                 nominatorNotes: this.data.rons.nominatorNotes || '',
                                 docs: this.data.rons.docs || {}
-                            }];
+                            };
+                            if (nomIdx >= 0) this.data.rons.nomineeShareholderId = `sh_${nomIdx}`;
                         }
+                    } else {
+                        // Clear nominee flag on all shareholders
+                        if (this.data.shareholders && Array.isArray(this.data.shareholders)) {
+                            this.data.shareholders.forEach(s => s.isNominee = false);
+                        }
+                        this.data.rons.nomineeShareholderId = '';
                     }
                 }
                 this.save();
@@ -5297,9 +5976,11 @@
 
                 if (nomIdx === 0) {
                     if (field === 'nominatorName') this.data.rons.nominatorName = value;
-                    if (field === 'nominatorIdNumber') { this.data.rons.nominatorId = value; this.data.rons.nominatorIdNumber = value; }
+                    if (field === 'nominatorIdNumber' || field === 'nominatorId') { this.data.rons.nominatorId = value; this.data.rons.nominatorIdNumber = value; }
                     if (field === 'nominatorNationality') this.data.rons.nominatorNationality = value;
                     if (field === 'nominatorAddress') this.data.rons.nominatorAddress = value;
+                    if (field === 'nominatorEmail') this.data.rons.nominatorEmail = value;
+                    if (field === 'nominatorPhone') this.data.rons.nominatorPhone = value;
                     if (field === 'nominatorAliases') this.data.rons.nominatorAliases = value;
                     if (field === 'nominatorDob') this.data.rons.nominatorDob = value;
                     if (field === 'nominatorNotes') this.data.rons.nominatorNotes = value;
@@ -5314,18 +5995,27 @@
                 if (!this.data.rons.nomineeList[nomIdx]) this.data.rons.nomineeList[nomIdx] = {};
 
                 this.data.rons.nomineeList[nomIdx].nomineeShareholderId = shVal;
-                if (shVal && shVal.startsWith('sh_')) {
-                    const sIdx = parseInt(shVal.replace('sh_', ''));
-                    const sh = this.data.shareholders?.[sIdx];
-                    if (sh) {
-                        this.data.rons.nomineeList[nomIdx].nomineeName = sh.name || '';
-                        this.data.rons.nomineeList[nomIdx].nomineeEmail = sh.email || '';
-                        this.data.rons.nomineeList[nomIdx].nomineePhone = sh.phone || '';
-                        sh.isNominee = true;
-                    }
+                if (nomIdx === 0) {
+                    this.data.rons.nomineeShareholderId = shVal;
+                }
+
+                if (this.data.shareholders && Array.isArray(this.data.shareholders)) {
+                    this.data.shareholders.forEach((sh, idx) => {
+                        if (shVal === `sh_${idx}`) {
+                            sh.isNominee = true;
+                            this.data.rons.nomineeList[nomIdx].nomineeName = sh.name || '';
+                            this.data.rons.nomineeList[nomIdx].nomineeEmail = sh.email || '';
+                            this.data.rons.nomineeList[nomIdx].nomineePhone = sh.phone || '';
+                            if (nomIdx === 0) {
+                                this.data.rons.nomineeName = sh.name || '';
+                            }
+                        } else {
+                            sh.isNominee = false;
+                        }
+                    });
                 }
                 this.save();
-                this.render();
+                this.updateContinueButtonState();
             }
 
             addRonsNominee() {
@@ -5364,15 +6054,88 @@
                 }
             }
 
+            getTotalCapitalShares() {
+                let totalShares = 0;
+                if (this.data.capital?.currencies && Array.isArray(this.data.capital.currencies) && this.data.capital.currencies.length > 0) {
+                    this.data.capital.currencies.forEach(c => {
+                        totalShares += parseFloat(c.numberOfShares) || 0;
+                    });
+                }
+                if (!totalShares) totalShares = parseFloat(this.data.capital?.numShares) || 0;
+
+                let allocatedTotal = 0;
+                if (this.data.shareholders && Array.isArray(this.data.shareholders)) {
+                    this.data.shareholders.forEach(sh => {
+                        allocatedTotal += parseFloat(sh.shares) || 0;
+                    });
+                }
+                if (!totalShares || totalShares === 0) {
+                    totalShares = allocatedTotal;
+                }
+                return totalShares;
+            }
+
+            getTotalCapitalAmount() {
+                let totalCapital = 0;
+                if (this.data.capital?.currencies && Array.isArray(this.data.capital.currencies) && this.data.capital.currencies.length > 0) {
+                    this.data.capital.currencies.forEach(c => {
+                        totalCapital += parseFloat(c.shareCapitalAmount) || 0;
+                    });
+                }
+                if (!totalCapital) totalCapital = parseFloat(this.data.capital?.issued) || 0;
+
+                if (!totalCapital) {
+                    let allocatedCapital = 0;
+                    if (this.data.shareholders && Array.isArray(this.data.shareholders)) {
+                        this.data.shareholders.forEach(sh => {
+                            allocatedCapital += parseFloat(sh.shareAmount) || parseFloat(sh.shares) || 0;
+                        });
+                    }
+                    totalCapital = allocatedCapital;
+                }
+                return totalCapital;
+            }
+
+            formatOwnershipPct(shares, totalShares) {
+                const s = parseFloat(shares) || 0;
+                const t = parseFloat(totalShares) || 0;
+                if (t <= 0 || s <= 0) return '0%';
+                const raw = (s / t) * 100;
+                if (raw >= 100) return '100%';
+                if (raw < 0.1 && raw > 0) return parseFloat(raw.toFixed(2)) + '%';
+                if (raw < 1 && raw >= 0.1) return parseFloat(raw.toFixed(1)) + '%';
+                const rounded = Math.round(raw);
+                return (rounded === 0 && s > 0) ? (parseFloat(raw.toFixed(2)) + '%') : (rounded + '%');
+            }
+
             calculateShareholderAllocations() {
-                const totalShares = parseFloat(this.data.capital?.numShares) || 0;
-                const totalCapital = parseFloat(this.data.capital?.issued) || 0;
-                if (!this.data.shareholders) return;
-                this.data.shareholders.forEach(sh => {
+                const totalShares = this.getTotalCapitalShares();
+                const totalCapital = this.getTotalCapitalAmount();
+                if (totalShares > 0 && this.data.capital) this.data.capital.numShares = totalShares;
+                if (totalCapital > 0 && this.data.capital) this.data.capital.issued = totalCapital;
+
+                if (!this.data.shareholders || !Array.isArray(this.data.shareholders)) return;
+
+                this.data.shareholders.forEach((sh, idx) => {
                     const shares = parseFloat(sh.shares) || 0;
-                    sh.percent = totalShares > 0 ? Math.round((shares / totalShares) * 100) : 0;
-                    sh.shareAmount = totalShares > 0 ? Math.round((shares / totalShares) * totalCapital) : shares;
+                    const pctText = this.formatOwnershipPct(shares, totalShares);
+                    const pctNum = totalShares > 0 ? Math.min(100, Math.max(0, Math.round((shares / totalShares) * 100))) : 0;
+                    sh.percent = pctText;
+                    sh.percentNum = pctNum;
+                    sh.shareAmount = (totalShares > 0 && totalCapital > 0) ? Math.min(totalCapital, Math.round((shares / totalShares) * totalCapital)) : (parseFloat(sh.shareAmount) || shares);
+
+                    // Update live UI elements if currently rendered in DOM
+                    const pctDisplay = document.getElementById(`sh-ownership-pct-display-${idx}`);
+                    if (pctDisplay) pctDisplay.innerText = pctText;
+                    const pctBadge = document.getElementById(`sh-card-pct-badge-${idx}`);
+                    if (pctBadge) pctBadge.innerText = `${sh.type === 'corporate' ? 'Corporate' : 'Individual'} Shareholder • ${pctText} Ownership`;
+                    const shareAmountInput = document.getElementById(`sh-share-amount-input-${idx}`);
+                    if (shareAmountInput && document.activeElement !== shareAmountInput) {
+                        shareAmountInput.value = sh.shareAmount || '';
+                    }
                 });
+                this.syncAllUbos();
+                this.save();
             }
 
             removeDirector(index) {
@@ -5796,6 +6559,7 @@
                 }
 
                 const masterMap = new Map();
+                const totalShares = this.getTotalCapitalShares();
 
                 const addToMaster = (uboItem, sh, shIdx) => {
                     if (!uboItem || !uboItem.name || !uboItem.name.trim()) return;
@@ -5804,7 +6568,10 @@
                         : uboItem.name.trim().toLowerCase();
 
                     const shName = sh.name || (sh.type === 'corporate' ? 'Corporate Shareholder #' + (shIdx + 1) : 'Individual Shareholder #' + (shIdx + 1));
-                    const pct = parseFloat(sh.percent) || 0;
+                    const shShares = parseFloat(sh.shares) || 0;
+                    const pct = (totalShares > 0 && shShares > 0)
+                        ? Math.round((shShares / totalShares) * 100)
+                        : (parseFloat(sh.percent) || 0);
 
                     if (masterMap.has(key)) {
                         const existing = masterMap.get(key);
@@ -5822,7 +6589,7 @@
                             id: uboItem.id || `ubo_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
                             name: uboItem.name.trim(),
                             idNum: uboItem.idNum || uboItem.idNumber || '',
-                            nationality: uboItem.nationality || '',
+                            nationality: uboItem.nationality || 'Singaporean',
                             dob: uboItem.dob || '',
                             email: uboItem.email || '',
                             phone: uboItem.phone || uboItem.mobile || '',
@@ -5838,47 +6605,94 @@
 
                 this.data.shareholders.forEach((sh, idx) => {
                     if (!sh) return;
+                    const shShares = parseFloat(sh.shares) || 0;
+                    const pct = (totalShares > 0 && shShares > 0)
+                        ? Math.round((shShares / totalShares) * 100)
+                        : (parseFloat(sh.percent) || 0);
+
                     if (sh.type === 'individual') {
-                        if (sh.ubo === undefined || sh.ubo === null || sh.ubo === '') {
-                            sh.ubo = 'Yes';
-                        }
-                        if (sh.ubo === 'Yes') {
-                            addToMaster({
-                                name: sh.name,
-                                idNum: sh.idNum,
-                                nationality: sh.nationality,
-                                dob: sh.dob,
-                                email: sh.email,
-                                phone: sh.phone,
-                                addr: sh.addr,
-                                source: 'Direct Individual Shareholder'
-                            }, sh, idx);
-                        } else {
-                            const selected = Array.isArray(sh.selectedUbos) ? sh.selectedUbos : (Array.isArray(sh.ubos) ? sh.ubos : []);
-                            selected.forEach(u => addToMaster(u, sh, idx));
-                        }
+                        const indName = sh.name || ('Individual Shareholder #' + (idx + 1));
+                        addToMaster({
+                            name: indName,
+                            idNum: sh.idNum || '',
+                            nationality: sh.nationality || 'Singaporean',
+                            dob: sh.dob || '',
+                            email: sh.email || '',
+                            phone: sh.phone || '',
+                            addr: sh.addr || '',
+                            source: 'Direct Individual Shareholder'
+                        }, { ...sh, percent: pct }, idx);
                     } else {
                         // Corporate shareholder
-                        if (sh.ubo === undefined || sh.ubo === null || sh.ubo === '') {
-                            sh.ubo = (sh.rep && sh.rep.fullName) ? 'Yes' : 'No';
-                        }
-                        if (sh.ubo === 'Yes' && sh.rep && sh.rep.fullName) {
+                        const repName = sh.rep?.name || sh.rep?.fullName || '';
+                        const corpName = sh.name || ('Corporate Shareholder #' + (idx + 1));
+
+                        if (repName && repName.trim()) {
                             addToMaster({
-                                name: sh.rep.fullName,
-                                idNum: sh.rep.idNum,
-                                nationality: sh.rep.nationality,
-                                dob: sh.rep.dob || '',
-                                email: sh.rep.email,
-                                phone: sh.rep.phone || '',
+                                name: repName.trim(),
+                                idNum: sh.rep?.idNum || '',
+                                nationality: sh.rep?.nationality || 'Singaporean',
+                                dob: sh.rep?.dob || '',
+                                email: sh.rep?.email || '',
+                                phone: sh.rep?.phone || '',
                                 addr: sh.addr || '',
-                                source: 'Corporate Authorized Representative'
-                            }, sh, idx);
+                                source: `Representative for ${corpName}`
+                            }, { ...sh, percent: pct }, idx);
                         } else {
-                            const selected = Array.isArray(sh.selectedUbos) ? sh.selectedUbos : (Array.isArray(sh.ubos) ? sh.ubos : []);
-                            selected.forEach(u => addToMaster(u, sh, idx));
+                            // If representative name is not filled yet, register the corporate shareholder entity itself
+                            addToMaster({
+                                name: corpName,
+                                idNum: sh.idNum || sh.regNum || '',
+                                nationality: sh.nationality || 'Corporate Body',
+                                email: sh.email || '',
+                                phone: sh.phone || '',
+                                addr: sh.addr || '',
+                                source: 'Corporate Shareholder'
+                            }, { ...sh, percent: pct }, idx);
                         }
                     }
                 });
+
+                // Check RONS (Nominee Shareholder & Nominator)
+                if (this.data.rons && this.data.rons.hasNominee === 'Yes') {
+                    const nomList = (Array.isArray(this.data.rons.nomineeList) && this.data.rons.nomineeList.length > 0)
+                        ? this.data.rons.nomineeList
+                        : [{
+                            nominatorName: this.data.rons.nominatorName,
+                            nominatorIdNumber: this.data.rons.nominatorId || this.data.rons.nominatorIdNumber,
+                            nominatorNationality: this.data.rons.nominatorNationality,
+                            nominatorEmail: this.data.rons.nominatorEmail,
+                            nominatorPhone: this.data.rons.nominatorPhone,
+                            nominatorAddress: this.data.rons.nominatorAddress
+                        }];
+
+                    nomList.forEach((nom, nIdx) => {
+                        if (nom && nom.nominatorName && nom.nominatorName.trim()) {
+                            let nomPct = 0;
+                            if (nom.nomineeShareholderId && nom.nomineeShareholderId.startsWith('sh_')) {
+                                const sIdx = parseInt(nom.nomineeShareholderId.replace('sh_', ''));
+                                const sh = this.data.shareholders?.[sIdx];
+                                if (sh) nomPct = parseFloat(sh.percent) || 0;
+                            }
+                            if (!nomPct && this.data.shareholders) {
+                                const nomSh = this.data.shareholders.find(s => s.isNominee);
+                                if (nomSh) nomPct = parseFloat(nomSh.percent) || 0;
+                            }
+                            if (nomPct > 0) {
+                                addToMaster({
+                                    name: nom.nominatorName.trim(),
+                                    idNum: nom.nominatorIdNumber || nom.nominatorId || '',
+                                    nationality: nom.nominatorNationality || 'Singaporean',
+                                    dob: nom.nominatorDob || '',
+                                    email: nom.nominatorEmail || '',
+                                    phone: nom.nominatorPhone || '',
+                                    addr: nom.nominatorAddress || '',
+                                    source: 'RONS Nominator'
+                                }, { name: nom.nominatorName, percent: nomPct }, nIdx);
+                            }
+                        }
+                    });
+                }
 
                 // Preserve existing UBOs from migration or backend
                 if (Array.isArray(this.data.ubos)) {
@@ -8797,26 +9611,82 @@
 
                 this.updateProgressBar();
 
+                this.calculateShareholderAllocations();
+                this.syncAllUbos();
+
+                const totalCapitalShares = this.getTotalCapitalShares();
+                const totalCapitalAmount = this.getTotalCapitalAmount();
+                const currency = this.data.capital?.currency || 'SGD';
+                const shareholders = this.data.shareholders || [];
+
+                let allocatedShares = 0;
+                shareholders.forEach(sh => {
+                    allocatedShares += parseFloat(sh.shares) || 0;
+                });
+                const remainingShares = Math.max(0, totalCapitalShares - allocatedShares);
+                const allocatedPct = totalCapitalShares > 0 ? Math.min(100, Math.round((allocatedShares / totalCapitalShares) * 100)) : 0;
+                const remainingPct = Math.max(0, 100 - allocatedPct);
+
+                const ubos = this.data.ubos || [];
+
                 document.getElementById('wizard-body').innerHTML = `
                     <div style="text-align: center; padding: 3rem 1rem;">
                         <div style="font-size: 4rem; margin-bottom: 1.5rem;">🚀</div>
                         <h2 style="font-size: 2rem; font-weight: 800; color: var(--text-main);">Verification Ready</h2>
                         <p style="color: var(--text-muted); margin-bottom: 1.5rem;">All pre-registration details, shareholders, and ultimate beneficial owners are verified and ready.</p>
-                        ${(this.data.ubos && this.data.ubos.length > 0) ? `
-                            <div style="max-width: 500px; margin: 0 auto 1.75rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem; text-align: left;">
-                                <div style="font-size: 0.8rem; font-weight: 800; color: #1e293b; text-transform: uppercase; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
-                                    <span>🛡️ Verified Ultimate Beneficial Owners (${this.data.ubos.length})</span>
-                                </div>
-                                <div style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.8rem;">
-                                    ${this.data.ubos.map(u => `
-                                        <div style="display: flex; justify-content: space-between; color: #334155;">
-                                            <span style="font-weight: 600;">👤 ${u.name}</span>
-                                            <span style="color: #64748b;">${u.ownershipPct ? u.ownershipPct + '%' : 'Controller'} • ${u.nationality || 'Singaporean'}</span>
-                                        </div>
-                                    `).join('')}
-                                </div>
+                        
+                        <div style="max-width: 520px; margin: 0 auto 1.75rem; background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.25rem; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+                            
+                            <!-- UBOs Section -->
+                            <div style="font-size: 0.8rem; font-weight: 800; color: #1e293b; text-transform: uppercase; margin-bottom: 0.65rem; display: flex; align-items: center; justify-content: space-between;">
+                                <span style="display: flex; align-items: center; gap: 0.4rem;">🛡️ Verified Ultimate Beneficial Owners (${ubos.length})</span>
+                                <span style="font-size: 0.72rem; color: #2563eb; background: #eff6ff; padding: 2px 8px; border-radius: 6px; font-weight: 700;">ACRA RORC</span>
                             </div>
-                        ` : ''}
+                            
+                            <div style="display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.82rem; margin-bottom: 1rem; background: #f8fafc; border-radius: 10px; padding: 0.75rem; border: 1px solid #f1f5f9;">
+                                ${ubos.length > 0 ? ubos.map(u => `
+                                    <div style="display: flex; justify-content: space-between; align-items: center; color: #334155;">
+                                        <span style="font-weight: 700;">👤 ${u.name}</span>
+                                        <span style="color: #64748b; font-weight: 600;">${u.ownershipPct ? u.ownershipPct + '%' : 'Controller'} • ${u.nationality || 'Singaporean'}</span>
+                                    </div>
+                                `).join('') : `
+                                    <div style="color: #64748b; font-size: 0.8rem;">Auto-assigned to direct shareholders</div>
+                                `}
+                            </div>
+
+                            <!-- Share Capital & Allocation Breakdown -->
+                            <div style="font-size: 0.75rem; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between;">
+                                <span>Share Capital Allocation (${totalCapitalShares.toLocaleString()} Shares • ${currency})</span>
+                                <span style="font-size: 0.7rem; font-weight: 700; color: ${remainingPct === 0 ? '#16a34a' : '#d97706'};">
+                                    ${remainingPct === 0 ? '✓ 100% Allocated' : `${allocatedPct}% Allocated`}
+                                </span>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.8rem;">
+                                ${shareholders.map((sh, idx) => {
+                                    const shName = sh.name || (sh.type === 'corporate' ? `Corporate Shareholder #${idx+1}` : `Individual Shareholder #${idx+1}`);
+                                    const icon = sh.type === 'corporate' ? '🏢' : '👤';
+                                    const shShares = parseFloat(sh.shares) || 0;
+                                    const pct = this.formatOwnershipPct(shShares, totalCapitalShares);
+                                    return `
+                                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.3rem 0; border-bottom: 1px dashed #f1f5f9; color: #334155;">
+                                            <span style="font-weight: 600;">${icon} ${shName}</span>
+                                            <span style="font-weight: 700; color: #0f172a;">${pct} <span style="color: #94a3b8; font-weight: 500; font-size: 0.75rem;">(${shShares.toLocaleString()} shares)</span></span>
+                                        </div>
+                                    `;
+                                }).join('')}
+
+                                ${remainingPct > 0 ? `
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.6rem; margin-top: 0.25rem; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; color: #92400e;">
+                                        <span style="font-weight: 700; display: flex; align-items: center; gap: 0.3rem;">
+                                            <span>⚪</span> Remaining Unallocated Shares
+                                        </span>
+                                        <span style="font-weight: 800;">${remainingPct}% <span style="font-size: 0.75rem; font-weight: 600; color: #b45309;">(${remainingShares.toLocaleString()} shares)</span></span>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+
                         <button class="btn btn-primary" style="padding: 1rem 3rem;" onclick="wizard.submitVerification()">Submit for Verification</button>
                     </div>`;
                 document.getElementById('next-btn').style.display = 'none';
@@ -8830,24 +9700,34 @@
                 }
 
                 const token = localStorage.getItem('token') || '';
-                const isGuest = !token || token.startsWith('mock-guest-');
+                const isGuest = !token || token.startsWith('mock-');
 
-                if (token.startsWith('mock-') && !isGuest) {
-                    showToast("Submission successful! (Demo Mode)");
-                    lastKnownStatus = 'under review';
-                    this.renderAcknowledgmentReceipt({ applicationId: localStorage.getItem('application_id') || 'APP-2026-DEMO' });
-                    return;
+                // Ensure contact information is populated
+                if (!this.data.contact) this.data.contact = {};
+                let authObj = {};
+                try { authObj = JSON.parse(localStorage.getItem('client_auth') || '{}'); } catch(e) {}
+                if (!this.data.contact.email && authObj.email) this.data.contact.email = authObj.email;
+                if (!this.data.contact.firstName && authObj.name) {
+                    const parts = authObj.name.trim().split(' ');
+                    this.data.contact.firstName = parts[0] || 'Client';
+                    this.data.contact.lastName = parts.slice(1).join(' ') || '';
+                }
+                if (!this.data.contact.email) {
+                    this.data.contact.email = 'applicant@globalisor.com';
+                }
+                if (!this.data.contact.firstName) {
+                    this.data.contact.firstName = 'Applicant';
                 }
 
                 try {
                     let endpoint = '/api/requirements/submit';
-                    let headers = {};
-                    let body = undefined;
+                    let headers = {
+                        'Content-Type': 'application/json'
+                    };
+                    let body = JSON.stringify(this.data);
 
                     if (isGuest) {
                         endpoint = '/api/requirements/public/submit';
-                        headers['Content-Type'] = 'application/json';
-                        body = JSON.stringify(this.data);
                     } else {
                         headers['Authorization'] = 'Bearer ' + token;
                         // Pre-save to ensure the Requirement document exists
@@ -8860,22 +9740,37 @@
                                 },
                                 body: JSON.stringify(this.data)
                             });
-                            if (preSaveRes.status === 401) {
-                                localStorage.removeItem('token');
-                                localStorage.removeItem('client_auth');
-                                showToast("Session expired. Please click 'Submit' again to register as a guest.", "warning");
-                                return;
+                            if (preSaveRes.ok) {
+                                const preData = await preSaveRes.json();
+                                if (preData && preData.applicationId) {
+                                    this.data.applicationId = preData.applicationId;
+                                    body = JSON.stringify(this.data);
+                                }
+                            } else if (preSaveRes.status === 401) {
+                                endpoint = '/api/requirements/public/submit';
+                                delete headers['Authorization'];
                             }
                         } catch (e) {
                             console.error("Pre-saving requirements failed:", e);
                         }
                     }
 
-                    const res = await fetch(endpoint, {
+                    let res = await fetch(endpoint, {
                         method: 'POST',
                         headers: headers,
                         body: body
                     });
+
+                    // If authenticated submit fails for any reason, fallback to public submit immediately
+                    if (!res.ok && endpoint !== '/api/requirements/public/submit') {
+                        endpoint = '/api/requirements/public/submit';
+                        const pubHeaders = { 'Content-Type': 'application/json' };
+                        res = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: pubHeaders,
+                            body: JSON.stringify(this.data)
+                        });
+                    }
                     
                     if (res.ok) {
                         const response = await res.json();
