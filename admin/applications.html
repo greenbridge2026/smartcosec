@@ -459,10 +459,11 @@
         }
 
         async function fetchApplications() {
-            await loadStaffList();
             try {
-                const res = await fetch('/api/applications');
-                allApplications = await res.json();
+                const staffPromise = loadStaffList();
+                const appPromise = fetch('/api/applications').then(r => r.ok ? r.json() : []);
+                const [_, apps] = await Promise.all([staffPromise, appPromise]);
+                allApplications = apps || [];
                 
                 if (allApplications && Array.isArray(allApplications)) {
                     // Sort newest applications first
@@ -473,10 +474,10 @@
                         return String(b.id || b.rawId || '').localeCompare(String(a.id || a.rawId || ''));
                     });
 
-                    // Update tab counts
+                    // Update tab counts: All non-approved/non-rejected count as pending review
                     const pendingCount = allApplications.filter(a => {
-                        const s = (a.status || '').toLowerCase();
-                        return s.includes('pending') || s.includes('review') || s.includes('submitted');
+                        const s = (a.status || 'pending').toLowerCase();
+                        return !s.includes('approved') && !s.includes('completed') && !s.includes('rejected');
                     }).length;
                     
                     document.getElementById('badge-pending-count').innerText = pendingCount;
@@ -508,7 +509,7 @@
         window.filterApplications = function() {
             const statusFilter = document.getElementById('filter-status').value;
             const priorityFilter = document.getElementById('filter-priority').value;
-            const searchQuery = (document.getElementById('app-search-input')?.value || '').toLowerCase();
+            const searchQuery = (document.getElementById('app-search-input')?.value || '').toLowerCase().trim();
 
             const filtered = allApplications.filter((app, idx) => {
                 const s = (app.status || 'pending').toLowerCase();
@@ -516,7 +517,8 @@
 
                 // Tab Filter
                 if (activeTabFilter === 'pending') {
-                    if (!s.includes('pending') && !s.includes('review') && !s.includes('submitted')) return false;
+                    // Show everything that is NOT already approved or rejected
+                    if (s.includes('approved') || s.includes('completed') || s.includes('rejected')) return false;
                 } else if (activeTabFilter === 'approved') {
                     if (!s.includes('approved') && !s.includes('completed')) return false;
                 } else if (activeTabFilter === 'rejected') {
@@ -536,11 +538,11 @@
                 // Search query
                 if (searchQuery) {
                     const matchBusiness = (app.business || '').toLowerCase().includes(searchQuery);
-                    const matchClient = (app.client || '').toLowerCase().includes(searchQuery);
-                    const matchId = String(app.id || '').toLowerCase().includes(searchQuery);
+                    const matchId = String(app.id || app.rawId || '').toLowerCase().includes(searchQuery);
+                    const matchStaff = (app.staff || app.assignedStaffName || '').toLowerCase().includes(searchQuery);
                     const namesList = Array.isArray(app.data?.names) ? app.data.names.join(' ').toLowerCase() : '';
                     const matchNames = namesList.includes(searchQuery);
-                    if (!matchBusiness && !matchClient && !matchId && !matchNames) return false;
+                    if (!matchBusiness && !matchClient && !matchId && !matchStaff && !matchNames) return false;
                 }
 
                 return true;
@@ -595,10 +597,11 @@
 
                 const nameBadges = getNameBadges(app.data);
                 const appId = app.id || app.rawId;
+                const displayId = (app.id && app.id.startsWith('APP-')) ? app.id : ((app.id && app.id.startsWith('SRV-')) ? app.id.replace('SRV-', 'APP-') : (app.id || ('APP-' + String(idx + 101))));
 
                 return `
                 <tr class="hover:bg-slate-50/80 transition-colors group">
-                    <td class="px-6 py-4 font-bold text-blue-600 text-xs">APP-${String(idx + 101)}</td>
+                    <td class="px-6 py-4 font-bold text-blue-600 text-xs">${displayId}</td>
                     <td class="px-6 py-4">
                         <div class="font-bold text-slate-900 text-sm">${app.business || 'Singapore Pte Ltd'}</div>
                         <div class="text-[11px] text-slate-400">Incorporation Service</div>
