@@ -465,6 +465,14 @@
                 allApplications = await res.json();
                 
                 if (allApplications && Array.isArray(allApplications)) {
+                    // Sort newest applications first
+                    allApplications.sort((a, b) => {
+                        const tA = a.timestamp || (a.date ? new Date(a.date).getTime() : 0);
+                        const tB = b.timestamp || (b.date ? new Date(b.date).getTime() : 0);
+                        if (tB !== tA) return tB - tA;
+                        return String(b.id || b.rawId || '').localeCompare(String(a.id || a.rawId || ''));
+                    });
+
                     // Update tab counts
                     const pendingCount = allApplications.filter(a => {
                         const s = (a.status || '').toLowerCase();
@@ -530,7 +538,9 @@
                     const matchBusiness = (app.business || '').toLowerCase().includes(searchQuery);
                     const matchClient = (app.client || '').toLowerCase().includes(searchQuery);
                     const matchId = String(app.id || '').toLowerCase().includes(searchQuery);
-                    if (!matchBusiness && !matchClient && !matchId) return false;
+                    const namesList = Array.isArray(app.data?.names) ? app.data.names.join(' ').toLowerCase() : '';
+                    const matchNames = namesList.includes(searchQuery);
+                    if (!matchBusiness && !matchClient && !matchId && !matchNames) return false;
                 }
 
                 return true;
@@ -701,24 +711,105 @@
             const suffix = d.companySuffix || 'Pte. Ltd.';
 
             // SSIC & Activities
-            const priSsic = d.primarySsic || (typeof d.primaryActivity === 'object' ? d.primaryActivity : null) || {};
-            const secSsic = d.secondarySsic || (typeof d.secondaryActivity === 'object' ? d.secondaryActivity : null) || {};
-            const primaryTitle = (typeof d.primaryActivity === 'string' ? d.primaryActivity : '') || priSsic.title || priSsic.name || priSsic.description || d.activity || 'Not specified';
-            const primaryCode = priSsic.code || priSsic.ssic || (typeof d.primaryActivity === 'string' && d.primaryActivity.match(/^\d{5}/) ? d.primaryActivity.match(/^\d{5}/)[0] : '');
-            const primaryCustom = d.customPrimaryActivity || priSsic.customDescription || '';
+            const acts = (typeof d.activities === 'object' && d.activities !== null) ? d.activities : {};
+            const actsPrimary = Array.isArray(acts) ? acts[0] : (acts.primary || d['activities.primary'] || null);
+            const actsSecondary = Array.isArray(acts) ? acts[1] : (acts.secondary || d['activities.secondary'] || null);
 
-            const secondaryTitle = (typeof d.secondaryActivity === 'string' ? d.secondaryActivity : '') || secSsic.title || secSsic.name || secSsic.description || 'None';
-            const secondaryCode = secSsic.code || secSsic.ssic || (typeof d.secondaryActivity === 'string' && d.secondaryActivity.match(/^\d{5}/) ? d.secondaryActivity.match(/^\d{5}/)[0] : '');
-            const secondaryCustom = d.customSecondaryActivity || secSsic.customDescription || '';
+            const priSsic = (typeof actsPrimary === 'object' && actsPrimary !== null ? actsPrimary : null)
+                || (typeof d.primarySsic === 'object' && d.primarySsic !== null ? d.primarySsic : null)
+                || (typeof d.primaryActivity === 'object' && d.primaryActivity !== null ? d.primaryActivity : null)
+                || {};
+            const secSsic = (typeof actsSecondary === 'object' && actsSecondary !== null ? actsSecondary : null)
+                || (typeof d.secondarySsic === 'object' && d.secondarySsic !== null ? d.secondarySsic : null)
+                || (typeof d.secondaryActivity === 'object' && d.secondaryActivity !== null ? d.secondaryActivity : null)
+                || {};
+
+            const priString = (typeof actsPrimary === 'string' ? actsPrimary : '')
+                || (typeof d.primaryActivity === 'string' ? d.primaryActivity : '')
+                || (typeof d.primarySsic === 'string' ? d.primarySsic : '')
+                || (typeof d.activity === 'string' ? d.activity : '');
+            const secString = (typeof actsSecondary === 'string' ? actsSecondary : '')
+                || (typeof d.secondaryActivity === 'string' ? d.secondaryActivity : '')
+                || (typeof d.secondarySsic === 'string' ? d.secondarySsic : '');
+
+            const primaryCode = priSsic.code
+                || priSsic.ssic
+                || (priString.match(/^\d{5}/) ? priString.match(/^\d{5}/)[0] : '')
+                || '';
+
+            let primaryTitle = priSsic.name
+                || priSsic.title
+                || priSsic.description
+                || (priString ? priString.replace(/^\d{5}\s*[-–:]*\s*/, '') : '')
+                || '';
+            if (primaryCode && primaryTitle.startsWith(primaryCode)) {
+                primaryTitle = primaryTitle.substring(primaryCode.length).replace(/^[\s\-–:]+/, '').trim();
+            }
+            if (!primaryTitle && primaryCode) {
+                primaryTitle = priString || primaryCode;
+            }
+            if (!primaryTitle && !primaryCode) {
+                primaryTitle = 'Not specified';
+            }
+
+            const primaryCustom = d.customPrimaryActivity
+                || priSsic.customDescription
+                || (priSsic.description && priSsic.description !== priSsic.name && priSsic.description !== primaryTitle ? priSsic.description : '');
+
+            const secondaryCode = secSsic.code
+                || secSsic.ssic
+                || (secString.match(/^\d{5}/) ? secString.match(/^\d{5}/)[0] : '')
+                || '';
+
+            let secondaryTitle = secSsic.name
+                || secSsic.title
+                || secSsic.description
+                || (secString ? secString.replace(/^\d{5}\s*[-–:]*\s*/, '') : '')
+                || '';
+            if (secondaryCode && secondaryTitle.startsWith(secondaryCode)) {
+                secondaryTitle = secondaryTitle.substring(secondaryCode.length).replace(/^[\s\-–:]+/, '').trim();
+            }
+            if (!secondaryTitle && secondaryCode) {
+                secondaryTitle = secString || secondaryCode;
+            }
+            if (!secondaryTitle && !secondaryCode) {
+                secondaryTitle = 'None';
+            }
+
+            const secondaryCustom = d.customSecondaryActivity
+                || secSsic.customDescription
+                || (secSsic.description && secSsic.description !== secSsic.name && secSsic.description !== secondaryTitle ? secSsic.description : '');
 
             // Capital Structure
             const capitalObj = (typeof d.capital === 'object' && d.capital !== null) ? d.capital : {};
-            const currency = capitalObj.currency || 'SGD';
-            const issuedCapital = capitalObj.issued || capitalObj.shareCapital || d.shareCapital || 10000;
-            const totalShares = capitalObj.numShares || capitalObj.shares || d.totalShares || d.shares || 10000;
+            let currency = capitalObj.currency || 'SGD';
+            let totalShares = 0;
+            let totalCapitalAmount = 0;
+
+            if (Array.isArray(capitalObj.currencies) && capitalObj.currencies.length > 0) {
+                currency = capitalObj.currencies[0].currency || currency;
+                capitalObj.currencies.forEach(c => {
+                    totalShares += parseFloat(c.numberOfShares) || 0;
+                    totalCapitalAmount += parseFloat(c.shareCapitalAmount) || 0;
+                });
+            }
+            if (!totalShares) totalShares = parseFloat(capitalObj.numShares || capitalObj.shares || d.totalShares || d.shares || 0);
+            if (!totalCapitalAmount) totalCapitalAmount = parseFloat(capitalObj.issued || capitalObj.shareCapital || d.shareCapital || 0);
+
+            // Fallback to sum of shareholder shares if still 0
+            const rawShList = Array.isArray(d.shareholders) ? d.shareholders : [];
+            if (!totalShares && rawShList.length > 0) {
+                rawShList.forEach(sh => {
+                    totalShares += parseFloat(sh.shares) || 0;
+                });
+            }
+            if (!totalShares) totalShares = 10000;
+            if (!totalCapitalAmount) totalCapitalAmount = totalShares;
+
+            const issuedCapital = totalCapitalAmount;
             const paidUpCapital = capitalObj.paidUp || capitalObj.paidUpCapital || issuedCapital;
             const shareType = capitalObj.type || 'Ordinary';
-            const fye = d.fye || d.financialYearEnd || '31 December';
+            const fye = d.fye || d.declaration?.fye || d.financialYearEnd || '31 December';
 
             // Applicant Info
             const applicantName = `${contact.firstName || app.clientFirstName || ''} ${contact.lastName || app.clientLastName || ''}`.trim() || 'Applicant';
@@ -782,7 +873,7 @@
                                         <div class="text-[11px] text-slate-400 font-medium">${dir.gender || 'Gender N/A'} • DOB: ${dir.dob || 'N/A'}</div>
                                     </div>
                                 </div>
-                                <span class="px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold uppercase border border-blue-200/50">Director</span>
+                                <span class="px-2.5 py-0.5 ${dir.isNominee ? 'bg-purple-50 text-purple-700 border-purple-200/50' : 'bg-blue-50 text-blue-700 border-blue-200/50'} rounded-full text-[10px] font-bold uppercase border">${dir.isNominee ? 'Nominee Director' : 'Director'}</span>
                             </div>
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-slate-700">
                                 <div>
@@ -808,10 +899,13 @@
                                     <p class="font-medium text-slate-700 mt-0.5">${dir.addr || dir.address || '—'}</p>
                                 </div>
                                 <div>
-                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Disqualification Declaration</span>
-                                    <span class="inline-flex items-center gap-1 font-semibold text-emerald-700 text-xs mt-0.5">
-                                        ✓ ${dir.disqualificationAcknowledge !== false ? 'Confirmed not disqualified' : 'Pending'}
-                                    </span>
+                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Declarations & Status</span>
+                                    <div class="flex flex-col gap-0.5 mt-0.5">
+                                        <span class="inline-flex items-center gap-1 font-semibold text-emerald-700 text-xs">
+                                            ✓ ${dir.disqualificationAcknowledge !== false ? 'Confirmed not disqualified' : 'Pending'}
+                                        </span>
+                                        ${dir.isNominee ? `<span class="inline-flex items-center gap-1 font-semibold text-purple-700 text-xs">⚠️ Acting as Nominee Director</span>` : ''}
+                                    </div>
                                     ${dir.passportExpiry ? `<div class="text-[11px] text-slate-500 mt-0.5">Passport Expiry: <strong>${dir.passportExpiry}</strong></div>` : ''}
                                 </div>
                             </div>
@@ -854,6 +948,21 @@
                     const isCorp = sh.type === 'corporate';
                     const docs = sh.docs || {};
                     const docKeys = Object.keys(docs);
+                    const shShares = parseFloat(sh.shares) || 0;
+
+                    // Accurately compute ownership percentage and prevent out-of-sync or >100% bugs
+                    let effPct = 0;
+                    if (totalShares > 0 && shShares > 0) {
+                        effPct = Math.min(100, Math.max(0, Math.round((shShares / totalShares) * 100)));
+                    } else if (sh.percent !== undefined && sh.percent !== null && sh.percent !== '') {
+                        effPct = Math.min(100, Math.max(0, Math.round(parseFloat(sh.percent) || 0)));
+                    } else if (shareholders.length === 1) {
+                        effPct = 100;
+                    }
+                    const effPctStr = (typeof sh.percent === 'string' && sh.percent.includes('%') && (parseFloat(sh.percent) <= 100)) ? sh.percent : `${effPct}%`;
+
+                    const effShareAmount = sh.shareAmount ? Number(sh.shareAmount).toLocaleString() : (totalCapitalAmount > 0 && totalShares > 0 ? Number(Math.round((shShares / totalShares) * totalCapitalAmount)).toLocaleString() : Number(shShares).toLocaleString());
+
                     return `
                         <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
                             <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
@@ -868,18 +977,18 @@
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <span class="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold uppercase border border-emerald-200/50">
-                                        ${sh.percent || Math.round(((sh.shares || totalShares) / (totalShares || 1)) * 100)}% Ownership
+                                        ${effPctStr} Ownership
                                     </span>
                                 </div>
                             </div>
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-slate-700">
                                 <div>
                                     <span class="text-slate-400 block text-[10px] uppercase font-bold">Allocated Shares</span>
-                                    <strong>${Number(sh.shares || 0).toLocaleString()} Shares (${currency} ${Number(sh.shareAmount || sh.shares || 0).toLocaleString()})</strong>
+                                    <strong>${Number(shShares).toLocaleString()} Shares (${currency} ${effShareAmount})</strong>
                                 </div>
                                 <div>
                                     <span class="text-slate-400 block text-[10px] uppercase font-bold">Ownership Percentage</span>
-                                    <strong class="text-emerald-700">${sh.percent || 100}%</strong>
+                                    <strong class="text-emerald-700">${effPctStr}</strong>
                                 </div>
                                 <div>
                                     <span class="text-slate-400 block text-[10px] uppercase font-bold">Beneficial Owner (UBO)</span>
@@ -905,12 +1014,29 @@
                             ` : ''}
                             ${isCorp && sh.rep ? `
                                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Corporate Authorized Representative</span>
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Corporate Authorized Representative</span>
+                                        ${sh.rep.nationality ? `<span class="text-[10px] text-slate-500 font-medium">Nationality: ${sh.rep.nationality}</span>` : ''}
+                                    </div>
                                     <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
                                         <div><span class="text-slate-400 text-[10px]">Name:</span> <strong>${sh.rep.name || '—'}</strong></div>
-                                        <div><span class="text-slate-400 text-[10px]">ID:</span> <strong>${sh.rep.idNum || '—'}</strong></div>
+                                        <div><span class="text-slate-400 text-[10px]">ID / Passport:</span> <strong>${sh.rep.idNum || '—'}</strong></div>
                                         <div><span class="text-slate-400 text-[10px]">Email:</span> <strong>${sh.rep.email || '—'}</strong></div>
                                     </div>
+                                    ${sh.rep.docs && sh.rep.docs.idDoc && sh.rep.docs.idDoc.name ? `
+                                        <div class="mt-2 pt-2 border-t border-slate-200 flex items-center gap-2">
+                                            <span class="text-[10px] font-bold text-slate-400 uppercase">Rep ID Doc:</span>
+                                            <div class="inline-flex items-center rounded-lg border border-slate-200 bg-white overflow-hidden text-xs">
+                                                <button type="button" onclick="window.previewAppDoc('${sh.rep.docs.idDoc.data || ''}', '${sh.rep.docs.idDoc.name}')" class="inline-flex items-center gap-1.5 px-2.5 py-1 hover:bg-purple-50 text-slate-700 hover:text-purple-700 text-xs font-semibold transition-all">
+                                                    <i data-lucide="eye" class="w-3.5 h-3.5 text-purple-600"></i>
+                                                    <span>${sh.rep.docs.idDoc.name}</span>
+                                                </button>
+                                                <a href="${sh.rep.docs.idDoc.data || '#'}" download="${sh.rep.docs.idDoc.name}" target="_blank" title="Download" class="px-2 py-1 border-l border-slate-200 hover:bg-purple-100 text-slate-500 hover:text-purple-700 flex items-center justify-center">
+                                                    <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    ` : ''}
                                 </div>
                             ` : ''}
                             ${docKeys.length > 0 ? `
@@ -920,11 +1046,19 @@
                                         ${docKeys.map(k => {
                                             const doc = docs[k];
                                             if (!doc || !doc.name) return '';
+                                            const docTypeLabel = k === 'bizfile' ? 'ACRA Bizfile / Cert of Inc' :
+                                                                 (k === 'constitution' ? 'Company Constitution' :
+                                                                 (k === 'incumbency' ? 'Cert of Incumbency / Register' :
+                                                                 (k === 'boardResolution' ? 'Board Resolution' :
+                                                                 (k === 'nricFront' ? 'NRIC Front' :
+                                                                 (k === 'nricBack' ? 'NRIC Back' :
+                                                                 (k === 'passport' ? 'Passport Copy' :
+                                                                 (k === 'proofOfAddress' ? 'Proof of Address' : 'Document')))))));
                                             return `
                                                 <div class="inline-flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden shadow-xs hover:border-emerald-300 transition-all">
                                                     <button type="button" onclick="window.previewAppDoc('${doc.data || ''}', '${doc.name}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 text-xs font-semibold transition-all">
                                                         <i data-lucide="eye" class="w-3.5 h-3.5 text-emerald-600"></i>
-                                                        <span>${doc.name}</span>
+                                                        <span><span class="text-slate-400 font-medium">${docTypeLabel}:</span> ${doc.name}</span>
                                                         <span class="text-[10px] text-slate-400 font-mono">(${doc.size ? Math.round(doc.size/1024) + 'KB' : 'File'})</span>
                                                     </button>
                                                     <a href="${doc.data || '#'}" download="${doc.name || 'document'}" target="_blank" title="Download ${doc.name}" class="px-2.5 py-1.5 border-l border-slate-200 hover:bg-emerald-100 text-slate-500 hover:text-emerald-700 flex items-center justify-center transition-all">
@@ -1275,35 +1409,50 @@
                             <div class="font-bold text-slate-900 text-xs">
                                 ${rons.hasNominee === 'Yes' ? '⚠️ Nominee Shareholders Declared' : '✅ No Nominees (Direct Ownership)'}
                             </div>
-                            ${rons.hasNominee === 'Yes' && Array.isArray(rons.nomineeList) && rons.nomineeList.length > 0 ? `
-                                <div class="space-y-2 pt-2 border-t border-slate-100 text-xs">
-                                    ${rons.nomineeList.map((nom, ni) => `
-                                        <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-                                            <div class="flex justify-between font-bold text-slate-800">
-                                                <span>Nominee: ${nom.nomineeName || 'Shareholder'}</span>
-                                                <span class="text-blue-600 font-mono text-[11px]">${nom.dateOfEntry ? 'Entry: ' + nom.dateOfEntry : ''}</span>
-                                            </div>
-                                            <div class="text-[11px] text-slate-600">
-                                                <strong>Nominator:</strong> ${nom.nominatorName || '—'} ${nom.nominatorIdNumber ? '(' + nom.nominatorIdNumber + ')' : ''} • ${nom.nominatorNationality || 'Singaporean'}
-                                            </div>
-                                            ${nom.nominatorAddress ? `<div class="text-[10px] text-slate-400">Address: ${nom.nominatorAddress}</div>` : ''}
-                                            ${nom.docs && Object.keys(nom.docs).length > 0 ? `
-                                                <div class="flex flex-wrap gap-1.5 pt-1">
-                                                    ${Object.keys(nom.docs).map(dk => {
-                                                        const doc = nom.docs[dk];
-                                                        if (!doc || !doc.name) return '';
-                                                        return `
-                                                            <button type="button" onclick="window.previewAppDoc('${doc.data || ''}', '${doc.name}')" class="inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-slate-200 rounded text-[10px] text-slate-600 hover:text-blue-600">
-                                                                📄 ${doc.name}
-                                                            </button>
-                                                        `;
-                                                    }).join('')}
+                            ${rons.hasNominee === 'Yes' ? (() => {
+                                const list = (Array.isArray(rons.nomineeList) && rons.nomineeList.length > 0) ? rons.nomineeList : [{
+                                    nomineeName: rons.nomineeName || (shareholders.find(s => s.isNominee)?.name) || 'Nominee Shareholder',
+                                    nominatorName: rons.nominatorName || '—',
+                                    nominatorIdNumber: rons.nominatorId || rons.nominatorIdNumber || '',
+                                    nominatorEmail: rons.nominatorEmail || '',
+                                    nominatorPhone: rons.nominatorPhone || '',
+                                    nominatorAddress: rons.nominatorAddress || '',
+                                    docs: rons.docs || {}
+                                }];
+                                return `
+                                    <div class="space-y-2 pt-2 border-t border-slate-100 text-xs">
+                                        ${list.map((nom, ni) => `
+                                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                                                <div class="flex justify-between font-bold text-slate-800">
+                                                    <span>Nominee Shareholder: <strong class="text-purple-700">${nom.nomineeName || (shareholders.find(s => s.isNominee)?.name) || 'Selected Shareholder'}</strong></span>
+                                                    ${nom.dateOfEntry ? `<span class="text-blue-600 font-mono text-[11px]">Entry: ${nom.dateOfEntry}</span>` : ''}
                                                 </div>
-                                            ` : ''}
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            ` : '<p class="text-[11px] text-slate-400">All registered members hold shares on their own behalf.</p>'}
+                                                <div class="text-[11px] text-slate-700">
+                                                    <strong>Nominator:</strong> ${nom.nominatorName || rons.nominatorName || '—'} ${(nom.nominatorIdNumber || rons.nominatorId) ? '(' + (nom.nominatorIdNumber || rons.nominatorId) + ')' : ''}
+                                                </div>
+                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-1 text-[11px] text-slate-600 pt-1 border-t border-slate-200/60">
+                                                    <div><strong>Email:</strong> ${nom.nominatorEmail || rons.nominatorEmail || '—'}</div>
+                                                    <div><strong>Contact:</strong> ${nom.nominatorPhone || rons.nominatorPhone || '—'}</div>
+                                                </div>
+                                                ${(nom.nominatorAddress || rons.nominatorAddress) ? `<div class="text-[11px] text-slate-500"><strong>Address:</strong> ${nom.nominatorAddress || rons.nominatorAddress}</div>` : ''}
+                                                ${nom.docs && Object.keys(nom.docs).length > 0 ? `
+                                                    <div class="flex flex-wrap gap-1.5 pt-1">
+                                                        ${Object.keys(nom.docs).map(dk => {
+                                                            const doc = nom.docs[dk];
+                                                            if (!doc || !doc.name) return '';
+                                                            return `
+                                                                <button type="button" onclick="window.previewAppDoc('${doc.data || ''}', '${doc.name}')" class="inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-slate-200 rounded text-[10px] text-slate-600 hover:text-blue-600">
+                                                                    📄 ${doc.name}
+                                                                </button>
+                                                            `;
+                                                        }).join('')}
+                                                    </div>
+                                                ` : ''}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                `;
+                            })() : '<p class="text-[11px] text-slate-400">All registered members hold shares on their own behalf.</p>'}
                         </div>
                     </div>
                 </div>
