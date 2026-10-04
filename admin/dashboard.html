@@ -928,6 +928,62 @@
             `;
         }
 
+        function renderSmartDashboardLoader() {
+            return `
+                <div class="space-y-6">
+                    <div class="p-10 bg-white/80 backdrop-blur-md rounded-3xl border border-slate-200/80 shadow-sm text-center flex flex-col items-center justify-center my-3">
+                        <div class="relative w-20 h-20 mb-4 flex items-center justify-center">
+                            <div class="absolute inset-0 rounded-full bg-blue-500/15 blur-xl smart-pulse-node"></div>
+                            <div class="absolute inset-0 rounded-full border-2 border-dashed border-blue-500/40 smart-orbit-ring"></div>
+                            <div class="absolute inset-2 rounded-full border-2 border-indigo-500/60 border-t-transparent border-l-transparent smart-orbit-ring-fast"></div>
+                            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-500 shadow-lg shadow-blue-500/30 flex items-center justify-center text-white smart-pulse-node">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1.5 text-xs font-bold text-slate-700 tracking-wide uppercase font-outfit">
+                            <span>Synchronizing Executive Dashboard</span>
+                            <span class="inline-flex gap-0.5 text-blue-600 font-extrabold text-sm leading-none">
+                                <span class="smart-dot-1">.</span>
+                                <span class="smart-dot-2">.</span>
+                                <span class="smart-dot-3">.</span>
+                            </span>
+                        </div>
+                        <span class="text-[11px] font-medium text-slate-400 mt-1">Fetching live metrics, verification queues & compliance data</span>
+                    </div>
+
+                    <!-- 6 Skeleton KPI Cards Row -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 opacity-75">
+                        ${Array(6).fill(0).map(() => `
+                            <div class="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs space-y-2.5 animate-pulse">
+                                <div class="w-8 h-8 rounded-xl smart-shimmer"></div>
+                                <div class="h-5 w-16 smart-shimmer rounded"></div>
+                                <div class="h-3 w-20 smart-shimmer rounded"></div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <!-- 3 Skeleton Widgets Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 opacity-75">
+                        ${Array(3).fill(0).map(() => `
+                            <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-4 animate-pulse">
+                                <div class="flex justify-between items-center">
+                                    <div class="h-4 smart-shimmer rounded w-28"></div>
+                                    <div class="h-4 smart-shimmer rounded-full w-14"></div>
+                                </div>
+                                <div class="h-28 smart-shimmer rounded-xl w-full"></div>
+                                <div class="space-y-2">
+                                    <div class="h-3 smart-shimmer rounded w-3/4"></div>
+                                    <div class="h-3 smart-shimmer rounded w-1/2"></div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
         window.setStaffFilter = function(staff) {
             currentStaffFilter = staff || 'all';
             clientCurrentPage = 1;
@@ -1178,6 +1234,11 @@
                 }
 
                 if (view === 'dashboard') {
+                    if (!clientsData || clientsData.length === 0) {
+                        container.innerHTML = renderSmartDashboardLoader();
+                        if (window.lucide) lucide.createIcons();
+                    }
+                    await fetchDashboard();
                     // Render the full dashboard overview matching the screenshot
                     container.innerHTML = `
                         <div id="dashboard-home-view" class="space-y-6">
@@ -1672,7 +1733,6 @@
                             </div>
                         </div>
                     `;
-                    await fetchDashboard();
                     renderFullDashboardData();
                 } else {
                     container.innerHTML = `
