@@ -143,6 +143,46 @@
         .skeleton { background: linear-gradient(90deg, rgba(255,255,255,0.4) 25%, rgba(255,255,255,0.7) 50%, rgba(255,255,255,0.4) 75%); background-size: 200% 100%; animation: skeleton-loading 1.5s infinite; border-radius: 4px; }
         @keyframes skeleton-loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
+        /* --- SMART FUTURISTIC LOADERS --- */
+        @keyframes smartOrbit {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @keyframes smartOrbitReverse {
+            0% { transform: rotate(360deg); }
+            100% { transform: rotate(0deg); }
+        }
+        @keyframes smartPulseCore {
+            0%, 100% { transform: scale(0.92); opacity: 0.75; filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.7)); }
+            50% { transform: scale(1.08); opacity: 1; filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.95)); }
+        }
+        @keyframes smartShimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        @keyframes smartWaveText {
+            0%, 100% { opacity: 0.4; transform: translateY(0); }
+            50% { opacity: 1; transform: translateY(-3px); }
+        }
+
+        .smart-shimmer {
+            background: linear-gradient(90deg, #f8fafc 25%, #e2e8f0 50%, #f8fafc 75%);
+            background-size: 200% 100%;
+            animation: smartShimmer 1.5s infinite ease-in-out;
+        }
+        .smart-orbit-ring {
+            animation: smartOrbit 2.4s linear infinite;
+        }
+        .smart-orbit-ring-fast {
+            animation: smartOrbitReverse 1.4s linear infinite;
+        }
+        .smart-pulse-node {
+            animation: smartPulseCore 2s ease-in-out infinite;
+        }
+        .smart-dot-1 { animation: smartWaveText 1.4s infinite ease-in-out 0s; }
+        .smart-dot-2 { animation: smartWaveText 1.4s infinite ease-in-out 0.2s; }
+        .smart-dot-3 { animation: smartWaveText 1.4s infinite ease-in-out 0.4s; }
+
         .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 12px; font-weight: 600; transition: all 0.2s; cursor: pointer; border: none; }
         .btn-primary { background: #0f172a; color: white; }
         .btn-primary:hover { background: #1e293b; transform: scale(1.02); }
@@ -2044,21 +2084,44 @@
 
             if (!clientsData || clientsData.length === 0) {
                 grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4";
-                grid.innerHTML = Array(6).fill(0).map(() => `
-                    <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-4 animate-pulse">
-                        <div class="flex justify-between items-center">
-                            <div class="h-4 bg-slate-200 rounded w-24"></div>
-                            <div class="h-4 bg-slate-200 rounded-full w-12"></div>
+                grid.innerHTML = `
+                    <div class="col-span-1 md:col-span-2 lg:col-span-3 p-8 bg-white/80 backdrop-blur-md rounded-3xl border border-slate-200/80 shadow-sm text-center flex flex-col items-center justify-center my-2">
+                        <div class="relative w-20 h-20 mb-4 flex items-center justify-center">
+                            <div class="absolute inset-0 rounded-full bg-blue-500/15 blur-xl smart-pulse-node"></div>
+                            <div class="absolute inset-0 rounded-full border-2 border-dashed border-blue-500/40 smart-orbit-ring"></div>
+                            <div class="absolute inset-2 rounded-full border-2 border-indigo-500/60 border-t-transparent border-l-transparent smart-orbit-ring-fast"></div>
+                            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-500 shadow-lg shadow-blue-500/30 flex items-center justify-center text-white smart-pulse-node">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                                </svg>
+                            </div>
                         </div>
-                        <div class="h-6 bg-slate-200 rounded w-3/4"></div>
-                        <div class="h-4 bg-slate-100 rounded w-1/2"></div>
-                        <div class="h-10 bg-slate-100 rounded-xl w-full"></div>
-                        <div class="flex justify-between pt-2 border-t border-slate-100">
-                            <div class="h-3 bg-slate-100 rounded w-16"></div>
-                            <div class="h-3 bg-slate-100 rounded w-20"></div>
+                        <div class="flex items-center gap-1.5 text-xs font-bold text-slate-700 tracking-wide uppercase font-outfit">
+                            <span>Synchronizing Client Directory</span>
+                            <span class="inline-flex gap-0.5 text-blue-600 font-extrabold text-sm leading-none">
+                                <span class="smart-dot-1">.</span>
+                                <span class="smart-dot-2">.</span>
+                                <span class="smart-dot-3">.</span>
+                            </span>
                         </div>
+                        <span class="text-[11px] font-medium text-slate-400 mt-1">Fetching live client roster from server</span>
                     </div>
-                `).join('');
+                    ${Array(6).fill(0).map(() => `
+                        <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-4">
+                            <div class="flex justify-between items-center">
+                                <div class="h-4 smart-shimmer rounded w-24"></div>
+                                <div class="h-4 smart-shimmer rounded-full w-12"></div>
+                            </div>
+                            <div class="h-6 smart-shimmer rounded w-3/4"></div>
+                            <div class="h-4 smart-shimmer rounded w-1/2"></div>
+                            <div class="h-10 smart-shimmer rounded-xl w-full"></div>
+                            <div class="flex justify-between pt-2 border-t border-slate-100">
+                                <div class="h-3 smart-shimmer rounded w-16"></div>
+                                <div class="h-3 smart-shimmer rounded w-20"></div>
+                            </div>
+                        </div>
+                    `).join('')}
+                `;
                 return;
             }
             
@@ -4478,7 +4541,45 @@
             const searchVal = (document.getElementById('client-cred-search')?.value || '').trim();
             const tbody = document.getElementById('client-creds-table-body');
             if (tbody) {
-                tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-400 font-semibold animate-pulse">Loading clients page ${page}...</td></tr>`;
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="p-10 text-center">
+                            <div class="flex flex-col items-center justify-center py-6">
+                                <div class="relative w-18 h-18 mb-4 flex items-center justify-center">
+                                    <div class="absolute inset-0 rounded-full bg-blue-500/15 blur-xl smart-pulse-node"></div>
+                                    <div class="absolute inset-0 rounded-full border-2 border-dashed border-blue-500/40 smart-orbit-ring"></div>
+                                    <div class="absolute inset-2 rounded-full border-2 border-indigo-500/60 border-t-transparent border-l-transparent smart-orbit-ring-fast"></div>
+                                    <div class="w-9 h-9 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-500 shadow-lg shadow-blue-500/30 flex items-center justify-center text-white smart-pulse-node">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-1.5 text-xs font-bold text-slate-700 tracking-wide uppercase font-outfit">
+                                    <span>Retrieving Client Credentials (Page ${page})</span>
+                                    <span class="inline-flex gap-0.5 text-blue-600 font-extrabold text-sm leading-none">
+                                        <span class="smart-dot-1">.</span>
+                                        <span class="smart-dot-2">.</span>
+                                        <span class="smart-dot-3">.</span>
+                                    </span>
+                                </div>
+                                <span class="text-[11px] font-medium text-slate-400 mt-1">Decrypting secure portal access credentials</span>
+                            </div>
+                        </td>
+                    </tr>
+                    ${[1, 2, 3].map(() => `
+                        <tr class="animate-pulse">
+                            <td class="p-3.5"><div class="h-4 w-12 rounded smart-shimmer"></div></td>
+                            <td class="p-3.5"><div class="h-4 w-32 rounded smart-shimmer mb-1"></div><div class="h-3 w-20 rounded smart-shimmer"></div></td>
+                            <td class="p-3.5"><div class="h-4 w-40 rounded smart-shimmer"></div></td>
+                            <td class="p-3.5"><div class="h-4 w-28 rounded smart-shimmer"></div></td>
+                            <td class="p-3.5"><div class="h-4 w-24 rounded smart-shimmer"></div></td>
+                            <td class="p-3.5"><div class="h-6 w-24 rounded-full smart-shimmer"></div></td>
+                            <td class="p-3.5"><div class="h-6 w-20 rounded-full smart-shimmer"></div></td>
+                            <td class="p-3.5 text-right"><div class="h-8 w-20 rounded-xl smart-shimmer ml-auto"></div></td>
+                        </tr>
+                    `).join('')}
+                `;
             }
 
             try {
