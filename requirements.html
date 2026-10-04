@@ -24,7 +24,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/style.css">
+    <!-- PDF.js for parsing PDF documents -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <!-- Tesseract.js for browser-based OCR (deferred for fast page paint) -->
     <script defer src="https://unpkg.com/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
     <style>
@@ -5750,12 +5751,48 @@
                 reader.readAsDataURL(file);
             }
 
-            async triggerDocOcrExtraction(file, entityType, index, docKey) {
-                if (typeof Tesseract === 'undefined') {
-                    console.warn('[OCR] Tesseract.js not loaded yet.');
-                    return;
+            _normalizeToIsoDate(str) {
+                if (!str) return '';
+                str = String(str).trim();
+                if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+                const months = {
+                    jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+                    jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+                };
+
+                // Match DD MMM YYYY or DD-MMM-YYYY e.g. "20 JUL 1989" or "20-Jul-1989"
+                const textMonthMatch = str.match(/^(\d{1,2})[\s\-\/\.]([A-Za-z]{3,9})[\s\-\/\.](\d{4})$/);
+                if (textMonthMatch) {
+                    const day = textMonthMatch[1].padStart(2, '0');
+                    const mKey = textMonthMatch[2].substring(0, 3).toLowerCase();
+                    const month = months[mKey] || '01';
+                    const year = textMonthMatch[3];
+                    return `${year}-${month}-${day}`;
                 }
 
+                // Match DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY e.g. "20/07/1989"
+                const dmyMatch = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+                if (dmyMatch) {
+                    const day = dmyMatch[1].padStart(2, '0');
+                    const month = dmyMatch[2].padStart(2, '0');
+                    const year = dmyMatch[3];
+                    return `${year}-${month}-${day}`;
+                }
+
+                // Match YYYY/MM/DD
+                const ymdMatch = str.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
+                if (ymdMatch) {
+                    const year = ymdMatch[1];
+                    const month = ymdMatch[2].padStart(2, '0');
+                    const day = ymdMatch[3].padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                }
+
+                return str;
+            }
+
+            async triggerDocOcrExtraction(file, entityType, index, docKey) {
                 // Map docKey & entityType to docType
                 let docType = 'nric';
                 let targetObj = null;
@@ -5780,22 +5817,70 @@
                 showToast(`⚡ Scanning ${file.name} with OCR...`, "info");
 
                 try {
-                    let fileUrl = URL.createObjectURL(file);
-                    const result = await Tesseract.recognize(fileUrl, 'eng');
-                    URL.revokeObjectURL(fileUrl);
+                    let rawText = "";
+                    let ocrConfidence = 0.85;
+                    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
-                    if (!result || !result.data || !result.data.text) return;
-                    const rawText = result.data.text;
-                    const ocrConfidence = (result.data.confidence || 60) / 100;
+                    if (isPdf && window.pdfjsLib) {
+                        try {
+                            if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+                                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                            }
+                            const arrayBuffer = await file.arrayBuffer();
+                            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+                            const pdfDoc = await loadingTask.promise;
+                            
+                            // Try digital text extraction first
+                            for (let i = 1; i <= Math.min(pdfDoc.numPages, 3); i++) {
+                                const page = await pdfDoc.getPage(i);
+                                const textContent = await page.getTextContent();
+                                const pageText = textContent.items.map(item => item.str).join(" ");
+                                rawText += pageText + "\n";
+                            }
+
+                            // If PDF has no extractable digital text (scanned image inside PDF), render page 1 to canvas and run Tesseract
+                            if (rawText.trim().length < 20 && typeof Tesseract !== 'undefined') {
+                                const page = await pdfDoc.getPage(1);
+                                const viewport = page.getViewport({ scale: 2.0 });
+                                const canvas = document.createElement('canvas');
+                                canvas.width = viewport.width;
+                                canvas.height = viewport.height;
+                                const ctx = canvas.getContext('2d');
+                                await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                                const result = await Tesseract.recognize(canvas, 'eng');
+                                if (result && result.data) {
+                                    rawText = result.data.text || '';
+                                    ocrConfidence = (result.data.confidence || 60) / 100;
+                                }
+                            }
+                        } catch (pdfErr) {
+                            console.warn('[PDF] Error extracting text:', pdfErr);
+                        }
+                    } else if (!isPdf && typeof Tesseract !== 'undefined') {
+                        let fileUrl = URL.createObjectURL(file);
+                        try {
+                            const result = await Tesseract.recognize(fileUrl, 'eng');
+                            if (result && result.data) {
+                                rawText = result.data.text || '';
+                                ocrConfidence = (result.data.confidence || 60) / 100;
+                            }
+                        } finally {
+                            URL.revokeObjectURL(fileUrl);
+                        }
+                    }
+
+                    if (!rawText || rawText.trim().length === 0) return;
+
                     const extracted = this._extractFieldsByDocType(rawText, docType);
 
                     // Check if anything was extracted; if not and was nric, try passport fallback
                     let numFound = Object.values(extracted).filter(v => v && v.value).length;
-                    if (numFound === 0 && docType === 'nric') {
-                        const fallbackExtracted = this._extractFieldsByDocType(rawText, 'passport');
+                    if (numFound === 0 && (docType === 'nric' || docType === 'passport')) {
+                        const fallbackType = docType === 'nric' ? 'passport' : 'nric';
+                        const fallbackExtracted = this._extractFieldsByDocType(rawText, fallbackType);
                         if (Object.values(fallbackExtracted).filter(v => v && v.value).length > 0) {
                             Object.assign(extracted, fallbackExtracted);
-                            docType = 'passport';
+                            docType = fallbackType;
                         }
                     }
 
@@ -5816,7 +5901,7 @@
                             updatedFields.push('Passport No');
                         }
                         if (extracted['Date of Birth'] && extracted['Date of Birth'].value && (!targetObj.dob || targetObj.dob.trim() === '')) {
-                            targetObj.dob = extracted['Date of Birth'].value;
+                            targetObj.dob = this._normalizeToIsoDate(extracted['Date of Birth'].value);
                             updatedFields.push('DOB');
                         }
                         if (extracted['Nationality'] && extracted['Nationality'].value && (!targetObj.nationality || targetObj.nationality.trim() === '')) {
@@ -5828,7 +5913,7 @@
                             updatedFields.push('Gender');
                         }
                         if (extracted['Expiry Date'] && extracted['Expiry Date'].value && (!targetObj.passportExpiry || targetObj.passportExpiry.trim() === '')) {
-                            targetObj.passportExpiry = extracted['Expiry Date'].value;
+                            targetObj.passportExpiry = this._normalizeToIsoDate(extracted['Expiry Date'].value);
                         }
                         if (extracted['Residential Address'] && extracted['Residential Address'].value && (!targetObj.addr || targetObj.addr.trim() === '')) {
                             targetObj.addr = extracted['Residential Address'].value;
@@ -5851,7 +5936,7 @@
                             updatedFields.push('Reg No');
                         }
                         if (extracted['Incorporation Date'] && extracted['Incorporation Date'].value && (!targetObj.incDate || targetObj.incDate.trim() === '')) {
-                            targetObj.incDate = extracted['Incorporation Date'].value;
+                            targetObj.incDate = this._normalizeToIsoDate(extracted['Incorporation Date'].value);
                             updatedFields.push('Incorp Date');
                         }
                         if (extracted['Registered Address'] && extracted['Registered Address'].value && (!targetObj.addr || targetObj.addr.trim() === '')) {
@@ -9551,14 +9636,11 @@
                 const t = text;
                 const extracted = {};
                 const conf = (value, c) => ({ value: value ? value.trim() : '', confidence: c });
-
-                // Helper patterns
-                const findPattern = (patterns, fallbackConf = 0.6) => {
-                    for (const { re, conf: c } of patterns) {
-                        const m = t.match(re);
-                        if (m && m[1] && m[1].trim().length > 1) return { value: m[1].trim(), confidence: c };
-                    }
-                    return null;
+                const countryCodeMap = {
+                    IND: 'Indian', SGP: 'Singaporean', MYS: 'Malaysian', CHN: 'Chinese',
+                    USA: 'American', GBR: 'British', AUS: 'Australian', CAN: 'Canadian',
+                    IDN: 'Indonesian', PHL: 'Filipino', VNM: 'Vietnamese', THA: 'Thai',
+                    JPN: 'Japanese', KOR: 'South Korean', DEU: 'German', FRA: 'French'
                 };
 
                 if (docType === 'nric' || docType === 'fin') {
@@ -9566,42 +9648,88 @@
                     const nricMatch = t.match(/([STFGM]\d{7}[A-Z])/i);
                     if (nricMatch) extracted['NRIC / FIN Number'] = conf(nricMatch[1].toUpperCase(), 0.95);
 
-                    const nameMatch = t.match(/(?:name|full name)[:\s]+([A-Z][A-Z '\-]+(?:\s[A-Z]+){1,4})/i);
-                    if (nameMatch) extracted['Full Name'] = conf(nameMatch[1], 0.85);
-
-                    const dobMatch = t.match(/(\d{2}[\/-]\d{2}[\/-]\d{4}|\d{4}[\/-]\d{2}[\/-]\d{2})/i);
-                    if (dobMatch) extracted['Date of Birth'] = conf(dobMatch[1], 0.8);
-
-                    const sexMatch = t.match(/(?:sex|gender)[:\s]*(MALE|FEMALE|M|F)/i);
-                    if (sexMatch) extracted['Gender'] = conf(sexMatch[1].toLowerCase().startsWith('m') ? 'Male' : 'Female', 0.9);
-
-                    const nationMatch = t.match(/(?:nationality|race|citizenship)[:\s]+([A-Z][A-Za-z]+(?:\s[A-Za-z]+)?)/i);
-                    if (nationMatch) extracted['Nationality'] = conf(nationMatch[1], 0.75);
-
-                } else if (docType === 'passport') {
-                    // Passport MRZ pattern: P<COUNTRY<SURNAME<<GIVEN
-                    const mrzMatch = t.match(/P<([A-Z]{3})<([A-Z]+)<<([A-Z]+(?:<[A-Z]+)*)/);
-                    if (mrzMatch) {
-                        const surname = mrzMatch[2];
-                        const given = mrzMatch[3].replace(/<+/g, ' ').trim();
-                        extracted['Full Name'] = conf(`${given} ${surname}`, 0.95);
-                        extracted['Nationality'] = conf(mrzMatch[1], 0.9);
-                    } else {
-                        const nameMatch = t.match(/(?:surname|given name|full name)[:\s]+([A-Z][A-Za-z '\-]+)/i);
-                        if (nameMatch) extracted['Full Name'] = conf(nameMatch[1], 0.75);
+                    // Name on Singapore NRIC
+                    const nameMatch = t.match(/Name\s*\n\s*([^\n\r]+)/i) || t.match(/(?:name|full name)[:\s]+([A-Z][A-Z '\-]+(?:\s[A-Z]+)*)/i);
+                    if (nameMatch) {
+                        let n = nameMatch[1].split(/\n|\r/)[0].trim();
+                        n = n.replace(/\s*(?:Race|Sex|Date|Country).*$/i, '').trim();
+                        n = n.replace(/[^A-Za-z '\-]/g, ' ').replace(/\s+/g, ' ').trim();
+                        if (n.length > 2 && !/^(REPUBLIC|IDENTITY|SINGAPORE|CARD)/i.test(n)) {
+                            extracted['Full Name'] = conf(n, 0.9);
+                        }
                     }
 
-                    const ppMatch = t.match(/(?:passport no|document no|no\.)[:\s]*([A-Z]{1,2}\d{6,8})/i) || t.match(/([A-Z]{1,2}\d{7})/);
-                    if (ppMatch) extracted['Passport Number'] = conf(ppMatch[1], 0.9);
+                    const dobMatch = t.match(/(?:date of birth|birth)[:\s\n]*(\d{2}[\/-]\d{2}[\/-]\d{4}|\d{4}[\/-]\d{2}[\/-]\d{2})/i) || t.match(/(\d{2}[\/-]\d{2}[\/-]\d{4})/);
+                    if (dobMatch) extracted['Date of Birth'] = conf(this._normalizeToIsoDate(dobMatch[1]), 0.85);
 
-                    const dobMatch = t.match(/(?:date of birth|birth)[:\s]*(\d{2}\s[A-Z]{3}\s\d{4}|\d{2}[\/-]\d{2}[\/-]\d{4}|\d{4}[\/-]\d{2}[\/-]\d{2})/i);
-                    if (dobMatch) extracted['Date of Birth'] = conf(dobMatch[1], 0.85);
+                    const sexMatch = t.match(/(?:sex|gender)[:\s\n]*([MF]|MALE|FEMALE)/i);
+                    if (sexMatch) extracted['Gender'] = conf(sexMatch[1].toLowerCase().startsWith('m') ? 'Male' : 'Female', 0.9);
 
-                    const expiryMatch = t.match(/(?:date of expiry|expiry|expiration|expires?)[:\s]*(\d{2}\s[A-Z]{3}\s\d{4}|\d{2}[\/-]\d{2}[\/-]\d{4})/i);
-                    if (expiryMatch) extracted['Expiry Date'] = conf(expiryMatch[1], 0.85);
+                    const nationMatch = t.match(/(?:race|nationality|citizenship)[:\s\n]+([A-Za-z]+)/i);
+                    if (nationMatch) extracted['Nationality'] = conf(nationMatch[1], 0.75);
 
-                    const nationMatch = t.match(/(?:nationality)[:\s]+([A-Z][A-Za-z]+(?:\s[A-Za-z]+)?)/i);
-                    if (nationMatch && !extracted['Nationality']) extracted['Nationality'] = conf(nationMatch[1], 0.8);
+                    // Residential Address on back of NRIC
+                    const addrMatch = t.match(/((?:APT\s+)?BLK\s+[\d\w\s#\-]+(?:\n[^\n]+)?SINGAPORE\s*\d{6})/i) || t.match(/(BLK\s+[^\n]+(?:\n[^\n]+)?)/i);
+                    if (addrMatch) extracted['Residential Address'] = conf(addrMatch[1].replace(/\s+/g, ' ').trim(), 0.85);
+
+                    const postalMatch = t.match(/SINGAPORE\s*(\d{6})/i) || t.match(/(\d{6})/);
+                    if (postalMatch) extracted['Postal Code'] = conf(postalMatch[1], 0.9);
+
+                } else if (docType === 'passport') {
+                    // 1. Passport MRZ Line 1: P<COUNTRY<SURNAME<<GIVEN or P<COUNTRYSURNAME<<GIVEN
+                    const mrz1 = t.match(/P<([A-Z]{3})<?([A-Z0-9]+?)<<([A-Z0-9<]+)/);
+                    if (mrz1) {
+                        const surname = mrz1[2].replace(/<+/g, ' ').trim();
+                        const given = mrz1[3].replace(/<+/g, ' ').trim();
+                        extracted['Full Name'] = conf(`${given} ${surname}`.trim(), 0.95);
+                        const cCode = mrz1[1].toUpperCase();
+                        extracted['Nationality'] = conf(countryCodeMap[cCode] || cCode, 0.9);
+                    }
+
+                    // 2. Passport MRZ Line 2: PassportNo, Check, Nat, DOB, Check, Sex, Expiry, Check
+                    const mrz2 = t.match(/([A-Z0-9]{8,9})<(\d)([A-Z]{3})(\d{2})(\d{2})(\d{2})(\d)([MF<])(\d{2})(\d{2})(\d{2})/);
+                    if (mrz2) {
+                        extracted['Passport Number'] = conf(mrz2[1], 0.95);
+                        const cCode = mrz2[3].toUpperCase();
+                        extracted['Nationality'] = conf(countryCodeMap[cCode] || cCode, 0.95);
+                        const yy = parseInt(mrz2[4]);
+                        const fullY = yy > 40 ? 1900 + yy : 2000 + yy;
+                        extracted['Date of Birth'] = conf(`${fullY}-${mrz2[5]}-${mrz2[6]}`, 0.95);
+                        extracted['Gender'] = conf(mrz2[8] === 'F' ? 'Female' : 'Male', 0.95);
+                        const expY = 2000 + parseInt(mrz2[9]);
+                        extracted['Expiry Date'] = conf(`${expY}-${mrz2[10]}-${mrz2[11]}`, 0.95);
+                    }
+
+                    // 3. Visual Fields Fallback
+                    if (!extracted['Passport Number']) {
+                        const ppMatch = t.match(/(?:passport no|document no|no\.)[:\s]*([A-Z0-9]{8,9})/i);
+                        if (ppMatch) extracted['Passport Number'] = conf(ppMatch[1], 0.9);
+                    }
+                    if (!extracted['Full Name']) {
+                        const sur = t.match(/Surname[:\s\n]+([A-Za-z '\-]+)/i);
+                        const giv = t.match(/Given Name[^\n]*[:\s\n]+([A-Za-z '\-]+)/i);
+                        if (sur && giv) extracted['Full Name'] = conf(giv[1].trim() + ' ' + sur[1].trim(), 0.9);
+                        else {
+                            const nameMatch = t.match(/(?:surname|given name|full name)[:\s]+([A-Z][A-Za-z '\-]+)/i);
+                            if (nameMatch) extracted['Full Name'] = conf(nameMatch[1], 0.75);
+                        }
+                    }
+                    if (!extracted['Date of Birth']) {
+                        const dobMatch = t.match(/(?:date of birth|birth)[:\s\n]*(\d{2}[\/-]\d{2}[\/-]\d{4}|\d{4}[\/-]\d{2}[\/-]\d{2})/i);
+                        if (dobMatch) extracted['Date of Birth'] = conf(this._normalizeToIsoDate(dobMatch[1]), 0.85);
+                    }
+                    if (!extracted['Expiry Date']) {
+                        const expMatch = t.match(/(?:date of expiry|expiry|expiration)[:\s\n]*(\d{2}[\/-]\d{2}[\/-]\d{4})/i);
+                        if (expMatch) extracted['Expiry Date'] = conf(this._normalizeToIsoDate(expMatch[1]), 0.85);
+                    }
+                    if (!extracted['Gender']) {
+                        const sexMatch = t.match(/(?:sex|gender)[:\s\n]*([MF]|MALE|FEMALE)/i);
+                        if (sexMatch) extracted['Gender'] = conf(sexMatch[1].toLowerCase().startsWith('m') ? 'Male' : 'Female', 0.9);
+                    }
+                    if (!extracted['Nationality']) {
+                        const natMatch = t.match(/(?:nationality)[:\s\n]+([A-Za-z]+)/i);
+                        if (natMatch) extracted['Nationality'] = conf(natMatch[1], 0.8);
+                    }
 
                 } else if (docType === 'address_proof') {
                     const postalMatch = t.match(/(?:postal|zip|postcode)[:\s]*(\d{5,6})/i) || t.match(/(\d{6})/);
@@ -9622,7 +9750,7 @@
                     if (coNameMatch) extracted['Company Name'] = conf(coNameMatch[1].trim(), 0.85);
 
                     const incDateMatch = t.match(/(?:date of incorporation|registration date|incorporated)[:\s]*(\d{2}[\/-]\d{2}[\/-]\d{4}|\d{4}[\/-]\d{2}[\/-]\d{2})/i);
-                    if (incDateMatch) extracted['Incorporation Date'] = conf(incDateMatch[1], 0.85);
+                    if (incDateMatch) extracted['Incorporation Date'] = conf(this._normalizeToIsoDate(incDateMatch[1]), 0.85);
 
                     const addrMatch = t.match(/(?:registered address|principal office)[:\s]+([^\n]{10,80})/i);
                     if (addrMatch) extracted['Registered Address'] = conf(addrMatch[1].trim(), 0.75);
@@ -9642,7 +9770,7 @@
                     else if (t.toLowerCase().includes('singapore')) extracted['Country of Incorporation'] = conf('Singapore', 0.85);
 
                     const dateMatch = t.match(/(?:date of incorporation|incorporated on|incorporated)[:\s]*(\d{2}\s[A-Za-z]+\s\d{4}|\d{2}[\/-]\d{2}[\/-]\d{4})/i);
-                    if (dateMatch) extracted['Incorporation Date'] = conf(dateMatch[1], 0.85);
+                    if (dateMatch) extracted['Incorporation Date'] = conf(this._normalizeToIsoDate(dateMatch[1]), 0.85);
 
                 } else {
                     // Generic: extract key-value pairs
