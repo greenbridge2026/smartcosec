@@ -27,8 +27,8 @@
     <link rel="stylesheet" href="/style.css">
     <!-- PDF.js for parsing PDF documents -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <!-- Tesseract.js for browser-based OCR (deferred for fast page paint) -->
-    <script defer src="https://unpkg.com/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
+    <!-- Tesseract.js for browser-based OCR -->
+    <script src="https://unpkg.com/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
     <style>
         :root {
             --brand-primary: #298486;
@@ -5508,34 +5508,57 @@
 
                     if (isPdf && window.pdfjsLib) {
                         try {
-                            if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-                                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-                            }
-                            const arrayBuffer = await file.arrayBuffer();
-                            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-                            const pdfDoc = await loadingTask.promise;
-                            
-                            // Try digital text extraction first
-                            for (let i = 1; i <= Math.min(pdfDoc.numPages, 3); i++) {
-                                const page = await pdfDoc.getPage(i);
-                                const textContent = await page.getTextContent();
-                                const pageText = textContent.items.map(item => item.str).join(" ");
-                                rawText += pageText + "\n";
-                            }
+                            const pdfLib = window.pdfjsLib || window['pdfjs-dist/build/pdf'];
+                            if (pdfLib) {
+                                if (!pdfLib.GlobalWorkerOptions.workerSrc) {
+                                    pdfLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                                }
+                                const arrayBuffer = await file.arrayBuffer();
+                                const loadingTask = pdfLib.getDocument({ data: new Uint8Array(arrayBuffer) });
+                                const pdfDoc = await loadingTask.promise;
+                                
+                                // 1. Try digital text extraction first across pages (up to 3 pages)
+                                let digitalText = "";
+                                for (let i = 1; i <= Math.min(pdfDoc.numPages, 3); i++) {
+                                    const page = await pdfDoc.getPage(i);
+                                    const textContent = await page.getTextContent();
+                                    let lastY = null;
+                                    let pageLines = [];
+                                    let currentLine = '';
+                                    for (const item of textContent.items) {
+                                        if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) {
+                                            pageLines.push(currentLine);
+                                            currentLine = item.str;
+                                        } else {
+                                            currentLine += (currentLine ? ' ' : '') + item.str;
+                                        }
+                                        lastY = item.transform[5];
+                                    }
+                                    if (currentLine) pageLines.push(currentLine);
+                                    digitalText += pageLines.join('\n') + '\n';
+                                }
+                                rawText = digitalText;
 
-                            // If PDF has no extractable digital text (scanned image inside PDF), render page 1 to canvas and run Tesseract
-                            if (rawText.trim().length < 20 && typeof Tesseract !== 'undefined') {
-                                const page = await pdfDoc.getPage(1);
-                                const viewport = page.getViewport({ scale: 2.0 });
-                                const canvas = document.createElement('canvas');
-                                canvas.width = viewport.width;
-                                canvas.height = viewport.height;
-                                const ctx = canvas.getContext('2d');
-                                await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-                                const result = await Tesseract.recognize(canvas, 'eng');
-                                if (result && result.data) {
-                                    rawText = result.data.text || '';
-                                    ocrConfidence = (result.data.confidence || 60) / 100;
+                                // 2. Check if digital text contains key identity fields
+                                const testExtracted = this._extractFieldsByDocType(rawText, docType);
+                                const hasCoreFields = !!(testExtracted['Full Name'] || testExtracted['NRIC / FIN Number'] || testExtracted['Passport Number'] || testExtracted['Company Name'] || testExtracted['UEN']);
+
+                                // 3. If scanned PDF or core identity fields are missing (e.g. ID image inside PDF with only CTC stamp), render pages to canvas and run Tesseract OCR
+                                if ((!hasCoreFields || rawText.trim().length < 30) && typeof Tesseract !== 'undefined') {
+                                    for (let i = 1; i <= Math.min(pdfDoc.numPages, 3); i++) {
+                                        const page = await pdfDoc.getPage(i);
+                                        const viewport = page.getViewport({ scale: 2.0 });
+                                        const canvas = document.createElement('canvas');
+                                        canvas.width = Math.floor(viewport.width);
+                                        canvas.height = Math.floor(viewport.height);
+                                        const ctx = canvas.getContext('2d');
+                                        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                                        const imgData = canvas.toDataURL('image/png');
+                                        const result = await Tesseract.recognize(imgData, 'eng');
+                                        if (result && result.data && result.data.text) {
+                                            rawText += '\n' + result.data.text;
+                                        }
+                                    }
                                 }
                             }
                         } catch (pdfErr) {
