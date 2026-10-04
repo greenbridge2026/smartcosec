@@ -88,6 +88,46 @@
         .custom-scrollbar::-webkit-scrollbar-track {
             background: #f1f5f9;
         }
+
+        /* --- SMART FUTURISTIC LOADERS --- */
+        @keyframes smartOrbit {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @keyframes smartOrbitReverse {
+            0% { transform: rotate(360deg); }
+            100% { transform: rotate(0deg); }
+        }
+        @keyframes smartPulseCore {
+            0%, 100% { transform: scale(0.92); opacity: 0.75; filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.7)); }
+            50% { transform: scale(1.08); opacity: 1; filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.95)); }
+        }
+        @keyframes smartShimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        @keyframes smartWaveText {
+            0%, 100% { opacity: 0.4; transform: translateY(0); }
+            50% { opacity: 1; transform: translateY(-3px); }
+        }
+
+        .smart-shimmer {
+            background: linear-gradient(90deg, #f8fafc 25%, #e2e8f0 50%, #f8fafc 75%);
+            background-size: 200% 100%;
+            animation: smartShimmer 1.5s infinite ease-in-out;
+        }
+        .smart-orbit-ring {
+            animation: smartOrbit 2.4s linear infinite;
+        }
+        .smart-orbit-ring-fast {
+            animation: smartOrbitReverse 1.4s linear infinite;
+        }
+        .smart-pulse-node {
+            animation: smartPulseCore 2s ease-in-out infinite;
+        }
+        .smart-dot-1 { animation: smartWaveText 1.4s infinite ease-in-out 0s; }
+        .smart-dot-2 { animation: smartWaveText 1.4s infinite ease-in-out 0.2s; }
+        .smart-dot-3 { animation: smartWaveText 1.4s infinite ease-in-out 0.4s; }
     </style>
     <script type="module" src="admin-sidebar.js"></script>
 </head>
@@ -209,7 +249,31 @@
                         </tr>
                     </thead>
                     <tbody id="applications-table-body" class="divide-y divide-slate-100">
-                        <tr><td colspan="7" class="p-12 text-center text-slate-400">Loading applications...</td></tr>
+                        <tr>
+                            <td colspan="7" class="p-10 text-center">
+                                <div class="flex flex-col items-center justify-center py-6">
+                                    <div class="relative w-20 h-20 mb-4 flex items-center justify-center">
+                                        <div class="absolute inset-0 rounded-full bg-blue-500/15 blur-xl smart-pulse-node"></div>
+                                        <div class="absolute inset-0 rounded-full border-2 border-dashed border-blue-500/40 smart-orbit-ring"></div>
+                                        <div class="absolute inset-2 rounded-full border-2 border-indigo-500/60 border-t-transparent border-l-transparent smart-orbit-ring-fast"></div>
+                                        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-500 shadow-lg shadow-blue-500/30 flex items-center justify-center text-white smart-pulse-node">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 text-xs font-bold text-slate-700 tracking-wide uppercase font-outfit">
+                                        <span>Synchronizing applications</span>
+                                        <span class="inline-flex gap-0.5 text-blue-600 font-extrabold text-sm leading-none">
+                                            <span class="smart-dot-1">.</span>
+                                            <span class="smart-dot-2">.</span>
+                                            <span class="smart-dot-3">.</span>
+                                        </span>
+                                    </div>
+                                    <span class="text-[11px] font-medium text-slate-400 mt-1">Fetching live queue from server</span>
+                                </div>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -453,11 +517,80 @@
             }
         }
 
-        async function fetchApplications() {
+        async function fetchCounts() {
+            try {
+                const res = await fetch('/api/applications/counts');
+                if (res.ok) {
+                    const counts = await res.json();
+                    const badgePending = document.getElementById('badge-pending-count');
+                    const badgeRejected = document.getElementById('badge-rejected-count');
+                    const badgeAll = document.getElementById('badge-all-count');
+
+                    if (badgePending) badgePending.innerText = counts.pending ?? 0;
+                    if (badgeRejected) badgeRejected.innerText = counts.rejected ?? 0;
+                    if (badgeAll) badgeAll.innerText = counts.all ?? 0;
+                }
+            } catch (e) {
+                console.warn("Could not fetch application counts", e);
+            }
+        }
+
+        function renderSmartTableLoader() {
+            return `
+                <tr>
+                    <td colspan="7" class="p-10 text-center">
+                        <div class="flex flex-col items-center justify-center py-6">
+                            <!-- Smart Dual-Orbit Hologram Spinner -->
+                            <div class="relative w-20 h-20 mb-4 flex items-center justify-center">
+                                <div class="absolute inset-0 rounded-full bg-blue-500/15 blur-xl smart-pulse-node"></div>
+                                <div class="absolute inset-0 rounded-full border-2 border-dashed border-blue-500/40 smart-orbit-ring"></div>
+                                <div class="absolute inset-2 rounded-full border-2 border-indigo-500/60 border-t-transparent border-l-transparent smart-orbit-ring-fast"></div>
+                                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-500 shadow-lg shadow-blue-500/30 flex items-center justify-center text-white smart-pulse-node">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                                    </svg>
+                                </div>
+                            </div>
+                            <!-- Dynamic Glowing Status Caption -->
+                            <div class="flex items-center gap-1.5 text-xs font-bold text-slate-700 tracking-wide uppercase font-outfit">
+                                <span>Synchronizing applications</span>
+                                <span class="inline-flex gap-0.5 text-blue-600 font-extrabold text-sm leading-none">
+                                    <span class="smart-dot-1">.</span>
+                                    <span class="smart-dot-2">.</span>
+                                    <span class="smart-dot-3">.</span>
+                                </span>
+                            </div>
+                            <span class="text-[11px] font-medium text-slate-400 mt-1">Fetching live queue from server</span>
+                        </div>
+                    </td>
+                </tr>
+                <!-- Shimmer Skeleton Rows -->
+                ${[1, 2, 3].map(() => `
+                    <tr class="animate-pulse">
+                        <td class="px-6 py-4"><div class="h-4 w-40 rounded-lg smart-shimmer mb-1.5"></div><div class="h-3 w-24 rounded smart-shimmer"></div></td>
+                        <td class="px-6 py-4"><div class="h-4 w-32 rounded-lg smart-shimmer mb-1.5"></div><div class="h-3 w-28 rounded smart-shimmer"></div></td>
+                        <td class="px-6 py-4"><div class="h-6 w-24 rounded-full smart-shimmer"></div></td>
+                        <td class="px-6 py-4"><div class="h-6 w-20 rounded-full smart-shimmer"></div></td>
+                        <td class="px-6 py-4"><div class="h-5 w-16 rounded-md smart-shimmer"></div></td>
+                        <td class="px-6 py-4"><div class="h-4 w-28 rounded smart-shimmer"></div></td>
+                        <td class="px-6 py-4 text-right"><div class="h-8 w-24 rounded-xl smart-shimmer ml-auto"></div></td>
+                    </tr>
+                `).join('')}
+            `;
+        }
+
+        async function fetchApplications(tab = activeTabFilter) {
+            const tableBody = document.getElementById('applications-table-body');
+            if (tableBody) {
+                tableBody.innerHTML = renderSmartTableLoader();
+            }
+
             try {
                 const staffPromise = loadStaffList();
-                const appPromise = fetch('/api/applications').then(r => r.ok ? r.json() : []);
-                const [_, apps] = await Promise.all([staffPromise, appPromise]);
+                const countsPromise = fetchCounts();
+                const appPromise = fetch(`/api/applications?tab=${encodeURIComponent(tab)}`).then(r => r.ok ? r.json() : []);
+                
+                const [_, __, apps] = await Promise.all([staffPromise, countsPromise, appPromise]);
                 allApplications = apps || [];
                 
                 if (allApplications && Array.isArray(allApplications)) {
@@ -468,25 +601,6 @@
                         if (tB !== tA) return tB - tA;
                         return String(b.id || b.rawId || '').localeCompare(String(a.id || a.rawId || ''));
                     });
-
-                    // Update tab counts
-                    const pendingCount = allApplications.filter(a => {
-                        const s = (a.status || 'pending').toLowerCase();
-                        return !s.includes('approved') && !s.includes('completed') && !s.includes('rejected');
-                    }).length;
-
-                    const rejectedCount = allApplications.filter(a => {
-                        const s = (a.status || 'pending').toLowerCase();
-                        return s.includes('rejected');
-                    }).length;
-                    
-                    const badgePending = document.getElementById('badge-pending-count');
-                    const badgeRejected = document.getElementById('badge-rejected-count');
-                    const badgeAll = document.getElementById('badge-all-count');
-
-                    if (badgePending) badgePending.innerText = pendingCount;
-                    if (badgeRejected) badgeRejected.innerText = rejectedCount;
-                    if (badgeAll) badgeAll.innerText = allApplications.length;
 
                     filterApplications();
                 }
@@ -508,7 +622,8 @@
                     }
                 }
             });
-            filterApplications();
+            // Load filtered data from backend for selected tab
+            fetchApplications(tab);
         };
 
         window.filterApplications = function() {
@@ -519,17 +634,6 @@
             const filtered = allApplications.filter((app, idx) => {
                 const s = (app.status || 'pending').toLowerCase();
                 const p = (app.priority || 'Normal').toLowerCase();
-
-                // Discard any approved/completed clients
-                if (s.includes('approved') || s.includes('completed')) return false;
-
-                // Tab Filter
-                if (activeTabFilter === 'pending') {
-                    // Show everything pending review / in-progress
-                    if (s.includes('rejected')) return false;
-                } else if (activeTabFilter === 'rejected') {
-                    if (!s.includes('rejected')) return false;
-                }
 
                 // Status Dropdown Filter
                 if (statusFilter !== 'All') {
@@ -544,6 +648,7 @@
                 // Search query
                 if (searchQuery) {
                     const matchBusiness = (app.business || '').toLowerCase().includes(searchQuery);
+                    const matchClient = (app.client || '').toLowerCase().includes(searchQuery);
                     const matchId = String(app.id || app.rawId || '').toLowerCase().includes(searchQuery);
                     const matchStaff = (app.staff || app.assignedStaffName || '').toLowerCase().includes(searchQuery);
                     const namesList = Array.isArray(app.data?.names) ? app.data.names.join(' ').toLowerCase() : '';
@@ -644,7 +749,30 @@
         window.openReviewModal = async function(appId) {
             const modal = document.getElementById('review-modal');
             const contentArea = document.getElementById('modal-content-area');
-            contentArea.innerHTML = `<div class="p-12 text-center text-slate-400 font-medium"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 animate-spin mx-auto mb-2 text-blue-600"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Loading full application details...</div>`;
+            contentArea.innerHTML = `
+                <div class="p-16 text-center flex flex-col items-center justify-center">
+                    <div class="relative w-24 h-24 mb-5 flex items-center justify-center">
+                        <div class="absolute inset-0 rounded-full bg-indigo-500/20 blur-xl smart-pulse-node"></div>
+                        <div class="absolute inset-0 rounded-full border-2 border-dashed border-indigo-500/50 smart-orbit-ring"></div>
+                        <div class="absolute inset-2.5 rounded-full border-2 border-violet-500/70 border-t-transparent border-r-transparent smart-orbit-ring-fast"></div>
+                        <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 shadow-xl shadow-indigo-500/40 flex items-center justify-center text-white smart-pulse-node">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1.5 text-xs font-bold text-slate-800 tracking-wide uppercase font-outfit">
+                        <span>Decrypting Application Manifest</span>
+                        <span class="inline-flex gap-0.5 text-indigo-600 font-extrabold text-sm leading-none">
+                            <span class="smart-dot-1">.</span>
+                            <span class="smart-dot-2">.</span>
+                            <span class="smart-dot-3">.</span>
+                        </span>
+                    </div>
+                    <p class="text-[11px] font-medium text-slate-400 mt-1">Retrieving verified KYC, AML screening, and company activity data</p>
+                </div>
+            `;
             modal.classList.remove('hidden');
 
             const localApp = (window.allApplications || []).find(a => String(a.id || a.rawId) === String(appId));
