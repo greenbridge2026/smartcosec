@@ -5424,8 +5424,139 @@
                     this.save();
                     this.render();
                     showToast(`Uploaded ${file.name} successfully!`, "success");
+
+                    // Trigger OCR extraction in background to auto-populate fields
+                    this.triggerDocOcrExtraction(file, entityType, index, docKey);
+                };
+                reader.onerror = () => {
+                    showToast("Failed to read file.", "error");
                 };
                 reader.readAsDataURL(file);
+            }
+
+            async triggerDocOcrExtraction(file, entityType, index, docKey) {
+                if (typeof Tesseract === 'undefined') {
+                    console.warn('[OCR] Tesseract.js not loaded yet.');
+                    return;
+                }
+
+                // Map docKey & entityType to docType
+                let docType = 'passport';
+                let targetObj = null;
+                if (entityType === 'director') targetObj = this.data.directors?.[index];
+                else if (entityType === 'ind_shareholder' || entityType === 'corp_shareholder') targetObj = this.data.shareholders?.[index];
+                else if (entityType === 'corp_rep') targetObj = this.data.shareholders?.[index]?.rep;
+                else if (entityType === 'rons') targetObj = this.data.rons?.nomineeList?.[index];
+
+                if (docKey === 'proofOfAddress') {
+                    docType = 'address_proof';
+                } else if (docKey === 'bizfile') {
+                    docType = 'bizfile';
+                } else if (docKey === 'constitution' || docKey === 'incumbency' || docKey === 'boardResolution') {
+                    docType = 'cert_incorp';
+                } else if (docKey === 'idDoc') {
+                    const idType = targetObj?.idType ? String(targetObj.idType).toLowerCase() : '';
+                    if (idType.includes('nric')) docType = 'nric';
+                    else if (idType.includes('fin')) docType = 'fin';
+                    else docType = 'passport';
+                }
+
+                showToast(`⚡ Scanning ${file.name} with OCR...`, "info");
+
+                try {
+                    let fileUrl = URL.createObjectURL(file);
+                    const result = await Tesseract.recognize(fileUrl, 'eng');
+                    URL.revokeObjectURL(fileUrl);
+
+                    if (!result || !result.data || !result.data.text) return;
+                    const rawText = result.data.text;
+                    const ocrConfidence = (result.data.confidence || 60) / 100;
+                    const extracted = this._extractFieldsByDocType(rawText, docType);
+
+                    // Check if anything was extracted; if not, try passport/nric fallback
+                    let numFound = Object.values(extracted).filter(v => v && v.value).length;
+                    if (numFound === 0 && docType === 'passport') {
+                        const fallbackExtracted = this._extractFieldsByDocType(rawText, 'nric');
+                        if (Object.values(fallbackExtracted).filter(v => v && v.value).length > 0) {
+                            Object.assign(extracted, fallbackExtracted);
+                            docType = 'nric';
+                        }
+                    }
+
+                    // Auto-fill target object
+                    let updatedFields = [];
+                    if (targetObj) {
+                        if (extracted['Full Name'] && extracted['Full Name'].value && (!targetObj.name || targetObj.name.trim() === '')) {
+                            targetObj.name = extracted['Full Name'].value;
+                            updatedFields.push('Name');
+                        }
+                        if (extracted['Passport Number'] && extracted['Passport Number'].value && (!targetObj.idNum || targetObj.idNum.trim() === '')) {
+                            targetObj.idNum = extracted['Passport Number'].value;
+                            targetObj.idType = 'passport';
+                            updatedFields.push('Passport No');
+                        } else if (extracted['NRIC / FIN Number'] && extracted['NRIC / FIN Number'].value && (!targetObj.idNum || targetObj.idNum.trim() === '')) {
+                            targetObj.idNum = extracted['NRIC / FIN Number'].value;
+                            targetObj.idType = 'nric';
+                            updatedFields.push('NRIC');
+                        }
+                        if (extracted['Date of Birth'] && extracted['Date of Birth'].value && (!targetObj.dob || targetObj.dob.trim() === '')) {
+                            targetObj.dob = extracted['Date of Birth'].value;
+                            updatedFields.push('DOB');
+                        }
+                        if (extracted['Nationality'] && extracted['Nationality'].value && (!targetObj.nationality || targetObj.nationality.trim() === '')) {
+                            targetObj.nationality = extracted['Nationality'].value;
+                            updatedFields.push('Nationality');
+                        }
+                        if (extracted['Gender'] && extracted['Gender'].value && (!targetObj.gender || targetObj.gender.trim() === '')) {
+                            targetObj.gender = extracted['Gender'].value;
+                            updatedFields.push('Gender');
+                        }
+                        if (extracted['Expiry Date'] && extracted['Expiry Date'].value && (!targetObj.passportExpiry || targetObj.passportExpiry.trim() === '')) {
+                            targetObj.passportExpiry = extracted['Expiry Date'].value;
+                        }
+                        if (extracted['Residential Address'] && extracted['Residential Address'].value && (!targetObj.addr || targetObj.addr.trim() === '')) {
+                            targetObj.addr = extracted['Residential Address'].value;
+                            updatedFields.push('Address');
+                        }
+                        if (extracted['Postal Code'] && extracted['Postal Code'].value && !targetObj.postal) {
+                            targetObj.postal = extracted['Postal Code'].value;
+                        }
+                        if (extracted['Company Name'] && extracted['Company Name'].value && (!targetObj.companyName || targetObj.companyName.trim() === '')) {
+                            targetObj.companyName = extracted['Company Name'].value;
+                            updatedFields.push('Company Name');
+                        }
+                        if (extracted['UEN'] && extracted['UEN'].value && (!targetObj.uen || targetObj.uen.trim() === '')) {
+                            targetObj.uen = extracted['UEN'].value;
+                            targetObj.regNum = extracted['UEN'].value;
+                            updatedFields.push('UEN');
+                        }
+                        if (extracted['Registration Number'] && extracted['Registration Number'].value && (!targetObj.regNum || targetObj.regNum.trim() === '')) {
+                            targetObj.regNum = extracted['Registration Number'].value;
+                            updatedFields.push('Reg No');
+                        }
+                        if (extracted['Incorporation Date'] && extracted['Incorporation Date'].value && (!targetObj.incDate || targetObj.incDate.trim() === '')) {
+                            targetObj.incDate = extracted['Incorporation Date'].value;
+                            updatedFields.push('Incorp Date');
+                        }
+                        if (extracted['Registered Address'] && extracted['Registered Address'].value && (!targetObj.addr || targetObj.addr.trim() === '')) {
+                            targetObj.addr = extracted['Registered Address'].value;
+                            updatedFields.push('Registered Address');
+                        }
+                    }
+
+                    if (updatedFields.length > 0) {
+                        this.save();
+                        this.render();
+                        showToast(`⚡ OCR auto-populated: ${updatedFields.join(', ')}!`, "success");
+                    }
+
+                    // Save OCR result to backend for audit / admin review
+                    const fieldPath = `${entityType}[${index}].docs.${docKey}`;
+                    this._saveOcrToBackend(fieldPath, file.name, docType, updatedFields.length > 0 ? 'COMPLETE' : 'REVIEW', ocrConfidence, extracted, rawText);
+
+                } catch (err) {
+                    console.warn('[OCR] Extraction error on doc:', err);
+                }
             }
 
             removeDoc(entityType, index, docKey) {
@@ -9694,10 +9825,12 @@
             }
 
             async submitVerification() {
+                if (this._isSubmitting) return;
                 if (this.isPreview) {
                     showToast("Submission is disabled in Preview Mode.", "error");
                     return;
                 }
+                this._isSubmitting = true;
 
                 const token = localStorage.getItem('token') || '';
                 const isGuest = !token || token.startsWith('mock-');
@@ -9814,6 +9947,8 @@
                     localStorage.removeItem('application_id');
                     localStorage.setItem('start_new_form', 'true');
                     this.renderAcknowledgmentReceipt({});
+                } finally {
+                    this._isSubmitting = false;
                 }
             }
 
