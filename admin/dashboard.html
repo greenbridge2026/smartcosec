@@ -312,7 +312,7 @@
                             </div>
                             <div class="relative w-60 shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                                <input type="text" id="dashboard-search-input" oninput="clientCurrentPage = 1; renderClients()" placeholder="Search clients, directors, UEN..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
+                                <input type="text" id="dashboard-search-input" oninput="window.handleClientSearch(this.value)" placeholder="Search clients, directors, UEN..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
                             </div>
                             <button onclick="exportClientsToExcel()" class="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-[11px] flex items-center gap-1.5 transition-all shadow-md active:scale-[0.98]">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -994,7 +994,7 @@
             selects.forEach(sel => {
                 if (sel.value !== currentStaffFilter) sel.value = currentStaffFilter;
             });
-            renderClients();
+            fetchDashboard(1, clientPageSize);
         };
 
         function populateStaffFilterDropdown() {
@@ -1768,7 +1768,7 @@
                                         </div>
                                         <div class="relative w-60 shrink-0">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                                            <input type="text" id="dashboard-search-input" oninput="clientCurrentPage = 1; renderClients()" placeholder="Search clients, directors, UEN..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
+                                            <input type="text" id="dashboard-search-input" oninput="window.handleClientSearch(this.value)" placeholder="Search clients, directors, UEN..." class="w-full pl-8 pr-3 py-1.5 border border-slate-200/80 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
                                         </div>
                                         <button onclick="exportClientsToExcel()" class="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-[11px] flex items-center gap-1.5 transition-all shadow-md active:scale-[0.98]">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -1824,9 +1824,9 @@
             currentFilter = filter;
             clientCurrentPage = 1;
             document.querySelectorAll('.filter-tab').forEach(tab => {
-                tab.classList.toggle('active', tab.getAttribute('data-filter') === filter);
+                tab.classList.toggle('active', tab.getAttribute('data-filter') === filter || tab.dataset.filter === filter);
             });
-            renderClients();
+            fetchDashboard(1, clientPageSize);
         }
 
         window.filterDashboardData = function(val) {
@@ -1847,19 +1847,45 @@
             });
         }
 
-        async function fetchDashboard() {
-            console.log('fetchDashboard triggered');
+        async function fetchDashboard(page = clientCurrentPage, size = clientPageSize) {
+            console.log('fetchDashboard triggered with page:', page, 'size:', size);
+            clientCurrentPage = page;
+            clientPageSize = size;
             try {
                 const grid = document.getElementById('clients-grid');
                 if (grid && (!clientsData || clientsData.length === 0)) {
                     grid.innerHTML = renderSmartClientsLoader();
                 }
-                const res = await fetch('/api/dashboard');
+
+                const searchEl = document.getElementById('dashboard-search-input');
+                const searchQuery = searchEl ? searchEl.value.trim() : '';
+
+                const params = new URLSearchParams();
+                if (size !== 'all') {
+                    params.append('page', page);
+                    params.append('size', size);
+                } else {
+                    params.append('size', 'all');
+                }
+                if (searchQuery) {
+                    params.append('search', searchQuery);
+                }
+                if (typeof currentFilter !== 'undefined' && currentFilter && currentFilter !== 'all') {
+                    params.append('status', currentFilter);
+                }
+                if (typeof currentStaffFilter !== 'undefined' && currentStaffFilter && currentStaffFilter !== 'all') {
+                    params.append('staff', currentStaffFilter);
+                }
+
+                const queryString = params.toString() ? `?${params.toString()}` : '';
+                const res = await fetch(`/api/dashboard${queryString}`);
                 if (!res.ok) throw new Error('API Error: ' + res.status);
                 const data = await res.json();
                 console.log('Dashboard Data Received:', data);
                 clientsData = data.clients || [];
                 statsData = data.stats || {};
+                clientTotalElements = typeof data.totalElements === 'number' ? data.totalElements : clientsData.length;
+                clientTotalPages = typeof data.totalPages === 'number' ? data.totalPages : (clientPageSize === 'all' ? 1 : Math.max(1, Math.ceil(clientTotalElements / (typeof clientPageSize === 'number' ? clientPageSize : 24))));
                 
                 const urlParams = new URLSearchParams(window.location.search);
                 const view = urlParams.get('view') || 'dashboard';
@@ -2291,10 +2317,21 @@
 
         let clientCurrentPage = 1;
         let clientPageSize = 24;
+        let clientTotalElements = 0;
+        let clientTotalPages = 1;
+        let clientSearchTimer = null;
+
+        window.handleClientSearch = function(val) {
+            if (clientSearchTimer) clearTimeout(clientSearchTimer);
+            clientSearchTimer = setTimeout(() => {
+                clientCurrentPage = 1;
+                fetchDashboard(1, clientPageSize);
+            }, 300);
+        };
 
         window.changeClientPage = function(page) {
             clientCurrentPage = page;
-            renderClients();
+            fetchDashboard(page, clientPageSize);
             const grid = document.getElementById('clients-grid');
             if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
         };
@@ -2302,7 +2339,7 @@
         window.changeClientsPerPage = function(val) {
             clientPageSize = val === 'all' ? 'all' : parseInt(val, 10);
             clientCurrentPage = 1;
-            renderClients();
+            fetchDashboard(1, clientPageSize);
         };
 
         function renderPaginationButtons(currentPage, totalPages, onClickFuncName) {
@@ -2334,6 +2371,19 @@
             if (!grid) return;
 
             if (!clientsData || clientsData.length === 0) {
+                if (clientTotalElements === 0) {
+                    grid.className = "flex flex-col items-center justify-center p-12 bg-white rounded-3xl border border-slate-200/80 text-center col-span-full";
+                    grid.innerHTML = `
+                        <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 mb-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        </div>
+                        <h4 class="text-sm font-extrabold text-slate-800 mb-1">No Clients Found</h4>
+                        <p class="text-xs text-slate-500 max-w-sm">No clients match the current search filter or status selection.</p>
+                    `;
+                    const pagContainer = document.getElementById('clients-pagination-container');
+                    if (pagContainer) pagContainer.style.display = 'none';
+                    return;
+                }
                 grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4";
                 grid.innerHTML = renderSmartClientsLoader();
                 return;
@@ -2348,57 +2398,16 @@
             
             populateStaffFilterDropdown();
 
-            const searchEl = document.getElementById('dashboard-search-input');
-            const search = searchEl ? searchEl.value.toLowerCase() : '';
-            const filtered = (clientsData || []).filter(c => {
-                if (!c) return false;
-                const statusLower = (c.latestStatus || '').toLowerCase();
-                const matchesFilter = currentFilter === 'all' || 
-                                     (currentFilter === 'review' && (statusLower === 'review' || statusLower === 'under review')) ||
-                                     (currentFilter === 'approved' && (statusLower === 'approved' || statusLower === 'verified' || statusLower === 'completed')) ||
-                                     statusLower === currentFilter;
-                
-                const staffNamesList = (c.assignedStaffName || c.latestStaff || '')
-                    .split(',')
-                    .map(s => s.trim().toLowerCase())
-                    .filter(s => s && s !== 'unassigned');
-
-                let matchesStaff = true;
-                if (currentStaffFilter && currentStaffFilter !== 'all') {
-                    if (currentStaffFilter === 'unassigned') {
-                        matchesStaff = staffNamesList.length === 0;
-                    } else {
-                        matchesStaff = staffNamesList.includes(currentStaffFilter.toLowerCase());
-                    }
-                }
-
-                const nameLower = (c.name || '').toLowerCase();
-                const emailLower = (c.email || '').toLowerCase();
-                const matchesSearch = nameLower.includes(search) || 
-                                     emailLower.includes(search) ||
-                                     (c.phone && c.phone.toLowerCase().includes(search)) ||
-                                     (c.uen && c.uen.toLowerCase().includes(search)) ||
-                                     (Array.isArray(c.uens) && c.uens.some(u => (u || '').toLowerCase().includes(search))) ||
-                                     (c.companyNames && c.companyNames.some(name => (name || '').toLowerCase().includes(search))) ||
-                                     (Array.isArray(c.directorNames) && c.directorNames.some(dir => (dir || '').toLowerCase().includes(search))) ||
-                                     (Array.isArray(c.nomineeDirectors) && c.nomineeDirectors.some(dir => (dir || '').toLowerCase().includes(search))) ||
-                                     (Array.isArray(c.shareholderNames) && c.shareholderNames.some(sh => (sh || '').toLowerCase().includes(search))) ||
-                                     (Array.isArray(c.corporateRepNames) && c.corporateRepNames.some(rep => (rep || '').toLowerCase().includes(search))) ||
-                                     (Array.isArray(c.contactNumbers) && c.contactNumbers.some(num => (num || '').toLowerCase().includes(search)));
-                return matchesFilter && matchesStaff && matchesSearch;
-            });
-            window.currentFilteredClients = filtered;
+            const pagedClients = clientsData;
+            window.currentFilteredClients = pagedClients;
 
             // Calculate pagination
-            const totalClients = filtered.length;
+            const totalClients = clientTotalElements || pagedClients.length;
             const pageSizeNum = clientPageSize === 'all' ? totalClients : parseInt(clientPageSize, 10);
-            const totalPages = pageSizeNum > 0 ? Math.ceil(totalClients / pageSizeNum) : 1;
-            if (clientCurrentPage > totalPages) clientCurrentPage = Math.max(1, totalPages);
-            if (clientCurrentPage < 1) clientCurrentPage = 1;
+            const totalPages = clientTotalPages || (pageSizeNum > 0 ? Math.ceil(totalClients / pageSizeNum) : 1);
 
             const startIndex = clientPageSize === 'all' ? 0 : (clientCurrentPage - 1) * pageSizeNum;
-            const endIndex = clientPageSize === 'all' ? totalClients : Math.min(startIndex + pageSizeNum, totalClients);
-            const pagedClients = filtered.slice(startIndex, endIndex);
+            const endIndex = clientPageSize === 'all' ? totalClients : Math.min(startIndex + pagedClients.length, totalClients);
 
             // Update pagination UI controls
             const showRange = document.getElementById('clients-showing-range');
@@ -3705,14 +3714,6 @@
                 `).join('');
                 safeCreateIcons();
             } catch(e) { console.error(e); }
-        }
-
-        window.setFilter = function(filter) {
-            currentFilter = filter;
-            document.querySelectorAll('.filter-tab').forEach(t => {
-                t.classList.toggle('active', t.dataset.filter === filter);
-            });
-            renderClients();
         }
 
         window.confirmClearAllClients = function() {

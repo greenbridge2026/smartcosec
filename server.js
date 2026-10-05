@@ -778,38 +778,93 @@ app.get('/api/dashboard', (req, res) => {
         
         const uniqueDirectorNames = [...new Set(directorNames)].filter(Boolean);
         const uniqueNomineeDirectors = [...new Set(nomineeDirectors)].filter(Boolean);
-        const uniqueShareholderNames = [...new Set(shareholderNames)].filter(Boolean);
-        const uniqueCorporateRepNames = [...new Set(corporateRepNames)].filter(Boolean);
-        const uniqueUens = [...new Set(uens)].filter(Boolean);
-        const uniqueContactNumbers = [...new Set(contactNumbers)].filter(Boolean);
+        const uniqueServiceTypes = [...new Set(clientServices.map(s => s.serviceName || s.type || 'Company Incorporation'))];
         
+        let pendingCount = 0, approvedCount = 0, rejectedCount = 0;
+        clientServices.forEach(s => {
+            const st = (s.status || '').toLowerCase();
+            if (st === 'approved' || st === 'verified' || st === 'completed') approvedCount++;
+            else if (st === 'rejected') rejectedCount++;
+            else pendingCount++;
+        });
+
         return {
-            ...c,
-            serviceCount: clientServices.length,
-            latestActivity: clientServices.length > 0 ? clientServices[0].date : 'N/A',
-            latestStatus: clientServices.length > 0 ? clientServices[0].status : 'N/A',
-            companyName: clientServices.length > 0 ? clientServices[0].companyName : 'N/A',
-            priority: clientServices.length > 0 ? clientServices[0].priority : 'Normal',
-            deadline: clientServices.length > 0 ? clientServices[0].deadline : 'N/A',
+            clientId: c.clientId,
+            name: c.name,
+            email: c.email,
             companyNames: clientServices.map(s => s.companyName).filter(Boolean),
-            directorNames: uniqueDirectorNames,
             nomineeDirectors: uniqueNomineeDirectors,
-            shareholderNames: uniqueShareholderNames,
-            corporateRepNames: uniqueCorporateRepNames,
-            uens: uniqueUens,
-            contactNumbers: uniqueContactNumbers
+            serviceTypes: uniqueServiceTypes,
+            serviceCount: clientServices.length,
+            pendingCount,
+            approvedCount,
+            rejectedCount,
+            latestStatus: clientServices.length > 0 ? clientServices[0].status : 'pending',
+            latestActivity: clientServices.length > 0 ? clientServices[0].date : 'Joined',
+            assignedStaffId: c.assignedStaffId || '',
+            assignedStaffName: c.assignedStaffName || 'Unassigned',
+            isOnline: Boolean(c.isOnline),
+            lastSeenTime: c.lastSeenTime || 0
         };
-    }).sort((a, b) => b.createdAt - a.createdAt);
+    }).sort((a, b) => (b.lastSeenTime || 0) - (a.lastSeenTime || 0));
+
+    let filtered = clientsWithStats;
+    const { page, size, search, status, staff } = req.query;
+
+    if (search && search.trim()) {
+        const s = search.trim().toLowerCase();
+        filtered = filtered.filter(c => 
+            (c.name && c.name.toLowerCase().includes(s)) ||
+            (c.email && c.email.toLowerCase().includes(s)) ||
+            (c.companyNames && c.companyNames.some(cn => cn.toLowerCase().includes(s))) ||
+            (c.nomineeDirectors && c.nomineeDirectors.some(nd => nd.toLowerCase().includes(s)))
+        );
+    }
+
+    if (status && status.trim() && status.toUpperCase() !== 'ALL') {
+        const st = status.trim().toLowerCase();
+        filtered = filtered.filter(c => {
+            const ls = (c.latestStatus || '').toLowerCase();
+            if (st === 'review') return ls === 'review' || ls === 'under review';
+            if (st === 'approved') return ls === 'approved' || ls === 'verified' || ls === 'completed';
+            return ls === st;
+        });
+    }
+
+    if (staff && staff.trim() && staff.toUpperCase() !== 'ALL') {
+        const stf = staff.trim().toLowerCase();
+        filtered = filtered.filter(c => {
+            const as = (c.assignedStaffName || '').toLowerCase();
+            if (stf === 'unassigned') return !as || as === 'unassigned';
+            return as.includes(stf);
+        });
+    }
+
+    const totalElements = filtered.length;
+    const safePage = page ? Math.max(1, parseInt(page, 10)) : 1;
+    const safeSize = size ? parseInt(size, 10) : totalElements;
+    const totalPages = safeSize > 0 ? Math.ceil(totalElements / safeSize) : 1;
+
+    let pagedList = filtered;
+    if (size && parseInt(size, 10) > 0) {
+        const fromIndex = (safePage - 1) * safeSize;
+        const toIndex = fromIndex + safeSize;
+        pagedList = filtered.slice(fromIndex, toIndex);
+    }
     
     res.json({
-        clients: clientsWithStats,
+        clients: pagedList,
         stats: {
             totalClients: db.clients.length,
             totalServices: db.services.length,
             pending: db.services.filter(s => s.status === 'pending').length,
             approved: db.services.filter(s => s.status === 'approved').length,
             rejected: db.services.filter(s => s.status === 'rejected').length
-        }
+        },
+        page: safePage,
+        size: safeSize,
+        totalElements,
+        totalPages
     });
 });
 
