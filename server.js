@@ -3941,6 +3941,94 @@ app.put('/api/tasks/:id/assign', (req, res) => {
     res.json(task);
 });
 
+app.put('/api/tasks/:id/handover', (req, res) => {
+    const db = getDb();
+    const taskIndex = (db.tasks || []).findIndex(t => t.id === req.params.id || t.ticketNumber === req.params.id);
+    if (taskIndex === -1) return res.status(404).json({ error: 'Task not found' });
+
+    const task = db.tasks[taskIndex];
+    const now = Date.now();
+    const { assignee, status, completedWork, nextSteps, performedBy, performedByRole } = req.body;
+
+    const previousAssignee = task.assignedTo;
+    const previousStatus = task.status;
+
+    task.assignedTo = assignee || null;
+    if (status && status.trim()) {
+        task.status = status.trim();
+        if (['COMPLETED', 'RESOLVED'].includes(task.status.toUpperCase())) {
+            task.resolvedAt = now;
+        }
+    } else if (task.status === 'PENDING') {
+        task.status = 'IN_PROGRESS';
+    }
+    task.updatedAt = now;
+
+    const fromName = previousAssignee && previousAssignee.name ? previousAssignee.name : 'Unassigned';
+    const toName = assignee && assignee.name ? assignee.name : 'Unassigned';
+
+    let logDetails = `Handover from ${fromName} to ${toName}.`;
+    if (completedWork && completedWork.trim()) logDetails += ` Completed: ${completedWork.trim()}.`;
+    if (nextSteps && nextSteps.trim()) logDetails += ` Next: ${nextSteps.trim()}.`;
+
+    if (!task.activityLog) task.activityLog = [];
+    task.activityLog.push({
+        id: `act-${Date.now()}`,
+        action: 'HANDOVER',
+        details: logDetails,
+        performedBy: performedBy || fromName,
+        performedByRole: performedByRole || 'STAFF',
+        timestamp: now,
+        fromAssignee: previousAssignee,
+        toAssignee: assignee,
+        completedWork,
+        nextSteps,
+        previousStatus,
+        newStatus: task.status
+    });
+
+    // Add internal comment trail
+    if (!task.comments) task.comments = [];
+    let commentText = `🔄 **Task Handover Notice**\nHanded over from **${fromName}** to **${toName}**.\n`;
+    if (completedWork && completedWork.trim()) {
+        commentText += `\n**✓ Work Completed So Far:**\n${completedWork.trim()}\n`;
+    }
+    if (nextSteps && nextSteps.trim()) {
+        commentText += `\n**→ Next Steps / Pending Action:**\n${nextSteps.trim()}`;
+    }
+
+    task.comments.push({
+        id: `cmt-${Date.now()}`,
+        authorId: previousAssignee ? previousAssignee.id : 'usr-staff',
+        authorName: performedBy || fromName,
+        authorRole: performedByRole || 'STAFF',
+        authorAvatar: (performedBy || fromName).length >= 2 ? (performedBy || fromName).substring(0, 2).toUpperCase() : 'ST',
+        text: commentText,
+        isInternal: true,
+        timestamp: now
+    });
+
+    // Notifications
+    if (!db.notifications) db.notifications = [];
+    if (assignee && assignee.id) {
+        db.notifications.unshift({
+            id: `notif-${Date.now()}-1`,
+            clientId: assignee.id,
+            title: `Task Handover: ${task.ticketNumber}`,
+            message: `${fromName} handed over task '${task.title}' to you. Next action required.`,
+            type: 'TASK_ASSIGNED',
+            relatedId: task.id,
+            link: '/staff/dashboard.html?tab=tasks',
+            priority: 'Warning',
+            timestamp: now,
+            readBy: []
+        });
+    }
+
+    saveDb(db);
+    res.json(task);
+});
+
 app.put('/api/tasks/:id/status', (req, res) => {
     const db = getDb();
     const taskIndex = (db.tasks || []).findIndex(t => t.id === req.params.id || t.ticketNumber === req.params.id);

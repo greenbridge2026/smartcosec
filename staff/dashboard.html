@@ -1504,12 +1504,19 @@
 
                     <!-- Status Action Toolbar -->
                     <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fast Progress Actions</div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Operational Actions</span>
+                            <span class="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Staff Collaboration</span>
+                        </div>
                         <div class="flex flex-wrap items-center gap-2">
-                            <button onclick="updateStaffTaskStatus('IN_PROGRESS')" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition">Start Work</button>
-                            <button onclick="updateStaffTaskStatus('WAITING_CLIENT_INPUT')" class="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition">Request Client Input</button>
-                            <button onclick="updateStaffTaskStatus('UNDER_REVIEW')" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition">Submit for Review</button>
-                            <button onclick="promptStaffTaskResolve()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition">Mark Completed & Lodge</button>
+                            <button onclick="updateStaffTaskStatus('IN_PROGRESS')" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition cursor-pointer">Start Work</button>
+                            <button onclick="openStaffHandoverModal()" class="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm shadow-orange-500/20 active:scale-95 cursor-pointer">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
+                                <span>Handover to Colleague</span>
+                            </button>
+                            <button onclick="updateStaffTaskStatus('WAITING_CLIENT_INPUT')" class="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition cursor-pointer">Request Client Input</button>
+                            <button onclick="updateStaffTaskStatus('UNDER_REVIEW')" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition cursor-pointer">Submit for Review</button>
+                            <button onclick="promptStaffTaskResolve()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition cursor-pointer">Mark Completed & Lodge</button>
                         </div>
                     </div>
 
@@ -1526,29 +1533,122 @@
                         <p id="st-resolution-text"></p>
                     </div>
 
-                    <!-- Discussion & Communication -->
+                    <!-- Activity Area (Tabs: Discussion & Transaction History) -->
                     <div class="space-y-3 pt-2 border-t border-slate-100">
-                        <div class="text-xs font-bold text-slate-900 uppercase tracking-wider">Activity & Communication Thread</div>
-                        <div id="st-comments-list" class="space-y-3 max-h-60 overflow-y-auto pr-1 font-sans"></div>
-
-                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200">
-                            <div class="flex items-center gap-2 mb-2">
-                                <label class="text-xs font-bold text-slate-700">Reply to Client or Team</label>
-                                <div class="flex items-center gap-1.5 ml-3">
-                                    <input type="checkbox" id="st-comment-is-internal" class="rounded border-slate-300 text-amber-600">
-                                    <label for="st-comment-is-internal" class="text-[11px] font-bold text-amber-700 cursor-pointer">Internal Note Only</label>
-                                </div>
-                            </div>
-                            <textarea id="st-comment-input" rows="2" placeholder="Send reply to client or add internal processing note..." class="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-sans"></textarea>
-                            <div class="flex justify-end mt-2">
-                                <button onclick="sendStaffComment()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                                    <span>Send Message</span>
+                        <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+                            <div class="flex items-center gap-2">
+                                <button type="button" id="st-tab-btn-comments" onclick="setStaffActivityTab('comments')" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-slate-900 text-white cursor-pointer">
+                                    <span>Communication Thread</span>
+                                    <span id="st-comments-count-badge" class="ml-1 px-1.5 py-0.2 bg-white/20 rounded-full text-[10px]">0</span>
+                                </button>
+                                <button type="button" id="st-tab-btn-history" onclick="setStaffActivityTab('history')" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 cursor-pointer">
+                                    <span class="text-amber-600 font-bold">🔄 Handover & Transaction History</span>
+                                    <span id="st-history-count-badge" class="ml-1 px-1.5 py-0.2 bg-amber-100 text-amber-800 font-bold rounded-full text-[10px]">0</span>
                                 </button>
                             </div>
                         </div>
+
+                        <!-- Pane 1: Comments -->
+                        <div id="st-pane-comments" class="space-y-3">
+                            <div id="st-comments-list" class="space-y-3 max-h-60 overflow-y-auto pr-1 font-sans"></div>
+
+                            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <label class="text-xs font-bold text-slate-700">Reply to Client or Team</label>
+                                    <div class="flex items-center gap-1.5 ml-3">
+                                        <input type="checkbox" id="st-comment-is-internal" class="rounded border-slate-300 text-amber-600">
+                                        <label for="st-comment-is-internal" class="text-[11px] font-bold text-amber-700 cursor-pointer">Internal Note Only</label>
+                                    </div>
+                                </div>
+                                <textarea id="st-comment-input" rows="2" placeholder="Send reply to client or add internal processing note..." class="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-sans"></textarea>
+                                <div class="flex justify-end mt-2">
+                                    <button onclick="sendStaffComment()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                        <span>Send Message</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pane 2: Transaction History & Handover Trail -->
+                        <div id="st-pane-history" class="space-y-3 hidden">
+                            <div id="st-history-list" class="space-y-3 max-h-80 overflow-y-auto pr-1 font-sans"></div>
+                        </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Staff Task Handover Modal -->
+        <div id="staff-handover-modal" onclick="if(event.target === this) closeStaffHandoverModal()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[999999] hidden opacity-0 transition-opacity duration-200 font-outfit">
+            <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 overflow-hidden transform scale-95 transition-transform duration-200" onclick="event.stopPropagation()">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center shadow-xs">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900">Handover Task to Colleague</h3>
+                            <p class="text-[11px] text-slate-500 font-sans mt-0.5">Transfer task to another specialist with progress & instructions</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="closeStaffHandoverModal()" class="flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer" title="Close">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+
+                <div class="p-3 bg-amber-50/60 border border-amber-200/80 rounded-2xl mb-4 font-sans text-xs text-amber-950 space-y-1">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-[11px] text-amber-800 uppercase tracking-wider" id="st-handover-ticket-label">TSK-1001</span>
+                        <span class="text-[10px] text-amber-700" id="st-handover-from-label">From: You (Staff)</span>
+                    </div>
+                    <div class="font-semibold text-slate-900 truncate" id="st-handover-title-preview">Task Title</div>
+                </div>
+
+                <form id="st-handover-form" onsubmit="submitStaffTaskHandover(event)" class="space-y-4 font-sans text-xs">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Select Next Colleague / Specialist <span class="text-rose-500">*</span></label>
+                        <select id="st-handover-assignee-select" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition">
+                            <option value="">-- Choose Specialist --</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Handover Status</label>
+                        <select id="st-handover-status-select" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition">
+                            <option value="IN_PROGRESS">In Progress (Continue Execution)</option>
+                            <option value="UNDER_REVIEW">Under Review (Requires Final Review)</option>
+                            <option value="WAITING_CLIENT_INPUT">Waiting Client Input</option>
+                            <option value="ASSIGNED">Assigned (Queue for Pickup)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block font-bold text-slate-700">Work Completed So Far <span class="text-rose-500">*</span></label>
+                            <span class="text-[10px] text-slate-400">What work has been done</span>
+                        </div>
+                        <textarea id="st-handover-completed-work" required rows="2.5" placeholder="e.g. Completed drafting Form 45, obtained shareholder resolution signatures, and verified ID documents..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition font-sans"></textarea>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block font-bold text-slate-700">Next Steps & Handover Instructions <span class="text-rose-500">*</span></label>
+                            <span class="text-[10px] text-slate-400">What needs to be done next</span>
+                        </div>
+                        <textarea id="st-handover-next-steps" required rows="2.5" placeholder="e.g. Please lodge with ACRA BizFile portal, attach the electronic receipt, and notify the client..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition font-sans"></textarea>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                        <button type="button" onclick="closeStaffHandoverModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer">
+                            Cancel
+                        </button>
+                        <button type="submit" id="st-btn-submit-handover" class="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm shadow-orange-500/20 active:scale-95 cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+                            <span>Confirm Handover</span>
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
 
@@ -5808,6 +5908,9 @@
                 // Comments
                 renderStaffComments();
 
+                // Transaction History & Audit Trail
+                renderStaffHistoryTimeline();
+
                 const modal = document.getElementById('staff-task-modal');
                 modal.classList.remove('hidden');
                 setTimeout(() => {
@@ -5887,21 +5990,238 @@
             if (!currentStaffTask) return;
             const commentsList = document.getElementById('st-comments-list');
             const comments = currentStaffTask.comments || [];
+            const badge = document.getElementById('st-comments-count-badge');
+            if (badge) badge.innerText = comments.length;
 
             if (comments.length === 0) {
                 commentsList.innerHTML = `<p class="text-center py-4 text-slate-400 text-xs italic">No messages yet.</p>`;
                 return;
             }
 
-            commentsList.innerHTML = comments.map(c => `
-                <div class="p-3 rounded-2xl border ${c.isInternal ? 'bg-amber-50 border-amber-200' : (c.authorRole === 'CLIENT' ? 'bg-blue-50/60 border-blue-100' : 'bg-white border-slate-200')} space-y-1">
-                    <div class="flex items-center justify-between text-[11px]">
-                        <span class="font-bold ${c.authorRole === 'CLIENT' ? 'text-blue-700' : 'text-slate-900'}">${c.authorName} (${c.isInternal ? 'INTERNAL NOTE' : c.authorRole})</span>
-                        <span class="text-slate-400">${new Date(c.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            commentsList.innerHTML = comments.map(c => {
+                const isInternal = c.isInternal;
+                const isHandover = (c.text || '').includes('Task Handover Notice');
+                let bgClass = isInternal ? 'bg-amber-50 border-amber-200' : (c.authorRole === 'CLIENT' ? 'bg-blue-50/60 border-blue-100' : 'bg-white border-slate-200');
+                if (isHandover) bgClass = 'bg-orange-50/90 border-orange-300';
+
+                const roleBadge = isHandover
+                    ? `<span class="px-1.5 py-0.5 bg-orange-200 text-orange-950 rounded text-[9px] font-black uppercase">🔄 HANDOVER NOTE</span>`
+                    : `<span class="font-bold ${c.authorRole === 'CLIENT' ? 'text-blue-700' : 'text-slate-900'}">${c.authorName} (${isInternal ? 'INTERNAL NOTE' : (c.authorRole || 'STAFF')})</span>`;
+
+                return `
+                    <div class="p-3 rounded-2xl border ${bgClass} space-y-1">
+                        <div class="flex items-center justify-between text-[11px]">
+                            ${roleBadge}
+                            <span class="text-slate-400">${new Date(c.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        <div class="text-xs text-slate-700 leading-relaxed whitespace-pre-line">${c.text}</div>
                     </div>
-                    <p class="text-xs text-slate-700 leading-relaxed">${c.text}</p>
-                </div>
-            `).join('');
+                `;
+            }).join('');
+        }
+
+        function setStaffActivityTab(tab) {
+            const btnComments = document.getElementById('st-tab-btn-comments');
+            const btnHistory = document.getElementById('st-tab-btn-history');
+            const paneComments = document.getElementById('st-pane-comments');
+            const paneHistory = document.getElementById('st-pane-history');
+
+            if (tab === 'history') {
+                if (btnHistory) btnHistory.className = 'px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-slate-900 text-white cursor-pointer';
+                if (btnComments) btnComments.className = 'px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 cursor-pointer';
+                if (paneHistory) paneHistory.classList.remove('hidden');
+                if (paneComments) paneComments.classList.add('hidden');
+            } else {
+                if (btnComments) btnComments.className = 'px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-slate-900 text-white cursor-pointer';
+                if (btnHistory) btnHistory.className = 'px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 cursor-pointer';
+                if (paneComments) paneComments.classList.remove('hidden');
+                if (paneHistory) paneHistory.classList.add('hidden');
+            }
+        }
+
+        function renderStaffHistoryTimeline() {
+            if (!currentStaffTask) return;
+            const historyList = document.getElementById('st-history-list');
+            const historyBadge = document.getElementById('st-history-count-badge');
+            if (!historyList) return;
+
+            const logs = [...(currentStaffTask.activityLog || [])].reverse();
+            if (historyBadge) historyBadge.innerText = logs.length;
+
+            if (logs.length === 0) {
+                historyList.innerHTML = `<div class="text-center py-4 text-slate-400 text-xs italic">No activity log yet.</div>`;
+                return;
+            }
+
+            historyList.innerHTML = logs.map(l => {
+                const action = (l.action || 'UPDATE').toUpperCase();
+                const timeStr = formatStaffTaskDateTime(l.timestamp);
+                const performer = `${l.performedBy || 'Staff'} ${l.performedByRole ? `(${l.performedByRole})` : ''}`;
+
+                if (action === 'HANDOVER') {
+                    const from = l.fromAssignee ? l.fromAssignee.name : 'Unassigned';
+                    const to = l.toAssignee ? l.toAssignee.name : 'Unassigned';
+                    return `
+                        <div class="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span>🔄</span> Task Handover / Transition
+                                </span>
+                                <span class="text-[10px] text-amber-800 font-mono">${timeStr}</span>
+                            </div>
+                            <div class="p-2 bg-white/90 border border-amber-200 rounded-xl text-xs font-semibold text-slate-800 flex items-center gap-2">
+                                <span>From: <strong>${from}</strong></span>
+                                <span>➔</span>
+                                <span class="text-amber-700">To: <strong class="text-amber-900">${to}</strong></span>
+                            </div>
+                            ${l.completedWork ? `
+                                <div class="p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs space-y-0.5">
+                                    <div class="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">✓ Completed Work:</div>
+                                    <p class="text-slate-700">${l.completedWork}</p>
+                                </div>
+                            ` : ''}
+                            ${l.nextSteps ? `
+                                <div class="p-2 bg-blue-50 border border-blue-200 rounded-xl text-xs space-y-0.5">
+                                    <div class="text-[10px] font-bold text-blue-800 uppercase tracking-wider">→ Next Steps:</div>
+                                    <p class="text-slate-700">${l.nextSteps}</p>
+                                </div>
+                            ` : ''}
+                            <div class="text-[10px] text-amber-700 pt-1 border-t border-amber-100">
+                                Performed by <strong>${performer}</strong>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+                        <div class="flex items-center justify-between text-[11px]">
+                            <span class="font-bold text-slate-800">${action}</span>
+                            <span class="text-slate-400 font-mono">${timeStr}</span>
+                        </div>
+                        <p class="text-xs text-slate-700">${l.details || ''}</p>
+                        <div class="text-[10px] text-slate-400">By ${performer}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function openStaffHandoverModal() {
+            if (!currentStaffTask) return;
+            const modal = document.getElementById('staff-handover-modal');
+            const t = currentStaffTask;
+            const currentStaff = getCurrentStaffAssignee();
+
+            document.getElementById('st-handover-ticket-label').innerText = t.ticketNumber || t.id;
+            document.getElementById('st-handover-from-label').innerText = `From: ${currentStaff.name || 'You'}`;
+            document.getElementById('st-handover-title-preview').innerText = t.title || 'Untitled Task';
+
+            // Fetch assignees if not loaded
+            let assignees = (staffData && staffData.assignees) || [];
+            if (assignees.length === 0) {
+                try {
+                    const optRes = await fetch('/api/tasks/form-options');
+                    if (optRes.ok) {
+                        const opt = await optRes.json();
+                        assignees = opt.assignees || [];
+                    }
+                } catch (ignored) {}
+            }
+
+            const sel = document.getElementById('st-handover-assignee-select');
+            if (sel) {
+                sel.innerHTML = '<option value="">-- Choose Specialist --</option>' +
+                    assignees.map(s => {
+                        const isSelf = (s.id === currentStaff.id);
+                        return `<option value="${s.id}" ${isSelf ? 'class="text-slate-400 italic"' : ''}>${s.name} (${s.role || 'STAFF'})${isSelf ? ' - You' : ''}</option>`;
+                    }).join('');
+            }
+
+            const statusSel = document.getElementById('st-handover-status-select');
+            if (statusSel) {
+                statusSel.value = 'IN_PROGRESS';
+            }
+
+            document.getElementById('st-handover-completed-work').value = '';
+            document.getElementById('st-handover-next-steps').value = '';
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.firstElementChild.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeStaffHandoverModal() {
+            const modal = document.getElementById('staff-handover-modal');
+            if (!modal) return;
+            modal.classList.add('opacity-0');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        async function submitStaffTaskHandover(e) {
+            if (e) e.preventDefault();
+            if (!currentStaffTask) return;
+
+            const staffId = document.getElementById('st-handover-assignee-select').value;
+            if (!staffId) {
+                alert('Please select a colleague to hand over the task.');
+                return;
+            }
+
+            let assignees = (staffData && staffData.assignees) || [];
+            let targetStaff = assignees.find(s => s.id === staffId);
+            if (!targetStaff) {
+                targetStaff = { id: staffId, name: 'Specialist Staff', role: 'STAFF' };
+            }
+
+            const currentStaff = getCurrentStaffAssignee();
+            const status = document.getElementById('st-handover-status-select')?.value || 'IN_PROGRESS';
+            const completedWork = document.getElementById('st-handover-completed-work')?.value.trim() || '';
+            const nextSteps = document.getElementById('st-handover-next-steps')?.value.trim() || '';
+
+            const submitBtn = document.getElementById('st-btn-submit-handover');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerText = 'Submitting...';
+            }
+
+            try {
+                const res = await fetch(`/api/tasks/${currentStaffTask.id}/handover`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        assignee: targetStaff,
+                        status,
+                        completedWork,
+                        nextSteps,
+                        performedBy: currentStaff.name,
+                        performedByRole: 'STAFF'
+                    })
+                });
+
+                if (res.ok) {
+                    currentStaffTask = await res.json();
+                    closeStaffHandoverModal();
+                    renderStaffComments();
+                    renderStaffHistoryTimeline();
+                    await renderTasks();
+                    showToast(`Task handed over to ${targetStaff.name}`, 'success', 'Task Handover');
+                } else {
+                    alert('Failed to handover task.');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Network error during handover.');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'Confirm Handover';
+                }
+            }
         }
 
         function closeStaffTaskModal() {
@@ -5930,6 +6250,7 @@
                 if (res.ok) {
                     currentStaffTask = await res.json();
                     renderStaffComments();
+                    renderStaffHistoryTimeline();
                     await renderTasks();
                 }
             } catch (e) {
@@ -5988,6 +6309,7 @@
                     currentStaffTask = await res.json();
                     document.getElementById('st-comment-input').value = '';
                     renderStaffComments();
+                    renderStaffHistoryTimeline();
                     await renderTasks();
                 }
             } catch (e) {

@@ -562,10 +562,16 @@
                     <span id="detail-type-badge" class="text-[10px] font-bold px-2 py-0.5 bg-slate-200 text-slate-700 rounded-md uppercase">CHANGE</span>
                     <div id="detail-priority-badge-wrapper"><span id="detail-priority-badge" class="text-[10px] font-bold px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-md">URGENT</span></div>
                 </div>
-                <button type="button" onclick="closeDetailModal()" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-xl text-xs font-bold transition shadow-2xs border border-slate-200 cursor-pointer" title="Close Modal">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    <span>Close</span>
-                </button>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="openHandoverModal()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-xs font-bold transition shadow-sm shadow-orange-500/20 active:scale-95 cursor-pointer">
+                        <i data-lucide="arrow-left-right" class="w-3.5 h-3.5"></i>
+                        <span>Handover Task</span>
+                    </button>
+                    <button type="button" onclick="closeDetailModal()" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-xl text-xs font-bold transition shadow-2xs border border-slate-200 cursor-pointer" title="Close Modal">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        <span>Close</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Body -->
@@ -594,7 +600,12 @@
                 <!-- Assignment & Fast Status Controls -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">Assigned Specialist</label>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">Assigned Specialist</label>
+                            <button onclick="openHandoverModal()" class="text-[10px] font-bold text-amber-700 hover:text-amber-800 flex items-center gap-1 hover:underline cursor-pointer">
+                                <i data-lucide="arrow-left-right" class="w-3 h-3"></i> Handover
+                            </button>
+                        </div>
                         <div class="flex items-center gap-2">
                             <select id="detail-assignee-select" class="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none">
                                 <option value="">-- Unassigned --</option>
@@ -634,38 +645,140 @@
                     <div id="detail-attachments" class="flex flex-wrap gap-2 pt-1"></div>
                 </div>
 
-                <!-- Discussion & Comments Trail -->
+                <!-- Activity Area (Tabs: Discussion Thread & Transaction History) -->
                 <div class="space-y-4 pt-2 border-t border-slate-100">
-                    <div class="flex items-center justify-between">
-                        <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Activity & Communication Thread</h3>
-                        <span class="text-[11px] text-slate-400 font-sans" id="detail-comments-count">0 comments</span>
+                    <!-- Tab Switcher -->
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+                        <div class="flex items-center gap-2">
+                            <button type="button" id="tab-btn-comments" onclick="setDetailActivityTab('comments')" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-slate-900 text-white cursor-pointer">
+                                <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+                                <span>Communication Thread</span>
+                                <span id="detail-comments-count-badge" class="ml-1 px-1.5 py-0.2 bg-white/20 rounded-full text-[10px]">0</span>
+                            </button>
+                            <button type="button" id="tab-btn-history" onclick="setDetailActivityTab('history')" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 cursor-pointer">
+                                <i data-lucide="history" class="w-3.5 h-3.5 text-amber-600"></i>
+                                <span>Transaction History & Handover Trail</span>
+                                <span id="detail-history-count-badge" class="ml-1 px-1.5 py-0.2 bg-amber-100 text-amber-800 font-bold rounded-full text-[10px]">0</span>
+                            </button>
+                        </div>
+                        <span class="text-[11px] text-slate-400 font-sans" id="detail-activity-meta-label">Real-time sync active</span>
                     </div>
 
-                    <div id="detail-comments-list" class="space-y-3 font-sans">
-                        <!-- Comment bubble items -->
-                    </div>
+                    <!-- Pane 1: Comments & Discussion -->
+                    <div id="detail-pane-comments" class="space-y-4">
+                        <div id="detail-comments-list" class="space-y-3 font-sans max-h-72 overflow-y-auto custom-scrollbar pr-1">
+                            <!-- Comment bubble items -->
+                        </div>
 
-                    <!-- Add Comment / Internal Note Box -->
-                    <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200">
-                        <div class="flex items-center justify-between mb-2">
-                            <div class="flex items-center gap-2">
-                                <label class="text-xs font-bold text-slate-700">Post Note/Reply</label>
-                                <div class="flex items-center gap-1.5 ml-3">
-                                    <input type="checkbox" id="comment-is-internal" class="rounded border-slate-300 text-amber-600 focus:ring-amber-500">
-                                    <label for="comment-is-internal" class="text-[11px] font-bold text-amber-700 cursor-pointer">Internal Note (Staff/Admin Only)</label>
+                        <!-- Add Comment / Internal Note Box -->
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-2">
+                                    <label class="text-xs font-bold text-slate-700">Post Note/Reply</label>
+                                    <div class="flex items-center gap-1.5 ml-3">
+                                        <input type="checkbox" id="comment-is-internal" class="rounded border-slate-300 text-amber-600 focus:ring-amber-500">
+                                        <label for="comment-is-internal" class="text-[11px] font-bold text-amber-700 cursor-pointer">Internal Note (Staff/Admin Only)</label>
+                                    </div>
                                 </div>
                             </div>
+                            <textarea id="comment-text-input" rows="2" onkeydown="if((event.metaKey || event.ctrlKey || event.key === 'Enter') && (event.metaKey || event.ctrlKey || (!event.shiftKey && event.key === 'Enter'))) { event.preventDefault(); postComment(); }" placeholder="Type response to client or internal team note (Press Enter to post)..." class="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-sans transition"></textarea>
+                            <div class="flex justify-end gap-2 mt-2">
+                                <button type="button" id="btn-post-comment" onclick="postComment()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer">
+                                    <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                                    <span>Post</span>
+                                </button>
+                            </div>
                         </div>
-                        <textarea id="comment-text-input" rows="2" onkeydown="if((event.metaKey || event.ctrlKey || event.key === 'Enter') && (event.metaKey || event.ctrlKey || (!event.shiftKey && event.key === 'Enter'))) { event.preventDefault(); postComment(); }" placeholder="Type response to client or internal team note (Press Enter to post)..." class="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-sans transition"></textarea>
-                        <div class="flex justify-end gap-2 mt-2">
-                            <button type="button" id="btn-post-comment" onclick="postComment()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer">
-                                <i data-lucide="send" class="w-3.5 h-3.5"></i>
-                                <span>Post</span>
-                            </button>
+                    </div>
+
+                    <!-- Pane 2: Transaction History & Handover Audit Trail -->
+                    <div id="detail-pane-history" class="space-y-3 hidden">
+                        <div id="detail-history-list" class="space-y-3 font-sans max-h-96 overflow-y-auto custom-scrollbar pr-1">
+                            <!-- Injected activity log items -->
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Handover / Reassign Task Modal -->
+    <div id="handover-task-modal" onclick="if(event.target === this) closeHandoverModal()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[999999] hidden opacity-0 transition-opacity duration-200 font-outfit">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 overflow-hidden transform scale-95 transition-transform duration-200" onclick="event.stopPropagation()">
+            <!-- Header -->
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center shadow-xs">
+                        <i data-lucide="arrow-left-right" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">Handover Task to Colleague</h3>
+                        <p class="text-[11px] text-slate-500 font-sans mt-0.5">Transfer operational responsibility with detailed progress notes</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeHandoverModal()" class="flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer" title="Close">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+
+            <!-- Current Task Context Banner -->
+            <div class="p-3 bg-amber-50/60 border border-amber-200/80 rounded-2xl mb-4 font-sans text-xs text-amber-950 space-y-1">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-[11px] text-amber-800 uppercase tracking-wider" id="handover-ticket-label">TSK-1001</span>
+                    <span class="text-[10px] text-amber-700" id="handover-current-from-label">Current Assignee: Sarah Lim</span>
+                </div>
+                <div class="font-semibold text-slate-900 truncate" id="handover-task-title-preview">Task Title</div>
+            </div>
+
+            <form id="handover-task-form" onsubmit="submitTaskHandover(event)" class="space-y-4 font-sans text-xs">
+                <!-- Select Next Assignee -->
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Select Next Specialist / Colleague <span class="text-rose-500">*</span></label>
+                    <select id="handover-assignee-select" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition">
+                        <option value="">-- Choose Colleague to Assign --</option>
+                    </select>
+                </div>
+
+                <!-- Update Status -->
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Set Handover Status</label>
+                    <select id="handover-status-select" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition">
+                        <option value="IN_PROGRESS">In Progress (Continue Execution)</option>
+                        <option value="UNDER_REVIEW">Under Review (Requires Approval)</option>
+                        <option value="WAITING_CLIENT_INPUT">Waiting Client Input</option>
+                        <option value="ASSIGNED">Assigned (Queue for Pickup)</option>
+                    </select>
+                </div>
+
+                <!-- Work Completed Summary -->
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block font-bold text-slate-700">Work Completed So Far <span class="text-rose-500">*</span></label>
+                        <span class="text-[10px] text-slate-400">Brief summary of completed work</span>
+                    </div>
+                    <textarea id="handover-completed-work" required rows="2.5" placeholder="e.g. Prepared Form 45, obtained shareholder resolution signatures, and verified ID documents..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition font-sans"></textarea>
+                </div>
+
+                <!-- Next Steps / Handover Instructions -->
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block font-bold text-slate-700">Next Steps & Instructions for Colleague <span class="text-rose-500">*</span></label>
+                        <span class="text-[10px] text-slate-400">Clear actionable next steps</span>
+                    </div>
+                    <textarea id="handover-next-steps" required rows="2.5" placeholder="e.g. Please lodge with ACRA BizFile portal, attach the electronic receipt, and notify the client..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition font-sans"></textarea>
+                </div>
+
+                <!-- Buttons -->
+                <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="closeHandoverModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer">
+                        Cancel
+                    </button>
+                    <button type="submit" id="btn-submit-handover" class="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm shadow-orange-500/20 active:scale-95 cursor-pointer">
+                        <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+                        <span>Confirm Handover</span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -2119,17 +2232,23 @@
             // Comments
             const commentsList = document.getElementById('detail-comments-list');
             const comments = t.comments || [];
-            document.getElementById('detail-comments-count').innerText = `${comments.length} comment${comments.length === 1 ? '' : 's'}`;
+            const commentBadge = document.getElementById('detail-comments-count-badge');
+            if (commentBadge) commentBadge.innerText = comments.length;
 
             if (comments.length === 0) {
                 commentsList.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs font-sans italic">No conversation notes yet. Post a reply or team note below.</div>`;
             } else {
                 commentsList.innerHTML = comments.map(c => {
                     const isInternal = c.isInternal;
-                    const bgClass = isInternal ? 'bg-amber-50/80 border-amber-200' : (c.authorRole === 'CLIENT' ? 'bg-blue-50/60 border-blue-100' : 'bg-white border-slate-200');
-                    const roleBadge = isInternal 
-                        ? `<span class="px-1.5 py-0.5 bg-amber-200 text-amber-900 rounded text-[9px] font-bold">INTERNAL NOTE</span>`
-                        : `<span class="px-1.5 py-0.5 bg-slate-200 text-slate-800 rounded text-[9px] font-bold">${c.authorRole || 'STAFF'}</span>`;
+                    const isHandover = (c.text || '').includes('Task Handover Notice');
+                    let bgClass = isInternal ? 'bg-amber-50/80 border-amber-200' : (c.authorRole === 'CLIENT' ? 'bg-blue-50/60 border-blue-100' : 'bg-white border-slate-200');
+                    if (isHandover) bgClass = 'bg-orange-50/90 border-orange-300 ring-1 ring-orange-200/50';
+
+                    const roleBadge = isHandover 
+                        ? `<span class="px-1.5 py-0.5 bg-orange-200 text-orange-950 rounded text-[9px] font-black tracking-wider uppercase">🔄 HANDOVER NOTE</span>`
+                        : (isInternal 
+                            ? `<span class="px-1.5 py-0.5 bg-amber-200 text-amber-900 rounded text-[9px] font-bold">INTERNAL NOTE</span>`
+                            : `<span class="px-1.5 py-0.5 bg-slate-200 text-slate-800 rounded text-[9px] font-bold">${c.authorRole || 'STAFF'}</span>`);
 
                     const timeStr = new Date(c.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -2143,11 +2262,14 @@
                                 </div>
                                 <span class="text-[10px] text-slate-400">${timeStr}</span>
                             </div>
-                            <p class="text-xs text-slate-700 leading-relaxed font-sans">${c.text}</p>
+                            <div class="text-xs text-slate-700 leading-relaxed font-sans whitespace-pre-line">${c.text}</div>
                         </div>
                     `;
                 }).join('');
             }
+
+            // Transaction History & Audit Trail
+            renderHistoryTimeline(t);
 
             const modal = document.getElementById('task-detail-modal');
             modal.classList.remove('hidden');
@@ -2157,6 +2279,290 @@
             }, 10);
 
             if (window.lucide) window.lucide.createIcons();
+        }
+
+        function setDetailActivityTab(tab) {
+            const btnComments = document.getElementById('tab-btn-comments');
+            const btnHistory = document.getElementById('tab-btn-history');
+            const paneComments = document.getElementById('detail-pane-comments');
+            const paneHistory = document.getElementById('detail-pane-history');
+
+            if (tab === 'history') {
+                if (btnHistory) btnHistory.className = 'px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-slate-900 text-white cursor-pointer';
+                if (btnComments) btnComments.className = 'px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 cursor-pointer';
+                if (paneHistory) paneHistory.classList.remove('hidden');
+                if (paneComments) paneComments.classList.add('hidden');
+            } else {
+                if (btnComments) btnComments.className = 'px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-slate-900 text-white cursor-pointer';
+                if (btnHistory) btnHistory.className = 'px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 cursor-pointer';
+                if (paneComments) paneComments.classList.remove('hidden');
+                if (paneHistory) paneHistory.classList.add('hidden');
+            }
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function renderHistoryTimeline(task) {
+            const historyList = document.getElementById('detail-history-list');
+            const historyBadge = document.getElementById('detail-history-count-badge');
+            if (!historyList || !task) return;
+
+            const logs = [...(task.activityLog || [])].reverse(); // Most recent first
+            if (historyBadge) historyBadge.innerText = logs.length;
+
+            if (logs.length === 0) {
+                historyList.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs font-sans italic">No transaction history recorded yet.</div>`;
+                return;
+            }
+
+            historyList.innerHTML = logs.map(l => {
+                const action = (l.action || 'UPDATE').toUpperCase();
+                const timeStr = formatTaskDateTime(l.timestamp);
+                const performer = `${l.performedBy || 'Staff'} ${l.performedByRole ? `(${l.performedByRole})` : ''}`;
+
+                if (action === 'HANDOVER') {
+                    const from = l.fromAssignee ? l.fromAssignee.name : 'Unassigned';
+                    const to = l.toAssignee ? l.toAssignee.name : 'Unassigned';
+                    return `
+                        <div class="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 shadow-2xs space-y-2.5">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                                        <i data-lucide="arrow-left-right" class="w-3.5 h-3.5"></i>
+                                    </div>
+                                    <span class="text-xs font-bold text-amber-950 uppercase tracking-wider">Task Handover</span>
+                                    <span class="px-2 py-0.5 bg-amber-200/80 text-amber-900 rounded text-[9px] font-bold">TRANSITION</span>
+                                </div>
+                                <span class="text-[10px] text-amber-800 font-mono">${timeStr}</span>
+                            </div>
+
+                            <!-- Transfer Route Banner -->
+                            <div class="flex items-center gap-2 p-2 bg-white/80 border border-amber-200 rounded-xl text-xs font-semibold text-slate-800">
+                                <span class="text-slate-600">From: <strong class="text-slate-900">${from}</strong></span>
+                                <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-amber-600"></i>
+                                <span class="text-amber-700">To: <strong class="text-amber-900 font-bold">${to}</strong></span>
+                            </div>
+
+                            ${l.completedWork ? `
+                                <div class="p-2.5 bg-emerald-50/60 border border-emerald-200/80 rounded-xl text-xs space-y-0.5">
+                                    <div class="text-[10px] font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1">
+                                        <i data-lucide="check-circle" class="w-3 h-3 text-emerald-600"></i> Work Completed So Far:
+                                    </div>
+                                    <p class="text-slate-700 font-sans leading-relaxed">${l.completedWork}</p>
+                                </div>
+                            ` : ''}
+
+                            ${l.nextSteps ? `
+                                <div class="p-2.5 bg-blue-50/60 border border-blue-200/80 rounded-xl text-xs space-y-0.5">
+                                    <div class="text-[10px] font-bold text-blue-800 uppercase tracking-wider flex items-center gap-1">
+                                        <i data-lucide="arrow-right-circle" class="w-3 h-3 text-blue-600"></i> Next Steps & Instructions:
+                                    </div>
+                                    <p class="text-slate-700 font-sans leading-relaxed">${l.nextSteps}</p>
+                                </div>
+                            ` : ''}
+
+                            <div class="text-[10px] text-amber-700/80 pt-1 border-t border-amber-100 flex items-center justify-between">
+                                <span>Action logged by <strong>${performer}</strong></span>
+                                ${l.newStatus ? `<span class="font-mono font-semibold">Status ➔ ${l.newStatus}</span>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (action === 'CREATED') {
+                    return `
+                        <div class="p-3.5 rounded-2xl bg-blue-50/50 border border-blue-100 shadow-2xs space-y-1">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-5 h-5 rounded-md bg-blue-600 text-white flex items-center justify-center font-bold text-[10px]">
+                                        <i data-lucide="plus-circle" class="w-3 h-3"></i>
+                                    </div>
+                                    <span class="text-xs font-bold text-blue-950">Task Created & Logged</span>
+                                </div>
+                                <span class="text-[10px] text-slate-400 font-mono">${timeStr}</span>
+                            </div>
+                            <p class="text-xs text-slate-700 pl-7 font-sans">${l.details || 'Initial task created'}</p>
+                            <div class="text-[10px] text-slate-400 pl-7">Logged by ${performer}</div>
+                        </div>
+                    `;
+                }
+
+                if (action === 'ASSIGNED') {
+                    return `
+                        <div class="p-3.5 rounded-2xl bg-cyan-50/50 border border-cyan-100 shadow-2xs space-y-1">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-5 h-5 rounded-md bg-cyan-600 text-white flex items-center justify-center font-bold text-[10px]">
+                                        <i data-lucide="user-check" class="w-3 h-3"></i>
+                                    </div>
+                                    <span class="text-xs font-bold text-cyan-950">Specialist Assigned</span>
+                                </div>
+                                <span class="text-[10px] text-slate-400 font-mono">${timeStr}</span>
+                            </div>
+                            <p class="text-xs text-slate-700 pl-7 font-sans">${l.details}</p>
+                            <div class="text-[10px] text-slate-400 pl-7">Updated by ${performer}</div>
+                        </div>
+                    `;
+                }
+
+                if (action === 'STATUS_CHANGED') {
+                    return `
+                        <div class="p-3.5 rounded-2xl bg-purple-50/50 border border-purple-100 shadow-2xs space-y-1">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-5 h-5 rounded-md bg-purple-600 text-white flex items-center justify-center font-bold text-[10px]">
+                                        <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                                    </div>
+                                    <span class="text-xs font-bold text-purple-950">Lifecycle Status Change</span>
+                                </div>
+                                <span class="text-[10px] text-slate-400 font-mono">${timeStr}</span>
+                            </div>
+                            <p class="text-xs text-slate-700 pl-7 font-sans">${l.details}</p>
+                            <div class="text-[10px] text-slate-400 pl-7">Updated by ${performer}</div>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-5 h-5 rounded-md bg-slate-800 text-white flex items-center justify-center font-bold text-[10px]">
+                                    <i data-lucide="activity" class="w-3 h-3"></i>
+                                </div>
+                                <span class="text-xs font-bold text-slate-900">${action}</span>
+                            </div>
+                            <span class="text-[10px] text-slate-400 font-mono">${timeStr}</span>
+                        </div>
+                        <p class="text-xs text-slate-700 pl-7 font-sans">${l.details}</p>
+                        <div class="text-[10px] text-slate-400 pl-7">Performed by ${performer}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openHandoverModal() {
+            if (!currentTask) {
+                alert('Please open a task first to initiate handover.');
+                return;
+            }
+            const modal = document.getElementById('handover-task-modal');
+            const t = currentTask;
+
+            document.getElementById('handover-ticket-label').innerText = t.ticketNumber || t.id;
+            document.getElementById('handover-current-from-label').innerText = `Current Assignee: ${t.assignedTo ? (t.assignedTo.name + ' (' + (t.assignedTo.role || 'STAFF') + ')') : 'Unassigned Pool'}`;
+            document.getElementById('handover-task-title-preview').innerText = t.title || 'Untitled Task';
+
+            // Populate specialist options
+            const sel = document.getElementById('handover-assignee-select');
+            if (sel) {
+                const assignees = taskFormOptions.assignees || [];
+                sel.innerHTML = '<option value="">-- Choose Colleague to Assign --</option>' +
+                    assignees.map(s => {
+                        const isCurrent = (t.assignedTo && t.assignedTo.id === s.id);
+                        return `<option value="${s.id}" ${isCurrent ? 'class="text-slate-400 italic"' : ''}>${s.name} (${s.role || 'STAFF'})${isCurrent ? ' - Currently Assigned' : ''}</option>`;
+                    }).join('');
+            }
+
+            // Default target status
+            const statusSel = document.getElementById('handover-status-select');
+            if (statusSel) {
+                statusSel.value = (t.status === 'PENDING' || t.status === 'ASSIGNED') ? 'IN_PROGRESS' : (t.status || 'IN_PROGRESS');
+            }
+
+            // Reset textareas
+            const compEl = document.getElementById('handover-completed-work');
+            if (compEl) compEl.value = '';
+            const nextEl = document.getElementById('handover-next-steps');
+            if (nextEl) nextEl.value = '';
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.firstElementChild.classList.remove('scale-95');
+            }, 10);
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function closeHandoverModal() {
+            const modal = document.getElementById('handover-task-modal');
+            if (!modal) return;
+            modal.classList.add('opacity-0');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        async function submitTaskHandover(e) {
+            if (e) e.preventDefault();
+            if (!currentTask) return;
+
+            const staffId = document.getElementById('handover-assignee-select').value;
+            if (!staffId) {
+                alert('Please select a colleague to hand over the task.');
+                return;
+            }
+
+            const targetStaff = (taskFormOptions.assignees || []).find(s => s.id === staffId);
+            if (!targetStaff) {
+                alert('Selected staff member not found.');
+                return;
+            }
+
+            const assignee = {
+                id: targetStaff.id,
+                name: targetStaff.name,
+                role: targetStaff.role || 'STAFF',
+                email: targetStaff.email || '',
+                avatar: targetStaff.avatar || 'ST'
+            };
+
+            const status = document.getElementById('handover-status-select')?.value || 'IN_PROGRESS';
+            const completedWork = document.getElementById('handover-completed-work')?.value.trim() || '';
+            const nextSteps = document.getElementById('handover-next-steps')?.value.trim() || '';
+
+            const submitBtn = document.getElementById('btn-submit-handover');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.classList.add('opacity-70');
+                submitBtn.innerText = 'Handing over...';
+            }
+
+            try {
+                const res = await fetch(`/api/tasks/${currentTask.id}/handover`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        assignee,
+                        status,
+                        completedWork,
+                        nextSteps,
+                        performedBy: 'Admin User',
+                        performedByRole: 'ADMIN'
+                    })
+                });
+
+                if (res.ok) {
+                    currentTask = await res.json();
+                    closeHandoverModal();
+                    renderDetailModal();
+                    refreshTasks();
+                    showToastNotification(`<strong>Task Handed Over:</strong> Reassigned to <strong>${assignee.name}</strong> with handover notes.`, currentTask.id);
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    alert('Failed to handover task: ' + (err.error || 'Server error'));
+                }
+            } catch (err) {
+                console.error('Handover error:', err);
+                alert('Network error while processing handover.');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('opacity-70');
+                    submitBtn.innerHTML = `<i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> <span>Confirm Handover</span>`;
+                    if (window.lucide) window.lucide.createIcons();
+                }
+            }
         }
 
         function formatStepTime(ts) {
@@ -2585,6 +2991,10 @@
         window.handleCompanyInputKeydown = handleCompanyInputKeydown;
         window.openTaskDetail = openTaskDetail;
         window.closeDetailModal = closeDetailModal;
+        window.openHandoverModal = openHandoverModal;
+        window.closeHandoverModal = closeHandoverModal;
+        window.submitTaskHandover = submitTaskHandover;
+        window.setDetailActivityTab = setDetailActivityTab;
         window.saveAssignment = saveAssignment;
         window.selfAssign = selfAssign;
         window.saveStatusChange = saveStatusChange;
