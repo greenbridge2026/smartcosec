@@ -7112,15 +7112,20 @@
 
                 const addToMaster = (uboItem, sh, shIdx) => {
                     if (!uboItem || !uboItem.name || !uboItem.name.trim()) return;
+                    const cleanName = uboItem.name.trim();
+                    if (cleanName.toLowerCase().startsWith('individual shareholder #') || 
+                        cleanName.toLowerCase().startsWith('corporate shareholder #')) {
+                        return;
+                    }
                     const key = (uboItem.idNum && uboItem.idNum.trim() !== '')
                         ? uboItem.idNum.trim().toUpperCase()
-                        : uboItem.name.trim().toLowerCase();
+                        : cleanName.toLowerCase();
 
                     const shName = sh.name || (sh.type === 'corporate' ? 'Corporate Shareholder #' + (shIdx + 1) : 'Individual Shareholder #' + (shIdx + 1));
                     const shShares = parseFloat(sh.shares) || 0;
                     const pct = (totalShares > 0 && shShares > 0)
-                        ? Math.round((shShares / totalShares) * 100)
-                        : (parseFloat(sh.percent) || 0);
+                        ? Math.min(100, Math.round((shShares / totalShares) * 100))
+                        : Math.min(100, parseFloat(sh.percent) || 0);
 
                     if (masterMap.has(key)) {
                         const existing = masterMap.get(key);
@@ -7136,7 +7141,7 @@
                     } else {
                         masterMap.set(key, {
                             id: uboItem.id || `ubo_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-                            name: uboItem.name.trim(),
+                            name: cleanName,
                             idNum: uboItem.idNum || uboItem.idNumber || '',
                             nationality: uboItem.nationality || 'Singaporean',
                             dob: uboItem.dob || '',
@@ -7156,25 +7161,37 @@
                     if (!sh) return;
                     const shShares = parseFloat(sh.shares) || 0;
                     const pct = (totalShares > 0 && shShares > 0)
-                        ? Math.round((shShares / totalShares) * 100)
-                        : (parseFloat(sh.percent) || 0);
+                        ? Math.min(100, Math.round((shShares / totalShares) * 100))
+                        : Math.min(100, parseFloat(sh.percent) || 0);
 
-                    if (sh.type === 'individual') {
-                        const indName = sh.name || ('Individual Shareholder #' + (idx + 1));
-                        addToMaster({
-                            name: indName,
-                            idNum: sh.idNum || '',
-                            nationality: sh.nationality || 'Singaporean',
-                            dob: sh.dob || '',
-                            email: sh.email || '',
-                            phone: sh.phone || '',
-                            addr: sh.addr || '',
-                            source: 'Direct Individual Shareholder'
-                        }, { ...sh, percent: pct }, idx);
+                    if (sh.ubo === 'No') {
+                        const selected = Array.isArray(sh.selectedUbos) ? sh.selectedUbos : (Array.isArray(sh.ubos) ? sh.ubos : []);
+                        selected.forEach(u => {
+                            if (u && u.name && u.name.trim()) {
+                                addToMaster({
+                                    ...u,
+                                    source: u.source || 'Selected UBO'
+                                }, { ...sh, percent: pct }, idx);
+                            }
+                        });
+                    } else if (sh.type === 'individual') {
+                        const indName = sh.name;
+                        if (indName && indName.trim()) {
+                            addToMaster({
+                                name: indName.trim(),
+                                idNum: sh.idNum || '',
+                                nationality: sh.nationality || 'Singaporean',
+                                dob: sh.dob || '',
+                                email: sh.email || '',
+                                phone: sh.phone || '',
+                                addr: sh.addr || '',
+                                source: 'Direct Individual Shareholder'
+                            }, { ...sh, percent: pct }, idx);
+                        }
                     } else {
                         // Corporate shareholder
                         const repName = sh.rep?.name || sh.rep?.fullName || '';
-                        const corpName = sh.name || ('Corporate Shareholder #' + (idx + 1));
+                        const corpName = sh.name;
 
                         if (repName && repName.trim()) {
                             addToMaster({
@@ -7185,12 +7202,11 @@
                                 email: sh.rep?.email || '',
                                 phone: sh.rep?.phone || '',
                                 addr: sh.addr || '',
-                                source: `Representative for ${corpName}`
+                                source: `Representative for ${corpName || 'Corporate Entity'}`
                             }, { ...sh, percent: pct }, idx);
-                        } else {
-                            // If representative name is not filled yet, register the corporate shareholder entity itself
+                        } else if (corpName && corpName.trim()) {
                             addToMaster({
-                                name: corpName,
+                                name: corpName.trim(),
                                 idNum: sh.idNum || sh.regNum || '',
                                 nationality: sh.nationality || 'Corporate Body',
                                 email: sh.email || '',
@@ -7238,20 +7254,6 @@
                                     addr: nom.nominatorAddress || '',
                                     source: 'RONS Nominator'
                                 }, { name: nom.nominatorName, percent: nomPct }, nIdx);
-                            }
-                        }
-                    });
-                }
-
-                // Preserve existing UBOs from migration or backend
-                if (Array.isArray(this.data.ubos)) {
-                    this.data.ubos.forEach(u => {
-                        if (u && u.name) {
-                            const key = (u.idNum && u.idNum.trim() !== '')
-                                ? u.idNum.trim().toUpperCase()
-                                : u.name.trim().toLowerCase();
-                            if (!masterMap.has(key)) {
-                                masterMap.set(key, { ...u, role: u.role || 'Ultimate Beneficial Owner', status: u.status || 'Active' });
                             }
                         }
                     });

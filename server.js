@@ -3156,7 +3156,9 @@ app.get('/api/admin/staff', (req, res) => {
             department: u.department || 'Corporate Secretarial & Incorporation',
             designation: u.designation || 'Senior Operations Specialist',
             onlineStatus: u.onlineStatus || 'ONLINE',
-            phone: u.phone || ''
+            phone: u.phone || '',
+            lastLoginTime: u.lastLoginTime || u.lastSeenTime || (u.updatedAt ? new Date(u.updatedAt).getTime() : null),
+            lastLoginAt: u.lastLoginAt
         }));
     res.json(staffList);
 });

@@ -579,9 +579,9 @@
             `;
         }
 
-        async function fetchApplications(tab = activeTabFilter) {
+        async function fetchApplications(tab = activeTabFilter, isSilent = false) {
             const tableBody = document.getElementById('applications-table-body');
-            if (tableBody) {
+            if (tableBody && !isSilent && (!allApplications || allApplications.length === 0)) {
                 tableBody.innerHTML = renderSmartTableLoader();
             }
 
@@ -606,7 +606,9 @@
                 }
             } catch (e) {
                 console.error("Failed to fetch applications", e);
-                showToast("Could not load applications from server.", "error");
+                if (!isSilent) {
+                    showToast("Could not load applications from server.", "error");
+                }
             }
         }
 
@@ -1214,23 +1216,41 @@
 
             // --- Section 4b: Ultimate Beneficial Owners (UBOs) HTML ---
             const rawUbos = Array.isArray(d.ubos) ? d.ubos : (Array.isArray(d.controllers) ? d.controllers : []);
-            let allUbos = [...rawUbos];
+            let allUbos = [];
+            const seenUboKeys = new Set();
+
+            const addAdminUbo = (u) => {
+                if (!u || !u.name || !u.name.trim()) return;
+                const cleanName = u.name.trim();
+                if (cleanName.toLowerCase().startsWith('individual shareholder #') || 
+                    cleanName.toLowerCase().startsWith('corporate shareholder #')) return;
+                const idKey = (u.idNum && u.idNum.trim() !== '') ? u.idNum.trim().toUpperCase() : cleanName.toLowerCase();
+                if (seenUboKeys.has(idKey)) return;
+                seenUboKeys.add(idKey);
+                allUbos.push(u);
+            };
+
+            if (rawUbos.length > 0) {
+                rawUbos.forEach(u => addAdminUbo(u));
+            }
+
             if (allUbos.length === 0 && shareholders.length > 0) {
                 shareholders.forEach((sh, sIdx) => {
+                    const shPct = Math.min(100, Math.max(0, parseFloat(sh.percent) || 0));
                     if (sh.ubo !== 'No') {
                         const isCorp = sh.type === 'corporate';
-                        allUbos.push({
-                            name: isCorp ? (sh.rep?.fullName || 'Corporate Representative') : (sh.name || `Shareholder #${sIdx+1}`),
+                        addAdminUbo({
+                            name: isCorp ? (sh.rep?.name || sh.rep?.fullName || 'Corporate Representative') : (sh.name || `Shareholder #${sIdx+1}`),
                             idNum: isCorp ? (sh.rep?.idNum || '') : (sh.idNum || ''),
                             nationality: isCorp ? (sh.rep?.nationality || 'Singaporean') : (sh.nationality || 'Singaporean'),
                             role: 'Ultimate Beneficial Owner',
-                            ownershipPct: sh.percent || 0,
-                            source: isCorp ? 'Corporate Representative' : 'Direct Shareholder',
+                            ownershipPct: shPct,
+                            source: isCorp ? `Representative for ${sh.name || 'Corporate Entity'}` : 'Direct Shareholder',
                             shareholders: [sh.name || `Shareholder #${sIdx+1}`]
                         });
                     } else if (Array.isArray(sh.selectedUbos) || Array.isArray(sh.ubos)) {
                         const selected = sh.selectedUbos || sh.ubos || [];
-                        selected.forEach(u => allUbos.push({ ...u, shareholders: [sh.name || `Shareholder #${sIdx+1}`] }));
+                        selected.forEach(u => addAdminUbo({ ...u, shareholders: [sh.name || `Shareholder #${sIdx+1}`] }));
                     }
                 });
             }
@@ -1239,6 +1259,9 @@
             if (allUbos.length > 0) {
                 ubosHtml = allUbos.map((u, i) => {
                     const shText = Array.isArray(u.shareholders) ? u.shareholders.join(', ') : (u.shareholderName || 'Direct');
+                    const displayPct = (u.ownershipPct !== undefined && u.ownershipPct !== null && u.ownershipPct !== '')
+                        ? `${Math.min(100, Math.max(0, parseFloat(u.ownershipPct) || 0))}% Ownership`
+                        : 'Controller';
                     return `
                         <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-2">
                             <div class="flex items-center justify-between border-b border-slate-100 pb-2">
@@ -1252,7 +1275,7 @@
                                     </div>
                                 </div>
                                 <span class="px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold uppercase border border-blue-200/50">
-                                    ${u.ownershipPct ? u.ownershipPct + '% Ownership' : 'Controller'}
+                                    ${displayPct}
                                 </span>
                             </div>
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-slate-700">
@@ -1740,10 +1763,14 @@
             fetchApplications();
         });
 
-        // 15s auto-refresh
+        // 30s background sync (silent mode without interrupting modal or table view)
         setInterval(() => {
-            fetchApplications();
-        }, 15000);
+            const modal = document.getElementById('review-modal');
+            const isModalOpen = modal && !modal.classList.contains('hidden');
+            if (!isModalOpen) {
+                fetchApplications(activeTabFilter, true);
+            }
+        }, 30000);
     </script>
 </body>
 </html>

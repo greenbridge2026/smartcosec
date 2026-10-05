@@ -220,7 +220,7 @@
                                     <th>Login Email</th>
                                     <th>Password</th>
                                     <th>Department & Role</th>
-                                    <th>Status</th>
+                                    <th>Last Logged In</th>
                                     <th class="text-right">Actions</th>
                                 </tr>
                             </thead>
@@ -444,6 +444,70 @@
             return html;
         }
 
+        function formatStaffLastLogin(staff) {
+            const rawTs = staff.lastLoginTime || staff.lastSeenTime || (staff.lastLoginAt ? new Date(staff.lastLoginAt).getTime() : null);
+            const isOnline = (staff.onlineStatus || '').toUpperCase() === 'ONLINE';
+
+            if (!rawTs) {
+                if (isOnline) {
+                    return `
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                            <div>
+                                <div class="text-xs font-bold text-emerald-700 font-outfit">Active Now</div>
+                                <div class="text-[10px] text-slate-400 font-medium">Logged in</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                return `
+                    <div class="flex items-center gap-1.5 text-slate-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <span class="text-xs font-medium italic text-slate-400">Never logged in</span>
+                    </div>
+                `;
+            }
+
+            const d = new Date(rawTs);
+            const now = new Date();
+            const diffMs = now.getTime() - d.getTime();
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMins / 60);
+            const diffDays = Math.floor(diffHours / 24);
+
+            let relativeText = '';
+            if (isOnline) {
+                relativeText = 'Active now';
+            } else if (diffMins < 1) {
+                relativeText = 'Just now';
+            } else if (diffMins < 60) {
+                relativeText = `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+            } else if (diffHours < 24) {
+                relativeText = `${diffHours} hr${diffHours > 1 ? 's' : ''} ago`;
+            } else if (diffDays === 1) {
+                relativeText = 'Yesterday';
+            } else if (diffDays < 7) {
+                relativeText = `${diffDays} days ago`;
+            } else {
+                relativeText = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+            }
+
+            const formattedTime = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+            const formattedDate = d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+
+            return `
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded-lg ${isOnline ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'} flex items-center justify-center shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </div>
+                    <div>
+                        <div class="text-xs font-bold text-slate-700 font-outfit">${formattedDate}, ${formattedTime}</div>
+                        <div class="text-[10px] ${isOnline ? 'text-emerald-600 font-bold' : 'text-slate-400 font-medium'}">${relativeText}</div>
+                    </div>
+                </div>
+            `;
+        }
+
         function renderStaffTable(list) {
             const tbody = document.getElementById('staff-table-body');
             if (!tbody) return;
@@ -531,10 +595,7 @@
                         </div>
                     </td>
                     <td>
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${isOnline ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'} uppercase tracking-wider">
-                            <span class="w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}"></span>
-                            <span>${isOnline ? 'ONLINE' : 'OFFLINE'}</span>
-                        </span>
+                        ${formatStaffLastLogin(staff)}
                     </td>
                     <td class="text-right">
                         <div class="flex items-center justify-end gap-1.5">
