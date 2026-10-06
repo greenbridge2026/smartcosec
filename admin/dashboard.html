@@ -836,6 +836,25 @@
 
         let clientsData = [];
         let statsData = {};
+        let clientTotalElements = 0;
+        let clientTotalPages = 1;
+
+        try {
+            const cachedClientsJson = sessionStorage.getItem('globalisor_cached_clients');
+            if (cachedClientsJson) {
+                const parsed = JSON.parse(cachedClientsJson);
+                if (parsed && Array.isArray(parsed.clients) && parsed.clients.length > 0) {
+                    clientsData = parsed.clients;
+                    statsData = parsed.stats || {};
+                    clientTotalElements = parsed.totalElements || parsed.clients.length;
+                    clientTotalPages = parsed.totalPages || 1;
+                }
+            }
+        } catch(e) {}
+
+        let clientCurrentPage = 1;
+        let clientPageSize = 24;
+        let clientSearchTimer = null;
         let currentModule = 'clients';
         let currentFilter = 'all';
         let currentStaffFilter = 'all';
@@ -1798,9 +1817,18 @@
                             </div>
                         </div>
                     `;
-                    await fetchDashboard();
-                    await renderAdminNotices();
-                    initDraggable();
+                    const hasWarmClients = clientsData && clientsData.length > 0;
+                    if (hasWarmClients) {
+                        renderClients();
+                        renderAdminNotices();
+                        initDraggable();
+                        // Silent background refresh
+                        fetchDashboard(clientCurrentPage, clientPageSize);
+                    } else {
+                        await fetchDashboard();
+                        await renderAdminNotices();
+                        initDraggable();
+                    }
                 }
             } else if (currentModule === 'applications') {
                 await renderApplications();
@@ -1887,6 +1915,15 @@
                 clientTotalElements = typeof data.totalElements === 'number' ? data.totalElements : clientsData.length;
                 clientTotalPages = typeof data.totalPages === 'number' ? data.totalPages : (clientPageSize === 'all' ? 1 : Math.max(1, Math.ceil(clientTotalElements / (typeof clientPageSize === 'number' ? clientPageSize : 24))));
                 
+                try {
+                    sessionStorage.setItem('globalisor_cached_clients', JSON.stringify({
+                        clients: clientsData,
+                        stats: statsData,
+                        totalElements: clientTotalElements,
+                        totalPages: clientTotalPages
+                    }));
+                } catch(e) {}
+
                 const urlParams = new URLSearchParams(window.location.search);
                 const view = urlParams.get('view') || 'dashboard';
 
@@ -2314,12 +2351,6 @@
             if (s === 'rejected') return { class: 'status-rejected', text: 'Rejected', key: 'rejected' };
             return { class: 'status-pending', text: s, key: 'pending' };
         }
-
-        let clientCurrentPage = 1;
-        let clientPageSize = 24;
-        let clientTotalElements = 0;
-        let clientTotalPages = 1;
-        let clientSearchTimer = null;
 
         window.handleClientSearch = function(val) {
             if (clientSearchTimer) clearTimeout(clientSearchTimer);

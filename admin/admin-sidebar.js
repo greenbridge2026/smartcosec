@@ -2606,4 +2606,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.lucide) {
         window.lucide.createIcons();
     }
+
+    // 9. Silent Background Prefetching for Clients and Tasks
+    setTimeout(async () => {
+        try {
+            if (!sessionStorage.getItem('globalisor_cached_clients')) {
+                const cRes = await fetch('/api/dashboard?page=1&size=24');
+                if (cRes.ok) {
+                    const cData = await cRes.json();
+                    sessionStorage.setItem('globalisor_cached_clients', JSON.stringify(cData));
+                }
+            }
+        } catch(e) {}
+        try {
+            if (!sessionStorage.getItem('globalisor_cached_tasks')) {
+                const tRes = await fetch('/api/tasks?completedDays=0');
+                if (tRes.ok) {
+                    const tData = await tRes.json();
+                    sessionStorage.setItem('globalisor_cached_tasks', JSON.stringify(tData));
+                }
+            }
+        } catch(e) {}
+    }, 200);
 });

@@ -931,9 +931,29 @@
             priorities: []
         };
 
+        try {
+            const cachedTasksJson = sessionStorage.getItem('globalisor_cached_tasks');
+            if (cachedTasksJson) {
+                const parsed = JSON.parse(cachedTasksJson);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    allTasks = parsed;
+                    _initialTasksLoaded = true;
+                }
+            }
+        } catch(e) {}
+
         document.addEventListener('DOMContentLoaded', () => {
             fetchTaskFormOptions();
-            refreshTasks();
+            if (allTasks && allTasks.length > 0) {
+                populateAdminFilterCategories();
+                updateAdminQuickPillCounts();
+                applyFilters();
+                updateKpiMetrics();
+                // Silent background update
+                refreshTasks();
+            } else {
+                refreshTasks();
+            }
         });
 
         async function fetchTaskFormOptions() {
@@ -1611,6 +1631,9 @@
                     }
 
                     allTasks = newTasks;
+                    try {
+                        sessionStorage.setItem('globalisor_cached_tasks', JSON.stringify(newTasks));
+                    } catch(e) {}
                     populateAdminFilterCategories();
                     updateAdminQuickPillCounts();
                     applyFilters();
