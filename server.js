@@ -868,6 +868,23 @@ app.get('/api/dashboard', (req, res) => {
     });
 });
 
+// GET /api/applications/counts → return application status counts for tabs
+app.get('/api/applications/counts', (req, res) => {
+    const db = getDb();
+    const apps = (db.applications || []).filter(a => {
+        const s = (a.status || 'pending').toLowerCase();
+        return !s.includes('approved') && !s.includes('completed');
+    });
+    let pending = 0;
+    let rejected = 0;
+    apps.forEach(a => {
+        const s = (a.status || 'pending').toLowerCase();
+        if (s.includes('rejected') || s.includes('revision')) rejected++;
+        else pending++;
+    });
+    res.json({ pending, rejected, all: apps.length });
+});
+
 // GET /api/applications → return list of applications for admin applications portal
 app.get('/api/applications', (req, res) => {
     const db = getDb();
