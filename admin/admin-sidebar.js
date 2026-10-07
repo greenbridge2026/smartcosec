@@ -1633,16 +1633,25 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`/api/notifications?clientId=${encodeURIComponent(adminId)}&role=admin`);
             if (res.ok) {
                 const data = await res.json();
-                const fetched = Array.isArray(data) ? data : (data.notifications || []);
-                const existing = window._adminNotifications || [];
-                const mergedMap = new Map();
-                fetched.forEach(n => mergedMap.set(n.id, n));
-                existing.forEach(n => {
-                    if (!mergedMap.has(n.id)) {
-                        mergedMap.set(n.id, n);
+                const allList = [...fetched, ...existing].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                const seenIds = new Set();
+                const seenTaskKeys = new Set();
+                const deduplicated = [];
+                for (const n of allList) {
+                    if (seenIds.has(n.id)) continue;
+                    const isTaskNotif = (n.type && n.type.toLowerCase().includes('task')) || 
+                                       (n.relatedId && (n.relatedId.startsWith('task-') || n.relatedId.toLowerCase().includes('task')));
+                    if (isTaskNotif && n.relatedId) {
+                        const taskKey = n.relatedId.trim();
+                        if (seenTaskKeys.has(taskKey)) {
+                            continue; // Only retain one notification per task
+                        }
+                        seenTaskKeys.add(taskKey);
                     }
-                });
-                window._adminNotifications = Array.from(mergedMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                    seenIds.add(n.id);
+                    deduplicated.push(n);
+                }
+                window._adminNotifications = deduplicated;
                 window._adminRenderNotifications();
 
                 // If not initial load, trigger toast for any newly fetched unread notification from last 60 seconds
@@ -1715,13 +1724,18 @@ document.addEventListener('DOMContentLoaded', () => {
                             const myName = auth.name || 'Admin Team';
                             const isMessageFromMe = notif.type === 'message' && notif.message && notif.message.startsWith(myName + ':');
                             if (!isMessageFromMe) {
-                                const exists = window._adminNotifications.some(n => n.id === notif.id);
-                                if (!exists) {
-                                    window._adminNotifications.unshift(notif);
-                                    window._adminSeenNotifIds.add(notif.id);
-                                    window._adminRenderNotifications();
-                                    window._adminShowToast(notif);
+                                const isTask = (notif.type && notif.type.toLowerCase().includes('task')) || 
+                                              (notif.relatedId && (notif.relatedId.startsWith('task-') || notif.relatedId.toLowerCase().includes('task')));
+                                if (isTask && notif.relatedId) {
+                                    // Keep single notification per task: remove prior notification for this task
+                                    window._adminNotifications = (window._adminNotifications || []).filter(n => n.relatedId !== notif.relatedId);
+                                } else {
+                                    window._adminNotifications = (window._adminNotifications || []).filter(n => n.id !== notif.id);
                                 }
+                                window._adminNotifications.unshift(notif);
+                                window._adminSeenNotifIds.add(notif.id);
+                                window._adminRenderNotifications();
+                                window._adminShowToast(notif);
                             }
 
                             // Trigger real-time task board auto-populate if notification is task-related
