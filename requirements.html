@@ -838,17 +838,42 @@
         }
 
         /* --- TOAST --- */
-        #toast-container { position: fixed; bottom: 2rem; right: 2rem; z-index: 10000; display: flex; flex-direction: column; gap: 0.75rem; }
-        .toast {
-            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); padding: 1rem 1.5rem; border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-left: 5px solid var(--brand-primary); color: var(--text-main);
-            font-weight: 600; font-size: 0.9rem; transform: translateX(120%); transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-            display: flex; align-items: center; gap: 0.75rem; min-width: 250px;
+        #toast-container { 
+            position: fixed; 
+            top: 1.5rem; 
+            right: 1.5rem; 
+            z-index: 99999; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 0.75rem; 
+            max-width: 440px; 
+            pointer-events: none; 
         }
-        .toast.active { transform: translateX(0); }
-        .toast.success { border-left-color: var(--success); }
-        .toast.error { border-left-color: var(--error); }
-        .toast.info { border-left-color: var(--brand-secondary); }
+        .toast {
+            pointer-events: auto;
+            background: #ffffff; 
+            padding: 0.95rem 1.25rem; 
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15), 0 2px 6px rgba(0,0,0,0.06); 
+            border: 1.5px solid #e2e8f0; 
+            border-left: 6px solid var(--brand-primary); 
+            color: #0f172a;
+            font-weight: 600; 
+            font-size: 0.88rem; 
+            line-height: 1.45;
+            transform: translateX(120%); 
+            opacity: 0;
+            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex; 
+            align-items: flex-start; 
+            gap: 0.85rem; 
+            min-width: 280px;
+        }
+        .toast.active { transform: translateX(0); opacity: 1; }
+        .toast.success { border-left-color: #16a34a; background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+        .toast.error { border-left-color: #dc2626; background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+        .toast.warning { border-left-color: #d97706; background: #fffbeb; border-color: #fde68a; color: #92400e; }
+        .toast.info { border-left-color: #2563eb; background: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
 
         @keyframes badgePulse {
             0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); }
@@ -1848,13 +1873,30 @@
             })();
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
-            toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span><span>${msg}</span>`;
+            const icon = type === 'success' ? '✅' : (type === 'error' ? '❌' : (type === 'warning' ? '⚠️' : 'ℹ️'));
+            toast.innerHTML = `
+                <span style="font-size: 1.15rem; line-height: 1; flex-shrink: 0; margin-top: 1px;">${icon}</span>
+                <span style="flex: 1; font-weight: 600;">${msg}</span>
+                <button type="button" onclick="this.parentElement.remove()" style="background: none; border: none; color: currentColor; opacity: 0.6; cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0 0 0 6px; font-weight: 700; flex-shrink: 0;" title="Dismiss">✕</button>
+            `;
             container.appendChild(toast);
             setTimeout(() => toast.classList.add('active'), 10);
-            setTimeout(() => {
+
+            // Generous read duration: 6500ms for errors/warnings so client can read properly, 4000ms for others
+            const duration = (type === 'error' || type === 'warning') ? 6500 : 4000;
+            let timer = setTimeout(() => {
                 toast.classList.remove('active');
                 setTimeout(() => toast.remove(), 400);
-            }, 3000);
+            }, duration);
+
+            // Pause auto-dismiss if user hovers on it to read
+            toast.addEventListener('mouseenter', () => clearTimeout(timer));
+            toast.addEventListener('mouseleave', () => {
+                timer = setTimeout(() => {
+                    toast.classList.remove('active');
+                    setTimeout(() => toast.remove(), 400);
+                }, 2500);
+            });
         }
 
         // Generic nested path get/set helpers
@@ -4196,8 +4238,18 @@
                 this.data.step2SubStepIndex = idx;
                 this.save();
                 this.render();
-                const wizBody = document.getElementById('wizard-body');
-                if (wizBody) wizBody.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                setTimeout(() => {
+                    const activePill = document.getElementById(`substep-pill-${idx}`);
+                    if (activePill) {
+                        activePill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                    }
+                    const stickyHeader = document.getElementById('step2-sticky-header');
+                    if (stickyHeader) {
+                        stickyHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    } else {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                }, 40);
             }
 
             getPhoneCountries() {
@@ -4605,12 +4657,16 @@
                             return;
                         }
                         if (!d.idNum || !d.idNum.trim()) {
-                            showToast(`Director #${num}: Please enter NRIC/FIN or Passport Number.`, "warning");
+                            showToast(`Director #${num}: Please enter ID Number.`, "warning");
                             return;
                         }
                         if (!d.nationality || !d.nationality.trim()) {
-                            showToast(`Director #${num}: Dropdown selection required for Nationality.`, "warning");
-                            return;
+                            const domSel = document.getElementById(`dir-nationality-${i}`);
+                            if (domSel && domSel.value && domSel.value.trim()) {
+                                d.nationality = domSel.value.trim();
+                            } else {
+                                d.nationality = (d.idType === 'local' || (this.data.hasLocalDirector !== 'no')) ? 'Singaporean' : 'Singaporean';
+                            }
                         }
                         if (!d.dob || !d.dob.trim()) {
                             showToast(`Director #${num}: Please enter Date of Birth.`, "warning");
@@ -4654,6 +4710,37 @@
                         showToast("Please confirm the Share Capital configuration checkbox to proceed.", "warning");
                         return;
                     }
+                } else if (activeKey === 'corp_shareholder') {
+                    this.ensureCapitalCurrencies();
+                    const currencies = (this.data.capital?.currencies && this.data.capital.currencies.length > 0)
+                        ? this.data.capital.currencies
+                        : [{ currency: this.data.capital?.currency || 'SGD', numberOfShares: this.data.capital?.numShares || 0, shareCapitalAmount: this.data.capital?.issued || 0 }];
+                    const shareholders = this.data.shareholders || [];
+                    const defaultCode = currencies[0]?.currency === 'Others' ? (currencies[0]?.customCurrency || 'SGD') : (currencies[0]?.currency || 'SGD');
+
+                    for (const c of currencies) {
+                        const currCode = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : (c.currency || 'SGD');
+                        const targetShares = parseFloat(c.numberOfShares) || 0;
+                        if (targetShares <= 0) continue;
+
+                        let allocatedInCurr = 0;
+                        shareholders.forEach(sh => {
+                            const sCurr = sh.currency || defaultCode;
+                            if (sCurr === currCode) {
+                                allocatedInCurr += parseFloat(sh.shares) || 0;
+                            }
+                        });
+
+                        const diff = targetShares - allocatedInCurr;
+                        if (Math.abs(diff) > 0.001) {
+                            if (diff > 0) {
+                                showToast(`Share capital allocation for ${currCode} must be 100% utilised to proceed. You have ${diff.toLocaleString()} unallocated ${currCode} shares remaining (${((allocatedInCurr / targetShares) * 100).toFixed(1)}% allocated).`, "warning");
+                            } else {
+                                showToast(`Share capital for ${currCode} is over-allocated by ${Math.abs(diff).toLocaleString()} shares. Total allocation must equal 100%.`, "warning");
+                            }
+                            return;
+                        }
+                    }
                 } else if (activeKey === 'final_declaration') {
                     if (!this.data.declaration?.confirmed) {
                         showToast("Please agree to the statutory declarations to proceed.", "warning");
@@ -4688,6 +4775,18 @@
                 const curIdx = this.data.step2SubStepIndex;
 
                 const activeSub = SUBSTEPS[curIdx] || SUBSTEPS[0];
+
+                // Dynamically sync and update the page header to reflect the current section
+                setTimeout(() => {
+                    const titleEl = document.getElementById('step-title');
+                    if (titleEl) {
+                        titleEl.innerHTML = `Directors & Shareholders <span style="font-size: 1.15rem; font-weight: 700; color: #2563eb; display: block; margin-top: 4px;">Section 2.${curIdx + 1}: ${activeSub.title}</span>`;
+                    }
+                    const stepInd = document.getElementById('step-indicator');
+                    if (stepInd) {
+                        stepInd.innerText = `STEP 2 OF 6 · SG SINGAPORE · SECTION 2.${curIdx + 1} OF ${SUBSTEPS.length} (${activeSub.shortTitle.toUpperCase()})`;
+                    }
+                }, 10);
 
                 let subStepContent = '';
                 switch (activeSub.key) {
@@ -4733,7 +4832,7 @@
                         ${rejectionBanner}
 
                         <!-- Internal Sub-Stepper Header Bar (Sticky on Scroll) -->
-                        <div style="position: sticky; top: 12px; z-index: 40; background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1.5px solid #cbd5e1; border-radius: 20px; padding: 1.15rem 1.5rem; box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);">
+                        <div id="step2-sticky-header" style="position: sticky; top: 12px; z-index: 40; background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1.5px solid #cbd5e1; border-radius: 20px; padding: 1.15rem 1.5rem; box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);">
                             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.85rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem;">
                                 <div style="display: flex; align-items: center; gap: 0.65rem;">
                                     <span style="background: #eff6ff; color: #2563eb; font-weight: 800; font-size: 0.72rem; padding: 3px 8px; border-radius: 6px; border: 1px solid #bfdbfe; letter-spacing: 0.04em;">
@@ -4752,12 +4851,12 @@
                             <p style="margin: 0 0 1rem 0; font-size: 0.83rem; color: #64748b; line-height: 1.5;">${activeSub.desc}</p>
 
                             <!-- Sub-step Pills Horizontal Scroll Track -->
-                            <div style="display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.35rem; scrollbar-width: thin;">
+                            <div id="step2-substeps-track" style="display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.35rem; scrollbar-width: thin;">
                                 ${SUBSTEPS.map((s, idx) => {
                                     const isCurrent = idx === curIdx;
                                     const isPast = idx < curIdx;
                                     return `
-                                        <button type="button" onclick="wizard.goToStep2SubStep(${idx})" 
+                                        <button type="button" id="substep-pill-${idx}" onclick="wizard.goToStep2SubStep(${idx})" 
                                             style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.45rem 0.8rem; border-radius: 10px; font-family: 'Outfit', sans-serif; font-size: 0.75rem; font-weight: 700; white-space: nowrap; cursor: pointer; transition: all 0.2s; border: 1.5px solid ${isCurrent ? '#1d4ed8' : (isPast ? '#bbf7d0' : '#e2e8f0')}; background: ${isCurrent ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : (isPast ? '#f0fdf4' : '#f8fafc')}; color: ${isCurrent ? '#ffffff' : (isPast ? '#16a34a' : '#64748b')}; box-shadow: ${isCurrent ? '0 4px 12px rgba(37, 99, 235, 0.25)' : 'none'}; flex-shrink: 0;">
                                             <span style="width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 800; background: ${isCurrent ? 'rgba(255,255,255,0.25)' : (isPast ? '#16a34a' : '#cbd5e1')}; color: #ffffff;">
                                                 ${isPast ? '✓' : (idx + 1)}
@@ -5062,6 +5161,10 @@
                             const maxDigits = Math.max(...cCountry.lengths);
                             const todayStr = new Date().toISOString().split('T')[0];
 
+                            if (!dir.nationality) {
+                                dir.nationality = 'Singaporean';
+                            }
+
                             return `
                                 <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem;">
@@ -5155,10 +5258,10 @@
                                         </div>
                                         <div>
                                             <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
-                                                ${isLocal ? 'NRIC / FIN Number' : 'Passport Number'} <span style="color:#ef4444;">*</span>
+                                                ID Number <span style="color:#ef4444;">*</span>
                                             </label>
-                                            <input type="text" class="input-box" value="${dir.idNum || ''}" placeholder="${isLocal ? 'e.g. S1234567A' : 'e.g. A12345678'}" 
-                                                oninput="wizard.updateDirectorField(${idx}, 'idNum', this.value)" style="width: 100%;">
+                                            <input type="text" class="input-box" value="${dir.idNum || ''}" placeholder="Enter ID Number" 
+                                                oninput="wizard.updateDirectorField(${idx}, 'idNum', this.value.toUpperCase())" style="width: 100%;">
                                         </div>
                                         <div>
                                             <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
@@ -5168,14 +5271,13 @@
                                                 id="dir-nationality-${idx}"
                                                 required
                                                 onchange="wizard.updateDirectorField(${idx}, 'nationality', this.value)" 
-                                                style="width: 100%; border-radius: 10px; padding: 0.65rem 0.85rem; font-size: 0.85rem; border: 1.5px solid ${!dir.nationality ? '#cbd5e1' : '#2563eb'}; background: #ffffff; cursor: pointer; outline: none;">
-                                                <option value="" disabled ${!dir.nationality ? 'selected' : ''}>-- Select Nationality * --</option>
+                                                style="width: 100%; border-radius: 10px; padding: 0.65rem 0.85rem; font-size: 0.85rem; border: 1.5px solid #cbd5e1; background: #ffffff; cursor: pointer; outline: none;">
                                                 ${this.getNationalitiesList().map(nat => {
-                                                    const isSelected = (dir.nationality && dir.nationality.toLowerCase() === nat.toLowerCase()) || (!dir.nationality && isLocal && nat === 'Singaporean');
+                                                    const isSelected = (dir.nationality && dir.nationality.toLowerCase() === nat.toLowerCase()) || (!dir.nationality && nat === 'Singaporean');
                                                     return `<option value="${nat}" ${isSelected ? 'selected' : ''}>${nat}</option>`;
                                                 }).join('')}
                                             </select>
-                                            <span style="font-size: 0.68rem; color: #64748b; margin-top: 3px; display: block;">Dropdown selection required to select</span>
+                                            <span style="font-size: 0.68rem; color: #64748b; margin-top: 3px; display: block;">Default: Singaporean (change if different)</span>
                                         </div>
                                         <div>
                                             <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
@@ -5316,43 +5418,97 @@
             // SUB-STEP 06: SHAREHOLDER DETAILS (OVERVIEW & ALLOCATION TRACKER)
             // =========================================================================
             renderSubStepShareholderDetails() {
+                this.ensureCapitalCurrencies();
                 const totalShares = this.getTotalCapitalShares();
-                const totalCapital = this.getTotalCapitalAmount();
-                const currency = this.data.capital?.currency || 'SGD';
+                const capitalCurrencies = (this.data.capital?.currencies && this.data.capital.currencies.length > 0)
+                    ? this.data.capital.currencies.map(c => {
+                        const code = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : (c.currency || 'SGD');
+                        return {
+                            currency: code || 'SGD',
+                            shares: parseFloat(c.numberOfShares) || 0,
+                            amount: parseFloat(c.shareCapitalAmount) || 0,
+                            shareClass: c.shareClass || 'Ordinary'
+                        };
+                    })
+                    : [{ currency: this.data.capital?.currency || 'SGD', shares: totalShares, amount: parseFloat(this.data.capital?.issued) || totalShares, shareClass: 'Ordinary' }];
 
                 const indCount = this.data.individualShareholdersCount !== undefined ? this.data.individualShareholdersCount : 1;
                 const corpCount = this.data.corporateShareholdersCount !== undefined ? this.data.corporateShareholdersCount : 0;
 
                 // Calculate allocated shares
                 let allocatedShares = 0;
-                let allocatedCapital = 0;
                 (this.data.shareholders || []).forEach(sh => {
                     allocatedShares += parseFloat(sh.shares) || 0;
-                    allocatedCapital += parseFloat(sh.shareAmount) || parseFloat(sh.shares) || 0;
                 });
                 const remainingShares = Math.max(0, totalShares - allocatedShares);
 
                 return `
                     <div style="display: flex; flex-direction: column; gap: 1.25rem;">
                         <!-- Master Allocation Tracker Banner -->
-                        <div style="background: linear-gradient(135deg, #f8fafc, #eff6ff); border: 1.5px solid #bfdbfe; border-radius: 16px; padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                            <div>
+                        <div style="background: linear-gradient(135deg, #f8fafc, #eff6ff); border: 1.5px solid #bfdbfe; border-radius: 16px; padding: 1.5rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.25rem;">
+                            <div style="flex: 1; min-width: 280px;">
                                 <span style="font-size: 0.72rem; font-weight: 800; color: #2563eb; text-transform: uppercase; letter-spacing: 0.05em;">Share Capital Allocation Pool</span>
-                                <div style="font-size: 1.35rem; font-weight: 800; color: #0f172a; margin-top: 2px;">
-                                    ${totalShares.toLocaleString()} Shares (${currency} ${totalCapital.toLocaleString()})
+                                <div style="font-size: 1.25rem; font-weight: 800; color: #0f172a; margin-top: 3px;">
+                                    ${totalShares.toLocaleString()} Total Shares Configured
+                                </div>
+                                <div style="font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                                    Currency breakdown from Section 2.4 (individual currencies maintained separately):
+                                </div>
+                                <!-- Currency Split Up Cards (No mixing or adding of multiple currencies) -->
+                                <div style="display: flex; flex-wrap: wrap; gap: 0.65rem; margin-top: 0.75rem;">
+                                    ${capitalCurrencies.map(c => {
+                                        const cAllocated = (this.data.shareholders || []).filter(s => (s.currency || capitalCurrencies[0].currency) === c.currency).reduce((acc, s) => acc + (parseFloat(s.shares) || 0), 0);
+                                        const cRemaining = Math.max(0, c.shares - cAllocated);
+                                        return `
+                                            <div style="background: #ffffff; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 0.65rem 0.95rem; box-shadow: 0 1px 4px rgba(37,99,235,0.06);">
+                                                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+                                                    <span style="background: #eff6ff; color: #1d4ed8; font-weight: 800; font-size: 0.75rem; padding: 2px 7px; border-radius: 6px; border: 1px solid #bfdbfe;">${c.currency}</span>
+                                                    <span style="font-size: 0.82rem; font-weight: 800; color: #0f172a;">${c.shares.toLocaleString()} Shares (${c.shareClass})</span>
+                                                </div>
+                                                <div style="font-size: 0.75rem; color: #475569; font-weight: 600;">
+                                                    Capital: <strong style="color: #0f172a;">${c.currency} ${Number(c.amount).toFixed(2)}</strong>
+                                                </div>
+                                                <div style="font-size: 0.7rem; font-weight: 700; margin-top: 3px; color: ${cRemaining === 0 && c.shares > 0 ? '#16a34a' : '#ea580c'};">
+                                                    Allocated: ${cAllocated.toLocaleString()} • Remaining: ${cRemaining.toLocaleString()} ${cRemaining === 0 && c.shares > 0 ? '✓' : ''}
+                                                </div>
+                                            </div>
+                                        `;
+                                    }).join('')}
                                 </div>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 1.5rem;">
-                                <div>
-                                    <span style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Allocated:</span>
-                                    <div style="font-size: 1.1rem; font-weight: 800; color: #16a34a;">${allocatedShares.toLocaleString()}</div>
+                            <div style="background: #ffffff; padding: 0.95rem 1.25rem; border-radius: 14px; border: 1.5px solid #bfdbfe; box-shadow: 0 1px 4px rgba(15,23,42,0.04); min-width: 280px; display: flex; flex-direction: column; gap: 0.5rem;">
+                                <div style="font-size: 0.72rem; font-weight: 800; color: #1e40af; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.35rem; display: flex; justify-content: space-between; align-items: center;">
+                                    <span>Currency-Wise Allocation Details</span>
+                                    <span style="font-size: 0.68rem; color: #64748b; font-weight: 600;">Sec 2.5 Tracker</span>
                                 </div>
-                                <div>
-                                    <span style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Remaining:</span>
-                                    <div style="font-size: 1.1rem; font-weight: 800; color: ${remainingShares === 0 && totalShares > 0 ? '#16a34a' : (remainingShares > 0 ? '#ea580c' : '#64748b')};">
-                                        ${remainingShares.toLocaleString()} ${remainingShares === 0 && totalShares > 0 ? '✓ (100% Allocated)' : ''}
+                                ${capitalCurrencies.map(c => {
+                                    const cAllocated = (this.data.shareholders || []).filter(s => (s.currency || capitalCurrencies[0].currency) === c.currency).reduce((acc, s) => acc + (parseFloat(s.shares) || 0), 0);
+                                    const cRemaining = Math.max(0, c.shares - cAllocated);
+                                    return `
+                                        <div style="display: flex; flex-direction: column; gap: 2px; border-bottom: ${capitalCurrencies.length > 1 ? '1px dashed #f1f5f9' : 'none'}; padding-bottom: ${capitalCurrencies.length > 1 ? '0.35rem' : '0'};">
+                                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                <span style="font-size: 0.78rem; font-weight: 800; color: #1d4ed8; background: #eff6ff; padding: 1px 6px; border-radius: 4px; border: 1px solid #bfdbfe;">${c.currency} Pool</span>
+                                                <span style="font-size: 0.75rem; font-weight: 700; color: #64748b;">${c.shares.toLocaleString()} Total</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                                                <span style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Total Allocated:</span>
+                                                <span style="font-size: 0.92rem; font-weight: 800; color: #16a34a;">${cAllocated.toLocaleString()} Shares</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                <span style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Total Remaining:</span>
+                                                <span style="font-size: 0.92rem; font-weight: 800; color: ${cRemaining === 0 && c.shares > 0 ? '#16a34a' : (cRemaining > 0 ? '#ea580c' : '#64748b')};">
+                                                    ${cRemaining.toLocaleString()} ${cRemaining === 0 && c.shares > 0 ? '✓ (100%)' : 'Shares'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                                ${capitalCurrencies.length > 1 ? `
+                                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; font-weight: 800; color: #0f172a; padding-top: 0.25rem; border-top: 1px solid #e2e8f0;">
+                                        <span>Total All Currencies:</span>
+                                        <span><strong style="color: #16a34a;">${allocatedShares.toLocaleString()}</strong> / <strong style="color: ${remainingShares === 0 ? '#16a34a' : '#ea580c'};">${remainingShares.toLocaleString()} rem</strong></span>
                                     </div>
-                                </div>
+                                ` : ''}
                             </div>
                         </div>
 
@@ -5402,10 +5558,21 @@
             // SUB-STEP 07: INDIVIDUAL SHAREHOLDER DETAILS
             // =========================================================================
             renderSubStepIndividualShareholders() {
+                this.ensureCapitalCurrencies();
                 const totalShares = this.getTotalCapitalShares();
                 const totalCapital = this.getTotalCapitalAmount();
-                const perShareVal = (totalShares > 0 && totalCapital > 0) ? (totalCapital / totalShares) : 1;
-                const currency = this.data.capital?.currency || 'SGD';
+                const capitalCurrencies = (this.data.capital?.currencies && this.data.capital.currencies.length > 0)
+                    ? this.data.capital.currencies.map(c => {
+                        const code = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : (c.currency || 'SGD');
+                        return {
+                            currency: code || 'SGD',
+                            shares: parseFloat(c.numberOfShares) || 0,
+                            amount: parseFloat(c.shareCapitalAmount) || 0,
+                            shareClass: c.shareClass || 'Ordinary'
+                        };
+                    })
+                    : [{ currency: this.data.capital?.currency || 'SGD', shares: totalShares, amount: totalCapital, shareClass: 'Ordinary' }];
+
                 const indShareholders = (this.data.shareholders || []).map((sh, idx) => ({ ...sh, originalIdx: idx })).filter(sh => sh.type === 'individual');
                 const dirs = this.data.directors || [];
 
@@ -5426,12 +5593,22 @@
                     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
                         ${indShareholders.map((sh, i) => {
                             const originalIdx = sh.originalIdx;
-                            const docs = sh.docs || {};
                             const shShares = parseFloat(sh.shares) || 0;
-                            const otherAllocated = (this.data.shareholders || []).reduce((acc, s, sIdx) => sIdx === originalIdx ? acc : acc + (parseFloat(s.shares) || 0), 0);
-                            const remainingPool = totalShares > 0 ? Math.max(0, totalShares - otherAllocated) : 0;
-                            const calculatedShareAmount = (totalShares > 0 && totalCapital > 0 && shShares > 0) ? Math.round(shShares * perShareVal * 100) / 100 : (sh.shareAmount !== undefined ? sh.shareAmount : (shShares || ''));
-                            const ownershipPct = (totalCapital > 0 && calculatedShareAmount > 0) ? this.formatOwnershipPctByCapital(calculatedShareAmount, totalCapital) : this.formatOwnershipPct(shShares, totalShares);
+                            const docs = sh.docs || {};
+                            const selectedCurrCode = sh.currency || capitalCurrencies[0].currency;
+                            const curObj = capitalCurrencies.find(c => c.currency === selectedCurrCode) || capitalCurrencies[0];
+                            const curShares = curObj.shares;
+                            const otherAllocated = (this.data.shareholders || []).reduce((acc, s, sIdx) => {
+                                if (sIdx === originalIdx) return acc;
+                                const sCurr = s.currency || capitalCurrencies[0].currency;
+                                return sCurr === selectedCurrCode ? acc + (parseFloat(s.shares) || 0) : acc;
+                            }, 0);
+                            const remainingPool = curShares > 0 ? Math.max(0, curShares - otherAllocated) : 0;
+
+                            const curPerShareVal = (curObj.shares > 0 && curObj.amount > 0) ? (curObj.amount / curObj.shares) : 1;
+                            const calculatedShareAmount = (curObj.shares > 0 && curObj.amount > 0 && shShares > 0) ? Math.round(shShares * curPerShareVal * 100) / 100 : (sh.shareAmount !== undefined ? sh.shareAmount : (shShares || ''));
+                            const formattedShareAmount = Number(calculatedShareAmount || 0).toFixed(2);
+                            const ownershipPct = (curObj.amount > 0 && calculatedShareAmount > 0) ? this.formatOwnershipPctByCapital(calculatedShareAmount, curObj.amount) : this.formatOwnershipPct(shShares, curObj.shares);
 
                             return `
                                 <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
@@ -5446,19 +5623,28 @@
                                             </div>
                                         </div>
 
-                                        <!-- Copy from Director Quick Action -->
-                                        ${dirs.length > 0 ? `
-                                            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                                <span style="font-size: 0.72rem; font-weight: 700; color: #2563eb;">⚡ Copy from Director:</span>
-                                                <select onchange="wizard.autoFillShareholderFromDirector(${originalIdx}, this.value)" 
-                                                    style="padding: 4px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.75rem; font-family: 'Outfit', sans-serif; background: #eff6ff; color: #1d4ed8; font-weight: 700; cursor: pointer;">
-                                                    <option value="">Select Director...</option>
-                                                    ${dirs.map((d, dIdx) => `
-                                                        <option value="${dIdx}">Director #${dIdx + 1}: ${d.name || 'Unnamed'}</option>
-                                                    `).join('')}
-                                                </select>
-                                            </div>
-                                        ` : ''}
+                                        <div style="display: flex; align-items: center; gap: 0.65rem;">
+                                            <!-- Copy from Director Quick Action -->
+                                            ${dirs.length > 0 ? `
+                                                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                    <span style="font-size: 0.72rem; font-weight: 700; color: #2563eb;">⚡ Copy Director:</span>
+                                                    <select onchange="wizard.autoFillShareholderFromDirector(${originalIdx}, this.value)" 
+                                                        style="padding: 4px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.75rem; font-family: 'Outfit', sans-serif; background: #eff6ff; color: #1d4ed8; font-weight: 700; cursor: pointer;">
+                                                        <option value="">Select Director...</option>
+                                                        ${dirs.map((d, dIdx) => `
+                                                            <option value="${dIdx}">Director #${dIdx + 1}: ${d.name || 'Unnamed'}</option>
+                                                        `).join('')}
+                                                    </select>
+                                                </div>
+                                            ` : ''}
+
+                                            ${(this.data.shareholders || []).length > 1 ? `
+                                                <button type="button" onclick="wizard.removeShareholder(${originalIdx})" 
+                                                    style="padding: 4px 10px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 8px; color: #dc2626; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                                    ✕ Remove
+                                                </button>
+                                            ` : ''}
+                                        </div>
                                     </div>
 
                                     <!-- Personal Details Inputs -->
@@ -5492,7 +5678,7 @@
                                                 ` : `
                                                     <button type="button" onclick="document.getElementById('sh-doc-id-${originalIdx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
                                                         <div style="font-size: 1.25rem;">🪪</div>
-                                                        <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload NRIC or Passport</div>
+                                                        <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload ID Document / Passport</div>
                                                     </button>
                                                 `}
                                             </div>
@@ -5524,6 +5710,10 @@
                                         const maxDigits = Math.max(...cCountry.lengths);
                                         const todayStr = new Date().toISOString().split('T')[0];
 
+                                        if (!sh.nationality) {
+                                            sh.nationality = 'Singaporean';
+                                        }
+
                                         return `
                                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
                                                 <div>
@@ -5535,10 +5725,10 @@
                                                 </div>
                                                 <div>
                                                     <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
-                                                        NRIC / Passport Number <span style="color:#ef4444;">*</span>
+                                                        ID Number <span style="color:#ef4444;">*</span>
                                                     </label>
-                                                    <input type="text" class="input-box" value="${sh.idNum || ''}" placeholder="ID / Passport Number" 
-                                                        oninput="wizard.updateShareholderField(${originalIdx}, 'idNum', this.value)" style="width: 100%;">
+                                                    <input type="text" class="input-box" value="${sh.idNum || ''}" placeholder="Enter ID Number" 
+                                                        oninput="wizard.updateShareholderField(${originalIdx}, 'idNum', this.value.toUpperCase())" style="width: 100%;">
                                                 </div>
                                                 <div>
                                                     <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
@@ -5548,14 +5738,13 @@
                                                         id="sh-nationality-${originalIdx}"
                                                         required
                                                         onchange="wizard.updateShareholderField(${originalIdx}, 'nationality', this.value)" 
-                                                        style="width: 100%; border-radius: 10px; padding: 0.65rem 0.85rem; font-size: 0.85rem; border: 1.5px solid ${!sh.nationality ? '#cbd5e1' : '#2563eb'}; background: #ffffff; cursor: pointer; outline: none;">
-                                                        <option value="" disabled ${!sh.nationality ? 'selected' : ''}>-- Select Nationality * --</option>
+                                                        style="width: 100%; border-radius: 10px; padding: 0.65rem 0.85rem; font-size: 0.85rem; border: 1.5px solid #cbd5e1; background: #ffffff; cursor: pointer; outline: none;">
                                                         ${this.getNationalitiesList().map(nat => {
                                                             const isSelected = (sh.nationality && sh.nationality.toLowerCase() === nat.toLowerCase()) || (!sh.nationality && nat === 'Singaporean');
                                                             return `<option value="${nat}" ${isSelected ? 'selected' : ''}>${nat}</option>`;
                                                         }).join('')}
                                                     </select>
-                                                    <span style="font-size: 0.68rem; color: #64748b; margin-top: 3px; display: block;">Dropdown selection required to select</span>
+                                                    <span style="font-size: 0.68rem; color: #64748b; margin-top: 3px; display: block;">Default: Singaporean (change if different)</span>
                                                 </div>
                                                 <div>
                                                     <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
@@ -5633,27 +5822,49 @@
                                         <span style="font-size: 0.75rem; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 0.75rem;">
                                             Equity Share Allocation
                                         </span>
+
+                                        <!-- Currency Selection from Share Capital (Only 1 can be selected) -->
+                                        <div style="margin-bottom: 1rem; background: #ffffff; padding: 0.85rem 1rem; border-radius: 10px; border: 1.5px solid #e2e8f0;">
+                                            <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 0.45rem;">
+                                                Select Currency (from Share Capital) <span style="color:#ef4444;">*</span>
+                                            </label>
+                                            <div style="display: flex; flex-wrap: wrap; gap: 0.65rem;">
+                                                ${capitalCurrencies.map(c => {
+                                                    const isSelected = selectedCurrCode === c.currency;
+                                                    return `
+                                                        <label style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.95rem; border-radius: 9px; border: 1.5px solid ${isSelected ? '#2563eb' : '#cbd5e1'}; background: ${isSelected ? '#eff6ff' : '#ffffff'}; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: ${isSelected ? '#1d4ed8' : '#334155'}; transition: all 0.2s;">
+                                                            <input type="checkbox" name="sh_currency_check_${originalIdx}" value="${c.currency}" ${isSelected ? 'checked' : ''}
+                                                                onchange="wizard.selectShareholderCurrency(${originalIdx}, '${c.currency}')"
+                                                                style="accent-color: #2563eb; width: 16px; height: 16px; cursor: pointer;">
+                                                            <span>${c.currency} (${c.shareClass} • ${c.shares.toLocaleString()} Shares • Total: ${c.currency} ${Number(c.amount).toFixed(2)})</span>
+                                                        </label>
+                                                    `;
+                                                }).join('')}
+                                            </div>
+                                            <span style="font-size: 0.68rem; color: #64748b; margin-top: 4px; display: block;">One currency only to be selected per shareholder allocation.</span>
+                                        </div>
+
                                         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
                                             <div>
                                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
                                                     <label style="font-size: 0.7rem; font-weight: 700; color: #64748b; margin: 0;">Allocated Shares <span style="color:#ef4444;">*</span></label>
-                                                    ${totalShares > 0 ? `<span style="font-size: 0.68rem; color: #2563eb; font-weight: 700;">Max: ${remainingPool.toLocaleString()} avail</span>` : ''}
+                                                    ${curObj.shares > 0 ? `<span style="font-size: 0.68rem; color: #2563eb; font-weight: 700;">Max: ${remainingPool.toLocaleString()} avail</span>` : ''}
                                                 </div>
                                                 <input type="number" class="input-box" id="sh-shares-input-${originalIdx}" value="${sh.shares || ''}" placeholder="e.g. 5000" 
-                                                    min="0" ${totalShares > 0 ? `max="${remainingPool}"` : ''}
+                                                    min="0" ${curObj.shares > 0 ? `max="${remainingPool}"` : ''}
                                                     onwheel="event.preventDefault(); this.blur();"
                                                     oninput="wizard.updateShareholderField(${originalIdx}, 'shares', this.value);" style="width: 100%;">
                                                 <div style="font-size: 0.66rem; color: #64748b; margin-top: 3px;">
-                                                    ${totalShares > 0 ? `Limit: ${totalShares.toLocaleString()} shares configured in Section 2.4` : '⚠️ Configure share capital in Section 2.4 first'}
+                                                    ${curObj.shares > 0 ? `Limit: ${curObj.shares.toLocaleString()} ${curObj.currency} shares configured in Section 2.4` : '⚠️ Configure share capital in Section 2.4 first'}
                                                 </div>
                                             </div>
                                             <div>
-                                                <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Share Capital (${currency})</label>
-                                                <input type="number" class="input-box" id="sh-share-amount-input-${originalIdx}" value="${calculatedShareAmount}" placeholder="e.g. 5000" 
+                                                <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Share Capital (${curObj.currency})</label>
+                                                <input type="text" class="input-box" id="sh-share-amount-input-${originalIdx}" value="${formattedShareAmount}" placeholder="0.00" 
                                                     readonly style="width: 100%; background: #f8fafc; cursor: not-allowed; font-weight: 700; color: #0f172a;"
-                                                    title="Calculated from per share value (${perShareVal.toFixed(2)} ${currency}/share)">
+                                                    title="Calculated from per share value (${curPerShareVal.toFixed(2)} ${curObj.currency}/share)">
                                                 <div style="font-size: 0.66rem; color: #64748b; margin-top: 3px;">
-                                                    Calculated from per share value (${perShareVal.toFixed(2)} ${currency} / share)
+                                                    Calculated: ${curPerShareVal.toFixed(2)} ${curObj.currency} / share
                                                 </div>
                                             </div>
                                             <div>
@@ -5670,6 +5881,17 @@
                                 </div>
                             `;
                         }).join('')}
+
+                        <!-- Add Another Individual Shareholder Button -->
+                        <div style="display: flex; justify-content: flex-start; margin-top: 0.25rem;">
+                            <button type="button" onclick="wizard.adjustCount('shareholders_individual', 1)" 
+                                style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: #ffffff; color: #16a34a; border: 1.5px dashed #86efac; border-radius: 12px; font-family: 'Outfit', sans-serif; font-size: 0.88rem; font-weight: 700; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(22,163,74,0.05);" 
+                                onmouseover="this.style.background='#f0fdf4'; this.style.borderColor='#16a34a';" 
+                                onmouseout="this.style.background='#ffffff'; this.style.borderColor='#86efac';">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                + Add Another Individual Shareholder
+                            </button>
+                        </div>
                     </div>
                 `;
             }
@@ -5678,11 +5900,22 @@
             // SUB-STEP 08: CORPORATE SHAREHOLDER DETAILS
             // =========================================================================
             renderSubStepCorporateShareholders() {
+                this.ensureCapitalCurrencies();
                 const totalShares = this.getTotalCapitalShares();
                 const totalCapital = this.getTotalCapitalAmount();
-                const perShareVal = (totalShares > 0 && totalCapital > 0) ? (totalCapital / totalShares) : 1;
+                const capitalCurrencies = (this.data.capital?.currencies && this.data.capital.currencies.length > 0)
+                    ? this.data.capital.currencies.map(c => {
+                        const code = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : (c.currency || 'SGD');
+                        return {
+                            currency: code || 'SGD',
+                            shares: parseFloat(c.numberOfShares) || 0,
+                            amount: parseFloat(c.shareCapitalAmount) || 0,
+                            shareClass: c.shareClass || 'Ordinary'
+                        };
+                    })
+                    : [{ currency: this.data.capital?.currency || 'SGD', shares: totalShares, amount: totalCapital, shareClass: 'Ordinary' }];
+
                 const corpShareholders = (this.data.shareholders || []).map((sh, idx) => ({ ...sh, originalIdx: idx })).filter(sh => sh.type === 'corporate');
-                const currency = this.data.capital?.currency || 'SGD';
 
                 if (corpShareholders.length === 0) {
                     return `
@@ -5705,21 +5938,48 @@
                             const originalIdx = sh.originalIdx;
                             const docs = sh.docs || {};
                             const shShares = parseFloat(sh.shares) || 0;
-                            const otherAllocated = (this.data.shareholders || []).reduce((acc, s, sIdx) => sIdx === originalIdx ? acc : acc + (parseFloat(s.shares) || 0), 0);
-                            const remainingPool = totalShares > 0 ? Math.max(0, totalShares - otherAllocated) : 0;
-                            const calculatedShareAmount = (totalShares > 0 && totalCapital > 0 && shShares > 0) ? Math.round(shShares * perShareVal * 100) / 100 : (sh.shareAmount !== undefined ? sh.shareAmount : (shShares || ''));
-                            const ownershipPct = (totalCapital > 0 && calculatedShareAmount > 0) ? this.formatOwnershipPctByCapital(calculatedShareAmount, totalCapital) : this.formatOwnershipPct(shShares, totalShares);
+                            const selectedCurrCode = sh.currency || capitalCurrencies[0].currency;
+                            const curObj = capitalCurrencies.find(c => c.currency === selectedCurrCode) || capitalCurrencies[0];
+                            const curShares = curObj.shares;
+                            const otherAllocated = (this.data.shareholders || []).reduce((acc, s, sIdx) => {
+                                if (sIdx === originalIdx) return acc;
+                                const sCurr = s.currency || capitalCurrencies[0].currency;
+                                return sCurr === selectedCurrCode ? acc + (parseFloat(s.shares) || 0) : acc;
+                            }, 0);
+                            const remainingPool = curShares > 0 ? Math.max(0, curShares - otherAllocated) : 0;
+
+                            const curPerShareVal = (curObj.shares > 0 && curObj.amount > 0) ? (curObj.amount / curObj.shares) : 1;
+                            const calculatedShareAmount = (curObj.shares > 0 && curObj.amount > 0 && shShares > 0) ? Math.round(shShares * curPerShareVal * 100) / 100 : (sh.shareAmount !== undefined ? sh.shareAmount : (shShares || ''));
+                            const formattedShareAmount = Number(calculatedShareAmount || 0).toFixed(2);
+                            const ownershipPct = (curObj.amount > 0 && calculatedShareAmount > 0) ? this.formatOwnershipPctByCapital(calculatedShareAmount, curObj.amount) : this.formatOwnershipPct(shShares, curObj.shares);
 
                             return `
                                 <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem;">
-                                        <div style="display: flex; align-items: center; gap: 0.6rem;">
-                                            <div style="width: 32px; height: 32px; border-radius: 8px; background: #7c3aed; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem;">
+                                    <!-- Header Row -->
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.85rem;">
+                                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                            <div style="width: 36px; height: 36px; border-radius: 10px; background: #7c3aed; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.95rem;">
                                                 🏢
                                             </div>
                                             <div>
-                                                <h4 style="margin: 0; font-size: 1rem; font-weight: 800; color: #0f172a;">${sh.name || ('Corporate Shareholder #' + (i + 1))}</h4>
-                                                <span id="sh-c                                    <!-- Corporate Documents Upload (ON TOP) -->
+                                                <h4 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #0f172a;">${sh.name || ('Corporate Shareholder #' + (i + 1))}</h4>
+                                                <span id="sh-corp-pct-badge-${originalIdx}" style="font-size: 0.72rem; color: #64748b; font-weight: 600;">Corporate Entity • ${ownershipPct} Ownership</span>
+                                            </div>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                            <span style="background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; font-size: 0.72rem; font-weight: 800; padding: 3px 10px; border-radius: 99px;">
+                                                Corporate Shareholder #${i + 1}
+                                            </span>
+                                            ${(this.data.shareholders || []).length > 1 ? `
+                                                <button type="button" onclick="wizard.removeShareholder(${originalIdx})" 
+                                                    style="padding: 4px 10px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 8px; color: #dc2626; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                                    ✕ Remove
+                                                </button>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+
+                                    <!-- Corporate Documents Upload Section -->
                                     <div style="background: ${(docs.bizfile || docs.constitution || docs.incumbency || docs.boardResolution) ? '#f0fdf4' : '#f8fafc'}; border: 1.5px dashed ${(docs.bizfile || docs.constitution || docs.incumbency || docs.boardResolution) ? '#86efac' : '#cbd5e1'}; border-radius: 14px; padding: 1.25rem; margin-bottom: 1.25rem;">
                                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
                                             <div style="display: flex; align-items: center; gap: 0.4rem;">
@@ -5845,27 +6105,49 @@
                                         <span style="font-size: 0.75rem; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 0.75rem;">
                                             Equity Share Allocation
                                         </span>
+
+                                        <!-- Currency Selection from Share Capital (Only 1 can be selected) -->
+                                        <div style="margin-bottom: 1rem; background: #ffffff; padding: 0.85rem 1rem; border-radius: 10px; border: 1.5px solid #e2e8f0;">
+                                            <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 0.45rem;">
+                                                Select Currency (from Share Capital) <span style="color:#ef4444;">*</span>
+                                            </label>
+                                            <div style="display: flex; flex-wrap: wrap; gap: 0.65rem;">
+                                                ${capitalCurrencies.map(c => {
+                                                    const isSelected = selectedCurrCode === c.currency;
+                                                    return `
+                                                        <label style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.95rem; border-radius: 9px; border: 1.5px solid ${isSelected ? '#2563eb' : '#cbd5e1'}; background: ${isSelected ? '#eff6ff' : '#ffffff'}; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: ${isSelected ? '#1d4ed8' : '#334155'}; transition: all 0.2s;">
+                                                            <input type="checkbox" name="sh_corp_curr_${originalIdx}" value="${c.currency}" ${isSelected ? 'checked' : ''}
+                                                                onchange="wizard.selectShareholderCurrency(${originalIdx}, '${c.currency}')"
+                                                                style="accent-color: #2563eb; width: 16px; height: 16px; cursor: pointer;">
+                                                            <span>${c.currency} (${c.shareClass} • ${c.shares.toLocaleString()} Shares • Total: ${c.currency} ${Number(c.amount).toFixed(2)})</span>
+                                                        </label>
+                                                    `;
+                                                }).join('')}
+                                            </div>
+                                            <span style="font-size: 0.68rem; color: #64748b; margin-top: 4px; display: block;">One currency only to be selected per shareholder allocation.</span>
+                                        </div>
+
                                         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
                                             <div>
                                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
                                                     <label style="font-size: 0.7rem; font-weight: 700; color: #64748b; margin: 0;">Allocated Shares <span style="color:#ef4444;">*</span></label>
-                                                    ${totalShares > 0 ? `<span style="font-size: 0.68rem; color: #2563eb; font-weight: 700;">Max: ${remainingPool.toLocaleString()} avail</span>` : ''}
+                                                    ${curObj.shares > 0 ? `<span style="font-size: 0.68rem; color: #2563eb; font-weight: 700;">Max: ${remainingPool.toLocaleString()} avail</span>` : ''}
                                                 </div>
                                                 <input type="number" class="input-box" id="sh-shares-input-${originalIdx}" value="${sh.shares || ''}" placeholder="e.g. 5000" 
-                                                    min="0" ${totalShares > 0 ? `max="${remainingPool}"` : ''}
+                                                    min="0" ${curObj.shares > 0 ? `max="${remainingPool}"` : ''}
                                                     onwheel="event.preventDefault(); this.blur();"
                                                     oninput="wizard.updateShareholderField(${originalIdx}, 'shares', this.value);" style="width: 100%;">
                                                 <div style="font-size: 0.66rem; color: #64748b; margin-top: 3px;">
-                                                    ${totalShares > 0 ? `Limit: ${totalShares.toLocaleString()} shares configured in Section 2.4` : '⚠️ Configure share capital in Section 2.4 first'}
+                                                    ${curObj.shares > 0 ? `Limit: ${curObj.shares.toLocaleString()} ${curObj.currency} shares configured in Section 2.4` : '⚠️ Configure share capital in Section 2.4 first'}
                                                 </div>
                                             </div>
                                             <div>
-                                                <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Share Capital (${currency})</label>
-                                                <input type="number" class="input-box" id="sh-share-amount-input-${originalIdx}" value="${calculatedShareAmount}" placeholder="e.g. 5000" 
+                                                <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Share Capital (${curObj.currency})</label>
+                                                <input type="text" class="input-box" id="sh-share-amount-input-${originalIdx}" value="${formattedShareAmount}" placeholder="0.00" 
                                                     readonly style="width: 100%; background: #f8fafc; cursor: not-allowed; font-weight: 700; color: #0f172a;"
-                                                    title="Calculated from per share value (${perShareVal.toFixed(2)} ${currency}/share)">
+                                                    title="Calculated from per share value (${curPerShareVal.toFixed(2)} ${curObj.currency}/share)">
                                                 <div style="font-size: 0.66rem; color: #64748b; margin-top: 3px;">
-                                                    Calculated from per share value (${perShareVal.toFixed(2)} ${currency} / share)
+                                                    Calculated: ${curPerShareVal.toFixed(2)} ${curObj.currency} / share
                                                 </div>
                                             </div>
                                             <div>
@@ -5882,6 +6164,17 @@
                                 </div>
                             `;
                         }).join('')}
+
+                        <!-- Add Another Corporate Shareholder Button -->
+                        <div style="display: flex; justify-content: flex-start; margin-top: 0.25rem;">
+                            <button type="button" onclick="wizard.adjustCount('shareholders_corporate', 1)" 
+                                style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: #ffffff; color: #7c3aed; border: 1.5px dashed #c4b5fd; border-radius: 12px; font-family: 'Outfit', sans-serif; font-size: 0.88rem; font-weight: 700; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(124,58,237,0.05);" 
+                                onmouseover="this.style.background='#f5f3ff'; this.style.borderColor='#7c3aed';" 
+                                onmouseout="this.style.background='#ffffff'; this.style.borderColor='#c4b5fd';">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                + Add Another Corporate Shareholder
+                            </button>
+                        </div>
                     </div>
                 `;
             }
@@ -5904,80 +6197,167 @@
                     `;
                 }
 
+                // Initialize corporate representatives pool (independent of corporate shareholder count)
+                if (!Array.isArray(this.data.corporateReps) || this.data.corporateReps.length === 0) {
+                    const existingRep = corpShareholders.find(c => c.rep && (c.rep.name || c.rep.fullName))?.rep;
+                    this.data.corporateReps = [existingRep || { name: '', idNum: '', nationality: 'Singaporean', email: '', docs: {} }];
+                }
+
+                const nationalities = this.getNationalitiesList();
+                const directors = this.data.directors || [];
+
                 return `
                     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-                        ${corpShareholders.map((sh, i) => {
-                            const originalIdx = sh.originalIdx;
-                            const rep = sh.rep || {};
-                            const repDocs = rep.docs || {};
+                        <!-- Header banner showing corporate entities being represented -->
+                        <div style="background: linear-gradient(135deg, #eff6ff, #f8fafc); border: 1.5px solid #bfdbfe; border-radius: 16px; padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 1.25rem;">🏢</span>
+                                    <h4 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #0f172a;">
+                                        Corporate Representative Appointment
+                                    </h4>
+                                </div>
+                                <div style="font-size: 0.78rem; color: #475569; margin-top: 4px;">
+                                    Authorized natural person(s) appointed to represent corporate shareholder(s): 
+                                    <strong>${corpShareholders.map((c, idx) => c.name || `Corporate Shareholder #${idx + 1}`).join(', ')}</strong>
+                                </div>
+                            </div>
+                            <div style="background: #ffffff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 0.4rem 0.85rem; font-size: 0.75rem; font-weight: 700; color: #1e40af;">
+                                👥 ${this.data.corporateReps.length} Representative${this.data.corporateReps.length > 1 ? 's' : ''} Appointed
+                            </div>
+                        </div>
 
+                        <!-- Corporate Representative Cards -->
+                        ${this.data.corporateReps.map((rep, repIdx) => {
+                            const repDocs = rep.docs || {};
                             return `
                                 <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                                    <h4 style="margin: 0 0 1rem 0; font-size: 1rem; font-weight: 800; color: #0f172a;">
-                                        Corporate Representative for ${sh.name || ('Corporate Shareholder #' + (i + 1))}
-                                    </h4>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem;">
+                                        <div style="display: flex; align-items: center; gap: 0.65rem;">
+                                            <span style="background: #2563eb; color: #ffffff; font-size: 0.75rem; font-weight: 800; width: 26px; height: 26px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;">
+                                                ${repIdx + 1}
+                                            </span>
+                                            <div>
+                                                <h4 style="margin: 0; font-size: 1rem; font-weight: 800; color: #0f172a;">
+                                                    Corporate Representative #${repIdx + 1}${rep.name ? ` — ${rep.name}` : ''}
+                                                </h4>
+                                                <span style="font-size: 0.72rem; color: #64748b;">Natural person representing the corporate shareholder(s)</span>
+                                            </div>
+                                        </div>
+                                        ${this.data.corporateReps.length > 1 ? `
+                                            <button type="button" onclick="wizard.removeCorporateRep(${repIdx})"
+                                                style="padding: 4px 10px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 8px; color: #dc2626; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
+                                                ✕ Remove
+                                            </button>
+                                        ` : ''}
+                                    </div>
 
-                                    <!-- Corporate Rep ID Document Upload on Top -->
-                                    <div style="background: ${repDocs.idDoc ? '#f0fdf4' : '#f8fafc'}; border: 1.5px dashed ${repDocs.idDoc ? '#86efac' : '#cbd5e1'}; border-radius: 14px; padding: 1.25rem; margin-bottom: 1.25rem;">
+                                    <!-- Autofill from Appointed Director Dropdown -->
+                                    <div style="margin-bottom: 1rem; background: #f8fafc; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 0.85rem 1.15rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                            <span style="font-size: 1.1rem;">⚡</span>
+                                            <div>
+                                                <span style="font-size: 0.8rem; font-weight: 800; color: #1e40af; display: block;">Autofill from Appointed Director:</span>
+                                                <span style="font-size: 0.72rem; color: #64748b;">Select a director to auto-fill their particulars</span>
+                                            </div>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                            <select class="input-box" style="font-size: 0.82rem; font-weight: 700; min-width: 260px; padding: 0.5rem 0.85rem; border-color: #93c5fd; background: #ffffff; color: #1e40af;"
+                                                onchange="wizard.autoFillCorporateRepFromDirector(${repIdx}, this.value)">
+                                                <option value="">-- Select Director to Autofill --</option>
+                                                ${directors.map((dir, dIdx) => {
+                                                    const dName = dir.name || `Director #${dIdx + 1}`;
+                                                    const dId = dir.idNum ? ` (${dir.idNum})` : '';
+                                                    const isSelected = rep.selectedDirectorIdx !== undefined && rep.selectedDirectorIdx !== null && String(rep.selectedDirectorIdx) === String(dIdx);
+                                                    return `<option value="${dIdx}" ${isSelected ? 'selected' : ''}>Director #${dIdx + 1}: ${dName}${dId}</option>`;
+                                                }).join('')}
+                                            </select>
+                                            ${(rep.selectedDirectorIdx !== undefined && rep.selectedDirectorIdx !== null && rep.selectedDirectorIdx !== '') ? `
+                                                <button type="button" onclick="wizard.clearCorporateRepDirectorSelection(${repIdx})" 
+                                                    style="padding: 0.45rem 0.85rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8; font-size: 0.75rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;"
+                                                    title="Change selected director">
+                                                    🔄 Change
+                                                </button>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+
+                                    <!-- Representative KYC Document Upload -->
+                                    <div style="background: ${repDocs.idDoc ? '#f0fdf4' : '#ffffff'}; border: 1.5px dashed ${repDocs.idDoc ? '#86efac' : '#cbd5e1'}; border-radius: 12px; padding: 1rem; margin-bottom: 1rem;">
                                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.5rem;">
                                             <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                                <span style="font-size: 1.1rem;">🪪</span>
-                                                <span style="font-size: 0.8rem; font-weight: 800; color: #0f172a; text-transform: uppercase;">
-                                                    Corporate Representative Identification Document <span style="color:#ef4444;">*</span>
+                                                <span style="font-size: 1rem;">🪪</span>
+                                                <span style="font-size: 0.78rem; font-weight: 800; color: #0f172a; text-transform: uppercase;">
+                                                    Identification Document <span style="color:#ef4444;">*</span>
                                                 </span>
                                             </div>
-                                            <span style="background: #eff6ff; color: #2563eb; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; border: 1px solid #bfdbfe;">
+                                            <span style="background: #eff6ff; color: #2563eb; font-size: 0.68rem; font-weight: 700; padding: 2px 7px; border-radius: 5px; border: 1px solid #bfdbfe;">
                                                 Auto-Fill Enabled
                                             </span>
                                         </div>
-                                        <p style="margin: 0 0 0.85rem 0; font-size: 0.78rem; color: #2563eb; background: #eff6ff; border-radius: 8px; padding: 0.5rem 0.75rem; border: 1px solid #bfdbfe; line-height: 1.45;">
-                                            ℹ️ <strong>Upload representative ID / Passport first</strong> — representative particulars will be automatically taken from the documents.
+                                        <p style="margin: 0 0 0.75rem 0; font-size: 0.74rem; color: #2563eb; background: #eff6ff; border-radius: 6px; padding: 0.4rem 0.65rem; border: 1px solid #bfdbfe; line-height: 1.4;">
+                                            ℹ️ <strong>Upload representative ID document</strong> — particulars will be auto-filled.
                                         </p>
-                                        <div style="border: 1.5px dashed ${repDocs.idDoc ? '#86efac' : '#cbd5e1'}; border-radius: 10px; padding: 0.85rem; text-align: center; background: #ffffff;">
-                                            <input type="file" id="corp-rep-doc-id-${originalIdx}" style="display: none;" accept=".pdf,.png,.jpg,.jpeg" onchange="wizard.handleDocUpload(event, 'corp_rep', ${originalIdx}, 'idDoc')">
+                                        <div style="border: 1.5px dashed ${repDocs.idDoc ? '#86efac' : '#cbd5e1'}; border-radius: 8px; padding: 0.75rem; text-align: center; background: #ffffff;">
+                                            <input type="file" id="corp-rep-doc-id-${repIdx}" style="display: none;" accept=".pdf,.png,.jpg,.jpeg" onchange="wizard.handleCorpRepDocUpload(event, ${repIdx}, 'idDoc')">
                                             ${repDocs.idDoc ? `
                                                 <div style="display: flex; align-items: center; justify-content: space-between;">
                                                     <div style="text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%;">
                                                         <div style="font-size: 0.78rem; font-weight: 700; color: #166534;" class="truncate">${repDocs.idDoc.name}</div>
                                                         <span style="font-size: 0.68rem; color: #16a34a;">Representative ID Document Uploaded</span>
                                                     </div>
-                                                    <button type="button" onclick="wizard.removeDoc('corp_rep', ${originalIdx}, 'idDoc')" style="padding: 2px 8px; background: #fee2e2; border-radius: 6px; color: #dc2626; font-size: 0.7rem; font-weight: 700; border: none; cursor: pointer;">Remove</button>
+                                                    <button type="button" onclick="wizard.removeCorpRepDoc(${repIdx}, 'idDoc')" style="padding: 2px 8px; background: #fee2e2; border-radius: 6px; color: #dc2626; font-size: 0.7rem; font-weight: 700; border: none; cursor: pointer;">Remove</button>
                                                 </div>
                                             ` : `
-                                                <button type="button" onclick="document.getElementById('corp-rep-doc-id-${originalIdx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
-                                                    <div style="font-size: 1.25rem; margin-bottom: 2px;">🪪</div>
-                                                    <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload Representative NRIC / Passport Bio Page</div>
-                                                    <div style="font-size: 0.68rem; color: #94a3b8; margin-top: 2px;">PDF, JPG, PNG up to 15MB</div>
+                                                <button type="button" onclick="document.getElementById('corp-rep-doc-id-${repIdx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
+                                                    <div style="font-size: 1.1rem; margin-bottom: 2px;">🪪</div>
+                                                    <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload Representative ID Document</div>
+                                                    <div style="font-size: 0.65rem; color: #94a3b8; margin-top: 2px;">PDF, JPG, PNG up to 15MB</div>
                                                 </button>
                                             `}
                                         </div>
                                     </div>
 
+                                    <!-- Representative Fields Grid -->
                                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                                         <div>
                                             <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">Full Legal Name <span style="color:#ef4444;">*</span></label>
                                             <input type="text" class="input-box" value="${rep.name || ''}" placeholder="Full legal name" 
-                                                oninput="wizard.updateCorporateRepField(${originalIdx}, 'name', this.value)" style="width: 100%;">
+                                                oninput="wizard.updateCorporateRepField(${repIdx}, 'name', this.value)" style="width: 100%;">
                                         </div>
                                         <div>
-                                            <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">Passport / ID Number <span style="color:#ef4444;">*</span></label>
-                                            <input type="text" class="input-box" value="${rep.idNum || ''}" placeholder="Passport / ID Number" 
-                                                oninput="wizard.updateCorporateRepField(${originalIdx}, 'idNum', this.value)" style="width: 100%;">
+                                            <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">ID Number <span style="color:#ef4444;">*</span></label>
+                                            <input type="text" class="input-box" value="${rep.idNum || ''}" placeholder="ID Number" 
+                                                oninput="wizard.updateCorporateRepField(${repIdx}, 'idNum', this.value)" style="width: 100%;">
                                         </div>
                                         <div>
                                             <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">Nationality <span style="color:#ef4444;">*</span></label>
-                                            <input type="text" class="input-box" value="${rep.nationality || ''}" placeholder="Nationality" 
-                                                oninput="wizard.updateCorporateRepField(${originalIdx}, 'nationality', this.value)" style="width: 100%;">
+                                            <select class="input-box" style="width: 100%; font-size: 0.85rem;" onchange="wizard.updateCorporateRepField(${repIdx}, 'nationality', this.value)">
+                                                ${nationalities.map(nat => `
+                                                    <option value="${nat}" ${(rep.nationality || 'Singaporean') === nat ? 'selected' : ''}>${nat}</option>
+                                                `).join('')}
+                                            </select>
                                         </div>
                                         <div>
                                             <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">Email Address <span style="color:#ef4444;">*</span></label>
                                             <input type="email" class="input-box" value="${rep.email || ''}" placeholder="rep@example.com" 
-                                                oninput="wizard.updateCorporateRepField(${originalIdx}, 'email', this.value)" style="width: 100%;">
+                                                oninput="wizard.updateCorporateRepField(${repIdx}, 'email', this.value)" style="width: 100%;">
                                         </div>
                                     </div>
                                 </div>
                             `;
                         }).join('')}
+
+                        <!-- Add Another Corporate Representative Button -->
+                        <div style="display: flex; justify-content: flex-start; margin-top: 0.5rem;">
+                            <button type="button" onclick="wizard.addCorporateRep()"
+                                style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; background: #ffffff; color: #2563eb; border: 1.5px dashed #93c5fd; border-radius: 12px; font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(37,99,235,0.05);"
+                                onmouseover="this.style.background='#eff6ff'; this.style.borderColor='#2563eb';"
+                                onmouseout="this.style.background='#ffffff'; this.style.borderColor='#93c5fd';">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                + Add Another Corporate Representative
+                            </button>
+                        </div>
                     </div>
                 `;
             }
@@ -5989,7 +6369,23 @@
                 const rons = this.data.rons || { hasNominee: 'No' };
                 const hasNominee = rons.hasNominee === 'Yes';
                 const shareholders = this.data.shareholders || [];
-                const selectedShId = rons.nomineeShareholderId || rons.nomineeList?.[0]?.nomineeShareholderId || '';
+
+                if (!Array.isArray(rons.nomineeList) || rons.nomineeList.length === 0) {
+                    rons.nomineeList = [{
+                        nomineeShareholderId: rons.nomineeShareholderId || '',
+                        nomineeName: rons.nomineeName || '',
+                        nominatorName: rons.nominatorName || '',
+                        nominatorIdNumber: rons.nominatorId || rons.nominatorIdNumber || '',
+                        nominatorEmail: rons.nominatorEmail || '',
+                        nominatorPhoneCountry: 'SG',
+                        nominatorPhone: rons.nominatorPhone || '',
+                        nominatorPhoneRaw: '',
+                        nominatorAddress: rons.nominatorAddress || '',
+                        docs: rons.docs || {}
+                    }];
+                }
+
+                const countries = this.getPhoneCountries();
 
                 return `
                     <div style="display: flex; flex-direction: column; gap: 1.25rem;">
@@ -6014,84 +6410,123 @@
                         </div>
 
                         ${hasNominee ? `
-                            <!-- 1. Select Nominee Shareholder Box -->
-                            <div style="background: #ffffff; border: 1.5px solid #bfdbfe; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                                <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem;">
-                                    <div style="width: 28px; height: 28px; border-radius: 8px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 800;">
-                                        1
-                                    </div>
-                                    <div style="font-size: 0.95rem; font-weight: 800; color: #1e40af;">
-                                        Select Nominee Shareholder
-                                    </div>
-                                </div>
-                                <p style="font-size: 0.8rem; color: #64748b; margin: 0 0 1rem 0; line-height: 1.4;">
-                                    Select which registered shareholder is acting as a nominee holding shares for an underlying nominator.
-                                </p>
-                                <div>
-                                    <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
-                                        Nominee Shareholder <span style="color:#ef4444;">*</span>
-                                    </label>
-                                    <select class="input-box" style="width: 100%; font-size: 0.85rem; font-weight: 600;" onchange="wizard.updateRonsNomineeShareholder(0, this.value)">
-                                        <option value="">-- Select Shareholder Acting as Nominee --</option>
-                                        ${shareholders.map((sh, idx) => {
-                                            const isSelected = selectedShId === `sh_${idx}` || (!selectedShId && sh.isNominee);
-                                            const shName = sh.name || (sh.type === 'corporate' ? `Corporate Shareholder #${idx+1}` : `Individual Shareholder #${idx+1}`);
-                                            const pctStr = sh.percent || (sh.shares && this.getTotalCapitalShares() > 0 ? this.formatOwnershipPct(sh.shares, this.getTotalCapitalShares()) : '');
-                                            return `<option value="sh_${idx}" ${isSelected ? 'selected' : ''}>${shName} (${sh.type === 'corporate' ? 'Corporate' : 'Individual'}${pctStr ? ' • ' + pctStr : ''})</option>`;
-                                        }).join('')}
-                                    </select>
-                                </div>
-                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                                ${rons.nomineeList.map((nomItem, nomIdx) => {
+                                    const selectedShId = nomItem.nomineeShareholderId || '';
+                                    const phoneCountryCode = nomItem.nominatorPhoneCountry || 'SG';
+                                    const phoneCountryObj = countries.find(c => c.code === phoneCountryCode) || countries[0];
+                                    const phoneRaw = nomItem.nominatorPhoneRaw || (nomItem.nominatorPhone ? nomItem.nominatorPhone.replace(/^\+\d+\s*/, '') : '');
 
-                            <!-- 2. Nominator Particulars Box -->
-                            <div style="background: #ffffff; border: 1.5px solid #bfdbfe; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                                <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem;">
-                                    <div style="width: 28px; height: 28px; border-radius: 8px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 800;">
-                                        2
-                                    </div>
-                                    <div style="font-size: 0.95rem; font-weight: 800; color: #1e40af;">
-                                        Nominator Particulars
-                                    </div>
-                                </div>
-                                <p style="font-size: 0.8rem; color: #64748b; margin: 0 0 1.25rem 0; line-height: 1.4;">
-                                    Provide the identity, contact, and address particulars of the nominator (underlying beneficial owner).
-                                </p>
+                                    return `
+                                        <div style="background: #ffffff; border: 1.5px solid #bfdbfe; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.85rem;">
+                                                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                                                    <div style="width: 28px; height: 28px; border-radius: 8px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 800;">
+                                                        ${nomIdx + 1}
+                                                    </div>
+                                                    <div style="font-size: 0.95rem; font-weight: 800; color: #1e40af;">
+                                                        Nominee Shareholder & Nominator Particulars #${nomIdx + 1}
+                                                    </div>
+                                                </div>
+                                                ${rons.nomineeList.length > 1 ? `
+                                                    <button type="button" onclick="wizard.removeRonsNomineePair(${nomIdx})"
+                                                        style="padding: 4px 10px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 8px; color: #dc2626; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
+                                                        ✕ Remove
+                                                    </button>
+                                                ` : ''}
+                                            </div>
 
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                                    <div>
-                                        <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
-                                            Nominator Full Legal Name <span style="color:#ef4444;">*</span>
-                                        </label>
-                                        <input type="text" class="input-box" value="${rons.nominatorName || rons.nomineeList?.[0]?.nominatorName || ''}" placeholder="Nominator Legal Name" oninput="wizard.updateRonsField('nominatorName', this.value)" style="width: 100%;">
-                                    </div>
-                                    <div>
-                                        <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
-                                            Nominator Passport / ID Number <span style="color:#ef4444;">*</span>
-                                        </label>
-                                        <input type="text" class="input-box" value="${rons.nominatorId || rons.nominatorIdNumber || rons.nomineeList?.[0]?.nominatorIdNumber || ''}" placeholder="ID / Passport / Registration No." oninput="wizard.updateRonsField('nominatorId', this.value)" style="width: 100%;">
-                                    </div>
-                                </div>
+                                            <!-- 1. Select Nominee Shareholder Box -->
+                                            <div style="margin-bottom: 1.25rem;">
+                                                <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
+                                                    Select Nominee Shareholder <span style="color:#ef4444;">*</span>
+                                                </label>
+                                                <select class="input-box" style="width: 100%; font-size: 0.85rem; font-weight: 600;" onchange="wizard.updateRonsNomineeShareholder(${nomIdx}, this.value)">
+                                                    <option value="">-- Select Shareholder Acting as Nominee --</option>
+                                                    ${shareholders.map((sh, idx) => {
+                                                        const isSelected = selectedShId === `sh_${idx}`;
+                                                        const shName = sh.name || (sh.type === 'corporate' ? `Corporate Shareholder #${idx+1}` : `Individual Shareholder #${idx+1}`);
+                                                        const pctStr = sh.percent || (sh.shares && this.getTotalCapitalShares() > 0 ? this.formatOwnershipPct(sh.shares, this.getTotalCapitalShares()) : '');
+                                                        return `<option value="sh_${idx}" ${isSelected ? 'selected' : ''}>${shName} (${sh.type === 'corporate' ? 'Corporate' : 'Individual'}${pctStr ? ' • ' + pctStr : ''})</option>`;
+                                                    }).join('')}
+                                                </select>
+                                            </div>
 
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                                    <div>
-                                        <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
-                                            Nominator Email Address <span style="color:#ef4444;">*</span>
-                                        </label>
-                                        <input type="email" class="input-box" value="${rons.nominatorEmail || rons.nomineeList?.[0]?.nominatorEmail || ''}" placeholder="e.g. nominator@example.com" oninput="wizard.updateRonsField('nominatorEmail', this.value)" style="width: 100%;">
-                                    </div>
-                                    <div>
-                                        <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
-                                            Nominator Contact Number <span style="color:#ef4444;">*</span>
-                                        </label>
-                                        <input type="tel" class="input-box" value="${rons.nominatorPhone || rons.nomineeList?.[0]?.nominatorPhone || ''}" placeholder="e.g. +65 9123 4567" oninput="wizard.updateRonsField('nominatorPhone', this.value)" style="width: 100%;">
-                                    </div>
-                                </div>
+                                            <!-- 2. Nominator Particulars Form Grid -->
+                                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                                <div>
+                                                    <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
+                                                        Nominator Full Legal Name <span style="color:#ef4444;">*</span>
+                                                    </label>
+                                                    <input type="text" class="input-box" value="${nomItem.nominatorName || ''}" placeholder="Nominator Legal Name" oninput="wizard.updateRonsNomineeField(${nomIdx}, 'nominatorName', this.value)" style="width: 100%;">
+                                                </div>
+                                                <div>
+                                                    <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
+                                                        ID Number <span style="color:#ef4444;">*</span>
+                                                    </label>
+                                                    <input type="text" class="input-box" value="${nomItem.nominatorIdNumber || nomItem.nominatorId || ''}" placeholder="ID Number" oninput="wizard.updateRonsNomineeField(${nomIdx}, 'nominatorIdNumber', this.value)" style="width: 100%;">
+                                                </div>
+                                            </div>
 
-                                <div>
-                                    <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
-                                        Nominator Residential / Registered Address <span style="color:#ef4444;">*</span>
-                                    </label>
-                                    <textarea class="input-box" rows="2" style="width: 100%; resize: vertical;" placeholder="e.g. 123 Orchard Road, #12-01, Singapore 238888" oninput="wizard.updateRonsField('nominatorAddress', this.value)">${rons.nominatorAddress || rons.nomineeList?.[0]?.nominatorAddress || ''}</textarea>
+                                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                                <div>
+                                                    <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
+                                                        Nominator Email Address <span style="color:#ef4444;">*</span>
+                                                    </label>
+                                                    <input type="email" class="input-box" value="${nomItem.nominatorEmail || ''}" placeholder="e.g. nominator@example.com" oninput="wizard.updateRonsNomineeField(${nomIdx}, 'nominatorEmail', this.value)" style="width: 100%;">
+                                                </div>
+                                                <div>
+                                                    <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
+                                                        Nominator Contact Number <span style="color:#ef4444;">*</span>
+                                                    </label>
+                                                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                                        <div style="position: relative; width: 140px; flex-shrink: 0;">
+                                                            <div style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); pointer-events: none; display: flex; align-items: center;">
+                                                                <img id="rons-phone-flag-${nomIdx}" src="${this.getCountryFlagUrl(phoneCountryCode)}" alt="flag" style="width: 20px; height: 14px; object-fit: cover; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.5);">
+                                                            </div>
+                                                            <select class="input-box" style="width: 100%; padding-left: 34px; font-size: 0.8rem; font-weight: 700; height: 42px;"
+                                                                onchange="wizard.handleRonsPhoneCountryChange(${nomIdx}, this.value)">
+                                                                ${countries.map(c => `
+                                                                    <option value="${c.code}" ${c.code === phoneCountryCode ? 'selected' : ''}>${c.code} (${c.prefix})</option>
+                                                                `).join('')}
+                                                            </select>
+                                                        </div>
+                                                        <div style="flex: 1; position: relative;">
+                                                            <input type="text" class="input-box" id="rons-phone-input-${nomIdx}"
+                                                                value="${phoneRaw}"
+                                                                placeholder="${phoneCountryObj.placeholder}"
+                                                                maxlength="${Math.max(...phoneCountryObj.lengths)}"
+                                                                oninput="wizard.handleRonsPhoneInput(${nomIdx}, this.value)"
+                                                                style="width: 100%; font-size: 0.85rem;"
+                                                            >
+                                                        </div>
+                                                    </div>
+                                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 3px;">
+                                                        <span id="rons-phone-hint-${nomIdx}" style="font-size: 0.68rem; color: #64748b;">Restricted to ${phoneCountryObj.name} (${phoneCountryObj.lengths.join(' or ')} digits)</span>
+                                                    </div>
+                                                    <div id="rons-phone-err-${nomIdx}" style="font-size: 0.72rem; color: #ef4444; font-weight: 700; margin-top: 3px; display: none;"></div>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">
+                                                    Nominator Residential / Registered Address <span style="color:#ef4444;">*</span>
+                                                </label>
+                                                <textarea class="input-box" rows="2" style="width: 100%; resize: vertical;" placeholder="e.g. 123 Orchard Road, #12-01, Singapore 238888" oninput="wizard.updateRonsNomineeField(${nomIdx}, 'nominatorAddress', this.value)">${nomItem.nominatorAddress || ''}</textarea>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+
+                                <!-- Add Another Nominee Shareholder & Nominator Button -->
+                                <div style="display: flex; justify-content: flex-start; margin-top: 0.25rem;">
+                                    <button type="button" onclick="wizard.addRonsNomineePair()"
+                                        style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: #ffffff; color: #2563eb; border: 1.5px dashed #93c5fd; border-radius: 12px; font-family: 'Outfit', sans-serif; font-size: 0.88rem; font-weight: 700; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(37,99,235,0.05);"
+                                        onmouseover="this.style.background='#eff6ff'; this.style.borderColor='#2563eb';"
+                                        onmouseout="this.style.background='#ffffff'; this.style.borderColor='#93c5fd';">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                        + Add Another Nominee Shareholder & Nominator
+                                    </button>
                                 </div>
                             </div>
                         ` : ''}
@@ -6107,7 +6542,7 @@
                 const shareholders = this.data.shareholders || [];
                 const uboShareholders = shareholders.filter(sh => {
                     const pct = totalShares > 0 ? ((parseFloat(sh.shares) || 0) / totalShares) * 100 : 0;
-                    return pct >= 25 || sh.ubo === 'Yes';
+                    return pct >= 25 || sh.ubo === 'Yes' || sh.isUboExplicit;
                 });
 
                 return `
@@ -6117,25 +6552,37 @@
                                 Register of Registrable Controllers (UBO)
                             </div>
                             <p style="font-size: 0.8rem; color: #64748b; margin: 0 0 1.25rem 0; line-height: 1.5;">
-                                Under Singapore law, individuals who have significant control or hold 25% or more of company shares/voting rights are classified as Registrable Controllers.
+                                Under Singapore law (ACRA RORC), individuals and corporate entities who hold 25% or more of company shares/voting rights or have significant control are classified as Registrable Controllers.
                             </p>
 
                             <div style="display: flex; flex-direction: column; gap: 0.75rem;">
                                 ${uboShareholders.length > 0 ? uboShareholders.map((sh, idx) => {
-                                    const pct = totalShares > 0 ? Math.round(((parseFloat(sh.shares) || 0) / totalShares) * 100) : 0;
+                                    const pct = totalShares > 0 ? (((parseFloat(sh.shares) || 0) / totalShares) * 100).toFixed(2) : '0.00';
+                                    const isCorp = sh.type === 'corporate';
+                                    const icon = isCorp ? '🏢' : '👤';
+                                    const iconBg = isCorp ? '#f5f3ff' : '#eff6ff';
+                                    const iconColor = isCorp ? '#7c3aed' : '#2563eb';
+                                    const badgeBg = isCorp ? '#f5f3ff' : '#eff6ff';
+                                    const badgeColor = isCorp ? '#7c3aed' : '#2563eb';
+                                    const badgeBorder = isCorp ? '#ddd6fe' : '#bfdbfe';
+                                    const badgeText = isCorp ? `Corporate Controller (${pct}% Ownership)` : `Auto-identified UBO (${pct}% Ownership)`;
+                                    const subText = isCorp 
+                                        ? `UEN: ${sh.idNum || sh.regNum || 'On file'} • Incorporation: ${sh.nationality || 'Singapore'}`
+                                        : `ID: ${sh.idNum || 'On file'} • Nationality: ${sh.nationality || 'Singaporean'}`;
+
                                     return `
                                         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center;">
                                             <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                                <div style="width: 36px; height: 36px; border-radius: 10px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-weight: 800;">
-                                                    👤
+                                                <div style="width: 36px; height: 36px; border-radius: 10px; background: ${iconBg}; color: ${iconColor}; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1rem;">
+                                                    ${icon}
                                                 </div>
                                                 <div>
-                                                    <div style="font-size: 0.9rem; font-weight: 800; color: #0f172a;">${sh.name || 'Shareholder'}</div>
-                                                    <div style="font-size: 0.75rem; color: #64748b;">ID: ${sh.idNum || 'On file'} • Nationality: ${sh.nationality || 'Singaporean'}</div>
+                                                    <div style="font-size: 0.9rem; font-weight: 800; color: #0f172a;">${sh.name || (isCorp ? `Corporate Shareholder #${idx+1}` : `Shareholder #${idx+1}`)}</div>
+                                                    <div style="font-size: 0.75rem; color: #64748b;">${subText}</div>
                                                 </div>
                                             </div>
-                                            <span style="background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; font-size: 0.75rem; font-weight: 800; padding: 4px 12px; border-radius: 99px;">
-                                                Auto-identified UBO (${pct}% Ownership)
+                                            <span style="background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; font-size: 0.75rem; font-weight: 800; padding: 4px 12px; border-radius: 99px;">
+                                                ${badgeText}
                                             </span>
                                         </div>
                                     `;
@@ -6650,25 +7097,43 @@
                 if (!this.data.shareholders[index]) this.data.shareholders[index] = {};
 
                 if (field === 'shares') {
-                    const totalShares = this.getTotalCapitalShares();
-                    let numericVal = parseFloat(value);
-                    if (isNaN(numericVal) || numericVal < 0) numericVal = 0;
+                    this.ensureCapitalCurrencies();
+                    const currencies = (this.data.capital?.currencies && this.data.capital.currencies.length > 0)
+                        ? this.data.capital.currencies
+                        : [{ currency: this.data.capital?.currency || 'SGD', numberOfShares: this.data.capital?.numShares || 0, shareCapitalAmount: this.data.capital?.issued || 0 }];
+                    
+                    const sh = this.data.shareholders[index];
+                    const defaultCode = currencies[0]?.currency === 'Others' ? (currencies[0]?.customCurrency || 'SGD') : (currencies[0]?.currency || 'SGD');
+                    const shCurrCode = sh.currency || defaultCode;
 
-                    let otherAllocated = 0;
-                    (this.data.shareholders || []).forEach((sh, i) => {
+                    const curObj = currencies.find(c => {
+                        const code = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : (c.currency || 'SGD');
+                        return code === shCurrCode;
+                    }) || currencies[0];
+
+                    const curShares = parseFloat(curObj.numberOfShares) || 0;
+
+                    let otherAllocatedInCurrency = 0;
+                    (this.data.shareholders || []).forEach((s, i) => {
                         if (i !== index) {
-                            otherAllocated += parseFloat(sh.shares) || 0;
+                            const sCurr = s.currency || defaultCode;
+                            if (sCurr === shCurrCode) {
+                                otherAllocatedInCurrency += parseFloat(s.shares) || 0;
+                            }
                         }
                     });
 
-                    if (totalShares > 0) {
-                        const maxAllowed = Math.max(0, totalShares - otherAllocated);
+                    let numericVal = parseFloat(value);
+                    if (isNaN(numericVal) || numericVal < 0) numericVal = 0;
+
+                    if (curShares > 0) {
+                        const maxAllowed = Math.max(0, curShares - otherAllocatedInCurrency);
                         if (numericVal > maxAllowed) {
                             numericVal = maxAllowed;
-                            value = String(numericVal);
+                            value = numericVal > 0 ? String(numericVal) : '';
                             const inputEl = document.getElementById(`sh-shares-input-${index}`);
-                            if (inputEl) inputEl.value = numericVal;
-                            showToast(`Cannot allocate more than share limit (${totalShares.toLocaleString()} total). Capped at ${maxAllowed.toLocaleString()} remaining shares.`, "warning");
+                            if (inputEl) inputEl.value = value;
+                            showToast(`Cannot allocate more than ${curShares.toLocaleString()} ${shCurrCode} shares configured. Capped at ${maxAllowed.toLocaleString()} available.`, "warning");
                         }
                     }
                     this.data.shareholders[index][field] = value;
@@ -6683,12 +7148,333 @@
                 this.updateContinueButtonState();
             }
 
-            updateCorporateRepField(index, field, value) {
-                if (!this.data.shareholders) this.data.shareholders = [];
-                if (!this.data.shareholders[index]) this.data.shareholders[index] = {};
-                if (!this.data.shareholders[index].rep) this.data.shareholders[index].rep = {};
-                this.data.shareholders[index].rep[field] = value;
+            selectShareholderCurrency(shIdx, currencyCode) {
+                if (!this.data.shareholders || !this.data.shareholders[shIdx]) return;
+                const sh = this.data.shareholders[shIdx];
+                sh.currency = currencyCode;
+
+                this.ensureCapitalCurrencies();
+                const currencies = (this.data.capital?.currencies && this.data.capital.currencies.length > 0)
+                    ? this.data.capital.currencies
+                    : [{ currency: this.data.capital?.currency || 'SGD', numberOfShares: this.data.capital?.numShares || 0, shareCapitalAmount: this.data.capital?.issued || 0 }];
+
+                const curObj = currencies.find(c => {
+                    const code = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : (c.currency || 'SGD');
+                    return code === currencyCode;
+                }) || currencies[0];
+
+                const curShares = parseFloat(curObj.numberOfShares) || 0;
+                let otherAllocated = 0;
+                (this.data.shareholders || []).forEach((s, i) => {
+                    if (i !== shIdx) {
+                        const sCurr = s.currency || (currencies[0]?.currency === 'Others' ? (currencies[0]?.customCurrency || 'SGD') : (currencies[0]?.currency || 'SGD'));
+                        if (sCurr === currencyCode) {
+                            otherAllocated += parseFloat(s.shares) || 0;
+                        }
+                    }
+                });
+
+                const maxAvail = Math.max(0, curShares - otherAllocated);
+                if (parseFloat(sh.shares) > maxAvail) {
+                    sh.shares = maxAvail > 0 ? String(maxAvail) : '';
+                }
+
+                this.calculateShareholderAllocations();
                 this.save();
+                this.render();
+            }
+
+            updateCorporateRepField(arg1, arg2, arg3, arg4) {
+                let repIdx, field, val;
+                if (arg4 !== undefined) {
+                    repIdx = arg2;
+                    field = arg3;
+                    val = arg4;
+                } else if (arg3 !== undefined) {
+                    repIdx = arg1;
+                    field = arg2;
+                    val = arg3;
+                } else {
+                    repIdx = 0;
+                    field = arg1;
+                    val = arg2;
+                }
+                if (!Array.isArray(this.data.corporateReps)) this.data.corporateReps = [{}];
+                if (!this.data.corporateReps[repIdx]) this.data.corporateReps[repIdx] = {};
+                this.data.corporateReps[repIdx][field] = val;
+
+                // Sync to corporate shareholders' rep for backward compatibility
+                (this.data.shareholders || []).filter(s => s.type === 'corporate').forEach((c, idx) => {
+                    if (idx === repIdx || (repIdx === 0 && idx === 0)) {
+                        if (!c.rep) c.rep = {};
+                        c.rep[field] = val;
+                        if (!Array.isArray(c.reps)) c.reps = [c.rep];
+                        if (c.reps[repIdx]) c.reps[repIdx][field] = val;
+                    }
+                });
+                this.save();
+                this.updateContinueButtonState();
+            }
+
+            addCorporateRep(shIndex) {
+                if (!Array.isArray(this.data.corporateReps)) this.data.corporateReps = [];
+                this.data.corporateReps.push({
+                    name: '',
+                    idNum: '',
+                    nationality: 'Singaporean',
+                    email: '',
+                    docs: {}
+                });
+                this.save();
+                this.render();
+                showToast("Added another Corporate Representative.", "success");
+            }
+
+            removeCorporateRep(arg1, arg2) {
+                const repIndex = (arg2 !== undefined) ? arg2 : arg1;
+                if (!Array.isArray(this.data.corporateReps) || this.data.corporateReps.length <= 1) {
+                    showToast("At least one Corporate Representative is required.", "warning");
+                    return;
+                }
+                this.data.corporateReps.splice(repIndex, 1);
+                // Sync back to corporate shareholders
+                (this.data.shareholders || []).filter(s => s.type === 'corporate').forEach((c, idx) => {
+                    c.rep = this.data.corporateReps[idx] || this.data.corporateReps[0];
+                    c.reps = this.data.corporateReps;
+                });
+                this.save();
+                this.render();
+                showToast("Corporate Representative removed.", "info");
+            }
+
+            autoFillCorporateRepFromDirector(arg1, arg2, arg3) {
+                let repIdx, dirIndexStr;
+                if (arg3 !== undefined) {
+                    repIdx = arg2;
+                    dirIndexStr = arg3;
+                } else {
+                    repIdx = arg1;
+                    dirIndexStr = arg2;
+                }
+                if (dirIndexStr === '' || dirIndexStr === undefined) {
+                    this.clearCorporateRepDirectorSelection(repIdx);
+                    return;
+                }
+                const dirIdx = parseInt(dirIndexStr, 10);
+                const dir = this.data.directors?.[dirIdx];
+                if (!dir) return;
+
+                if (!Array.isArray(this.data.corporateReps)) this.data.corporateReps = [{}];
+                if (!this.data.corporateReps[repIdx]) this.data.corporateReps[repIdx] = {};
+
+                const rep = this.data.corporateReps[repIdx];
+                rep.selectedDirectorIdx = dirIdx;
+                rep.name = dir.name || '';
+                rep.idNum = dir.idNum || '';
+                rep.nationality = dir.nationality || 'Singaporean';
+                rep.email = dir.email || '';
+                if (dir.docs?.idDoc) {
+                    if (!rep.docs) rep.docs = {};
+                    rep.docs.idDoc = JSON.parse(JSON.stringify(dir.docs.idDoc));
+                }
+
+                // Sync to corporate shareholders' rep for backward compatibility
+                (this.data.shareholders || []).filter(s => s.type === 'corporate').forEach((c, idx) => {
+                    if (idx === repIdx || repIdx === 0) {
+                        c.rep = { ...rep };
+                        if (!Array.isArray(c.reps)) c.reps = [c.rep];
+                        c.reps[repIdx] = { ...rep };
+                    }
+                });
+
+                this.save();
+                this.render();
+                showToast(`Autofilled particulars from ${dir.name || 'Director'}!`, "success");
+            }
+
+            clearCorporateRepDirectorSelection(repIdx) {
+                if (!Array.isArray(this.data.corporateReps)) return;
+                const rep = this.data.corporateReps[repIdx];
+                if (rep) {
+                    rep.selectedDirectorIdx = '';
+                    this.save();
+                    this.render();
+                    showToast("Director selection cleared. You may select another director or enter details manually.", "info");
+                }
+            }
+
+            handleCorpRepDocUpload(event, arg1, arg2, arg3) {
+                const file = event.target.files && event.target.files[0];
+                if (!file) return;
+
+                let repIdx, docKey;
+                if (arg3 !== undefined) {
+                    repIdx = arg2;
+                    docKey = arg3;
+                } else {
+                    repIdx = arg1;
+                    docKey = arg2;
+                }
+
+                if (file.size > 15 * 1024 * 1024) {
+                    showToast("File is too large. Maximum file size is 15MB.", "error");
+                    return;
+                }
+
+                showToast(`Reading ${file.name}...`, "info");
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const fileData = {
+                        name: file.name,
+                        size: file.size,
+                        type: file.type,
+                        data: e.target.result,
+                        uploadedAt: Date.now()
+                    };
+
+                    if (!Array.isArray(this.data.corporateReps)) this.data.corporateReps = [{}];
+                    if (!this.data.corporateReps[repIdx]) this.data.corporateReps[repIdx] = {};
+                    if (!this.data.corporateReps[repIdx].docs) this.data.corporateReps[repIdx].docs = {};
+                    this.data.corporateReps[repIdx].docs[docKey] = fileData;
+
+                    (this.data.shareholders || []).filter(s => s.type === 'corporate').forEach((c, idx) => {
+                        if (idx === repIdx || repIdx === 0) {
+                            if (!c.rep) c.rep = {};
+                            if (!c.rep.docs) c.rep.docs = {};
+                            c.rep.docs[docKey] = fileData;
+                        }
+                    });
+
+                    this.save();
+                    this.render();
+                    showToast(`Uploaded ${file.name} successfully!`, "success");
+                    this.triggerDocOcrExtraction(file, 'corp_rep', repIdx, docKey);
+                };
+                reader.readAsDataURL(file);
+            }
+
+            removeCorpRepDoc(arg1, arg2, arg3) {
+                let repIdx, docKey;
+                if (arg3 !== undefined) {
+                    repIdx = arg2;
+                    docKey = arg3;
+                } else {
+                    repIdx = arg1;
+                    docKey = arg2;
+                }
+                if (this.data.corporateReps?.[repIdx]?.docs) {
+                    delete this.data.corporateReps[repIdx].docs[docKey];
+                    (this.data.shareholders || []).filter(s => s.type === 'corporate').forEach((c, idx) => {
+                        if (idx === repIdx || repIdx === 0) {
+                            if (c.rep?.docs) delete c.rep.docs[docKey];
+                        }
+                    });
+                    this.save();
+                    this.render();
+                    showToast("Document removed.", "info");
+                }
+            }
+
+            addRonsNomineePair() {
+                if (!this.data.rons) this.data.rons = { hasNominee: 'Yes', nomineeList: [] };
+                if (!Array.isArray(this.data.rons.nomineeList)) this.data.rons.nomineeList = [];
+                this.data.rons.nomineeList.push({
+                    nomineeShareholderId: '',
+                    nomineeName: '',
+                    nominatorName: '',
+                    nominatorIdNumber: '',
+                    nominatorEmail: '',
+                    nominatorPhoneCountry: 'SG',
+                    nominatorPhone: '',
+                    nominatorPhoneRaw: '',
+                    nominatorAddress: '',
+                    docs: {}
+                });
+                this.save();
+                this.render();
+                showToast("Added another Nominee & Nominator pair.", "success");
+            }
+
+            removeRonsNomineePair(idx) {
+                if (!this.data.rons?.nomineeList || this.data.rons.nomineeList.length <= 1) {
+                    showToast("At least one Nominee & Nominator entry is required.", "warning");
+                    return;
+                }
+                this.data.rons.nomineeList.splice(idx, 1);
+                this.save();
+                this.render();
+                showToast("Removed Nominee & Nominator entry.", "info");
+            }
+
+            handleRonsPhoneCountryChange(idx, countryCode) {
+                if (!this.data.rons?.nomineeList?.[idx]) return;
+                const countries = this.getPhoneCountries();
+                const c = countries.find(x => x.code === countryCode) || countries[0];
+                const nom = this.data.rons.nomineeList[idx];
+                nom.nominatorPhoneCountry = c.code;
+
+                const flagEl = document.getElementById(`rons-phone-flag-${idx}`);
+                if (flagEl) {
+                    flagEl.src = this.getCountryFlagUrl(c.code);
+                    flagEl.alt = c.name;
+                }
+
+                const hintEl = document.getElementById(`rons-phone-hint-${idx}`);
+                if (hintEl) {
+                    hintEl.textContent = `Restricted to ${c.name} (${c.lengths.join(' or ')} digits)`;
+                }
+
+                const inputEl = document.getElementById(`rons-phone-input-${idx}`);
+                if (inputEl) {
+                    inputEl.placeholder = c.placeholder;
+                    const maxLen = Math.max(...c.lengths);
+                    inputEl.maxLength = maxLen;
+                    let digits = (inputEl.value || '').replace(/\D/g, '');
+                    if (digits.length > maxLen) {
+                        digits = digits.slice(0, maxLen);
+                        inputEl.value = digits;
+                    }
+                    this.handleRonsPhoneInput(idx, digits);
+                }
+            }
+
+            handleRonsPhoneInput(idx, rawVal) {
+                if (!this.data.rons?.nomineeList?.[idx]) return;
+                const nom = this.data.rons.nomineeList[idx];
+                const countries = this.getPhoneCountries();
+                const countryCode = nom.nominatorPhoneCountry || 'SG';
+                const c = countries.find(x => x.code === countryCode) || countries[0];
+
+                // Strictly restrict to digits only - no letters or symbols
+                const digits = (rawVal || '').replace(/\D/g, '');
+                const maxLen = Math.max(...c.lengths);
+                const trimmedDigits = digits.slice(0, maxLen);
+
+                const inputEl = document.getElementById(`rons-phone-input-${idx}`);
+                if (inputEl && inputEl.value !== trimmedDigits) {
+                    inputEl.value = trimmedDigits;
+                }
+
+                nom.nominatorPhoneRaw = trimmedDigits;
+                nom.nominatorPhone = trimmedDigits ? `${c.prefix} ${trimmedDigits}` : '';
+                if (idx === 0) {
+                    this.data.rons.nominatorPhone = nom.nominatorPhone;
+                }
+                this.save();
+
+                const errEl = document.getElementById(`rons-phone-err-${idx}`);
+                if (errEl) {
+                    if (!trimmedDigits) {
+                        errEl.textContent = 'Phone number is required.';
+                        errEl.style.display = 'block';
+                    } else if (c.code !== 'OTHER' && !c.lengths.includes(trimmedDigits.length)) {
+                        errEl.textContent = `Invalid length for ${c.name} (${c.lengths.join(' or ')} digits required).`;
+                        errEl.style.display = 'block';
+                    } else {
+                        errEl.textContent = '';
+                        errEl.style.display = 'none';
+                    }
+                }
                 this.updateContinueButtonState();
             }
 
@@ -7264,67 +8050,76 @@
             formatOwnershipPct(shares, totalShares) {
                 const s = parseFloat(shares) || 0;
                 const t = parseFloat(totalShares) || 0;
-                if (t <= 0 || s <= 0) return '0%';
+                if (t <= 0 || s <= 0) return '0.00%';
                 const raw = (s / t) * 100;
-                if (raw >= 100) return '100%';
-                if (raw < 0.1 && raw > 0) return parseFloat(raw.toFixed(2)) + '%';
-                if (raw < 1 && raw >= 0.1) return parseFloat(raw.toFixed(1)) + '%';
-                const rounded = Math.round(raw);
-                return (rounded === 0 && s > 0) ? (parseFloat(raw.toFixed(2)) + '%') : (rounded + '%');
+                if (raw >= 100) return '100.00%';
+                return raw.toFixed(2) + '%';
             }
 
             formatOwnershipPctByCapital(shareAmount, totalCapital) {
                 const s = parseFloat(shareAmount) || 0;
                 const t = parseFloat(totalCapital) || 0;
-                if (t <= 0 || s <= 0) return '0%';
+                if (t <= 0 || s <= 0) return '0.00%';
                 const raw = (s / t) * 100;
-                if (raw >= 100) return '100%';
-                if (raw < 0.1 && raw > 0) return parseFloat(raw.toFixed(2)) + '%';
-                if (raw < 1 && raw >= 0.1) return parseFloat(raw.toFixed(1)) + '%';
-                const rounded = Math.round(raw);
-                return (rounded === 0 && s > 0) ? (parseFloat(raw.toFixed(2)) + '%') : (rounded + '%');
+                if (raw >= 100) return '100.00%';
+                return raw.toFixed(2) + '%';
             }
 
             calculateShareholderAllocations() {
+                this.ensureCapitalCurrencies();
                 const totalShares = this.getTotalCapitalShares();
                 const totalCapital = this.getTotalCapitalAmount();
-                const perShareValue = (totalShares > 0 && totalCapital > 0) ? (totalCapital / totalShares) : 1;
                 if (totalShares > 0 && this.data.capital) this.data.capital.numShares = totalShares;
                 if (totalCapital > 0 && this.data.capital) this.data.capital.issued = totalCapital;
+
+                const currencies = (this.data.capital?.currencies && this.data.capital.currencies.length > 0)
+                    ? this.data.capital.currencies
+                    : [{ currency: this.data.capital?.currency || 'SGD', numberOfShares: this.data.capital?.numShares || 0, shareCapitalAmount: this.data.capital?.issued || 0 }];
+                const defaultCode = currencies[0]?.currency === 'Others' ? (currencies[0]?.customCurrency || 'SGD') : (currencies[0]?.currency || 'SGD');
 
                 if (!this.data.shareholders || !Array.isArray(this.data.shareholders)) return;
 
                 this.data.shareholders.forEach((sh, idx) => {
+                    const shCurrCode = sh.currency || defaultCode;
+                    const curObj = currencies.find(c => {
+                        const code = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : (c.currency || 'SGD');
+                        return code === shCurrCode;
+                    }) || currencies[0];
+
+                    const curShares = parseFloat(curObj.numberOfShares) || 0;
+                    const curAmount = parseFloat(curObj.shareCapitalAmount) || 0;
+                    const curPerShareValue = (curShares > 0 && curAmount > 0) ? (curAmount / curShares) : 1;
+
                     const shares = parseFloat(sh.shares) || 0;
-                    // Share capital calculated based on per share value
-                    const shareAmount = (totalShares > 0 && totalCapital > 0) 
-                        ? Math.min(totalCapital, Math.round(shares * perShareValue * 100) / 100) 
-                        : (parseFloat(sh.shareAmount) || shares);
+                    // Share Capital calculated based on per share value multiply by allocated shares
+                    const shareAmount = Math.round(shares * curPerShareValue * 100) / 100;
                     sh.shareAmount = shareAmount;
 
-                    // Ownership percentage calculated based on share capital
-                    let pctText = '0%';
+                    // Ownership percentage calculated based on currency capital / shares with decimals
+                    let pctText = '0.00%';
                     let pctNum = 0;
-                    if (totalCapital > 0 && shareAmount > 0) {
-                        const rawPct = (shareAmount / totalCapital) * 100;
+                    if (curAmount > 0 && shareAmount > 0) {
+                        const rawPct = (shareAmount / curAmount) * 100;
                         pctNum = Math.min(100, Math.max(0, rawPct));
-                        pctText = this.formatOwnershipPctByCapital(shareAmount, totalCapital);
-                    } else if (totalShares > 0 && shares > 0) {
-                        const rawPct = (shares / totalShares) * 100;
+                        pctText = this.formatOwnershipPctByCapital(shareAmount, curAmount);
+                    } else if (curShares > 0 && shares > 0) {
+                        const rawPct = (shares / curShares) * 100;
                         pctNum = Math.min(100, Math.max(0, rawPct));
-                        pctText = this.formatOwnershipPct(shares, totalShares);
+                        pctText = this.formatOwnershipPct(shares, curShares);
                     }
                     sh.percent = pctText;
-                    sh.percentNum = Math.round(pctNum);
+                    sh.percentNum = parseFloat(pctNum.toFixed(2));
 
                     // Update live UI elements if currently rendered in DOM
                     const pctDisplay = document.getElementById(`sh-ownership-pct-display-${idx}`);
                     if (pctDisplay) pctDisplay.innerText = pctText;
                     const pctBadge = document.getElementById(`sh-card-pct-badge-${idx}`);
                     if (pctBadge) pctBadge.innerText = `${sh.type === 'corporate' ? 'Corporate' : 'Individual'} Shareholder • ${pctText} Ownership`;
+                    const corpPctBadge = document.getElementById(`sh-corp-pct-badge-${idx}`);
+                    if (corpPctBadge) corpPctBadge.innerText = `Corporate Entity • ${pctText} Ownership`;
                     const shareAmountInput = document.getElementById(`sh-share-amount-input-${idx}`);
                     if (shareAmountInput) {
-                        shareAmountInput.value = sh.shareAmount !== undefined ? sh.shareAmount : '';
+                        shareAmountInput.value = (sh.shareAmount !== undefined && sh.shareAmount !== '') ? Number(sh.shareAmount).toFixed(2) : '';
                     }
                 });
                 this.syncAllUbos();
@@ -7389,11 +8184,20 @@
 
             removeShareholder(index) {
                 if (this.data.shareholders && this.data.shareholders.length > 1) {
+                    const removed = this.data.shareholders[index];
+                    if (removed) {
+                        if (removed.type === 'corporate') {
+                            this.data.corporateShareholdersCount = Math.max(0, (this.data.corporateShareholdersCount || 1) - 1);
+                        } else {
+                            this.data.individualShareholdersCount = Math.max(0, (this.data.individualShareholdersCount || 1) - 1);
+                        }
+                    }
                     this.data.shareholders.splice(index, 1);
                     this.calculateShareholderAllocations();
                     this.syncAllUbos();
                     this.save();
                     this.render();
+                    showToast("Shareholder removed successfully.", "info");
                 } else {
                     showToast("At least one shareholder is required.", "error");
                 }
@@ -7758,49 +8562,60 @@
                 const masterMap = new Map();
                 const totalShares = this.getTotalCapitalShares();
 
-                const addToMaster = (uboItem, sh, shIdx) => {
+                const addToMaster = (uboItem, sh, shIdx, explicitPct = null, isExplicit = false) => {
                     if (!uboItem || !uboItem.name || !uboItem.name.trim()) return;
                     const cleanName = uboItem.name.trim();
-                    if (cleanName.toLowerCase().startsWith('individual shareholder #') || 
-                        cleanName.toLowerCase().startsWith('corporate shareholder #')) {
-                        return;
-                    }
                     const key = (uboItem.idNum && uboItem.idNum.trim() !== '')
                         ? uboItem.idNum.trim().toUpperCase()
                         : cleanName.toLowerCase();
 
-                    const shName = sh.name || (sh.type === 'corporate' ? 'Corporate Shareholder #' + (shIdx + 1) : 'Individual Shareholder #' + (shIdx + 1));
+                    const defaultShName = (sh.type === 'corporate' ? 'Corporate Shareholder #' + (shIdx + 1) : 'Individual Shareholder #' + (shIdx + 1));
+                    const shName = (sh.name && sh.name.trim()) ? sh.name.trim() : defaultShName;
                     const shShares = parseFloat(sh.shares) || 0;
-                    const pct = (totalShares > 0 && shShares > 0)
-                        ? Math.min(100, Math.round((shShares / totalShares) * 100))
-                        : Math.min(100, parseFloat(sh.percent) || 0);
+                    const pct = explicitPct !== null 
+                        ? explicitPct 
+                        : ((totalShares > 0 && shShares > 0)
+                            ? parseFloat(((shShares / totalShares) * 100).toFixed(2))
+                            : parseFloat(sh.percent) || 0);
+
+                    const shCurr = sh.currency || (this.data.capital?.currencies?.[0]?.currency) || this.data.capital?.currency || 'SGD';
 
                     if (masterMap.has(key)) {
                         const existing = masterMap.get(key);
                         if (!existing.shareholders.includes(shName)) {
                             existing.shareholders.push(shName);
                         }
-                        existing.ownershipPct = Math.min(100, (existing.ownershipPct || 0) + pct);
+                        existing.ownershipPct = Math.min(100, parseFloat(((existing.ownershipPct || 0) + pct).toFixed(2)));
+                        if (isExplicit) existing.isUboExplicit = true;
                         if (!existing.idNum && uboItem.idNum) existing.idNum = uboItem.idNum;
                         if (!existing.nationality && uboItem.nationality) existing.nationality = uboItem.nationality;
                         if (!existing.addr && uboItem.addr) existing.addr = uboItem.addr;
                         if (!existing.email && uboItem.email) existing.email = uboItem.email;
                         if (!existing.phone && uboItem.phone) existing.phone = uboItem.phone;
+                        if (shCurr && (!existing.currencies || !existing.currencies.includes(shCurr))) {
+                            if (!existing.currencies) existing.currencies = [];
+                            existing.currencies.push(shCurr);
+                            existing.currency = existing.currencies.join(', ');
+                        }
                     } else {
                         masterMap.set(key, {
                             id: uboItem.id || `ubo_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
                             name: cleanName,
                             idNum: uboItem.idNum || uboItem.idNumber || '',
-                            nationality: uboItem.nationality || 'Singaporean',
+                            nationality: uboItem.nationality || (uboItem.entityType === 'corporate' ? 'Singapore' : 'Singaporean'),
                             dob: uboItem.dob || '',
                             email: uboItem.email || '',
                             phone: uboItem.phone || uboItem.mobile || '',
                             addr: uboItem.addr || uboItem.address || '',
-                            role: 'Ultimate Beneficial Owner',
+                            role: uboItem.role || (uboItem.entityType === 'corporate' ? 'Registrable Corporate Controller' : 'Ultimate Beneficial Owner'),
+                            entityType: uboItem.entityType || (sh.type === 'corporate' ? 'corporate' : 'individual'),
                             status: 'Active',
-                            ownershipPct: pct,
+                            ownershipPct: parseFloat(pct.toFixed(2)),
+                            currency: shCurr,
+                            currencies: [shCurr],
                             shareholders: [shName],
-                            source: uboItem.source || (sh.type === 'corporate' ? 'Corporate Shareholder' : 'Individual Shareholder')
+                            source: uboItem.source || (sh.type === 'corporate' ? 'Corporate Shareholder' : 'Individual Shareholder'),
+                            isUboExplicit: isExplicit
                         });
                     }
                 };
@@ -7808,62 +8623,62 @@
                 this.data.shareholders.forEach((sh, idx) => {
                     if (!sh) return;
                     const shShares = parseFloat(sh.shares) || 0;
-                    const pct = (totalShares > 0 && shShares > 0)
-                        ? Math.min(100, Math.round((shShares / totalShares) * 100))
-                        : Math.min(100, parseFloat(sh.percent) || 0);
+                    const pct = (sh.percentNum !== undefined && sh.percentNum !== null)
+                        ? sh.percentNum
+                        : ((totalShares > 0 && shShares > 0)
+                            ? parseFloat(((shShares / totalShares) * 100).toFixed(2))
+                            : parseFloat(sh.percent) || 0);
+
+                    const defaultShName = (sh.type === 'corporate' ? 'Corporate Shareholder #' + (idx + 1) : 'Individual Shareholder #' + (idx + 1));
+                    const shName = (sh.name && sh.name.trim()) ? sh.name.trim() : defaultShName;
 
                     if (sh.ubo === 'No') {
+                        // Natural person UBOs declared for this entity
                         const selected = Array.isArray(sh.selectedUbos) ? sh.selectedUbos : (Array.isArray(sh.ubos) ? sh.ubos : []);
                         selected.forEach(u => {
                             if (u && u.name && u.name.trim()) {
                                 addToMaster({
                                     ...u,
                                     source: u.source || 'Selected UBO'
-                                }, { ...sh, percent: pct }, idx);
+                                }, { ...sh, name: shName, percent: pct }, idx, pct, true);
                             }
                         });
-                    } else if (sh.type === 'individual') {
-                        const indName = sh.name;
-                        if (indName && indName.trim()) {
+                    } else if (sh.type === 'corporate') {
+                        // Under ACRA RORC, a corporate entity holding >= 25% is a Registrable Corporate Controller
+                        if (pct >= 25) {
                             addToMaster({
-                                name: indName.trim(),
+                                name: shName,
+                                idNum: sh.idNum || sh.regNum || '',
+                                nationality: sh.nationality || 'Singapore',
+                                dob: '',
+                                email: sh.email || '',
+                                phone: sh.phone || '',
+                                addr: sh.addr || '',
+                                role: 'Registrable Corporate Controller',
+                                entityType: 'corporate',
+                                source: 'Corporate Shareholder'
+                            }, { ...sh, name: shName, percent: pct }, idx, pct, true);
+                        }
+                    } else if (sh.type === 'individual') {
+                        // Direct individual natural person shareholder
+                        const isUbo = pct >= 25 || sh.ubo === 'Yes' || sh.isUboExplicit;
+                        if (isUbo) {
+                            addToMaster({
+                                name: shName,
                                 idNum: sh.idNum || '',
                                 nationality: sh.nationality || 'Singaporean',
                                 dob: sh.dob || '',
                                 email: sh.email || '',
                                 phone: sh.phone || '',
                                 addr: sh.addr || '',
+                                role: 'Ultimate Beneficial Owner',
+                                entityType: 'individual',
                                 source: 'Direct Individual Shareholder'
-                            }, { ...sh, percent: pct }, idx);
-                        }
-                    } else {
-                        // Corporate shareholder
-                        const repName = sh.rep?.name || sh.rep?.fullName || '';
-                        const corpName = sh.name;
-
-                        if (repName && repName.trim()) {
-                            addToMaster({
-                                name: repName.trim(),
-                                idNum: sh.rep?.idNum || '',
-                                nationality: sh.rep?.nationality || 'Singaporean',
-                                dob: sh.rep?.dob || '',
-                                email: sh.rep?.email || '',
-                                phone: sh.rep?.phone || '',
-                                addr: sh.addr || '',
-                                source: `Representative for ${corpName || 'Corporate Entity'}`
-                            }, { ...sh, percent: pct }, idx);
-                        } else if (corpName && corpName.trim()) {
-                            addToMaster({
-                                name: corpName.trim(),
-                                idNum: sh.idNum || sh.regNum || '',
-                                nationality: sh.nationality || 'Corporate Body',
-                                email: sh.email || '',
-                                phone: sh.phone || '',
-                                addr: sh.addr || '',
-                                source: 'Corporate Shareholder'
-                            }, { ...sh, percent: pct }, idx);
+                            }, { ...sh, name: shName, percent: pct }, idx, pct, sh.ubo === 'Yes' || sh.isUboExplicit);
                         }
                     }
+                    // For corporate shareholders without separate UBOs declared, corporate representatives
+                    // are NOT beneficial owners of those shares under ACRA RORC.
                 });
 
                 // Check RONS (Nominee Shareholder & Nominator)
@@ -7901,13 +8716,14 @@
                                     phone: nom.nominatorPhone || '',
                                     addr: nom.nominatorAddress || '',
                                     source: 'RONS Nominator'
-                                }, { name: nom.nominatorName, percent: nomPct }, nIdx);
+                                }, { name: nom.nominatorName, percent: nomPct }, nIdx, nomPct, true);
                             }
                         }
                     });
                 }
 
-                this.data.ubos = Array.from(masterMap.values());
+                // ACRA RORC: Only persons holding >= 25% or explicitly declared as UBO/nominator
+                this.data.ubos = Array.from(masterMap.values()).filter(u => (parseFloat(u.ownershipPct) || 0) >= 25 || u.isUboExplicit);
                 this.data.controllers = this.data.ubos;
             }
 
@@ -8653,17 +9469,6 @@
                 this.render();
             }
 
-            removeShareholder(index) {
-                let list = getVal(this.data, 'shareholders');
-                if (list && list.length > 1) {
-                    list.splice(index, 1);
-                    setVal(this.data, 'shareholders', list);
-                    this.save();
-                    this.render();
-                } else {
-                    showToast("At least one shareholder is required.", "error");
-                }
-            }
 
 
             removeCounterItem(key, idx) {
@@ -10677,20 +11482,35 @@
                 this.calculateShareholderAllocations();
                 this.syncAllUbos();
 
+                this.ensureCapitalCurrencies();
                 const totalCapitalShares = this.getTotalCapitalShares();
                 const totalCapitalAmount = this.getTotalCapitalAmount();
-                const currency = this.data.capital?.currency || 'SGD';
+                const defaultCurrency = this.data.capital?.currency || 'SGD';
                 const shareholders = this.data.shareholders || [];
+
+                const capitalCurrencies = (this.data.capital?.currencies && this.data.capital.currencies.length > 0)
+                    ? this.data.capital.currencies.map(c => {
+                        const code = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : (c.currency || 'SGD');
+                        return {
+                            currency: code || 'SGD',
+                            shares: parseFloat(c.numberOfShares) || 0,
+                            amount: parseFloat(c.shareCapitalAmount) || 0,
+                            shareClass: c.shareClass || 'Ordinary'
+                        };
+                    })
+                    : [{ currency: defaultCurrency, shares: totalCapitalShares, amount: totalCapitalAmount, shareClass: 'Ordinary' }];
 
                 let allocatedShares = 0;
                 shareholders.forEach(sh => {
                     allocatedShares += parseFloat(sh.shares) || 0;
                 });
                 const remainingShares = Math.max(0, totalCapitalShares - allocatedShares);
-                const allocatedPct = totalCapitalShares > 0 ? Math.min(100, Math.round((allocatedShares / totalCapitalShares) * 100)) : 0;
-                const remainingPct = Math.max(0, 100 - allocatedPct);
+                const isFullyAllocated = totalCapitalShares > 0 && Math.abs(totalCapitalShares - allocatedShares) < 0.01;
+                const allocatedPct = totalCapitalShares > 0 ? (isFullyAllocated ? 100 : Math.min(100, parseFloat(((allocatedShares / totalCapitalShares) * 100).toFixed(2)))) : 0;
+                const remainingPct = isFullyAllocated ? 0 : Math.max(0, parseFloat((100 - allocatedPct).toFixed(2)));
 
-                const ubos = this.data.ubos || [];
+                // Under ACRA RORC, only registrable controllers holding >= 25% beneficial interest
+                const ubos = (this.data.ubos || []).filter(u => (parseFloat(u.ownershipPct) || 0) >= 25 || u.isUboExplicit);
 
                 document.getElementById('wizard-body').innerHTML = `
                     <div style="text-align: center; padding: 3rem 1rem;">
@@ -10700,53 +11520,89 @@
                         
                         <div style="max-width: 520px; margin: 0 auto 1.75rem; background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.25rem; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
                             
-                            <!-- UBOs Section -->
+                            <!-- UBOs & Registrable Controllers Section -->
                             <div style="font-size: 0.8rem; font-weight: 800; color: #1e293b; text-transform: uppercase; margin-bottom: 0.65rem; display: flex; align-items: center; justify-content: space-between;">
-                                <span style="display: flex; align-items: center; gap: 0.4rem;">🛡️ Verified Ultimate Beneficial Owners (${ubos.length})</span>
+                                <span style="display: flex; align-items: center; gap: 0.4rem;">🛡️ Verified Registrable Controllers & UBOs (${ubos.length})</span>
                                 <span style="font-size: 0.72rem; color: #2563eb; background: #eff6ff; padding: 2px 8px; border-radius: 6px; font-weight: 700;">ACRA RORC</span>
                             </div>
                             
                             <div style="display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.82rem; margin-bottom: 1rem; background: #f8fafc; border-radius: 10px; padding: 0.75rem; border: 1px solid #f1f5f9;">
-                                ${ubos.length > 0 ? ubos.map(u => `
-                                    <div style="display: flex; justify-content: space-between; align-items: center; color: #334155;">
-                                        <span style="font-weight: 700;">👤 ${u.name}</span>
-                                        <span style="color: #64748b; font-weight: 600;">${u.ownershipPct ? u.ownershipPct + '%' : 'Controller'} • ${u.nationality || 'Singaporean'}</span>
-                                    </div>
-                                `).join('') : `
+                                ${ubos.length > 0 ? ubos.map(u => {
+                                    const isCorp = (u.entityType === 'corporate' || u.role === 'Registrable Corporate Controller');
+                                    const icon = isCorp ? '🏢' : '👤';
+                                    const meta = isCorp ? `Corporate Controller • ${u.nationality || 'Singapore'}` : (u.nationality || 'Singaporean');
+                                    const currBadge = u.currency ? `<span style="font-size: 0.68rem; color: #1d4ed8; background: #eff6ff; padding: 1px 6px; border-radius: 4px; border: 1px solid #bfdbfe; font-weight: 800; margin: 0 4px;">${u.currency}</span>` : '';
+                                    return `
+                                        <div style="display: flex; justify-content: space-between; align-items: center; color: #334155;">
+                                            <span style="font-weight: 700;">${icon} ${u.name}</span>
+                                            <span style="color: #64748b; font-weight: 600; display: flex; align-items: center; gap: 2px;">
+                                                <span>${u.ownershipPct ? (typeof u.ownershipPct === 'number' ? u.ownershipPct.toFixed(2) : parseFloat(u.ownershipPct).toFixed(2)) + '%' : 'Controller'}</span>
+                                                ${currBadge}
+                                                <span>• ${meta}</span>
+                                            </span>
+                                        </div>
+                                    `;
+                                }).join('') : `
                                     <div style="color: #64748b; font-size: 0.8rem;">Auto-assigned to direct shareholders</div>
                                 `}
                             </div>
 
-                            <!-- Share Capital & Allocation Breakdown -->
-                            <div style="font-size: 0.75rem; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between;">
-                                <span>Share Capital Allocation (${totalCapitalShares.toLocaleString()} Shares • ${currency})</span>
-                                <span style="font-size: 0.7rem; font-weight: 700; color: ${remainingPct === 0 ? '#16a34a' : '#d97706'};">
-                                    ${remainingPct === 0 ? '✓ 100% Allocated' : `${allocatedPct}% Allocated`}
+                            <!-- Share Capital & Allocation Breakdown (Currency-Wise) -->
+                            <div style="font-size: 0.78rem; font-weight: 800; color: #1e293b; text-transform: uppercase; margin-bottom: 0.65rem; display: flex; align-items: center; justify-content: space-between;">
+                                <span>Share Capital Allocation (${capitalCurrencies.length > 1 ? `${capitalCurrencies.length} Currencies` : `${totalCapitalShares.toLocaleString()} Shares • ${capitalCurrencies[0].currency}`})</span>
+                                <span style="font-size: 0.7rem; font-weight: 700; color: ${isFullyAllocated ? '#16a34a' : '#d97706'};">
+                                    ${isFullyAllocated ? '✓ 100% Allocated' : `${allocatedPct}% Allocated`}
                                 </span>
                             </div>
 
-                            <div style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.8rem;">
-                                ${shareholders.map((sh, idx) => {
-                                    const shName = sh.name || (sh.type === 'corporate' ? `Corporate Shareholder #${idx+1}` : `Individual Shareholder #${idx+1}`);
-                                    const icon = sh.type === 'corporate' ? '🏢' : '👤';
-                                    const shShares = parseFloat(sh.shares) || 0;
-                                    const pct = this.formatOwnershipPct(shShares, totalCapitalShares);
+                            <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+                                ${capitalCurrencies.map(c => {
+                                    const currShareholders = shareholders.filter(s => (s.currency || capitalCurrencies[0].currency) === c.currency);
+                                    const cAllocated = currShareholders.reduce((acc, s) => acc + (parseFloat(s.shares) || 0), 0);
+                                    const cRemaining = Math.max(0, c.shares - cAllocated);
+                                    const cIsFully = c.shares > 0 && Math.abs(c.shares - cAllocated) < 0.01;
+                                    const cAllocPct = c.shares > 0 ? (cIsFully ? 100 : Math.min(100, parseFloat(((cAllocated / c.shares) * 100).toFixed(2)))) : 0;
+                                    const cRemPct = cIsFully ? 0 : Math.max(0, parseFloat((100 - cAllocPct).toFixed(2)));
+
                                     return `
-                                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.3rem 0; border-bottom: 1px dashed #f1f5f9; color: #334155;">
-                                            <span style="font-weight: 600;">${icon} ${shName}</span>
-                                            <span style="font-weight: 700; color: #0f172a;">${pct} <span style="color: #94a3b8; font-weight: 500; font-size: 0.75rem;">(${shShares.toLocaleString()} shares)</span></span>
+                                        <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 0.75rem 1rem;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.35rem;">
+                                                <div style="display: flex; align-items: center; gap: 6px;">
+                                                    <span style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 0.72rem; font-weight: 800; padding: 1px 7px; border-radius: 6px;">${c.currency}</span>
+                                                    <span style="font-size: 0.78rem; font-weight: 800; color: #0f172a;">${c.shares.toLocaleString()} Shares (${c.shareClass})</span>
+                                                </div>
+                                                <span style="font-size: 0.68rem; font-weight: 700; color: ${cIsFully ? '#16a34a' : '#ea580c'};">
+                                                    ${cIsFully ? '✓ 100% Allocated' : `${cAllocPct}% Allocated`}
+                                                </span>
+                                            </div>
+
+                                            <div style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.8rem;">
+                                                ${currShareholders.length > 0 ? currShareholders.map((sh, idx) => {
+                                                    const defaultShName = (sh.type === 'corporate' ? `Corporate Shareholder #${idx+1}` : `Individual Shareholder #${idx+1}`);
+                                                    const shName = (sh.name && sh.name.trim()) ? sh.name.trim() : defaultShName;
+                                                    const icon = sh.type === 'corporate' ? '🏢' : '👤';
+                                                    const shShares = parseFloat(sh.shares) || 0;
+                                                    const pct = c.shares > 0 ? (((shShares / c.shares) * 100).toFixed(2) + '%') : (sh.percent || '0.00%');
+                                                    return `
+                                                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.25rem 0; border-bottom: 1px dashed #f1f5f9; color: #334155;">
+                                                            <span style="font-weight: 600;">${icon} ${shName}</span>
+                                                            <span style="font-weight: 700; color: #0f172a;">${pct} <span style="color: #94a3b8; font-weight: 500; font-size: 0.75rem;">(${shShares.toLocaleString()} shares)</span></span>
+                                                        </div>
+                                                    `;
+                                                }).join('') : `
+                                                    <div style="color: #94a3b8; font-size: 0.75rem; font-style: italic;">No shares allocated for ${c.currency}</div>
+                                                `}
+
+                                                ${!cIsFully && cRemaining > 0 ? `
+                                                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.25rem 0; color: #b45309; font-size: 0.75rem; font-weight: 700;">
+                                                        <span>⚪ Remaining Unallocated</span>
+                                                        <span>${cRemPct}% (${cRemaining.toLocaleString()} shares)</span>
+                                                    </div>
+                                                ` : ''}
+                                            </div>
                                         </div>
                                     `;
                                 }).join('')}
-
-                                ${remainingPct > 0 ? `
-                                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.6rem; margin-top: 0.25rem; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; color: #92400e;">
-                                        <span style="font-weight: 700; display: flex; align-items: center; gap: 0.3rem;">
-                                            <span>⚪</span> Remaining Unallocated Shares
-                                        </span>
-                                        <span style="font-weight: 800;">${remainingPct}% <span style="font-size: 0.75rem; font-weight: 600; color: #b45309;">(${remainingShares.toLocaleString()} shares)</span></span>
-                                    </div>
-                                ` : ''}
                             </div>
                         </div>
 
