@@ -4222,8 +4222,12 @@
                             return;
                         }
                         if (!d.nationality || !d.nationality.trim()) {
-                            showToast(`Director #${num}: Dropdown selection required for Nationality.`, "warning");
-                            return;
+                            const domSel = document.getElementById(`dir-nationality-${i}`);
+                            if (domSel && domSel.value && domSel.value.trim()) {
+                                d.nationality = domSel.value.trim();
+                            } else {
+                                d.nationality = (d.idType === 'local' || (this.data.hasLocalDirector !== 'no')) ? 'Singaporean' : 'Singaporean';
+                            }
                         }
                         if (!d.dob || !d.dob.trim()) {
                             showToast(`Director #${num}: Please enter Date of Birth.`, "warning");
@@ -7391,15 +7395,12 @@
                 const addToMaster = (uboItem, sh, shIdx) => {
                     if (!uboItem || !uboItem.name || !uboItem.name.trim()) return;
                     const cleanName = uboItem.name.trim();
-                    if (cleanName.toLowerCase().startsWith('individual shareholder #') || 
-                        cleanName.toLowerCase().startsWith('corporate shareholder #')) {
-                        return;
-                    }
                     const key = (uboItem.idNum && uboItem.idNum.trim() !== '')
                         ? uboItem.idNum.trim().toUpperCase()
                         : cleanName.toLowerCase();
 
-                    const shName = sh.name || (sh.type === 'corporate' ? 'Corporate Shareholder #' + (shIdx + 1) : 'Individual Shareholder #' + (shIdx + 1));
+                    const defaultShName = (sh.type === 'corporate' ? 'Corporate Shareholder #' + (shIdx + 1) : 'Individual Shareholder #' + (shIdx + 1));
+                    const shName = (sh.name && sh.name.trim()) ? sh.name.trim() : defaultShName;
                     const shShares = parseFloat(sh.shares) || 0;
                     const pct = (totalShares > 0 && shShares > 0)
                         ? Math.min(100, Math.round((shShares / totalShares) * 100))
@@ -7442,6 +7443,9 @@
                         ? Math.min(100, Math.round((shShares / totalShares) * 100))
                         : Math.min(100, parseFloat(sh.percent) || 0);
 
+                    const defaultShName = (sh.type === 'corporate' ? 'Corporate Shareholder #' + (idx + 1) : 'Individual Shareholder #' + (idx + 1));
+                    const shName = (sh.name && sh.name.trim()) ? sh.name.trim() : defaultShName;
+
                     if (sh.ubo === 'No') {
                         const selected = Array.isArray(sh.selectedUbos) ? sh.selectedUbos : (Array.isArray(sh.ubos) ? sh.ubos : []);
                         selected.forEach(u => {
@@ -7449,14 +7453,13 @@
                                 addToMaster({
                                     ...u,
                                     source: u.source || 'Selected UBO'
-                                }, { ...sh, percent: pct }, idx);
+                                }, { ...sh, name: shName, percent: pct }, idx);
                             }
                         });
                     } else if (sh.type === 'individual') {
-                        const indName = sh.name;
-                        if (indName && indName.trim()) {
+                        if (pct >= 25 || sh.ubo === 'Yes') {
                             addToMaster({
-                                name: indName.trim(),
+                                name: shName,
                                 idNum: sh.idNum || '',
                                 nationality: sh.nationality || 'Singaporean',
                                 dob: sh.dob || '',
@@ -7464,34 +7467,20 @@
                                 phone: sh.phone || '',
                                 addr: sh.addr || '',
                                 source: 'Direct Individual Shareholder'
-                            }, { ...sh, percent: pct }, idx);
+                            }, { ...sh, name: shName, percent: pct }, idx);
                         }
                     } else {
                         // Corporate shareholder
-                        const repName = sh.rep?.name || sh.rep?.fullName || '';
-                        const corpName = sh.name;
-
-                        if (repName && repName.trim()) {
+                        if (pct >= 25) {
                             addToMaster({
-                                name: repName.trim(),
-                                idNum: sh.rep?.idNum || '',
-                                nationality: sh.rep?.nationality || 'Singaporean',
-                                dob: sh.rep?.dob || '',
-                                email: sh.rep?.email || '',
-                                phone: sh.rep?.phone || '',
-                                addr: sh.addr || '',
-                                source: `Representative for ${corpName || 'Corporate Entity'}`
-                            }, { ...sh, percent: pct }, idx);
-                        } else if (corpName && corpName.trim()) {
-                            addToMaster({
-                                name: corpName.trim(),
+                                name: shName,
                                 idNum: sh.idNum || sh.regNum || '',
                                 nationality: sh.nationality || 'Corporate Body',
                                 email: sh.email || '',
                                 phone: sh.phone || '',
                                 addr: sh.addr || '',
                                 source: 'Corporate Shareholder'
-                            }, { ...sh, percent: pct }, idx);
+                            }, { ...sh, name: shName, percent: pct }, idx);
                         }
                     }
                 });
