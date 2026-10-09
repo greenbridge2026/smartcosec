@@ -2690,7 +2690,146 @@
                     this.data.nameChecks['names[1]'] = { status: 'available', message: 'Name is available', checkedAt };
                     this.data.nameChecks['names[2]'] = { status: 'available', message: 'Name is available', checkedAt };
                     this.data.nameChecks['names[3]'] = { status: 'available', message: 'Name is available', checkedAt };
-                    
+                }
+                this.save();
+                this.render();
+                showToast('Form step autofilled successfully!', 'success');
+            }
+
+            recompileOwnAddress() {
+                if (!this.data.office) return;
+                
+                const block = (this.data.office.block || '').trim();
+                const street = (this.data.office.streetName || '').trim();
+                const floor = (this.data.office.floor || '').trim();
+                const unit = (this.data.office.unit || '').trim();
+                const building = (this.data.office.building || '').trim();
+                const country = (this.data.office.country || 'Singapore').trim();
+                const postal = (this.data.office.postalCode || '').trim();
+                
+                let parts = [];
+                // 1. Block Number & Street Name
+                let streetPart = '';
+                if (block) streetPart += block;
+                if (street) streetPart += (streetPart ? ' ' : '') + street;
+                if (streetPart) parts.push(streetPart);
+                
+                // 2. Floor & Unit (#Floor-Unit)
+                if (floor || unit) {
+                    let level = '';
+                    if (floor) level += `#${floor}`;
+                    if (unit) level += (level ? `-${unit}` : `${unit}`);
+                    parts.push(level);
+                }
+                
+                // 3. Building
+                if (building) parts.push(building);
+                
+                // 4. Country & Postal Code
+                let loc = '';
+                if (country) loc += country;
+                if (postal) loc += (loc ? ` ${postal}` : postal);
+                if (loc) parts.push(loc);
+                
+                this.data.office.address = parts.join(', ');
+            }
+
+            getFormattedOwnAddressPreview() {
+                if (!this.data.office) return '';
+                
+                const block = (this.data.office.block || '').trim();
+                const street = (this.data.office.streetName || '').trim();
+                const floor = (this.data.office.floor || '').trim();
+                const unit = (this.data.office.unit || '').trim();
+                const building = (this.data.office.building || '').trim();
+                const country = (this.data.office.country || '').trim();
+                const postal = (this.data.office.postalCode || '').trim();
+                
+                let parts = [];
+                // 1. Block Number & Street Name
+                let streetPart = '';
+                if (block) streetPart += block;
+                if (street) streetPart += (streetPart ? ' ' : '') + street;
+                if (streetPart) parts.push(streetPart);
+                
+                // 2. Floor & Unit (#Floor-Unit)
+                if (floor || unit) {
+                    let level = '';
+                    if (floor) level += `#${floor}`;
+                    if (unit) level += (level ? `-${unit}` : `${unit}`);
+                    parts.push(level);
+                }
+                
+                // 3. Building
+                if (building) parts.push(building);
+                
+                // 4. Country & Postal Code
+                let loc = '';
+                if (country) loc += country;
+                if (postal) loc += (loc ? ` ${postal}` : postal);
+                if (loc) parts.push(loc);
+                
+                return parts.join(', ');
+            }
+
+            open(step) {
+                document.getElementById('status-state').style.display = 'none';
+
+                // Check lock
+                if (step > 1 && !this.data.completedSteps.includes(step - 1) && !this.data.completedSteps.includes(step)) {
+                    this.open(1);
+                    return; 
+                }
+
+                this.currentStep = step;
+                localStorage.setItem('globalisor_requirements_current_step', step);
+                document.getElementById('empty-state').style.display = 'none';
+                document.getElementById('wizard-container').classList.add('active');
+                
+                // SVG Highlight
+                document.querySelectorAll('.segment-path').forEach(p => p.classList.remove('active'));
+                const activePath = document.getElementById(`svg-seg-${step}`);
+                if (activePath) activePath.classList.add('active');
+                
+                this.showShareholderError = false;
+                this.render();
+                window.scrollTo(0, 0);
+            }
+
+            validateCurrentStep() {
+                // Clear any existing highlights in the wizard container
+                document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+
+                const sec = this.sections[this.currentStep - 1];
+                if (!sec) return true;
+
+                let isValid = true;
+                let errorMessages = [];
+
+                if (sec.id === 'sec-office' || sec.id === 'sec-office-foreigner') {
+                    const useService = this.data.office ? this.data.office.useService : null;
+                    if (useService === null || useService === undefined || useService === "") {
+                        isValid = false;
+                        errorMessages.push("Registered Address Option: Please select an address option.");
+                        const el = document.getElementById('office-service-option-container');
+                        if (el) el.classList.add('input-error');
+                    } else if (useService === false) {
+                        const office = this.data.office || {};
+                        const fields = sec.fields || [];
+                        fields.forEach(f => {
+                            if (f.key === 'office.useService') return;
+                            const fieldName = f.key.split('.').pop();
+                            if (f.required) {
+                                const val = office[fieldName];
+                                if (!val || String(val).trim() === '') {
+                                    isValid = false;
+                                    errorMessages.push(`Office Address "${f.label}" is required.`);
+                                    const el = document.getElementById(`office-input-${fieldName}`);
+                                    if (el) el.classList.add('input-error');
+                                }
+                            }
+                        });
+                    }
                 } else if (sec.id === 'sec-directors-shareholders' || sec.key === 'directors-shareholders') {
                     this.syncDirectorsAndShareholders();
                     const localDirs = this.data.localDirectorsCount !== undefined ? this.data.localDirectorsCount : 1;
@@ -4267,6 +4406,75 @@
                         showToast("Please confirm the Share Capital configuration checkbox to proceed.", "warning");
                         return;
                     }
+                } else if (cur === 7) {
+                    this.ensureCapitalCurrencies();
+                    const capStructure = this.getShareCapitalStructure ? this.getShareCapitalStructure() : { list: [], byCode: {} };
+                    const byCode = capStructure.byCode || {};
+                    const shareholders = this.data.shareholders || [];
+
+                    for (const code of Object.keys(byCode)) {
+                        const item = byCode[code];
+                        if (item.ordinary && item.ordinary.shares > 0) {
+                            let allocatedOrd = 0;
+                            shareholders.forEach(sh => {
+                                allocatedOrd += this.getShareholderClassShares ? this.getShareholderClassShares(sh, code, 'Ordinary') : (parseFloat(sh.shares) || 0);
+                            });
+                            const diffOrd = item.ordinary.shares - allocatedOrd;
+                            if (Math.abs(diffOrd) > 0.001) {
+                                if (diffOrd > 0) {
+                                    showToast(`Share capital allocation for ${code} Ordinary shares must be 100% utilised to proceed. You have ${diffOrd.toLocaleString()} unallocated Ordinary shares remaining.`, "warning");
+                                } else {
+                                    showToast(`Share capital for ${code} Ordinary shares is over-allocated by ${Math.abs(diffOrd).toLocaleString()} shares. Total allocation must equal 100%.`, "warning");
+                                }
+                                return;
+                            }
+                        }
+                        if (item.preference && item.preference.shares > 0) {
+                            let allocatedPref = 0;
+                            shareholders.forEach(sh => {
+                                allocatedPref += this.getShareholderClassShares ? this.getShareholderClassShares(sh, code, 'Preference') : 0;
+                            });
+                            const diffPref = item.preference.shares - allocatedPref;
+                            if (Math.abs(diffPref) > 0.001) {
+                                if (diffPref > 0) {
+                                    showToast(`Share capital allocation for ${code} Preference shares must be 100% utilised to proceed. You have ${diffPref.toLocaleString()} unallocated Preference shares remaining.`, "warning");
+                                } else {
+                                    showToast(`Share capital for ${code} Preference shares is over-allocated by ${Math.abs(diffPref).toLocaleString()} shares. Total allocation must equal 100%.`, "warning");
+                                }
+                                return;
+                            }
+                        }
+                    }
+                } else if (cur === 8) {
+                    const corpShareholders = (this.data.shareholders || []).filter(sh => sh.type === 'corporate');
+                    if (corpShareholders.length > 0) {
+                        const reps = this.data.corporateReps || [];
+                        for (let i = 0; i < reps.length; i++) {
+                            const rep = reps[i];
+                            const num = i + 1;
+                            if (corpShareholders.length > 1 && (!rep.companyName || !rep.companyName.trim())) {
+                                showToast(`Corporate Representative #${num}: Please select which corporate shareholder company they represent.`, "warning");
+                                return;
+                            }
+                            if (!rep.name || !rep.name.trim()) {
+                                showToast(`Corporate Representative #${num}: Please enter Full Legal Name.`, "warning");
+                                return;
+                            }
+                            if (!rep.idNum || !rep.idNum.trim()) {
+                                showToast(`Corporate Representative #${num}: Please enter ID Number.`, "warning");
+                                return;
+                            }
+                            if (!rep.email || !rep.email.trim()) {
+                                showToast(`Corporate Representative #${num}: Please enter Email Address.`, "warning");
+                                return;
+                            }
+                            const repAddress = rep.addr || rep.address;
+                            if (!repAddress || !repAddress.trim()) {
+                                showToast(`Corporate Representative #${num}: Please enter Address.`, "warning");
+                                return;
+                            }
+                        }
+                    }
                 } else if (cur === 11) {
                     if (!this.data.declaration?.confirmed) {
                         showToast("Please agree to the statutory declarations to proceed.", "warning");
@@ -5008,43 +5216,91 @@
             // SUB-STEP 06: SHAREHOLDER DETAILS (OVERVIEW & ALLOCATION TRACKER)
             // =========================================================================
             renderSubStepShareholderDetails() {
+                this.ensureCapitalCurrencies();
                 const totalShares = this.getTotalCapitalShares();
-                const totalCapital = this.getTotalCapitalAmount();
-                const currency = this.data.capital?.currency || 'SGD';
+                const capitalCurrencies = (this.data.capital?.currencies && this.data.capital.currencies.length > 0)
+                    ? this.data.capital.currencies.map(c => {
+                        const code = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : (c.currency || 'SGD');
+                        return {
+                            currency: code || 'SGD',
+                            shares: parseFloat(c.numberOfShares) || 0,
+                            amount: parseFloat(c.shareCapitalAmount) || 0,
+                            shareClass: c.shareClass || 'Ordinary'
+                        };
+                    })
+                    : [{ currency: this.data.capital?.currency || 'SGD', shares: totalShares, amount: parseFloat(this.data.capital?.issued) || totalShares, shareClass: 'Ordinary' }];
 
                 const indCount = this.data.individualShareholdersCount !== undefined ? this.data.individualShareholdersCount : 1;
                 const corpCount = this.data.corporateShareholdersCount !== undefined ? this.data.corporateShareholdersCount : 0;
 
                 // Calculate allocated shares
                 let allocatedShares = 0;
-                let allocatedCapital = 0;
                 (this.data.shareholders || []).forEach(sh => {
                     allocatedShares += parseFloat(sh.shares) || 0;
-                    allocatedCapital += parseFloat(sh.shareAmount) || parseFloat(sh.shares) || 0;
                 });
                 const remainingShares = Math.max(0, totalShares - allocatedShares);
 
                 return `
                     <div style="display: flex; flex-direction: column; gap: 1.25rem;">
                         <!-- Master Allocation Tracker Banner -->
-                        <div style="background: linear-gradient(135deg, #f8fafc, #eff6ff); border: 1.5px solid #bfdbfe; border-radius: 16px; padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                            <div>
+                        <div style="background: linear-gradient(135deg, #f8fafc, #eff6ff); border: 1.5px solid #bfdbfe; border-radius: 16px; padding: 1.5rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.25rem;">
+                            <div style="flex: 1; min-width: 280px;">
                                 <span style="font-size: 0.72rem; font-weight: 800; color: #2563eb; text-transform: uppercase; letter-spacing: 0.05em;">Share Capital Allocation Pool</span>
-                                <div style="font-size: 1.35rem; font-weight: 800; color: #0f172a; margin-top: 2px;">
-                                    ${totalShares.toLocaleString()} Shares (${currency} ${totalCapital.toLocaleString()})
+                                <div style="font-size: 1.25rem; font-weight: 800; color: #0f172a; margin-top: 3px;">
+                                    ${totalShares.toLocaleString()} Total Shares Configured
+                                </div>
+                                <div style="font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                                    Currency breakdown from Section 2.5 (individual currencies maintained separately):
+                                </div>
+                                <!-- Currency Split Up Cards (No mixing or adding of multiple currencies) -->
+                                <div style="display: flex; flex-wrap: wrap; gap: 0.65rem; margin-top: 0.75rem;">
+                                    ${capitalCurrencies.map(c => {
+                                        const cAllocated = (this.data.shareholders || []).reduce((acc, s) => acc + (this.getShareholderClassShares ? this.getShareholderClassShares(s, c.currency, c.shareClass) : (((s.currency || capitalCurrencies[0].currency) === c.currency) ? (parseFloat(s.shares) || 0) : 0)), 0);
+                                        const cRemaining = Math.max(0, c.shares - cAllocated);
+                                        return `
+                                            <div style="background: #ffffff; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 0.65rem 0.95rem; box-shadow: 0 1px 4px rgba(37,99,235,0.06);">
+                                                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+                                                    <span style="background: #eff6ff; color: #1d4ed8; font-weight: 800; font-size: 0.75rem; padding: 2px 7px; border-radius: 6px; border: 1px solid #bfdbfe;">${c.currency}</span>
+                                                    <span style="font-size: 0.82rem; font-weight: 800; color: #0f172a;">${c.shares.toLocaleString()} Shares (${c.shareClass})</span>
+                                                </div>
+                                                <div style="font-size: 0.75rem; color: #475569; font-weight: 600;">
+                                                    Capital: <strong style="color: #0f172a;">${c.currency} ${Number(c.amount).toFixed(2)}</strong>
+                                                </div>
+                                                <div style="font-size: 0.7rem; font-weight: 700; margin-top: 3px; color: ${cRemaining === 0 && c.shares > 0 ? '#16a34a' : '#ea580c'};">
+                                                    Allocated: ${cAllocated.toLocaleString()} • Remaining: ${cRemaining.toLocaleString()} ${cRemaining === 0 && c.shares > 0 ? '✓' : ''}
+                                                </div>
+                                            </div>
+                                        `;
+                                    }).join('')}
                                 </div>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 1.5rem;">
-                                <div>
-                                    <span style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Allocated:</span>
-                                    <div style="font-size: 1.1rem; font-weight: 800; color: #16a34a;">${allocatedShares.toLocaleString()}</div>
+                            <div style="background: #ffffff; padding: 0.95rem 1.25rem; border-radius: 14px; border: 1.5px solid #bfdbfe; box-shadow: 0 1px 4px rgba(15,23,42,0.04); min-width: 280px; display: flex; flex-direction: column; gap: 0.5rem;">
+                                <div style="font-size: 0.72rem; font-weight: 800; color: #1e40af; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.35rem; display: flex; justify-content: space-between; align-items: center;">
+                                    <span>Currency-Wise Allocation Details</span>
+                                    <span style="font-size: 0.68rem; color: #64748b; font-weight: 600;">Sec 2.5 Tracker</span>
                                 </div>
-                                <div>
-                                    <span style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Remaining:</span>
-                                    <div style="font-size: 1.1rem; font-weight: 800; color: ${remainingShares === 0 && totalShares > 0 ? '#16a34a' : (remainingShares > 0 ? '#ea580c' : '#64748b')};">
-                                        ${remainingShares.toLocaleString()} ${remainingShares === 0 && totalShares > 0 ? '✓ (100% Allocated)' : ''}
-                                    </div>
-                                </div>
+                                ${capitalCurrencies.map(c => {
+                                    const cAllocated = (this.data.shareholders || []).reduce((acc, s) => acc + (this.getShareholderClassShares ? this.getShareholderClassShares(s, c.currency, c.shareClass) : (((s.currency || capitalCurrencies[0].currency) === c.currency) ? (parseFloat(s.shares) || 0) : 0)), 0);
+                                    const cRemaining = Math.max(0, c.shares - cAllocated);
+                                    return `
+                                        <div style="display: flex; flex-direction: column; gap: 2px; border-bottom: ${capitalCurrencies.length > 1 ? '1px dashed #f1f5f9' : 'none'}; padding-bottom: ${capitalCurrencies.length > 1 ? '0.35rem' : '0'};">
+                                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                <span style="font-size: 0.78rem; font-weight: 800; color: #1d4ed8; background: #eff6ff; padding: 1px 6px; border-radius: 4px; border: 1px solid #bfdbfe;">${c.currency} Pool</span>
+                                                <span style="font-size: 0.75rem; font-weight: 700; color: #64748b;">${c.shares.toLocaleString()} Total</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                                                <span style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Total Allocated:</span>
+                                                <span style="font-size: 0.92rem; font-weight: 800; color: #16a34a;">${cAllocated.toLocaleString()} Shares</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                <span style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Total Remaining:</span>
+                                                <span style="font-size: 0.92rem; font-weight: 800; color: ${cRemaining === 0 && c.shares > 0 ? '#16a34a' : (cRemaining > 0 ? '#ea580c' : '#64748b')};">
+                                                    ${cRemaining.toLocaleString()} Shares ${cRemaining === 0 && c.shares > 0 ? '✓' : ''}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
                             </div>
                         </div>
 
@@ -5084,6 +5340,230 @@
                                     <span style="font-size: 1.15rem; font-weight: 800; color: #0f172a;">${corpCount}</span>
                                     <button type="button" onclick="wizard.adjustCount('shareholders_corporate', 1)" style="border: none; background: none; font-size: 1.3rem; color: #1e293b; font-weight: 700; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px;">&#43;</button>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderEquityAllocationFieldsHtml(sh, originalIdx, isCorporate = false) {
+                const capitalStruct = this.getShareCapitalStructure();
+                const totalShares = this.getTotalCapitalShares();
+                const totalCapital = this.getTotalCapitalAmount();
+
+                if (!sh.shareAllocations) {
+                    sh.shareAllocations = {};
+                    const defCode = sh.currency || (capitalStruct.list[0] ? capitalStruct.list[0].currency : 'SGD');
+                    if (sh.shares) {
+                        sh.shareAllocations[defCode] = { ordinaryShares: sh.shares, preferenceShares: '' };
+                    }
+                }
+                if (!Array.isArray(sh.selectedCurrencies) || sh.selectedCurrencies.length === 0) {
+                    const keys = Object.keys(sh.shareAllocations).filter(k => {
+                        const alloc = sh.shareAllocations[k];
+                        return alloc && (parseFloat(alloc.ordinaryShares) > 0 || parseFloat(alloc.preferenceShares) > 0);
+                    });
+                    sh.selectedCurrencies = keys.length > 0 ? keys : [sh.currency || (capitalStruct.list[0] ? capitalStruct.list[0].currency : 'SGD')];
+                }
+                const selectedCurrs = sh.selectedCurrencies;
+
+                let totalShShares = 0;
+                let totalShAmount = 0;
+                selectedCurrs.forEach(code => {
+                    const cStruct = capitalStruct.byCode[code];
+                    if (!cStruct) return;
+                    const ordShares = parseFloat(sh.shareAllocations[code]?.ordinaryShares) || 0;
+                    const prefShares = parseFloat(sh.shareAllocations[code]?.preferenceShares) || 0;
+                    totalShShares += (ordShares + prefShares);
+                    totalShAmount += (ordShares * cStruct.ordinary.perShareValue + prefShares * cStruct.preference.perShareValue);
+                });
+                if (totalShShares > 0) {
+                    sh.shares = totalShShares;
+                    sh.shareAmount = Math.round(totalShAmount * 100) / 100;
+                }
+                const ownershipPct = (totalCapital > 0 && totalShAmount > 0)
+                    ? this.formatOwnershipPctByCapital(totalShAmount, totalCapital)
+                    : (totalShares > 0 && totalShShares > 0 ? this.formatOwnershipPct(totalShShares, totalShares) : (sh.percent || '0.00%'));
+
+                return `
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+                            <span style="font-size: 0.78rem; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.04em;">
+                                Equity Share Allocation
+                            </span>
+                            <span style="font-size: 0.72rem; color: #64748b; font-weight: 600;">
+                                Multi-currency enabled • Ordinary &amp; Preference separated
+                            </span>
+                        </div>
+
+                        <!-- Currency Selection from Share Capital (Multiple currency selection) -->
+                        <div style="margin-bottom: 1.25rem; background: #ffffff; padding: 1rem 1.15rem; border-radius: 12px; border: 1.5px solid #e2e8f0;">
+                            <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 0.45rem;">
+                                Select Currency (from Share Capital) <span style="color:#ef4444;">*</span>
+                            </label>
+                            <div style="font-size: 0.72rem; color: #64748b; margin-bottom: 0.65rem;">
+                                Select the currency (or multiple currencies) to allocate shares to this shareholder:
+                            </div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 0.65rem;">
+                                ${capitalStruct.list.map(c => {
+                                    const isSelected = selectedCurrs.includes(c.currency);
+                                    return `
+                                        <label style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.55rem 1rem; border-radius: 10px; border: 1.5px solid ${isSelected ? '#2563eb' : '#cbd5e1'}; background: ${isSelected ? '#eff6ff' : '#ffffff'}; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: ${isSelected ? '#1d4ed8' : '#334155'}; transition: all 0.2s;">
+                                            <input type="checkbox" name="sh_curr_toggle_${originalIdx}_${c.currency}" value="${c.currency}" ${isSelected ? 'checked' : ''}
+                                                onchange="wizard.toggleShareholderCurrency(${originalIdx}, '${c.currency}')"
+                                                style="accent-color: #2563eb; width: 17px; height: 17px; cursor: pointer;">
+                                            <span>${c.currency} (${c.totalShares.toLocaleString()} Shares • Total: ${c.currency} ${Number(c.totalAmount).toFixed(2)})</span>
+                                        </label>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+
+                        <!-- Allocation Breakdown Cards for Selected Currencies -->
+                        <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1rem;">
+                            ${selectedCurrs.map(currCode => {
+                                const cStruct = capitalStruct.byCode[currCode] || capitalStruct.list[0];
+                                if (!cStruct) return '';
+
+                                let otherAllocOrd = 0;
+                                (this.data.shareholders || []).forEach((s, sIdx) => {
+                                    if (sIdx !== originalIdx) {
+                                        otherAllocOrd += this.getShareholderClassShares(s, currCode, 'Ordinary');
+                                    }
+                                });
+                                const maxOrdAvail = Math.max(0, cStruct.ordinary.shares - otherAllocOrd);
+                                const myOrdShares = this.getShareholderClassShares(sh, currCode, 'Ordinary');
+                                const myOrdAmt = myOrdShares * cStruct.ordinary.perShareValue;
+
+                                let otherAllocPref = 0;
+                                (this.data.shareholders || []).forEach((s, sIdx) => {
+                                    if (sIdx !== originalIdx) {
+                                        otherAllocPref += this.getShareholderClassShares(s, currCode, 'Preference');
+                                    }
+                                });
+                                const maxPrefAvail = Math.max(0, cStruct.preference.shares - otherAllocPref);
+                                const myPrefShares = this.getShareholderClassShares(sh, currCode, 'Preference');
+                                const myPrefAmt = myPrefShares * cStruct.preference.perShareValue;
+
+                                const currTotalShares = myOrdShares + myPrefShares;
+                                const currTotalAmt = myOrdAmt + myPrefAmt;
+
+                                return `
+                                    <div style="background: #ffffff; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(37,99,235,0.03);">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; gap: 0.5rem;">
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <span style="background: #eff6ff; color: #1d4ed8; font-weight: 800; font-size: 0.82rem; padding: 3px 9px; border-radius: 6px; border: 1px solid #bfdbfe;">
+                                                    ${currCode}
+                                                </span>
+                                                <span style="font-size: 0.75rem; color: #64748b;">
+                                                    Total Pool: ${cStruct.totalShares.toLocaleString()} shares (${currCode} ${Number(cStruct.totalAmount).toFixed(2)})
+                                                </span>
+                                            </div>
+                                            <div id="sh-curr-total-${originalIdx}-${currCode}" style="font-size: 0.78rem; font-weight: 800; color: #1e40af;">
+                                                Allocated: ${currCode} ${currTotalAmt.toFixed(2)} (${currTotalShares.toLocaleString()} shares)
+                                            </div>
+                                        </div>
+
+                                        <div style="display: grid; grid-template-columns: ${(cStruct.preference.shares > 0 && cStruct.ordinary.shares > 0) ? '1fr 1fr' : '1fr'}; gap: 1rem;">
+                                            <!-- Ordinary Shares Section -->
+                                            <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 1rem;">
+                                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+                                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #2563eb; display: inline-block;"></span>
+                                                        <span style="font-size: 0.76rem; font-weight: 800; color: #1e3a8a; text-transform: uppercase;">
+                                                            Ordinary Shares <span style="color:#ef4444;">*</span>
+                                                        </span>
+                                                    </div>
+                                                    ${cStruct.ordinary.shares > 0 ? `<span style="font-size: 0.7rem; color: #2563eb; font-weight: 700;">Avail: ${maxOrdAvail.toLocaleString()}</span>` : '<span style="font-size: 0.7rem; color: #94a3b8;">None configured</span>'}
+                                                </div>
+
+                                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                                                    <div>
+                                                        <label style="display: block; font-size: 0.68rem; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Allocated Shares</label>
+                                                        <input type="number" class="input-box" value="${myOrdShares || ''}" placeholder="e.g. 5000"
+                                                             min="0" ${cStruct.ordinary.shares > 0 ? `max="${maxOrdAvail}"` : 'disabled'}
+                                                            onwheel="event.preventDefault(); this.blur();"
+                                                            oninput="wizard.updateShareholderClassShares(${originalIdx}, '${currCode}', 'Ordinary', this.value);"
+                                                            style="width: 100%;">
+                                                        <div style="font-size: 0.65rem; color: #64748b; margin-top: 3px;">
+                                                            ${cStruct.ordinary.shares > 0 ? `Limit: ${cStruct.ordinary.shares.toLocaleString()} in pool` : 'None in Sec 2.5'}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <label style="display: block; font-size: 0.68rem; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Ordinary Capital (${currCode})</label>
+                                                        <input type="text" class="input-box" id="sh-ord-amount-${originalIdx}-${currCode}" value="${myOrdAmt > 0 ? myOrdAmt.toFixed(2) : '0.00'}" readonly
+                                                            style="width: 100%; background: #f1f5f9; cursor: not-allowed; font-weight: 700; color: #0f172a;">
+                                                        <div style="font-size: 0.65rem; color: #64748b; margin-top: 3px;">
+                                                            ${cStruct.ordinary.perShareValue.toFixed(2)} ${currCode} / share
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Preference Shares Section -->
+                                            ${cStruct.preference.shares > 0 ? `
+                                                <div style="background: #faf5ff; border: 1px solid #ddd6fe; border-radius: 10px; padding: 1rem;">
+                                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+                                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                                            <span style="width: 8px; height: 8px; border-radius: 50%; background: #7c3aed; display: inline-block;"></span>
+                                                            <span style="font-size: 0.76rem; font-weight: 800; color: #581c87; text-transform: uppercase;">
+                                                                Preference Shares
+                                                            </span>
+                                                        </div>
+                                                        <span style="font-size: 0.7rem; color: #7c3aed; font-weight: 700;">Avail: ${maxPrefAvail.toLocaleString()}</span>
+                                                    </div>
+
+                                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                                                        <div>
+                                                            <label style="display: block; font-size: 0.68rem; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Allocated Shares</label>
+                                                            <input type="number" class="input-box" value="${myPrefShares || ''}" placeholder="e.g. 1000"
+                                                                min="0" max="${maxPrefAvail}"
+                                                                onwheel="event.preventDefault(); this.blur();"
+                                                                oninput="wizard.updateShareholderClassShares(${originalIdx}, '${currCode}', 'Preference', this.value);"
+                                                                style="width: 100%;">
+                                                            <div style="font-size: 0.65rem; color: #64748b; margin-top: 3px;">
+                                                                Limit: ${cStruct.preference.shares.toLocaleString()} in pool
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <label style="display: block; font-size: 0.68rem; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Preference Capital (${currCode})</label>
+                                                            <input type="text" class="input-box" id="sh-pref-amount-${originalIdx}-${currCode}" value="${myPrefAmt > 0 ? myPrefAmt.toFixed(2) : '0.00'}" readonly
+                                                                style="width: 100%; background: #f5f3ff; cursor: not-allowed; font-weight: 700; color: #0f172a;">
+                                                            <div style="font-size: 0.65rem; color: #64748b; margin-top: 3px;">
+                                                                ${cStruct.preference.perShareValue.toFixed(2)} ${currCode} / share
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+
+                        <!-- Consolidated Summary for this Shareholder -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 0.85rem 1rem;">
+                            <div>
+                                <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Total Shares Allocated</label>
+                                <div id="sh-total-shares-display-${originalIdx}" style="font-size: 0.95rem; font-weight: 800; color: #0f172a;">
+                                    ${(parseFloat(sh.shares) || 0).toLocaleString()} shares
+                                </div>
+                                <div style="font-size: 0.66rem; color: #64748b; margin-top: 2px;">Across all selected currencies</div>
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Total Capital Amount</label>
+                                <div id="sh-total-capital-display-${originalIdx}" style="font-size: 0.95rem; font-weight: 800; color: #0f172a;">
+                                    ${Number(sh.shareAmount || 0).toFixed(2)}
+                                </div>
+                                <div style="font-size: 0.66rem; color: #64748b; margin-top: 2px;">Calculated share capital</div>
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Overall Ownership</label>
+                                <div id="sh-ownership-pct-display-${originalIdx}" style="font-size: 0.95rem; font-weight: 800; color: #16a34a;">
+                                    ${ownershipPct}
+                                </div>
+                                <div style="font-size: 0.66rem; color: #64748b; margin-top: 2px;">Based on total share capital</div>
                             </div>
                         </div>
                     </div>
@@ -5261,47 +5741,21 @@
                                     </div>
 
                                     <!-- Equity Allocation Fields -->
-                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem;">
-                                        <span style="font-size: 0.75rem; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 0.75rem;">
-                                            Equity Share Allocation
-                                        </span>
-                                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
-                                            <div>
-                                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
-                                                    <label style="font-size: 0.7rem; font-weight: 700; color: #64748b; margin: 0;">Allocated Shares <span style="color:#ef4444;">*</span></label>
-                                                    ${totalShares > 0 ? `<span style="font-size: 0.68rem; color: #2563eb; font-weight: 700;">Max: ${remainingPool.toLocaleString()} avail</span>` : ''}
-                                                </div>
-                                                <input type="number" class="input-box" id="sh-shares-input-${originalIdx}" value="${sh.shares || ''}" placeholder="e.g. 5000" 
-                                                    min="0" ${totalShares > 0 ? `max="${remainingPool}"` : ''}
-                                                    onwheel="event.preventDefault(); this.blur();"
-                                                    oninput="wizard.updateShareholderField(${originalIdx}, 'shares', this.value);" style="width: 100%;">
-                                                <div style="font-size: 0.66rem; color: #64748b; margin-top: 3px;">
-                                                    ${totalShares > 0 ? `Limit: ${totalShares.toLocaleString()} shares configured in Section 2.5` : '⚠️ Configure share capital in Section 2.5 first'}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Share Capital (${currency})</label>
-                                                <input type="number" class="input-box" id="sh-share-amount-input-${originalIdx}" value="${calculatedShareAmount}" placeholder="e.g. 5000" 
-                                                    readonly style="width: 100%; background: #f8fafc; cursor: not-allowed; font-weight: 700; color: #0f172a;"
-                                                    title="Calculated from per share value (${perShareVal.toFixed(2)} ${currency}/share)">
-                                                <div style="font-size: 0.66rem; color: #64748b; margin-top: 3px;">
-                                                    Calculated from per share value (${perShareVal.toFixed(2)} ${currency} / share)
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Ownership Percentage</label>
-                                                <div id="sh-ownership-pct-display-${originalIdx}" style="padding: 0.75rem 1rem; background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 10px; font-weight: 800; color: #16a34a; font-size: 0.95rem;">
-                                                    ${ownershipPct}
-                                                </div>
-                                                <div style="font-size: 0.66rem; color: #64748b; margin-top: 3px;">
-                                                    Calculated based on share capital
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    ${this.renderEquityAllocationFieldsHtml(sh, originalIdx, false)}
                                 </div>
                             `;
                         }).join('')}
+
+                        <!-- Add Another Individual Shareholder Button -->
+                        <div style="display: flex; justify-content: flex-start; margin-top: 0.25rem;">
+                            <button type="button" onclick="wizard.adjustCount('shareholders_individual', 1)" 
+                                style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: #ffffff; color: #16a34a; border: 1.5px dashed #86efac; border-radius: 12px; font-family: 'Outfit', sans-serif; font-size: 0.88rem; font-weight: 700; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(22,163,74,0.05);" 
+                                onmouseover="this.style.background='#f0fdf4'; this.style.borderColor='#16a34a';" 
+                                onmouseout="this.style.background='#ffffff'; this.style.borderColor='#86efac';">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                Add Another Individual Shareholder
+                            </button>
+                        </div>
                     </div>
                 `;
             }
@@ -5336,11 +5790,6 @@
                         ${corpShareholders.map((sh, i) => {
                             const originalIdx = sh.originalIdx;
                             const docs = sh.docs || {};
-                            const shShares = parseFloat(sh.shares) || 0;
-                            const otherAllocated = (this.data.shareholders || []).reduce((acc, s, sIdx) => sIdx === originalIdx ? acc : acc + (parseFloat(s.shares) || 0), 0);
-                            const remainingPool = totalShares > 0 ? Math.max(0, totalShares - otherAllocated) : 0;
-                            const calculatedShareAmount = (totalShares > 0 && totalCapital > 0 && shShares > 0) ? Math.round(shShares * perShareVal * 100) / 100 : (sh.shareAmount !== undefined ? sh.shareAmount : (shShares || ''));
-                            const ownershipPct = (totalCapital > 0 && calculatedShareAmount > 0) ? this.formatOwnershipPctByCapital(calculatedShareAmount, totalCapital) : this.formatOwnershipPct(shShares, totalShares);
 
                             return `
                                 <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
@@ -5351,9 +5800,22 @@
                                             </div>
                                             <div>
                                                 <h4 style="margin: 0; font-size: 1rem; font-weight: 800; color: #0f172a;">${sh.name || ('Corporate Shareholder #' + (i + 1))}</h4>
-                                                <span id="sh-card-pct-badge-${originalIdx}" style="font-size: 0.72rem; color: #64748b;">Corporate Shareholder • ${ownershipPct} Ownership</span>
+                                                <span id="sh-corp-pct-badge-${originalIdx}" style="font-size: 0.72rem; color: #64748b;">Corporate Entity • ${sh.percent || '0.00%'} Ownership</span>
                                             </div>
                                         </div>
+                                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                            <span style="background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; font-size: 0.72rem; font-weight: 800; padding: 3px 10px; border-radius: 99px;">
+                                                Corporate Shareholder #${i + 1}
+                                            </span>
+                                            ${(this.data.shareholders || []).length > 1 ? `
+                                                <button type="button" onclick="wizard.removeShareholder(${originalIdx})" 
+                                                    style="padding: 4px 10px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 8px; color: #dc2626; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                                    ✕ Remove
+                                                </button>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+
                                     <!-- Corporate Documents Upload (ON TOP) -->
                                     <div style="background: ${(docs.bizfile || docs.constitution || docs.incumbency || docs.boardResolution) ? '#f0fdf4' : '#f8fafc'}; border: 1.5px dashed ${(docs.bizfile || docs.constitution || docs.incumbency || docs.boardResolution) ? '#86efac' : '#cbd5e1'}; border-radius: 14px; padding: 1.25rem; margin-bottom: 1.25rem;">
                                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
@@ -5476,47 +5938,21 @@
                                     </div>
 
                                     <!-- Equity Allocation Fields -->
-                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem;">
-                                        <span style="font-size: 0.75rem; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 0.75rem;">
-                                            Equity Share Allocation
-                                        </span>
-                                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
-                                            <div>
-                                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
-                                                    <label style="font-size: 0.7rem; font-weight: 700; color: #64748b; margin: 0;">Allocated Shares <span style="color:#ef4444;">*</span></label>
-                                                    ${totalShares > 0 ? `<span style="font-size: 0.68rem; color: #2563eb; font-weight: 700;">Max: ${remainingPool.toLocaleString()} avail</span>` : ''}
-                                                </div>
-                                                <input type="number" class="input-box" id="sh-shares-input-${originalIdx}" value="${sh.shares || ''}" placeholder="e.g. 5000" 
-                                                    min="0" ${totalShares > 0 ? `max="${remainingPool}"` : ''}
-                                                    onwheel="event.preventDefault(); this.blur();"
-                                                    oninput="wizard.updateShareholderField(${originalIdx}, 'shares', this.value);" style="width: 100%;">
-                                                <div style="font-size: 0.66rem; color: #64748b; margin-top: 3px;">
-                                                    ${totalShares > 0 ? `Limit: ${totalShares.toLocaleString()} shares configured in Section 2.5` : '⚠️ Configure share capital in Section 2.5 first'}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Share Capital (${currency})</label>
-                                                <input type="number" class="input-box" id="sh-share-amount-input-${originalIdx}" value="${calculatedShareAmount}" placeholder="e.g. 5000" 
-                                                    readonly style="width: 100%; background: #f8fafc; cursor: not-allowed; font-weight: 700; color: #0f172a;"
-                                                    title="Calculated from per share value (${perShareVal.toFixed(2)} ${currency}/share)">
-                                                <div style="font-size: 0.66rem; color: #64748b; margin-top: 3px;">
-                                                    Calculated from per share value (${perShareVal.toFixed(2)} ${currency} / share)
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Ownership Percentage</label>
-                                                <div id="sh-ownership-pct-display-${originalIdx}" style="padding: 0.75rem 1rem; background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 10px; font-weight: 800; color: #16a34a; font-size: 0.95rem;">
-                                                    ${ownershipPct}
-                                                </div>
-                                                <div style="font-size: 0.66rem; color: #64748b; margin-top: 3px;">
-                                                    Calculated based on share capital
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    ${this.renderEquityAllocationFieldsHtml(sh, originalIdx, true)}
                                 </div>
                             `;
                         }).join('')}
+
+                        <!-- Add Another Corporate Shareholder Button -->
+                        <div style="display: flex; justify-content: flex-start; margin-top: 0.25rem;">
+                            <button type="button" onclick="wizard.adjustCount('shareholders_corporate', 1)" 
+                                style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: #ffffff; color: #7c3aed; border: 1.5px dashed #c4b5fd; border-radius: 12px; font-family: 'Outfit', sans-serif; font-size: 0.88rem; font-weight: 700; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(124,58,237,0.05);" 
+                                onmouseover="this.style.background='#f5f3ff'; this.style.borderColor='#7c3aed';" 
+                                onmouseout="this.style.background='#ffffff'; this.style.borderColor='#c4b5fd';">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                + Add Another Corporate Shareholder
+                            </button>
+                        </div>
                     </div>
                 `;
             }
@@ -5539,50 +5975,200 @@
                     `;
                 }
 
+                // Initialize corporate representatives pool (independent of corporate shareholder count)
+                if (!Array.isArray(this.data.corporateReps) || this.data.corporateReps.length === 0) {
+                    const existingRep = corpShareholders.find(c => c.rep && (c.rep.name || c.rep.fullName))?.rep;
+                    const defaultCompName = corpShareholders.length === 1 ? (corpShareholders[0].name || 'Corporate Shareholder #1') : '';
+                    const defaultCompIdx = corpShareholders.length === 1 ? 0 : '';
+                    this.data.corporateReps = [existingRep || {
+                        companyName: defaultCompName,
+                        companyIdx: defaultCompIdx,
+                        name: '',
+                        idNum: '',
+                        nationality: 'Singaporean',
+                        email: '',
+                        addr: '',
+                        address: '',
+                        docs: {}
+                    }];
+                }
+
+                if (corpShareholders.length === 1) {
+                    const singleComp = corpShareholders[0];
+                    const singleCompName = singleComp.name || 'Corporate Shareholder #1';
+                    this.data.corporateReps.forEach(rep => {
+                        if (rep.companyIdx === undefined || rep.companyIdx === '' || !rep.companyName) {
+                            rep.companyIdx = 0;
+                            rep.companyName = singleCompName;
+                        }
+                    });
+                }
+
+                const nationalities = this.getNationalitiesList();
+                const directors = this.data.directors || [];
+
                 return `
                     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-                        ${corpShareholders.map((sh, i) => {
-                            const originalIdx = sh.originalIdx;
-                            const rep = sh.rep || {};
+                        <!-- Corporate Shareholder Details Panel (Entities being represented from Section 2.8) -->
+                        <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.25rem 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div style="width: 36px; height: 36px; border-radius: 10px; background: #eff6ff; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; color: #2563eb;">
+                                        🏢
+                                    </div>
+                                    <div>
+                                        <h4 style="margin: 0; font-size: 0.95rem; font-weight: 800; color: #0f172a;">
+                                            Corporate Shareholders (From Section 2.8)
+                                        </h4>
+                                        <div style="font-size: 0.74rem; color: #64748b;">
+                                            Company entities requiring an appointed Corporate Representative
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 3px 10px; font-size: 0.72rem; font-weight: 700; color: #1e40af;">
+                                    ${corpShareholders.length} Corporate Shareholder${corpShareholders.length > 1 ? 's' : ''}
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.85rem;">
+                                ${corpShareholders.map((c, cIdx) => `
+                                    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; padding: 0.85rem 1rem;">
+                                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                            <span style="font-size: 0.7rem; font-weight: 800; color: #2563eb; background: #dbeafe; padding: 1px 6px; border-radius: 4px;">#${cIdx + 1}</span>
+                                            <strong style="font-size: 0.88rem; font-weight: 800; color: #0f172a;">${c.name || `Corporate Shareholder #${cIdx + 1}`}</strong>
+                                        </div>
+                                        <div style="font-size: 0.72rem; color: #475569; display: flex; flex-direction: column; gap: 2px;">
+                                            <span>UEN / Reg No: <strong>${c.idNum || c.regNum || 'N/A'}</strong></span>
+                                            <span>Country: <strong>${c.nationality || c.regPlace || 'Singapore'}</strong></span>
+                                            ${c.addr ? `<span>Address: <strong>${c.addr}</strong></span>` : ''}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <!-- Corporate Representative Cards -->
+                        ${this.data.corporateReps.map((rep, repIdx) => {
                             const repDocs = rep.docs || {};
+
+                            // If there is only one company in Corporate Shareholder Details, select company as default
+                            if (corpShareholders.length === 1 && !rep.companyName) {
+                                rep.companyName = corpShareholders[0].name || 'Corporate Shareholder #1';
+                                rep.companyIdx = 0;
+                            }
 
                             return `
                                 <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                                    <h4 style="margin: 0 0 1rem 0; font-size: 1rem; font-weight: 800; color: #0f172a;">
-                                        Corporate Representative for ${sh.name || ('Corporate Shareholder #' + (i + 1))}
-                                    </h4>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem;">
+                                        <div style="display: flex; align-items: center; gap: 0.65rem;">
+                                            <span style="background: #2563eb; color: #ffffff; font-size: 0.75rem; font-weight: 800; width: 26px; height: 26px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;">
+                                                ${repIdx + 1}
+                                            </span>
+                                            <div>
+                                                <h4 style="margin: 0; font-size: 1rem; font-weight: 800; color: #0f172a;">
+                                                    Corporate Representative #${repIdx + 1}${rep.name ? ` — ${rep.name}` : ''}
+                                                </h4>
+                                                <span style="font-size: 0.72rem; color: #64748b;">Natural person representing ${rep.companyName || 'the corporate shareholder'}</span>
+                                            </div>
+                                        </div>
+                                        ${this.data.corporateReps.length > 1 ? `
+                                            <button type="button" onclick="wizard.removeCorporateRep(${repIdx})"
+                                                style="padding: 4px 10px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 8px; color: #dc2626; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
+                                                ✕ Remove
+                                            </button>
+                                        ` : ''}
+                                    </div>
 
-                                    <!-- Corporate Rep ID Document Upload on Top -->
-                                    <div style="background: ${repDocs.idDoc ? '#f0fdf4' : '#f8fafc'}; border: 1.5px dashed ${repDocs.idDoc ? '#86efac' : '#cbd5e1'}; border-radius: 14px; padding: 1.25rem; margin-bottom: 1.25rem;">
-                                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.5rem;">
-                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                                <span style="font-size: 1.1rem;">🪪</span>
-                                                <span style="font-size: 0.8rem; font-weight: 800; color: #0f172a; text-transform: uppercase;">
-                                                    Corporate Representative Identification Document <span style="color:#ef4444;">*</span>
+                                    <!-- Step 1: Select Corporate Shareholder Company Dropdown (BEFORE Select Director) -->
+                                    <div style="margin-bottom: 0.85rem; background: #f8fafc; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 0.85rem 1.15rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                            <span style="font-size: 1.1rem;">🏢</span>
+                                            <div>
+                                                <span style="font-size: 0.8rem; font-weight: 800; color: #1e40af; display: block;">
+                                                    Representing Company <span style="color:#ef4444;">*</span>:
+                                                </span>
+                                                <span style="font-size: 0.72rem; color: #64748b;">
+                                                    Choose the corporate shareholder company this representative represents
                                                 </span>
                                             </div>
-                                            <span style="background: #eff6ff; color: #2563eb; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; border: 1px solid #bfdbfe;">
+                                        </div>
+                                        <div>
+                                            <select class="input-box" style="font-size: 0.82rem; font-weight: 700; min-width: 260px; padding: 0.5rem 0.85rem; border-color: #93c5fd; background: #ffffff; color: #1e40af;"
+                                                onchange="wizard.updateCorporateRepCompany(${repIdx}, this.value)">
+                                                ${corpShareholders.length > 1 ? '<option value="">-- Select Company to Represent --</option>' : ''}
+                                                ${corpShareholders.map((comp, cIdx) => {
+                                                    const compName = comp.name || `Corporate Shareholder #${cIdx + 1}`;
+                                                    const compUen = comp.idNum || comp.regNum ? ` (${comp.idNum || comp.regNum})` : '';
+                                                    const isSelected = (rep.companyIdx !== undefined && rep.companyIdx !== null && String(rep.companyIdx) === String(cIdx))
+                                                        || (!rep.companyName && corpShareholders.length === 1)
+                                                        || (rep.companyName === compName);
+                                                    return `<option value="${cIdx}" ${isSelected ? 'selected' : ''}>${compName}${compUen}</option>`;
+                                                }).join('')}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 2: Autofill from Appointed Director Dropdown -->
+                                    <div style="margin-bottom: 1rem; background: #f8fafc; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 0.85rem 1.15rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                            <span style="font-size: 1.1rem;">⚡</span>
+                                            <div>
+                                                <span style="font-size: 0.8rem; font-weight: 800; color: #1e40af; display: block;">Autofill from Appointed Director:</span>
+                                                <span style="font-size: 0.72rem; color: #64748b;">Select a director to auto-fill their particulars</span>
+                                            </div>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                            <select class="input-box" style="font-size: 0.82rem; font-weight: 700; min-width: 260px; padding: 0.5rem 0.85rem; border-color: #93c5fd; background: #ffffff; color: #1e40af;"
+                                                onchange="wizard.autoFillCorporateRepFromDirector(${repIdx}, this.value)">
+                                                <option value="">-- Select Director to Autofill --</option>
+                                                ${directors.map((dir, dIdx) => {
+                                                    const dName = dir.name || `Director #${dIdx + 1}`;
+                                                    const dId = dir.idNum ? ` (${dir.idNum})` : '';
+                                                    const isSelected = rep.selectedDirectorIdx !== undefined && rep.selectedDirectorIdx !== null && String(rep.selectedDirectorIdx) === String(dIdx);
+                                                    return `<option value="${dIdx}" ${isSelected ? 'selected' : ''}>Director #${dIdx + 1}: ${dName}${dId}</option>`;
+                                                }).join('')}
+                                            </select>
+                                            ${(rep.selectedDirectorIdx !== undefined && rep.selectedDirectorIdx !== null && rep.selectedDirectorIdx !== '') ? `
+                                                <button type="button" onclick="wizard.clearCorporateRepDirectorSelection(${repIdx})" 
+                                                    style="padding: 0.45rem 0.85rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8; font-size: 0.75rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;"
+                                                    title="Change selected director">
+                                                    🔄 Change
+                                                </button>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+
+                                    <!-- Representative KYC Document Upload -->
+                                    <div style="background: ${repDocs.idDoc ? '#f0fdf4' : '#ffffff'}; border: 1.5px dashed ${repDocs.idDoc ? '#86efac' : '#cbd5e1'}; border-radius: 12px; padding: 1rem; margin-bottom: 1rem;">
+                                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.5rem;">
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <span style="font-size: 1rem;">🪪</span>
+                                                <span style="font-size: 0.78rem; font-weight: 800; color: #0f172a; text-transform: uppercase;">
+                                                    Identification Document <span style="color:#ef4444;">*</span>
+                                                </span>
+                                            </div>
+                                            <span style="background: #eff6ff; color: #2563eb; font-size: 0.68rem; font-weight: 700; padding: 2px 7px; border-radius: 5px; border: 1px solid #bfdbfe;">
                                                 Auto-Fill Enabled
                                             </span>
                                         </div>
-                                        <p style="margin: 0 0 0.85rem 0; font-size: 0.78rem; color: #2563eb; background: #eff6ff; border-radius: 8px; padding: 0.5rem 0.75rem; border: 1px solid #bfdbfe; line-height: 1.45;">
-                                            ℹ️ <strong>Upload representative ID / Passport first</strong> — representative particulars will be automatically taken from the documents.
+                                        <p style="margin: 0 0 0.75rem 0; font-size: 0.74rem; color: #2563eb; background: #eff6ff; border-radius: 6px; padding: 0.4rem 0.65rem; border: 1px solid #bfdbfe; line-height: 1.4;">
+                                            ℹ️ <strong>Upload representative ID document</strong> — particulars will be auto-filled.
                                         </p>
-                                        <div style="border: 1.5px dashed ${repDocs.idDoc ? '#86efac' : '#cbd5e1'}; border-radius: 10px; padding: 0.85rem; text-align: center; background: #ffffff;">
-                                            <input type="file" id="corp-rep-doc-id-${originalIdx}" style="display: none;" accept=".pdf,.png,.jpg,.jpeg" onchange="wizard.handleDocUpload(event, 'corp_rep', ${originalIdx}, 'idDoc')">
+                                        <div style="border: 1.5px dashed ${repDocs.idDoc ? '#86efac' : '#cbd5e1'}; border-radius: 8px; padding: 0.75rem; text-align: center; background: #ffffff;">
+                                            <input type="file" id="corp-rep-doc-id-${repIdx}" style="display: none;" accept=".pdf,.png,.jpg,.jpeg" onchange="wizard.handleCorpRepDocUpload(event, ${repIdx}, 'idDoc')">
                                             ${repDocs.idDoc ? `
                                                 <div style="display: flex; align-items: center; justify-content: space-between;">
                                                     <div style="text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%;">
                                                         <div style="font-size: 0.78rem; font-weight: 700; color: #166534;" class="truncate">${repDocs.idDoc.name}</div>
                                                         <span style="font-size: 0.68rem; color: #16a34a;">Representative ID Document Uploaded</span>
                                                     </div>
-                                                    <button type="button" onclick="wizard.removeDoc('corp_rep', ${originalIdx}, 'idDoc')" style="padding: 2px 8px; background: #fee2e2; border-radius: 6px; color: #dc2626; font-size: 0.7rem; font-weight: 700; border: none; cursor: pointer;">Remove</button>
+                                                    <button type="button" onclick="wizard.removeCorpRepDoc(${repIdx}, 'idDoc')" style="padding: 2px 8px; background: #fee2e2; border-radius: 6px; color: #dc2626; font-size: 0.7rem; font-weight: 700; border: none; cursor: pointer;">Remove</button>
                                                 </div>
                                             ` : `
-                                                <button type="button" onclick="document.getElementById('corp-rep-doc-id-${originalIdx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
-                                                    <div style="font-size: 1.25rem; margin-bottom: 2px;">🪪</div>
-                                                    <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload Representative NRIC / Passport Bio Page</div>
-                                                    <div style="font-size: 0.68rem; color: #94a3b8; margin-top: 2px;">PDF, JPG, PNG up to 15MB</div>
+                                                <button type="button" onclick="document.getElementById('corp-rep-doc-id-${repIdx}').click()" style="border: none; background: none; cursor: pointer; width: 100%;">
+                                                    <div style="font-size: 1.1rem; margin-bottom: 2px;">🪪</div>
+                                                    <div style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">Upload Representative ID Document</div>
+                                                    <div style="font-size: 0.65rem; color: #94a3b8; margin-top: 2px;">PDF, JPG, PNG up to 15MB</div>
                                                 </button>
                                             `}
                                         </div>
@@ -5592,27 +6178,46 @@
                                         <div>
                                             <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">Full Legal Name <span style="color:#ef4444;">*</span></label>
                                             <input type="text" class="input-box" value="${rep.name || ''}" placeholder="Full legal name" 
-                                                oninput="wizard.updateCorporateRepField(${originalIdx}, 'name', this.value)" style="width: 100%;">
+                                                oninput="wizard.updateCorporateRepField(${repIdx}, 'name', this.value)" style="width: 100%;">
                                         </div>
                                         <div>
-                                            <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">Passport / ID Number <span style="color:#ef4444;">*</span></label>
-                                            <input type="text" class="input-box" value="${rep.idNum || ''}" placeholder="Passport / ID Number" 
-                                                oninput="wizard.updateCorporateRepField(${originalIdx}, 'idNum', this.value)" style="width: 100%;">
+                                            <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">ID Number <span style="color:#ef4444;">*</span></label>
+                                            <input type="text" class="input-box" value="${rep.idNum || ''}" placeholder="ID Number" 
+                                                oninput="wizard.updateCorporateRepField(${repIdx}, 'idNum', this.value)" style="width: 100%;">
                                         </div>
                                         <div>
                                             <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">Nationality <span style="color:#ef4444;">*</span></label>
-                                            <input type="text" class="input-box" value="${rep.nationality || ''}" placeholder="Nationality" 
-                                                oninput="wizard.updateCorporateRepField(${originalIdx}, 'nationality', this.value)" style="width: 100%;">
+                                            <select class="input-box" style="width: 100%; font-size: 0.85rem;" onchange="wizard.updateCorporateRepField(${repIdx}, 'nationality', this.value)">
+                                                ${nationalities.map(nat => `
+                                                    <option value="${nat}" ${(rep.nationality || 'Singaporean') === nat ? 'selected' : ''}>${nat}</option>
+                                                `).join('')}
+                                            </select>
                                         </div>
                                         <div>
                                             <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">Email Address <span style="color:#ef4444;">*</span></label>
                                             <input type="email" class="input-box" value="${rep.email || ''}" placeholder="rep@example.com" 
-                                                oninput="wizard.updateCorporateRepField(${originalIdx}, 'email', this.value)" style="width: 100%;">
+                                                oninput="wizard.updateCorporateRepField(${repIdx}, 'email', this.value)" style="width: 100%;">
+                                        </div>
+                                        <div style="grid-column: span 2;">
+                                            <label style="display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.35rem;">Residential / Registered Address <span style="color:#ef4444;">*</span></label>
+                                            <input type="text" class="input-box" value="${rep.addr || rep.address || ''}" placeholder="Enter residential or registered address" 
+                                                oninput="wizard.updateCorporateRepField(${repIdx}, 'addr', this.value)" style="width: 100%;">
                                         </div>
                                     </div>
                                 </div>
                             `;
                         }).join('')}
+
+                        <!-- Add Another Corporate Representative Button -->
+                        <div style="display: flex; justify-content: flex-start; margin-top: 0.5rem;">
+                            <button type="button" onclick="wizard.addCorporateRep()"
+                                style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; background: #ffffff; color: #2563eb; border: 1.5px dashed #93c5fd; border-radius: 12px; font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(37,99,235,0.05);"
+                                onmouseover="this.style.background='#eff6ff'; this.style.borderColor='#2563eb';"
+                                onmouseout="this.style.background='#ffffff'; this.style.borderColor='#93c5fd';">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                + Add Another Corporate Representative
+                            </button>
+                        </div>
                     </div>
                 `;
             }
@@ -6311,13 +6916,397 @@
                 this.updateContinueButtonState();
             }
 
-            updateCorporateRepField(index, field, value) {
-                if (!this.data.shareholders) this.data.shareholders = [];
-                if (!this.data.shareholders[index]) this.data.shareholders[index] = {};
-                if (!this.data.shareholders[index].rep) this.data.shareholders[index].rep = {};
-                this.data.shareholders[index].rep[field] = value;
+            getShareCapitalStructure() {
+                this.ensureCapitalCurrencies();
+                const rawCurrs = (this.data.capital?.currencies && this.data.capital.currencies.length > 0)
+                    ? this.data.capital.currencies
+                    : [{
+                        currency: this.data.capital?.currency || 'SGD',
+                        numberOfShares: this.data.capital?.numShares || 0,
+                        shareCapitalAmount: this.data.capital?.issued || 0,
+                        shareClass: 'Ordinary'
+                    }];
+
+                const byCode = {};
+                const list = [];
+
+                rawCurrs.forEach(c => {
+                    const rawCode = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : (c.currency || 'SGD');
+                    const code = rawCode || 'SGD';
+                    const numShares = parseFloat(c.numberOfShares) || 0;
+                    const amount = parseFloat(c.shareCapitalAmount) || 0;
+                    const sClass = (c.shareClass || 'Ordinary').toLowerCase() === 'preference' ? 'Preference' : 'Ordinary';
+
+                    if (!byCode[code]) {
+                        byCode[code] = {
+                            currency: code,
+                            ordinary: { shares: 0, amount: 0, perShareValue: 1 },
+                            preference: { shares: 0, amount: 0, perShareValue: 1 },
+                            totalShares: 0,
+                            totalAmount: 0
+                        };
+                        list.push(byCode[code]);
+                    }
+
+                    if (sClass === 'Ordinary') {
+                        byCode[code].ordinary.shares += numShares;
+                        byCode[code].ordinary.amount += amount;
+                    } else {
+                        byCode[code].preference.shares += numShares;
+                        byCode[code].preference.amount += amount;
+                    }
+                    byCode[code].totalShares += numShares;
+                    byCode[code].totalAmount += amount;
+                });
+
+                list.forEach(item => {
+                    item.ordinary.perShareValue = (item.ordinary.shares > 0 && item.ordinary.amount > 0) ? (item.ordinary.amount / item.ordinary.shares) : 1;
+                    item.preference.perShareValue = (item.preference.shares > 0 && item.preference.amount > 0) ? (item.preference.amount / item.preference.shares) : 1;
+                });
+
+                return { list, byCode };
+            }
+
+            getShareholderClassShares(sh, code, shareClass) {
+                if (!sh) return 0;
+                const sClassKey = shareClass === 'Preference' ? 'preferenceShares' : 'ordinaryShares';
+                if (sh.shareAllocations && sh.shareAllocations[code] && sh.shareAllocations[code][sClassKey] !== undefined && sh.shareAllocations[code][sClassKey] !== '') {
+                    return parseFloat(sh.shareAllocations[code][sClassKey]) || 0;
+                }
+                // Backward compatibility fallback:
+                const shCurr = sh.currency || 'SGD';
+                if (shCurr === code && shareClass === 'Ordinary') {
+                    return parseFloat(sh.shares) || 0;
+                }
+                return 0;
+            }
+
+            updateShareholderClassShares(shIdx, code, shareClass, value) {
+                if (!this.data.shareholders || !this.data.shareholders[shIdx]) return;
+                const sh = this.data.shareholders[shIdx];
+                if (!sh.shareAllocations) sh.shareAllocations = {};
+                if (!sh.shareAllocations[code]) sh.shareAllocations[code] = { ordinaryShares: '', preferenceShares: '' };
+
+                const sClassKey = shareClass === 'Preference' ? 'preferenceShares' : 'ordinaryShares';
+                sh.shareAllocations[code][sClassKey] = value === '' ? '' : Math.max(0, parseFloat(value) || 0);
+
+                if (!Array.isArray(sh.selectedCurrencies)) {
+                    sh.selectedCurrencies = sh.currency ? [sh.currency] : [code];
+                }
+                if (!sh.selectedCurrencies.includes(code)) {
+                    sh.selectedCurrencies.push(code);
+                }
+
+                this.recalculateAllShareholderTotals();
                 this.save();
                 this.updateContinueButtonState();
+            }
+
+            toggleShareholderCurrency(shIdx, code) {
+                if (!this.data.shareholders || !this.data.shareholders[shIdx]) return;
+                const sh = this.data.shareholders[shIdx];
+                if (!Array.isArray(sh.selectedCurrencies)) {
+                    sh.selectedCurrencies = sh.currency ? [sh.currency] : [];
+                }
+                const idx = sh.selectedCurrencies.indexOf(code);
+                if (idx >= 0) {
+                    if (sh.selectedCurrencies.length <= 1) {
+                        showToast("At least one currency must remain selected.", "warning");
+                        return;
+                    }
+                    sh.selectedCurrencies.splice(idx, 1);
+                    if (sh.shareAllocations && sh.shareAllocations[code]) {
+                        delete sh.shareAllocations[code];
+                    }
+                } else {
+                    sh.selectedCurrencies.push(code);
+                    if (!sh.shareAllocations) sh.shareAllocations = {};
+                    if (!sh.shareAllocations[code]) {
+                        sh.shareAllocations[code] = { ordinaryShares: '', preferenceShares: '' };
+                    }
+                }
+                if (sh.selectedCurrencies.length > 0) {
+                    sh.currency = sh.selectedCurrencies[0];
+                }
+                this.recalculateAllShareholderTotals();
+                this.save();
+                this.render();
+            }
+
+            selectShareholderCurrency(shIdx, currencyCode) {
+                this.toggleShareholderCurrency(shIdx, currencyCode);
+            }
+
+            recalculateAllShareholderTotals() {
+                const struct = this.getShareCapitalStructure();
+                const shareholders = this.data.shareholders || [];
+
+                shareholders.forEach(sh => {
+                    if (!sh.shareAllocations) {
+                        sh.shareAllocations = {};
+                        const defCurr = sh.currency || (struct.list[0] ? struct.list[0].currency : 'SGD');
+                        if (sh.shares) {
+                            sh.shareAllocations[defCurr] = {
+                                ordinaryShares: sh.shares,
+                                preferenceShares: ''
+                            };
+                        }
+                    }
+                    if (!Array.isArray(sh.selectedCurrencies) || sh.selectedCurrencies.length === 0) {
+                        const keys = Object.keys(sh.shareAllocations);
+                        sh.selectedCurrencies = keys.length > 0 ? keys : [sh.currency || (struct.list[0] ? struct.list[0].currency : 'SGD')];
+                    }
+
+                    let totalShShares = 0;
+                    let totalShAmount = 0;
+
+                    sh.selectedCurrencies.forEach(code => {
+                        const currStruct = struct.byCode[code];
+                        if (!currStruct) return;
+                        const ordShares = parseFloat(sh.shareAllocations[code]?.ordinaryShares) || 0;
+                        const prefShares = parseFloat(sh.shareAllocations[code]?.preferenceShares) || 0;
+
+                        const ordAmt = ordShares * currStruct.ordinary.perShareValue;
+                        const prefAmt = prefShares * currStruct.preference.perShareValue;
+
+                        totalShShares += (ordShares + prefShares);
+                        totalShAmount += (ordAmt + prefAmt);
+                    });
+
+                    sh.shares = totalShShares > 0 ? totalShShares : (sh.shares || '');
+                    sh.shareAmount = Math.round(totalShAmount * 100) / 100;
+                    sh.currency = sh.selectedCurrencies[0] || (struct.list[0] ? struct.list[0].currency : 'SGD');
+                });
+
+                this.calculateShareholderAllocations();
+            }
+
+            updateCorporateRepCompany(repIdx, compIdxStr) {
+                if (!Array.isArray(this.data.corporateReps)) this.data.corporateReps = [{}];
+                if (!this.data.corporateReps[repIdx]) this.data.corporateReps[repIdx] = {};
+                const rep = this.data.corporateReps[repIdx];
+                const corpShareholders = (this.data.shareholders || []).filter(sh => sh.type === 'corporate');
+                if (compIdxStr === '' || compIdxStr === undefined) {
+                    rep.companyIdx = '';
+                    rep.companyName = '';
+                } else {
+                    const cIdx = parseInt(compIdxStr, 10);
+                    const comp = corpShareholders[cIdx];
+                    if (comp) {
+                        rep.companyIdx = cIdx;
+                        rep.companyName = comp.name || `Corporate Shareholder #${cIdx + 1}`;
+                    }
+                }
+                this.save();
+                this.updateContinueButtonState();
+            }
+
+            updateCorporateRepField(arg1, arg2, arg3, arg4) {
+                let repIdx, field, val;
+                if (arg4 !== undefined) {
+                    repIdx = arg2;
+                    field = arg3;
+                    val = arg4;
+                } else if (arg3 !== undefined) {
+                    repIdx = arg1;
+                    field = arg2;
+                    val = arg3;
+                } else {
+                    repIdx = 0;
+                    field = arg1;
+                    val = arg2;
+                }
+                if (!Array.isArray(this.data.corporateReps)) this.data.corporateReps = [{}];
+                if (!this.data.corporateReps[repIdx]) this.data.corporateReps[repIdx] = {};
+                this.data.corporateReps[repIdx][field] = val;
+                if (field === 'addr') this.data.corporateReps[repIdx].address = val;
+                if (field === 'address') this.data.corporateReps[repIdx].addr = val;
+
+                // Sync to corporate shareholders' rep for backward compatibility
+                (this.data.shareholders || []).filter(s => s.type === 'corporate').forEach((c, idx) => {
+                    if (idx === repIdx || (repIdx === 0 && idx === 0)) {
+                        if (!c.rep) c.rep = {};
+                        c.rep[field] = val;
+                        if (field === 'addr') c.rep.address = val;
+                        if (field === 'address') c.rep.addr = val;
+                        if (!Array.isArray(c.reps)) c.reps = [c.rep];
+                        if (c.reps[repIdx]) {
+                            c.reps[repIdx][field] = val;
+                            if (field === 'addr') c.reps[repIdx].address = val;
+                            if (field === 'address') c.reps[repIdx].addr = val;
+                        }
+                    }
+                });
+                this.save();
+                this.updateContinueButtonState();
+            }
+
+            addCorporateRep(shIndex) {
+                if (!Array.isArray(this.data.corporateReps)) this.data.corporateReps = [];
+                const corpShareholders = (this.data.shareholders || []).filter(sh => sh.type === 'corporate');
+                const defaultCompName = corpShareholders.length === 1 ? (corpShareholders[0].name || 'Corporate Shareholder #1') : '';
+                const defaultCompIdx = corpShareholders.length === 1 ? 0 : '';
+                this.data.corporateReps.push({
+                    companyName: defaultCompName,
+                    companyIdx: defaultCompIdx,
+                    name: '',
+                    idNum: '',
+                    nationality: 'Singaporean',
+                    email: '',
+                    addr: '',
+                    address: '',
+                    docs: {}
+                });
+                this.save();
+                this.render();
+                showToast("Added another Corporate Representative.", "success");
+            }
+
+            removeCorporateRep(arg1, arg2) {
+                const repIndex = (arg2 !== undefined) ? arg2 : arg1;
+                if (!Array.isArray(this.data.corporateReps) || this.data.corporateReps.length <= 1) {
+                    showToast("At least one Corporate Representative is required.", "warning");
+                    return;
+                }
+                this.data.corporateReps.splice(repIndex, 1);
+                // Sync back to corporate shareholders
+                (this.data.shareholders || []).filter(s => s.type === 'corporate').forEach((c, idx) => {
+                    c.rep = this.data.corporateReps[idx] || this.data.corporateReps[0];
+                    c.reps = this.data.corporateReps;
+                });
+                this.save();
+                this.render();
+                showToast("Corporate Representative removed.", "info");
+            }
+
+            autoFillCorporateRepFromDirector(arg1, arg2, arg3) {
+                let repIdx, dirIndexStr;
+                if (arg3 !== undefined) {
+                    repIdx = arg2;
+                    dirIndexStr = arg3;
+                } else {
+                    repIdx = arg1;
+                    dirIndexStr = arg2;
+                }
+                if (dirIndexStr === '' || dirIndexStr === undefined) {
+                    this.clearCorporateRepDirectorSelection(repIdx);
+                    return;
+                }
+                const dirIdx = parseInt(dirIndexStr, 10);
+                const dir = this.data.directors?.[dirIdx];
+                if (!dir) return;
+
+                if (!Array.isArray(this.data.corporateReps)) this.data.corporateReps = [{}];
+                if (!this.data.corporateReps[repIdx]) this.data.corporateReps[repIdx] = {};
+
+                const rep = this.data.corporateReps[repIdx];
+                rep.selectedDirectorIdx = dirIdx;
+                rep.name = dir.name || '';
+                rep.idNum = dir.idNum || '';
+                rep.nationality = dir.nationality || 'Singaporean';
+                rep.email = dir.email || '';
+                rep.addr = dir.addr || '';
+                rep.address = dir.addr || '';
+                if (dir.docs?.idDoc) {
+                    if (!rep.docs) rep.docs = {};
+                    rep.docs.idDoc = JSON.parse(JSON.stringify(dir.docs.idDoc));
+                }
+
+                // Sync to corporate shareholders' rep for backward compatibility
+                (this.data.shareholders || []).filter(s => s.type === 'corporate').forEach((c, idx) => {
+                    if (idx === repIdx || repIdx === 0) {
+                        c.rep = { ...rep };
+                        if (!Array.isArray(c.reps)) c.reps = [c.rep];
+                        c.reps[repIdx] = { ...rep };
+                    }
+                });
+
+                this.save();
+                this.render();
+                showToast(`Autofilled particulars from ${dir.name || 'Director'}!`, "success");
+            }
+
+            clearCorporateRepDirectorSelection(repIdx) {
+                if (!Array.isArray(this.data.corporateReps)) return;
+                const rep = this.data.corporateReps[repIdx];
+                if (rep) {
+                    rep.selectedDirectorIdx = '';
+                    this.save();
+                    this.render();
+                    showToast("Director selection cleared. You may select another director or enter details manually.", "info");
+                }
+            }
+
+            handleCorpRepDocUpload(event, arg1, arg2, arg3) {
+                const file = event.target.files && event.target.files[0];
+                if (!file) return;
+
+                let repIdx, docKey;
+                if (arg3 !== undefined) {
+                    repIdx = arg2;
+                    docKey = arg3;
+                } else {
+                    repIdx = arg1;
+                    docKey = arg2;
+                }
+
+                if (file.size > 15 * 1024 * 1024) {
+                    showToast("File is too large. Maximum file size is 15MB.", "error");
+                    return;
+                }
+
+                showToast(`Reading ${file.name}...`, "info");
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const fileData = {
+                        name: file.name,
+                        size: file.size,
+                        type: file.type,
+                        data: e.target.result,
+                        uploadedAt: Date.now()
+                    };
+
+                    if (!Array.isArray(this.data.corporateReps)) this.data.corporateReps = [{}];
+                    if (!this.data.corporateReps[repIdx]) this.data.corporateReps[repIdx] = {};
+                    if (!this.data.corporateReps[repIdx].docs) this.data.corporateReps[repIdx].docs = {};
+                    this.data.corporateReps[repIdx].docs[docKey] = fileData;
+
+                    (this.data.shareholders || []).filter(s => s.type === 'corporate').forEach((c, idx) => {
+                        if (idx === repIdx || repIdx === 0) {
+                            if (!c.rep) c.rep = {};
+                            if (!c.rep.docs) c.rep.docs = {};
+                            c.rep.docs[docKey] = fileData;
+                        }
+                    });
+
+                    this.save();
+                    this.render();
+                    showToast(`Uploaded ${file.name} successfully!`, "success");
+                    this.triggerDocOcrExtraction(file, 'corp_rep', repIdx, docKey);
+                };
+                reader.readAsDataURL(file);
+            }
+
+            removeCorpRepDoc(arg1, arg2, arg3) {
+                let repIdx, docKey;
+                if (arg3 !== undefined) {
+                    repIdx = arg2;
+                    docKey = arg3;
+                } else {
+                    repIdx = arg1;
+                    docKey = arg2;
+                }
+                if (this.data.corporateReps?.[repIdx]?.docs) {
+                    delete this.data.corporateReps[repIdx].docs[docKey];
+                    (this.data.shareholders || []).filter(s => s.type === 'corporate').forEach((c, idx) => {
+                        if (idx === repIdx || repIdx === 0) {
+                            if (c.rep?.docs) delete c.rep.docs[docKey];
+                        }
+                    });
+                    this.save();
+                    this.render();
+                    showToast("Document removed.", "info");
+                }
             }
 
             ensureCapitalCurrencies() {
@@ -6449,47 +7438,61 @@
                 this.ensureCapitalCurrencies();
                 const currencies = this.data.capital.currencies || [];
 
-                const uniqueCurrencies = new Set();
                 let totalSharesAll = 0;
+                let totalCapitalAll = 0;
                 const currencyStats = {};
 
                 currencies.forEach(c => {
                     const currCode = c.currency === 'Others' ? (c.customCurrency || '').trim().toUpperCase() : (c.currency || 'SGD');
                     const validCurr = currCode || 'SGD';
-                    uniqueCurrencies.add(validCurr);
 
                     const numShares = parseFloat(c.numberOfShares) || 0;
                     const amount = parseFloat(c.shareCapitalAmount) || 0;
+                    const shareClass = (c.shareClass || 'Ordinary').toLowerCase() === 'preference' ? 'Preference' : 'Ordinary';
+
                     totalSharesAll += numShares;
+                    totalCapitalAll += amount;
 
                     if (!currencyStats[validCurr]) {
                         currencyStats[validCurr] = {
                             currency: validCurr,
+                            ordinaryShares: 0,
+                            ordinaryCapital: 0,
+                            preferenceShares: 0,
+                            preferenceCapital: 0,
                             shares: 0,
                             capital: 0,
                             classes: []
                         };
                     }
+
+                    if (shareClass === 'Ordinary') {
+                        currencyStats[validCurr].ordinaryShares += numShares;
+                        currencyStats[validCurr].ordinaryCapital += amount;
+                    } else {
+                        currencyStats[validCurr].preferenceShares += numShares;
+                        currencyStats[validCurr].preferenceCapital += amount;
+                    }
+
                     currencyStats[validCurr].shares += numShares;
                     currencyStats[validCurr].capital += amount;
-                    const shareClass = c.shareClass || 'Ordinary';
                     if (!currencyStats[validCurr].classes.includes(shareClass)) {
                         currencyStats[validCurr].classes.push(shareClass);
                     }
                 });
 
-                const currencyNames = {
-                    SGD: 'Singapore Dollar',
-                    USD: 'US Dollar',
-                    EUR: 'Euro',
-                    GBP: 'British Pound',
-                    AUD: 'Australian Dollar',
-                    HKD: 'Hong Kong Dollar'
-                };
-
                 const currKeys = Object.keys(currencyStats);
                 const hasCapital = currKeys.some(k => currencyStats[k].capital > 0);
                 const hasShares = totalSharesAll > 0;
+
+                const formatPsv = (psv) => {
+                    if (!psv || psv <= 0) return '0.00';
+                    if (Number.isInteger(psv)) return psv.toLocaleString() + '.00';
+                    let s = psv.toFixed(4);
+                    s = s.replace(/(\.\d{2})0+$/, '$1');
+                    s = s.replace(/(\.\d{3})0$/, '$1');
+                    return s;
+                };
 
                 return `
                     <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 22px; margin-top: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.02);">
@@ -6499,36 +7502,47 @@
                             </div>
                             <div>
                                 <h5 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #0f172a;">Consolidated Summary</h5>
-                                <div style="font-size: 0.8rem; color: #64748b; margin-top: 2px;">Overview of your configured share capital</div>
+                                <div style="font-size: 0.8rem; color: #64748b; margin-top: 2px;">Overview of your configured share capital by currency and share class</div>
                             </div>
                         </div>
 
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
-                            <!-- Box 1: Currencies -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+                            <!-- Box 1: Currencies & Share Classes -->
                             <div style="background: #ffffff; border: 1.5px solid #f1f5f9; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; justify-content: flex-start; gap: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
                                 <div style="display: flex; align-items: center; gap: 12px; height: 40px;">
                                     <div style="width: 40px; height: 40px; border-radius: 10px; background: #eff6ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #2563eb;">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"></circle><path d="M18.09 10.37A6 6 0 1 1 10.34 18"></path><path d="M7 6h1v4"></path><path d="M16.7 16H16v-4"></path></svg>
                                     </div>
                                     <div>
-                                        <span style="display: block; font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Currencies</span>
+                                        <span style="display: block; font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Currencies & Classes</span>
+                                        <span style="display: block; font-size: 0.68rem; color: #2563eb; font-weight: 600;">Configured share classes</span>
                                     </div>
                                 </div>
                                 <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px dashed #e2e8f0; padding-top: 12px;">
                                     ${currKeys.length > 0 ? currKeys.map(k => {
                                         const stat = currencyStats[k];
-                                        const shareClassText = stat.classes && stat.classes.length > 0 ? stat.classes.join(', ') : 'Ordinary';
                                         return `
-                                            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 8px 12px; min-height: 56px; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center;">
+                                            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 9px 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
                                                 <span style="font-size: 0.95rem; font-weight: 800; color: #1d4ed8; letter-spacing: 0.03em;">${k}</span>
-                                                <span style="font-size: 0.8rem; font-weight: 700; color: #1e40af; background: #dbeafe; padding: 4px 10px; border-radius: 6px; border: 1px solid #bfdbfe;">${shareClassText}</span>
+                                                <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                                                    ${stat.ordinaryShares > 0 || stat.classes.includes('Ordinary') ? `
+                                                        <span style="font-size: 0.72rem; font-weight: 800; color: #1d4ed8; background: #dbeafe; padding: 2px 8px; border-radius: 6px; border: 1px solid #bfdbfe;">
+                                                            Ordinary
+                                                        </span>
+                                                    ` : ''}
+                                                    ${stat.preferenceShares > 0 || stat.classes.includes('Preference') ? `
+                                                        <span style="font-size: 0.72rem; font-weight: 800; color: #7c3aed; background: #f3e8ff; padding: 2px 8px; border-radius: 6px; border: 1px solid #ddd6fe;">
+                                                            Preference
+                                                        </span>
+                                                    ` : ''}
+                                                </div>
                                             </div>
                                         `;
                                     }).join('') : '<span style="font-size: 0.78rem; color: #94a3b8; min-height: 56px; display: flex; align-items: center;">None configured</span>'}
                                 </div>
                             </div>
 
-                            <!-- Box 2: Number of Shares -->
+                            <!-- Box 2: Number of Shares (Ordinary & Preference Separately) -->
                             <div style="background: #ffffff; border: 1.5px solid #f1f5f9; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; justify-content: flex-start; gap: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
                                 <div style="display: flex; align-items: center; gap: 12px; height: 40px;">
                                     <div style="width: 40px; height: 40px; border-radius: 10px; background: #f5f3ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #7c3aed;">
@@ -6536,24 +7550,40 @@
                                     </div>
                                     <div>
                                         <span style="display: block; font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Number of Shares</span>
+                                        <span style="display: block; font-size: 0.68rem; color: #7c3aed; font-weight: 600;">Ordinary & Preference Separated</span>
                                     </div>
                                 </div>
 
-                                <!-- Shown separately based on currency -->
                                 <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px dashed #e2e8f0; padding-top: 12px;">
                                     ${hasShares ? currKeys.map(k => {
                                         const stat = currencyStats[k];
                                         return `
-                                            <div style="background: #faf5ff; border: 1px solid #f3e8ff; border-radius: 8px; padding: 8px 12px; min-height: 56px; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center;">
-                                                <span style="font-size: 0.95rem; font-weight: 800; color: #6b21a8; letter-spacing: 0.03em;">${k}</span>
-                                                <strong style="font-size: 0.95rem; font-weight: 800; color: #0f172a; font-family: 'Outfit', sans-serif;">${stat.shares.toLocaleString()} <span style="font-size: 0.8rem; font-weight: 600; color: #64748b;">shares</span></strong>
+                                            <div style="background: #faf5ff; border: 1px solid #f3e8ff; border-radius: 10px; padding: 9px 12px; display: flex; flex-direction: column; gap: 6px;">
+                                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f3e8ff; padding-bottom: 4px;">
+                                                    <span style="font-size: 0.88rem; font-weight: 800; color: #6b21a8;">${k} Total</span>
+                                                    <strong style="font-size: 0.92rem; font-weight: 800; color: #0f172a; font-family: 'Outfit', sans-serif;">${stat.shares.toLocaleString()} shares</strong>
+                                                </div>
+                                                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.76rem; background: #ffffff; padding: 4px 8px; border-radius: 6px; border: 1px solid #f1f5f9;">
+                                                    <span style="color: #2563eb; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+                                                        <span style="width: 7px; height: 7px; border-radius: 50%; background: #2563eb; display: inline-block;"></span>
+                                                        Ordinary:
+                                                    </span>
+                                                    <span style="font-weight: 800; color: #1e3a8a;">${stat.ordinaryShares.toLocaleString()} shares</span>
+                                                </div>
+                                                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.76rem; background: #ffffff; padding: 4px 8px; border-radius: 6px; border: 1px solid #f1f5f9;">
+                                                    <span style="color: #7c3aed; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+                                                        <span style="width: 7px; height: 7px; border-radius: 50%; background: #7c3aed; display: inline-block;"></span>
+                                                        Preference:
+                                                    </span>
+                                                    <span style="font-weight: 800; color: #581c87;">${stat.preferenceShares.toLocaleString()} shares</span>
+                                                </div>
                                             </div>
                                         `;
                                     }).join('') : '<span style="font-size: 0.78rem; color: #94a3b8; min-height: 56px; display: flex; align-items: center;">0 configured</span>'}
                                 </div>
                             </div>
 
-                            <!-- Box 3: Total Issued Capital -->
+                            <!-- Box 3: Total Issued Capital (Ordinary & Preference Separately) -->
                             <div style="background: #ffffff; border: 1.5px solid #f1f5f9; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; justify-content: flex-start; gap: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
                                 <div style="display: flex; align-items: center; gap: 12px; height: 40px;">
                                     <div style="width: 40px; height: 40px; border-radius: 10px; background: #f0fdf4; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #16a34a;">
@@ -6561,34 +7591,37 @@
                                     </div>
                                     <div>
                                         <span style="display: block; font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Total Issued Capital</span>
+                                        <span style="display: block; font-size: 0.68rem; color: #16a34a; font-weight: 600;">Ordinary & Preference Separated</span>
                                     </div>
                                 </div>
 
-                                <!-- Shown one by one below (stacked rows) with per share value -->
                                 <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px dashed #e2e8f0; padding-top: 12px;">
                                     ${hasCapital ? currKeys.map(k => {
                                         const stat = currencyStats[k];
-                                        const psv = stat.shares > 0 ? (stat.capital / stat.shares) : 0;
-                                        let psvStr = '0';
-                                        if (psv > 0) {
-                                            if (Number.isInteger(psv)) {
-                                                psvStr = psv.toLocaleString();
-                                            } else {
-                                                let s = psv.toFixed(4);
-                                                s = s.replace(/(\.\d{2})0+$/, '$1');
-                                                s = s.replace(/(\.\d{3})0$/, '$1');
-                                                psvStr = s;
-                                            }
-                                        }
+                                        const ordPsv = stat.ordinaryShares > 0 ? (stat.ordinaryCapital / stat.ordinaryShares) : 0;
+                                        const prefPsv = stat.preferenceShares > 0 ? (stat.preferenceCapital / stat.preferenceShares) : 0;
+
                                         return `
-                                            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 7px 12px; min-height: 56px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 3px;">
-                                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                                    <span style="font-size: 0.95rem; font-weight: 800; color: #15803d; letter-spacing: 0.03em;">${k}</span>
-                                                    <span style="font-size: 0.95rem; font-weight: 800; color: #0f172a; font-family: 'Outfit', sans-serif;">${stat.capital.toLocaleString()}</span>
+                                            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 9px 12px; display: flex; flex-direction: column; gap: 6px;">
+                                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #dcfce7; padding-bottom: 4px;">
+                                                    <span style="font-size: 0.88rem; font-weight: 800; color: #15803d;">${k} Total</span>
+                                                    <strong style="font-size: 0.92rem; font-weight: 800; color: #0f172a; font-family: 'Outfit', sans-serif;">${stat.capital.toLocaleString()} ${k}</strong>
                                                 </div>
-                                                <div style="font-size: 0.72rem; color: #166534; border-top: 1px dashed #bbf7d0; padding-top: 3px; display: flex; justify-content: space-between; align-items: center;">
-                                                    <span style="font-weight: 600;">Per share value</span>
-                                                    <span style="font-weight: 700; color: #14532d;">${psvStr} ${k}</span>
+                                                <!-- Ordinary Capital -->
+                                                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.76rem; background: #ffffff; padding: 4px 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                                                    <div>
+                                                        <span style="color: #2563eb; font-weight: 700;">Ordinary:</span>
+                                                        <span style="font-weight: 800; color: #1e3a8a; margin-left: 4px;">${stat.ordinaryCapital.toLocaleString()} ${k}</span>
+                                                    </div>
+                                                    <span style="font-size: 0.68rem; color: #64748b; font-weight: 600;">(${formatPsv(ordPsv)} ${k}/sh)</span>
+                                                </div>
+                                                <!-- Preference Capital -->
+                                                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.76rem; background: #ffffff; padding: 4px 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                                                    <div>
+                                                        <span style="color: #7c3aed; font-weight: 700;">Preference:</span>
+                                                        <span style="font-weight: 800; color: #581c87; margin-left: 4px;">${stat.preferenceCapital.toLocaleString()} ${k}</span>
+                                                    </div>
+                                                    <span style="font-size: 0.68rem; color: #64748b; font-weight: 600;">(${formatPsv(prefPsv)} ${k}/sh)</span>
                                                 </div>
                                             </div>
                                         `;
@@ -6924,45 +7957,102 @@
             }
 
             calculateShareholderAllocations() {
+                this.ensureCapitalCurrencies();
                 const totalShares = this.getTotalCapitalShares();
                 const totalCapital = this.getTotalCapitalAmount();
-                const perShareValue = (totalShares > 0 && totalCapital > 0) ? (totalCapital / totalShares) : 1;
                 if (totalShares > 0 && this.data.capital) this.data.capital.numShares = totalShares;
                 if (totalCapital > 0 && this.data.capital) this.data.capital.issued = totalCapital;
 
+                const struct = this.getShareCapitalStructure();
                 if (!this.data.shareholders || !Array.isArray(this.data.shareholders)) return;
 
                 this.data.shareholders.forEach((sh, idx) => {
-                    const shares = parseFloat(sh.shares) || 0;
-                    // Share capital calculated based on per share value
-                    const shareAmount = (totalShares > 0 && totalCapital > 0) 
-                        ? Math.min(totalCapital, Math.round(shares * perShareValue * 100) / 100) 
-                        : (parseFloat(sh.shareAmount) || shares);
-                    sh.shareAmount = shareAmount;
+                    if (!sh.shareAllocations) {
+                        sh.shareAllocations = {};
+                        const defCode = sh.currency || (struct.list[0] ? struct.list[0].currency : 'SGD');
+                        if (sh.shares) {
+                            sh.shareAllocations[defCode] = {
+                                ordinaryShares: sh.shares,
+                                preferenceShares: ''
+                            };
+                        }
+                    }
+                    if (!Array.isArray(sh.selectedCurrencies) || sh.selectedCurrencies.length === 0) {
+                        const keys = Object.keys(sh.shareAllocations).filter(k => {
+                            const alloc = sh.shareAllocations[k];
+                            return alloc && (parseFloat(alloc.ordinaryShares) > 0 || parseFloat(alloc.preferenceShares) > 0);
+                        });
+                        sh.selectedCurrencies = keys.length > 0 ? keys : [sh.currency || (struct.list[0] ? struct.list[0].currency : 'SGD')];
+                    }
 
-                    // Ownership percentage calculated based on share capital
-                    let pctText = '0%';
+                    let totalShShares = 0;
+                    let totalShAmount = 0;
+
+                    sh.selectedCurrencies.forEach(code => {
+                        const currStruct = struct.byCode[code];
+                        if (!currStruct) return;
+                        const ordShares = parseFloat(sh.shareAllocations[code]?.ordinaryShares) || 0;
+                        const prefShares = parseFloat(sh.shareAllocations[code]?.preferenceShares) || 0;
+
+                        const ordAmt = ordShares * currStruct.ordinary.perShareValue;
+                        const prefAmt = prefShares * currStruct.preference.perShareValue;
+
+                        totalShShares += (ordShares + prefShares);
+                        totalShAmount += (ordAmt + prefAmt);
+
+                        const ordAmtDisplay = document.getElementById(`sh-ord-amount-${idx}-${code}`);
+                        if (ordAmtDisplay) ordAmtDisplay.value = Number(ordAmt || 0).toFixed(2);
+                        const prefAmtDisplay = document.getElementById(`sh-pref-amount-${idx}-${code}`);
+                        if (prefAmtDisplay) prefAmtDisplay.value = Number(prefAmt || 0).toFixed(2);
+                        const currTotalDisplay = document.getElementById(`sh-curr-total-${idx}-${code}`);
+                        if (currTotalDisplay) currTotalDisplay.innerText = `Allocated: ${code} ${(ordAmt + prefAmt).toFixed(2)} (${(ordShares + prefShares).toLocaleString()} shares)`;
+                    });
+
+                    if (totalShShares > 0) {
+                        sh.shares = totalShShares;
+                        sh.shareAmount = Math.round(totalShAmount * 100) / 100;
+                    } else if (sh.shares) {
+                        const curObj = struct.byCode[sh.currency] || struct.list[0];
+                        const curPerShareValue = curObj ? curObj.ordinary.perShareValue : 1;
+                        sh.shareAmount = Math.round((parseFloat(sh.shares) || 0) * curPerShareValue * 100) / 100;
+                        totalShAmount = sh.shareAmount;
+                        totalShShares = parseFloat(sh.shares) || 0;
+                    } else {
+                        sh.shareAmount = 0;
+                    }
+
+                    sh.currency = sh.selectedCurrencies[0] || (struct.list[0] ? struct.list[0].currency : 'SGD');
+
+                    // Ownership percentage calculated based on total capital / shares
+                    let pctText = '0.00%';
                     let pctNum = 0;
-                    if (totalCapital > 0 && shareAmount > 0) {
-                        const rawPct = (shareAmount / totalCapital) * 100;
+                    if (totalCapital > 0 && totalShAmount > 0) {
+                        const rawPct = (totalShAmount / totalCapital) * 100;
                         pctNum = Math.min(100, Math.max(0, rawPct));
-                        pctText = this.formatOwnershipPctByCapital(shareAmount, totalCapital);
-                    } else if (totalShares > 0 && shares > 0) {
-                        const rawPct = (shares / totalShares) * 100;
+                        pctText = this.formatOwnershipPctByCapital(totalShAmount, totalCapital);
+                    } else if (totalShares > 0 && totalShShares > 0) {
+                        const rawPct = (totalShShares / totalShares) * 100;
                         pctNum = Math.min(100, Math.max(0, rawPct));
-                        pctText = this.formatOwnershipPct(shares, totalShares);
+                        pctText = this.formatOwnershipPct(totalShShares, totalShares);
                     }
                     sh.percent = pctText;
-                    sh.percentNum = Math.round(pctNum);
+                    sh.percentNum = parseFloat(pctNum.toFixed(2));
 
                     // Update live UI elements if currently rendered in DOM
                     const pctDisplay = document.getElementById(`sh-ownership-pct-display-${idx}`);
                     if (pctDisplay) pctDisplay.innerText = pctText;
+                    const totalSharesDisplay = document.getElementById(`sh-total-shares-display-${idx}`);
+                    if (totalSharesDisplay) totalSharesDisplay.innerText = `${(parseFloat(sh.shares) || 0).toLocaleString()} shares`;
+                    const totalCapitalDisplay = document.getElementById(`sh-total-capital-display-${idx}`);
+                    if (totalCapitalDisplay) totalCapitalDisplay.innerText = `${Number(sh.shareAmount || 0).toFixed(2)}`;
+
                     const pctBadge = document.getElementById(`sh-card-pct-badge-${idx}`);
                     if (pctBadge) pctBadge.innerText = `${sh.type === 'corporate' ? 'Corporate' : 'Individual'} Shareholder • ${pctText} Ownership`;
+                    const corpPctBadge = document.getElementById(`sh-corp-pct-badge-${idx}`);
+                    if (corpPctBadge) corpPctBadge.innerText = `Corporate Entity • ${pctText} Ownership`;
                     const shareAmountInput = document.getElementById(`sh-share-amount-input-${idx}`);
                     if (shareAmountInput) {
-                        shareAmountInput.value = sh.shareAmount !== undefined ? sh.shareAmount : '';
+                        shareAmountInput.value = (sh.shareAmount !== undefined && sh.shareAmount !== '') ? Number(sh.shareAmount).toFixed(2) : '';
                     }
                 });
                 this.syncAllUbos();
