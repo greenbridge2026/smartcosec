@@ -7776,7 +7776,21 @@
                                     // Retry sync immediately with the fresh token
                                     return await syncApplicationToComplianceBox(appId, btnEl);
                                 } else {
-                                    alert(`⚠️ Could not auto-detect active session from tab: ${refreshData.error || 'Please make sure https://app.compliancebox.co/dashboard is open and logged in'}`);
+                                    // On live cloud server (where local Chrome remote debugger is not accessible), allow pasting the token
+                                    const enteredToken = prompt(`🔑 ComplianceBox Session Token Required for Live Server\n\nTo copy your active token from ComplianceBox:\n1. Open your ComplianceBox tab (https://app.compliancebox.co)\n2. Press F12 -> Console -> paste: document.cookie.match(/token=([^;]+)/)[1]\n3. Copy the UUID token and paste it here:`);
+                                    if (enteredToken && enteredToken.trim()) {
+                                        const updateRes = await fetch('/api/integrations/compliancebox/token', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ token: enteredToken.trim() })
+                                        });
+                                        if (updateRes.ok) {
+                                            alert('✅ Token saved successfully to database! Syncing now...');
+                                            return await syncApplicationToComplianceBox(appId, btnEl);
+                                        } else {
+                                            alert('❌ Failed to update token.');
+                                        }
+                                    }
                                 }
                             } catch (e) {
                                 alert(`⚠️ Session refresh check failed: ${e.message}`);
