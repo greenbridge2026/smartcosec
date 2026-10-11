@@ -7763,7 +7763,14 @@
 
                     alert(`✅ Successfully synced "${data.clientName || 'Client'}" to ComplianceBox!\n\nTarget Portal: app.compliancebox.co/clients\nClient Name: ${data.clientName || 'N/A'}\nContact Person: ${data.contactPerson || 'N/A'}\nType: Corporate\nStatus: Synced\nCountry: ${data.country || 'Singapore'}`);
                 } else {
-                    alert(`❌ ComplianceBox sync failed: ${data.error || 'Server error'}`);
+                    if (data.error && (data.error.includes('ComplianceBox session') || data.error.includes('logged in') || data.error.includes('token') || data.error.includes('Token'))) {
+                        const shouldOpen = confirm(`⚠️ ComplianceBox Login Required\n\n${data.error}\n\nWould you like to open https://app.compliancebox.co in another tab to log in now? (After logging in, simply click Sync again!)`);
+                        if (shouldOpen) {
+                            window.open('https://app.compliancebox.co', '_blank');
+                        }
+                    } else {
+                        alert(`❌ ComplianceBox sync failed: ${data.error || 'Server error'}`);
+                    }
                 }
             } catch (err) {
                 console.error('ComplianceBox sync error:', err);
