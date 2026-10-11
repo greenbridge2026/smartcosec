@@ -1026,9 +1026,73 @@ app.post(['/api/applications/:id/sync-compliancebox', '/api/integrations/complia
                 country: 'Singapore'
             };
         }
-        const syncModule = await import('../scripts/compliancebox_sync.js');
-        const result = await syncModule.syncClient(clientData);
-        if (result.success && appRecord) {
+        let result;
+        try {
+            const syncModule = await import('../scripts/compliancebox_sync.js');
+            result = await syncModule.syncClient(clientData);
+        } catch (importErr) {
+            // Direct HTTPS fallback if script file is not accessible
+            result = await new Promise((resolve) => {
+                const https = require('https');
+                const crypto = require('crypto');
+                const token = process.env.COMPLIANCEBOX_TOKEN || '4d3693b0-201c-4204-9729-e7d779a613b6';
+                const companyId = process.env.COMPLIANCEBOX_COMPANY_ID || '629dbca7374a1ac76b559ee7';
+                const payload = JSON.stringify({
+                    clientType: 2,
+                    name: clientData.name,
+                    contactPerson: clientData.contactPerson || clientData.name,
+                    email: clientData.email || '',
+                    phone: clientData.phone || '',
+                    country: clientData.country || 'Singapore',
+                    servicesSought: [],
+                    access: [],
+                    companyId: companyId,
+                    id: crypto.randomBytes(12).toString('hex')
+                });
+
+                const syncReq = https.request({
+                    hostname: 'api.compliancebox.co',
+                    port: 443,
+                    path: '/api/clients',
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Origin': 'https://app.compliancebox.co',
+                        'Referer': 'https://app.compliancebox.co/',
+                        'token': token,
+                        'Access-Control-Allow-Origin': 'https://app.compliancebox.co|https://api.compliancebox.co',
+                        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36',
+                        'Content-Length': Buffer.byteLength(payload)
+                    }
+                }, (syncRes) => {
+                    let body = '';
+                    syncRes.on('data', chunk => body += chunk);
+                    syncRes.on('end', () => {
+                        if (syncRes.statusCode >= 200 && syncRes.statusCode < 300) {
+                            resolve({
+                                success: true,
+                                statusCode: syncRes.statusCode,
+                                clientName: clientData.name,
+                                contactPerson: clientData.contactPerson,
+                                country: clientData.country
+                            });
+                        } else {
+                            resolve({
+                                success: false,
+                                statusCode: syncRes.statusCode,
+                                error: `ComplianceBox API HTTP ${syncRes.statusCode}: ${body}`
+                            });
+                        }
+                    });
+                });
+
+                syncReq.on('error', (e) => resolve({ success: false, error: e.message }));
+                syncReq.write(payload);
+                syncReq.end();
+            });
+        }
+        if (result && result.success && appRecord) {
             if (!appRecord.data) appRecord.data = {};
             appRecord.data.complianceBoxSynced = true;
             appRecord.data.complianceBoxSyncedAt = new Date().toISOString();
