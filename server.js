@@ -1000,6 +1000,49 @@ app.get('/api/clients/:id/company', (req, res) => {
     });
 });
 
+// POST /api/applications/:id/sync-compliancebox & /api/integrations/compliancebox/sync/:id
+app.post(['/api/applications/:id/sync-compliancebox', '/api/integrations/compliancebox/sync/:id'], async (req, res) => {
+    try {
+        const { id } = req.params;
+        const db = getDb();
+        const cleanId = (id || '').replace('APP-', '').trim();
+        const appRecord = (db.requirements || []).find(r => r.id === id || r.id === cleanId || (r.id && r.id.replace('APP-', '') === cleanId));
+        let clientData = {};
+        if (appRecord) {
+            const d = appRecord.data || {};
+            clientData = {
+                name: d.companyName || d.proposedName1 || appRecord.business || appRecord.client || `Client ${id}`,
+                contactPerson: d.contactPerson || d.applicantName || d.fullName || appRecord.client || 'Contact Person',
+                email: d.email || d.applicantEmail || 'client@globalisor.com',
+                phone: d.phone || d.applicantPhone || '+65 9123 4567',
+                country: d.country || d.incorporationCountry || 'Singapore'
+            };
+        } else {
+            clientData = {
+                name: `Client Application ${id}`,
+                contactPerson: 'Client Contact',
+                email: 'client@globalisor.com',
+                phone: '+65 9123 4567',
+                country: 'Singapore'
+            };
+        }
+        const syncModule = await import('../scripts/compliancebox_sync.js');
+        const result = await syncModule.syncClient(clientData);
+        if (result.success && appRecord) {
+            if (!appRecord.data) appRecord.data = {};
+            appRecord.data.complianceBoxSynced = true;
+            appRecord.data.complianceBoxSyncedAt = new Date().toISOString();
+            appRecord.complianceBoxSynced = true;
+            appRecord.complianceBoxSyncedAt = new Date().toISOString();
+            saveDb(db);
+        }
+        res.json(result);
+    } catch(err) {
+        console.error('ComplianceBox sync error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // PATCH /api/services/:id → update status of a service
 app.patch('/api/services/:id', (req, res) => {
     const db = getDb();

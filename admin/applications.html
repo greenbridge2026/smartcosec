@@ -695,18 +695,22 @@
             }
 
             tbody.innerHTML = data.map((app, idx) => {
+                const staffName = app.staff && app.staff !== 'Sarah Lim' ? app.staff : (app.assignedStaffName || 'Unassigned');
+                const isUnassigned = !staffName || staffName === 'Unassigned';
+
                 const status = (app.status || 'pending').toLowerCase();
                 let statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-slate-100 text-slate-600">Pending</span>`;
                 if (status.includes('approved') || status.includes('completed')) {
-                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">Approved</span>`;
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">Completed</span>`;
                 } else if (status.includes('rejected')) {
                     statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-red-50 text-red-700 border border-red-200">Rejected</span>`;
-                } else if (status.includes('review') || status.includes('pending') || status.includes('submitted')) {
-                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-blue-50 text-blue-700 border border-blue-200">Pending Review</span>`;
+                } else if (status.includes('progress') || status.includes('assigned')) {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-indigo-50 text-indigo-700 border border-indigo-200">In Progress</span>`;
+                } else if (isUnassigned) {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-amber-50 text-amber-700 border border-amber-200">Open Queue</span>`;
+                } else {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-blue-50 text-blue-700 border border-blue-200">Under Review</span>`;
                 }
-
-                const staffName = app.staff && app.staff !== 'Sarah Lim' ? app.staff : (app.assignedStaffName || 'Unassigned');
-                const isUnassigned = !staffName || staffName === 'Unassigned';
 
                 const nameBadges = getNameBadges(app.data);
                 const appId = app.id || app.rawId;
