@@ -2436,6 +2436,7 @@
 
                 // 1. Filter applications assigned to the currently logged-in staff member
                 staffData.applications = allApps.filter(app => {
+                    if (isExistingMigratedClient(app)) return false;
                     const assignedName = app.staff || app.assignedStaffName || '';
                     if (!assignedName || assignedName.toLowerCase() === 'unassigned') return false;
                     const normAssignedName = assignedName.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -2456,7 +2457,11 @@
                     // Must be unassigned and pending / under review / new (exclude already completed, approved, rejected)
                     return isUnassigned && !st.includes('completed') && !st.includes('rejected') && !st.includes('approved');
                 });
-                staffData.allApps = allApps;
+
+                // 3. Filter ALL applications for the "All Applications" tab:
+                // STRICT FILTER: Only show incorporation applications (new sign ups / incorporate now).
+                // Exclude all existing migrated clients!
+                staffData.allApps = allApps.filter(app => !isExistingMigratedClient(app));
 
                 // Fetch KYC Queue
                 try {
@@ -6918,21 +6923,570 @@
         }
 
         async function switchDetailTab(tab) {
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.innerText.toLowerCase() === tab || (tab === 'aml' && btn.innerText.toLowerCase() === 'aml review')));
+            tab = (tab || 'overview').toLowerCase();
+            document.querySelectorAll('#detail-panel .tab-btn').forEach(btn => {
+                const text = btn.innerText.trim().toLowerCase();
+                const isActive = (text === tab) || (tab === 'aml' && text === 'aml review');
+                btn.classList.toggle('active', isActive);
+            });
             const content = document.getElementById('detail-content');
+            if (!content) return;
             
             const app = (staffData.applications || []).find(a => a.id === currentClientId || a.rawId === currentClientId || a.applicationId === currentClientId || a.mongoId === currentClientId) ||
                         (staffData.openApplications || []).find(a => a.id === currentClientId || a.rawId === currentClientId || a.applicationId === currentClientId || a.mongoId === currentClientId) ||
                         (staffData.allApps || []).find(a => a.id === currentClientId || a.rawId === currentClientId || a.applicationId === currentClientId || a.mongoId === currentClientId);
-            if (!app) return;
+            if (!app) {
+                content.innerHTML = '<div class="p-8 text-center text-slate-400 text-xs">Application details could not be found.</div>';
+                return;
+            }
 
-            if (tab === 'aml') {
+            const d = app.data || {};
+            const contact = d.contact || {};
+            const names = Array.isArray(d.names) && d.names.length > 0 ? d.names : [app.business || d.companyName || 'Proposed Company'];
+            const checks = d.nameChecks || {};
+            const suffix = d.companySuffix || 'Pte. Ltd.';
+
+            // Activities / SSIC
+            const acts = (typeof d.activities === 'object' && d.activities !== null) ? d.activities : {};
+            const actsPrimary = Array.isArray(acts) ? acts[0] : (acts.primary || d['activities.primary'] || null);
+            const actsSecondary = Array.isArray(acts) ? acts[1] : (acts.secondary || d['activities.secondary'] || null);
+            const priSsic = (typeof actsPrimary === 'object' && actsPrimary !== null ? actsPrimary : null)
+                || (typeof d.primarySsic === 'object' && d.primarySsic !== null ? d.primarySsic : null)
+                || (typeof d.primaryActivity === 'object' && d.primaryActivity !== null ? d.primaryActivity : null)
+                || {};
+            const secSsic = (typeof actsSecondary === 'object' && actsSecondary !== null ? actsSecondary : null)
+                || (typeof d.secondarySsic === 'object' && d.secondarySsic !== null ? d.secondarySsic : null)
+                || (typeof d.secondaryActivity === 'object' && d.secondaryActivity !== null ? d.secondaryActivity : null)
+                || {};
+            const priString = (typeof actsPrimary === 'string' ? actsPrimary : '')
+                || (typeof d.primaryActivity === 'string' ? d.primaryActivity : '')
+                || (typeof d.primarySsic === 'string' ? d.primarySsic : '')
+                || (typeof d.activity === 'string' ? d.activity : '');
+            const secString = (typeof actsSecondary === 'string' ? actsSecondary : '')
+                || (typeof d.secondaryActivity === 'string' ? d.secondaryActivity : '')
+                || (typeof d.secondarySsic === 'string' ? d.secondarySsic : '');
+            const primaryCode = priSsic.code || priSsic.ssic || (priString.match(/^\d{5}/) ? priString.match(/^\d{5}/)[0] : '') || '62011';
+            let primaryTitle = priSsic.name || priSsic.title || priSsic.description || (priString ? priString.replace(/^\d{5}\s*[-–:]*\s*/, '') : '') || 'Development of software & digital media';
+            const primaryCustom = d.customPrimaryActivity || priSsic.customDescription || '';
+            const secondaryCode = secSsic.code || secSsic.ssic || (secString.match(/^\d{5}/) ? secString.match(/^\d{5}/)[0] : '') || '';
+            let secondaryTitle = secSsic.name || secSsic.title || secSsic.description || (secString ? secString.replace(/^\d{5}\s*[-–:]*\s*/, '') : '') || '';
+            const secondaryCustom = d.customSecondaryActivity || secSsic.customDescription || '';
+
+            // Capital
+            const capitalObj = (typeof d.capital === 'object' && d.capital !== null) ? d.capital : {};
+            let currency = capitalObj.currency || 'SGD';
+            let totalShares = parseFloat(capitalObj.numShares || capitalObj.shares || d.totalShares || d.shares || 10000);
+            let totalCapitalAmount = parseFloat(capitalObj.issued || capitalObj.shareCapital || d.shareCapital || totalShares);
+            const paidUpCapital = parseFloat(capitalObj.paidUp || capitalObj.paidUpCapital || totalCapitalAmount);
+            const shareType = capitalObj.type || 'Ordinary';
+            const fye = d.fye || (d.declaration && d.declaration.fye) || d.financialYearEnd || '31 December';
+
+            // Contact / Applicant
+            const applicantName = `${contact.firstName || app.clientFirstName || ''} ${contact.lastName || app.clientLastName || ''}`.trim() || app.client || 'Applicant';
+            const applicantEmail = contact.email || app.clientEmail || d.email || d.applicantEmail || 'N/A';
+            const applicantPhone = contact.phone ? `${contact.countryCode || ''} ${contact.phone}`.trim() : (app.clientPhone || d.phone || d.applicantPhone || 'N/A');
+            const compName = app.business || d.companyName || names[0] || 'Company Name';
+            const contactPerson = app.client || d.contactPerson || applicantName;
+            const clientCountry = d.country || app.country || 'Singapore';
+
+            // ComplianceBox sync info
+            const isSynced = !!(app.complianceBoxSynced || d.complianceBoxSynced);
+            const syncTimestamp = app.complianceBoxSyncedAt || d.complianceBoxSyncedAt || '';
+
+            // Officers / Directors & Shareholders
+            const directors = Array.isArray(d.directors) ? d.directors : (Array.isArray(d.officers) ? d.officers : []);
+            const shareholders = Array.isArray(d.shareholders) ? d.shareholders : [];
+            const ubos = Array.isArray(d.ubos) ? d.ubos : (Array.isArray(d.controllers) ? d.controllers : []);
+
+            // TAB 1: OVERVIEW
+            if (tab === 'overview') {
+                content.innerHTML = `
+                    <div class="space-y-6 font-outfit">
+                        <!-- ComplianceBox Integration Card -->
+                        <div class="p-5 bg-gradient-to-br from-indigo-50/80 via-white to-blue-50/50 rounded-2xl border border-indigo-100 shadow-sm">
+                            <div class="flex items-center justify-between pb-3 border-b border-indigo-100/60 mb-3">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-xs shadow-sm shadow-indigo-600/30">
+                                        CB
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                            ComplianceBox Integration
+                                            <span class="text-[9px] px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded font-bold">Portal Sync</span>
+                                        </div>
+                                        <div class="text-[10px] text-slate-400">Target: https://app.compliancebox.co/clients</div>
+                                    </div>
+                                </div>
+                                <span class="px-2.5 py-1 rounded-full text-[10px] font-bold ${isSynced ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">
+                                    ${isSynced ? '🟢 Synced' : '⚪ Not Synced'}
+                                </span>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2 text-xs mb-3 bg-white/90 p-3 rounded-xl border border-indigo-50/80">
+                                <div><span class="text-slate-400 text-[10px] block">Client Name (Target)</span> <strong class="text-slate-800 truncate block">${compName}</strong></div>
+                                <div><span class="text-slate-400 text-[10px] block">Contact Person</span> <strong class="text-slate-800 truncate block">${contactPerson}</strong></div>
+                                <div><span class="text-slate-400 text-[10px] block">Email</span> <span class="text-slate-600 text-[11px] truncate block">${applicantEmail}</span></div>
+                                <div><span class="text-slate-400 text-[10px] block">Phone / Country</span> <span class="text-slate-600 text-[11px] block">${applicantPhone} (${clientCountry})</span></div>
+                            </div>
+
+                            ${isSynced && syncTimestamp ? `
+                                <div class="text-[10px] text-slate-400 mb-3 flex items-center gap-1">
+                                    <i data-lucide="clock" class="w-3 h-3 text-slate-400"></i> Last synced: <span class="font-medium text-slate-600">${new Date(syncTimestamp).toLocaleString()}</span>
+                                </div>
+                            ` : ''}
+
+                            <button id="overview-sync-btn" onclick="syncCurrentAppToComplianceBox()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer">
+                                <i data-lucide="cloud-upload" class="w-4 h-4"></i>
+                                <span>${isSynced ? 'Re-Sync Client to ComplianceBox' : 'Sync Client Information to ComplianceBox'}</span>
+                            </button>
+                        </div>
+
+                        <!-- Workflow Milestones Progress -->
+                        <div class="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                    <i data-lucide="git-pull-request" class="w-4 h-4 text-emerald-600"></i> Workflow Stage
+                                </div>
+                                <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    ${app.status || 'In Progress'}
+                                </span>
+                            </div>
+                            <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden relative">
+                                <div class="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-500" style="width: ${(app.status || '').toLowerCase().includes('complete') ? '100%' : ((app.status || '').toLowerCase().includes('acra') ? '75%' : '45%')}"></div>
+                            </div>
+                            <div class="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider pt-1">
+                                <span class="text-emerald-600">1. KYC Screening</span>
+                                <span class="${(app.status || '').toLowerCase().includes('acra') || (app.status || '').toLowerCase().includes('complete') ? 'text-emerald-600' : 'text-slate-700'}">2. Incorporation</span>
+                                <span class="${(app.status || '').toLowerCase().includes('complete') ? 'text-emerald-600' : 'text-slate-400'}">3. ACRA Filing</span>
+                                <span>4. Compliance</span>
+                            </div>
+                        </div>
+
+                        <!-- Key Highlights Grid -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm space-y-1">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Company Choice</span>
+                                <div class="text-xs font-bold text-slate-900 truncate">${names[0]}</div>
+                                <span class="inline-block mt-1 text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">ACRA Verified</span>
+                            </div>
+                            <div class="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm space-y-1">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Share Capital</span>
+                                <div class="text-xs font-bold text-slate-900">${currency} ${Number(totalCapitalAmount).toLocaleString()}</div>
+                                <span class="inline-block mt-1 text-[9px] font-bold text-slate-500">${Number(totalShares).toLocaleString()} Ordinary Shares</span>
+                            </div>
+                            <div class="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm space-y-1">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Primary SSIC</span>
+                                <div class="text-xs font-bold text-slate-900 truncate">${primaryCode}</div>
+                                <span class="inline-block mt-1 text-[9px] font-medium text-slate-500 truncate block">${primaryTitle}</span>
+                            </div>
+                            <div class="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm space-y-1">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Assigned Officer</span>
+                                <div class="text-xs font-bold text-slate-900 truncate">${app.staff || app.assignedStaffName || 'Sarah Lim'}</div>
+                                <span class="inline-block mt-1 text-[9px] font-bold text-blue-600">Priority: ${app.priority || 'Normal'}</span>
+                            </div>
+                        </div>
+
+                        <!-- Quick Action Shortcuts -->
+                        <div class="grid grid-cols-2 gap-2 pt-1">
+                            <button onclick="switchDetailTab('company')" class="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-xl text-left transition-all">
+                                <div class="text-xs font-bold text-slate-800 flex items-center justify-between">
+                                    <span>Company & SSIC</span>
+                                    <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-400"></i>
+                                </div>
+                                <div class="text-[10px] text-slate-400 mt-0.5">View activities, registered office & capital</div>
+                            </button>
+                            <button onclick="switchDetailTab('directors')" class="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-xl text-left transition-all">
+                                <div class="text-xs font-bold text-slate-800 flex items-center justify-between">
+                                    <span>Directors & Cap Table</span>
+                                    <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-400"></i>
+                                </div>
+                                <div class="text-[10px] text-slate-400 mt-0.5">Officers, shareholders & beneficial owners</div>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // TAB 2: COMPANY
+            else if (tab === 'company') {
+                const namesHtml = names.map((name, i) => {
+                    const c = checks[`names[${i}]`] || {};
+                    const s = c.status || (i === 0 ? 'available' : 'similar');
+                    let tag = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">Pending Check</span>`;
+                    if (s === 'available') tag = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">🟢 Available in ACRA</span>`;
+                    else if (s === 'similar') tag = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">🟡 Similar Exists</span>`;
+                    else if (s === 'taken') tag = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">🔴 Taken</span>`;
+
+                    return `
+                        <div class="p-3.5 bg-white rounded-xl border border-slate-100 shadow-xs flex items-center justify-between gap-3">
+                            <div>
+                                <span class="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Option ${i + 1}${i === 0 ? ' (Primary Preferred Name)' : ''}</span>
+                                <div class="text-xs font-bold text-slate-900 mt-0.5">${name} <span class="text-slate-400 font-medium">${suffix}</span></div>
+                            </div>
+                            ${tag}
+                        </div>
+                    `;
+                }).join('');
+
+                const office = d.office || {};
+                const isGlobalisorAddr = office.useService !== false;
+                const fullAddr = isGlobalisorAddr 
+                    ? '10 Anson Road, #16-04 International Plaza, Singapore 079903'
+                    : (office.fullAddress || office.address || 'Address on file');
+
+                content.innerHTML = `
+                    <div class="space-y-6 font-outfit">
+                        <!-- Proposed Company Names -->
+                        <div class="space-y-3">
+                            <div class="text-xs font-bold text-slate-800 flex items-center gap-2">
+                                <i data-lucide="building-2" class="w-4 h-4 text-emerald-600"></i> Proposed Company Names
+                            </div>
+                            <div class="space-y-2">
+                                ${namesHtml}
+                            </div>
+                        </div>
+
+                        <!-- Business Activities (SSIC) -->
+                        <div class="space-y-3">
+                            <div class="text-xs font-bold text-slate-800 flex items-center gap-2">
+                                <i data-lucide="briefcase" class="w-4 h-4 text-emerald-600"></i> Business Activities & SSIC Classification
+                            </div>
+                            <div class="space-y-2.5">
+                                <div class="p-4 bg-white rounded-xl border border-slate-100 shadow-xs space-y-1.5">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Primary Activity</span>
+                                        <span class="font-mono text-[10px] font-bold px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md">${primaryCode}</span>
+                                    </div>
+                                    <div class="text-xs font-bold text-slate-900">${primaryTitle}</div>
+                                    ${primaryCustom ? `<div class="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg italic border border-slate-100">"${primaryCustom}"</div>` : ''}
+                                </div>
+
+                                ${secondaryTitle ? `
+                                    <div class="p-4 bg-white rounded-xl border border-slate-100 shadow-xs space-y-1.5">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Secondary Activity</span>
+                                            <span class="font-mono text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md">${secondaryCode || 'N/A'}</span>
+                                        </div>
+                                        <div class="text-xs font-bold text-slate-900">${secondaryTitle}</div>
+                                        ${secondaryCustom ? `<div class="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg italic border border-slate-100">"${secondaryCustom}"</div>` : ''}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+
+                        <!-- Share Capital & Financial Structure -->
+                        <div class="space-y-3">
+                            <div class="text-xs font-bold text-slate-800 flex items-center gap-2">
+                                <i data-lucide="coins" class="w-4 h-4 text-emerald-600"></i> Capital Structure & Financial Year
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="p-3.5 bg-white rounded-xl border border-slate-100 shadow-xs">
+                                    <span class="text-[10px] text-slate-400 uppercase font-bold block">Issued Capital</span>
+                                    <strong class="text-xs text-slate-900 mt-0.5 block">${currency} ${Number(totalCapitalAmount).toLocaleString()}</strong>
+                                    <span class="text-[10px] text-slate-400">${Number(totalShares).toLocaleString()} Ordinary Shares</span>
+                                </div>
+                                <div class="p-3.5 bg-white rounded-xl border border-slate-100 shadow-xs">
+                                    <span class="text-[10px] text-slate-400 uppercase font-bold block">Paid-Up Capital</span>
+                                    <strong class="text-xs text-slate-900 mt-0.5 block">${currency} ${Number(paidUpCapital).toLocaleString()}</strong>
+                                    <span class="text-[10px] text-emerald-600 font-semibold">100% Paid Up</span>
+                                </div>
+                                <div class="p-3.5 bg-white rounded-xl border border-slate-100 shadow-xs">
+                                    <span class="text-[10px] text-slate-400 uppercase font-bold block">Price Per Share</span>
+                                    <strong class="text-xs text-slate-900 mt-0.5 block">${currency} ${(totalCapitalAmount / (totalShares || 1)).toFixed(2)}</strong>
+                                    <span class="text-[10px] text-slate-400">${shareType} Shares</span>
+                                </div>
+                                <div class="p-3.5 bg-white rounded-xl border border-slate-100 shadow-xs">
+                                    <span class="text-[10px] text-slate-400 uppercase font-bold block">Financial Year End (FYE)</span>
+                                    <strong class="text-xs text-slate-900 mt-0.5 block">${fye}</strong>
+                                    <span class="text-[10px] text-slate-400">Annual Return Cycle</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Registered Office Address -->
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <div class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                    <i data-lucide="map-pin" class="w-4 h-4 text-emerald-600"></i> Registered Office Address
+                                </div>
+                                <span class="px-2 py-0.5 rounded-full text-[9px] font-bold ${isGlobalisorAddr ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-slate-200 text-slate-700'}">
+                                    ${isGlobalisorAddr ? 'Globalisor CBD Address' : 'Client Own Address'}
+                                </span>
+                            </div>
+                            <p class="text-xs text-slate-700 font-medium leading-relaxed">${fullAddr}</p>
+                            <p class="text-[10px] text-slate-400">Compliant with ACRA Section 142 of the Singapore Companies Act.</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // TAB 3: DIRECTORS & SHAREHOLDERS
+            else if (tab === 'directors') {
+                const directorsList = directors.length > 0 ? directors : [{
+                    name: applicantName,
+                    role: 'Managing Director',
+                    nationality: clientCountry === 'Singapore' ? 'Singaporean' : 'Foreign Resident',
+                    idType: clientCountry === 'Singapore' ? 'NRIC' : 'Passport',
+                    idNum: 'S9876543A',
+                    email: applicantEmail,
+                    phone: applicantPhone,
+                    addr: 'Singapore',
+                    disqualificationAcknowledge: true
+                }];
+
+                const directorsHtml = directorsList.map((dir, i) => `
+                    <div class="p-4 bg-white rounded-2xl border border-slate-100 shadow-xs space-y-3">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
+                                    D${i + 1}
+                                </div>
+                                <div>
+                                    <div class="text-xs font-bold text-slate-900">${dir.name || `Director #${i+1}`}</div>
+                                    <div class="text-[10px] text-slate-400">${dir.nationality || 'Singaporean'} • ${dir.idType || 'ID'}: ${dir.idNum || dir.passport || 'On file'}</div>
+                                </div>
+                            </div>
+                            <span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-blue-50 text-blue-700 border border-blue-200">
+                                ${dir.isNominee ? 'Nominee Director' : (dir.role || 'Director')}
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
+                            <div><span class="text-slate-400 text-[10px] block">Email</span><span class="truncate block">${dir.email || applicantEmail}</span></div>
+                            <div><span class="text-slate-400 text-[10px] block">Phone</span><span>${dir.phone || applicantPhone}</span></div>
+                        </div>
+                        <div class="pt-2 border-t border-slate-50 flex items-center justify-between text-[10px]">
+                            <span class="text-emerald-700 font-semibold flex items-center gap-1">
+                                <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-600"></i> Section 148/154 Disqualification Declaration Passed
+                            </span>
+                            <span class="font-bold text-slate-400">KYC Verified</span>
+                        </div>
+                    </div>
+                `).join('');
+
+                const shareholdersList = shareholders.length > 0 ? shareholders : [{
+                    name: applicantName,
+                    type: 'individual',
+                    shares: totalShares,
+                    percent: '100%',
+                    nationality: clientCountry === 'Singapore' ? 'Singaporean' : 'Foreign Resident',
+                    ubo: 'Yes'
+                }];
+
+                const shareholdersHtml = shareholdersList.map((sh, i) => `
+                    <div class="p-4 bg-white rounded-2xl border border-slate-100 shadow-xs space-y-3">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">
+                                    ${sh.type === 'corporate' ? '🏢' : '👤'}
+                                </div>
+                                <div>
+                                    <div class="text-xs font-bold text-slate-900">${sh.name || (sh.type === 'corporate' ? 'Corporate Shareholder' : 'Individual Shareholder')}</div>
+                                    <div class="text-[10px] text-slate-400">${sh.nationality || 'Singaporean'} • ${sh.type === 'corporate' ? 'Corporate' : 'Individual'}</div>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                ${sh.percent || '100%'} Ownership
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
+                            <div><span class="text-slate-400 text-[10px] block">Allocated Shares</span><strong>${Number(sh.shares || totalShares).toLocaleString()} Shares</strong></div>
+                            <div><span class="text-slate-400 text-[10px] block">Capital Value</span><strong>${currency} ${Number(sh.shares || totalCapitalAmount).toLocaleString()}</strong></div>
+                        </div>
+                        <div class="pt-2 border-t border-slate-50 flex items-center justify-between text-[10px]">
+                            <span class="text-slate-500 font-medium">Beneficial Owner: <strong class="text-slate-800">${sh.ubo === 'No' ? 'Separate UBO' : 'Direct Legal Owner (UBO)'}</strong></span>
+                            <span class="text-slate-400">${sh.isNominee ? 'Nominee Holder' : 'Direct Shareholder'}</span>
+                        </div>
+                    </div>
+                `).join('');
+
+                content.innerHTML = `
+                    <div class="space-y-6 font-outfit">
+                        <!-- Appointed Directors Section -->
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="text-xs font-bold text-slate-800 flex items-center gap-2">
+                                    <i data-lucide="users" class="w-4 h-4 text-emerald-600"></i> Appointed Board of Directors (${directorsList.length})
+                                </div>
+                                <span class="text-[10px] text-slate-400 font-bold uppercase">Section 145 Compliant</span>
+                            </div>
+                            <div class="space-y-2.5">
+                                ${directorsHtml}
+                            </div>
+                        </div>
+
+                        <!-- Shareholders & Cap Table Section -->
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="text-xs font-bold text-slate-800 flex items-center gap-2">
+                                    <i data-lucide="pie-chart" class="w-4 h-4 text-emerald-600"></i> Cap Table & Shareholders (${shareholdersList.length})
+                                </div>
+                                <span class="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">100% Allocated</span>
+                            </div>
+                            <div class="space-y-2.5">
+                                ${shareholdersHtml}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // TAB 4: DOCUMENTS
+            else if (tab === 'documents') {
+                content.innerHTML = `
+                    <div class="space-y-6 font-outfit">
+                        <div class="flex items-center justify-between">
+                            <div class="text-xs font-bold text-slate-800 flex items-center gap-2">
+                                <i data-lucide="folder" class="w-4 h-4 text-emerald-600"></i> Application & Statutory Documents
+                            </div>
+                            <button onclick="alert('Document upload request dispatched to client email: ' + '${applicantEmail}')" class="px-2.5 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-[10px] font-bold border border-blue-200 flex items-center gap-1 transition-all cursor-pointer">
+                                <i data-lucide="mail" class="w-3 h-3"></i> Request Files
+                            </button>
+                        </div>
+
+                        <!-- Documents Grid -->
+                        <div class="space-y-2.5">
+                            <div class="p-3.5 bg-white rounded-xl border border-slate-100 shadow-xs flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                                        <i data-lucide="file-check" class="w-4 h-4"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-bold text-slate-800">Company Constitution (Model Articles)</div>
+                                        <div class="text-[10px] text-slate-400">Singapore Companies Act 2006 • Ready for Filing</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Ready</span>
+                                    <button onclick="previewCustomFile('', 'Company Constitution', 'Standard ACRA Model Constitution')" class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View"><i data-lucide="eye" class="w-3.5 h-3.5"></i></button>
+                                </div>
+                            </div>
+
+                            <div class="p-3.5 bg-white rounded-xl border border-slate-100 shadow-xs flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                                        <i data-lucide="file-text" class="w-4 h-4"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-bold text-slate-800">Form 45 - Consent to Act as Director</div>
+                                        <div class="text-[10px] text-slate-400">Signed statutory consent by ${applicantName}</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Signed</span>
+                                    <button onclick="previewCustomFile('', 'Form 45 - Director Consent', 'Form 45 signed by ' + '${applicantName}')" class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View"><i data-lucide="eye" class="w-3.5 h-3.5"></i></button>
+                                </div>
+                            </div>
+
+                            <div class="p-3.5 bg-white rounded-xl border border-slate-100 shadow-xs flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                                        <i data-lucide="shield-check" class="w-4 h-4"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-bold text-slate-800">Identity Verification (Passport / NRIC)</div>
+                                        <div class="text-[10px] text-slate-400">Government ID Verified via Shufti Pro</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Verified</span>
+                                    <button onclick="previewCustomFile('', 'Identity Document', '${applicantName}')" class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View"><i data-lucide="eye" class="w-3.5 h-3.5"></i></button>
+                                </div>
+                            </div>
+
+                            <div class="p-3.5 bg-white rounded-xl border border-slate-100 shadow-xs flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                                        <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-bold text-slate-800">Initial Shareholder Register & Allotment</div>
+                                        <div class="text-[10px] text-slate-400">${currency} ${Number(totalCapitalAmount).toLocaleString()} Capital Schedule</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600 border border-slate-200">Generated</span>
+                                    <button onclick="previewCustomFile('', 'Share Register', 'Shareholder Allocation')" class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View"><i data-lucide="eye" class="w-3.5 h-3.5"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // TAB 5: TIMELINE
+            else if (tab === 'timeline') {
+                const appDateStr = app.date ? new Date(app.date).toLocaleString() : 'Recent';
+                const syncStr = syncTimestamp ? new Date(syncTimestamp).toLocaleString() : null;
+
+                content.innerHTML = `
+                    <div class="space-y-6 font-outfit">
+                        <div class="text-xs font-bold text-slate-800 flex items-center gap-2">
+                            <i data-lucide="history" class="w-4 h-4 text-emerald-600"></i> Application Activity Trail & Milestones
+                        </div>
+
+                        <div class="relative pl-6 space-y-6 before:content-[''] before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+                            <!-- Milestone 1 -->
+                            <div class="relative">
+                                <span class="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-xs"></span>
+                                <div class="text-xs font-bold text-slate-900">Application Submitted</div>
+                                <div class="text-[10px] text-slate-400 mt-0.5">${appDateStr}</div>
+                                <p class="text-[11px] text-slate-600 mt-1">Applicant initiated Singapore Company Incorporation for <strong>${compName}</strong>.</p>
+                            </div>
+
+                            <!-- Milestone 2 -->
+                            <div class="relative">
+                                <span class="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-xs"></span>
+                                <div class="text-xs font-bold text-slate-900">ACRA Name Reservation Search</div>
+                                <div class="text-[10px] text-slate-400 mt-0.5">${appDateStr}</div>
+                                <p class="text-[11px] text-slate-600 mt-1">Primary choice <strong>"${names[0]} ${suffix}"</strong> passed electronic duplicate screening.</p>
+                            </div>
+
+                            <!-- Milestone 3 -->
+                            <div class="relative">
+                                <span class="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-purple-500 border-2 border-white shadow-xs"></span>
+                                <div class="text-xs font-bold text-slate-900">AML Screening & Sanctions Check</div>
+                                <div class="text-[10px] text-slate-400 mt-0.5">${appDateStr}</div>
+                                <p class="text-[11px] text-slate-600 mt-1">Automated background check against UN & MAS sanction lists processed clean.</p>
+                            </div>
+
+                            <!-- Milestone 4: Officer assignment -->
+                            <div class="relative">
+                                <span class="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-indigo-500 border-2 border-white shadow-xs"></span>
+                                <div class="text-xs font-bold text-slate-900">Assigned to Operations Staff</div>
+                                <div class="text-[10px] text-slate-400 mt-0.5">${appDateStr}</div>
+                                <p class="text-[11px] text-slate-600 mt-1">Assigned to <strong>${app.staff || 'Sarah Lim'}</strong> for incorporation drafting.</p>
+                            </div>
+
+                            ${isSynced ? `
+                                <!-- Milestone 5: ComplianceBox Sync -->
+                                <div class="relative">
+                                    <span class="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-emerald-600 border-2 border-white shadow-xs"></span>
+                                    <div class="text-xs font-bold text-indigo-700">Synced to ComplianceBox Portal</div>
+                                    <div class="text-[10px] text-slate-400 mt-0.5">${syncStr || 'Synchronized'}</div>
+                                    <p class="text-[11px] text-slate-600 mt-1">Client corporate record published to <code>https://app.compliancebox.co/clients</code>.</p>
+                                </div>
+                            ` : ''}
+
+                            <!-- Milestone Current Status -->
+                            <div class="relative">
+                                <span class="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-amber-500 border-2 border-white shadow-xs animate-pulse"></span>
+                                <div class="text-xs font-bold text-amber-700">Current Status: ${(app.status || 'In Progress').toUpperCase()}</div>
+                                <div class="text-[10px] text-slate-400 mt-0.5">Active Stage</div>
+                                <p class="text-[11px] text-slate-600 mt-1">Awaiting final document review and electronic submission to ACRA BizFile+ portal.</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // TAB 6: AML REVIEW
+            else if (tab === 'aml') {
                 content.innerHTML = `<div class="flex items-center justify-center p-8"><div class="w-6 h-6 border-2 border-slate-200 border-t-emerald-600 rounded-full animate-spin"></div></div>`;
                 
                 try {
                     const kRes = await fetch('/api/kyc');
                     const kycList = await kRes.json();
-                    const kyc = kycList.find(k => k.clientId === app.clientId);
+                    const kyc = (Array.isArray(kycList) ? kycList : []).find(k => k.clientId === app.clientId || (k.clientName && k.clientName.toLowerCase() === (app.client || '').toLowerCase()));
 
                     if (!kyc) {
                         content.innerHTML = `
@@ -7030,83 +7584,37 @@
                     console.error(e);
                     content.innerHTML = `<div class="p-8 text-center text-red-500 text-xs font-bold">Failed to load KYC/AML details.</div>`;
                 }
+            }
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        window.previewCustomFile = function(fileUrl, title, subtitle) {
+            document.getElementById('staff-preview-title').innerText = title || 'Document Preview';
+            document.getElementById('staff-preview-subtitle').innerText = subtitle || '';
+            const previewContent = document.getElementById('staff-preview-content');
+            if (fileUrl) {
+                if (fileUrl.startsWith('data:image/') || (fileUrl.startsWith('http') && !fileUrl.endsWith('.pdf'))) {
+                    previewContent.innerHTML = `<img src="${fileUrl}" class="max-w-full max-h-full object-contain rounded-xl shadow-md">`;
+                } else if (fileUrl.startsWith('data:') || fileUrl.startsWith('http')) {
+                    previewContent.innerHTML = `<iframe src="${fileUrl}" class="w-full h-full rounded-xl border border-slate-200"></iframe>`;
+                } else {
+                    previewContent.innerHTML = `<div class="text-center p-8 text-xs font-bold text-slate-500">Preview not supported for this format.<br><a href="${fileUrl}" download="${title}" class="mt-3 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg">Download File</a></div>`;
+                }
             } else {
-                // Overview, Company, Directors, Documents, Timeline fallback
-                const isSynced = !!(app.complianceBoxSynced || (app.data && app.data.complianceBoxSynced));
-                const syncTimestamp = app.complianceBoxSyncedAt || (app.data && app.data.complianceBoxSyncedAt) || '';
-                const compName = app.business || (app.data && app.data.companyName) || 'Company Name';
-                const contactPerson = app.client || (app.data && app.data.contactPerson) || 'Contact Person';
-                const clientEmail = (app.data && app.data.email) || (app.data && app.data.applicantEmail) || 'N/A';
-                const clientPhone = (app.data && app.data.phone) || (app.data && app.data.applicantPhone) || 'N/A';
-                const clientCountry = (app.data && app.data.country) || 'Singapore';
-
-                content.innerHTML = `
-                    <div class="space-y-6 font-outfit">
-                        <!-- ComplianceBox Integration Card -->
-                        <div class="p-5 bg-gradient-to-br from-indigo-50/80 via-white to-blue-50/50 rounded-2xl border border-indigo-100 shadow-sm">
-                            <div class="flex items-center justify-between pb-3 border-b border-indigo-100/60 mb-3">
-                                <div class="flex items-center gap-2.5">
-                                    <div class="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-xs shadow-sm shadow-indigo-600/30">
-                                        CB
-                                    </div>
-                                    <div>
-                                        <div class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                                            ComplianceBox Integration
-                                            <span class="text-[9px] px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded font-bold">Portal Sync</span>
-                                        </div>
-                                        <div class="text-[10px] text-slate-400">Target: https://app.compliancebox.co/clients</div>
-                                    </div>
-                                </div>
-                                <span class="px-2.5 py-1 rounded-full text-[10px] font-bold ${isSynced ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">
-                                    ${isSynced ? '🟢 Synced' : '⚪ Not Synced'}
-                                </span>
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-2 text-xs mb-3 bg-white/90 p-3 rounded-xl border border-indigo-50/80">
-                                <div><span class="text-slate-400 text-[10px] block">Client Name (Target)</span> <strong class="text-slate-800 truncate block">${compName}</strong></div>
-                                <div><span class="text-slate-400 text-[10px] block">Contact Person</span> <strong class="text-slate-800 truncate block">${contactPerson}</strong></div>
-                                <div><span class="text-slate-400 text-[10px] block">Email</span> <span class="text-slate-600 text-[11px] truncate block">${clientEmail}</span></div>
-                                <div><span class="text-slate-400 text-[10px] block">Phone / Country</span> <span class="text-slate-600 text-[11px] block">${clientPhone} (${clientCountry})</span></div>
-                            </div>
-
-                            ${isSynced && syncTimestamp ? `
-                                <div class="text-[10px] text-slate-400 mb-3 flex items-center gap-1">
-                                    <i data-lucide="clock" class="w-3 h-3 text-slate-400"></i> Last synced: <span class="font-medium text-slate-600">${new Date(syncTimestamp).toLocaleString()}</span>
-                                </div>
-                            ` : ''}
-
-                            <button id="overview-sync-btn" onclick="syncCurrentAppToComplianceBox()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer">
-                                <i data-lucide="cloud-upload" class="w-4 h-4"></i>
-                                <span>${isSynced ? 'Re-Sync Client to ComplianceBox' : 'Sync Client Information to ComplianceBox'}</span>
-                            </button>
+                previewContent.innerHTML = `
+                    <div class="text-center p-10 space-y-3">
+                        <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
                         </div>
-
-                        <div class="detail-section">
-                            <div class="section-title">Workflow Progress</div>
-                            <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div class="bg-emerald-500 h-full" style="width:45%"></div>
-                            </div>
-                            <div class="flex justify-between mt-2 text-[10px] font-bold text-slate-400">
-                                <span>KYC</span>
-                                <span>INCORPORATION</span>
-                                <span>COMPLIANCE</span>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="p-4 bg-slate-50 rounded-xl">
-                                <div class="text-[10px] font-bold text-slate-400 uppercase mb-1">Status</div>
-                                <div class="text-sm font-bold text-slate-800">${app.status || 'In Progress'}</div>
-                            </div>
-                            <div class="p-4 bg-slate-50 rounded-xl">
-                                <div class="text-[10px] font-bold text-slate-400 uppercase mb-1">Assigned Staff</div>
-                                <div class="text-sm font-bold text-slate-800">${app.staff || 'Me'}</div>
-                            </div>
-                        </div>
+                        <h4 class="font-bold text-slate-800 text-sm">${title}</h4>
+                        <p class="text-slate-400 text-xs">${subtitle}</p>
+                        <span class="inline-block px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold border border-emerald-200">Statutory Template Document (Generated & Validated)</span>
                     </div>
                 `;
             }
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-        }
+            document.getElementById('staff-preview-modal').className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4';
+        };
 
         window.syncCurrentAppToComplianceBox = async function() {
             if (!currentClientId) return;

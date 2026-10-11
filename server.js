@@ -1123,7 +1123,7 @@ app.patch('/api/services/:id', (req, res) => {
 // GET /api/applications → get all services with client details for detailed table
 app.get('/api/applications', (req, res) => {
     const db = getDb();
-    const apps = db.services.map(s => {
+    let apps = db.services.map(s => {
         const client = db.clients.find(c => c.clientId === s.clientId);
         const isMigrated = (s.serviceId && s.serviceId.startsWith('SRV-')) || (s.clientId && /^C-(?:19|20|T)/i.test(s.clientId)) || !!s.uen;
         return { 
@@ -1141,6 +1141,9 @@ app.get('/api/applications', (req, res) => {
             applicationType: isMigrated ? 'MIGRATED_CLIENT' : 'INCORPORATION'
         };
     });
+    if (req.query.includeMigrated !== 'true' && req.query.tab !== 'migrated') {
+        apps = apps.filter(a => !a.isMigrated);
+    }
     res.json(apps);
 });
 
