@@ -7696,7 +7696,10 @@
                     };
                 }
 
-                const res = await fetch(`/api/applications/${appId}/sync-compliancebox`, {
+                // Resolve best ID for backend (prefer MongoDB rawId if available, while backend also supports display IDs)
+                const targetId = (app && (app.mongoId || app.rawId)) ? (app.mongoId || app.rawId) : appId;
+
+                const res = await fetch(`/api/applications/${targetId}/sync-compliancebox`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -7764,8 +7767,21 @@
                     alert(`✅ Successfully synced "${data.clientName || 'Client'}" to ComplianceBox!\n\nTarget Portal: app.compliancebox.co/clients\nClient Name: ${data.clientName || 'N/A'}\nContact Person: ${data.contactPerson || 'N/A'}\nType: Corporate\nStatus: Synced\nCountry: ${data.country || 'Singapore'}`);
                 } else {
                     if (data.error && (data.error.includes('ComplianceBox session') || data.error.includes('logged in') || data.error.includes('token') || data.error.includes('Token'))) {
-                        const shouldOpen = confirm(`⚠️ ComplianceBox Login Required\n\n${data.error}\n\nWould you like to open https://app.compliancebox.co in another tab to log in now? (After logging in, simply click Sync again!)`);
-                        if (shouldOpen) {
+                        const userChoice = confirm(`⚠️ ComplianceBox Session Expired or Not Synced\n\n${data.error}\n\n• If you just logged into https://app.compliancebox.co in another tab, click OK to automatically detect your fresh session and sync now.\n• Click Cancel if you want to open ComplianceBox in a new tab first.`);
+                        if (userChoice) {
+                            try {
+                                const refreshRes = await fetch('/api/integrations/compliancebox/refresh-token', { method: 'POST' });
+                                const refreshData = await refreshRes.json();
+                                if (refreshRes.ok && refreshData.success) {
+                                    // Retry sync immediately with the fresh token
+                                    return await syncApplicationToComplianceBox(appId, btnEl);
+                                } else {
+                                    alert(`⚠️ Could not auto-detect active session from tab: ${refreshData.error || 'Please make sure https://app.compliancebox.co/dashboard is open and logged in'}`);
+                                }
+                            } catch (e) {
+                                alert(`⚠️ Session refresh check failed: ${e.message}`);
+                            }
+                        } else {
                             window.open('https://app.compliancebox.co', '_blank');
                         }
                     } else {
