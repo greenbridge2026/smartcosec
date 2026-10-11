@@ -6892,7 +6892,11 @@
             // Update ComplianceBox badge & button state
             const cbBadge = document.getElementById('detail-compliancebox-badge');
             const cbBtnText = document.getElementById('detail-sync-btn-text');
-            const isSynced = !!(app.complianceBoxSynced || (app.data && app.data.complianceBoxSynced));
+            const isSynced = Boolean(
+                app.complianceBoxSynced === true ||
+                String(app.complianceBoxSynced) === 'true' ||
+                (app.data && (app.data.complianceBoxSynced === true || String(app.data.complianceBoxSynced) === 'true'))
+            );
 
             if (cbBadge) {
                 if (isSynced) {
@@ -6990,8 +6994,13 @@
             const clientCountry = d.country || app.country || 'Singapore';
 
             // ComplianceBox sync info
-            const isSynced = !!(app.complianceBoxSynced || d.complianceBoxSynced);
-            const syncTimestamp = app.complianceBoxSyncedAt || d.complianceBoxSyncedAt || '';
+            const isSynced = Boolean(
+                app.complianceBoxSynced === true ||
+                String(app.complianceBoxSynced) === 'true' ||
+                (app.data && (app.data.complianceBoxSynced === true || String(app.data.complianceBoxSynced) === 'true')) ||
+                (d && (d.complianceBoxSynced === true || String(d.complianceBoxSynced) === 'true'))
+            );
+            const syncTimestamp = app.complianceBoxSyncedAt || (app.data && app.data.complianceBoxSyncedAt) || d.complianceBoxSyncedAt || '';
 
             // Officers / Directors & Shareholders
             const directors = Array.isArray(d.directors) ? d.directors : (Array.isArray(d.officers) ? d.officers : []);
@@ -7017,7 +7026,7 @@
                                         <div class="text-[10px] text-slate-400">Target: https://app.compliancebox.co/clients</div>
                                     </div>
                                 </div>
-                                <span class="px-2.5 py-1 rounded-full text-[10px] font-bold ${isSynced ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">
+                                <span id="overview-cb-status-pill" class="px-2.5 py-1 rounded-full text-[10px] font-bold ${isSynced ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">
                                     ${isSynced ? '🟢 Synced' : '⚪ Not Synced'}
                                 </span>
                             </div>
@@ -7037,7 +7046,7 @@
 
                             <button id="overview-sync-btn" onclick="syncCurrentAppToComplianceBox()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer">
                                 <i data-lucide="cloud-upload" class="w-4 h-4"></i>
-                                <span>${isSynced ? 'Re-Sync Client to ComplianceBox' : 'Sync Client Information to ComplianceBox'}</span>
+                                <span id="overview-sync-btn-text">${isSynced ? 'Re-Sync Client to ComplianceBox' : 'Sync Client Information to ComplianceBox'}</span>
                             </button>
                         </div>
 
@@ -7618,50 +7627,123 @@
 
         window.syncCurrentAppToComplianceBox = async function() {
             if (!currentClientId) return;
-            const btn = document.getElementById('detail-sync-compliancebox-btn');
+            const btn = document.getElementById('overview-sync-btn') || document.getElementById('detail-sync-compliancebox-btn');
             await syncApplicationToComplianceBox(currentClientId, btn);
         };
 
         window.syncApplicationToComplianceBox = async function(appId, btnEl) {
             if (!appId) return;
-            const originalHtml = btnEl ? btnEl.innerHTML : '';
-            if (btnEl) {
-                btnEl.disabled = true;
-                btnEl.innerHTML = `<div class="w-3.5 h-3.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div> <span>Syncing...</span>`;
+            const overviewBtn = document.getElementById('overview-sync-btn');
+            const headerBtn = document.getElementById('detail-sync-compliancebox-btn');
+            const originalOverviewHtml = overviewBtn ? overviewBtn.innerHTML : '';
+            const originalHeaderHtml = headerBtn ? headerBtn.innerHTML : '';
+
+            if (overviewBtn) {
+                overviewBtn.disabled = true;
+                overviewBtn.innerHTML = `<div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> <span>Syncing to ComplianceBox...</span>`;
+            }
+            if (headerBtn) {
+                headerBtn.disabled = true;
+                headerBtn.innerHTML = `<div class="w-3.5 h-3.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div> <span>Syncing...</span>`;
             }
 
             try {
+                // Find application object to extract exact Client Name and Contact Person
+                const app = (staffData.applications || []).find(a => a.id === appId || a.rawId === appId || a.applicationId === appId || a.mongoId === appId) ||
+                            (staffData.openApplications || []).find(a => a.id === appId || a.rawId === appId || a.applicationId === appId || a.mongoId === appId) ||
+                            (staffData.allApps || []).find(a => a.id === appId || a.rawId === appId || a.applicationId === appId || a.mongoId === appId);
+
+                let payload = {};
+                if (app) {
+                    const d = app.data || {};
+                    const contact = d.contact || {};
+                    const names = Array.isArray(d.names) ? d.names : (d.companyName ? [d.companyName] : [d.proposedName1 || '']);
+                    const applicantName = `${contact.firstName || app.clientFirstName || ''} ${contact.lastName || app.clientLastName || ''}`.trim() || app.client || '';
+                    const compName = app.business || d.companyName || (names && names[0]) || d.proposedName1 || 'Client Company';
+                    const contactPerson = app.client || d.contactPerson || applicantName || 'Contact Person';
+                    const email = contact.email || app.clientEmail || d.email || d.applicantEmail || '';
+                    const phone = contact.phone ? `${contact.countryCode || ''} ${contact.phone}`.trim() : (app.clientPhone || d.phone || d.applicantPhone || '');
+                    const country = d.country || app.country || 'Singapore';
+                    const addr = d.registeredAddress || (d.address ? (typeof d.address === 'object' ? `${d.address.street || ''} ${d.address.postalCode || ''}`.trim() : d.address) : '');
+                    const nature = d.customPrimaryActivity || (d.primarySsic ? d.primarySsic.name || d.primarySsic.description : '') || d.natureOfBusiness || '';
+
+                    payload = {
+                        clientName: compName,
+                        contactPerson: contactPerson,
+                        email: email !== 'N/A' ? email : '',
+                        phone: phone !== 'N/A' ? phone : '',
+                        country: country,
+                        registeredAddress: addr,
+                        natureOfBusiness: nature
+                    };
+                }
+
                 const res = await fetch(`/api/applications/${appId}/sync-compliancebox`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
                 const data = await res.json();
-                if (res.ok && data.success) {
+                if (res.ok && (data.success || data.complianceBoxSynced)) {
+                    const syncedTimestamp = data.syncedAt || new Date().toISOString();
+
+                    if (app) {
+                        app.complianceBoxSynced = true;
+                        app.complianceBoxSyncedAt = syncedTimestamp;
+                        app.complianceBoxClientName = data.clientName;
+                        app.complianceBoxContactPerson = data.contactPerson;
+                        if (!app.data) app.data = {};
+                        app.data.complianceBoxSynced = true;
+                        app.data.complianceBoxSyncedAt = syncedTimestamp;
+                        app.data.complianceBoxClientName = data.clientName;
+                        app.data.complianceBoxContactPerson = data.contactPerson;
+                    }
+
                     const updateApp = (a) => {
-                        if (a && a.id === appId) {
+                        if (!a) return;
+                        const isMatch = a.id === appId || a.rawId === appId || a.applicationId === appId || a.mongoId === appId ||
+                                        (app && (a.id === app.id || a.rawId === app.rawId || a.id === app.rawId || a.rawId === app.id)) ||
+                                        (currentClientId && (a.id === currentClientId || a.rawId === currentClientId));
+                        if (isMatch) {
                             a.complianceBoxSynced = true;
-                            a.complianceBoxSyncedAt = data.syncedAt || new Date().toISOString();
+                            a.complianceBoxSyncedAt = syncedTimestamp;
+                            a.complianceBoxClientName = data.clientName;
+                            a.complianceBoxContactPerson = data.contactPerson;
+                            if (!a.data) a.data = {};
+                            a.data.complianceBoxSynced = true;
+                            a.data.complianceBoxSyncedAt = syncedTimestamp;
+                            a.data.complianceBoxClientName = data.clientName;
+                            a.data.complianceBoxContactPerson = data.contactPerson;
                         }
                     };
                     (staffData.applications || []).forEach(updateApp);
                     (staffData.openApplications || []).forEach(updateApp);
                     (staffData.allApps || []).forEach(updateApp);
 
-                    if (currentClientId === appId) {
-                        const cbBadge = document.getElementById('detail-compliancebox-badge');
-                        if (cbBadge) {
-                            cbBadge.className = 'text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-lg tracking-wider flex items-center gap-1';
-                            cbBadge.innerHTML = '<i data-lucide="check-check" class="w-3.5 h-3.5 text-indigo-600"></i> ComplianceBox Synced';
-                            cbBadge.classList.remove('hidden');
-                        }
-                        const cbBtnText = document.getElementById('detail-sync-btn-text');
-                        if (cbBtnText) cbBtnText.innerText = 'Re-Sync ComplianceBox';
-                        switchDetailTab('overview');
+                    // Update header badge
+                    const cbBadge = document.getElementById('detail-compliancebox-badge');
+                    if (cbBadge) {
+                        cbBadge.className = 'text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-lg tracking-wider flex items-center gap-1';
+                        cbBadge.innerHTML = '<i data-lucide="check-check" class="w-3.5 h-3.5 text-indigo-600"></i> ComplianceBox Synced';
+                        cbBadge.classList.remove('hidden');
                     }
+                    const cbBtnText = document.getElementById('detail-sync-btn-text');
+                    if (cbBtnText) cbBtnText.innerText = 'Re-Sync ComplianceBox';
 
+                    // Update Overview tab card pill
+                    const cbPill = document.getElementById('overview-cb-status-pill');
+                    if (cbPill) {
+                        cbPill.className = 'px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 border border-indigo-200';
+                        cbPill.innerHTML = '🟢 Synced';
+                    }
+                    const cbOverviewBtnText = document.getElementById('overview-sync-btn-text');
+                    if (cbOverviewBtnText) cbOverviewBtnText.innerText = 'Re-Sync Client to ComplianceBox';
+
+                    // Refresh overview tab view
+                    switchDetailTab('overview');
                     renderApplications();
 
-                    alert(`✅ Successfully synced "${data.clientName || 'Client'}" to ComplianceBox!\n\nTarget Portal: app.compliancebox.co/clients\nType: Corporate\nContact: ${data.contactPerson || 'N/A'}\nCountry: ${data.country || 'Singapore'}`);
+                    alert(`✅ Successfully synced "${data.clientName || 'Client'}" to ComplianceBox!\n\nTarget Portal: app.compliancebox.co/clients\nClient Name: ${data.clientName || 'N/A'}\nContact Person: ${data.contactPerson || 'N/A'}\nType: Corporate\nStatus: Synced\nCountry: ${data.country || 'Singapore'}`);
                 } else {
                     alert(`❌ ComplianceBox sync failed: ${data.error || 'Server error'}`);
                 }
@@ -7669,11 +7751,15 @@
                 console.error('ComplianceBox sync error:', err);
                 alert(`❌ Error communicating with ComplianceBox service: ${err.message}`);
             } finally {
-                if (btnEl) {
-                    btnEl.disabled = false;
-                    btnEl.innerHTML = originalHtml;
-                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                if (overviewBtn) {
+                    overviewBtn.disabled = false;
+                    overviewBtn.innerHTML = originalOverviewHtml;
                 }
+                if (headerBtn) {
+                    headerBtn.disabled = false;
+                    headerBtn.innerHTML = originalHeaderHtml;
+                }
+                if (typeof lucide !== 'undefined') lucide.createIcons();
             }
         };
 

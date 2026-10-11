@@ -1004,26 +1004,43 @@ app.get('/api/clients/:id/company', (req, res) => {
 app.post(['/api/applications/:id/sync-compliancebox', '/api/integrations/compliancebox/sync/:id'], async (req, res) => {
     try {
         const { id } = req.params;
+        const bodyOverrides = req.body || {};
         const db = getDb();
         const cleanId = (id || '').replace('APP-', '').trim();
         const appRecord = (db.requirements || []).find(r => r.id === id || r.id === cleanId || (r.id && r.id.replace('APP-', '') === cleanId));
         let clientData = {};
         if (appRecord) {
             const d = appRecord.data || {};
+            const contact = d.contact || {};
+            const names = Array.isArray(d.names) ? d.names : (d.companyName ? [d.companyName] : [d.proposedName1 || '']);
+            const applicantName = `${contact.firstName || appRecord.clientFirstName || ''} ${contact.lastName || appRecord.clientLastName || ''}`.trim() || appRecord.client || '';
+
+            const compName = bodyOverrides.clientName || bodyOverrides.name || bodyOverrides.companyName || d.companyName || (names && names[0]) || d.proposedName1 || appRecord.business || `Client ${id}`;
+            const contactPerson = bodyOverrides.contactPerson || d.contactPerson || applicantName || appRecord.client || 'Contact Person';
+            const email = bodyOverrides.email || contact.email || d.email || d.applicantEmail || appRecord.clientEmail || '';
+            const phone = bodyOverrides.phone || (contact.phone ? `${contact.countryCode || ''} ${contact.phone}`.trim() : '') || d.phone || d.applicantPhone || appRecord.clientPhone || '';
+            const country = bodyOverrides.country || d.country || d.incorporationCountry || appRecord.country || 'Singapore';
+            const registeredAddress = bodyOverrides.registeredAddress || d.registeredAddress || (d.address ? (typeof d.address === 'object' ? `${d.address.street || ''} ${d.address.postalCode || ''}`.trim() : d.address) : '');
+            const natureOfBusiness = bodyOverrides.natureOfBusiness || d.customPrimaryActivity || (d.primarySsic ? d.primarySsic.name || d.primarySsic.description : '') || d.natureOfBusiness || '';
+
             clientData = {
-                name: d.companyName || d.proposedName1 || appRecord.business || appRecord.client || `Client ${id}`,
-                contactPerson: d.contactPerson || d.applicantName || d.fullName || appRecord.client || 'Contact Person',
-                email: d.email || d.applicantEmail || 'client@globalisor.com',
-                phone: d.phone || d.applicantPhone || '+65 9123 4567',
-                country: d.country || d.incorporationCountry || 'Singapore'
+                name: compName,
+                contactPerson: contactPerson,
+                email: email,
+                phone: phone,
+                country: country,
+                registeredAddress: registeredAddress,
+                natureOfBusiness: natureOfBusiness
             };
         } else {
             clientData = {
-                name: `Client Application ${id}`,
-                contactPerson: 'Client Contact',
-                email: 'client@globalisor.com',
-                phone: '+65 9123 4567',
-                country: 'Singapore'
+                name: bodyOverrides.clientName || bodyOverrides.name || `Client Application ${id}`,
+                contactPerson: bodyOverrides.contactPerson || 'Client Contact',
+                email: bodyOverrides.email || 'client@globalisor.com',
+                phone: bodyOverrides.phone || '+65 9123 4567',
+                country: bodyOverrides.country || 'Singapore',
+                registeredAddress: bodyOverrides.registeredAddress || '',
+                natureOfBusiness: bodyOverrides.natureOfBusiness || ''
             };
         }
         let result;
@@ -1044,6 +1061,11 @@ app.post(['/api/applications/:id/sync-compliancebox', '/api/integrations/complia
                     email: clientData.email || '',
                     phone: clientData.phone || '',
                     country: clientData.country || 'Singapore',
+                    countryOfIncorporation: clientData.country || 'Singapore',
+                    registeredAddress: clientData.registeredAddress || '',
+                    address: clientData.registeredAddress || '',
+                    natureOfBusiness: clientData.natureOfBusiness || '',
+                    industry: clientData.natureOfBusiness || '',
                     servicesSought: [],
                     access: [],
                     companyId: companyId,
@@ -1099,6 +1121,9 @@ app.post(['/api/applications/:id/sync-compliancebox', '/api/integrations/complia
             appRecord.complianceBoxSynced = true;
             appRecord.complianceBoxSyncedAt = new Date().toISOString();
             saveDb(db);
+        }
+        if (result && result.success) {
+            result.complianceBoxSynced = true;
         }
         res.json(result);
     } catch(err) {
