@@ -1125,6 +1125,7 @@ app.get('/api/applications', (req, res) => {
     const db = getDb();
     const apps = db.services.map(s => {
         const client = db.clients.find(c => c.clientId === s.clientId);
+        const isMigrated = (s.serviceId && s.serviceId.startsWith('SRV-')) || (s.clientId && /^C-(?:19|20|T)/i.test(s.clientId)) || !!s.uen;
         return { 
             id: s.serviceId.replace('SRV-', 'APP-'),
             business: s.companyName || 'N/A',
@@ -1135,7 +1136,9 @@ app.get('/api/applications', (req, res) => {
             deadline: s.deadline || 'N/A',
             kyc: s.kycStatus || 'Approved',
             docs: s.docsStatus?.pending > 0 ? `${s.docsStatus.pending} Docs Pending` : 'All Docs OK',
-            date: s.date
+            date: s.date,
+            isMigrated: isMigrated,
+            applicationType: isMigrated ? 'MIGRATED_CLIENT' : 'INCORPORATION'
         };
     });
     res.json(apps);

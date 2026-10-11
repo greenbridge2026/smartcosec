@@ -2364,6 +2364,65 @@
         }
 
 
+        function isExistingMigratedClient(app) {
+            if (!app) return false;
+            // 1. Explicit backend flags
+            if (app.isMigrated === true) return true;
+            if (app.applicationType === 'MIGRATED_CLIENT') return true;
+
+            const id = String(app.id || app.rawId || '');
+            const clientId = String(app.clientId || '');
+            const data = app.data || {};
+
+            // 2. Explicit data flags
+            if (data.migrated === true || data.isMigrated === true || data.excelData) return true;
+
+            // 3. ID / Client ID matching UEN migrated format (e.g. REQ-201311840R, C-201311840R, REQ-T..., SRV-...)
+            if (/^REQ-(?:19|20|T)/i.test(id) || /^SRV-/i.test(id)) return true;
+            if (/^C-(?:19|20|T)/i.test(clientId)) return true;
+
+            // 4. Already has an ACRA UEN (existing registered company in Singapore)
+            if (data.uen && data.uen !== 'N/A' && String(data.uen).trim() !== '') return true;
+            if (app.uen && app.uen !== 'N/A' && String(app.uen).trim() !== '') return true;
+
+            return false;
+        }
+
+        function getDisplayAppId(app) {
+            if (!app) return 'APP-0001';
+            // 1. Direct explicit applicationReferenceNo
+            if (app.applicationReferenceNo && String(app.applicationReferenceNo).startsWith('APP-')) {
+                return String(app.applicationReferenceNo);
+            }
+            if (app.applicationId && String(app.applicationId).startsWith('APP-')) {
+                return String(app.applicationId);
+            }
+            if (app.data && app.data.applicationReferenceNo && String(app.data.applicationReferenceNo).startsWith('APP-')) {
+                return String(app.data.applicationReferenceNo);
+            }
+            if (app.data && app.data.applicationNumber) {
+                const n = String(app.data.applicationNumber);
+                return n.startsWith('APP-') ? n : ('APP-' + n);
+            }
+
+            const raw = String(app.id || app.rawId || '');
+            if (raw.startsWith('APP-')) return raw;
+            if (raw.startsWith('SRV-')) return raw.replace('SRV-', 'APP-');
+            if (raw.startsWith('REQ-')) return raw.replace('REQ-', 'APP-');
+
+            // 2. 24-character hexadecimal MongoDB ObjectId (e.g. 6ac634684c46b09a7e1e1001)
+            if (/^[0-9a-f]{24}$/i.test(raw)) {
+                const last4 = raw.slice(-4);
+                if (/^\d{4}$/.test(last4)) {
+                    return `APP-${last4}`;
+                }
+                const hexVal = parseInt(last4, 16);
+                return `APP-${String((hexVal % 9000) + 1000).padStart(4, '0')}`;
+            }
+
+            return raw || 'APP-0001';
+        }
+
         async function fetchStaffData() {
             try {
                 // Fetch ALL Applications from API
@@ -2377,7 +2436,7 @@
 
                 // 1. Filter applications assigned to the currently logged-in staff member
                 staffData.applications = allApps.filter(app => {
-                    const assignedName = app.staff || '';
+                    const assignedName = app.staff || app.assignedStaffName || '';
                     if (!assignedName || assignedName.toLowerCase() === 'unassigned') return false;
                     const normAssignedName = assignedName.toLowerCase().replace(/[^a-z0-9]/g, "");
                     const normCurrentName = CURRENT_STAFF_NAME.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -2385,11 +2444,17 @@
                 });
 
                 // 2. Filter unassigned open pool applications available to be picked up
+                // STRICT FILTER: Only show clients who came through "Incorporate Now" (new sign up) and are unassigned.
+                // Exclude all existing migrated clients!
                 staffData.openApplications = allApps.filter(app => {
-                    const assignedName = (app.staff || '').trim().toLowerCase();
+                    if (isExistingMigratedClient(app)) return false;
+
+                    const assignedName = (app.staff || app.assignedStaffName || '').trim().toLowerCase();
                     const isUnassigned = !assignedName || assignedName === 'unassigned' || !app.assignedStaffId;
                     const st = (app.status || '').toLowerCase();
-                    return isUnassigned && !st.includes('completed') && !st.includes('rejected');
+
+                    // Must be unassigned and pending / under review / new (exclude already completed, approved, rejected)
+                    return isUnassigned && !st.includes('completed') && !st.includes('rejected') && !st.includes('approved');
                 });
                 staffData.allApps = allApps;
 
@@ -4792,16 +4857,18 @@
                 const q = searchInput.value.trim().toLowerCase();
                 list = list.filter(a => {
                     const id = (a.id || '').toLowerCase();
+                    const rawId = (a.rawId || '').toLowerCase();
+                    const dispId = getDisplayAppId(a).toLowerCase();
                     const biz = (a.business || '').toLowerCase();
                     const cl = (a.client || '').toLowerCase();
                     const st = (a.status || '').toLowerCase();
-                    return id.includes(q) || biz.includes(q) || cl.includes(q) || st.includes(q);
+                    return id.includes(q) || rawId.includes(q) || dispId.includes(q) || biz.includes(q) || cl.includes(q) || st.includes(q);
                 });
             }
 
             if (list.length === 0) {
                 const emptyMsg = currentStaffAppTab === 'available'
-                    ? 'No open applications in queue. All applications have been picked up!'
+                    ? 'No new incorporation applications available in the queue. All new signups have been picked up!'
                     : (currentStaffAppTab === 'my'
                         ? 'No applications currently assigned to you. Check the "Available to Pick Up" tab to claim new work!'
                         : 'No applications found.');
@@ -4821,7 +4888,7 @@
                     statusCell = `<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 uppercase">Available</span>`;
                 } else if (isAssignedToMe) {
                     statusCell = `
-                        <select class="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-600 focus:outline-none w-full" onchange="updateAppStatus('${app.id}', this.value)">
+                        <select class="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-600 focus:outline-none w-full" onchange="updateAppStatus('${app.rawId || app.id}', this.value)">
                             <option ${(app.status || '').toLowerCase() === 'new' ? 'selected' : ''}>New</option>
                             <option ${(app.status || '').toLowerCase() === 'in progress' ? 'selected' : ''}>In Progress</option>
                             <option ${(app.status || '').toLowerCase() === 'submitted to acra' ? 'selected' : ''}>Submitted to ACRA</option>
@@ -4845,13 +4912,13 @@
                 if (isUnassigned) {
                     actionsCell = `
                         <div class="flex items-center justify-center gap-1.5">
-                            <button onclick="pickupApplication('${app.id}')" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer">
+                            <button onclick="pickupApplication('${app.rawId || app.id}')" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer">
                                 <i data-lucide="hand-metal" class="w-3.5 h-3.5"></i> Pick Up & Start
                             </button>
-                            <button onclick="syncApplicationToComplianceBox('${app.id}', this)" class="p-2 ${cbBtnClass} rounded-xl transition-all cursor-pointer" title="${cbBtnTitle}">
+                            <button onclick="syncApplicationToComplianceBox('${app.rawId || app.id}', this)" class="p-2 ${cbBtnClass} rounded-xl transition-all cursor-pointer" title="${cbBtnTitle}">
                                 <i data-lucide="${isCbSynced ? 'check-check' : 'cloud-upload'}" class="w-3.5 h-3.5"></i>
                             </button>
-                            <button onclick="openDetail('${app.id}')" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all" title="Inspect Application">
+                            <button onclick="openDetail('${app.rawId || app.id}')" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all" title="Inspect Application">
                                 <i data-lucide="eye" class="w-3.5 h-3.5"></i>
                             </button>
                         </div>
@@ -4859,23 +4926,24 @@
                 } else {
                     actionsCell = `
                         <div class="flex items-center justify-center gap-1.5">
-                            <button onclick="syncApplicationToComplianceBox('${app.id}', this)" class="p-2 ${cbBtnClass} rounded-lg transition-colors cursor-pointer" title="${cbBtnTitle}">
+                            <button onclick="syncApplicationToComplianceBox('${app.rawId || app.id}', this)" class="p-2 ${cbBtnClass} rounded-lg transition-colors cursor-pointer" title="${cbBtnTitle}">
                                 <i data-lucide="${isCbSynced ? 'check-check' : 'cloud-upload'}" class="w-3.5 h-3.5"></i>
                             </button>
                             <button onclick="switchTab('messages'); ${app.clientId ? `fetchConversations().then(() => selectConversation('${app.clientId}', '${app.client || 'Client'}'))` : ''}" class="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors" title="Send Update">
                                 <i data-lucide="send" class="w-3.5 h-3.5"></i>
                             </button>
-                            <button onclick="openDetail('${app.id}'); switchDetailTab('documents');" class="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors" title="Manage Documents">
+                            <button onclick="openDetail('${app.rawId || app.id}'); switchDetailTab('documents');" class="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors" title="Manage Documents">
                                 <i data-lucide="file-plus" class="w-3.5 h-3.5"></i>
                             </button>
                         </div>
                     `;
                 }
 
+                const displayAppId = getDisplayAppId(app);
                 return `
                 <tr class="hover:bg-slate-50/50 transition-colors">
                     <td class="px-6 py-5">
-                        <span class="text-xs font-bold text-blue-600 cursor-pointer hover:underline" onclick="openDetail('${app.id}')">${app.id}</span>
+                        <span class="text-xs font-bold text-blue-600 cursor-pointer hover:underline" onclick="openDetail('${app.rawId || app.id}')">${displayAppId}</span>
                         ${isCbSynced ? '<div class="mt-1"><span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">CB Synced</span></div>' : ''}
                     </td>
                     <td class="px-6 py-5">
@@ -6791,14 +6859,15 @@
         }
 
         async function openDetail(id) {
-            currentClientId = id;
-            const app = (staffData.applications || []).find(a => a.id === id) || 
-                        (staffData.openApplications || []).find(a => a.id === id) || 
-                        (staffData.allApps || []).find(a => a.id === id);
+            const app = (staffData.applications || []).find(a => a.id === id || a.rawId === id || a.applicationId === id || a.applicationReferenceNo === id || a.mongoId === id) || 
+                        (staffData.openApplications || []).find(a => a.id === id || a.rawId === id || a.applicationId === id || a.applicationReferenceNo === id || a.mongoId === id) || 
+                        (staffData.allApps || []).find(a => a.id === id || a.rawId === id || a.applicationId === id || a.applicationReferenceNo === id || a.mongoId === id);
             if (!app) return;
+            currentClientId = app.rawId || app.id;
             
-            document.getElementById('detail-client-name').innerText = app.client || 'Client';
-            document.getElementById('detail-subtitle').innerText = `Incorporation Application • ${app.id}`;
+            const displayId = getDisplayAppId(app);
+            document.getElementById('detail-client-name').innerText = app.business || app.client || 'Client';
+            document.getElementById('detail-subtitle').innerText = `Incorporation Application • ${displayId}`;
             
             const badge = document.getElementById('detail-badge');
             badge.innerText = app.status || 'Pending';
@@ -6852,9 +6921,9 @@
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.innerText.toLowerCase() === tab || (tab === 'aml' && btn.innerText.toLowerCase() === 'aml review')));
             const content = document.getElementById('detail-content');
             
-            const app = (staffData.applications || []).find(a => a.id === currentClientId) ||
-                        (staffData.openApplications || []).find(a => a.id === currentClientId) ||
-                        (staffData.allApps || []).find(a => a.id === currentClientId);
+            const app = (staffData.applications || []).find(a => a.id === currentClientId || a.rawId === currentClientId || a.applicationId === currentClientId || a.mongoId === currentClientId) ||
+                        (staffData.openApplications || []).find(a => a.id === currentClientId || a.rawId === currentClientId || a.applicationId === currentClientId || a.mongoId === currentClientId) ||
+                        (staffData.allApps || []).find(a => a.id === currentClientId || a.rawId === currentClientId || a.applicationId === currentClientId || a.mongoId === currentClientId);
             if (!app) return;
 
             if (tab === 'aml') {
@@ -7508,11 +7577,12 @@
             container.innerHTML = activeApps.map(app => {
                 const priorityClass = getPriorityClass(app.priority);
                 const statusClass = (app.status || '').toLowerCase() === 'in progress' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-slate-100 text-slate-500';
+                const displayId = getDisplayAppId(app);
                 return `
-                    <div class="app-card flex items-center justify-between p-4" onclick="openDetail('${app.id}')">
+                    <div class="app-card flex items-center justify-between p-4" onclick="openDetail('${app.rawId || app.id}')">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center font-bold text-xs">
-                                ${app.id.replace('APP-', '')}
+                                ${displayId.replace('APP-', '')}
                             </div>
                             <div>
                                 <div class="text-sm font-bold text-slate-800">${app.business || 'N/A'}</div>
