@@ -1783,10 +1783,7 @@
                 <!-- Panel 1: Left Navigation & Filters (col-span-2) -->
                 <div class="col-span-2 bg-white border border-slate-200/80 rounded-3xl p-4 flex flex-col gap-1 shadow-sm shrink-0 overflow-y-auto">
                     <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">Workspace</div>
-                    <button onclick="setWorkspaceFilter('all')" id="ws-all" class="ws-filter-btn active flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left border-0 bg-transparent cursor-pointer">
-                        <i data-lucide="message-square" class="w-4 h-4 text-slate-400 shrink-0"></i> All Messages
-                    </button>
-                    <button onclick="setWorkspaceFilter('dms')" id="ws-dms" class="ws-filter-btn flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left border-0 bg-transparent cursor-pointer">
+                    <button onclick="setWorkspaceFilter('dms')" id="ws-dms" class="ws-filter-btn active flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left border-0 bg-transparent cursor-pointer">
                         <i data-lucide="user" class="w-4 h-4 text-slate-400 shrink-0"></i> Direct Messages
                     </button>
                     <div id="ws-groups" class="ws-filter-btn flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left cursor-pointer" onclick="setWorkspaceFilter('groups')">
@@ -1857,10 +1854,10 @@
 
                     <!-- Right Information Panel -->
                     <div id="right-info-panel" class="w-80 h-full border-l border-slate-100 bg-slate-50/40 flex flex-col hidden transition-all duration-300 overflow-y-auto">
-                        <!-- Content injected dynamically -->
                     </div>
                 </div>
             </div>
+        </div>
     </main>
 
     <!-- Detail Slide-over (Matching Admin Panel) -->
@@ -2674,7 +2671,7 @@
         let socket = null;
         let typingTimeout = null;
         
-        let currentWorkspace = 'all'; // 'all', 'dms', 'groups', 'unread', 'starred', 'calls', 'files', 'archive', 'drafts'
+        let currentWorkspace = 'dms'; // 'dms', 'groups', 'unread', 'starred', 'calls', 'files', 'archive', 'drafts'
         let chatSearchQuery = '';
         let roleFilter = 'all';
         let sortBy = 'recent';
@@ -2868,7 +2865,7 @@
                             id: chatId,
                             realUserId: u.id,
                             name: u.name,
-                            role: isClient ? 'client' : u.role.toLowerCase(),
+                            role: isClient ? 'client' : (u.role ? u.role.toLowerCase() : 'staff'),
                             companyName: u.email || 'Registered Contact',
                             applicationId: isClient ? 'Client Portal' : 'Internal Portal',
                             lastMessage: 'No messages yet - Click to start conversation',
@@ -2884,28 +2881,6 @@
                         });
                     }
                 });
-
-                // Fetch latest messages from DB for channels and DMs to populate last message metadata accurately
-                for (let item of list) {
-                    try {
-                        const msgRes = await fetch(`/api/messages?clientId=${item.id}`);
-                        if (msgRes.ok) {
-                            const messages = await msgRes.json();
-                            if (messages.length > 0) {
-                                const last = messages[messages.length - 1];
-                                item.lastMessage = parseMessageTextOnly(last.text);
-                                item.lastMessageTime = last.timestamp;
-                                
-                                // Parse attachment
-                                const payload = parseMessageText(last.text);
-                                item.hasAttachment = payload.attachments && payload.attachments.length > 0;
-                                
-                                // Calculate accurate unread counts
-                                item.unreadCount = messages.filter(m => m.senderId !== myId && !m.isRead).length;
-                            }
-                        }
-                    } catch(e){}
-                }
 
                 // --- Apply Workspace Filters ---
                 const archivedList = JSON.parse(localStorage.getItem('archived_' + myId) || '[]');
@@ -2923,7 +2898,7 @@
                 } else if (currentWorkspace === 'groups') {
                     list = list.filter(item => item.isGroup);
                 } else if (currentWorkspace === 'unread') {
-                    list = list.filter(item => item.unreadCount > 0);
+                    list = list.filter(item => (item.unreadCount || 0) > 0);
                 } else if (currentWorkspace === 'drafts') {
                     list = list.filter(item => item.hasDraft);
                 } else if (currentWorkspace === 'starred') {
@@ -2933,16 +2908,16 @@
                 // --- Apply Search Filters ---
                 if (chatSearchQuery) {
                     list = list.filter(item => 
-                        item.name.toLowerCase().includes(chatSearchQuery) ||
-                        item.companyName.toLowerCase().includes(chatSearchQuery) ||
-                        item.lastMessage.toLowerCase().includes(chatSearchQuery) ||
-                        item.applicationId.toLowerCase().includes(chatSearchQuery)
+                        (item.name || '').toLowerCase().includes(chatSearchQuery) ||
+                        (item.companyName || '').toLowerCase().includes(chatSearchQuery) ||
+                        (item.lastMessage || '').toLowerCase().includes(chatSearchQuery) ||
+                        (item.applicationId || '').toLowerCase().includes(chatSearchQuery)
                     );
                 }
 
                 // --- Apply Role Filter ---
                 if (roleFilter !== 'all') {
-                    list = list.filter(item => item.role === roleFilter);
+                    list = list.filter(item => item.role && item.role.toLowerCase() === roleFilter.toLowerCase());
                 }
 
                 // --- Apply Sorting ---
@@ -2963,9 +2938,9 @@
                         const prioWeight = { 'High': 3, 'Normal': 2, 'Medium': 2, 'Low': 1 };
                         return (prioWeight[b.priority] || 0) - (prioWeight[a.priority] || 0);
                     } else if (sortBy === 'name') {
-                        return a.name.localeCompare(b.name);
+                        return (a.name || '').localeCompare(b.name || '');
                     } else {
-                        return b.lastMessageTime - a.lastMessageTime;
+                        return (b.lastMessageTime || 0) - (a.lastMessageTime || 0);
                     }
                 });
 
@@ -3029,7 +3004,8 @@
 
                 return `
                     <div class="p-4 border-b border-slate-100 hover:bg-slate-50/50 cursor-pointer transition-all relative flex flex-col gap-1.5 ${activeSelection ? 'bg-emerald-50/40 border-l-4 border-l-emerald-600' : ''}" 
-                        onclick="handleSelectConversation('${c.id}', '${c.name}', ${c.isGroup})">
+                        data-chat-name="${(c.name || '').replace(/"/g, '&quot;')}"
+                        onclick="handleSelectConversation('${c.id}', this.getAttribute('data-chat-name'), ${c.isGroup})">
                         <div class="flex justify-between items-start">
                             <div class="flex items-center gap-2.5 min-w-0">
                                 <div class="relative shrink-0">

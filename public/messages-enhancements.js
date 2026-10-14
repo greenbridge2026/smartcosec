@@ -833,7 +833,7 @@ class VoiceRecorderService {
 window.VoiceRecorder = new VoiceRecorderService();
 
 window.categorizeFile = function(fileName, fileType) {
-    const nameLower = fileName.toLowerCase();
+    const nameLower = (fileName || '').toLowerCase();
     const typeLower = (fileType || '').toLowerCase();
     
     if (nameLower.includes('passport')) {
