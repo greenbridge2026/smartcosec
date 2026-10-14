@@ -1786,10 +1786,14 @@
                     <button onclick="setWorkspaceFilter('dms')" id="ws-dms" class="ws-filter-btn active flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left border-0 bg-transparent cursor-pointer">
                         <i data-lucide="user" class="w-4 h-4 text-slate-400 shrink-0"></i> Direct Messages
                     </button>
-                    <div id="ws-groups" class="ws-filter-btn flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left cursor-pointer" onclick="setWorkspaceFilter('groups')">
-                        <span class="flex items-center gap-3"><i data-lucide="users" class="w-4 h-4 text-slate-400 shrink-0"></i> Groups & Channels</span>
-                        <button onclick="event.stopPropagation(); showCreateGroupModal();" class="p-1 hover:bg-emerald-100 rounded-lg text-slate-400 hover:text-emerald-700 transition-colors border-0 bg-transparent cursor-pointer" title="Create Group Channel">
-                            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                    <div id="ws-groups" class="ws-filter-btn flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left cursor-pointer" onclick="setWorkspaceFilter('groups')">
+                        <span class="flex items-center gap-2.5">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            <span>Groups & Channels</span>
+                        </span>
+                        <button onclick="event.stopPropagation(); showCreateGroupModal();" class="px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-md text-[10px] font-bold transition-all border-0 cursor-pointer flex items-center gap-1 shadow-2xs" title="Create Group Channel">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            <span>+ New</span>
                         </button>
                     </div>
                     <button onclick="setWorkspaceFilter('unread')" id="ws-unread" class="ws-filter-btn flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left justify-between border-0 bg-transparent cursor-pointer">
@@ -1815,9 +1819,15 @@
                 <div class="col-span-3 bg-white border border-slate-200/80 rounded-3xl overflow-hidden flex flex-col shadow-sm">
                     <!-- Search & Filter Area -->
                     <div class="p-3 border-b border-slate-100 bg-slate-50/30 flex flex-col gap-2 shrink-0">
-                        <div class="relative">
-                            <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                            <input type="text" id="chat-search" oninput="handleSearch(this.value)" placeholder="Search workspace..." class="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/10">
+                        <div class="flex items-center gap-2">
+                            <div class="relative flex-1">
+                                <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                <input type="text" id="chat-search" oninput="handleSearch(this.value)" placeholder="Search workspace..." class="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/10">
+                            </div>
+                            <button onclick="showCreateGroupModal()" class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer border-0" title="Create Group or Channel">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                <span>+ Channel</span>
+                            </button>
                         </div>
                         <div class="flex gap-2 justify-between">
                             <select id="filter-role" onchange="handleRoleFilter(this.value)" class="text-[10px] font-bold text-slate-500 bg-white border border-slate-200 rounded px-1.5 py-1 focus:outline-none">
@@ -2916,7 +2926,7 @@
                 }
 
                 // --- Apply Role Filter ---
-                if (roleFilter !== 'all') {
+                if (roleFilter !== 'all' && currentWorkspace !== 'groups') {
                     list = list.filter(item => item.role && item.role.toLowerCase() === roleFilter.toLowerCase());
                 }
 
@@ -3043,7 +3053,19 @@
                         </div>
                     </div>
                 `;
-            }).join('') || '<div class="p-20 text-center text-slate-400 text-xs">No conversations found</div>';
+            }).join('') || (currentWorkspace === 'groups' ? `
+                <div class="p-8 text-center flex flex-col items-center justify-center">
+                    <div class="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <div class="font-bold text-slate-800 text-sm mb-1">No channels yet</div>
+                    <p class="text-xs text-slate-400 mb-4 max-w-[200px] leading-relaxed">Create a group channel to collaborate with team members and clients.</p>
+                    <button onclick="showCreateGroupModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer border-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        <span>+ Create Channel</span>
+                    </button>
+                </div>
+            ` : '<div class="p-20 text-center text-slate-400 text-xs">No conversations found</div>');
             
             if (window.lucide) window.lucide.createIcons();
         }
