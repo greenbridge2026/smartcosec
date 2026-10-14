@@ -135,10 +135,7 @@
                 <!-- Panel 1: Left Navigation & Filters (col-span-2) -->
                 <div class="col-span-2 bg-white border border-slate-200/80 rounded-3xl p-4 flex flex-col gap-1 shadow-sm shrink-0 overflow-y-auto">
                     <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">Workspace</div>
-                    <button onclick="setWorkspaceFilter('all')" id="ws-all" class="ws-filter-btn active flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left">
-                        <i data-lucide="message-square" class="w-4 h-4 text-slate-400 shrink-0"></i> All Messages
-                    </button>
-                    <button onclick="setWorkspaceFilter('dms')" id="ws-dms" class="ws-filter-btn flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left">
+                    <button onclick="setWorkspaceFilter('dms')" id="ws-dms" class="ws-filter-btn active flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left">
                         <i data-lucide="user" class="w-4 h-4 text-slate-400 shrink-0"></i> Direct Messages
                     </button>
                     <div id="ws-groups" class="ws-filter-btn flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all text-left cursor-pointer" onclick="setWorkspaceFilter('groups')">
@@ -179,9 +176,13 @@
                                 <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
                                 <input type="text" id="chat-search" oninput="handleSearch(this.value)" placeholder="Search conversations..." class="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/10">
                             </div>
-                            <button onclick="openNewChatModal()" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 transition-all shadow-sm cursor-pointer border-0" title="Start new conversation with client">
-                                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-                                <span>New</span>
+                            <button onclick="showCreateGroupModal()" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer border-0" title="Create Group or Channel">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                <span>+ Channel</span>
+                            </button>
+                            <button onclick="openNewChatModal()" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 transition-all shadow-xs cursor-pointer border-0" title="Start new conversation with client">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                <span>New DM</span>
                             </button>
                         </div>
                         <div class="flex gap-2 justify-between">
@@ -254,7 +255,7 @@
         let socket = null;
         let typingTimeout = null;
         
-        let currentWorkspace = 'all'; // 'all', 'dms', 'groups', 'unread', 'starred', 'calls', 'files', 'archive', 'drafts'
+        let currentWorkspace = 'dms'; // 'dms', 'groups', 'unread', 'starred', 'calls', 'files', 'archive', 'drafts'
         let chatSearchQuery = '';
         let roleFilter = 'all';
         let sortBy = 'recent';
@@ -473,30 +474,6 @@
                     }
                 });
 
-                // Fetch latest messages in parallel only for items requiring metadata updates
-                await Promise.all(list.map(async (item) => {
-                    // Skip redundant network call if conversation metadata is already loaded from backend
-                    if (item.lastMessageTime && item.lastMessageTime > 0) return;
-                    try {
-                        const msgRes = await fetch(`/api/messages?clientId=${item.id}`);
-                        if (msgRes.ok) {
-                            const messages = await msgRes.json();
-                            if (messages.length > 0) {
-                                const last = messages[messages.length - 1];
-                                item.lastMessage = parseMessageTextOnly(last.text);
-                                item.lastMessageTime = last.timestamp;
-                                
-                                // Parse attachment
-                                const payload = parseMessageText(last.text);
-                                item.hasAttachment = payload.attachments && payload.attachments.length > 0;
-                                
-                                // Calculate accurate unread counts
-                                item.unreadCount = messages.filter(m => m.senderId !== myId && !m.isRead).length;
-                            }
-                        }
-                    } catch(e){}
-                }));
-
                 // --- Apply Workspace Filters ---
                 const archivedList = JSON.parse(localStorage.getItem('archived_' + myId) || '[]');
                 const favoriteList = JSON.parse(localStorage.getItem('favorites_' + myId) || '[]');
@@ -513,7 +490,7 @@
                 } else if (currentWorkspace === 'groups') {
                     list = list.filter(item => item.isGroup);
                 } else if (currentWorkspace === 'unread') {
-                    list = list.filter(item => item.unreadCount > 0);
+                    list = list.filter(item => (item.unreadCount || 0) > 0);
                 } else if (currentWorkspace === 'drafts') {
                     list = list.filter(item => item.hasDraft);
                 } else if (currentWorkspace === 'starred') {
@@ -523,16 +500,16 @@
                 // --- Apply Search Filters ---
                 if (chatSearchQuery) {
                     list = list.filter(item => 
-                        item.name.toLowerCase().includes(chatSearchQuery) ||
-                        item.companyName.toLowerCase().includes(chatSearchQuery) ||
-                        item.lastMessage.toLowerCase().includes(chatSearchQuery) ||
-                        item.applicationId.toLowerCase().includes(chatSearchQuery)
+                        (item.name || '').toLowerCase().includes(chatSearchQuery) ||
+                        (item.companyName || '').toLowerCase().includes(chatSearchQuery) ||
+                        (item.lastMessage || '').toLowerCase().includes(chatSearchQuery) ||
+                        (item.applicationId || '').toLowerCase().includes(chatSearchQuery)
                     );
                 }
 
                 // --- Apply Role Filter ---
-                if (roleFilter !== 'all') {
-                    list = list.filter(item => item.role === roleFilter);
+                if (roleFilter !== 'all' && currentWorkspace !== 'groups') {
+                    list = list.filter(item => item.role && item.role.toLowerCase() === roleFilter.toLowerCase());
                 }
 
                 // --- Apply Sorting ---
@@ -553,9 +530,9 @@
                         const prioWeight = { 'High': 3, 'Normal': 2, 'Medium': 2, 'Low': 1 };
                         return (prioWeight[b.priority] || 0) - (prioWeight[a.priority] || 0);
                     } else if (sortBy === 'name') {
-                        return a.name.localeCompare(b.name);
+                        return (a.name || '').localeCompare(b.name || '');
                     } else {
-                        return b.lastMessageTime - a.lastMessageTime;
+                        return (b.lastMessageTime || 0) - (a.lastMessageTime || 0);
                     }
                 });
 
@@ -616,12 +593,13 @@
 
                 return `
                     <div class="p-4 border-b border-slate-100 hover:bg-slate-50/50 cursor-pointer transition-all relative flex flex-col gap-1.5 ${activeSelection ? 'bg-blue-50/40 border-l-4 border-l-blue-600' : ''}" 
-                        onclick="handleSelectConversation('${c.id}', '${c.name}', ${c.isGroup})">
+                        data-chat-name="${(c.name || '').replace(/"/g, '&quot;')}"
+                        onclick="handleSelectConversation('${c.id}', this.getAttribute('data-chat-name'), ${c.isGroup})">
                         <div class="flex justify-between items-start">
                             <div class="flex items-center gap-2.5 min-w-0">
                                 <div class="relative shrink-0">
                                     <div class="w-9 h-9 rounded-full ${c.isGroup ? 'bg-purple-100 text-purple-600' : 'bg-blue-50 text-blue-600'} flex items-center justify-center font-bold text-xs border border-white">
-                                        ${c.isGroup ? (c.icon || '#') : c.name.charAt(0)}
+                                        ${c.isGroup ? (c.icon || '#') : (c.name || '').charAt(0)}
                                     </div>
                                     ${c.isGroup ? '' : `<span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${statusColor}"></span>`}
                                 </div>
@@ -654,7 +632,19 @@
                         </div>
                     </div>
                 `;
-            }).join('') || '<div class="p-20 text-center text-slate-400 text-xs">No conversations found</div>';
+            }).join('') || (currentWorkspace === 'groups' ? `
+                <div class="p-8 text-center flex flex-col items-center justify-center">
+                    <div class="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <div class="font-bold text-slate-800 text-sm mb-1">No channels yet</div>
+                    <p class="text-xs text-slate-400 mb-4 max-w-[200px] leading-relaxed">Create a group channel to collaborate with team members and clients.</p>
+                    <button onclick="showCreateGroupModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer border-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        <span>+ Create Channel</span>
+                    </button>
+                </div>
+            ` : '<div class="p-20 text-center text-slate-400 text-xs">No conversations found</div>');
             
             if (window.lucide) window.lucide.createIcons();
         }
@@ -1476,7 +1466,7 @@
                 setWorkspaceFilter('groups');
                 handleSelectConversation(clientId, 'Group / Internal Chat', true);
             } else {
-                setWorkspaceFilter('all');
+                setWorkspaceFilter('dms');
                 handleSelectConversation(clientId, 'Client Inquiry', false);
             }
             setTimeout(() => {
@@ -2214,8 +2204,6 @@
             }, 10000);
         });
     </script>
-</body>
-</html>
 
 <!-- ==================== CREATE GROUP / CHANNEL MODAL ==================== -->
 <div id="create-group-modal" class="fixed inset-0 z-[10000] hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
@@ -2544,3 +2532,5 @@
         </div>
     </div>
 </div>
+</body>
+</html>
