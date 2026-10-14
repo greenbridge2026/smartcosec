@@ -3962,7 +3962,54 @@ app.get('/api/tasks/stats', (req, res) => {
 app.get('/api/tasks', (req, res) => {
     const db = getDb();
     let tasks = db.tasks || [];
-    const { status, priority, category, clientId, assignedToId, search } = req.query;
+    const { status, priority, category, clientId, assignedToId, search, completedDays, taskScope, isInternal } = req.query;
+
+    const days = completedDays !== undefined ? parseInt(completedDays, 10) : 7;
+    if (!isNaN(days) && days > 0) {
+        const cutoff = Date.now() - (days * 86400000);
+        tasks = tasks.filter(t => {
+            const st = (t.status || '').toUpperCase();
+            if (['COMPLETED', 'RESOLVED', 'LODGED', 'CANCELLED', 'CLOSED'].includes(st)) {
+                let taskTime = t.resolvedAt;
+                if (!taskTime && Array.isArray(t.activityLog)) {
+                    for (let i = t.activityLog.length - 1; i >= 0; i--) {
+                        const log = t.activityLog[i];
+                        if (log && log.timestamp && log.action === 'STATUS_CHANGED') {
+                            const details = (log.details || '').toUpperCase();
+                            if (details.includes('COMPLETED') || details.includes('LODGED') || details.includes('RESOLVED') || details.includes('CANCELLED')) {
+                                taskTime = log.timestamp;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (!taskTime && t.dueDate) {
+                    const parsedDue = new Date(t.dueDate).getTime();
+                    if (!isNaN(parsedDue)) taskTime = parsedDue;
+                }
+                if (!taskTime) {
+                    taskTime = t.createdAt;
+                }
+                if (taskTime && taskTime < cutoff) {
+                    return false;
+                }
+            }
+            return true;
+        });
+    }
+
+    if (taskScope && taskScope !== 'ALL') {
+        const isInternalTask = (t) => Boolean(t.isInternal || (t.taskScope || '').toUpperCase() === 'INTERNAL');
+        if (taskScope.toUpperCase() === 'INTERNAL') {
+            tasks = tasks.filter(t => isInternalTask(t));
+        } else if (taskScope.toUpperCase() === 'CLIENT') {
+            tasks = tasks.filter(t => !isInternalTask(t));
+        }
+    }
+    if (isInternal !== undefined) {
+        const isInternalBool = isInternal === 'true' || isInternal === true;
+        tasks = tasks.filter(t => Boolean(t.isInternal || (t.taskScope || '').toUpperCase() === 'INTERNAL') === isInternalBool);
+    }
 
     if (status && status !== 'ALL') {
         tasks = tasks.filter(t => (t.status || '').toUpperCase() === status.toUpperCase());

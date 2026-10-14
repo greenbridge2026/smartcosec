@@ -276,6 +276,7 @@
                         <option value="WAITING_CLIENT_INPUT">Waiting Client Input</option>
                         <option value="UNDER_REVIEW">Under Review</option>
                         <option value="COMPLETED">Completed</option>
+                        <option value="LODGED">Lodged</option>
                         <option value="CANCELLED">Cancelled</option>
                     </select>
                     <!-- Priority Filter -->
@@ -517,7 +518,7 @@
                 <div class="flex items-center justify-between pb-2 border-b border-slate-200 gap-2">
                     <div class="flex items-center gap-2 shrink-0">
                         <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                        <span class="text-xs font-bold text-slate-800">Completed & Resolved</span>
+                        <span class="text-xs font-bold text-slate-800">Completed & Lodged</span>
                     </div>
                     <div class="flex items-center gap-1.5">
                         <select id="admin-completed-days-select" onchange="changeAdminCompletedDays(this.value)" class="text-[10px] font-bold bg-white hover:bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 text-slate-700 outline-none cursor-pointer focus:ring-1 focus:ring-emerald-500 transition-all shadow-2xs" title="Filter completed tasks by period">
@@ -1495,8 +1496,51 @@
             }
         }
 
+        function isTaskCompletedWithinDays(t, daysStr) {
+            if (!daysStr || daysStr === '0') return true;
+            const days = parseInt(daysStr, 10);
+            if (isNaN(days) || days <= 0) return true;
+
+            const st = (t.status || '').toUpperCase();
+            if (!['COMPLETED', 'RESOLVED', 'LODGED', 'CANCELLED', 'CLOSED'].includes(st)) {
+                return true;
+            }
+
+            const cutoff = Date.now() - (days * 24 * 60 * 60 * 1000);
+            let taskTime = t.resolvedAt;
+            if (!taskTime && Array.isArray(t.activityLog)) {
+                for (let i = t.activityLog.length - 1; i >= 0; i--) {
+                    const log = t.activityLog[i];
+                    if (log && log.timestamp && log.action === 'STATUS_CHANGED') {
+                        const details = (log.details || '').toUpperCase();
+                        if (details.includes('COMPLETED') || details.includes('LODGED') || details.includes('RESOLVED') || details.includes('CANCELLED')) {
+                            taskTime = log.timestamp;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!taskTime && t.dueDate) {
+                const d = parseTaskDueDate(t.dueDate);
+                if (d) taskTime = d.getTime();
+            }
+            if (!taskTime && t.createdAt) {
+                const d = new Date(t.createdAt);
+                if (!isNaN(d.getTime())) taskTime = d.getTime();
+            }
+            if (!taskTime && t.updatedAt) {
+                const d = new Date(t.updatedAt);
+                if (!isNaN(d.getTime())) taskTime = d.getTime();
+            }
+
+            if (taskTime && taskTime < cutoff) {
+                return false;
+            }
+            return true;
+        }
+
         function updateAdminQuickPillCounts() {
-            const list = allTasks || [];
+            const list = (allTasks || []).filter(t => isTaskCompletedWithinDays(t, adminCompletedDays));
             let urgentCount = 0;
             let overdueCount = 0;
             let waitingCount = 0;
@@ -1745,6 +1789,7 @@
             const priorityRank = { 'URGENT': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
 
             let filtered = (allTasks || []).filter(t => {
+                if (!isTaskCompletedWithinDays(t, adminCompletedDays)) return false;
                 const isInternal = Boolean(t.isInternal || (t.taskScope || '').toUpperCase() === 'INTERNAL');
                 const tStatus = (t.status || '').toUpperCase();
                 const tPriority = (t.priority || '').toUpperCase();
@@ -2113,7 +2158,7 @@
             const pending = tasks.filter(t => !t.assignedTo || !t.assignedTo.id || (t.status || '').toUpperCase() === 'PENDING');
             const progress = tasks.filter(t => ['IN_PROGRESS', 'ASSIGNED'].includes((t.status || '').toUpperCase()) && (t.assignedTo && t.assignedTo.id && (t.status || '').toUpperCase() !== 'PENDING'));
             const waiting = tasks.filter(t => ['WAITING_CLIENT_INPUT', 'UNDER_REVIEW'].includes((t.status || '').toUpperCase()));
-            const completed = tasks.filter(t => ['COMPLETED', 'RESOLVED'].includes((t.status || '').toUpperCase()));
+            const completed = tasks.filter(t => ['COMPLETED', 'RESOLVED', 'LODGED', 'CANCELLED'].includes((t.status || '').toUpperCase()) && isTaskCompletedWithinDays(t, adminCompletedDays));
 
             document.getElementById('count-col-pending').innerText = pending.length;
             document.getElementById('count-col-progress').innerText = progress.length;

@@ -5840,8 +5840,51 @@
             }
         }
 
+        function isStaffTaskCompletedWithinDays(t, daysStr) {
+            if (!daysStr || daysStr === '0') return true;
+            const days = parseInt(daysStr, 10);
+            if (isNaN(days) || days <= 0) return true;
+
+            const st = (t.status || '').toUpperCase();
+            if (!['COMPLETED', 'RESOLVED', 'LODGED', 'CANCELLED', 'CLOSED'].includes(st)) {
+                return true;
+            }
+
+            const cutoff = Date.now() - (days * 24 * 60 * 60 * 1000);
+            let taskTime = t.resolvedAt;
+            if (!taskTime && Array.isArray(t.activityLog)) {
+                for (let i = t.activityLog.length - 1; i >= 0; i--) {
+                    const log = t.activityLog[i];
+                    if (log && log.timestamp && log.action === 'STATUS_CHANGED') {
+                        const details = (log.details || '').toUpperCase();
+                        if (details.includes('COMPLETED') || details.includes('LODGED') || details.includes('RESOLVED') || details.includes('CANCELLED')) {
+                            taskTime = log.timestamp;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!taskTime && t.dueDate) {
+                const d = parseStaffTaskDueDate(t.dueDate);
+                if (d) taskTime = d.getTime();
+            }
+            if (!taskTime && t.createdAt) {
+                const d = new Date(t.createdAt);
+                if (!isNaN(d.getTime())) taskTime = d.getTime();
+            }
+            if (!taskTime && t.updatedAt) {
+                const d = new Date(t.updatedAt);
+                if (!isNaN(d.getTime())) taskTime = d.getTime();
+            }
+
+            if (taskTime && taskTime < cutoff) {
+                return false;
+            }
+            return true;
+        }
+
         function updateStaffQuickPillCounts() {
-            const list = staffTaskList || [];
+            const list = (staffTaskList || []).filter(t => isStaffTaskCompletedWithinDays(t, staffCompletedDays));
             let urgentCount = 0;
             let overdueCount = 0;
             let waitingCount = 0;
@@ -5936,7 +5979,7 @@
             const pool = tasks.filter(t => !t.assignedTo || !t.assignedTo.id || (t.status || '').toUpperCase() === 'PENDING');
             const progress = tasks.filter(t => ['IN_PROGRESS', 'ASSIGNED'].includes((t.status || '').toUpperCase()) && (t.assignedTo && t.assignedTo.id && (t.status || '').toUpperCase() !== 'PENDING'));
             const waiting = tasks.filter(t => ['WAITING_CLIENT_INPUT', 'UNDER_REVIEW', 'WAITING'].includes((t.status || '').toUpperCase()));
-            const completed = tasks.filter(t => ['COMPLETED', 'RESOLVED', 'LODGED', 'CANCELLED'].includes((t.status || '').toUpperCase()));
+            const completed = tasks.filter(t => ['COMPLETED', 'RESOLVED', 'LODGED', 'CANCELLED'].includes((t.status || '').toUpperCase()) && isStaffTaskCompletedWithinDays(t, staffCompletedDays));
 
             const elPool = document.getElementById('staff-count-col-pool');
             const elProg = document.getElementById('staff-count-col-progress');
@@ -6008,7 +6051,7 @@
             if (selectEl && selectEl.value !== String(staffCompletedDays)) {
                 selectEl.value = String(staffCompletedDays);
             }
-            const list = staffTaskList || [];
+            const list = (staffTaskList || []).filter(t => isStaffTaskCompletedWithinDays(t, staffCompletedDays));
             const myTasks = list.filter(t => isTaskAssignedToMe(t));
             const clientTasks = list.filter(t => !t.isInternal && (t.taskScope || '').toUpperCase() !== 'INTERNAL');
             const internalTasks = list.filter(t => t.isInternal || (t.taskScope || '').toUpperCase() === 'INTERNAL');
@@ -6069,6 +6112,7 @@
             const priorityRank = { 'URGENT': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
 
             let displayList = baseList.filter(t => {
+                if (!isStaffTaskCompletedWithinDays(t, staffCompletedDays)) return false;
                 const isInternal = Boolean(t.isInternal || (t.taskScope || '').toUpperCase() === 'INTERNAL');
                 const tStatus = (t.status || '').toUpperCase();
                 const tPriority = (t.priority || '').toUpperCase();
