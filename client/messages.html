@@ -309,7 +309,19 @@
         async function fetchUsers() {
             try {
                 const res = await fetch('/api/messages/users');
-                if (res.ok) allUsersList = await res.json();
+                if (res.ok) {
+                    allUsersList = await res.json();
+                    allUsersList.forEach(u => {
+                        if (u.isOnline || (u.status && u.status.toLowerCase() !== 'offline')) {
+                            presenceStatusMap[u.id] = (u.status || 'online').toLowerCase();
+                        } else {
+                            presenceStatusMap[u.id] = 'offline';
+                        }
+                        if (u.lastSeen) {
+                            lastSeenMap[u.id] = u.lastSeen;
+                        }
+                    });
+                }
             } catch(e){}
         }
 
@@ -337,7 +349,8 @@
                 // 1. Support Operations Chat (Direct channel representing myId)
                 const userNotes = localStorage.getItem(`notes_${myId}_${myId}`) || '';
                 const hasDraft = localStorage.getItem(`draft_${myId}_${myId}`);
-                const opsOnline = presenceStatusMap['staff-admin'] === 'online' || presenceStatusMap['admin'] === 'online';
+                const anyStaffOnline = allUsersList.some(u => (u.role === 'ADMIN' || u.role === 'STAFF') && presenceStatusMap[u.id] && presenceStatusMap[u.id] !== 'offline');
+                const opsOnline = anyStaffOnline || presenceStatusMap['staff-admin'] === 'online' || presenceStatusMap['admin'] === 'online';
                 
                 list.push({
                     id: myId,
@@ -1739,46 +1752,93 @@
             }
         }
 
-        function updateHeaderPresenceStatus() {
+        async function updateHeaderPresenceStatus() {
             const statusEl = document.getElementById('chat-header-status');
             if (!statusEl) return;
             
             const activeId = selectedClientId || selectedTeamChatId || myId;
             if (selectedTeamChatId) {
                 statusEl.innerText = 'Shared Channel';
+                statusEl.className = 'text-[9px] text-slate-400 font-bold uppercase tracking-widest';
                 return;
             }
 
             let targetUserId = activeId;
             if (activeId.startsWith('team_chat_')) {
-                targetUserId = activeId.replace('team_chat_', '').replace(myId, '').replace('_', '');
+                const remainder = activeId.substring('team_chat_'.length);
+                if (myId && remainder.startsWith(myId + '_')) {
+                    targetUserId = remainder.substring(myId.length + 1);
+                } else if (myId && remainder.endsWith('_' + myId)) {
+                    targetUserId = remainder.substring(0, remainder.length - myId.length - 1);
+                } else {
+                    const parts = remainder.split('_');
+                    targetUserId = (parts[0] === myId) ? (parts[1] || parts[0]) : parts[0];
+                }
             } else if (activeId.startsWith('chat_')) {
-                targetUserId = activeId.replace('chat_', '').replace(myId, '').replace('_', '');
-            } else if (activeId === myId) {
-                targetUserId = 'staff-admin';
+                const remainder = activeId.substring('chat_'.length);
+                if (myId && remainder.startsWith(myId + '_')) {
+                    targetUserId = remainder.substring(myId.length + 1);
+                } else if (myId && remainder.endsWith('_' + myId)) {
+                    targetUserId = remainder.substring(0, remainder.length - myId.length - 1);
+                } else {
+                    const parts = remainder.split('_');
+                    targetUserId = (parts[0] === myId) ? (parts[1] || parts[0]) : parts[0];
+                }
             }
 
-            const presence = presenceStatusMap[targetUserId] || 'offline';
-            if (presence === 'online') {
-                statusEl.innerText = 'Online';
-                statusEl.className = 'text-[9px] text-emerald-500 font-bold uppercase tracking-widest';
-            } else if (presence === 'away') {
-                statusEl.innerText = 'Away';
-                statusEl.className = 'text-[9px] text-amber-500 font-bold uppercase tracking-widest';
-            } else if (presence === 'busy') {
-                statusEl.innerText = 'Busy';
-                statusEl.className = 'text-[9px] text-red-500 font-bold uppercase tracking-widest';
-            } else {
-                const lastSeenTime = lastSeenMap[targetUserId];
-                if (lastSeenTime) {
-                    const date = new Date(lastSeenTime);
-                    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-                    statusEl.innerText = `Offline (Last seen: ${dateStr} ${timeStr})`;
+            const applyPresenceUI = (presence, lastSeenTime) => {
+                if (presence === 'online') {
+                    statusEl.innerText = 'Online';
+                    statusEl.className = 'text-[9px] text-emerald-500 font-bold uppercase tracking-widest';
+                } else if (presence === 'away') {
+                    statusEl.innerText = 'Away';
+                    statusEl.className = 'text-[9px] text-amber-500 font-bold uppercase tracking-widest';
+                } else if (presence === 'busy') {
+                    statusEl.innerText = 'Busy';
+                    statusEl.className = 'text-[9px] text-red-500 font-bold uppercase tracking-widest';
                 } else {
-                    statusEl.innerText = 'Offline';
+                    if (lastSeenTime) {
+                        const date = new Date(lastSeenTime);
+                        const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                        statusEl.innerText = `Offline (Last seen: ${dateStr} ${timeStr})`;
+                    } else {
+                        statusEl.innerText = 'Offline';
+                    }
+                    statusEl.className = 'text-[9px] text-slate-400 font-bold uppercase tracking-widest';
                 }
-                statusEl.className = 'text-[9px] text-slate-400 font-bold uppercase tracking-widest';
+            };
+
+            if (activeId === myId) {
+                // Support Desk presence
+                const anyStaffOnline = allUsersList.some(u => (u.role === 'ADMIN' || u.role === 'STAFF') && presenceStatusMap[u.id] && presenceStatusMap[u.id] !== 'offline');
+                applyPresenceUI(anyStaffOnline ? 'online' : 'offline', null);
+                try {
+                    const presRes = await fetch('/api/messages/presence?role=support');
+                    if (presRes.ok) {
+                        const presData = await presRes.json();
+                        applyPresenceUI(presData.isOnline ? 'online' : 'offline', presData.lastSeen);
+                    }
+                } catch(e) {}
+            } else {
+                applyPresenceUI(presenceStatusMap[targetUserId] || 'offline', lastSeenMap[targetUserId]);
+                if (targetUserId) {
+                    try {
+                        const presRes = await fetch(`/api/messages/presence?userId=${encodeURIComponent(targetUserId)}`);
+                        if (presRes.ok) {
+                            const presData = await presRes.json();
+                            if (presData.isOnline || (presData.status && presData.status.toLowerCase() !== 'offline')) {
+                                presenceStatusMap[targetUserId] = (presData.status || 'online').toLowerCase();
+                            } else {
+                                presenceStatusMap[targetUserId] = 'offline';
+                            }
+                            if (presData.lastSeen) {
+                                lastSeenMap[targetUserId] = presData.lastSeen;
+                            }
+                            applyPresenceUI(presenceStatusMap[targetUserId], lastSeenMap[targetUserId]);
+                        }
+                    } catch(e) {}
+                }
             }
         }
 

@@ -9835,6 +9835,29 @@ function renderChatMessages(messages) {
                 ticks = `<i data-lucide="check" class="w-3.5 h-3.5 text-slate-300 shrink-0 select-none"></i>`;
             }
         }
+        const parsed = (function(raw) {
+            if (!raw) return { text: '', attachments: [] };
+            if (typeof raw === 'string' && raw.trim().startsWith('{') && raw.trim().endsWith('}')) {
+                try {
+                    const obj = JSON.parse(raw);
+                    return { text: obj.text || '', attachments: obj.attachments || [] };
+                } catch(e) {}
+            }
+            return { text: raw, attachments: [] };
+        })(msg.text);
+
+        const attachmentsHtml = parsed.attachments && parsed.attachments.length > 0 ? `
+            <div class="mt-2 space-y-1">
+                ${parsed.attachments.map(att => `
+                    <div class="flex items-center gap-2 p-1.5 bg-black/5 rounded-lg text-xs">
+                        <i data-lucide="paperclip" class="w-3.5 h-3.5"></i>
+                        <span class="truncate max-w-[150px]">${att.name || 'Attachment'}</span>
+                        ${att.url ? `<a href="${att.url}" target="_blank" download class="underline font-bold ml-auto text-[10px]">Open</a>` : ''}
+                    </div>
+                `).join('')}
+            </div>
+        ` : '';
+
         return `
             <div class="flex ${isMe ? 'justify-end' : 'justify-start'} group">
                 <div class="max-w-[80%] ${isMe ? 'order-1' : 'order-2'}">
@@ -9844,8 +9867,11 @@ function renderChatMessages(messages) {
                     </div>
                     <div class="px-5 py-3 rounded-2xl text-sm ${isMe ? 'bg-blue-600 text-white rounded-tr-none shadow-lg shadow-blue-500/10' : 'bg-white text-slate-700 border border-slate-100 rounded-tl-none shadow-sm'}">
                         <div class="flex items-end gap-3 justify-between">
-                            <span>${msg.text}</span>
-                            <span class="flex items-center select-none">${ticks}</span>
+                            <div class="flex flex-col">
+                                <span>${parsed.text}</span>
+                                ${attachmentsHtml}
+                            </div>
+                            <span class="flex items-center select-none ml-2 shrink-0">${ticks}</span>
                         </div>
                     </div>
                 </div>

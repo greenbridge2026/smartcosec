@@ -12,7 +12,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script>
         localStorage.setItem('current_portal', 'staff');
-        if (!localStorage.getItem('staff_auth')) {
+        const _activeAuth = localStorage.getItem('staff_auth') || localStorage.getItem('admin_auth') || localStorage.getItem('user');
+        if (!_activeAuth) {
             window.location.href = '/staff/index.html';
         }
 
@@ -2126,7 +2127,7 @@
         window.showToast = showToast;
 
         // Read the logged-in staff from auth token
-        const _staffAuth = JSON.parse(localStorage.getItem('staff_auth') || '{}');
+        const _staffAuth = JSON.parse(localStorage.getItem('staff_auth') || localStorage.getItem('admin_auth') || localStorage.getItem('user') || '{}');
         const CURRENT_STAFF_NAME = _staffAuth.name || '';
         const CURRENT_STAFF_EMAIL = _staffAuth.email || '';
         const CURRENT_STAFF_INITIALS = CURRENT_STAFF_NAME.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'ST';
@@ -2759,7 +2760,19 @@
         async function fetchUsers() {
             try {
                 const res = await fetch('/api/messages/users');
-                if (res.ok) allUsersList = await res.json();
+                if (res.ok) {
+                    allUsersList = await res.json();
+                    allUsersList.forEach(u => {
+                        if (u.isOnline || (u.status && u.status.toLowerCase() !== 'offline')) {
+                            presenceStatusMap[u.id] = (u.status || 'online').toLowerCase();
+                        } else {
+                            presenceStatusMap[u.id] = 'offline';
+                        }
+                        if (u.lastSeen) {
+                            lastSeenMap[u.id] = u.lastSeen;
+                        }
+                    });
+                }
             } catch(e){}
             try {
                 const localStaff = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]');
@@ -2791,86 +2804,170 @@
                 // Fetch dynamic channels
                 let dynamicGroups = [];
                 try {
-                    const grpRes = await fetch(`/api/messages/groups?userId=${myId}`);
+                    const grpRes = await fetch(`/api/messages/groups?userId=${encodeURIComponent(myId)}`);
                     if (grpRes.ok) dynamicGroups = await grpRes.json();
                 } catch(e){}
 
-                // Fetch client conversation cards
-                const convRes = await fetch('/api/messages/conversations');
+                // Fetch conversation cards with userId query for complete team and client data
+                const convRes = await fetch(`/api/messages/conversations?userId=${encodeURIComponent(myId)}`);
                 let conversations = [];
                 if (convRes.ok) conversations = await convRes.json();
 
                 // Build a combined conversation model mapping
                 let list = [];
 
-                // 1. Map clients
+                // 1. Map conversations returned from server
                 conversations.forEach(c => {
-                    const clientApp = allApplications.find(a => a.clientId === c.clientId);
-                    const clientUser = allUsersList.find(u => u.id === c.clientId);
-                    const userNotes = localStorage.getItem(`notes_${myId}_${c.clientId}`) || '';
-                    const hasDraft = localStorage.getItem(`draft_${myId}_${c.clientId}`);
-                    if (c.lastSeen) {
-                        lastSeenMap[c.clientId] = c.lastSeen;
+                    const isGroup = c.isGroup || (c.clientId && (c.clientId.startsWith('group-') || c.clientId.startsWith('team_group_')));
+                    const isTeamChat = c.clientId && c.clientId.startsWith('team_chat_');
+
+                    if (isTeamChat) {
+                        let partnerId = c.partnerId;
+                        if (!partnerId) {
+                            const remainder = c.clientId.substring('team_chat_'.length);
+                            if (myId && remainder.startsWith(myId + '_')) {
+                                partnerId = remainder.substring(myId.length + 1);
+                            } else if (myId && remainder.endsWith('_' + myId)) {
+                                partnerId = remainder.substring(0, remainder.length - myId.length - 1);
+                            } else {
+                                const parts = remainder.split('_');
+                                partnerId = (parts[0] === myId) ? (parts[1] || parts[0]) : parts[0];
+                            }
+                        }
+                        const partnerUser = allUsersList.find(u => u.id === partnerId);
+                        const userNotes = localStorage.getItem(`notes_${myId}_${c.clientId}`) || '';
+                        const hasDraft = localStorage.getItem(`draft_${myId}_${c.clientId}`);
+                        const onlineStatus = presenceStatusMap[partnerId] || (c.isOnline ? 'online' : 'offline');
+                        if (c.lastSeen) {
+                            lastSeenMap[partnerId] = c.lastSeen;
+                        }
+
+                        list.push({
+                            id: c.clientId,
+                            realUserId: partnerId,
+                            name: partnerUser ? partnerUser.name : (c.clientName || 'Team Chat'),
+                            role: partnerUser ? (partnerUser.role ? partnerUser.role.toLowerCase() : 'staff') : (c.role || 'staff'),
+                            companyName: partnerUser ? (partnerUser.email || 'Internal Team') : 'Internal Team',
+                            applicationId: 'Internal',
+                            lastMessage: c.lastMessage || 'Direct chat',
+                            lastMessageTime: c.lastMessageTime || 0,
+                            unreadCount: c.unreadCount || 0,
+                            isOnline: onlineStatus === 'online',
+                            presenceStatus: onlineStatus,
+                            lastSeen: c.lastSeen || (partnerUser ? partnerUser.lastSeen : null),
+                            priority: 'Normal',
+                            notes: userNotes,
+                            hasDraft: !!hasDraft,
+                            hasAttachment: c.hasAttachment,
+                            isGroup: false
+                        });
+                    } else if (isGroup) {
+                        const userNotes = localStorage.getItem(`notes_${myId}_${c.clientId}`) || '';
+                        const hasDraft = localStorage.getItem(`draft_${myId}_${c.clientId}`);
+                        const dynamicGroup = dynamicGroups.find(g => g.id === c.clientId);
+
+                        list.push({
+                            id: c.clientId,
+                            name: dynamicGroup ? `# ${dynamicGroup.name}` : (c.clientName || '# Group Channel'),
+                            role: 'group',
+                            companyName: dynamicGroup ? dynamicGroup.description : 'Group Workspace',
+                            applicationId: 'Group',
+                            lastMessage: c.lastMessage || 'Group Chat Workspace',
+                            lastMessageTime: c.lastMessageTime || 0,
+                            unreadCount: c.unreadCount || 0,
+                            isOnline: false,
+                            presenceStatus: 'offline',
+                            lastSeen: null,
+                            priority: 'Normal',
+                            notes: userNotes,
+                            hasDraft: !!hasDraft,
+                            hasAttachment: c.hasAttachment,
+                            isGroup: true,
+                            icon: dynamicGroup ? (dynamicGroup.icon || '💬') : '💬',
+                            createdBy: dynamicGroup ? dynamicGroup.createdBy : null,
+                            memberIds: dynamicGroup ? dynamicGroup.memberIds : []
+                        });
+                    } else {
+                        // Client conversation
+                        const clientApp = allApplications.find(a => a.clientId === c.clientId);
+                        const clientUser = allUsersList.find(u => u.id === c.clientId);
+                        const userNotes = localStorage.getItem(`notes_${myId}_${c.clientId}`) || '';
+                        const hasDraft = localStorage.getItem(`draft_${myId}_${c.clientId}`);
+                        const onlineStatus = presenceStatusMap[c.clientId] || (c.isOnline ? 'online' : 'offline');
+                        if (c.lastSeen) {
+                            lastSeenMap[c.clientId] = c.lastSeen;
+                        }
+
+                        list.push({
+                            id: c.clientId,
+                            realUserId: c.clientId,
+                            name: c.clientName || (clientUser ? clientUser.name : c.clientId),
+                            role: 'client',
+                            companyName: clientApp ? clientApp.business : 'Individual client',
+                            applicationId: clientApp ? clientApp.id : 'N/A',
+                            lastMessage: c.lastMessage,
+                            lastMessageTime: c.lastMessageTime,
+                            unreadCount: c.unreadCount,
+                            isOnline: onlineStatus === 'online',
+                            presenceStatus: onlineStatus,
+                            lastSeen: c.lastSeen,
+                            priority: clientApp ? clientApp.priority : 'Normal',
+                            notes: userNotes,
+                            hasDraft: !!hasDraft,
+                            hasAttachment: c.hasAttachment,
+                            isGroup: false
+                        });
                     }
-                    
-                    list.push({
-                        id: c.clientId,
-                        name: c.clientName,
-                        role: 'client',
-                        companyName: clientApp ? clientApp.business : 'Individual client',
-                        applicationId: clientApp ? clientApp.id : 'N/A',
-                        lastMessage: c.lastMessage,
-                        lastMessageTime: c.lastMessageTime,
-                        unreadCount: c.unreadCount,
-                        isOnline: c.isOnline,
-                        lastSeen: c.lastSeen,
-                        priority: clientApp ? clientApp.priority : 'Normal',
-                        notes: userNotes,
-                        hasDraft: !!hasDraft,
-                        isGroup: false
-                    });
                 });
 
-                // 2. Map group chats/channels
+                // 2. Add dynamic groups not yet in list
                 dynamicGroups.forEach(g => {
-                    const userNotes = localStorage.getItem(`notes_${myId}_${g.id}`) || '';
-                    const hasDraft = localStorage.getItem(`draft_${myId}_${g.id}`);
-                    
-                    list.push({
-                        id: g.id,
-                        name: `# ${g.name}`,
-                        role: 'group',
-                        companyName: g.description || 'Channel Chat',
-                        applicationId: 'Group',
-                        lastMessage: 'Group Chat Workspace',
-                        lastMessageTime: g.createdTime || 0,
-                        unreadCount: 0,
-                        isOnline: false,
-                        lastSeen: null,
-                        priority: 'Normal',
-                        notes: userNotes,
-                        hasDraft: !!hasDraft,
-                        isGroup: true,
-                        icon: g.icon || '💬',
-                        createdBy: g.createdBy,
-                        memberIds: g.memberIds
-                    });
+                    if (!list.some(item => item.id === g.id)) {
+                        const userNotes = localStorage.getItem(`notes_${myId}_${g.id}`) || '';
+                        const hasDraft = localStorage.getItem(`draft_${myId}_${g.id}`);
+
+                        list.push({
+                            id: g.id,
+                            name: `# ${g.name}`,
+                            role: 'group',
+                            companyName: g.description || 'Channel Chat',
+                            applicationId: 'Group',
+                            lastMessage: 'Group Chat Workspace',
+                            lastMessageTime: g.createdTime || 0,
+                            unreadCount: 0,
+                            isOnline: false,
+                            presenceStatus: 'offline',
+                            lastSeen: null,
+                            priority: 'Normal',
+                            notes: userNotes,
+                            hasDraft: !!hasDraft,
+                            isGroup: true,
+                            icon: g.icon || '💬',
+                            createdBy: g.createdBy,
+                            memberIds: g.memberIds
+                        });
+                    }
                 });
 
                 // 3. Map all staff, admin, and client contacts (Direct Messages)
                 allUsersList.forEach(u => {
                     if (u.id === myId) return;
-                    
+
                     const isClient = u.role === 'CLIENT' || u.role === 'USER';
                     const chatId = isClient ? u.id : getOneToOneChatId(myId, u.id);
-                    
+
                     // Check if already in list
-                    const exists = list.some(item => item.id === chatId);
-                    if (!exists) {
+                    const existingIdx = list.findIndex(item => item.id === chatId || (isClient && item.id === u.id));
+                    const onlineStatus = presenceStatusMap[u.id] || (u.isOnline ? (u.status || 'online') : 'offline');
+
+                    if (existingIdx !== -1) {
+                        list[existingIdx].isOnline = onlineStatus === 'online';
+                        list[existingIdx].presenceStatus = onlineStatus;
+                        if (lastSeenMap[u.id]) list[existingIdx].lastSeen = lastSeenMap[u.id];
+                    } else {
                         const userNotes = localStorage.getItem(`notes_${myId}_${chatId}`) || '';
                         const hasDraft = localStorage.getItem(`draft_${myId}_${chatId}`);
-                        const onlineStatus = presenceStatusMap[u.id] || 'offline';
-                        
+
                         list.push({
                             id: chatId,
                             realUserId: u.id,
@@ -2883,7 +2980,7 @@
                             unreadCount: 0,
                             isOnline: onlineStatus === 'online',
                             presenceStatus: onlineStatus,
-                            lastSeen: null,
+                            lastSeen: lastSeenMap[u.id] || null,
                             priority: 'Normal',
                             notes: userNotes,
                             hasDraft: !!hasDraft,
@@ -3575,9 +3672,25 @@
             
             let targetUserId = activeId;
             if (activeId.startsWith('team_chat_')) {
-                targetUserId = activeId.replace('team_chat_', '').replace(myId, '').replace('_', '');
+                const remainder = activeId.substring('team_chat_'.length);
+                if (myId && remainder.startsWith(myId + '_')) {
+                    targetUserId = remainder.substring(myId.length + 1);
+                } else if (myId && remainder.endsWith('_' + myId)) {
+                    targetUserId = remainder.substring(0, remainder.length - myId.length - 1);
+                } else {
+                    const parts = remainder.split('_');
+                    targetUserId = (parts[0] === myId) ? (parts[1] || parts[0]) : parts[0];
+                }
             } else if (activeId.startsWith('chat_')) {
-                targetUserId = activeId.replace('chat_', '').replace(myId, '').replace('_', '');
+                const remainder = activeId.substring('chat_'.length);
+                if (myId && remainder.startsWith(myId + '_')) {
+                    targetUserId = remainder.substring(myId.length + 1);
+                } else if (myId && remainder.endsWith('_' + myId)) {
+                    targetUserId = remainder.substring(0, remainder.length - myId.length - 1);
+                } else {
+                    const parts = remainder.split('_');
+                    targetUserId = (parts[0] === myId) ? (parts[1] || parts[0]) : parts[0];
+                }
             }
             
             const name = selectedTeamChatId ? selectedTeamChatName : document.querySelector(`[onclick*="${selectedClientId}"] h4`)?.innerText.split('\n')[0] || 'Member';
@@ -3604,16 +3717,23 @@
                 const container = document.getElementById('chat-messages');
                 if (!container) return;
 
-                const isMe = (m) => m.senderRole === 'staff' || m.senderId === myId;
+                const isMe = (m) => m.senderId === myId;
                 
                 let starredList = JSON.parse(localStorage.getItem('starred_messages_' + myId) || '[]');
                 const activeId = clientId || selectedClientId || myId;
 
                 // Derive partnerId from conversation id
                 let partnerId = null;
-                if (clientId) {
-                    const parts = clientId.replace('team_chat_','').replace('chat_','').split('_');
-                    partnerId = parts.find(p => p && p !== myId) || null;
+                if (clientId && clientId.startsWith('team_chat_')) {
+                    const remainder = clientId.substring('team_chat_'.length);
+                    if (myId && remainder.startsWith(myId + '_')) {
+                        partnerId = remainder.substring(myId.length + 1);
+                    } else if (myId && remainder.endsWith('_' + myId)) {
+                        partnerId = remainder.substring(0, remainder.length - myId.length - 1);
+                    } else {
+                        const parts = remainder.split('_');
+                        partnerId = (parts[0] === myId) ? (parts[1] || parts[0]) : parts[0];
+                    }
                 }
 
                 // Fetch call history and filter to this conversation's partner
@@ -4220,22 +4340,66 @@
             await fetchMessages(chatId);
         }
 
-        function updateHeaderPresenceStatus() {
+        async function updateHeaderPresenceStatus() {
             const statusEl = document.getElementById('chat-header-status');
             if (!statusEl) return;
             
             const activeId = selectedClientId || selectedTeamChatId;
             if (selectedTeamChatId) {
                 statusEl.innerText = 'Shared Channel';
+                statusEl.className = 'text-[9px] text-slate-400 font-bold uppercase tracking-widest';
                 return;
             }
 
             let targetUserId = activeId;
             if (activeId.startsWith('team_chat_')) {
-                targetUserId = activeId.replace('team_chat_', '').replace(myId, '').replace('_', '');
+                const remainder = activeId.substring('team_chat_'.length);
+                if (myId && remainder.startsWith(myId + '_')) {
+                    targetUserId = remainder.substring(myId.length + 1);
+                } else if (myId && remainder.endsWith('_' + myId)) {
+                    targetUserId = remainder.substring(0, remainder.length - myId.length - 1);
+                } else {
+                    const parts = remainder.split('_');
+                    targetUserId = (parts[0] === myId) ? (parts[1] || parts[0]) : parts[0];
+                }
             } else if (activeId.startsWith('chat_')) {
-                targetUserId = activeId.replace('chat_', '').replace(myId, '').replace('_', '');
+                const remainder = activeId.substring('chat_'.length);
+                if (myId && remainder.startsWith(myId + '_')) {
+                    targetUserId = remainder.substring(myId.length + 1);
+                } else if (myId && remainder.endsWith('_' + myId)) {
+                    targetUserId = remainder.substring(0, remainder.length - myId.length - 1);
+                } else {
+                    const parts = remainder.split('_');
+                    targetUserId = (parts[0] === myId) ? (parts[1] || parts[0]) : parts[0];
+                }
             }
+
+            // Apply existing cached presence first
+            applyPresenceToHeader(targetUserId, statusEl);
+
+            // Fetch live status from backend if targetUserId exists
+            if (targetUserId) {
+                try {
+                    const presRes = await fetch(`/api/messages/presence?userId=${encodeURIComponent(targetUserId)}`);
+                    if (presRes.ok) {
+                        const presData = await presRes.json();
+                        if (presData.isOnline || (presData.status && presData.status.toLowerCase() !== 'offline')) {
+                            presenceStatusMap[targetUserId] = (presData.status || 'online').toLowerCase();
+                        } else {
+                            presenceStatusMap[targetUserId] = 'offline';
+                        }
+                        if (presData.lastSeen) {
+                            lastSeenMap[targetUserId] = presData.lastSeen;
+                        }
+                        applyPresenceToHeader(targetUserId, statusEl);
+                    }
+                } catch(e) {}
+            }
+        }
+
+        function applyPresenceToHeader(targetUserId, statusEl) {
+            if (!statusEl) statusEl = document.getElementById('chat-header-status');
+            if (!statusEl) return;
 
             const presence = presenceStatusMap[targetUserId] || 'offline';
             if (presence === 'online') {
@@ -4371,12 +4535,12 @@
                         }
                     } else if (data.type === 'message') {
                         const m = data.message;
-                        if (selectedTeamChatId === m.clientId) {
+                        if (selectedTeamChatId && (selectedTeamChatId === m.clientId || (typeof m.clientId === 'string' && m.clientId.includes(selectedTeamChatId)))) {
                             fetchTeamMessages(selectedTeamChatId);
                             await markTeamMessagesAsRead(selectedTeamChatId);
-                        } else if (selectedClientId === m.clientId) {
+                        } else if (selectedClientId && (selectedClientId === m.clientId || (typeof m.clientId === 'string' && (m.clientId.includes(selectedClientId) || (selectedClientId.startsWith('team_chat_') && selectedClientId.includes(m.clientId)))))) {
                             fetchMessages(selectedClientId);
-                            if (m.clientId.startsWith('team_chat_')) {
+                            if (selectedClientId.startsWith('team_chat_')) {
                                 await markTeamMessagesAsRead(selectedClientId);
                             } else {
                                 await markAsRead(selectedClientId);
@@ -4387,8 +4551,8 @@
                         const notif = data.notification || data;
                         if (notif && (notif.title || notif.message)) {
                             const isMessageFromMe = notif.type === 'message' && notif.message && notif.message.startsWith(myName + ':');
-                            if (!isMessageFromMe && (notif.clientId === 'all' || notif.clientId === 'staff' || notif.clientId === 'staff-admin' || notif.clientId === myId || 
-                                (typeof notif.clientId === 'string' && notif.clientId.startsWith('team_group_')) ||
+                            if (!isMessageFromMe && (notif.clientId === 'all' || notif.clientId === 'staff' || notif.clientId === 'admin' || notif.clientId === 'staff-admin' || notif.clientId === myId || 
+                                (typeof notif.clientId === 'string' && (notif.clientId.startsWith('group-') || notif.clientId.startsWith('team_group_'))) ||
                                 (typeof notif.clientId === 'string' && notif.clientId.startsWith('chat_') && notif.clientId.includes(myId)) ||
                                 (typeof notif.clientId === 'string' && notif.clientId.startsWith('team_chat_') && notif.clientId.includes(myId)))) {
                                 const exists = notifications.some(n => n.id === notif.id);
@@ -4397,6 +4561,15 @@
                                     renderNotificationsUI();
                                     showToastNotification(notif);
                                 }
+                            }
+
+                            if (notif.type === 'message') {
+                                if (selectedClientId && (notif.relatedId === selectedClientId || notif.clientId === selectedClientId || (typeof notif.clientId === 'string' && notif.clientId.includes(selectedClientId)))) {
+                                    fetchMessages(selectedClientId);
+                                } else if (selectedTeamChatId && (notif.relatedId === selectedTeamChatId || notif.clientId === selectedTeamChatId)) {
+                                    fetchTeamMessages(selectedTeamChatId);
+                                }
+                                fetchConversations();
                             }
 
                             // Auto-refresh tasks view if task-related notification
