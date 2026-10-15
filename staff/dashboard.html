@@ -2131,7 +2131,7 @@
         const CURRENT_STAFF_NAME = _staffAuth.name || '';
         const CURRENT_STAFF_EMAIL = _staffAuth.email || '';
         const CURRENT_STAFF_INITIALS = CURRENT_STAFF_NAME.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'ST';
-        const myId = _staffAuth.id || '';
+        let myId = _staffAuth.id || _staffAuth.userId || _staffAuth._id || (_staffAuth.email ? 'staff-' + _staffAuth.email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '-') : 'staff-member');
         const myName = _staffAuth.name || '';
 
         window.toggleStaffSidebar = function() {
@@ -2318,6 +2318,18 @@
             setInterval(() => {
                 fetchNotifications();
             }, 5000);
+
+            // Auto-refresh active chat in real time as fallback (every 2.5s)
+            setInterval(() => {
+                const activeId = selectedClientId || selectedTeamChatId;
+                if (activeId) {
+                    if (selectedTeamChatId) {
+                        fetchTeamMessages(activeId);
+                    } else {
+                        fetchMessages(activeId);
+                    }
+                }
+            }, 2500);
 
             // React instantly when admin assigns/reassigns in another tab
             // (localStorage 'storage' event fires cross-tab on the same origin)
@@ -2763,15 +2775,21 @@
                 if (res.ok) {
                     allUsersList = await res.json();
                     allUsersList.forEach(u => {
-                        if (u.isOnline || (u.status && u.status.toLowerCase() !== 'offline')) {
-                            presenceStatusMap[u.id] = (u.status || 'online').toLowerCase();
-                        } else {
-                            presenceStatusMap[u.id] = 'offline';
-                        }
+                        const isOnline = !!u.isOnline && (!u.status || u.status.toLowerCase() !== 'offline');
+                        const st = isOnline ? (u.status || 'online').toLowerCase() : 'offline';
+                        if (u.id) presenceStatusMap[u.id] = st;
+                        if (u.email) presenceStatusMap[u.email.toLowerCase().trim()] = st;
                         if (u.lastSeen) {
-                            lastSeenMap[u.id] = u.lastSeen;
+                            if (u.id) lastSeenMap[u.id] = u.lastSeen;
+                            if (u.email) lastSeenMap[u.email.toLowerCase().trim()] = u.lastSeen;
                         }
                     });
+                    if (CURRENT_STAFF_EMAIL) {
+                        const me = allUsersList.find(u => u.email && u.email.toLowerCase().trim() === CURRENT_STAFF_EMAIL.toLowerCase().trim());
+                        if (me && me.id) {
+                            myId = me.id;
+                        }
+                    }
                 }
             } catch(e){}
             try {
@@ -2858,7 +2876,12 @@
                         );
                         const userNotes = localStorage.getItem(`notes_${myId}_${c.clientId}`) || '';
                         const hasDraft = localStorage.getItem(`draft_${myId}_${c.clientId}`);
-                        const onlineStatus = presenceStatusMap[partnerId] || (c.isOnline ? 'online' : 'offline');
+                        let onlineStatus = presenceStatusMap[partnerId];
+                        if (!onlineStatus && partnerUser) {
+                            if (partnerUser.id && presenceStatusMap[partnerUser.id]) onlineStatus = presenceStatusMap[partnerUser.id];
+                            else if (partnerUser.email && presenceStatusMap[partnerUser.email.toLowerCase().trim()]) onlineStatus = presenceStatusMap[partnerUser.email.toLowerCase().trim()];
+                        }
+                        if (!onlineStatus) onlineStatus = (c.isOnline && c.presenceStatus !== 'offline') ? 'online' : 'offline';
                         if (c.lastSeen) {
                             lastSeenMap[partnerId] = c.lastSeen;
                         }
@@ -2994,7 +3017,7 @@
                         if (uName && item.name && item.name.toLowerCase().trim() === uName) return true;
                         return false;
                     });
-                    const onlineStatus = presenceStatusMap[u.id] || (u.isOnline ? (u.status || 'online') : 'offline');
+                    const onlineStatus = presenceStatusMap[u.id] || (u.email && presenceStatusMap[u.email.toLowerCase().trim()]) || (u.isOnline && u.status !== 'offline' ? (u.status || 'online') : 'offline');
 
                     if (existingIdx !== -1) {
                         list[existingIdx].isOnline = onlineStatus === 'online';
@@ -3798,7 +3821,7 @@
                 const container = document.getElementById('chat-messages');
                 if (!container) return;
 
-                const isMe = (m) => m.senderId === myId;
+                const isMe = (m) => m.senderId === myId || (CURRENT_STAFF_EMAIL && m.senderId === CURRENT_STAFF_EMAIL) || (m.senderName && m.senderName === myName);
                 
                 let starredList = JSON.parse(localStorage.getItem('starred_messages_' + myId) || '[]');
                 const activeId = clientId || selectedClientId || myId;
@@ -3833,6 +3856,12 @@
                 // Merge messages + call entries sorted by timestamp
                 const merged = [...messages.map(m => ({ ...m, _type: 'msg' })), ...callEntries]
                     .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+                const rawKey = messages.length + '_' + (messages.length ? messages[messages.length-1].id + '_' + messages[messages.length-1].isRead : '') + '_' + callEntries.length;
+                if (container._lastRenderKey === rawKey) {
+                    return;
+                }
+                container._lastRenderKey = rawKey;
 
                 if (merged.filter(e => e._type === 'msg').length === 0) {
                     container.innerHTML = `<div class="p-10 text-center text-slate-400 text-xs">${starredMessagesOnly ? 'No starred messages in this conversation.' : 'No messages yet. Send a message to start team discussion.'}</div>`;
@@ -3990,7 +4019,8 @@
                 if (res.ok) {
                     const messages = await res.json();
                     for (let m of messages) {
-                        if (m.senderId !== myId && !m.isRead) {
+                        const isMsgFromMe = m.senderId === myId || (CURRENT_STAFF_EMAIL && m.senderId === CURRENT_STAFF_EMAIL) || (m.senderName && m.senderName === myName);
+                        if (!isMsgFromMe && !m.isRead) {
                             await fetch(`/api/messages/${m.id}`, {
                                 method: 'PATCH',
                                 headers: { 'Content-Type': 'application/json' },
@@ -4426,6 +4456,10 @@
             if (!statusEl) return;
             
             const activeId = selectedClientId || selectedTeamChatId;
+            if (!activeId) {
+                statusEl.innerText = '';
+                return;
+            }
             if (selectedTeamChatId) {
                 statusEl.innerText = 'Shared Channel';
                 statusEl.className = 'text-[9px] text-slate-400 font-bold uppercase tracking-widest';
@@ -4455,34 +4489,50 @@
                 }
             }
 
+            const partnerUser = allUsersList.find(u => 
+                (u.id === targetUserId) ||
+                (u.email && targetUserId && u.email.toLowerCase().trim() === targetUserId.toLowerCase().trim()) ||
+                (u.name && targetUserId && u.name.toLowerCase().trim() === targetUserId.toLowerCase().trim())
+            );
+
             // Apply existing cached presence first
-            applyPresenceToHeader(targetUserId, statusEl);
+            applyPresenceToHeader(targetUserId, partnerUser, statusEl);
 
             // Fetch live status from backend if targetUserId exists
             if (targetUserId) {
                 try {
-                    const presRes = await fetch(`/api/messages/presence?userId=${encodeURIComponent(targetUserId)}`);
+                    const queryKey = partnerUser ? (partnerUser.id || partnerUser.email || targetUserId) : targetUserId;
+                    const presRes = await fetch(`/api/messages/presence?userId=${encodeURIComponent(queryKey)}`);
                     if (presRes.ok) {
                         const presData = await presRes.json();
-                        if (presData.isOnline || (presData.status && presData.status.toLowerCase() !== 'offline')) {
-                            presenceStatusMap[targetUserId] = (presData.status || 'online').toLowerCase();
-                        } else {
-                            presenceStatusMap[targetUserId] = 'offline';
+                        const isOnline = !!presData.isOnline && (!presData.status || presData.status.toLowerCase() !== 'offline');
+                        const st = isOnline ? (presData.status || 'online').toLowerCase() : 'offline';
+                        presenceStatusMap[targetUserId] = st;
+                        if (partnerUser) {
+                            if (partnerUser.id) presenceStatusMap[partnerUser.id] = st;
+                            if (partnerUser.email) presenceStatusMap[partnerUser.email.toLowerCase().trim()] = st;
                         }
                         if (presData.lastSeen) {
                             lastSeenMap[targetUserId] = presData.lastSeen;
+                            if (partnerUser && partnerUser.id) lastSeenMap[partnerUser.id] = presData.lastSeen;
                         }
-                        applyPresenceToHeader(targetUserId, statusEl);
+                        applyPresenceToHeader(targetUserId, partnerUser, statusEl);
                     }
                 } catch(e) {}
             }
         }
 
-        function applyPresenceToHeader(targetUserId, statusEl) {
+        function applyPresenceToHeader(targetUserId, partnerUser, statusEl) {
             if (!statusEl) statusEl = document.getElementById('chat-header-status');
             if (!statusEl) return;
 
-            const presence = presenceStatusMap[targetUserId] || 'offline';
+            let presence = presenceStatusMap[targetUserId];
+            if (!presence && partnerUser) {
+                if (partnerUser.id && presenceStatusMap[partnerUser.id]) presence = presenceStatusMap[partnerUser.id];
+                else if (partnerUser.email && presenceStatusMap[partnerUser.email.toLowerCase().trim()]) presence = presenceStatusMap[partnerUser.email.toLowerCase().trim()];
+            }
+            if (!presence) presence = 'offline';
+
             if (presence === 'online') {
                 statusEl.innerText = 'Online';
                 statusEl.className = 'text-[9px] text-emerald-500 font-bold uppercase tracking-widest';
@@ -4493,7 +4543,8 @@
                 statusEl.innerText = 'Busy';
                 statusEl.className = 'text-[9px] text-red-500 font-bold uppercase tracking-widest';
             } else {
-                const lastSeenTime = lastSeenMap[targetUserId];
+                let lastSeenTime = lastSeenMap[targetUserId];
+                if (!lastSeenTime && partnerUser && partnerUser.id) lastSeenTime = lastSeenMap[partnerUser.id];
                 if (lastSeenTime) {
                     statusEl.innerText = `Offline (Last seen: ${formatLastSeen(lastSeenTime)})`;
                 } else {
@@ -4650,6 +4701,7 @@
                         }
                     } else if (data.type === 'message') {
                         const m = data.message;
+                        if (!m) return;
                         const activeId = selectedClientId || selectedTeamChatId;
 
                         function isForCurrentChat(msgClientId) {
@@ -4660,7 +4712,8 @@
                                 const pMsg = msgClientId.substring('team_chat_'.length).split('_').sort().join('_');
                                 if (pActive === pMsg) return true;
                                 const partner = allUsersList.find(u => 
-                                    activeId.includes(u.id) || (u.email && activeId.includes(u.email))
+                                    (u.id !== myId && (!CURRENT_STAFF_EMAIL || (u.email && u.email.toLowerCase() !== CURRENT_STAFF_EMAIL.toLowerCase()))) &&
+                                    (activeId.includes(u.id) || (u.email && activeId.includes(u.email)))
                                 );
                                 if (partner) {
                                     if (msgClientId.includes(partner.id) || (partner.email && msgClientId.includes(partner.email))) return true;
@@ -4674,15 +4727,29 @@
                         if (belongsToActiveChat) {
                             if (selectedTeamChatId) {
                                 fetchTeamMessages(activeId);
-                                await markTeamMessagesAsRead(activeId);
+                                markTeamMessagesAsRead(activeId);
                             } else {
                                 fetchMessages(activeId);
                                 if (activeId.startsWith('team_chat_')) {
-                                    await markTeamMessagesAsRead(activeId);
+                                    markTeamMessagesAsRead(activeId);
                                 } else {
-                                    await markAsRead(activeId);
+                                    markAsRead(activeId);
                                 }
                             }
+                        }
+
+                        // Also auto-populate quick team chat if open
+                        if (typeof currentQuickChatId !== 'undefined' && currentQuickChatId) {
+                            const isQuick = (currentQuickChatId === m.clientId) ||
+                                (currentQuickChatId.startsWith('team_chat_') && m.clientId.startsWith('team_chat_') &&
+                                 currentQuickChatId.substring('team_chat_'.length).split('_').sort().join('_') === m.clientId.substring('team_chat_'.length).split('_').sort().join('_')) ||
+                                currentQuickChatId.includes(m.clientId) || m.clientId.includes(currentQuickChatId);
+                            if (isQuick && typeof fetchQuickMessages === 'function') {
+                                fetchQuickMessages();
+                            }
+                        }
+                        if (typeof updateQuickChatUnreadBadge === 'function') {
+                            updateQuickChatUnreadBadge();
                         }
 
                         // On-time notification toast if message is from another person

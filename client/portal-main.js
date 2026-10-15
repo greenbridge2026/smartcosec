@@ -9526,19 +9526,36 @@ function connectWebSocket() {
     if (!state.user || (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING))) return;
     let wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     let wsHost = window.location.host;
-    socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${encodeURIComponent(state.user.id)}&role=client`);
+    const clientEmail = (state.user && state.user.email) ? state.user.email : '';
+    socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${encodeURIComponent(state.user.id)}&role=client&email=${encodeURIComponent(clientEmail)}`);
 
     socket.onopen = function () {
         wsReconnectDelay = 2000;
+        clearInterval(window.wsPingInterval);
+        window.wsPingInterval = setInterval(() => {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'ping' }));
+            }
+        }, 25000);
     };
 
     socket.onmessage = async function (event) {
         try {
             const data = JSON.parse(event.data);
-            if (data.type === 'presence') {
+            if (data.type === 'pong') {
+                return;
+            } else if (data.type === 'presence') {
                 updateSupportPresence();
             } else if (data.type === 'message') {
-                if (data.message.clientId === state.user.id || (data.message.clientId.startsWith('chat_') && data.message.clientId.includes(state.user.id))) {
+                const m = data.message;
+                const isForMe = m && (
+                    m.clientId === state.user.id ||
+                    (m.clientId && (
+                        m.clientId.includes(state.user.id) ||
+                        (state.user.email && m.clientId.includes(state.user.email))
+                    ))
+                );
+                if (isForMe) {
                     if (state.currentTab === 'messages') {
                         fetchMessages();
                         markAsRead();

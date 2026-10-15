@@ -1936,7 +1936,15 @@
                         function isForCurrentChat(msgClientId) {
                             if (!activeId || !msgClientId) return false;
                             if (activeId === msgClientId) return true;
+                            if (activeId.startsWith('team_chat_') && msgClientId.startsWith('team_chat_')) {
+                                const pActive = activeId.substring('team_chat_'.length).split('_').sort().join('_');
+                                const pMsg = msgClientId.substring('team_chat_'.length).split('_').sort().join('_');
+                                if (pActive === pMsg) return true;
+                            }
                             if (activeId.includes(msgClientId) || msgClientId.includes(activeId)) return true;
+                            if ((myId && msgClientId.includes(myId)) || (clientEmail && msgClientId.includes(clientEmail))) {
+                                if (activeId === myId) return true;
+                            }
                             return false;
                         }
 
@@ -2250,6 +2258,18 @@
                 refreshWorkspace();
                 fetchNotifications();
             }, 6000);
+
+            // Active chat real-time auto-populate fallback (every 2.5s)
+            setInterval(async () => {
+                const activeId = selectedClientId || selectedTeamChatId || myId;
+                if (activeId) {
+                    if (selectedTeamChatId) {
+                        fetchTeamMessages(activeId);
+                    } else {
+                        fetchMessages(activeId);
+                    }
+                }
+            }, 2500);
         });
     </script>
 </body>

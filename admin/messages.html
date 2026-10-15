@@ -2110,6 +2110,7 @@
             if (!statusEl) return;
             
             const activeId = selectedClientId || selectedTeamChatId;
+            if (!activeId) return;
             if (selectedTeamChatId) {
                 statusEl.innerText = 'Shared Channel';
                 statusEl.className = 'text-[9px] text-slate-400 font-bold uppercase tracking-widest';
@@ -2263,7 +2264,8 @@
                                 const pMsg = msgClientId.substring('team_chat_'.length).split('_').sort().join('_');
                                 if (pActive === pMsg) return true;
                                 const partner = allUsersList.find(u => 
-                                    activeId.includes(u.id) || (u.email && activeId.includes(u.email))
+                                    (u.id !== myId && (!adminEmail || (u.email && u.email.toLowerCase() !== adminEmail.toLowerCase()))) &&
+                                    (activeId.includes(u.id) || (u.email && activeId.includes(u.email)))
                                 );
                                 if (partner) {
                                     if (msgClientId.includes(partner.id) || (partner.email && msgClientId.includes(partner.email))) return true;
@@ -2484,6 +2486,18 @@
                 await Promise.all([fetchApplications(), fetchDocuments()]);
                 refreshWorkspace();
             }, 10000);
+
+            // Active chat real-time auto-populate fallback (every 2.5s)
+            setInterval(async () => {
+                const activeId = selectedClientId || selectedTeamChatId;
+                if (activeId) {
+                    if (selectedTeamChatId) {
+                        fetchTeamMessages(activeId);
+                    } else {
+                        fetchMessages(activeId);
+                    }
+                }
+            }, 2500);
         });
     </script>
 
