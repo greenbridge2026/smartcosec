@@ -2777,17 +2777,34 @@
             try {
                 const localStaff = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]');
                 localStaff.forEach(ls => {
-                    const exists = allUsersList.some(u => u.email === ls.email || u.id === ls.id);
+                    const lsEmail = (ls.email || '').toLowerCase().trim();
+                    const lsName = (ls.firstName + " " + (ls.lastName || '')).toLowerCase().trim();
+                    const exists = allUsersList.some(u => 
+                        (u.id && ls.id && u.id === ls.id) ||
+                        (u.email && lsEmail && u.email.toLowerCase().trim() === lsEmail) ||
+                        (u.name && lsName && u.name.toLowerCase().trim() === lsName)
+                    );
                     if (!exists) {
                         allUsersList.push({
                             id: ls.id,
-                            name: (ls.firstName + " " + ls.lastName).trim(),
+                            name: (ls.firstName + " " + (ls.lastName || '')).trim(),
                             role: ls.role || 'STAFF',
                             email: ls.email
                         });
                     }
                 });
             } catch(e) {}
+
+            // Deduplicate allUsersList so each person appears only once
+            const seenUserKeys = new Set();
+            allUsersList = allUsersList.filter(u => {
+                const emailKey = u.email ? u.email.toLowerCase().trim() : '';
+                const nameKey = u.name ? u.name.toLowerCase().trim() : '';
+                const key = emailKey ? `email:${emailKey}` : (nameKey ? `name:${nameKey}` : `id:${u.id}`);
+                if (seenUserKeys.has(key)) return false;
+                seenUserKeys.add(key);
+                return true;
+            });
         }
 
         async function fetchDocuments() {
@@ -2834,7 +2851,11 @@
                                 partnerId = (parts[0] === myId) ? (parts[1] || parts[0]) : parts[0];
                             }
                         }
-                        const partnerUser = allUsersList.find(u => u.id === partnerId);
+                        const partnerUser = allUsersList.find(u => 
+                            u.id === partnerId || 
+                            (u.email && partnerId && u.email.toLowerCase().trim() === partnerId.toLowerCase().trim()) ||
+                            (u.name && partnerId && u.name.toLowerCase().trim() === partnerId.toLowerCase().trim())
+                        );
                         const userNotes = localStorage.getItem(`notes_${myId}_${c.clientId}`) || '';
                         const hasDraft = localStorage.getItem(`draft_${myId}_${c.clientId}`);
                         const onlineStatus = presenceStatusMap[partnerId] || (c.isOnline ? 'online' : 'offline');
@@ -2842,12 +2863,15 @@
                             lastSeenMap[partnerId] = c.lastSeen;
                         }
 
+                        const resolvedEmail = partnerUser ? partnerUser.email : (c.companyName && c.companyName.includes('@') ? c.companyName : '');
+
                         list.push({
                             id: c.clientId,
-                            realUserId: partnerId,
+                            realUserId: partnerUser ? partnerUser.id : partnerId,
                             name: partnerUser ? partnerUser.name : (c.clientName || 'Team Chat'),
                             role: partnerUser ? (partnerUser.role ? partnerUser.role.toLowerCase() : 'staff') : (c.role || 'staff'),
-                            companyName: partnerUser ? (partnerUser.email || 'Internal Team') : 'Internal Team',
+                            companyName: resolvedEmail || 'Internal Team',
+                            partnerEmail: resolvedEmail ? resolvedEmail.toLowerCase().trim() : '',
                             applicationId: 'Internal',
                             lastMessage: c.lastMessage || 'Direct chat',
                             lastMessageTime: c.lastMessageTime || 0,
@@ -2952,18 +2976,37 @@
                 // 3. Map all staff, admin, and client contacts (Direct Messages)
                 allUsersList.forEach(u => {
                     if (u.id === myId) return;
+                    if (u.email && _staffAuth.email && u.email.toLowerCase().trim() === _staffAuth.email.toLowerCase().trim()) return;
 
                     const isClient = u.role === 'CLIENT' || u.role === 'USER';
                     const chatId = isClient ? u.id : getOneToOneChatId(myId, u.id);
+                    const uEmail = (u.email || '').toLowerCase().trim();
+                    const uName = (u.name || '').toLowerCase().trim();
 
-                    // Check if already in list
-                    const existingIdx = list.findIndex(item => item.id === chatId || (isClient && item.id === u.id));
+                    // Check if already in list by chatId, userId, email, or name
+                    const existingIdx = list.findIndex(item => {
+                        if (item.isGroup) return false;
+                        if (item.id === chatId) return true;
+                        if (isClient && item.id === u.id) return true;
+                        if (item.realUserId && (item.realUserId === u.id || (uEmail && item.realUserId.toLowerCase() === uEmail))) return true;
+                        if (uEmail && item.companyName && item.companyName.toLowerCase().trim() === uEmail) return true;
+                        if (uEmail && item.partnerEmail && item.partnerEmail === uEmail) return true;
+                        if (uName && item.name && item.name.toLowerCase().trim() === uName) return true;
+                        return false;
+                    });
                     const onlineStatus = presenceStatusMap[u.id] || (u.isOnline ? (u.status || 'online') : 'offline');
 
                     if (existingIdx !== -1) {
                         list[existingIdx].isOnline = onlineStatus === 'online';
                         list[existingIdx].presenceStatus = onlineStatus;
                         if (lastSeenMap[u.id]) list[existingIdx].lastSeen = lastSeenMap[u.id];
+                        if (u.name && (!list[existingIdx].name || list[existingIdx].name === 'Team Chat')) {
+                            list[existingIdx].name = u.name;
+                        }
+                        if (u.email && (!list[existingIdx].companyName || list[existingIdx].companyName === 'Internal Team')) {
+                            list[existingIdx].companyName = u.email;
+                            list[existingIdx].partnerEmail = u.email.toLowerCase().trim();
+                        }
                     } else {
                         const userNotes = localStorage.getItem(`notes_${myId}_${chatId}`) || '';
                         const hasDraft = localStorage.getItem(`draft_${myId}_${chatId}`);
@@ -2974,6 +3017,7 @@
                             name: u.name,
                             role: isClient ? 'client' : (u.role ? u.role.toLowerCase() : 'staff'),
                             companyName: u.email || 'Registered Contact',
+                            partnerEmail: uEmail,
                             applicationId: isClient ? 'Client Portal' : 'Internal Portal',
                             lastMessage: 'No messages yet - Click to start conversation',
                             lastMessageTime: 0,
@@ -2988,6 +3032,43 @@
                         });
                     }
                 });
+
+                // Final deduplication pass to ensure zero duplicate cards
+                const deduplicatedList = [];
+                const seenEntries = new Set();
+                for (const item of list) {
+                    let key = item.id;
+                    if (!item.isGroup) {
+                        const emailKey = item.companyName && item.companyName.includes('@') ? item.companyName.toLowerCase().trim() : (item.partnerEmail || '');
+                        const nameKey = item.name ? item.name.toLowerCase().trim() : '';
+                        key = emailKey ? `email:${emailKey}` : (nameKey ? `name:${nameKey}` : `id:${item.id}`);
+                    }
+                    if (seenEntries.has(key)) {
+                        const existing = deduplicatedList.find(x => {
+                            if (x.isGroup !== item.isGroup) return false;
+                            if (item.isGroup) return x.id === item.id;
+                            const xEmail = x.companyName && x.companyName.includes('@') ? x.companyName.toLowerCase().trim() : (x.partnerEmail || '');
+                            const xName = x.name ? x.name.toLowerCase().trim() : '';
+                            const iEmail = item.companyName && item.companyName.includes('@') ? item.companyName.toLowerCase().trim() : (item.partnerEmail || '');
+                            const iName = item.name ? item.name.toLowerCase().trim() : '';
+                            return (xEmail && iEmail && xEmail === iEmail) || (xName && iName && xName === iName) || x.id === item.id;
+                        });
+                        if (existing) {
+                            if ((item.lastMessageTime || 0) > (existing.lastMessageTime || 0)) {
+                                existing.id = item.id;
+                                existing.lastMessage = item.lastMessage;
+                                existing.lastMessageTime = item.lastMessageTime;
+                                existing.applicationId = item.applicationId;
+                                existing.hasAttachment = item.hasAttachment;
+                            }
+                            existing.unreadCount = (existing.unreadCount || 0) + (item.unreadCount || 0);
+                        }
+                    } else {
+                        seenEntries.add(key);
+                        deduplicatedList.push(item);
+                    }
+                }
+                list = deduplicatedList;
 
                 // --- Apply Workspace Filters ---
                 const archivedList = JSON.parse(localStorage.getItem('archived_' + myId) || '[]');
@@ -4507,26 +4588,60 @@
             if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
             let wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             let wsHost = window.location.host;
-            socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${encodeURIComponent(myId)}&role=staff`);
+            const staffEmail = CURRENT_STAFF_EMAIL || _staffAuth.email || '';
+            socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${encodeURIComponent(myId)}&role=staff&email=${encodeURIComponent(staffEmail)}`);
 
             socket.onopen = function() {
                 wsReconnectDelay = 2000;
+                clearInterval(window.wsPingInterval);
+                window.wsPingInterval = setInterval(() => {
+                    if (socket && socket.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify({ type: 'ping' }));
+                    }
+                }, 25000);
             };
 
             socket.onmessage = async function(event) {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.type === 'presence' || data.type === 'status_change') {
-                        presenceStatusMap[data.userId] = data.status;
-                        if (data.lastSeen) {
-                            lastSeenMap[data.userId] = data.lastSeen;
-                        }
+                    if (data.type === 'pong') {
+                        return; // Heartbeat pong
+                    } else if (data.type === 'presence_snapshot' && data.statuses) {
+                        Object.entries(data.statuses).forEach(([uKey, st]) => {
+                            presenceStatusMap[uKey] = st;
+                            const matched = allUsersList.find(u => u.id === uKey || (u.email && u.email.toLowerCase() === uKey.toLowerCase()));
+                            if (matched) {
+                                presenceStatusMap[matched.id] = st;
+                                if (matched.email) presenceStatusMap[matched.email.toLowerCase()] = st;
+                            }
+                        });
                         await fetchConversations();
-                        const activeId = selectedClientId || selectedTeamChatId;
-                        if (activeId && (selectedClientId === data.userId || (selectedTeamChatId && selectedTeamChatId.includes(data.userId)))) {
-                            updateHeaderPresenceStatus();
+                        updateHeaderPresenceStatus();
+                    } else if (data.type === 'presence' || data.type === 'status_change') {
+                        const st = data.status || 'offline';
+                        if (data.userId) presenceStatusMap[data.userId] = st;
+                        if (data.realUserId) presenceStatusMap[data.realUserId] = st;
+                        if (data.email) presenceStatusMap[data.email.toLowerCase()] = st;
+
+                        const matched = allUsersList.find(u => 
+                            (data.userId && u.id === data.userId) || 
+                            (data.realUserId && u.id === data.realUserId) || 
+                            (data.email && u.email && u.email.toLowerCase() === data.email.toLowerCase())
+                        );
+                        if (matched) {
+                            presenceStatusMap[matched.id] = st;
+                            if (matched.email) presenceStatusMap[matched.email.toLowerCase()] = st;
+                            if (data.lastSeen) lastSeenMap[matched.id] = data.lastSeen;
                         }
-                        updatePresenceDot(data.userId, data.status, data.lastSeen);
+                        if (data.lastSeen) {
+                            if (data.userId) lastSeenMap[data.userId] = data.lastSeen;
+                            if (data.realUserId) lastSeenMap[data.realUserId] = data.lastSeen;
+                        }
+
+                        await fetchConversations();
+                        updateHeaderPresenceStatus();
+                        if (data.userId) updatePresenceDot(data.userId, st, data.lastSeen);
+                        if (data.realUserId) updatePresenceDot(data.realUserId, st, data.lastSeen);
                     } else if (data.type === 'new_user') {
                         const newUser = data.user;
                         if (newUser && !allUsersList.some(u => u.id === newUser.id)) {
@@ -4535,26 +4650,84 @@
                         }
                     } else if (data.type === 'message') {
                         const m = data.message;
-                        if (selectedTeamChatId && (selectedTeamChatId === m.clientId || (typeof m.clientId === 'string' && m.clientId.includes(selectedTeamChatId)))) {
-                            fetchTeamMessages(selectedTeamChatId);
-                            await markTeamMessagesAsRead(selectedTeamChatId);
-                        } else if (selectedClientId && (selectedClientId === m.clientId || (typeof m.clientId === 'string' && (m.clientId.includes(selectedClientId) || (selectedClientId.startsWith('team_chat_') && selectedClientId.includes(m.clientId)))))) {
-                            fetchMessages(selectedClientId);
-                            if (selectedClientId.startsWith('team_chat_')) {
-                                await markTeamMessagesAsRead(selectedClientId);
+                        const activeId = selectedClientId || selectedTeamChatId;
+
+                        function isForCurrentChat(msgClientId) {
+                            if (!activeId || !msgClientId) return false;
+                            if (activeId === msgClientId) return true;
+                            if (activeId.startsWith('team_chat_') && msgClientId.startsWith('team_chat_')) {
+                                const pActive = activeId.substring('team_chat_'.length).split('_').sort().join('_');
+                                const pMsg = msgClientId.substring('team_chat_'.length).split('_').sort().join('_');
+                                if (pActive === pMsg) return true;
+                                const partner = allUsersList.find(u => 
+                                    activeId.includes(u.id) || (u.email && activeId.includes(u.email))
+                                );
+                                if (partner) {
+                                    if (msgClientId.includes(partner.id) || (partner.email && msgClientId.includes(partner.email))) return true;
+                                }
+                            }
+                            if (activeId.includes(msgClientId) || msgClientId.includes(activeId)) return true;
+                            return false;
+                        }
+
+                        const belongsToActiveChat = isForCurrentChat(m.clientId);
+                        if (belongsToActiveChat) {
+                            if (selectedTeamChatId) {
+                                fetchTeamMessages(activeId);
+                                await markTeamMessagesAsRead(activeId);
                             } else {
-                                await markAsRead(selectedClientId);
+                                fetchMessages(activeId);
+                                if (activeId.startsWith('team_chat_')) {
+                                    await markTeamMessagesAsRead(activeId);
+                                } else {
+                                    await markAsRead(activeId);
+                                }
                             }
                         }
+
+                        // On-time notification toast if message is from another person
+                        const isFromMe = m.senderId === myId || 
+                            (CURRENT_STAFF_EMAIL && m.senderId === CURRENT_STAFF_EMAIL) || 
+                            (m.senderName && m.senderName === myName);
+
+                        if (!isFromMe) {
+                            const cleanText = parseMessageTextOnly(m.text);
+                            const notifObj = {
+                                id: 'msg-' + (m.id || Date.now()),
+                                title: m.senderName || 'New Message',
+                                message: cleanText || 'New message received',
+                                type: 'message',
+                                relatedId: m.clientId
+                            };
+                            const alreadyExists = notifications.some(n => n.id === notifObj.id);
+                            if (!alreadyExists) {
+                                notifications.unshift(notifObj);
+                                renderNotificationsUI();
+                                showToastNotification(notifObj);
+                            }
+                        }
+
                         await fetchConversations();
                     } else if (data.type === 'notification' || data.type === 'new_notification' || data.type === 'new_message' || data.type === 'chat_message') {
                         const notif = data.notification || data;
                         if (notif && (notif.title || notif.message)) {
                             const isMessageFromMe = notif.type === 'message' && notif.message && notif.message.startsWith(myName + ':');
-                            if (!isMessageFromMe && (notif.clientId === 'all' || notif.clientId === 'staff' || notif.clientId === 'admin' || notif.clientId === 'staff-admin' || notif.clientId === myId || 
-                                (typeof notif.clientId === 'string' && (notif.clientId.startsWith('group-') || notif.clientId.startsWith('team_group_'))) ||
-                                (typeof notif.clientId === 'string' && notif.clientId.startsWith('chat_') && notif.clientId.includes(myId)) ||
-                                (typeof notif.clientId === 'string' && notif.clientId.startsWith('team_chat_') && notif.clientId.includes(myId)))) {
+                            const isRelatedToMe = !isMessageFromMe && (
+                                notif.clientId === 'all' || 
+                                notif.clientId === 'staff' || 
+                                notif.clientId === 'admin' || 
+                                notif.clientId === 'staff-admin' || 
+                                notif.clientId === myId ||
+                                (CURRENT_STAFF_EMAIL && notif.clientId === CURRENT_STAFF_EMAIL) ||
+                                (typeof notif.clientId === 'string' && (
+                                    notif.clientId.startsWith('group-') || 
+                                    notif.clientId.startsWith('team_group_') ||
+                                    (notif.clientId.startsWith('chat_') && (notif.clientId.includes(myId) || (CURRENT_STAFF_EMAIL && notif.clientId.includes(CURRENT_STAFF_EMAIL)))) ||
+                                    (notif.clientId.startsWith('team_chat_') && (notif.clientId.includes(myId) || (CURRENT_STAFF_EMAIL && notif.clientId.includes(CURRENT_STAFF_EMAIL))))
+                                ))
+                            );
+
+                            if (isRelatedToMe) {
                                 const exists = notifications.some(n => n.id === notif.id);
                                 if (!exists) {
                                     notifications.unshift(notif);

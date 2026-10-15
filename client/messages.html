@@ -321,6 +321,16 @@
                             lastSeenMap[u.id] = u.lastSeen;
                         }
                     });
+                    // Deduplicate allUsersList by email/name/id
+                    const seenUserKeys = new Set();
+                    allUsersList = allUsersList.filter(u => {
+                        const emailKey = u.email ? u.email.toLowerCase().trim() : '';
+                        const nameKey = u.name ? u.name.toLowerCase().trim() : '';
+                        const key = emailKey ? `email:${emailKey}` : (nameKey ? `name:${nameKey}` : `id:${u.id}`);
+                        if (seenUserKeys.has(key)) return false;
+                        seenUserKeys.add(key);
+                        return true;
+                    });
                 }
             } catch(e){}
         }
@@ -439,7 +449,15 @@
                     if (isClient) return; // Clients do not see other clients by default
                     
                     const chatId = getOneToOneChatId(myId, u.id);
-                    const exists = list.some(item => item.id === chatId);
+                    const uEmail = (u.email || '').toLowerCase().trim();
+                    const uName = (u.name || '').toLowerCase().trim();
+                    const exists = list.some(item => {
+                        if (item.isGroup) return false;
+                        if (item.id === chatId) return true;
+                        if (item.realUserId && item.realUserId === u.id) return true;
+                        if (uName && item.name && item.name.toLowerCase().trim() === uName) return true;
+                        return false;
+                    });
                     if (!exists) {
                         const userNotes = localStorage.getItem(`notes_${myId}_${chatId}`) || '';
                         const hasDraft = localStorage.getItem(`draft_${myId}_${chatId}`);
@@ -1850,21 +1868,57 @@
             if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
             let wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             let wsHost = window.location.host;
-            socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${encodeURIComponent(myId)}&role=client`);
+            const clientEmail = (auth && auth.email) ? auth.email : '';
+            socket = new WebSocket(`${wsProtocol}//${wsHost}/api/ws/chat?userId=${encodeURIComponent(myId)}&role=client&email=${encodeURIComponent(clientEmail)}`);
 
             socket.onopen = function() {
                 wsReconnectDelay = 2000;
+                clearInterval(window.wsPingInterval);
+                window.wsPingInterval = setInterval(() => {
+                    if (socket && socket.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify({ type: 'ping' }));
+                    }
+                }, 25000);
             };
 
             socket.onmessage = async function(event) {
                 try {
                     const data = JSON.parse(event.data);
                     
-                    if (data.type === 'presence' || data.type === 'status_change') {
-                        presenceStatusMap[data.userId] = data.status;
-                        if (data.lastSeen) {
-                            lastSeenMap[data.userId] = data.lastSeen;
+                    if (data.type === 'pong') {
+                        return; // Heartbeat pong
+                    } else if (data.type === 'presence_snapshot' && data.statuses) {
+                        Object.entries(data.statuses).forEach(([uKey, st]) => {
+                            presenceStatusMap[uKey] = st;
+                            const matched = allUsersList.find(u => u.id === uKey || (u.email && u.email.toLowerCase() === uKey.toLowerCase()));
+                            if (matched) {
+                                presenceStatusMap[matched.id] = st;
+                                if (matched.email) presenceStatusMap[matched.email.toLowerCase()] = st;
+                            }
+                        });
+                        await fetchConversations();
+                        updateHeaderPresenceStatus();
+                    } else if (data.type === 'presence' || data.type === 'status_change') {
+                        const st = data.status || 'offline';
+                        if (data.userId) presenceStatusMap[data.userId] = st;
+                        if (data.realUserId) presenceStatusMap[data.realUserId] = st;
+                        if (data.email) presenceStatusMap[data.email.toLowerCase()] = st;
+
+                        const matched = allUsersList.find(u => 
+                            (data.userId && u.id === data.userId) || 
+                            (data.realUserId && u.id === data.realUserId) || 
+                            (data.email && u.email && u.email.toLowerCase() === data.email.toLowerCase())
+                        );
+                        if (matched) {
+                            presenceStatusMap[matched.id] = st;
+                            if (matched.email) presenceStatusMap[matched.email.toLowerCase()] = st;
+                            if (data.lastSeen) lastSeenMap[matched.id] = data.lastSeen;
                         }
+                        if (data.lastSeen) {
+                            if (data.userId) lastSeenMap[data.userId] = data.lastSeen;
+                            if (data.realUserId) lastSeenMap[data.realUserId] = data.lastSeen;
+                        }
+
                         await fetchConversations();
                         if (selectedClientId === data.userId || (selectedClientId && selectedClientId.includes(data.userId))) {
                             updateHeaderPresenceStatus();
@@ -1877,13 +1931,31 @@
                         }
                     } else if (data.type === 'message') {
                         const m = data.message;
+                        const activeId = selectedClientId || selectedTeamChatId || myId;
+
+                        function isForCurrentChat(msgClientId) {
+                            if (!activeId || !msgClientId) return false;
+                            if (activeId === msgClientId) return true;
+                            if (activeId.includes(msgClientId) || msgClientId.includes(activeId)) return true;
+                            return false;
+                        }
+
                         const isGroup = m.clientId && (m.clientId.startsWith('group-') || m.clientId.startsWith('team_group_'));
 
-                        if (selectedTeamChatId === m.clientId || selectedClientId === m.clientId || (!selectedTeamChatId && !selectedClientId && m.clientId === myId)) {
-                            if (isGroup) fetchTeamMessages(m.clientId);
-                            else fetchMessages(m.clientId);
-                            await markAsRead(m.clientId);
+                        if (isForCurrentChat(m.clientId)) {
+                            if (isGroup) fetchTeamMessages(activeId);
+                            else fetchMessages(activeId);
+                            await markAsRead(activeId);
                         }
+
+                        const isFromMe = m.senderId === myId || (clientEmail && m.senderId === clientEmail) || (m.senderName && m.senderName === myName);
+                        if (!isFromMe) {
+                            const cleanText = parseMessageTextOnly(m.text);
+                            if (typeof showToast === 'function') {
+                                showToast(`${m.senderName || 'New Message'}: ${cleanText || 'Message received'}`);
+                            }
+                        }
+
                         await fetchConversations();
                     } else if (data.type === 'message_deleted') {
                         const activeId = selectedClientId || selectedTeamChatId || myId;
