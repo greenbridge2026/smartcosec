@@ -11,6 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://unpkg.com/topojson@3"></script>
+    <script src="/bizfile-rpa-client.js"></script>
     <script>
         // Authentication Check
         localStorage.setItem('current_portal', 'admin');
@@ -404,7 +405,12 @@
             <!-- Dynamic Content -->
         </div>
 
-        <div class="p-6 bg-white/60 border-t border-slate-100 flex gap-3" id="panel-footer">
+        <div class="p-6 bg-white/60 border-t border-slate-100 flex flex-wrap gap-2.5" id="panel-footer">
+            <!-- BizFile Annual Return Sync Button -->
+            <button id="admin-sync-bizfile-btn" onclick="adminSyncBizFile()" title="File Annual Return on BizFile (SingPass QR)" class="px-4 py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 transition-all cursor-pointer w-full">
+                <i data-lucide="globe" class="w-4 h-4 text-emerald-600"></i>
+                <span id="admin-bizfile-btn-text">🌐 Sync BizFile — Annual Return</span>
+            </button>
             <button class="btn btn-outline flex-1 py-3" onclick="openModal('review')">Mark Review</button>
             <button class="btn btn-outline border-red-200 text-red-600 hover:bg-red-50 flex-1 py-3" onclick="openModal('rejected')">Reject</button>
             <button class="btn btn-primary flex-[2] py-3" onclick="openModal('approved')">Approve Service</button>
@@ -2903,6 +2909,8 @@
                 const data = await res.json();
                 const service = data.services.find(s => s.serviceId === serviceId);
                 const details = service.details || {};
+                window.activeServiceData = service;
+                window.activeClientId = clientId;
                 
                 activeSectionStatuses = service.sectionStatuses || {};
 
