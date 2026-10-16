@@ -195,12 +195,19 @@
         }
     };
 
+    function getAuthToken() {
+        return localStorage.getItem('token') ||
+               JSON.parse(localStorage.getItem('staff_auth') || localStorage.getItem('admin_auth') || '{}').token || '';
+    }
+
     /**
      * Poll BizFile session status
      */
     window.pollBizFileSession = function(sessionId, btn, originalBtnHtml) {
         let pollCount = 0;
         const maxPolls = 150; // 5 min timeout
+        const token = getAuthToken();
+        const pollHeaders = token ? { 'Authorization': 'Bearer ' + token } : {};
 
         if (window._bizFilePollTimer) {
             clearInterval(window._bizFilePollTimer);
@@ -216,7 +223,7 @@
             }
 
             try {
-                const res = await fetch(`/api/bizfile/session/${sessionId}/status`);
+                const res = await fetch(`/api/bizfile/session/${sessionId}/status`, { headers: pollHeaders });
                 const data = await res.json();
 
                 if (!res.ok || !data.success) return;
@@ -251,10 +258,16 @@
 
         showBizFileModal('launching');
 
+        const token = getAuthToken();
+        const reqHeaders = {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+        };
+
         try {
             const res = await fetch('/api/bizfile/session/start', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: reqHeaders,
                 body: JSON.stringify({ applicationId: applicationId || 'manual', applicationData: applicationData || {} })
             });
             const data = await res.json();
