@@ -4512,6 +4512,14 @@ app.delete('/api/tasks/:id', (req, res) => {
     const taskIndex = (db.tasks || []).findIndex(t => t.id === req.params.id || t.ticketNumber === req.params.id);
     if (taskIndex === -1) return res.status(404).json({ error: 'Task not found' });
 
+    const task = db.tasks[taskIndex];
+    const status = (task.status || 'PENDING').toUpperCase();
+    if (status !== 'PENDING') {
+        return res.status(400).json({ 
+            error: `Task cannot be deleted because it has already moved past the initial stage. Current status: ${status}` 
+        });
+    }
+
     db.tasks.splice(taskIndex, 1);
     saveDb(db);
     res.json({ success: true, message: 'Task deleted' });
