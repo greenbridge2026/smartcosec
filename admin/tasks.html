@@ -655,6 +655,127 @@
                     </div>
                 </div>
 
+                <!-- Follow-up & Reminder Schedule Section -->
+                <div class="p-4 bg-amber-50/50 rounded-2xl border border-amber-200/90 space-y-3 font-sans">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold shadow-2xs">
+                                <i data-lucide="bell" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Next Follow-Up & Reminder Schedule</h4>
+                                <p class="text-[11px] text-slate-500">Scheduled alert for client follow-up, document collection, or callback</p>
+                            </div>
+                        </div>
+                        <div id="detail-reminder-badge-wrapper">
+                            <!-- Injected: Scheduled / Due / Completed / None -->
+                        </div>
+                    </div>
+
+                    <!-- Current Active Reminder Card -->
+                    <div id="detail-reminder-active-card" class="hidden p-3.5 bg-white border border-amber-200 rounded-xl shadow-2xs space-y-2">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[11px] font-bold text-amber-900 flex items-center gap-1">
+                                        <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-600"></i>
+                                        <span id="detail-reminder-datetime-text">--</span>
+                                    </span>
+                                    <span id="detail-reminder-relative-time" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">--</span>
+                                </div>
+                                <div class="text-xs text-slate-700 font-medium whitespace-pre-line" id="detail-reminder-note-text">No notes provided</div>
+                                <div id="detail-reminder-completed-info" class="hidden text-[11px] text-emerald-800 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200 mt-1">
+                                    <!-- Completed info -->
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1.5 shrink-0" id="detail-reminder-action-btns">
+                                <button type="button" onclick="showReminderAttendForm()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer">
+                                    <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+                                    <span>Attended & Mark Done</span>
+                                </button>
+                                <button type="button" onclick="showReminderRescheduleForm()" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer">
+                                    <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                                    <span>Reschedule</span>
+                                </button>
+                                <button type="button" onclick="showReminderEditForm()" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition cursor-pointer" title="Edit Reminder">
+                                    <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- No Reminder Empty State -->
+                    <div id="detail-reminder-empty-state" class="flex items-center justify-between p-3 bg-white/80 border border-slate-200/70 rounded-xl">
+                        <span class="text-xs text-slate-500 italic">No follow-up reminder scheduled yet.</span>
+                        <button type="button" onclick="showReminderEditForm()" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                            <span>Schedule Follow-Up Reminder</span>
+                        </button>
+                    </div>
+
+                    <!-- Form: Set / Reschedule Reminder (Collapsible) -->
+                    <div id="detail-reminder-form-box" class="hidden p-4 bg-white border border-amber-300 rounded-2xl shadow-sm space-y-3">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                            <h5 class="text-xs font-bold text-slate-800 flex items-center gap-1.5" id="detail-reminder-form-title">
+                                <i data-lucide="calendar" class="w-4 h-4 text-amber-600"></i>
+                                <span>Schedule Next Follow-Up</span>
+                            </h5>
+                            <button type="button" onclick="hideReminderForms()" class="text-slate-400 hover:text-slate-600 text-xs font-bold">Cancel</button>
+                        </div>
+                        <!-- Quick Presets -->
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase mr-1">Quick Select:</span>
+                            <button type="button" onclick="applyReminderPreset('1hour')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-[10px] font-bold text-slate-700 transition">+1 Hour</button>
+                            <button type="button" onclick="applyReminderPreset('tomorrow10')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-[10px] font-bold text-slate-700 transition">Tomorrow 10:00 AM</button>
+                            <button type="button" onclick="applyReminderPreset('tomorrow14')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-[10px] font-bold text-slate-700 transition">Tomorrow 2:00 PM</button>
+                            <button type="button" onclick="applyReminderPreset('2days')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-[10px] font-bold text-slate-700 transition">In 2 Days</button>
+                            <button type="button" onclick="applyReminderPreset('nextMonday')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-[10px] font-bold text-slate-700 transition">Next Monday</button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Reminder Date & Time <span class="text-rose-500">*</span></label>
+                                <input type="datetime-local" id="detail-reminder-input-datetime" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Follow-up Purpose / Note <span class="text-rose-500">*</span></label>
+                                <input type="text" id="detail-reminder-input-note" placeholder="e.g. Call client and follow up the document" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20">
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-2 pt-1">
+                            <button type="button" onclick="hideReminderForms()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">Cancel</button>
+                            <button type="button" onclick="saveTaskReminder()" class="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm active:scale-95">
+                                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                                <span>Save Follow-up Reminder</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Form: Attend / Complete Follow-up (Mandatory Action Taken notes) -->
+                    <div id="detail-reminder-attend-box" class="hidden p-4 bg-emerald-50 border border-emerald-200 rounded-2xl shadow-sm space-y-3">
+                        <div class="flex items-center justify-between border-b border-emerald-200/60 pb-2">
+                            <h5 class="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                                <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
+                                <span>Confirm Follow-Up Attended & Completed</span>
+                            </h5>
+                            <button type="button" onclick="hideReminderForms()" class="text-emerald-700 hover:text-emerald-900 text-xs font-bold">Cancel</button>
+                        </div>
+                        <p class="text-[11px] text-emerald-800">
+                            Please describe what action you took for this reminder (e.g. outcome of customer call or document collected). This confirmation is required to complete the reminder.
+                        </p>
+                        <div>
+                            <label class="block text-[11px] font-bold text-emerald-950 mb-1">Action Taken Notes <span class="text-rose-500">*</span></label>
+                            <textarea id="detail-reminder-attend-notes" rows="2.5" placeholder="e.g. Called client Ethan. He confirmed he will email the signed board resolution by 4 PM..." class="w-full p-3 bg-white border border-emerald-300 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"></textarea>
+                        </div>
+                        <div class="flex justify-end gap-2 pt-1">
+                            <button type="button" onclick="hideReminderForms()" class="px-3 py-1.5 bg-white border border-emerald-200 hover:bg-emerald-100 text-emerald-900 text-xs font-bold rounded-xl transition">Cancel</button>
+                            <button type="button" onclick="confirmReminderAttended()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm active:scale-95">
+                                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                                <span>Confirm & Complete Follow-Up</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Task Description & Attachments -->
                 <div class="space-y-3">
                     <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Description & Instructions</h3>
@@ -2326,6 +2447,16 @@
                         dueUrgency.cardClass
                     ].filter(Boolean).join(' ');
 
+                    let reminderBadgeHtml = '';
+                    if (t.reminderDateTime && (t.reminderStatus || 'PENDING').toUpperCase() !== 'COMPLETED') {
+                        const rd = formatReminderDisplayDateTime(t.reminderDateTime);
+                        reminderBadgeHtml = `
+                            <div class="flex items-center gap-1 mt-1 text-[10px] font-bold ${rd.isDueNow ? 'text-rose-700 bg-rose-50 border-rose-200 animate-pulse' : 'text-amber-800 bg-amber-50 border-amber-200'} px-1.5 py-0.5 rounded border" title="${t.reminderNote || 'Follow-up'}">
+                                <span>⏰ ${rd.isDueNow ? 'Due: ' : 'Remind: '}${rd.relativeLabel || rd.formatted}</span>
+                            </div>
+                        `;
+                    }
+
                     return `
                         <div class="kanban-card group relative ${cardExtraClass}" draggable="true" 
                              ondragstart="handleDragStart(event, '${t.id}')" 
@@ -2341,10 +2472,11 @@
                             <h4 class="text-xs font-bold text-slate-900 leading-snug mb-1 truncate" title="${companyOrClient}">
                                 ${companyOrClient}
                             </h4>
-                            <div class="text-[11px] text-slate-600 font-medium leading-relaxed mb-3 line-clamp-2" title="${t.title}">
+                            <div class="text-[11px] text-slate-600 font-medium leading-relaxed mb-1 line-clamp-2" title="${t.title}">
                                 ${t.title}
                             </div>
-                            <div class="flex items-center justify-between pt-2.5 border-t border-slate-100 text-[11px] gap-2">
+                            ${reminderBadgeHtml}
+                            <div class="flex items-center justify-between pt-2.5 border-t border-slate-100 text-[11px] gap-2 mt-2">
                                 <div class="flex flex-col gap-0.5 min-w-0" title="Task timeline">
                                     <div class="flex items-center gap-1 text-[10px] text-slate-400 font-sans" title="Created date and pending days">
                                         <svg class="w-3 h-3 text-slate-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
@@ -2530,6 +2662,9 @@
                 }).join('');
             }
 
+            // Follow-up Reminder Schedule
+            renderDetailReminder(t);
+
             // Transaction History & Audit Trail
             renderHistoryTimeline(t);
 
@@ -2541,6 +2676,319 @@
             }, 10);
 
             if (window.lucide) window.lucide.createIcons();
+        }
+
+        function formatReminderDisplayDateTime(dtStr) {
+            if (!dtStr) return { formatted: '', relativeLabel: '', isDueNow: false };
+            let d;
+            if (/^\d+$/.test(dtStr)) {
+                d = new Date(parseInt(dtStr, 10));
+            } else {
+                d = new Date(dtStr);
+            }
+            if (isNaN(d.getTime())) return { formatted: dtStr, relativeLabel: '', isDueNow: false };
+
+            const formatted = d.toLocaleDateString('en-SG', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) + ' at ' +
+                              d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            const now = new Date();
+            const diffMs = d.getTime() - now.getTime();
+            const isDueNow = diffMs <= 60000;
+
+            let relativeLabel = '';
+            if (isDueNow) {
+                const overdueMins = Math.floor(Math.abs(diffMs) / 60000);
+                if (overdueMins > 60 * 24) {
+                    relativeLabel = `Overdue ${Math.floor(overdueMins / (60 * 24))}d`;
+                } else if (overdueMins > 60) {
+                    relativeLabel = `Overdue ${Math.floor(overdueMins / 60)}h`;
+                } else if (overdueMins > 0) {
+                    relativeLabel = `Overdue ${overdueMins}m`;
+                } else {
+                    relativeLabel = 'Due Now';
+                }
+            } else {
+                const futureMins = Math.floor(diffMs / 60000);
+                if (futureMins > 60 * 24) {
+                    relativeLabel = `In ${Math.floor(futureMins / (60 * 24))}d`;
+                } else if (futureMins > 60) {
+                    relativeLabel = `In ${Math.floor(futureMins / 60)}h`;
+                } else {
+                    relativeLabel = `In ${futureMins}m`;
+                }
+            }
+            return { formatted, relativeLabel, isDueNow };
+        }
+
+        function renderDetailReminder(t) {
+            hideReminderForms();
+            const badgeWrapper = document.getElementById('detail-reminder-badge-wrapper');
+            const activeCard = document.getElementById('detail-reminder-active-card');
+            const emptyState = document.getElementById('detail-reminder-empty-state');
+            const dtText = document.getElementById('detail-reminder-datetime-text');
+            const relTime = document.getElementById('detail-reminder-relative-time');
+            const noteText = document.getElementById('detail-reminder-note-text');
+            const completedInfo = document.getElementById('detail-reminder-completed-info');
+            const actionBtns = document.getElementById('detail-reminder-action-btns');
+
+            if (!badgeWrapper || !activeCard || !emptyState) return;
+
+            const hasReminder = t.reminderDateTime && t.reminderDateTime.trim();
+            const status = (t.reminderStatus || (hasReminder ? 'PENDING' : '')).toUpperCase();
+
+            if (!hasReminder && status !== 'COMPLETED') {
+                badgeWrapper.innerHTML = `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">No Reminder</span>`;
+                activeCard.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            activeCard.classList.remove('hidden');
+
+            const dtParsed = formatReminderDisplayDateTime(t.reminderDateTime);
+            dtText.innerText = dtParsed.formatted || t.reminderDateTime;
+            noteText.innerText = t.reminderNote ? `"${t.reminderNote}"` : 'No specific follow-up instructions provided.';
+
+            if (status === 'COMPLETED') {
+                badgeWrapper.innerHTML = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">✓ Follow-up Completed</span>`;
+                relTime.className = 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800';
+                relTime.innerText = 'Attended';
+                completedInfo.classList.remove('hidden');
+                const compTime = t.reminderCompletedAt ? new Date(t.reminderCompletedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Recently';
+                completedInfo.innerHTML = `
+                    <div class="font-bold text-emerald-950 flex items-center justify-between">
+                        <span>Attended & Confirmed by: ${t.reminderCompletedBy || 'Staff'}</span>
+                        <span class="text-[9px] text-emerald-600">${compTime}</span>
+                    </div>
+                    <div class="mt-0.5 font-medium text-emerald-900">Action Taken: ${t.reminderActionNotes || 'Completed'}</div>
+                `;
+                actionBtns.innerHTML = `
+                    <button type="button" onclick="showReminderEditForm()" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                        <span>Schedule Next Follow-Up</span>
+                    </button>
+                `;
+            } else if (dtParsed.isDueNow) {
+                badgeWrapper.innerHTML = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-300 animate-pulse">🔔 Due Follow-Up</span>`;
+                relTime.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 animate-pulse';
+                relTime.innerText = dtParsed.relativeLabel || 'Due Now';
+                completedInfo.classList.add('hidden');
+                actionBtns.innerHTML = `
+                    <button type="button" onclick="showReminderAttendForm()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer">
+                        <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+                        <span>Attended & Mark Done</span>
+                    </button>
+                    <button type="button" onclick="showReminderRescheduleForm()" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer">
+                        <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                        <span>Reschedule</span>
+                    </button>
+                    <button type="button" onclick="showReminderEditForm()" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition cursor-pointer" title="Edit Reminder">
+                        <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                    </button>
+                `;
+            } else {
+                badgeWrapper.innerHTML = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">⏰ Scheduled</span>`;
+                relTime.className = 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800';
+                relTime.innerText = dtParsed.relativeLabel || 'Upcoming';
+                completedInfo.classList.add('hidden');
+                actionBtns.innerHTML = `
+                    <button type="button" onclick="showReminderAttendForm()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer">
+                        <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+                        <span>Attended & Mark Done</span>
+                    </button>
+                    <button type="button" onclick="showReminderRescheduleForm()" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer">
+                        <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                        <span>Reschedule</span>
+                    </button>
+                    <button type="button" onclick="showReminderEditForm()" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition cursor-pointer" title="Edit Reminder">
+                        <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                    </button>
+                `;
+            }
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function showReminderEditForm() {
+            document.getElementById('detail-reminder-attend-box')?.classList.add('hidden');
+            const box = document.getElementById('detail-reminder-form-box');
+            if (!box) return;
+            box.classList.remove('hidden');
+            const titleEl = document.getElementById('detail-reminder-form-title');
+            if (titleEl) {
+                titleEl.innerHTML = `
+                    <i data-lucide="calendar" class="w-4 h-4 text-amber-600"></i>
+                    <span>${currentTask?.reminderDateTime ? 'Update Follow-Up Reminder' : 'Schedule Next Follow-Up'}</span>
+                `;
+            }
+            const dtInput = document.getElementById('detail-reminder-input-datetime');
+            const noteInput = document.getElementById('detail-reminder-input-note');
+            if (dtInput) {
+                if (currentTask?.reminderDateTime && !currentTask.reminderDateTime.startsWith('19') && !currentTask.reminderDateTime.startsWith('20')) {
+                    dtInput.value = new Date(parseInt(currentTask.reminderDateTime, 10)).toISOString().slice(0, 16);
+                } else if (currentTask?.reminderDateTime) {
+                    dtInput.value = currentTask.reminderDateTime.slice(0, 16);
+                } else {
+                    applyReminderPreset('tomorrow10');
+                }
+            }
+            if (noteInput) {
+                noteInput.value = currentTask?.reminderNote || 'Call client and follow up document';
+            }
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function showReminderRescheduleForm() {
+            showReminderEditForm();
+            const titleEl = document.getElementById('detail-reminder-form-title');
+            if (titleEl) {
+                titleEl.innerHTML = `
+                    <i data-lucide="calendar" class="w-4 h-4 text-amber-600"></i>
+                    <span>Reschedule Follow-Up Reminder</span>
+                `;
+            }
+            applyReminderPreset('tomorrow10');
+            const noteInput = document.getElementById('detail-reminder-input-note');
+            if (noteInput && (!noteInput.value || noteInput.value.trim() === '')) {
+                noteInput.value = 'Client requested callback tomorrow';
+            }
+        }
+
+        function showReminderAttendForm() {
+            document.getElementById('detail-reminder-form-box')?.classList.add('hidden');
+            const box = document.getElementById('detail-reminder-attend-box');
+            if (!box) return;
+            box.classList.remove('hidden');
+            const notesEl = document.getElementById('detail-reminder-attend-notes');
+            if (notesEl) {
+                notesEl.value = '';
+                notesEl.focus();
+            }
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function hideReminderForms() {
+            document.getElementById('detail-reminder-form-box')?.classList.add('hidden');
+            document.getElementById('detail-reminder-attend-box')?.classList.add('hidden');
+        }
+
+        function applyReminderPreset(preset) {
+            const dtInput = document.getElementById('detail-reminder-input-datetime');
+            if (!dtInput) return;
+            const now = new Date();
+            let target = new Date();
+
+            if (preset === '1hour') {
+                target = new Date(now.getTime() + 60 * 60 * 1000);
+            } else if (preset === 'tomorrow10') {
+                target.setDate(target.getDate() + 1);
+                target.setHours(10, 0, 0, 0);
+            } else if (preset === 'tomorrow14') {
+                target.setDate(target.getDate() + 1);
+                target.setHours(14, 0, 0, 0);
+            } else if (preset === '2days') {
+                target.setDate(target.getDate() + 2);
+                target.setHours(10, 0, 0, 0);
+            } else if (preset === 'nextMonday') {
+                const day = target.getDay();
+                const diff = (day === 0 ? 1 : 8 - day);
+                target.setDate(target.getDate() + diff);
+                target.setHours(10, 0, 0, 0);
+            }
+            const year = target.getFullYear();
+            const month = String(target.getMonth() + 1).padStart(2, '0');
+            const date = String(target.getDate()).padStart(2, '0');
+            const hours = String(target.getHours()).padStart(2, '0');
+            const mins = String(target.getMinutes()).padStart(2, '0');
+            dtInput.value = `${year}-${month}-${date}T${hours}:${mins}`;
+        }
+
+        async function saveTaskReminder() {
+            if (!currentTask) return;
+            const dtInput = document.getElementById('detail-reminder-input-datetime');
+            const noteInput = document.getElementById('detail-reminder-input-note');
+            const reminderDateTime = dtInput?.value;
+            const reminderNote = noteInput?.value?.trim();
+
+            if (!reminderDateTime) {
+                alert('Please select a reminder Date & Time.');
+                dtInput?.focus();
+                return;
+            }
+            if (!reminderNote) {
+                alert('Please enter a follow-up purpose or note (e.g. Call client and follow up document).');
+                noteInput?.focus();
+                return;
+            }
+
+            try {
+                const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
+                const performedBy = auth.name || auth.fullName || 'Staff User';
+                const performedByRole = auth.role || 'STAFF';
+
+                const res = await fetch(`/api/tasks/${currentTask.id}/reminder`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        reminderDateTime,
+                        reminderNote,
+                        performedBy,
+                        performedByRole
+                    })
+                });
+
+                if (res.ok) {
+                    currentTask = await res.json();
+                    renderDetailModal();
+                    refreshTasks();
+                    window.dispatchEvent(new CustomEvent('task_updated'));
+                } else {
+                    alert('Failed to save follow-up reminder. Please try again.');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Network error while saving reminder.');
+            }
+        }
+
+        async function confirmReminderAttended() {
+            if (!currentTask) return;
+            const notesEl = document.getElementById('detail-reminder-attend-notes');
+            const actionNotes = notesEl?.value?.trim();
+
+            if (!actionNotes) {
+                alert('Please describe what action you took for this reminder (e.g. outcome of phone call or document received). This confirmation is required.');
+                notesEl?.focus();
+                return;
+            }
+
+            try {
+                const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
+                const performedBy = auth.name || auth.fullName || 'Staff User';
+                const performedByRole = auth.role || 'STAFF';
+
+                const res = await fetch(`/api/tasks/${currentTask.id}/reminder/complete`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        actionNotes,
+                        performedBy,
+                        performedByRole
+                    })
+                });
+
+                if (res.ok) {
+                    currentTask = await res.json();
+                    renderDetailModal();
+                    refreshTasks();
+                    window.dispatchEvent(new CustomEvent('task_updated'));
+                } else {
+                    alert('Failed to complete reminder. Please try again.');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Network error while completing reminder.');
+            }
         }
 
         function setDetailActivityTab(tab) {
@@ -3302,6 +3750,13 @@
         window.setViewMode = setViewMode;
         window.applyFilters = applyFilters;
         window.refreshTasks = refreshTasks;
+        window.showReminderEditForm = showReminderEditForm;
+        window.showReminderRescheduleForm = showReminderRescheduleForm;
+        window.showReminderAttendForm = showReminderAttendForm;
+        window.hideReminderForms = hideReminderForms;
+        window.applyReminderPreset = applyReminderPreset;
+        window.saveTaskReminder = saveTaskReminder;
+        window.confirmReminderAttended = confirmReminderAttended;
 
         // Auto-populate task board on real-time task events without manual refresh
         window.addEventListener('task_updated', () => refreshTasks());
@@ -3311,6 +3766,15 @@
                 refreshTasks();
             }
         });
+
+        // Check for URL query param to auto-open task (e.g. from global reminder card)
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const openId = urlParams.get('openTask') || urlParams.get('taskId') || urlParams.get('id');
+            if (openId) {
+                setTimeout(() => openTaskDetail(openId), 400);
+            }
+        } catch(e) {}
 
         // Background poller interval (every 4 seconds) to guarantee real-time sync across any network condition
         setInterval(() => {

@@ -4525,6 +4525,170 @@ app.delete('/api/tasks/:id', (req, res) => {
     res.json({ success: true, message: 'Task deleted' });
 });
 
+// GET /api/tasks/reminders/due
+app.get('/api/tasks/reminders/due', (req, res) => {
+    const db = getDb();
+    const now = Date.now();
+    const tasks = db.tasks || [];
+    const due = tasks.filter(t => {
+        if (!t.reminderDateTime) return false;
+        const status = (t.reminderStatus || 'PENDING').toUpperCase();
+        if (status === 'COMPLETED' || status === 'CANCELLED') return false;
+
+        try {
+            const dtStr = t.reminderDateTime.trim();
+            let remTime = 0;
+            if (/^\d+$/.test(dtStr)) {
+                remTime = parseInt(dtStr, 10);
+            } else {
+                remTime = new Date(dtStr).getTime();
+            }
+            return !isNaN(remTime) && remTime <= (now + 300000);
+        } catch (e) {
+            return true;
+        }
+    });
+    res.json(due);
+});
+
+// PUT /api/tasks/:id/reminder
+app.put('/api/tasks/:id/reminder', (req, res) => {
+    const db = getDb();
+    const taskIndex = (db.tasks || []).findIndex(t => t.id === req.params.id || t.ticketNumber === req.params.id);
+    if (taskIndex === -1) return res.status(404).json({ error: 'Task not found' });
+
+    const task = db.tasks[taskIndex];
+    const now = Date.now();
+    const { reminderDateTime, reminderNote, performedBy, performedByRole } = req.body;
+
+    task.reminderDateTime = reminderDateTime;
+    task.reminderNote = reminderNote;
+    task.reminderStatus = 'PENDING';
+    task.updatedAt = now;
+
+    if (!task.activityLog) task.activityLog = [];
+    task.activityLog.push({
+        id: `act-${Date.now()}`,
+        action: 'REMINDER_SET',
+        details: `Scheduled next follow-up reminder for ${reminderDateTime}${reminderNote ? ` ('${reminderNote}')` : ''}`,
+        performedBy: performedBy || 'Staff User',
+        performedByRole: performedByRole || 'STAFF',
+        timestamp: now
+    });
+
+    if (!task.comments) task.comments = [];
+    task.comments.push({
+        id: `cmt-${Date.now()}`,
+        authorName: performedBy || 'Staff User',
+        authorRole: performedByRole || 'STAFF',
+        authorAvatar: 'RM',
+        text: `⏰ Next Follow-up Reminder Scheduled:\n${reminderDateTime}${reminderNote ? `\nNote: ${reminderNote}` : ''}`,
+        isInternal: true,
+        timestamp: now
+    });
+
+    saveDb(db);
+    res.json(task);
+});
+
+// PUT /api/tasks/:id/reminder/complete
+app.put('/api/tasks/:id/reminder/complete', (req, res) => {
+    const db = getDb();
+    const taskIndex = (db.tasks || []).findIndex(t => t.id === req.params.id || t.ticketNumber === req.params.id);
+    if (taskIndex === -1) return res.status(404).json({ error: 'Task not found' });
+
+    const task = db.tasks[taskIndex];
+    const now = Date.now();
+    const { actionNotes, performedBy, performedByRole } = req.body;
+
+    task.reminderStatus = 'COMPLETED';
+    task.reminderCompletedAt = now;
+    task.reminderCompletedBy = performedBy || 'Staff User';
+    task.reminderActionNotes = actionNotes || '';
+    task.updatedAt = now;
+
+    if (!task.activityLog) task.activityLog = [];
+    task.activityLog.push({
+        id: `act-${Date.now()}`,
+        action: 'REMINDER_ATTENDED',
+        details: `Follow-up reminder attended & completed. Action Taken: ${actionNotes || 'No notes'}`,
+        performedBy: performedBy || 'Staff User',
+        performedByRole: performedByRole || 'STAFF',
+        timestamp: now
+    });
+
+    if (!task.comments) task.comments = [];
+    task.comments.push({
+        id: `cmt-${Date.now()}`,
+        authorName: performedBy || 'Staff User',
+        authorRole: performedByRole || 'STAFF',
+        authorAvatar: 'RM',
+        text: `✅ Follow-up Attended & Completed by ${performedBy || 'Staff User'}\nAction Taken: ${actionNotes || 'Completed'}`,
+        isInternal: true,
+        timestamp: now
+    });
+
+    saveDb(db);
+    res.json(task);
+});
+
+// PUT /api/tasks/:id/reminder/reschedule
+app.put('/api/tasks/:id/reminder/reschedule', (req, res) => {
+    const db = getDb();
+    const taskIndex = (db.tasks || []).findIndex(t => t.id === req.params.id || t.ticketNumber === req.params.id);
+    if (taskIndex === -1) return res.status(404).json({ error: 'Task not found' });
+
+    const task = db.tasks[taskIndex];
+    const now = Date.now();
+    const { newReminderDateTime, rescheduleReason, performedBy, performedByRole } = req.body;
+    const oldTime = task.reminderDateTime;
+
+    task.reminderDateTime = newReminderDateTime;
+    task.reminderStatus = 'PENDING';
+    task.reminderRescheduledAt = now;
+    task.reminderRescheduledBy = performedBy || 'Staff User';
+    if (rescheduleReason && rescheduleReason.trim()) {
+        task.reminderNote = rescheduleReason.trim();
+    }
+    task.updatedAt = now;
+
+    if (!task.activityLog) task.activityLog = [];
+    task.activityLog.push({
+        id: `act-${Date.now()}`,
+        action: 'REMINDER_RESCHEDULED',
+        details: `Follow-up reminder rescheduled from ${oldTime} to ${newReminderDateTime}${rescheduleReason ? `. Reason: ${rescheduleReason}` : ''}`,
+        performedBy: performedBy || 'Staff User',
+        performedByRole: performedByRole || 'STAFF',
+        timestamp: now
+    });
+
+    if (!task.comments) task.comments = [];
+    task.comments.push({
+        id: `cmt-${Date.now()}`,
+        authorName: performedBy || 'Staff User',
+        authorRole: performedByRole || 'STAFF',
+        authorAvatar: 'RM',
+        text: `🔄 Follow-up Rescheduled to ${newReminderDateTime} by ${performedBy || 'Staff User'}${rescheduleReason ? `\nReason: ${rescheduleReason}` : ''}`,
+        isInternal: true,
+        timestamp: now
+    });
+
+    saveDb(db);
+    res.json(task);
+});
+
+// PUT /api/tasks/:id (Generic update)
+app.put('/api/tasks/:id', (req, res) => {
+    const db = getDb();
+    const taskIndex = (db.tasks || []).findIndex(t => t.id === req.params.id || t.ticketNumber === req.params.id);
+    if (taskIndex === -1) return res.status(404).json({ error: 'Task not found' });
+
+    const task = db.tasks[taskIndex];
+    Object.assign(task, req.body, { updatedAt: Date.now() });
+    saveDb(db);
+    res.json(task);
+});
+
 // =============================================================
 
 app.get(/^\/admin(\/.*)?$/, (req, res) => {

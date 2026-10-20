@@ -2672,4 +2672,353 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch(e) {}
     }, 200);
+
+    // =========================================================================
+    // 10. GLOBAL FOLLOW-UP & DUE REMINDERS SYSTEM (OPTION A)
+    // =========================================================================
+    window._adminDueReminders = [];
+    window._adminReminderIndex = 0;
+    window._adminReminderSnoozed = window._adminReminderSnoozed || {};
+
+    window._adminInitReminderSystem = function() {
+        if (!document.getElementById('global-reminder-card-container')) {
+            const container = document.createElement('div');
+            container.id = 'global-reminder-card-container';
+            container.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:999999;max-width:400px;width:calc(100vw - 32px);pointer-events:none;transition:all 0.3s cubic-bezier(0.4,0,0.2,1);';
+            document.body.appendChild(container);
+        }
+        window._adminFetchDueReminders();
+        if (!window._adminReminderInterval) {
+            window._adminReminderInterval = setInterval(window._adminFetchDueReminders, 8000);
+        }
+    };
+
+    window._adminFetchDueReminders = async function() {
+        try {
+            const res = await fetch('/api/tasks/reminders/due');
+            if (res.ok) {
+                const dueTasks = await res.json();
+                const now = Date.now();
+                // Filter out tasks snoozed in this browser session
+                window._adminDueReminders = (dueTasks || []).filter(t => {
+                    const snoozedUntil = window._adminReminderSnoozed[t.id];
+                    if (snoozedUntil && now < snoozedUntil) return false;
+                    return true;
+                });
+
+                if (window._adminReminderIndex >= window._adminDueReminders.length) {
+                    window._adminReminderIndex = Math.max(0, window._adminDueReminders.length - 1);
+                }
+
+                window._adminRenderReminderCard();
+            }
+        } catch(e) {}
+    };
+
+    window._adminRenderReminderCard = function() {
+        const container = document.getElementById('global-reminder-card-container');
+        if (!container) return;
+
+        if (!window._adminDueReminders || window._adminDueReminders.length === 0) {
+            container.innerHTML = '';
+            container.style.pointerEvents = 'none';
+            return;
+        }
+
+        container.style.pointerEvents = 'auto';
+        const t = window._adminDueReminders[window._adminReminderIndex];
+        if (!t) return;
+
+        const count = window._adminDueReminders.length;
+        const index = window._adminReminderIndex + 1;
+        const paginationHtml = count > 1 ? `
+            <div style="display:flex;align-items:center;gap:4px;background:#fef3c7;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;color:#92400e;">
+                <button type="button" onclick="window._adminPrevReminder(event)" style="background:transparent;border:none;cursor:pointer;font-weight:900;color:#92400e;padding:0 2px;">◀</button>
+                <span>${index} of ${count}</span>
+                <button type="button" onclick="window._adminNextReminder(event)" style="background:transparent;border:none;cursor:pointer;font-weight:900;color:#92400e;padding:0 2px;">▶</button>
+            </div>
+        ` : '';
+
+        // Relative time or overdue label
+        let dueLabel = 'Due Now';
+        try {
+            const dtStr = t.reminderDateTime ? t.reminderDateTime.trim() : '';
+            let d = /^\d+$/.test(dtStr) ? new Date(parseInt(dtStr, 10)) : new Date(dtStr);
+            if (!isNaN(d.getTime())) {
+                const diffMs = Date.now() - d.getTime();
+                if (diffMs > 60000) {
+                    const m = Math.floor(diffMs / 60000);
+                    dueLabel = m > 60 ? `Overdue by ${Math.floor(m/60)}h` : `Overdue by ${m}m`;
+                } else {
+                    dueLabel = 'Due Now';
+                }
+            }
+        } catch(e) {}
+
+        container.innerHTML = `
+            <div id="active-reminder-floating-card" style="background:#ffffff;border:1.5px solid #f59e0b;border-radius:20px;box-shadow:0 20px 40px -10px rgba(0,0,0,0.18), 0 0 0 1px rgba(245,158,11,0.2);overflow:hidden;font-family:'Outfit',sans-serif;animation:reminderSlideIn 0.35s cubic-bezier(0.16,1,0.3,1);position:relative;">
+                <style>
+                    @keyframes reminderSlideIn {
+                        from { transform: translateY(20px) scale(0.96); opacity: 0; }
+                        to { transform: translateY(0) scale(1); opacity: 1; }
+                    }
+                    @keyframes reminderPulse {
+                        0%, 100% { transform: scale(1); }
+                        50% { transform: scale(1.1); }
+                    }
+                </style>
+                <!-- Card Header -->
+                <div style="background:linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);padding:12px 16px;border-bottom:1px solid #fde68a;display:flex;align-items:center;justify-content:space-between;">
+                    <div style="display:flex;align-items:center;gap:8px;flex:1;">
+                        <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#f59e0b;color:#ffffff;font-size:14px;box-shadow:0 2px 6px rgba(245,158,11,0.4);animation:reminderPulse 2s infinite ease-in-out;">🔔</span>
+                        <div>
+                            <div style="font-size:11px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:0.04em;">Follow-Up Call Due</div>
+                            <div style="font-size:9px;font-weight:700;color:#b45309;">${dueLabel}</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        ${paginationHtml}
+                        <button type="button" onclick="window._adminSnoozeCurrentReminder(15)" title="Remind me in 15 mins" style="background:#ffffff;border:1px solid #cbd5e1;border-radius:8px;padding:3px 7px;font-size:10px;font-weight:700;color:#64748b;cursor:pointer;">⏰ 15m</button>
+                    </div>
+                </div>
+
+                <!-- Card Body -->
+                <div id="reminder-card-main-body" style="padding:14px 16px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                        <span style="font-family:monospace;font-size:11px;font-weight:800;color:#2563eb;background:#eff6ff;padding:2px 6px;border-radius:6px;border:1px solid #bfdbfe;">${t.ticketNumber || t.id}</span>
+                        <span style="font-size:10px;font-weight:700;color:#475569;background:#f1f5f9;padding:2px 8px;border-radius:6px;">${t.clientName || 'Client'}</span>
+                    </div>
+
+                    <div style="font-size:13px;font-weight:800;color:#0f172a;line-height:1.3;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${t.companyName || t.title}">
+                        ${t.companyName || 'Corporate Client'}
+                    </div>
+
+                    <div style="font-size:11px;color:#334155;margin-bottom:10px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">
+                        ${t.title}
+                    </div>
+
+                    <div style="background:#fefce8;border:1px solid #fef08a;border-radius:12px;padding:8px 10px;margin-bottom:12px;">
+                        <div style="font-size:9px;font-weight:800;color:#854d0e;text-transform:uppercase;margin-bottom:2px;">Scheduled Follow-Up Action:</div>
+                        <div style="font-size:11px;font-weight:600;color:#713f12;">"${t.reminderNote || 'Follow up with client'}"</div>
+                    </div>
+
+                    <!-- Main Buttons -->
+                    <div id="reminder-main-action-buttons" style="display:flex;align-items:center;gap:6px;">
+                        <button type="button" onclick="window._adminShowAttendForm()" style="flex:1.2;background:#16a34a;color:#ffffff;border:none;border-radius:10px;padding:8px 10px;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;box-shadow:0 2px 6px rgba(22,163,74,0.3);transition:background 0.2s;">
+                            <span>✓</span>
+                            <span>Attended & Mark Done</span>
+                        </button>
+                        <button type="button" onclick="window._adminShowRescheduleForm()" style="flex:1;background:#f59e0b;color:#ffffff;border:none;border-radius:10px;padding:8px 8px;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;box-shadow:0 2px 6px rgba(245,158,11,0.3);transition:background 0.2s;">
+                            <span>🔄</span>
+                            <span>Reschedule</span>
+                        </button>
+                        <button type="button" onclick="window._adminOpenTaskFromReminder('${t.id}')" title="Open Task Details" style="background:#0f172a;color:#ffffff;border:none;border-radius:10px;padding:8px 10px;font-size:11px;font-weight:800;cursor:pointer;">
+                            <span>Open</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Form: Attended & Complete (Mandatory Notes) -->
+                <div id="reminder-attend-form-box" style="display:none;padding:14px 16px;background:#f0fdf4;border-top:1px solid #bbf7d0;">
+                    <div style="font-size:12px;font-weight:800;color:#166534;margin-bottom:4px;">Confirm Follow-Up Attended</div>
+                    <div style="font-size:10px;color:#15803d;margin-bottom:8px;">Describe what action you took (outcome of phone call or documents collected):</div>
+                    <textarea id="reminder-attend-action-input" rows="2" placeholder="e.g. Spoke with client Ethan, signed docs will be emailed by 4 PM..." style="width:100%;box-sizing:border-box;padding:8px;font-size:11px;border:1px solid #86efac;border-radius:8px;outline:none;background:#ffffff;font-family:inherit;margin-bottom:8px;"></textarea>
+                    <div style="display:flex;justify-content:flex-end;gap:6px;">
+                        <button type="button" onclick="window._adminHideCardForms()" style="background:#ffffff;border:1px solid #cbd5e1;padding:5px 10px;border-radius:8px;font-size:10px;font-weight:700;color:#475569;cursor:pointer;">Cancel</button>
+                        <button type="button" onclick="window._adminSubmitAttendReminder('${t.id}')" style="background:#16a34a;border:none;padding:5px 12px;border-radius:8px;font-size:10px;font-weight:800;color:#ffffff;cursor:pointer;">Confirm Completion</button>
+                    </div>
+                </div>
+
+                <!-- Form: Reschedule Reminder -->
+                <div id="reminder-reschedule-form-box" style="display:none;padding:14px 16px;background:#fffbeb;border-top:1px solid #fde68a;">
+                    <div style="font-size:12px;font-weight:800;color:#92400e;margin-bottom:6px;">Reschedule Follow-Up</div>
+                    <!-- Quick chips -->
+                    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">
+                        <button type="button" onclick="window._adminSetReschedulePreset('tomorrow10')" style="background:#ffffff;border:1px solid #fde68a;border-radius:6px;padding:3px 6px;font-size:9px;font-weight:700;color:#b45309;cursor:pointer;">Tomorrow 10 AM</button>
+                        <button type="button" onclick="window._adminSetReschedulePreset('tomorrow14')" style="background:#ffffff;border:1px solid #fde68a;border-radius:6px;padding:3px 6px;font-size:9px;font-weight:700;color:#b45309;cursor:pointer;">Tomorrow 2 PM</button>
+                        <button type="button" onclick="window._adminSetReschedulePreset('2days')" style="background:#ffffff;border:1px solid #fde68a;border-radius:6px;padding:3px 6px;font-size:9px;font-weight:700;color:#b45309;cursor:pointer;">In 2 Days</button>
+                    </div>
+                    <input type="datetime-local" id="reminder-reschedule-dt-input" style="width:100%;box-sizing:border-box;padding:6px;font-size:11px;border:1px solid #fde68a;border-radius:8px;background:#ffffff;outline:none;margin-bottom:6px;">
+                    <input type="text" id="reminder-reschedule-note-input" placeholder="Reason (e.g. Customer asked to call tomorrow)" style="width:100%;box-sizing:border-box;padding:6px;font-size:11px;border:1px solid #fde68a;border-radius:8px;background:#ffffff;outline:none;margin-bottom:8px;">
+                    <div style="display:flex;justify-content:flex-end;gap:6px;">
+                        <button type="button" onclick="window._adminHideCardForms()" style="background:#ffffff;border:1px solid #cbd5e1;padding:5px 10px;border-radius:8px;font-size:10px;font-weight:700;color:#475569;cursor:pointer;">Cancel</button>
+                        <button type="button" onclick="window._adminSubmitRescheduleReminder('${t.id}')" style="background:#f59e0b;border:none;padding:5px 12px;border-radius:8px;font-size:10px;font-weight:800;color:#ffffff;cursor:pointer;">Save Reschedule</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
+    window._adminPrevReminder = function(e) {
+        if (e) e.stopPropagation();
+        if (window._adminDueReminders.length > 0) {
+            window._adminReminderIndex = (window._adminReminderIndex - 1 + window._adminDueReminders.length) % window._adminDueReminders.length;
+            window._adminRenderReminderCard();
+        }
+    };
+
+    window._adminNextReminder = function(e) {
+        if (e) e.stopPropagation();
+        if (window._adminDueReminders.length > 0) {
+            window._adminReminderIndex = (window._adminReminderIndex + 1) % window._adminDueReminders.length;
+            window._adminRenderReminderCard();
+        }
+    };
+
+    window._adminSnoozeCurrentReminder = function(minutes) {
+        const t = window._adminDueReminders[window._adminReminderIndex];
+        if (t) {
+            window._adminReminderSnoozed[t.id] = Date.now() + (minutes * 60 * 1000);
+            window._adminFetchDueReminders();
+        }
+    };
+
+    window._adminShowAttendForm = function() {
+        document.getElementById('reminder-main-action-buttons').style.display = 'none';
+        document.getElementById('reminder-reschedule-form-box').style.display = 'none';
+        const box = document.getElementById('reminder-attend-form-box');
+        if (box) {
+            box.style.display = 'block';
+            document.getElementById('reminder-attend-action-input')?.focus();
+        }
+    };
+
+    window._adminShowRescheduleForm = function() {
+        document.getElementById('reminder-main-action-buttons').style.display = 'none';
+        document.getElementById('reminder-attend-form-box').style.display = 'none';
+        const box = document.getElementById('reminder-reschedule-form-box');
+        if (box) {
+            box.style.display = 'block';
+            window._adminSetReschedulePreset('tomorrow10');
+            const noteInp = document.getElementById('reminder-reschedule-note-input');
+            if (noteInp) noteInp.value = 'Client requested callback tomorrow';
+        }
+    };
+
+    window._adminHideCardForms = function() {
+        document.getElementById('reminder-attend-form-box').style.display = 'none';
+        document.getElementById('reminder-reschedule-form-box').style.display = 'none';
+        document.getElementById('reminder-main-action-buttons').style.display = 'flex';
+    };
+
+    window._adminSetReschedulePreset = function(preset) {
+        const dtInput = document.getElementById('reminder-reschedule-dt-input');
+        if (!dtInput) return;
+        const now = new Date();
+        let target = new Date();
+        if (preset === 'tomorrow10') {
+            target.setDate(target.getDate() + 1);
+            target.setHours(10, 0, 0, 0);
+        } else if (preset === 'tomorrow14') {
+            target.setDate(target.getDate() + 1);
+            target.setHours(14, 0, 0, 0);
+        } else if (preset === '2days') {
+            target.setDate(target.getDate() + 2);
+            target.setHours(10, 0, 0, 0);
+        }
+        const year = target.getFullYear();
+        const month = String(target.getMonth() + 1).padStart(2, '0');
+        const date = String(target.getDate()).padStart(2, '0');
+        const hours = String(target.getHours()).padStart(2, '0');
+        const mins = String(target.getMinutes()).padStart(2, '0');
+        dtInput.value = `${year}-${month}-${date}T${hours}:${mins}`;
+    };
+
+    window._adminSubmitAttendReminder = async function(taskId) {
+        const input = document.getElementById('reminder-attend-action-input');
+        const actionNotes = input ? input.value.trim() : '';
+        if (!actionNotes) {
+            alert('Please describe what action you took for this reminder (e.g. outcome of customer call or document collected).');
+            input?.focus();
+            return;
+        }
+
+        try {
+            const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
+            const performedBy = auth.name || auth.fullName || 'Staff User';
+            const performedByRole = auth.role || 'STAFF';
+
+            const res = await fetch(`/api/tasks/${taskId}/reminder/complete`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ actionNotes, performedBy, performedByRole })
+            });
+
+            if (res.ok) {
+                window._adminShowToast({
+                    id: 'reminder-comp-' + Date.now(),
+                    title: 'Follow-Up Completed',
+                    message: `Action recorded: "${actionNotes}"`,
+                    type: 'Info'
+                });
+                delete window._adminReminderSnoozed[taskId];
+                window._adminFetchDueReminders();
+                window.dispatchEvent(new CustomEvent('task_updated'));
+                if (typeof window.refreshTasks === 'function') {
+                    window.refreshTasks();
+                }
+            } else {
+                alert('Failed to complete reminder. Please try again.');
+            }
+        } catch(e) {
+            console.error(e);
+            alert('Network error while completing reminder.');
+        }
+    };
+
+    window._adminSubmitRescheduleReminder = async function(taskId) {
+        const dtInput = document.getElementById('reminder-reschedule-dt-input');
+        const noteInput = document.getElementById('reminder-reschedule-note-input');
+        const newReminderDateTime = dtInput ? dtInput.value : '';
+        const rescheduleReason = noteInput ? noteInput.value.trim() : '';
+
+        if (!newReminderDateTime) {
+            alert('Please select a new Date & Time to reschedule.');
+            dtInput?.focus();
+            return;
+        }
+
+        try {
+            const auth = JSON.parse(localStorage.getItem('admin_auth') || localStorage.getItem('staff_auth') || '{}');
+            const performedBy = auth.name || auth.fullName || 'Staff User';
+            const performedByRole = auth.role || 'STAFF';
+
+            const res = await fetch(`/api/tasks/${taskId}/reminder/reschedule`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ newReminderDateTime, rescheduleReason, performedBy, performedByRole })
+            });
+
+            if (res.ok) {
+                window._adminShowToast({
+                    id: 'reminder-resched-' + Date.now(),
+                    title: 'Follow-Up Rescheduled',
+                    message: `Rescheduled to ${newReminderDateTime}${rescheduleReason ? ` (${rescheduleReason})` : ''}`,
+                    type: 'Info'
+                });
+                delete window._adminReminderSnoozed[taskId];
+                window._adminFetchDueReminders();
+                window.dispatchEvent(new CustomEvent('task_updated'));
+                if (typeof window.refreshTasks === 'function') {
+                    window.refreshTasks();
+                }
+            } else {
+                alert('Failed to reschedule reminder.');
+            }
+        } catch(e) {
+            console.error(e);
+            alert('Network error while rescheduling reminder.');
+        }
+    };
+
+    window._adminOpenTaskFromReminder = function(taskId) {
+        if (typeof window.openTaskDetail === 'function') {
+            window.openTaskDetail(taskId);
+        } else {
+            window.location.href = `/admin/tasks.html?openTask=${encodeURIComponent(taskId)}`;
+        }
+    };
+
+    // Initialize Global Floating Reminder System
+    window._adminInitReminderSystem();
 });
