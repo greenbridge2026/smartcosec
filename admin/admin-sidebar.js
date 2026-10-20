@@ -2786,7 +2786,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div id="reminder-card-main-body" style="padding:14px 16px;">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
                         <span style="font-family:monospace;font-size:11px;font-weight:800;color:#2563eb;background:#eff6ff;padding:2px 6px;border-radius:6px;border:1px solid #bfdbfe;">${t.ticketNumber || t.id}</span>
-                        <span style="font-size:10px;font-weight:700;color:#475569;background:#f1f5f9;padding:2px 8px;border-radius:6px;">${t.clientName || 'Client'}</span>
+                        <div style="display:flex;align-items:center;gap:4px;">
+                            ${t.reminderAssignedTo?.name ? `<span style="font-size:9px;font-weight:700;color:#4338ca;background:#e0e7ff;padding:2px 6px;border-radius:6px;">👤 ${t.reminderAssignedTo.name}</span>` : ''}
+                            <span style="font-size:10px;font-weight:700;color:#475569;background:#f1f5f9;padding:2px 8px;border-radius:6px;">${t.clientName || 'Client'}</span>
+                        </div>
                     </div>
 
                     <div style="font-size:13px;font-weight:800;color:#0f172a;line-height:1.3;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${t.companyName || t.title}">

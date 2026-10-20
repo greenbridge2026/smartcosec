@@ -4334,6 +4334,34 @@ app.put('/api/tasks/:id/status', (req, res) => {
     res.json(task);
 });
 
+// PUT /api/tasks/:id/priority
+app.put('/api/tasks/:id/priority', (req, res) => {
+    const db = getDb();
+    const taskIndex = (db.tasks || []).findIndex(t => t.id === req.params.id || t.ticketNumber === req.params.id);
+    if (taskIndex === -1) return res.status(404).json({ error: 'Task not found' });
+
+    const task = db.tasks[taskIndex];
+    const now = Date.now();
+    const { priority, performedBy, performedByRole } = req.body;
+    const oldPriority = task.priority || 'MEDIUM';
+
+    task.priority = (priority || task.priority || 'MEDIUM').toUpperCase().trim();
+    task.updatedAt = now;
+
+    if (!task.activityLog) task.activityLog = [];
+    task.activityLog.push({
+        id: `act-${Date.now()}`,
+        action: 'PRIORITY_CHANGED',
+        details: `Priority changed from ${oldPriority} to ${task.priority}`,
+        performedBy: performedBy || 'Staff Specialist',
+        performedByRole: performedByRole || 'STAFF',
+        timestamp: now
+    });
+
+    saveDb(db);
+    res.json(task);
+});
+
 app.post('/api/tasks/:id/comments', (req, res) => {
     const db = getDb();
     const taskIndex = (db.tasks || []).findIndex(t => t.id === req.params.id || t.ticketNumber === req.params.id);
@@ -4530,10 +4558,16 @@ app.get('/api/tasks/reminders/due', (req, res) => {
     const db = getDb();
     const now = Date.now();
     const tasks = db.tasks || [];
+    const staffId = req.query.staffId;
     const due = tasks.filter(t => {
         if (!t.reminderDateTime) return false;
         const status = (t.reminderStatus || 'PENDING').toUpperCase();
         if (status === 'COMPLETED' || status === 'CANCELLED') return false;
+
+        if (staffId && staffId.trim()) {
+            const assignedId = t.reminderAssignedTo?.id || t.assignedTo?.id;
+            if (assignedId && assignedId !== staffId.trim()) return false;
+        }
 
         try {
             const dtStr = t.reminderDateTime.trim();
@@ -4559,18 +4593,22 @@ app.put('/api/tasks/:id/reminder', (req, res) => {
 
     const task = db.tasks[taskIndex];
     const now = Date.now();
-    const { reminderDateTime, reminderNote, performedBy, performedByRole } = req.body;
+    const { reminderDateTime, reminderNote, reminderAssignedTo, performedBy, performedByRole } = req.body;
 
     task.reminderDateTime = reminderDateTime;
     task.reminderNote = reminderNote;
     task.reminderStatus = 'PENDING';
+    task.reminderAssignedTo = reminderAssignedTo || task.assignedTo || null;
     task.updatedAt = now;
+
+    const staffName = task.reminderAssignedTo?.name;
+    const staffPart = staffName ? ` (Assigned to: ${staffName})` : '';
 
     if (!task.activityLog) task.activityLog = [];
     task.activityLog.push({
         id: `act-${Date.now()}`,
         action: 'REMINDER_SET',
-        details: `Scheduled next follow-up reminder for ${reminderDateTime}${reminderNote ? ` ('${reminderNote}')` : ''}`,
+        details: `Scheduled next follow-up reminder for ${reminderDateTime}${staffPart}${reminderNote ? ` ('${reminderNote}')` : ''}`,
         performedBy: performedBy || 'Staff User',
         performedByRole: performedByRole || 'STAFF',
         timestamp: now
@@ -4582,7 +4620,7 @@ app.put('/api/tasks/:id/reminder', (req, res) => {
         authorName: performedBy || 'Staff User',
         authorRole: performedByRole || 'STAFF',
         authorAvatar: 'RM',
-        text: `⏰ Next Follow-up Reminder Scheduled:\n${reminderDateTime}${reminderNote ? `\nNote: ${reminderNote}` : ''}`,
+        text: `⏰ Next Follow-up Reminder Scheduled:\n${reminderDateTime}${staffName ? `\nStaff: ${staffName}` : ''}${reminderNote ? `\nNote: ${reminderNote}` : ''}`,
         isInternal: true,
         timestamp: now
     });
@@ -4640,7 +4678,7 @@ app.put('/api/tasks/:id/reminder/reschedule', (req, res) => {
 
     const task = db.tasks[taskIndex];
     const now = Date.now();
-    const { newReminderDateTime, rescheduleReason, performedBy, performedByRole } = req.body;
+    const { newReminderDateTime, rescheduleReason, reminderAssignedTo, performedBy, performedByRole } = req.body;
     const oldTime = task.reminderDateTime;
 
     task.reminderDateTime = newReminderDateTime;
@@ -4650,13 +4688,19 @@ app.put('/api/tasks/:id/reminder/reschedule', (req, res) => {
     if (rescheduleReason && rescheduleReason.trim()) {
         task.reminderNote = rescheduleReason.trim();
     }
+    if (reminderAssignedTo) {
+        task.reminderAssignedTo = reminderAssignedTo;
+    }
     task.updatedAt = now;
+
+    const staffName = task.reminderAssignedTo?.name;
+    const staffPart = staffName ? ` (Assigned to: ${staffName})` : '';
 
     if (!task.activityLog) task.activityLog = [];
     task.activityLog.push({
         id: `act-${Date.now()}`,
         action: 'REMINDER_RESCHEDULED',
-        details: `Follow-up reminder rescheduled from ${oldTime} to ${newReminderDateTime}${rescheduleReason ? `. Reason: ${rescheduleReason}` : ''}`,
+        details: `Follow-up reminder rescheduled from ${oldTime} to ${newReminderDateTime}${staffPart}${rescheduleReason ? `. Reason: ${rescheduleReason}` : ''}`,
         performedBy: performedBy || 'Staff User',
         performedByRole: performedByRole || 'STAFF',
         timestamp: now
@@ -4668,7 +4712,7 @@ app.put('/api/tasks/:id/reminder/reschedule', (req, res) => {
         authorName: performedBy || 'Staff User',
         authorRole: performedByRole || 'STAFF',
         authorAvatar: 'RM',
-        text: `🔄 Follow-up Rescheduled to ${newReminderDateTime} by ${performedBy || 'Staff User'}${rescheduleReason ? `\nReason: ${rescheduleReason}` : ''}`,
+        text: `🔄 Follow-up Rescheduled to ${newReminderDateTime} by ${performedBy || 'Staff User'}${staffName ? `\nStaff: ${staffName}` : ''}${rescheduleReason ? `\nReason: ${rescheduleReason}` : ''}`,
         isInternal: true,
         timestamp: now
     });
