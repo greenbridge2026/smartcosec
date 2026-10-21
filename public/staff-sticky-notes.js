@@ -1021,15 +1021,21 @@
         }
     }
 
-    // Auto-initialize when DOM is ready
+    // Auto-initialize safely when body is ready
     function initStickyNotes() {
+        if (!document.body) {
+            document.addEventListener('DOMContentLoaded', initStickyNotes);
+            window.addEventListener('load', initStickyNotes);
+            return;
+        }
         if (!window.StaffStickyNotes) {
             window.StaffStickyNotes = new StickyNoteManager();
         }
     }
 
-    if (document.readyState === 'loading') {
+    if (document.readyState === 'loading' || !document.body) {
         document.addEventListener('DOMContentLoaded', initStickyNotes);
+        window.addEventListener('load', initStickyNotes);
     } else {
         initStickyNotes();
     }
