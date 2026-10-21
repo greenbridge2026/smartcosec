@@ -1410,6 +1410,34 @@ document.addEventListener('DOMContentLoaded', () => {
         navRight.insertBefore(bellWrapper, navRight.firstChild);
     }
 
+    // 6.5. Ensure staff sticky notes script and nav button load if in staff context
+    try {
+        if (window.isStaffPortalContext && window.isStaffPortalContext()) {
+            if (!window.StaffStickyNotes && !document.getElementById('staff-sticky-note-script')) {
+                const snScript = document.createElement('script');
+                snScript.id = 'staff-sticky-note-script';
+                snScript.src = '/staff-sticky-notes.js';
+                document.head.appendChild(snScript);
+            }
+
+            if (navRight && !document.getElementById('staff-nav-sticky-note-btn')) {
+                const snBtn = document.createElement('button');
+                snBtn.id = 'staff-nav-sticky-note-btn';
+                snBtn.title = 'Toggle Floating Sticky Note';
+                snBtn.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:4px 10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;font-size:12px;font-weight:700;color:#92400e;cursor:pointer;transition:all 0.15s;font-family:inherit;';
+                snBtn.innerHTML = '<span>📌</span><span>Sticky Note</span>';
+                snBtn.onmouseover = function() { this.style.background = '#fde68a'; };
+                snBtn.onmouseout = function() { this.style.background = '#fef3c7'; };
+                snBtn.onclick = function() {
+                    if (window.StaffStickyNotes) {
+                        window.StaffStickyNotes.toggleOpen();
+                    }
+                };
+                navRight.insertBefore(snBtn, navRight.firstChild);
+            }
+        }
+    } catch(e) { console.warn('Sticky note auto-load failed:', e); }
+
     // 7. Notification bell logic for admin pages (shared)
     window._adminNotifications = window._adminNotifications || [];
 

@@ -2714,6 +2714,28 @@ app.listen(port, () => {
     console.log(`Backend API running on http://localhost:${port}`);
 });
 
+// --- STAFF STICKY NOTES ENDPOINTS ---
+app.get('/api/staff/sticky-notes', (req, res) => {
+    const db = getDb();
+    const email = req.query.email || '';
+    if (!db.staffStickyNotes) db.staffStickyNotes = {};
+    res.json({
+        email: email,
+        stickyNotesJson: db.staffStickyNotes[email.toLowerCase()] || null
+    });
+});
+
+app.post('/api/staff/sticky-notes', (req, res) => {
+    const db = getDb();
+    const { email, stickyNotesJson } = req.body;
+    if (!db.staffStickyNotes) db.staffStickyNotes = {};
+    if (email) {
+        db.staffStickyNotes[email.toLowerCase()] = stickyNotesJson;
+        saveDb(db);
+    }
+    res.json({ success: true, message: 'Sticky notes saved' });
+});
+
 // --- MESSAGING ENDPOINTS ---
 app.get('/api/messages', (req, res) => {
     const db = getDb();
