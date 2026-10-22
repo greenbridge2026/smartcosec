@@ -4587,8 +4587,16 @@ app.get('/api/tasks/reminders/due', (req, res) => {
         if (status === 'COMPLETED' || status === 'CANCELLED') return false;
 
         if (staffId && staffId.trim()) {
-            const assignedId = t.reminderAssignedTo?.id || t.assignedTo?.id;
-            if (assignedId && assignedId !== staffId.trim()) return false;
+            const target = staffId.trim().toLowerCase();
+            const ref = t.reminderAssignedTo || t.assignedTo;
+            if (ref) {
+                const idMatch = ref.id && ref.id.toLowerCase() === target;
+                const emailMatch = ref.email && ref.email.toLowerCase() === target;
+                const nameMatch = ref.name && ref.name.toLowerCase().includes(target);
+                if (!idMatch && !emailMatch && !nameMatch) return false;
+            } else {
+                return false;
+            }
         }
 
         try {

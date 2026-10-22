@@ -8298,6 +8298,57 @@
         // ==================== ALWAYS-ON STICKY TODAY'S REMINDERS DOCK ====================
         let staffStickyReminderIndex = 0;
 
+        function isReminderAssignedToMe(t) {
+            if (!t) return false;
+            const auth = JSON.parse(localStorage.getItem('staff_auth') || localStorage.getItem('admin_auth') || localStorage.getItem('user') || '{}');
+            const myId = (auth.id || auth.userId || auth._id || '').toLowerCase().trim();
+            const myEmail = (auth.email || CURRENT_STAFF_EMAIL || '').toLowerCase().trim();
+            const myName = (auth.name || CURRENT_STAFF_NAME || '').toLowerCase().trim();
+
+            // 1. Check reminderAssignedTo first (the specific staff member chosen for this reminder)
+            const remStaff = t.reminderAssignedTo;
+            if (remStaff && (remStaff.id || remStaff.email || remStaff.name)) {
+                const remId = (remStaff.id || '').toLowerCase().trim();
+                const remEmail = (remStaff.email || '').toLowerCase().trim();
+                const remName = (remStaff.name || '').toLowerCase().trim();
+
+                if (myId && remId && myId === remId) return true;
+                if (myEmail && remEmail && myEmail === remEmail) return true;
+                if (myName && remName && (myName === remName || remName.includes(myName) || myName.includes(remName))) return true;
+
+                // Explicitly assigned to someone else -> do NOT show to current staff
+                return false;
+            }
+
+            // 2. Fall back to task.assignedTo if no specific reminderAssignedTo was set
+            const taskStaff = t.assignedTo;
+            if (taskStaff && (taskStaff.id || taskStaff.email || taskStaff.name)) {
+                const assId = (taskStaff.id || '').toLowerCase().trim();
+                const assEmail = (taskStaff.email || '').toLowerCase().trim();
+                const assName = (taskStaff.name || '').toLowerCase().trim();
+
+                if (myId && assId && myId === assId) return true;
+                if (myEmail && assEmail && myEmail === assEmail) return true;
+                if (myName && assName && (myName === assName || assName.includes(myName) || myName.includes(assName))) return true;
+
+                return false;
+            }
+
+            // 3. Fall back to creator if unassigned
+            const creator = t.createdBy;
+            if (creator && (creator.id || creator.email || creator.name)) {
+                const crId = (creator.id || '').toLowerCase().trim();
+                const crEmail = (creator.email || '').toLowerCase().trim();
+                const crName = (creator.name || '').toLowerCase().trim();
+                if (myId && crId && myId === crId) return true;
+                if (myEmail && crEmail && myEmail === crEmail) return true;
+                if (myName && crName && (myName === crName || crName.includes(myName) || myName.includes(crName))) return true;
+            }
+
+            return false;
+        }
+        window.isReminderAssignedToMe = isReminderAssignedToMe;
+
         function getStaffTodayReminders() {
             const now = new Date();
             const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
@@ -8305,6 +8356,9 @@
             return (staffTaskList || []).filter(t => {
                 if (!t.reminderDateTime || !t.reminderDateTime.trim()) return false;
                 if ((t.reminderStatus || 'PENDING').toUpperCase() === 'COMPLETED') return false;
+
+                // Ensure reminder is mapped strictly to the current logged-in staff member
+                if (!isReminderAssignedToMe(t)) return false;
 
                 let remTime;
                 if (/^\d+$/.test(t.reminderDateTime)) {
