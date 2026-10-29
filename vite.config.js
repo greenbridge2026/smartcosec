@@ -84,6 +84,7 @@ export default defineConfig(({ mode }) => {
           staffCompanyDetail: resolve(__dirname, 'staff/company-detail.html'),
           blogs: resolve(__dirname, 'blogs.html'),
           chooseService: resolve(__dirname, 'choose-service.html'),
+          incorporate: resolve(__dirname, 'incorporate.html'),
           adminStaffIdCards: resolve(__dirname, 'admin/staff-id-cards.html'),
           adminAttendance: resolve(__dirname, 'admin/attendance.html'),
           verifyStaff: resolve(__dirname, 'verify-staff.html'),
