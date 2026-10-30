@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
 :root {
   --navy: #060E1A;
@@ -625,20 +627,20 @@ textarea { resize: vertical; }
 <div class="modal" id="modal" hidden onclick="if(event.target===this)closeHelp()"><div class="mbox" id="mbox"></div></div>
 
 <script>
-const S={step:1,enquiry:'General enquiry',callDate:'',country:'',otherCountry:'',type:'pte',cname:'',model:'',otherModel:'',industry:'',otherIndustry:'',activity:'',cust:'',market:'',funds:'',addr:'',exp:'',plan:'',hire:'',emp:'',passes:[],bank:'',dirs:'',resident:'',nominee:false,sh:'',corp:'',name:'',email:'',contact:'',time:'09:00–11:00',err:false,internal:false,lead:null};
-const C={SG:['Singapore','S$',1,1],US:['United States of America','US$',0.75,0],OT:['Others','',0,0]};
-const MODEL={products:'Products',services:'Services',both:'Products and services',holding:'Investment holdings',fund:'Fund management',other:'Others'};
-const H={products:'Physical goods you buy, make or sell.',services:'Advice, software, labour or access you provide.',both:'You sell goods and also provide services.',holding:'No trading. The company only owns shares, investments or assets.',fund:'Managing money or investments for other people or funds.',other:'Something else. Tell us about it in one sentence.'};
+const S={step:1,enquiry:'General enquiry',callDate:'',country:'',otherCountry:'',type:'pte',cname:'',model:'',otherModel:'',industry:'',otherIndustry:'',activity:'',cust:'',market:'',otherMarket:'',funds:'',addr:'',exp:'',plan:'',hire:'',emp:'',passes:[],bank:'',dirs:'',resident:'',nominee:false,sh:'',corp:'',name:'',email:'',contact:'',time:'09:00–11:00',err:false,internal:false,lead:null};
+const C={SG:['Singapore','S$',1,1],US:['United States of America','US$',0.75,0]};
+const MODEL={products:'Product',services:'Services',both:'Product and services',holding:'Investment holding',fund:'Fund',other:'Others'};
+const H={products:'Physical goods you buy, make or sell.',services:'Services, software, or advice you provide.',both:'You sell goods and also provide services.',holding:'Holding shares, investments, or assets.',fund:'Managing investments or funds for others.',other:'Activities not listed above.'};
 const CUST={b2b:'Businesses',b2c:'Individuals',both:'Both'};
-const MKT={sg:'Singapore',sea:'Southeast Asia',asia:'Wider Asia',west:'Europe, US and others',risk:'Includes high-risk or sanctioned countries'};
+const MKT={sg:'Singapore',sea:'Southeast Asia',apac:'Asia-Pacific',europe:'Europe & United Kingdom',na:'North America',me:'Middle East',africa:'Africa',latam:'Latin America & Caribbean',multiple:'Multiple regions'};
 const TYPES=[['pte','Private limited company (Pte Ltd)'],['llp','Limited liability partnership (LLP)'],['sole','Sole proprietorship'],['partner','Partnership'],['guar','Company limited by guarantee'],['public','Public company limited by shares'],['branch','Branch of a foreign company']];
 const PY={'1':1,'2':2,'3-5':3,'6-10':6};
 const AP={basic:['Filing & basic bookkeeping',900],reg:['Regular accounting',1080],full:['Full accounting & reporting',3000]};
-const PH={basic:'Annual filing plus simple bookkeeping. For early-stage companies.',reg:'Regular tracking through the year. For growing companies.',full:'Full visibility and reporting. For scaling companies.'};
+const PH={basic:'Annual filing plus simple bookkeeping. For early-stage companies.',reg:'Regular tracking through the year. For growing companies.',full:'Full visibility and reporting. For scaling companies.',unsure:'We will help you determine the best accounting plan for your business.'};
 const X=['Other (describe below)',1,'Read the activity description and confirm any licence needed'];
 const P=[['Consumer goods & retail',0,''],['Food & beverage',0,''],['Electronics & hardware',0,''],['Commodities & raw materials',1,'Ask for supplier and buyer names and shipping routes'],['Pharma & medical devices',1,'Check import and health-authority licences'],['Precious metals & stones',3,'Check licensing and source of goods'],['Arms, defence & dual-use items',3,'Senior review before any contact'],X];
 const V=[['Consulting & professional services',0,''],['Technology & software',0,''],['Marketing & media',0,''],['Education & training',0,''],['Logistics & shipping',1,'Ask for main routes and cargo types'],['Real estate & property',1,'Ask for source of funds and property location'],['Crypto & digital assets',3,'Confirm licence position with MAS'],['Payments & money transfer',3,'Confirm payment licence before accepting'],['Gambling & gaming',3,'Check legality in target markets'],X];
-const L={products:P,services:V,both:[...P.slice(0,-1),...V],holding:[['Investment holdings',1,'Ask for source of funds and the investments held'],['Holding group shares',0,''],['Holding IP or licences',0,''],X],fund:[['Fund management company',3,'Confirm MAS licence or exemption before accepting'],['Family office',1,'Ask for source of wealth and the structure'],['Venture capital or private equity',1,'Ask for source of funds and investors'],X],other:[X]};
+const L={products:P,services:V,both:[...P.slice(0,-1),...V],holding:[['Investment holding',1,'Ask for source of funds and the investments held'],['Holding group shares',0,''],['Holding IP or licences',0,''],X],fund:[['Fund',3,'Confirm MAS licence or exemption before accepting'],['Family office',1,'Ask for source of wealth and the structure'],['Venture capital or private equity',1,'Ask for source of funds and investors'],X],other:[X]};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const opts=(k,list)=>'<div class="opts">'+list.map(([v,t])=>`<button class="opt ${S[k]===v?'on':''}" onclick="set('${k}','${v}')">${t}</button>`).join('')+'</div>';
@@ -651,6 +653,12 @@ function canStep2(){
     return !!((S.otherIndustry && S.otherIndustry.trim()) || (S.activity && S.activity.trim()) || S.industry);
   }
   return !!S.industry;
+}
+function canStep3(){
+  if(!S.market || !S.addr) return false;
+  if(S.model!=='products' && !S.funds) return false;
+  if(S.market==='multiple' && !(S.otherMarket && S.otherMarket.trim())) return false;
+  return true;
 }
 function set(k,v){
   S[k]=v;
@@ -670,38 +678,57 @@ function set(k,v){
   if(k==='resident'&&v==='yes')S.nominee=false;
   if(k==='hire'&&v==='no'){S.emp='';S.passes=[]}
   if(k==='country'&&v!=='OT'){S.otherCountry=''}
+  if(k==='market'&&v!=='multiple'){S.otherMarket=''}
   draw();
 }
-function tog(v){const i=S.passes.indexOf(v);if(i>=0)S.passes.splice(i,1);else if(v==='loc'||v==='unsure')S.passes=[v];else S.passes=S.passes.filter(x=>x!=='loc'&&x!=='unsure').concat(v);draw()}
-function go(n){S.step=n;if(n===5&&S.nominee&&!S.plan)S.plan='basic';draw()}
+function canStep1(){
+  return !!(S.country && S.cname && S.cname.trim());
+}
+function tog(v){
+  const i=S.passes.indexOf(v);
+  if(i>=0){
+    S.passes.splice(i,1);
+  } else if(v==='unsure'){
+    S.passes=[v];
+  } else {
+    S.passes=S.passes.filter(x=>x!=='unsure').concat(v);
+  }
+  draw();
+}
+function go(n){
+  if(n === 2 && !canStep1()) return;
+  S.step=n;
+  if(n===5&&S.nominee&&!S.plan)S.plan='basic';
+  draw();
+}
 function calc(){
   const c=C[S.country];if(!c||!c[3]||S.type!=='pte')return null;
   const one=[['Government Registration and Name Application fees',315]];
   if(S.bank==='yes')one.push(['Business bank account assistance',500]);
-  if(S.passes.some(x=>x!=='loc'))one.push(['Work pass (EP/WP) service','Discussed separately']);
-  const yr=[['Government Annual Filing Fee',60],[S.corp==='yes'?'Corporate secretary (corporate shareholder)':'Corporate secretary',S.corp==='yes'?1440:440]];
+  if(S.passes.some(x=>x!=='loc'))one.push(['Work pass (EP) service','Discussed separately']);
+  const yr=[['Government Annual Filing Fee',60],['Corporate secretary',440]];
+  if(S.corp==='entity')yr.push(['XBRL preparation',1000]);
   if(S.addr==='need')yr.push(['Registered office address',200]);
   if(S.nominee)yr.push(['Nominee director',1500]);
-  if(S.plan&&S.exp!=='mid'&&S.exp!=='large')yr.push(['Accounting: '+AP[S.plan][0],AP[S.plan][1]]);
+  if(S.plan&&S.plan!=='unsure'&&S.exp!=='mid'&&S.exp!=='large'&&AP[S.plan])yr.push(['Accounting: '+AP[S.plan][0],AP[S.plan][1]]);
   const cpf=S.passes.includes('loc')||S.passes.includes('unsure');
   if(S.hire==='yes'&&PY[S.emp]&&!cpf){
     yr.push(['Payroll service ('+PY[S.emp]+' employee'+(PY[S.emp]===1?'':'s')+')',PY[S.emp]*50*12]);
     yr.push(['SDL ('+PY[S.emp]+' employee'+(PY[S.emp]===1?'':'s')+')',PY[S.emp]*11*12]);
   }
   const sum=a=>a.reduce((s,l)=>s+(typeof l[1]==='number'?l[1]:0),0);
-  return{one,yr,now:sum(one),yearly:sum(yr),sym:c[1],quote:(!!S.plan&&(S.exp==='mid'||S.exp==='large'))||(S.hire==='yes'&&S.emp==='11+'),cpf:S.hire==='yes'&&cpf,pass:S.passes.some(x=>x!=='loc')}
+  return{one,yr,now:sum(one),yearly:sum(yr),sym:c[1],quote:(!!S.plan&&S.plan!=='unsure'&&(S.exp==='mid'||S.exp==='large'))||(S.hire==='yes'&&S.emp==='11+'),cpf:S.hire==='yes'&&cpf,pass:S.passes.some(x=>x!=='loc')}
 }
 function risk(){
   const fl=[];let p=0;const it=(L[S.model]||[]).find(x=>x[0]===S.industry);
   if(it&&it[1]){p+=it[1];fl.push([S.otherIndustry?`Other (${S.otherIndustry})`:it[0],it[2]])}
-  if(S.market==='risk'){p+=3;fl.push(['Trades with sanctioned or high-risk countries','Run sanctions screening on counterparties'])}
   if(S.funds==='yes'){p+=2;fl.push(['Holds or moves customer money','Confirm the licence it needs before accepting'])}
-  if(S.passes.some(x=>x!=='loc'))fl.push(['Work passes needed (EP, WP or unsure)','Check eligibility and quota; refer to the work pass team']);
+  if(S.passes.some(x=>x!=='loc'))fl.push(['Work passes needed (EP or unsure)','Check eligibility and quota; refer to the work pass team']);
   if(S.bank==='yes')fl.push(['Business bank account assistance requested','Check the bank’s appetite for this industry and ownership before introducing']);
   if(S.addr==='own')fl.push(['Client-supplied registered address','Confirm the address can be used as a registered office']);
   if(S.resident==='no'){p+=1;fl.push(['No locally resident director','Confirm nominee terms and sign a nominee agreement'])}
   if(S.nominee){p+=1;fl.push(['Nominee director requested','Require an accounting package alongside'])}
-  if(S.corp==='yes'){p+=1;fl.push(['Corporate shareholder','Get the full ownership chain and ultimate owners'])}
+  if(S.corp==='entity'){p+=1;fl.push(['Corporate shareholder','Get the full ownership chain and ultimate owners'])}
   if(S.sh==='5+'){p+=1;fl.push(['Five or more shareholders','Collect ID and percentage held for each'])}
   return p>=3?['r','Senior review before onboarding',fl]:p>=1?['a','Proceed with enhanced checks',fl]:['g','Standard onboarding',fl];
 }
@@ -714,39 +741,27 @@ function drawEst(){
   if(!S.country){
     h+='<div class="big">—</div><div class="fine">Choose a country to begin.</div>';
   } else if(!e){
-    h+='<div class="big" style="font-size:24px;">Quoted by an expert</div><div class="fine">We’ll confirm pricing for ' + (S.country==='OT'?(S.otherCountry||'this country'):(C[S.country]?C[S.country][0]:'this country')) + ' or company type with you directly.</div>';
+    h+='<div class="big" style="font-size:24px;">Quoted by an expert</div><div class="fine">We’ll confirm pricing for ' + (C[S.country]?C[S.country][0]:'this country') + ' or company type with you directly.</div>';
   } else {
-    const row=u=>l=>'<div class="row"><span>'+l[0]+'</span><span>'+(typeof l[1]==='number'?money(e.sym,l[1])+'<span class="u"> '+u+'</span>':l[1])+'</span></div>';
-    
-    // 1. ALL ITEM COSTS COME FIRST
-    h+='<div style="margin-top:12px;">';
-    if(e.one.length > 0){
-      h+='<div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#94A3B8; margin-bottom:6px;">One-time items</div>';
-      h+=e.one.map(row('one time')).join('');
+    // Items list (combines selected one-time and annual recurring items for calculation without separate category headers)
+    const allItems = [...e.one.map(l=>[l[0], l[1], 'one time']), ...e.yr.map(l=>[l[0], l[1], '/ year'])];
+    if(allItems.length > 0){
+      h+='<div style="margin-top:12px;">';
+      h+=allItems.map(([item, cost, period])=>'<div class="row"><span>'+item+'</span><span>'+(typeof cost==='number'?money(e.sym,cost)+'<span class="u"> '+period+'</span>':cost)+'</span></div>').join('');
+      h+='</div>';
     }
-    if(e.yr.length > 0){
-      h+='<div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#94A3B8; margin-top:14px; margin-bottom:6px;">Annual recurring items</div>';
-      h+=e.yr.map(row('/ year')).join('');
-    }
-    h+='</div>';
 
-    // 2. BOTH TOTALS COME BELOW OF ALL COST
+    const total = e.now + e.yearly;
     h+='<div style="margin-top:20px; padding-top:16px; border-top:2px solid rgba(255,255,255,0.12);">';
-    
-
-
-    // Annual Recurring Total: Estimated annual recurring costs S$500 / year
     h+='<div class="annual-summary" style="margin-top:0;">';
-    h+='<div class="annual-label">Estimated annual recurring costs</div>';
-    h+='<div class="annual-total">'+money(e.sym,e.yearly)+'<span> / year</span></div>';
+    h+='<div class="annual-label">Total</div>';
+    h+='<div class="annual-total">'+money(e.sym,total)+'</div>';
     h+='<div class="annual-caption">Based on the services selected below</div>';
     h+='</div>';
-
     h+='</div>';
 
     if(e.cpf) h+='<div class="fine" style="margin-top:12px;">Payroll for local hires is quoted separately. It needs CPF calculations.</div>';
     if(e.quote) h+='<div class="fine" style="margin-top:6px;">Some items will be quoted by an expert.</div>';
-    h+='<div class="fine" style="margin-top:8px;">Illustrative figures. Final fees confirmed after review.</div>';
   }
 
   h+='<div class="human">Prefer a person? A company secretary can guide you at any step.<button onclick="openHelp()">Talk to an expert</button></div>';
@@ -757,11 +772,10 @@ const help='<button class="link" onclick="openHelp()">Not sure about something? 
 function draw(){
   let h='';
   if(S.step===1){
-    const canContinue = S.country && (S.country !== 'OT' || (S.otherCountry && S.otherCountry.trim()));
+    const canContinue = canStep1();
     h=`<h2>Let’s start with the basics</h2><p class="sub">This sets the process and fees.</p><label>Country</label><select onchange="set('country',this.value)"><option value="">Select country</option>${Object.entries(C).map(([k,v])=>`<option value="${k}" ${S.country===k?'selected':''}>${v[0]}</option>`).join('')}</select>
-    ${S.country==='OT'?`<label>Country name</label><input placeholder="e.g. Australia, Germany, Canada, United Kingdom" value="${esc(S.otherCountry||'')}" oninput="S.otherCountry=this.value; drawEst(); const btn=document.getElementById('step1-btn'); if(btn) btn.disabled=!this.value.trim();"><p class="why">Please enter the country where you wish to incorporate.</p>`:''}
     <label>Company type</label><select onchange="set('type',this.value)">${TYPES.map(x=>`<option value="${x[0]}" ${S.type===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select>
-    <label>Company name <span class="optl">Optional</span></label><input placeholder="e.g. Bright Skin Pte. Ltd." value="${esc(S.cname)}" oninput="S.cname=this.value"><p class="why">You can skip this for now. We’ll check the name is available for you.</p>
+    <label>Your Preferred Company Name</label><input placeholder="e.g. Bright Skin Pte. Ltd." value="${esc(S.cname)}" oninput="S.cname=this.value; const btn=document.getElementById('step1-btn'); if(btn) btn.disabled=!canStep1();"><p class="why">*Company name availability subject to final confirmation from regulating authority</p>
     <div class="nav"><span></span><button id="step1-btn" class="btn p" ${canContinue?'':'disabled'} onclick="go(2)">Continue</button></div>`+help;
   }else if(S.step===2){
     const canContinue = canStep2();
@@ -772,41 +786,52 @@ function draw(){
     <label>In one sentence, what will you ${S.model==='services'?'offer':S.model==='holding'?'hold':S.model==='fund'?'manage':S.model==='other'?'do':'sell or offer'}? <span class="optl">Optional</span></label><textarea rows="3" placeholder="e.g. Sell skincare products online to customers in Asia" oninput="S.activity=this.value;drawEst(); const btn=document.getElementById('step2-btn'); if(btn) btn.disabled=!canStep2();">${esc(S.activity)}</textarea>`:'')+
     `<div class="nav"><button class="btn" onclick="go(1)">Back</button><button id="step2-btn" class="btn p" ${canContinue?'':'disabled'} onclick="go(3)">Continue</button></div>`+help;
   }else if(S.step===3){
-    const cn=S.country&&S.country!=='OT'?C[S.country][0]:(S.otherCountry?S.otherCountry.trim():'the country of incorporation');
+    const canContinue = canStep3();
     h=`<h2>How will it operate?</h2><p class="sub">A few quick questions. Anything marked optional can be skipped.</p>`+
-    `<label>Where are most customers or suppliers?</label><p class="why">We screen the countries a company trades with.</p>`+opts('market',Object.entries(MKT))+
-    (S.model==='products'?'':`<label>Will the company hold or move money for customers?</label><p class="why">Payment or escrow activity can need a licence.</p>`+opts('funds',[['no','No'],['yes','Yes']]))+
-    `<label>Do you have a registered office address in ${cn}?</label><p class="why">Every company needs a local address for official mail. We can provide one.</p>`+opts('addr',[['own','Yes, I have one'],['need','No, I need one from you'],['unsure','Not sure yet']])+
-    `<div class="nav"><button class="btn" onclick="go(2)">Back</button><button class="btn p" ${S.market&&S.addr&&(S.model==='products'||S.funds)?'':'disabled'} onclick="go(4)">Continue</button></div>`+help;
+    `<label>Where are your main customers, suppliers, or business partners located?</label>`+opts('market',Object.entries(MKT))+
+    (S.market==='multiple'?`<label>Country name</label><input placeholder="e.g. United Kingdom, Japan, Australia" value="${esc(S.otherMarket||'')}" oninput="S.otherMarket=this.value; drawEst(); const btn=document.getElementById('step3-btn'); if(btn) btn.disabled=!canStep3();"><p class="why">Please enter the countries or regions.</p>`:'')+
+    (S.model==='products'?'':`<label>Will the company hold or move money for customers?</label><p class="why">Payment or escrow activity can need a licence.</p>`+opts('funds',[['yes','Yes'],['no','No']]))+
+    `<label>Do you have a registered office address in Singapore?</label><p class="why">Every company needs a local address for official mail. We can provide one.</p>`+opts('addr',[['own','Yes, I have'],['need','No, I need from you'],['unsure','Not sure yet']])+
+    `<div class="nav"><button class="btn" onclick="go(2)">Back</button><button id="step3-btn" class="btn p" ${canContinue?'':'disabled'} onclick="go(4)">Continue</button></div>`+help;
   }else if(S.step===4){
-    const cnDir = S.country&&S.country!=='OT'?C[S.country][0]:(S.otherCountry?S.otherCountry.trim():'the country of incorporation');
-    h=`<h2>Directors and shareholders</h2><p class="sub">Just the headline numbers for now.</p><label>Number of directors</label>`+opts('dirs',[['1','1'],['2','2'],['3+','3 or more']])+
+    const cnDir = S.country&&S.country!=='OT'?C[S.country][0]:'Singapore';
+    h=`<h2>Directors and shareholders</h2><label>Number of directors</label>`+opts('dirs',[['1','1'],['2','2'],['3+','3 or more']])+
     `<label>Is at least one director resident in ${cnDir}?</label>`+opts('resident',[['yes','Yes'],['no','No']])+
-    (S.resident==='no'?`<div class="note">A locally resident director is usually required. We can provide a nominee director.<br><label style="margin:10px 0 0"><input type="checkbox" style="width:auto;margin-right:6px" ${S.nominee?'checked':''} onchange="set('nominee',this.checked)">I’d like a nominee director service</label></div>`:'')+
+    (S.resident==='no'?`<div class="note">Under Singapore law, Every Singapore company must have at least one Singapore-resident director who is a Singapore Citizen or Permanent Resident.<br><label style="margin:10px 0 0"><input type="checkbox" style="width:auto;margin-right:6px" ${S.nominee?'checked':''} onchange="set('nominee',this.checked)">I’d like a nominee director service</label></div>`:'')+
     `<label>Number of shareholders</label>`+opts('sh',[['1','1'],['2','2'],['3-4','3–4'],['5+','5 or more']])+
-    `<label>Is any shareholder a company?</label>`+opts('corp',[['no','No, all individuals'],['yes','Yes']])+
+    `<label>Are the shareholder individual?</label>`+opts('corp',[['yes','Yes'],['entity','No, 1 or more shareholder is company or legal entity']])+
     `<div class="nav"><button class="btn" onclick="go(3)">Back</button><button class="btn p" ${S.dirs&&S.resident&&S.sh&&S.corp?'':'disabled'} onclick="go(5)">Continue</button></div>`+help;
   }else if(S.step===5){
     const ok0=C[S.country]&&C[S.country][3],f=ok0?C[S.country][2]:1,sym=ok0?C[S.country][1]:'S$',small=S.exp!=='mid'&&S.exp!=='large';
     const pl=Object.entries(AP).map(([k,v])=>[k,v[0]+(S.exp&&small?' · '+money(sym,Math.round(v[1]*f)):'')]);
-    h=`<h2>Do you need accounting too?</h2><p class="sub">Optional. You can add it now or later.</p><label>Expected yearly expenses</label><p class="why">Accounting is priced by how much the company spends. If unsure, start with the lowest.</p>`+opts('exp',[['small','Up to '+sym+'30,000'],['mid',sym+'30,000 to '+sym+'100,000'],['large','Over '+sym+'100,000'],['unsure','Not sure yet']])+
-    ((S.exp||S.nominee)?`<label>Choose a plan</label>`+opts('plan',(S.nominee?[]:[['','No accounting for now']]).concat(pl))+(S.plan?`<p class="hint">${PH[S.plan]}</p>`:'')+(S.exp&&!small?'<div class="note">For this expense level, an expert will quote the accounting fee. It won’t be added to the estimate yet.</div>':''):'')+
-    (S.nominee?'<div class="note">We provide nominee directors only to clients who also use our accounting service, so please choose a plan.</div>':'')+
+    const planOptions = (S.resident==='no'?[]:[['','No accounting for now']]).concat(pl).concat([['unsure','Not sure yet']]);
+    h=`<h2>Do you need our accounting services?</h2>`+
+    (S.resident==='no'?`<p class="sub">We provide nominee directors only to clients who also use our accounting service, so please choose a plan.</p>`:``)+
+    `<label>Expected yearly expenses</label><p class="why">Accounting is priced by how much the company spends. If unsure, start with the lowest.</p>`+opts('exp',[['small','Up to '+sym+'30,000'],['mid',sym+'30,000 to '+sym+'100,000'],['large','Over '+sym+'100,000'],['unsure','Not sure yet']])+
+    ((S.exp||S.nominee)?`<label>Choose a plan</label>`+opts('plan',planOptions)+(S.plan?`<p class="hint">${PH[S.plan]}</p>`:'')+(S.exp&&!small?'<div class="note">For this expense level, an expert will quote the accounting fee. It won’t be added to the estimate yet.</div>':''):'')+
     `<div class="nav"><button class="btn" onclick="go(4)">Back</button><button class="btn p" ${S.nominee&&!S.plan?'disabled':''} onclick="go(6)">Continue</button></div>`+help;
   }else if(S.step===6){
-    const sg=S.country==='SG',pb=[['ep','Employment Pass (EP)'],['wp','Work Permit (WP)'],['loc','Local hires only'],['unsure','Not sure']];
-    h=`<h2>Hiring and banking</h2><p class="sub">Optional. Skip anything you don’t need yet.</p><label>Will you hire employees?</label><p class="why">Payroll service is S$50 per employee per month, plus S$11 SDL per employee per month. Local hires may need separate CPF calculations.</p>`+opts('hire',[['no','No, not yet'],['yes','Yes']])+
-    (S.hire==='yes'?`<label>How many employees to start?</label>`+opts('emp',[['1','1 employee'],['2','2 employees'],['3-5','3–5 employees'],['6-10','6–10 employees'],['11+','11 or more']])+
-    (sg?`<label>Will any need a work pass?</label><p class="why">Choose all that apply.</p><div class="opts">${pb.map(([v,x])=>`<button class="opt ${S.passes.includes(v)?'on':''}" onclick="tog('${v}')">${x}</button>`).join('')}</div>`:'<div class="note">Work visa support for this country is quoted by an expert.</div>')+(S.passes.includes('loc')?'<div class="note">Payroll for local hires is quoted separately. It needs CPF calculations.</div>':(S.emp==='3-5'||S.emp==='6-10'?'<div class="note">For a range, the estimate uses the minimum employee count selected. Final fees depend on the exact headcount.</div>':'')):'')+
+    const sg=S.country==='SG',pb=[['ep','Employment Pass (EP)'],['unsure','Not sure']];
+    h=`<h2>Hiring and banking</h2><p class="sub">Complete this section if you require assistance with hiring employees or opening a bank account.</p><label>Will you hire employees?</label><p class="why">Payroll service is S$50 per employee per month, plus S$11 SDL per employee per month.</p>`+opts('hire',[['yes','Yes'],['no','No, not yet']])+
+    (S.hire==='yes'?`<label>How many employees to start?</label>
+    <select onchange="set('emp',this.value)">
+      <option value="">Select number of employees</option>
+      <option value="1" ${S.emp==='1'?'selected':''}>1 employee</option>
+      <option value="2" ${S.emp==='2'?'selected':''}>2 employees</option>
+      <option value="3-5" ${S.emp==='3-5'?'selected':''}>3–5 employees</option>
+      <option value="6-10" ${S.emp==='6-10'?'selected':''}>6–10 employees</option>
+      <option value="11+" ${S.emp==='11+'?'selected':''}>11 or more</option>
+    </select>`+
+    (sg?`<label>Will any need a work pass?</label><p class="why">Choose all that apply.</p><div class="opts">${pb.map(([v,x])=>`<button class="opt ${S.passes.includes(v)?'on':''}" onclick="tog('${v}')">${x}</button>`).join('')}</div>`:'<div class="note">Work visa support for this country is quoted by an expert.</div>')+(S.emp==='3-5'||S.emp==='6-10'?'<div class="note">For a range, the estimate uses the minimum employee count selected. Final fees depend on the exact headcount.</div>':'')
+    :'')+
     `<label>Would you like help opening a business bank account?</label><p class="why">Optional service. S$500 assistance fee applies only if selected.</p>`+opts('bank',[['yes','Yes'],['no','No'],['unsure','Not sure yet']])+
     `<div class="nav"><button class="btn" onclick="go(5)">Back</button><button class="btn p" ${S.hire==='yes'&&!S.emp?'disabled':''} onclick="go(7)">See my estimate</button></div>`+help;
   }else{
     const r=risk(),ok=S.name.trim()&&S.email.trim();
-    h=`<h2>Save your estimate</h2><p class="sub">We’ll email you a copy. Next step is up to you.</p><label>Full name</label><input value="${esc(S.name)}" oninput="S.name=this.value;drawEst()"><label>Email</label><input type="email" value="${esc(S.email)}" oninput="S.email=this.value;drawEst()">`+
-    (r[0]==='r'?`<div class="paths one"><div class="path"><b>A company secretary will review your details</b><span>Your set-up needs a closer look. We’ll call you within one business day. No payment is needed yet.</span><button class="btn p" onclick="openHelp()">Request my call</button></div></div>`
-    :`<div class="paths"><div class="path"><b>Continue myself</b><span>Continue with a company secretary.</span><button class="btn p" onclick="openHelp()">Continue with an expert</button></div><div class="path"><b>Talk to an expert</b><span>A company secretary will walk you through it.</span><button class="btn" onclick="openHelp()">Request a call</button></div></div>`)+
-    `<button class="link" onclick="S.internal=!S.internal;draw()">${S.internal?'Hide':'Preview'} internal view (what our team sees)</button>`+
-    (S.internal?`<div class="int"><span class="tag ${r[0]}">${r[1]}</span><p style="margin:10px 0 4px;color:var(--slate)">Profile: <b>${(TYPES.find(x=>x[0]===S.type)||[])[1]||'—'}</b> · name: ${S.cname.trim()||'to be checked'} · <b>${MODEL[S.model]||'—'}</b> · ${S.industry||'—'} · customers: ${CUST[S.cust]||'—'} · markets: ${MKT[S.market]||'—'} · address: ${{own:'own address',need:'our address',unsure:'to confirm'}[S.addr]||'—'} · accounting: ${S.plan?AP[S.plan][0]:'none'} · payroll: ${S.hire==='yes'?(S.emp||'?')+' staff':'no'} · bank help: ${S.bank||'—'}</p><p style="color:var(--slate)">Information captured: <b>${pct()}%</b>${S.lead&&S.lead.sent?` · Expert call: ${S.lead.enquiry||'—'} on ${S.lead.date||'—'} at ${S.lead.time||'—'} (step ${S.lead.step})`:''}</p>${r[2].length?'<ul>'+r[2].map(x=>`<li><b>${x[0]}</b><br><span>Check: ${x[1]}</span></li>`).join('')+'</ul>':'<p style="margin-top:8px">No risk flags raised.</p>'}</div>`:'')+
+    h=`<h2>Save your estimate</h2><p class="sub">We’ll email you a copy of your full summary and pricing. Next step is up to you.</p><label>Full name</label><input id="client-name-input" placeholder="e.g. John Tan" value="${esc(S.name)}" oninput="S.name=this.value;drawEst();const e=document.getElementById('step7-error');if(e)e.style.display='none';"><label>Email</label><input id="client-email-input" type="email" placeholder="e.g. john.tan@example.com" value="${esc(S.email)}" oninput="S.email=this.value;drawEst();const e=document.getElementById('step7-error');if(e)e.style.display='none';">`+
+    `<div id="step7-error" class="err" style="display:none;margin-top:10px;">Please enter your full name and email to proceed with confirmation.</div>`+
+    (r[0]==='r'?`<div class="paths one"><div class="path"><b>A company secretary will review your details</b><span>Your set-up needs a closer look. We’ll call you within one business day. No payment is needed yet.</span><button class="btn p" onclick="openConfirmationModal()">Confirmation</button></div></div>`
+    :`<div class="paths"><div class="path"><button class="btn p" style="width:100%" onclick="openConfirmationModal()">Confirmation</button></div><div class="path"><b>Talk to an expert</b><span>A company secretary will walk you through it.</span><button class="btn" style="width:100%" onclick="openHelp()">Request a call</button></div></div>`)+
     `<div class="nav"><button class="btn" onclick="go(6)">Back</button><span></span></div>`;
   }
   $('form').innerHTML=h;drawEst();
@@ -830,6 +855,314 @@ function sendLead(){
   if(!S.name.trim()||!(S.contact||S.email).trim()||!S.callDate||!S.time){S.err=true;drawHelp();return}
   S.err=false;S.lead={sent:true,step:S.step,enquiry:S.enquiry,date:S.callDate,time:S.time};drawHelp();draw();
   $('mbox').insertAdjacentHTML('beforeend','<p class="note" role="status">Preview mode: this request has not been sent. Connect your website form to your CRM or email service before publishing.</p>');
+}
+
+function openConfirmationModal(){
+  const errDiv = $('step7-error');
+  if(!S.name || !S.name.trim() || !S.email || !S.email.trim()){
+    if(errDiv) errDiv.style.display = 'block';
+    if(!S.name || !S.name.trim()){ const el=$('client-name-input'); if(el) el.focus(); }
+    else if(!S.email || !S.email.trim()){ const el=$('client-email-input'); if(el) el.focus(); }
+    return;
+  }
+  if(errDiv) errDiv.style.display = 'none';
+  drawConfirmationModal();
+  $('modal').hidden = false;
+}
+
+function drawConfirmationModal(){
+  const e = calc();
+  const total = e ? (e.now + e.yearly) : 0;
+  const sym = e ? e.sym : 'S$';
+
+  $('mbox').innerHTML = `
+    <h2>Confirmation</h2>
+    <p class="sub">Review your company setup and services before final confirmation.</p>
+    <div style="background:var(--line-2);border:1px solid var(--line);border-radius:12px;padding:16px;margin:16px 0;font-size:13px;line-height:1.65;">
+      <div><strong>Company Name:</strong> ${esc(S.cname || 'Pending confirmation')}</div>
+      <div><strong>Client Name:</strong> ${esc(S.name)}</div>
+      <div><strong>Client Email:</strong> ${esc(S.email)}</div>
+      <div><strong>Jurisdiction:</strong> ${C[S.country] ? C[S.country][0] : 'Singapore'}</div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:14px;font-weight:700;">Total Package Fee:</span>
+        <span style="font-size:19px;font-weight:800;color:var(--em);">${money(sym, total)}</span>
+      </div>
+    </div>
+    <div class="note" style="margin-bottom:18px;background:var(--em-soft);color:#065F46;border-color:rgba(16,185,129,0.3);font-size:12.5px;line-height:1.5;">
+      📄 <strong>Full Summary PDF (Payment & Services)</strong> will be generated and sent to:
+      <ul style="margin:6px 0 0 16px;font-weight:600;">
+        <li>Client Email: ${esc(S.email)}</li>
+        <li>SmartCosec Team: team@smartcosec.com</li>
+      </ul>
+    </div>
+    <div id="confirm-modal-error" class="err" style="display:none;margin-bottom:12px;"></div>
+    <div class="nav">
+      <button class="btn" onclick="closeHelp()">Cancel</button>
+      <button class="btn p" id="btn-confirm-send" onclick="confirmAndSendPDF()">Confirm & Send Summary PDF</button>
+    </div>
+  `;
+}
+
+let lastGeneratedDoc = null;
+function generateSummaryPDF(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const e = calc();
+  const total = e ? (e.now + e.yearly) : 0;
+  const sym = e ? e.sym : 'S$';
+
+  const primaryColor = [6, 14, 26];
+  const emeraldColor = [16, 185, 129];
+  const slateColor = [71, 85, 105];
+  const lightBg = [248, 250, 252];
+
+  // 1. Header Banner
+  doc.setFillColor(...primaryColor);
+  doc.rect(0, 0, 595, 75, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.setTextColor(255, 255, 255);
+  doc.text('SmartCosec', 40, 42);
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...emeraldColor);
+  doc.text('CORPORATE SECRETARIAL & INCORPORATION PLATFORM', 40, 58);
+
+  const refNum = 'SC-' + Math.floor(100000 + Math.random() * 900000);
+  doc.setTextColor(203, 213, 225);
+  doc.setFontSize(9);
+  doc.text('REF: ' + refNum, 555, 42, { align: 'right' });
+  doc.text('Date: ' + new Date().toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' }), 555, 58, { align: 'right' });
+
+  // 2. Title
+  doc.setFontSize(15);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...primaryColor);
+  doc.text('Summary of Payment & Services', 40, 104);
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...slateColor);
+  doc.text('Official client confirmation and complete breakdown of incorporation package, compliance, and recurring services.', 40, 118);
+
+  // 3. Configuration & Specifications
+  const dirText = (S.dirs || '1') + ' Director(s) (' + (S.resident === 'yes' ? 'Local Resident' : 'Nominee Director Required') + ')';
+  const shText = (S.sh || '1') + ' Shareholder(s) (' + (S.corp === 'entity' ? 'Corporate Shareholder - XBRL Required' : 'All Individuals') + ')';
+  const addrText = S.addr === 'need' ? 'SmartCosec Registered Office' : 'Client-Provided Address';
+  const acctText = S.plan && AP[S.plan] ? AP[S.plan][0] : (S.plan === 'unsure' ? 'To be confirmed with expert' : 'No accounting selected');
+  const hireText = S.hire === 'yes' ? (S.emp || '1') + ' Employee(s)' + (S.passes && S.passes.length ? ' (' + S.passes.map(p => p === 'ep' ? 'EP' : 'Unsure').join(', ') + ')' : '') : 'No initial hires';
+  const bankText = S.bank === 'yes' ? 'Requested (S$500)' : 'None';
+
+  // Render Setup Details using AutoTable so text wraps cleanly with zero overlap
+  doc.autoTable({
+    startY: 132,
+    margin: { left: 40, right: 40 },
+    head: [['Client & Entity Profile', 'Structure & Operational Setup']],
+    body: [
+      ['Client Name: ' + (S.name || 'Valued Client'), 'Preferred Name: ' + (S.cname || 'Pending Review')],
+      ['Client Email: ' + (S.email || '—'), 'Entity Type: Private Limited (Pte Ltd)'],
+      ['Jurisdiction: ' + (C[S.country] ? C[S.country][0] : 'Singapore'), 'Main Activity: ' + (MODEL[S.model] || '—') + (S.industry ? ' (' + S.industry + ')' : '')],
+      ['Directors: ' + dirText, 'Accounting: ' + acctText],
+      ['Shareholders: ' + shText, 'Hiring & Passes: ' + hireText],
+      ['Registered Address: ' + addrText, 'Banking: ' + bankText]
+    ],
+    theme: 'grid',
+    headStyles: {
+      fillColor: [241, 245, 249],
+      textColor: primaryColor,
+      fontSize: 8.5,
+      fontStyle: 'bold',
+      cellPadding: { top: 4, bottom: 4, left: 6, right: 6 }
+    },
+    bodyStyles: {
+      fontSize: 7.5,
+      textColor: slateColor,
+      cellPadding: { top: 3.5, bottom: 3.5, left: 6, right: 6 },
+      overflow: 'linebreak',
+      lineColor: [226, 232, 240],
+      lineWidth: 0.5
+    },
+    columnStyles: {
+      0: { cellWidth: 257 },
+      1: { cellWidth: 258 }
+    }
+  });
+
+  // Helper for distinct, professional service scopes
+  function getServiceScope(name){
+    if(name.includes('Government Registration')) return 'Official ACRA name application & company incorporation statutory fee';
+    if(name.includes('bank account')) return 'Corporate multi-currency bank account application & banker introduction';
+    if(name.includes('Work pass') || name.includes('EP')) return 'Employment Pass eligibility review, dossier preparation & MOM submission';
+    if(name.includes('Government Annual Filing Fee')) return 'ACRA statutory annual return lodgement fee';
+    if(name.includes('Corporate secretary')) return 'Named qualified secretary, AGM preparation & statutory register maintenance';
+    if(name.includes('XBRL')) return 'Financial statements conversion & filing in ACRA-compliant XBRL format';
+    if(name.includes('Registered office')) return 'Prestigious commercial Singapore registered address & mail notifications';
+    if(name.includes('Nominee director')) return 'Singapore resident nominee director fulfilling Companies Act statutory requirement';
+    if(name.includes('Accounting:')) {
+      if(name.includes('Regular')) return 'Ongoing routine bookkeeping, balance sheet/P&L & annual tax lodgement';
+      if(name.includes('Full')) return 'Comprehensive management accounts, financial statements & annual tax filing';
+      return 'Annual unaudited financial statement preparation & basic bookkeeping';
+    }
+    if(name.includes('Payroll service')) return 'Monthly payroll processing, electronic itemized payslips & IR8A filing';
+    if(name.includes('SDL')) return 'Mandatory Skills Development Levy contribution remitted to CPF Board';
+    return 'Standard statutory compliance and corporate administrative service';
+  }
+
+  // 4. Table of Services & Costs
+  const tableRows = [];
+  if (e) {
+    e.one.forEach(item => {
+      const scope = getServiceScope(item[0]);
+      const fee = typeof item[1] === 'number' ? (money(sym, item[1]) + ' (One-time)') : item[1];
+      tableRows.push([item[0], scope, fee]);
+    });
+    e.yr.forEach(item => {
+      const scope = getServiceScope(item[0]);
+      const fee = typeof item[1] === 'number' ? (money(sym, item[1]) + ' / yr') : item[1];
+      tableRows.push([item[0], scope, fee]);
+    });
+  }
+
+  doc.autoTable({
+    startY: doc.lastAutoTable.finalY + 12,
+    margin: { left: 40, right: 40 },
+    head: [['Selected Services & Government Fees', 'Service Scope & Description', 'Amount']],
+    body: tableRows,
+    theme: 'grid',
+    headStyles: {
+      fillColor: primaryColor,
+      textColor: [255, 255, 255],
+      fontSize: 8.5,
+      fontStyle: 'bold',
+      cellPadding: 5
+    },
+    bodyStyles: {
+      fontSize: 7.8,
+      textColor: [15, 23, 42],
+      cellPadding: 4.5,
+      overflow: 'linebreak'
+    },
+    columnStyles: {
+      0: { cellWidth: 175 },
+      1: { cellWidth: 240 },
+      2: { cellWidth: 100, halign: 'right', fontStyle: 'bold' }
+    },
+    foot: [[
+      { content: 'Total Payment & Service Fee:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fontSize: 9.5, textColor: primaryColor } },
+      { content: money(sym, total), styles: { halign: 'right', fontStyle: 'bold', fontSize: 10.5, textColor: emeraldColor } }
+    ]],
+    footStyles: {
+      fillColor: [241, 245, 249]
+    }
+  });
+
+  let finalY = doc.lastAutoTable.finalY + 12;
+
+  // 5. Notes & Disclaimers with automatic text wrapping
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'italic');
+  doc.setTextColor(...slateColor);
+
+  const disclaimers = [
+    '* Company name availability subject to final confirmation from regulating authority.',
+    '* Nominee director and corporate secretary services are subject to standard compliance checks (CDD/AML).',
+    '* Automated copy sent to Client (' + (S.email || '—') + ') and SmartCosec Team (team@smartcosec.com).'
+  ];
+
+  disclaimers.forEach(line => {
+    const wrapped = doc.splitTextToSize(line, 515);
+    doc.text(wrapped, 40, finalY);
+    finalY += (wrapped.length * 9) + 2;
+  });
+
+  // 6. Footer
+  doc.setDrawColor(226, 232, 240);
+  doc.line(40, 790, 555, 790);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(148, 163, 184);
+  doc.text('SmartCosec Pte. Ltd. • 160 Robinson Road, Singapore 068914 • team@smartcosec.com • www.smartcosec.com', 40, 802);
+  doc.text('Page 1 of 1', 555, 802, { align: 'right' });
+
+  return doc;
+}
+
+async function confirmAndSendPDF(){
+  const btn = $('btn-confirm-send');
+  const errEl = $('confirm-modal-error');
+  if(btn){
+    btn.disabled = true;
+    btn.innerHTML = 'Sending & Generating PDF...';
+  }
+  if(errEl) errEl.style.display = 'none';
+
+  try {
+    const doc = generateSummaryPDF();
+    lastGeneratedDoc = doc;
+    const pdfBase64 = doc.output('datauristring');
+    const e = calc();
+    const total = e ? (e.now + e.yearly) : 0;
+    const sym = e ? e.sym : 'S$';
+
+    // 1. Download for client immediately
+    const sanitizedName = (S.cname || 'Company').replace(/[^a-zA-Z0-9]/g, '_');
+    doc.save('SmartCosec_Summary_' + sanitizedName + '.pdf');
+
+    // 2. Dispatch to backend API (which sends to client email and smartcosec team email)
+    const payload = {
+      clientName: S.name,
+      clientEmail: S.email,
+      companyName: S.cname,
+      country: C[S.country] ? C[S.country][0] : 'Singapore',
+      totalAmount: total,
+      currency: sym,
+      items: e ? [...e.one.map(x => ({ name: x[0], cost: x[1], type: 'one-time' })), ...e.yr.map(x => ({ name: x[0], cost: x[1], type: 'annual' }))] : [],
+      pdfBase64: pdfBase64
+    };
+
+    try {
+      await fetch('/api/onboarding/confirm-incorporation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch(fetchErr) {
+      console.warn('Backend confirmation dispatch notice:', fetchErr);
+    }
+
+    // 3. Show Success Screen
+    $('mbox').innerHTML = `
+      <div style="text-align:center;padding:12px 0;">
+        <div style="width:56px;height:56px;background:var(--em-soft);color:var(--em-deep);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px;box-shadow:0 4px 14px var(--em-glow);">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <h2>Confirmation Successful!</h2>
+        <p class="sub" style="margin-top:6px;">Your incorporation request and full PDF summary have been confirmed.</p>
+        <div style="background:var(--line-2);border:1px solid var(--line);border-radius:12px;padding:16px;margin:18px 0;text-align:left;font-size:13px;line-height:1.65;">
+          <div>✉️ <strong>Sent to Client:</strong> ${esc(S.email)}</div>
+          <div style="margin-top:6px;">✉️ <strong>Sent to SmartCosec Team:</strong> team@smartcosec.com</div>
+          <div style="margin-top:6px;">📄 <strong>Attachment:</strong> Full Summary of Payment & Services (PDF)</div>
+        </div>
+        <p style="font-size:12.5px;color:var(--slate);margin-bottom:20px;">The PDF summary has also been saved to your device. Our corporate secretary team will review and contact you shortly.</p>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+          <button class="btn s" onclick="if(lastGeneratedDoc) lastGeneratedDoc.save('SmartCosec_Summary_${sanitizedName}.pdf');">Download PDF Again</button>
+          <button class="btn p" onclick="closeHelp()">Done</button>
+        </div>
+      </div>
+    `;
+  } catch(err) {
+    console.error('Error during confirmation:', err);
+    if(errEl) {
+      errEl.textContent = 'Error processing confirmation: ' + err.message;
+      errEl.style.display = 'block';
+    }
+    if(btn){
+      btn.disabled = false;
+      btn.innerHTML = 'Confirm & Send Summary PDF';
+    }
+  }
 }
 draw();
 </script>
