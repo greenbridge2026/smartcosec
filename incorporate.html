@@ -1012,9 +1012,9 @@ function set(k,v){
   draw();
 }
 
-function changeCount(k, delta, maxVal = 9){
-  let val = parseInt(S[k] || 1, 10) + delta;
-  if(val < 1) val = 1;
+function changeCount(k, delta, maxVal = 9, minVal = 1){
+  let val = parseInt(S[k] !== undefined && S[k] !== '' ? S[k] : minVal, 10) + delta;
+  if(val < minVal) val = minVal;
   if(val > maxVal) val = maxVal;
   S[k] = val;
   draw();
@@ -1353,7 +1353,7 @@ function draw(){
         </div>
       </div>
       <div class="opts">
-        <button type="button" class="opt ${S.hire==='yes'?'on':''}" onclick="set('hire','yes');if(!S.emp)S.emp='1';">Yes</button>
+        <button type="button" class="opt ${S.hire==='yes'?'on':''}" onclick="set('hire','yes');if(S.emp===undefined||S.emp==='')S.emp=0;">Yes</button>
         <button type="button" class="opt ${S.hire==='no'?'on':''}" onclick="set('hire','no');">Not yet</button>
       </div>
 
@@ -1361,9 +1361,9 @@ function draw(){
       <div style="margin-top:16px;">
         <label style="margin:0 0 6px 0;">How many employees?</label>
         <div class="stepper-wrap">
-          <button type="button" class="stepper-btn" ${parseInt(S.emp||1,10) <= 1 ? 'disabled' : ''} onclick="changeCount('emp', -1, 5)">−</button>
-          <span class="stepper-val">${parseInt(S.emp||1,10)}</span>
-          <button type="button" class="stepper-btn" ${parseInt(S.emp||1,10) >= 5 ? 'disabled' : ''} onclick="changeCount('emp', 1, 5)">+</button>
+          <button type="button" class="stepper-btn" ${parseInt(S.emp!==undefined&&S.emp!==''?S.emp:0,10) <= 0 ? 'disabled' : ''} onclick="changeCount('emp', -1, 5, 0)">−</button>
+          <span class="stepper-val">${parseInt(S.emp!==undefined&&S.emp!==''?S.emp:0,10)}</span>
+          <button type="button" class="stepper-btn" ${parseInt(S.emp!==undefined&&S.emp!==''?S.emp:0,10) >= 5 ? 'disabled' : ''} onclick="changeCount('emp', 1, 5, 0)">+</button>
           <span class="stepper-hint">Maximum 5 employees</span>
         </div>
         <div style="margin-top:12px;background:var(--em-soft);color:#065F46;border:1px solid rgba(16,185,129,0.25);border-radius:var(--r);padding:10px 14px;font-size:12.5px;">
@@ -1382,8 +1382,10 @@ function draw(){
         <div>
           <div style="display:inline-block;background:rgba(14,165,233,0.12);color:#0369A1;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:10px;margin-bottom:4px;">We also provide</div>
           <div style="font-size:15px;font-weight:700;color:var(--ink);">Need to bring in overseas talent?</div>
+          ${S.epChoice==='yes' ? `
           <div style="font-size:13px;color:var(--slate);margin-top:2px;line-height:1.5;">We assist with Employment Pass (EP) applications, including educational background checks. EP pricing will be shared later.</div>
           <div style="font-size:13px;font-weight:600;color:var(--ink);margin-top:8px;">Would you like help with an EP?</div>
+          ` : ''}
         </div>
       </div>
       <div class="opts">
@@ -1396,9 +1398,9 @@ function draw(){
       <div style="margin-top:16px;">
         <label style="margin:0 0 6px 0;">How many EPs do you need?</label>
         <div class="stepper-wrap">
-          <button type="button" class="stepper-btn" ${parseInt(S.epCount||1,10) <= 1 ? 'disabled' : ''} onclick="changeCount('epCount', -1, 5)">−</button>
-          <span class="stepper-val">${parseInt(S.epCount||1,10)}</span>
-          <button type="button" class="stepper-btn" ${parseInt(S.epCount||1,10) >= 5 ? 'disabled' : ''} onclick="changeCount('epCount', 1, 5)">+</button>
+          <button type="button" class="stepper-btn" ${parseInt(S.epCount!==undefined&&S.epCount!==''?S.epCount:0,10) <= 0 ? 'disabled' : ''} onclick="changeCount('epCount', -1, 5, 0)">−</button>
+          <span class="stepper-val">${parseInt(S.epCount!==undefined&&S.epCount!==''?S.epCount:0,10)}</span>
+          <button type="button" class="stepper-btn" ${parseInt(S.epCount!==undefined&&S.epCount!==''?S.epCount:0,10) >= 5 ? 'disabled' : ''} onclick="changeCount('epCount', 1, 5, 0)">+</button>
           <span class="stepper-hint">Maximum 5 EPs</span>
         </div>
       </div>
