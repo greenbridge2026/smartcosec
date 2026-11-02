@@ -729,7 +729,7 @@ textarea { resize: vertical; }
 <div class="modal" id="modal" hidden onclick="if(event.target===this)closeHelp()"><div class="mbox" id="mbox"></div></div>
 
 <script>
-const S={
+const S_DEFAULT={
   step:0,
   enquiry:'General enquiry',
   callDate:'',
@@ -773,6 +773,37 @@ const S={
   internal:false,
   lead:null
 };
+
+const STORAGE_KEY = 'incorporate_form_state';
+
+function loadPersistedState(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      return Object.assign({}, S_DEFAULT, parsed);
+    }
+  } catch(e) {
+    console.warn('Could not load saved state:', e);
+  }
+  return Object.assign({}, S_DEFAULT);
+}
+
+function persistState(){
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(S));
+  } catch(e) {
+    console.warn('Could not save state:', e);
+  }
+}
+
+function clearPersistedState(){
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch(e) {}
+}
+
+const S = loadPersistedState();
 
 const C={
   SG:['Singapore','S$',1,1],
@@ -866,8 +897,9 @@ const TYPES=[
   ['branch','Branch of a foreign company']
 ];
 
-const PY={'1':1,'2':2,'3-5':3,'6-10':6};
+const PY={'1':1,'2':2,'3':3,'4':4,'5':5,'3-5':3,'6-10':6};
 const AP={
+  startup:['Startup Accounting Package',900],
   basic:['Filing & basic bookkeeping',900],
   reg:['Regular accounting',1080],
   full:['Full accounting & reporting',3000]
@@ -980,10 +1012,10 @@ function set(k,v){
   draw();
 }
 
-function changeCount(k, delta){
+function changeCount(k, delta, maxVal = 9){
   let val = parseInt(S[k] || 1, 10) + delta;
   if(val < 1) val = 1;
-  if(val > 9) val = 9;
+  if(val > maxVal) val = maxVal;
   S[k] = val;
   draw();
 }
@@ -1015,7 +1047,6 @@ function waLink(){
 function go(n){
   if(n === 2 && !canStep1()) return;
   S.step=n;
-  if(n===5&&S.nominee&&!S.plan) S.plan='basic';
   draw();
 }
 
@@ -1056,7 +1087,6 @@ function calc(){
   const cpf=S.passes.includes('loc')||S.passes.includes('unsure');
   if(S.hire==='yes'&&PY[S.emp]&&!cpf){
     yr.push(['Payroll service ('+PY[S.emp]+' employee'+(PY[S.emp]===1?'':'s')+')',PY[S.emp]*50*12]);
-    yr.push(['SDL ('+PY[S.emp]+' employee'+(PY[S.emp]===1?'':'s')+')',PY[S.emp]*11*12]);
   }
 
   const sum=a=>a.reduce((s,l)=>s+(typeof l[1]==='number'?l[1]:0),0);
@@ -1121,25 +1151,25 @@ function drawEst(){
     h+='</div>';
     h+='</div>';
 
-    if(e.cpf) h+='<div class="fine" style="margin-top:12px;">Payroll for local hires is quoted separately. It needs CPF calculations.</div>';
     if(e.quote) h+='<div class="fine" style="margin-top:6px;">Some items will be quoted by an expert.</div>';
   }
 
   h+='<div class="human">Prefer a person? A company secretary can guide you at any step.<button onclick="openHelp()">Talk to an expert</button></div>';
   $('est').innerHTML=h;
-  $('steps').innerHTML=[1,2,3,4,5,6].map(n=>'<i class="'+(n<=S.step?'on':'')+'"></i>').join('');
+  $('steps').innerHTML=[1,2,3,4,5,6,7].map(n=>'<i class="'+(n<=S.step?'on':'')+'"></i>').join('');
 }
 
 const help='<button class="link" onclick="openHelp()">Not sure about something? Talk to an expert</button>';
 
 function draw(){
+  persistState();
   document.querySelector('.grid').classList.toggle('welcome', S.step===0);
   let h='';
 
   if(S.step===0){
     h=`<div class="start">
       <div class="box">
-        <h2>Let’s get started</h2>
+        <h2>Proceed to check out now</h2>
         <p class="sub">Register on your own with simple, guided steps.</p>
         <ul>
           <li>Short guided steps, one topic at a time</li>
@@ -1214,12 +1244,10 @@ function draw(){
     ${S.resident==='no' ? `
     <div class="note">
       Under Singapore law, Every Singapore company must have at least one Singapore-resident director who is a Singapore Citizen or Permanent Resident.<br>
-      We will provide a qualified nominee director service.<br>
-      <div style="margin-top:6px;font-weight:600;">
-        • <strong>Refundable Nominee Director Deposit:</strong> S$2,000 (one-time)<br>
-        • <strong>Nominee director:</strong> S$1,500 / year
+      We will provide a qualified nominee director service.
+      <div style="margin-top:10px;">
+        <label style="margin:0;font-weight:600;"><input type="checkbox" style="width:auto;margin-right:6px" ${S.nominee?'checked':''} onchange="set('nominee',this.checked)">I’d like a nominee director service</label>
       </div>
-      <label style="margin:10px 0 0;font-weight:600;"><input type="checkbox" style="width:auto;margin-right:6px" ${S.nominee?'checked':''} onchange="set('nominee',this.checked)">I’d like a nominee director service</label>
     </div>
     ` : ''}
 
@@ -1234,105 +1262,232 @@ function draw(){
     <label>Are the shareholder individual?</label>`+opts('corp',[['yes','Yes'],['entity','No, 1 or more shareholder is company or legal entity']])+
     `<div class="nav">
       <button class="btn" onclick="go(3)">Back</button>
-      <button class="btn p" ${canStep4?'':'disabled'} onclick="go(S.resident==='yes'?6:5)">Continue</button>
+      <button class="btn p" ${canStep4?'':'disabled'} onclick="go(5)">Continue</button>
     </div>`+help;
   } else if(S.step===5){
-    const ok0=C[S.country]&&C[S.country][3],f=ok0?C[S.country][2]:1,sym=ok0?C[S.country][1]:'S$',small=S.exp!=='mid'&&S.exp!=='large';
-    const pl=Object.entries(AP).map(([k,v])=>[k,v[0]+(S.exp&&small?' · '+money(sym,Math.round(v[1]*f)):'')]);
-    const planOptions = (S.resident==='no'?[]:[['','No accounting for now']]).concat(pl).concat([['unsure','Not sure yet']]);
-    h=`<h2>Do you need our accounting services?</h2>`+
-    (S.resident==='no'?`<p class="sub">We provide nominee directors only to clients who also use our accounting service, so please choose a plan.</p>`:``)+
-    `<label>Expected yearly expenses</label><p class="why">Accounting is priced by how much the company spends. If unsure, start with the lowest.</p>`+opts('exp',[['small','Up to '+sym+'30,000'],['mid',sym+'30,000 to '+sym+'100,000'],['large','Over '+sym+'100,000'],['unsure','Not sure yet']])+
-    ((S.exp||S.nominee)?`<label>Choose a plan</label>`+opts('plan',planOptions)+(S.plan?`<p class="hint">${PH[S.plan]}</p>`:'')+(S.exp&&!small?'<div class="note">For this expense level, an expert will quote the accounting fee. It won’t be added to the estimate yet.</div>':''):'')+
-    `<div class="nav"><button class="btn" onclick="go(4)">Back</button><button class="btn p" ${S.nominee&&!S.plan?'disabled':''} onclick="go(6)">Continue</button></div>`+help;
-  } else if(S.step===6){
-    const hasEP = S.epChoice==='yes' || S.epChoice==='unsure';
-    h=`<h2>Employment Pass (EP) service</h2>
-    <p class="sub">Complete this section if you require assistance with an Employment Pass or hiring employees.</p>
+    const sym = C[S.country] ? C[S.country][1] : 'S$';
+    const isResidentYes = S.resident === 'yes';
 
-    <label>Would you like an Employment Pass (EP)?</label>
-    <p class="why">We provide Employment Pass services, including educational background checks.</p>
-    <div class="opts">
-      <button type="button" class="opt ${S.epChoice==='yes'?'on':''}" onclick="set('epChoice','yes');if(!S.passes.includes('ep'))S.passes.push('ep');">Yes, I'd like an EP</button>
-      <button type="button" class="opt ${S.epChoice==='unsure'?'on':''}" onclick="set('epChoice','unsure');if(!S.passes.includes('unsure'))S.passes.push('unsure');">Not sure yet</button>
-      <button type="button" class="opt ${S.epChoice==='no'?'on':''}" onclick="set('epChoice','no');S.passes=S.passes.filter(p=>p!=='ep'&&p!=='unsure');">No</button>
-    </div>
+    if(isResidentYes){
+      // Resident is "Yes": User chooses whether to add Startup Accounting Package or Not right now
+      h=`<h2>Would You Like to Add Accounting Services?</h2>
+      <p class="sub">Get your new company off to the right start with our accounting support.</p>
 
-    ${hasEP ? `
-    <label>How many EPs do you need?</label>
-    <select onchange="set('epCount',this.value)">
-      <option value="1" ${S.epCount==='1'?'selected':''}>1</option>
-      <option value="2" ${S.epCount==='2'?'selected':''}>2</option>
-      <option value="3" ${S.epCount==='3'?'selected':''}>3</option>
-      <option value="4" ${S.epCount==='4'?'selected':''}>4</option>
-      <option value="5+" ${S.epCount==='5+'?'selected':''}>5 or more</option>
-    </select>
-    ` : ''}
-
-    <label>Will you hire employees?</label>
-    <p class="why">We also provide payroll service for your team, other than EP. S$50 per employee per month. Local hires may need separate CPF calculations.</p>
-    <div class="opts">
-      <button type="button" class="opt ${S.epHire==='yes'?'on':''}" onclick="set('epHire','yes');set('hire','yes');if(!S.emp)S.emp='1';">Yes</button>
-      <button type="button" class="opt ${S.epHire==='no'?'on':''}" onclick="set('epHire','no');set('hire','no');">No, not yet</button>
-    </div>
-
-    ${S.epHire==='yes' ? `
-    <label>How many employees to start?</label>
-    <select onchange="set('emp',this.value)">
-      <option value="1" ${S.emp==='1'?'selected':''}>1 employee</option>
-      <option value="2" ${S.emp==='2'?'selected':''}>2 employees</option>
-      <option value="3-5" ${S.emp==='3-5'?'selected':''}>3–5 employees</option>
-      <option value="6-10" ${S.emp==='6-10'?'selected':''}>6–10 employees</option>
-      <option value="11+" ${S.emp==='11+'?'selected':''}>11 or more</option>
-    </select>
-    ` : ''}
-
-    <div style="background:var(--em-soft);border:1px solid rgba(16,185,129,0.3);border-radius:var(--r);padding:14px 18px;margin:22px 0 16px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-weight:600;color:#065F46;font-size:14px;">Employment Pass (EP) service</span>
-        <span style="font-weight:700;color:var(--em-deep);font-size:13.5px;">Discussed separately</span>
+      <div style="font-size:13.5px;color:var(--slate);line-height:1.6;margin-bottom:20px;">
+        We offer a basic Startup Accounting Package specially designed for newly incorporated companies. It provides the essential accounting support your business needs as it gets started.
       </div>
-      ${S.epHire==='yes' ? `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px dashed rgba(16,185,129,0.3);">
-        <span style="font-weight:600;color:#065F46;font-size:14px;">Payroll service (${S.emp||'1'} employee${(S.emp||'1')==='1'?'':'s'})</span>
-        <span style="font-weight:700;color:var(--em-deep);font-size:13.5px;">S$${(PY[S.emp]||1)*50} / month</span>
+
+      <div style="display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:20px;">
+        <!-- Option 1: Yes, I'd like to add the Startup Accounting Package -->
+        <div style="border:2px solid ${S.plan==='startup'?'var(--em)':'var(--line)'};border-radius:var(--r-lg);padding:20px;background:${S.plan==='startup'?'rgba(16,185,129,0.06)':'var(--card)'};cursor:pointer;transition:all 0.2s;box-shadow:${S.plan==='startup'?'0 4px 14px var(--em-glow)':'none'};" onclick="set('plan','startup')">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <span style="display:inline-block;background:var(--em-soft);color:#065F46;font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:12px;margin-bottom:8px;">Ideal for startups</span>
+              <div style="font-size:16px;font-weight:700;color:var(--ink);">Yes, I'd like to add the Startup Accounting Package</div>
+              <div style="font-size:13px;color:var(--slate);margin-top:4px;line-height:1.45;">Get started with our basic accounting services from the beginning of your business journey.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Option 2: Not right now -->
+        <div style="border:2px solid ${S.plan==='no_accounting'?'var(--em)':'var(--line)'};border-radius:var(--r-lg);padding:20px;background:${S.plan==='no_accounting'?'rgba(16,185,129,0.06)':'var(--card)'};cursor:pointer;transition:all 0.2s;box-shadow:${S.plan==='no_accounting'?'0 4px 14px var(--em-glow)':'none'};" onclick="set('plan','no_accounting')">
+          <div style="font-size:16px;font-weight:700;color:var(--ink);">Not right now</div>
+          <div style="font-size:13px;color:var(--slate);margin-top:4px;line-height:1.45;">I'll consider engaging your accounting services after my company is incorporated.</div>
+        </div>
+      </div>
+
+      <div class="nav" style="margin-top:24px;">
+        <button class="btn" onclick="go(4)">Back</button>
+        <button class="btn p" ${!S.plan?'disabled':''} onclick="go(6)">Continue</button>
+      </div>`+help;
+    } else {
+      // Resident is "No": Accounting Services with Nominee Director information banner & Startup Accounting Package
+      h=`<h2>Accounting Services</h2>
+      <p class="sub">The right accounting support for your newly incorporated company.</p>
+
+      <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:var(--r-lg);padding:18px 20px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:8px;font-weight:700;color:#065F46;font-size:14px;margin-bottom:8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          Important Information
+        </div>
+        <div style="font-size:13px;color:var(--slate);line-height:1.6;">
+          Since you have selected our Nominee Director service, engaging our accounting services is mandatory.<br><br>
+          We offer a basic Startup Accounting Package specially designed for newly incorporated companies, providing essential accounting support as your business gets started.
+        </div>
+      </div>
+
+      <div style="border:2px solid var(--em);border-radius:var(--r-lg);padding:22px;background:var(--card);box-shadow:0 4px 14px var(--em-glow);margin-bottom:20px;">
+        <div style="display:inline-block;background:var(--em-soft);color:#065F46;font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:12px;margin-bottom:8px;">Recommended for startups</div>
+        <div style="font-size:18px;font-weight:800;color:var(--ink);font-family:var(--display);">Startup Accounting Package</div>
+        <div style="font-size:13.5px;color:var(--slate);margin-top:4px;line-height:1.5;">A practical and affordable accounting solution designed to support your company from day one.</div>
+        <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);font-size:13px;color:var(--slate);line-height:1.8;">
+          <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:bold;">✔</span> Essential accounting support</div>
+          <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:bold;">✔</span> Suitable for newly incorporated companies</div>
+        </div>
+        <div style="margin-top:16px;display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:16px;font-weight:800;color:var(--ink);">${sym}900 <span style="font-size:12px;font-weight:500;color:var(--muted);">/ year</span></span>
+          <span style="background:var(--em-soft);color:#065F46;font-weight:700;font-size:12px;padding:6px 14px;border-radius:var(--r);">Included with Nominee</span>
+        </div>
+      </div>
+
+      <div class="nav" style="margin-top:24px;">
+        <button class="btn" onclick="go(4)">Back</button>
+        <button class="btn p" onclick="if(!S.plan)set('plan','startup');go(6)">Continue</button>
+      </div>`+help;
+    }
+  } else if(S.step===6){
+    const hasEP = S.epChoice==='yes';
+    h=`<h2>Hiring & payroll support</h2>
+    <p class="sub">Tell us about your team plans. You can skip anything that doesn’t apply yet.</p>
+
+    <!-- 1. Hiring employees in Singapore -->
+    <div style="border:1px solid var(--line);border-radius:var(--r-lg);padding:20px;background:var(--card);margin-bottom:20px;">
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
+        <div style="width:36px;height:36px;border-radius:10px;background:var(--em-soft);color:var(--em-deep);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--ink);">Will you hire employees in Singapore?</div>
+          <div style="font-size:13px;color:var(--slate);margin-top:2px;">We provide payroll for your team.</div>
+          <div style="display:inline-block;margin-top:6px;background:var(--em-soft);color:#065F46;font-size:12px;font-weight:600;padding:3px 10px;border-radius:12px;">S$50 per employee per month</div>
+        </div>
+      </div>
+      <div class="opts">
+        <button type="button" class="opt ${S.hire==='yes'?'on':''}" onclick="set('hire','yes');if(!S.emp)S.emp='1';">Yes</button>
+        <button type="button" class="opt ${S.hire==='no'?'on':''}" onclick="set('hire','no');">Not yet</button>
+      </div>
+
+      ${S.hire==='yes' ? `
+      <div style="margin-top:16px;">
+        <label style="margin:0 0 6px 0;">How many employees?</label>
+        <div class="stepper-wrap">
+          <button type="button" class="stepper-btn" ${parseInt(S.emp||1,10) <= 1 ? 'disabled' : ''} onclick="changeCount('emp', -1, 5)">−</button>
+          <span class="stepper-val">${parseInt(S.emp||1,10)}</span>
+          <button type="button" class="stepper-btn" ${parseInt(S.emp||1,10) >= 5 ? 'disabled' : ''} onclick="changeCount('emp', 1, 5)">+</button>
+          <span class="stepper-hint">Maximum 5 employees</span>
+        </div>
+        <div style="margin-top:12px;background:var(--em-soft);color:#065F46;border:1px solid rgba(16,185,129,0.25);border-radius:var(--r);padding:10px 14px;font-size:12.5px;">
+          CPF contributions apply to local hires. We’ll guide you on this.
+        </div>
       </div>
       ` : ''}
     </div>
 
-    <label>Full name</label>
-    <input id="ep-fullname-input" placeholder="e.g. John Tan" value="${esc(S.epFullName||S.name)}" oninput="S.epFullName=this.value;S.name=this.value;drawEst();const e=document.getElementById('step6-error');if(e)e.style.display='none';">
-
-    <label>Email</label>
-    <input id="ep-email-input" type="email" placeholder="e.g. john.tan@example.com" value="${esc(S.email)}" oninput="S.email=this.value;drawEst();const e=document.getElementById('step6-error');if(e)e.style.display='none';">
-
-    <label>Contact number</label>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <div style="position:relative;width:150px;flex-shrink:0;">
-        <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;pointer-events:none;">
-          <img src="${getFlagImg(getSelectedCountry().code)}" alt="${getSelectedCountry().name}" style="width:20px;height:15px;object-fit:cover;border-radius:2px;box-shadow:0 1px 2px rgba(0,0,0,0.15);">
-        </span>
-        <select id="client-dial-select" style="padding-left:36px;width:100%;font-weight:600;" onchange="handleDialChange(this.value)">
-          ${PHONE_COUNTRIES.map(pc => `<option value="${pc.dial}" ${S.dialCode===pc.dial?'selected':''}>${pc.dial} (${pc.code})</option>`).join('')}
-        </select>
+    <!-- 2. Need to bring in overseas talent? (EP) -->
+    <div style="border:1px solid var(--line);border-radius:var(--r-lg);padding:20px;background:var(--card);margin-bottom:20px;">
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
+        <div style="width:36px;height:36px;border-radius:10px;background:rgba(14,165,233,0.1);color:#0284C7;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        </div>
+        <div>
+          <div style="display:inline-block;background:rgba(14,165,233,0.12);color:#0369A1;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:10px;margin-bottom:4px;">We also provide</div>
+          <div style="font-size:15px;font-weight:700;color:var(--ink);">Need to bring in overseas talent?</div>
+          <div style="font-size:13px;color:var(--slate);margin-top:2px;line-height:1.5;">We assist with Employment Pass (EP) applications, including educational background checks. EP pricing will be shared later.</div>
+          <div style="font-size:13px;font-weight:600;color:var(--ink);margin-top:8px;">Would you like help with an EP?</div>
+        </div>
       </div>
-      <input id="client-phone-input" type="tel" inputmode="numeric" placeholder="${getSelectedCountry().placeholder}" value="${esc(S.phone||'')}" maxlength="${getSelectedCountry().digits}" oninput="handlePhoneInput(this.value)">
+      <div class="opts">
+        <button type="button" class="opt ${S.epChoice==='yes'?'on':''}" onclick="set('epChoice','yes');if(!S.passes.includes('ep'))S.passes.push('ep');">Yes, I’d like help</button>
+        <button type="button" class="opt ${S.epChoice==='no'?'on':''}" onclick="set('epChoice','no');S.passes=S.passes.filter(p=>p!=='ep'&&p!=='unsure');">No</button>
+        <button type="button" class="opt ${S.epChoice==='unsure'?'on':''}" onclick="set('epChoice','unsure');if(!S.passes.includes('unsure'))S.passes.push('unsure');">Not sure yet</button>
+      </div>
+
+      ${hasEP ? `
+      <div style="margin-top:16px;">
+        <label style="margin:0 0 6px 0;">How many EPs do you need?</label>
+        <div class="stepper-wrap">
+          <button type="button" class="stepper-btn" ${parseInt(S.epCount||1,10) <= 1 ? 'disabled' : ''} onclick="changeCount('epCount', -1, 5)">−</button>
+          <span class="stepper-val">${parseInt(S.epCount||1,10)}</span>
+          <button type="button" class="stepper-btn" ${parseInt(S.epCount||1,10) >= 5 ? 'disabled' : ''} onclick="changeCount('epCount', 1, 5)">+</button>
+          <span class="stepper-hint">Maximum 5 EPs</span>
+        </div>
+      </div>
+      ` : ''}
     </div>
-    <p id="phone-digits-hint" class="why" style="margin-top:6px;font-size:12px;color:var(--muted);">${getSelectedCountry().name} mobile number (${getSelectedCountry().digits} digits required)</p>
 
-    <div id="step6-error" class="err" style="display:none;margin-top:10px;">Please enter your full name, email, and contact number to proceed.</div>
-
-    <div style="margin-top:22px;">
-      <button class="btn p" style="width:100%;font-size:15px;padding:12px;" onclick="submitFinalEstimate()">Submit</button>
+    <!-- 3. Business bank account opening -->
+    <div style="border:1px solid var(--line);border-radius:var(--r-lg);padding:20px;background:var(--card);margin-bottom:20px;">
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
+        <div style="width:36px;height:36px;border-radius:10px;background:rgba(59,130,246,0.1);color:#2563EB;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        </div>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--ink);">Business bank account opening</div>
+          <div style="font-size:13px;color:var(--slate);margin-top:2px;">We introduce you to a bank and guide you through the application.</div>
+        </div>
+      </div>
+      <div style="background:var(--em-soft);border:1px solid rgba(16,185,129,0.3);border-radius:var(--r);padding:12px 14px;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-weight:600;color:#065F46;font-size:13.5px;">Bank account assistance</span>
+          <span style="font-weight:700;color:var(--em-deep);font-size:13.5px;">S$500 one time</span>
+        </div>
+        <div style="font-size:11.5px;color:var(--slate);margin-top:4px;">The bank makes the final decision on every account.</div>
+      </div>
+      <label style="margin:0 0 8px 0;font-size:13px;font-weight:600;">Would you like help opening a business bank account?</label>
+      <div class="opts">
+        <button type="button" class="opt ${S.bank==='yes'?'on':''}" onclick="set('bank','yes')">Yes, please</button>
+        <button type="button" class="opt ${S.bank==='no'?'on':''}" onclick="set('bank','no')">No</button>
+        <button type="button" class="opt ${S.bank==='unsure'?'on':''}" onclick="set('bank','unsure')">Not sure yet</button>
+      </div>
     </div>
 
-    <div style="margin-top:14px;font-size:13px;color:var(--slate);">
-      Prefer to chat? <a href="${waLink()}" target="_blank" rel="noopener" style="color:var(--em-deep);font-weight:600;text-decoration:underline;">WhatsApp an expert</a>
+    <div class="nav" style="margin-top:24px;">
+      <button class="btn" onclick="go(5)">Back</button>
+      <button class="btn p" onclick="go(7)">Continue</button>
+    </div>`+help;
+  } else if(S.step===7){
+    h=`<div style="text-align:center;margin-bottom:24px;">
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;background:var(--em);color:#FFFFFF;margin-bottom:12px;box-shadow:0 4px 12px var(--em-glow);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <h2 style="font-family:var(--display);font-size:26px;font-weight:800;letter-spacing:-0.02em;margin:0 0 8px 0;">Your Incorporation Summary Is Ready!</h2>
+      <p class="sub" style="max-width:540px;margin:0 auto;line-height:1.55;font-size:13.5px;">
+        We’ll email you a personalised summary of your selected services and estimated costs.<br>Enter your contact details below to receive your copy.
+      </p>
     </div>
 
-    <div class="nav" style="margin-top:16px;">
-      <button class="btn" onclick="go(S.resident==='yes'?4:5)">Back</button>
-      <span></span>
+    <div style="border-top:1px solid var(--line);padding-top:20px;margin-top:10px;">
+      <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:14px;">Your Contact Details</div>
+
+      <label>Full Name</label>
+      <input id="ep-fullname-input" placeholder="Enter your full name" value="${esc(S.name)}" oninput="S.name=this.value;drawEst();const e=document.getElementById('step7-error');if(e)e.style.display='none';">
+
+      <label>Email Address</label>
+      <input id="ep-email-input" type="email" placeholder="Enter your email address" value="${esc(S.email)}" oninput="S.email=this.value;drawEst();const e=document.getElementById('step7-error');if(e)e.style.display='none';">
+
+      <label>Contact Number</label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div style="position:relative;width:150px;flex-shrink:0;">
+          <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;pointer-events:none;">
+            <img src="${getFlagImg(getSelectedCountry().code)}" alt="${getSelectedCountry().name}" style="width:20px;height:15px;object-fit:cover;border-radius:2px;box-shadow:0 1px 2px rgba(0,0,0,0.15);">
+          </span>
+          <select id="client-dial-select" style="padding-left:36px;width:100%;font-weight:600;" onchange="handleDialChange(this.value)">
+            ${PHONE_COUNTRIES.map(pc => `<option value="${pc.dial}" ${S.dialCode===pc.dial?'selected':''}>${pc.dial} (${pc.code})</option>`).join('')}
+          </select>
+        </div>
+        <input id="client-phone-input" type="tel" inputmode="numeric" placeholder="Enter your contact number" value="${esc(S.phone||'')}" maxlength="${getSelectedCountry().digits}" oninput="handlePhoneInput(this.value)">
+      </div>
+      <p id="phone-digits-hint" class="why" style="margin-top:6px;font-size:12px;color:var(--muted);">${getSelectedCountry().name} mobile number (${getSelectedCountry().digits} digits required)</p>
+
+      <div id="step7-error" class="err" style="display:none;margin-top:10px;">Please enter your full name, email, and contact number to proceed.</div>
+
+      <div style="margin-top:22px;">
+        <button class="btn p" style="width:100%;font-size:15px;padding:14px;font-weight:700;" onclick="submitFinalEstimate()">Get My Incorporation Summary</button>
+      </div>
+
+      <div style="margin-top:14px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:var(--muted);text-align:center;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span>Your information will be handled securely and used to respond to your enquiry.</span>
+      </div>
+
+      <div style="margin-top:14px;font-size:13px;color:var(--slate);text-align:center;">
+        Prefer to chat? <a href="${waLink()}" target="_blank" rel="noopener" style="color:var(--em-deep);font-weight:600;text-decoration:underline;">WhatsApp an expert</a>
+      </div>
+
+      <div class="nav" style="margin-top:16px;">
+        <button class="btn" onclick="go(6)">Back</button>
+        <span></span>
+      </div>
     </div>`;
   }
   $('form').innerHTML=h;
@@ -1363,7 +1518,7 @@ function sendLead(){
 }
 
 function submitFinalEstimate(){
-  const errDiv = $('step6-error');
+  const errDiv = $('step6-error') || $('step7-error');
   const country = getSelectedCountry();
   const digitsOnly = (S.phone || '').replace(/\D/g, '');
   if(!S.name || !S.name.trim() || !S.email || !S.email.trim() || !digitsOnly){
@@ -1658,6 +1813,8 @@ async function confirmAndSendPDF(){
     } catch(fetchErr) {
       console.warn('Backend confirmation dispatch notice:', fetchErr);
     }
+
+    clearPersistedState();
 
     $('mbox').innerHTML = `
       <div style="text-align:center;padding:12px 0;">
