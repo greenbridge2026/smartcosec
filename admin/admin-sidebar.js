@@ -1986,6 +1986,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (qQuickChatPoll) clearInterval(qQuickChatPoll);
             qCurrentQuickChatId = null;
         }
+        if (typeof window._adminUpdateReminderPosition === 'function') {
+            window._adminUpdateReminderPosition();
+        }
     };
 
     window.updateQuickChatUnreadBadge = async function() {
@@ -2703,6 +2706,22 @@ document.addEventListener('DOMContentLoaded', () => {
     window._adminDueReminders = [];
     window._adminReminderIndex = 0;
     window._adminReminderSnoozed = window._adminReminderSnoozed || {};
+    window._adminReminderMinimized = sessionStorage.getItem('admin_reminder_minimized') === 'true';
+    window._adminReminderDismissedUntil = parseInt(sessionStorage.getItem('admin_reminder_dismissed_until') || '0', 10);
+
+    window._adminUpdateReminderPosition = function() {
+        const container = document.getElementById('global-reminder-card-container');
+        if (!container) return;
+        const quickChatWin = document.getElementById('quick-chat-window');
+        const isChatOpen = quickChatWin && !quickChatWin.classList.contains('pointer-events-none');
+        
+        // If chat is open on wider screens, shift reminder container left to prevent overlap
+        if (isChatOpen && window.innerWidth >= 880) {
+            container.style.right = '456px';
+        } else {
+            container.style.right = '24px';
+        }
+    };
 
     window._adminInitReminderSystem = function() {
         if (!document.getElementById('global-reminder-card-container')) {
@@ -2711,6 +2730,8 @@ document.addEventListener('DOMContentLoaded', () => {
             container.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:999999;max-width:400px;width:calc(100vw - 32px);pointer-events:none;transition:all 0.3s cubic-bezier(0.4,0,0.2,1);';
             document.body.appendChild(container);
         }
+        window.addEventListener('resize', window._adminUpdateReminderPosition);
+        window._adminUpdateReminderPosition();
         window._adminFetchDueReminders();
         if (!window._adminReminderInterval) {
             window._adminReminderInterval = setInterval(window._adminFetchDueReminders, 8000);
@@ -2718,11 +2739,20 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window._adminFetchDueReminders = async function() {
+        const now = Date.now();
+        if (window._adminReminderDismissedUntil && now < window._adminReminderDismissedUntil) {
+            const container = document.getElementById('global-reminder-card-container');
+            if (container) {
+                container.innerHTML = '';
+                container.style.pointerEvents = 'none';
+            }
+            return;
+        }
+
         try {
             const res = await fetch('/api/tasks/reminders/due');
             if (res.ok) {
                 const dueTasks = await res.json();
-                const now = Date.now();
                 // Filter out tasks snoozed in this browser session
                 window._adminDueReminders = (dueTasks || []).filter(t => {
                     const snoozedUntil = window._adminReminderSnoozed[t.id];
@@ -2743,6 +2773,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('global-reminder-card-container');
         if (!container) return;
 
+        window._adminUpdateReminderPosition();
+
+        const now = Date.now();
+        if (window._adminReminderDismissedUntil && now < window._adminReminderDismissedUntil) {
+            container.innerHTML = '';
+            container.style.pointerEvents = 'none';
+            return;
+        }
+
         if (!window._adminDueReminders || window._adminDueReminders.length === 0) {
             container.innerHTML = '';
             container.style.pointerEvents = 'none';
@@ -2750,10 +2789,41 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         container.style.pointerEvents = 'auto';
+
+        const count = window._adminDueReminders.length;
+
+        // If Minimized, render compact floating pill
+        if (window._adminReminderMinimized) {
+            container.innerHTML = `
+                <div id="active-reminder-minimized-pill" onclick="window._adminToggleReminderMinimize(event)" style="background:#ffffff;border:1.5px solid #f59e0b;border-radius:9999px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.18), 0 0 0 1px rgba(245,158,11,0.2);padding:6px 14px;font-family:'Outfit',sans-serif;display:inline-flex;align-items:center;gap:10px;cursor:pointer;animation:reminderSlideIn 0.3s ease;user-select:none;float:right;margin-top:auto;">
+                    <style>
+                        @keyframes reminderSlideIn {
+                            from { transform: translateY(20px) scale(0.96); opacity: 0; }
+                            to { transform: translateY(0) scale(1); opacity: 1; }
+                        }
+                        @keyframes reminderPulse {
+                            0%, 100% { transform: scale(1); }
+                            50% { transform: scale(1.1); }
+                        }
+                    </style>
+                    <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#f59e0b;color:#ffffff;font-size:12px;box-shadow:0 2px 6px rgba(245,158,11,0.4);animation:reminderPulse 2s infinite ease-in-out;">🔔</span>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span style="font-size:12px;font-weight:800;color:#92400e;">Follow-Up Due</span>
+                        <span style="background:#fef3c7;color:#92400e;font-size:10px;font-weight:800;padding:1px 6px;border-radius:10px;border:1px solid #fde68a;">${count}</span>
+                    </div>
+                    <span style="font-size:11px;font-weight:700;color:#2563eb;display:flex;align-items:center;gap:3px;padding:2px 6px;border-radius:6px;background:#eff6ff;">
+                        <span>Expand</span>
+                        <span style="font-size:10px;">▲</span>
+                    </span>
+                    <button type="button" onclick="window._adminDismissAllReminders(event, 60)" title="Close reminders for 1 hour" style="background:transparent;border:none;cursor:pointer;color:#94a3b8;padding:2px 4px;font-size:13px;line-height:1;margin-left:2px;font-weight:bold;transition:color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'">✕</button>
+                </div>
+            `;
+            return;
+        }
+
         const t = window._adminDueReminders[window._adminReminderIndex];
         if (!t) return;
 
-        const count = window._adminDueReminders.length;
         const index = window._adminReminderIndex + 1;
         const paginationHtml = count > 1 ? `
             <div style="display:flex;align-items:center;gap:4px;background:#fef3c7;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;color:#92400e;">
@@ -2800,9 +2870,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div style="font-size:9px;font-weight:700;color:#b45309;">${dueLabel}</div>
                         </div>
                     </div>
-                    <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="display:flex;align-items:center;gap:5px;">
                         ${paginationHtml}
-                        <button type="button" onclick="window._adminSnoozeCurrentReminder(15)" title="Remind me in 15 mins" style="background:#ffffff;border:1px solid #cbd5e1;border-radius:8px;padding:3px 7px;font-size:10px;font-weight:700;color:#64748b;cursor:pointer;">⏰ 15m</button>
+                        <button type="button" onclick="window._adminSnoozeCurrentReminder(15)" title="Remind me in 15 mins" style="background:#ffffff;border:1px solid #cbd5e1;border-radius:8px;padding:3px 7px;font-size:10px;font-weight:700;color:#64748b;cursor:pointer;transition:all 0.15s;">⏰ 15m</button>
+                        <button type="button" onclick="window._adminToggleReminderMinimize(event)" title="Minimize card" style="background:#ffffff;border:1px solid #cbd5e1;border-radius:8px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#64748b;cursor:pointer;line-height:1;transition:all 0.15s;" onmouseover="this.style.background='#f1f5f9';this.style.color='#0f172a'" onmouseout="this.style.background='#ffffff';this.style.color='#64748b'">—</button>
+                        <button type="button" onclick="window._adminDismissAllReminders(event, 60)" title="Close reminders for 1 hour" style="background:#ffffff;border:1px solid #cbd5e1;border-radius:8px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#64748b;cursor:pointer;line-height:1;transition:all 0.15s;" onmouseover="this.style.background='#fee2e2';this.style.color='#ef4444';this.style.borderColor='#fca5a5'" onmouseout="this.style.background='#ffffff';this.style.color='#64748b';this.style.borderColor='#cbd5e1'">✕</button>
                     </div>
                 </div>
 
@@ -2889,6 +2961,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window._adminDueReminders.length > 0) {
             window._adminReminderIndex = (window._adminReminderIndex + 1) % window._adminDueReminders.length;
             window._adminRenderReminderCard();
+        }
+    };
+
+    window._adminToggleReminderMinimize = function(e) {
+        if (e) e.stopPropagation();
+        window._adminReminderMinimized = !window._adminReminderMinimized;
+        sessionStorage.setItem('admin_reminder_minimized', window._adminReminderMinimized ? 'true' : 'false');
+        window._adminRenderReminderCard();
+    };
+
+    window._adminDismissAllReminders = function(e, minutes = 60) {
+        if (e) e.stopPropagation();
+        window._adminReminderDismissedUntil = Date.now() + (minutes * 60 * 1000);
+        sessionStorage.setItem('admin_reminder_dismissed_until', String(window._adminReminderDismissedUntil));
+        const container = document.getElementById('global-reminder-card-container');
+        if (container) {
+            container.innerHTML = '';
+            container.style.pointerEvents = 'none';
+        }
+        if (typeof window._adminShowToast === 'function') {
+            window._adminShowToast({
+                id: 'reminder-dismiss-' + Date.now(),
+                title: 'Reminders Dismissed',
+                message: `Follow-up reminders hidden for ${minutes} mins. You can view all tasks under Tasks.`,
+                type: 'Info'
+            });
         }
     };
 
