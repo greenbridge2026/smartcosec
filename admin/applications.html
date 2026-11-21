@@ -294,7 +294,7 @@
                         <div class="flex items-center gap-2">
                             <h3 id="modal-company-title" class="text-xl font-bold tracking-tight">Company Details</h3>
                             <span id="modal-status-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-400/20 text-amber-300 border border-amber-400/30">Under Review</span>
-                            <span id="modal-aml-header-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-slate-700 text-slate-300 border border-slate-600">AML: Checking...</span>
+                            <span id="modal-aml-header-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-slate-700 text-slate-300 border border-slate-600">AML: Standby</span>
                         </div>
                         <p id="modal-applicant-subtitle" class="text-xs text-slate-300 mt-0.5">Applicant: John Doe • submitted on 24 Sep 2026</p>
                     </div>
@@ -1492,34 +1492,74 @@
                                     <h4 class="text-xs font-black uppercase tracking-wider text-slate-900">AML, PEP & Sanctions Screening Review</h4>
                                     <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200" id="app-aml-header-pill">820k Live Records</span>
                                 </div>
-                                <p class="text-[11px] text-slate-500">Real-time database scan: UN, US OFAC, Singapore MAS, EU FSF, UK OFSI & Global PEPs</p>
+                                <p class="text-[11px] text-slate-500">In-memory database check: UN, US OFAC, Singapore MAS, EU FSF, UK OFSI & Global PEPs</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
-                            <button type="button" onclick="window.runApplicationAmlScreen()" id="btn-run-app-aml" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer">
-                                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-                                <span>Re-Screen Officers</span>
+                            <button type="button" onclick="window.runApplicationAmlScreen()" id="btn-run-app-aml" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm shadow-blue-500/20 transition-all cursor-pointer">
+                                <i data-lucide="shield-check" class="w-4 h-4"></i>
+                                <span>Run AML Screening</span>
                             </button>
                         </div>
                     </div>
 
-                    <!-- Live Screening Result Banner -->
-                    <div id="app-aml-summary-banner" class="p-4 rounded-xl border border-slate-100 bg-slate-50 space-y-2">
+                    <!-- Standby / Screening Result Banner -->
+                    <div id="app-aml-summary-banner" class="p-4 rounded-xl border border-slate-200 bg-slate-50/80 space-y-2">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-2" id="app-aml-status-indicator">
-                                <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-blue-600"></i>
-                                <span class="text-xs font-bold text-slate-700">Scanning applicant, directors, and shareholders against 820,647 records...</span>
+                                <span class="px-2.5 py-0.5 bg-slate-200 text-slate-700 rounded-lg text-xs font-bold uppercase flex items-center gap-1.5">
+                                    <i data-lucide="clock" class="w-3.5 h-3.5 text-slate-500"></i> NOT SCREENED YET
+                                </span>
+                                <span class="text-xs font-semibold text-slate-700">Click "Run AML Screening" to verify all application parties against watchlists.</span>
                             </div>
                             <span class="text-[10px] font-mono text-slate-400" id="app-aml-latency"></span>
                         </div>
-                        <div class="text-xs text-slate-600 leading-relaxed font-medium" id="app-aml-directive"></div>
+                        <div class="text-xs text-slate-500 leading-relaxed font-medium" id="app-aml-directive">
+                            Under Singapore ACRA & MAS Notice guidelines, all applicants, proposed directors, shareholders, and beneficial owners must undergo sanctions and PEP screening before incorporation filing.
+                        </div>
                     </div>
 
                     <!-- Screened Parties Grid -->
                     <div class="space-y-2 pt-1">
-                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Screened Officers & Beneficial Owners:</span>
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Company Officers To Be Screened:</span>
+                            <span class="text-[10px] text-slate-400 font-mono" id="app-aml-count-pill">${1 + directors.length + shareholders.length} Parties Staged</span>
+                        </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5" id="app-aml-parties-grid">
-                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-400 italic">Initiating screening checks...</div>
+                            <div class="p-3 bg-white rounded-xl border border-slate-200/80 shadow-2xs space-y-1">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xs font-bold text-slate-900">${applicantName}</span>
+                                        <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600">Applicant</span>
+                                    </div>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-slate-50 text-slate-500 border-slate-200">Pending Scan</span>
+                                </div>
+                                <div class="text-[11px] text-slate-400">${applicantEmail} • ${applicantPhone}</div>
+                            </div>
+                            ${directors.map((dir, dIdx) => `
+                                <div class="p-3 bg-white rounded-xl border border-slate-200/80 shadow-2xs space-y-1">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs font-bold text-slate-900">${dir.name || `Director #${dIdx+1}`}</span>
+                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600">${dir.isNominee ? 'Nominee Director' : 'Director'}</span>
+                                        </div>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-slate-50 text-slate-500 border-slate-200">Pending Scan</span>
+                                    </div>
+                                    <div class="text-[11px] text-slate-400">DOB: ${dir.dob || 'N/A'} • Nationality: ${dir.nationality || 'Singaporean'}</div>
+                                </div>
+                            `).join('')}
+                            ${shareholders.filter(s => s.name && s.name !== applicantName && !directors.some(d => d.name === s.name)).map((sh, sIdx) => `
+                                <div class="p-3 bg-white rounded-xl border border-slate-200/80 shadow-2xs space-y-1">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs font-bold text-slate-900">${sh.name || `Shareholder #${sIdx+1}`}</span>
+                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600">Shareholder</span>
+                                        </div>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-slate-50 text-slate-500 border-slate-200">Pending Scan</span>
+                                    </div>
+                                    <div class="text-[11px] text-slate-400">Ownership: ${sh.percent || ''} • Nationality: ${sh.nationality || 'Singaporean'}</div>
+                                </div>
+                            `).join('')}
                         </div>
                     </div>
                 </div>
@@ -1692,11 +1732,6 @@
 
             document.getElementById('modal-content-area').innerHTML = contentHtml;
             if (window.lucide) lucide.createIcons();
-
-            // Trigger real-time AML screening across all company officers automatically
-            setTimeout(() => {
-                if (window.runApplicationAmlScreen) window.runApplicationAmlScreen();
-            }, 60);
         }
 
         // --- APPROVE FLOW ---
