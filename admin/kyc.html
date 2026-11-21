@@ -115,10 +115,16 @@
 
     <main class="main-container">
         <div class="space-y-6">
-            <div class="flex justify-between items-center">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h2 class="text-3xl font-extrabold font-outfit text-slate-900 tracking-tight">KYC & AML Review Desk</h2>
                     <p class="text-slate-500 text-xs mt-1">Review onboarding screening outcomes, override statuses, and manage PEP/Sanction hit alerts.</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button type="button" onclick="window.openAmlScreeningModal()" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 flex items-center gap-2 transition-all">
+                        <i data-lucide="shield-check" class="w-4 h-4"></i>
+                        <span>Run Live AML / PEP Check</span>
+                    </button>
                 </div>
             </div>
 
@@ -239,7 +245,13 @@
 
                 <!-- 2. Subchecks Verification Checkmarks -->
                 <div class="space-y-3 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                    <h4 class="text-xs font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-1.5"><i data-lucide="shield" class="w-4 h-4 text-blue-600"></i> Individual Screening Checks</h4>
+                    <div class="border-b border-slate-100 pb-2 flex items-center justify-between">
+                        <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5"><i data-lucide="shield" class="w-4 h-4 text-blue-600"></i> Individual Screening Checks</h4>
+                        <button type="button" onclick="window.autoScreenCurrentProfile()" id="btn-auto-screen" class="px-2.5 py-1 text-[11px] bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold rounded-lg transition-colors flex items-center gap-1 shadow-2xs">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                            <span>Scan Live AML Database</span>
+                        </button>
+                    </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div class="flex items-center justify-between border border-slate-100 rounded-xl p-3 bg-slate-50/50">
                             <span class="text-xs text-slate-500 font-medium flex items-center gap-1.5"><i data-lucide="file-digit" class="w-4 h-4"></i> ID Document:</span>
@@ -316,6 +328,98 @@
             <div class="flex gap-4 mt-6 border-t border-slate-100 pt-4 flex-shrink-0">
                 <button onclick="closeReviewModal()" class="flex-1 py-3 border border-slate-200 rounded-2xl text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all">Cancel</button>
                 <button id="save-review-btn" class="flex-1 py-3 bg-blue-600 text-white rounded-2xl font-bold text-xs hover:bg-blue-700 hover:scale-[1.01] transition-all shadow-lg shadow-blue-500/10">Save Review Override</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live AML & Sanctions Screening Modal -->
+    <div id="aml-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center z-[10001] p-4">
+        <div class="bg-white rounded-3xl p-6 md:p-8 w-full max-w-4xl shadow-2xl relative border border-slate-100 flex flex-col max-h-[92vh]">
+            <button onclick="window.closeAmlModal()" class="absolute top-5 right-5 p-2 hover:bg-slate-100 text-slate-400 hover:text-slate-900 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+
+            <!-- Header -->
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
+                        <i data-lucide="shield-alert" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-xl font-black text-slate-900 tracking-tight">Global AML & PEP Screening Console</h3>
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">820,647 Live Records</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-0.5">Real-time in-memory check: UN, US OFAC, Singapore MAS, EU FSF, UK OFSI & Global PEPs</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <div class="flex items-center gap-2 border-b border-slate-100 mb-5 pb-1">
+                <button onclick="window.switchAmlModalTab('screen')" id="aml-tab-btn-screen" class="px-4 py-2 text-xs font-bold rounded-xl transition-all bg-slate-900 text-white">Instant Person Screening</button>
+                <button onclick="window.switchAmlModalTab('search')" id="aml-tab-btn-search" class="px-4 py-2 text-xs font-bold rounded-xl transition-all text-slate-600 hover:bg-slate-100">Browse Sanctions Warehouse</button>
+            </div>
+
+            <!-- TAB 1: Screening Form -->
+            <div class="overflow-y-auto flex-1 pr-1 space-y-5" id="aml-tab-panel-screen">
+                <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200/70 space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Full Name to Screen <span class="text-red-500">*</span></label>
+                            <input type="text" id="aml-input-name" placeholder="e.g. Amit Shah, Vladimir Putin, Mas Selamat bin Kastari..." class="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Passport / NRIC / ID</label>
+                            <input type="text" id="aml-input-id" placeholder="e.g. S1234567A, Q4746875..." class="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Nationality (Optional)</label>
+                            <input type="text" id="aml-input-nationality" placeholder="e.g. Indian, Singaporean, Russian..." class="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Date of Birth (YYYY-MM-DD)</label>
+                            <input type="text" id="aml-input-dob" placeholder="e.g. 1964-10-22" class="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+                        </div>
+                    </div>
+
+                    <!-- Quick Sample Buttons -->
+                    <div class="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-200/50">
+                        <span class="text-[11px] font-bold text-slate-400">Try Quick Test:</span>
+                        <button type="button" onclick="window.fillAmlQuickTest('Amit Shah', '', 'Indian', '1964-10-22')" class="px-2.5 py-1 text-[11px] font-bold bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-100 transition-colors">Amit Shah (Indian PEP)</button>
+                        <button type="button" onclick="window.fillAmlQuickTest('Vladimir Putin', '', 'Russian', '1952-10-07')" class="px-2.5 py-1 text-[11px] font-bold bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-100 transition-colors">Vladimir Putin (PEP)</button>
+                        <button type="button" onclick="window.fillAmlQuickTest('Mas Selamat bin Kastari', 'S1234567A', 'Singaporean', '')" class="px-2.5 py-1 text-[11px] font-bold bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-100 transition-colors">Mas Selamat (Sanctions)</button>
+                        <button type="button" onclick="window.fillAmlQuickTest('Lim Xiao Wei', 'S9876543A', 'Singaporean', '1992-05-14')" class="px-2.5 py-1 text-[11px] font-bold bg-white border border-slate-200 rounded-lg text-emerald-700 hover:bg-emerald-50 transition-colors">Clean Applicant</button>
+                    </div>
+
+                    <div class="pt-2 flex justify-end">
+                        <button type="button" onclick="window.executeAmlScreening()" id="btn-run-aml-screen" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all">
+                            <i data-lucide="shield-check" class="w-4 h-4"></i>
+                            <span>Execute Screening Engine</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Screening Output Container -->
+                <div id="aml-screen-results" class="hidden space-y-4"></div>
+            </div>
+
+            <!-- TAB 2: Warehouse Search Panel -->
+            <div class="overflow-y-auto flex-1 pr-1 space-y-4 hidden" id="aml-tab-panel-search">
+                <div class="flex items-center gap-3">
+                    <div class="relative flex-1">
+                        <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" id="aml-search-query" onkeydown="if(event.key==='Enter') window.executeWarehouseSearch(0)" placeholder="Search any name, ID, or keywords across 820,000+ records..." class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/10">
+                    </div>
+                    <button type="button" onclick="window.executeWarehouseSearch(0)" class="px-4 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all flex items-center gap-1.5">
+                        <i data-lucide="search" class="w-4 h-4"></i>
+                        <span>Search Database</span>
+                    </button>
+                </div>
+
+                <div id="aml-search-results-table">
+                    <div class="p-8 text-center text-slate-400 text-xs">Enter a search keyword above to query the 820,647 records database.</div>
+                </div>
             </div>
         </div>
     </div>
@@ -555,6 +659,271 @@
                 setTimeout(connectWebSocket, 5000);
             };
         }
+
+        // --- LIVE AML & SANCTIONS CONSOLE LOGIC ---
+        window.openAmlScreeningModal = function() {
+            document.getElementById('aml-modal').classList.remove('hidden');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        };
+
+        window.closeAmlModal = function() {
+            document.getElementById('aml-modal').classList.add('hidden');
+        };
+
+        window.switchAmlModalTab = function(tab) {
+            const btnScreen = document.getElementById('aml-tab-btn-screen');
+            const btnSearch = document.getElementById('aml-tab-btn-search');
+            const panelScreen = document.getElementById('aml-tab-panel-screen');
+            const panelSearch = document.getElementById('aml-tab-panel-search');
+
+            if (tab === 'screen') {
+                btnScreen.className = 'px-4 py-2 text-xs font-bold rounded-xl transition-all bg-slate-900 text-white';
+                btnSearch.className = 'px-4 py-2 text-xs font-bold rounded-xl transition-all text-slate-600 hover:bg-slate-100';
+                panelScreen.classList.remove('hidden');
+                panelSearch.classList.add('hidden');
+            } else {
+                btnSearch.className = 'px-4 py-2 text-xs font-bold rounded-xl transition-all bg-slate-900 text-white';
+                btnScreen.className = 'px-4 py-2 text-xs font-bold rounded-xl transition-all text-slate-600 hover:bg-slate-100';
+                panelSearch.classList.remove('hidden');
+                panelScreen.classList.add('hidden');
+            }
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        };
+
+        window.fillAmlQuickTest = function(name, idNum, nationality, dob) {
+            document.getElementById('aml-input-name').value = name;
+            document.getElementById('aml-input-id').value = idNum;
+            document.getElementById('aml-input-nationality').value = nationality;
+            document.getElementById('aml-input-dob').value = dob;
+            window.executeAmlScreening();
+        };
+
+        window.executeAmlScreening = async function() {
+            const name = document.getElementById('aml-input-name').value.trim();
+            const idNum = document.getElementById('aml-input-id').value.trim();
+            const nationality = document.getElementById('aml-input-nationality').value.trim();
+            const dob = document.getElementById('aml-input-dob').value.trim();
+            const resultsDiv = document.getElementById('aml-screen-results');
+            const btn = document.getElementById('btn-run-aml-screen');
+
+            if (!name) {
+                alert('Please enter a full name to screen.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Screening 820,647 Records...</span>`;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            const t0 = performance.now();
+            try {
+                const token = localStorage.getItem('token');
+                const headers = { 'Content-Type': 'application/json' };
+                if (token) headers['Authorization'] = 'Bearer ' + token;
+
+                const res = await fetch('/api/admin/aml/screen', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ name, idNumber: idNum, nationality, dob })
+                });
+
+                if (!res.ok) throw new Error('Screening failed: ' + res.statusText);
+                const data = await res.json();
+                const latency = Math.round(performance.now() - t0);
+
+                const isFlagged = data.matchFound;
+                const risk = data.riskLevel || 'Low';
+                const action = data.actionRequired || 'NONE';
+
+                let riskBadgeClass = 'bg-slate-100 text-slate-700';
+                if (risk === 'Critical') riskBadgeClass = 'bg-red-50 text-red-600 border border-red-200';
+                else if (risk === 'High') riskBadgeClass = 'bg-amber-50 text-amber-700 border border-amber-200';
+                else if (risk === 'Low') riskBadgeClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+
+                let statusBadge = isFlagged
+                    ? `<span class="px-3 py-1 rounded-full text-xs font-black bg-red-500 text-white flex items-center gap-1.5"><i data-lucide="shield-alert" class="w-3.5 h-3.5"></i> FLAGGED (${data.highestConfidence}% MATCH)</span>`
+                    : `<span class="px-3 py-1 rounded-full text-xs font-black bg-emerald-500 text-white flex items-center gap-1.5"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i> CLEAN (0 MATCHES)</span>`;
+
+                let matchesHtml = '';
+                if (data.matches && data.matches.length > 0) {
+                    matchesHtml = `
+                        <div class="mt-4 border-t border-slate-200 pt-4">
+                            <h5 class="text-xs font-black text-slate-800 uppercase tracking-wider mb-2">Matched Records (${data.matches.length} Hits in MongoDB):</h5>
+                            <div class="space-y-2.5">
+                                ${data.matches.map(m => `
+                                    <div class="p-3 bg-white border border-slate-200 rounded-xl space-y-1.5 shadow-2xs">
+                                        <div class="flex items-center justify-between">
+                                            <div class="font-bold text-xs text-slate-900">${m.primaryName} <span class="font-mono text-[10px] text-slate-400 font-normal">(${m.recordId})</span></div>
+                                            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase ${m.entityType === 'PEP' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-700'}">${m.source} • ${m.matchType} (${m.confidenceScore}%)</span>
+                                        </div>
+                                        <div class="text-[11px] text-slate-600"><strong class="text-slate-700">Remarks / Roles:</strong> ${m.remarks || 'No detailed annotations available.'}</div>
+                                        ${m.aliases && m.aliases.length > 0 ? `<div class="text-[10px] text-slate-400"><strong class="text-slate-500">Known Aliases:</strong> ${m.aliases.slice(0, 4).join(', ')}</div>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                resultsDiv.innerHTML = `
+                    <div class="p-5 rounded-2xl border ${isFlagged ? 'border-red-200 bg-red-50/30' : 'border-emerald-200 bg-emerald-50/30'} space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/60 pb-3">
+                            <div class="flex items-center gap-3">
+                                ${statusBadge}
+                                <span class="px-2.5 py-1 rounded-lg text-xs font-bold uppercase ${riskBadgeClass}">Risk: ${risk}</span>
+                                <span class="text-[11px] text-slate-400 font-medium">Engine Latency: <strong class="text-slate-700 font-mono">${latency} ms</strong></span>
+                            </div>
+                            <span class="text-xs font-bold ${action === 'BLOCK_TRANSACTION' ? 'text-red-600' : (action === 'ENHANCED_DUE_DILIGENCE' ? 'text-amber-700' : 'text-emerald-700')}">Directive: ${action}</span>
+                        </div>
+                        <div class="text-xs font-bold text-slate-800 leading-relaxed">${data.summary}</div>
+                        ${data.recommendation ? `<div class="text-xs text-slate-600 bg-white/80 p-3.5 rounded-xl border border-slate-200/80 leading-relaxed"><strong class="text-slate-800">Singapore ACRA / MAS Compliance Directive:</strong> ${data.recommendation}</div>` : ''}
+                        ${matchesHtml}
+                    </div>
+                `;
+                resultsDiv.classList.remove('hidden');
+            } catch(e) {
+                console.error(e);
+                resultsDiv.innerHTML = `<div class="p-4 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl font-bold">Screening request failed: ${e.message}</div>`;
+                resultsDiv.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i data-lucide="shield-check" class="w-4 h-4"></i><span>Execute Screening Engine</span>`;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        };
+
+        window.executeWarehouseSearch = async function(page = 0) {
+            const query = (document.getElementById('aml-search-query').value || '').trim();
+            const container = document.getElementById('aml-search-results-table');
+
+            container.innerHTML = `<div class="p-8 text-center text-slate-400 text-xs"><i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto mb-2 text-blue-600"></i>Searching 820,647 records...</div>`;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            try {
+                const token = localStorage.getItem('token');
+                const headers = {};
+                if (token) headers['Authorization'] = 'Bearer ' + token;
+
+                const res = await fetch(`/api/admin/aml/search?q=${encodeURIComponent(query)}&page=${page}&size=10`, { headers });
+                if (!res.ok) throw new Error('Failed to search records.');
+                const data = await res.json();
+
+                const records = data.records || [];
+                if (records.length === 0) {
+                    container.innerHTML = `<div class="p-8 text-center text-slate-400 text-xs">No records matched your search query in the warehouse.</div>`;
+                    return;
+                }
+
+                container.innerHTML = `
+                    <div class="text-[11px] font-bold text-slate-500 mb-2">Showing ${records.length} of ${data.totalElements.toLocaleString()} matches (Page ${data.currentPage + 1} of ${data.totalPages}):</div>
+                    <div class="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px]">
+                                <tr>
+                                    <th class="p-3">Primary Name & ID</th>
+                                    <th class="p-3">Source & Type</th>
+                                    <th class="p-3">Nationalities</th>
+                                    <th class="p-3">Remarks / Programs</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 text-slate-700 font-medium">
+                                ${records.map(r => `
+                                    <tr class="hover:bg-slate-50/50">
+                                        <td class="p-3">
+                                            <div class="font-bold text-slate-900">${r.primaryName}</div>
+                                            <div class="text-[10px] font-mono text-slate-400">${r.id}</div>
+                                        </td>
+                                        <td class="p-3">
+                                            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase ${r.entityType === 'PEP' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-red-50 text-red-700 border border-red-200'}">${r.source} • ${r.entityType}</span>
+                                        </td>
+                                        <td class="p-3 text-[11px] font-mono text-slate-600">${(r.nationalities || []).join(', ') || 'N/A'}</td>
+                                        <td class="p-3 text-[11px] text-slate-600 max-w-xs truncate">${r.remarks || (r.programs || []).join(', ')}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="flex items-center justify-between pt-2">
+                        <button type="button" onclick="window.executeWarehouseSearch(${Math.max(0, page - 1)})" ${page === 0 ? 'disabled' : ''} class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold disabled:opacity-30 hover:bg-slate-50">Previous</button>
+                        <span class="text-xs text-slate-500 font-bold">Page ${data.currentPage + 1} / ${data.totalPages}</span>
+                        <button type="button" onclick="window.executeWarehouseSearch(${page + 1})" ${page + 1 >= data.totalPages ? 'disabled' : ''} class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold disabled:opacity-30 hover:bg-slate-50">Next</button>
+                    </div>
+                `;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            } catch(e) {
+                container.innerHTML = `<div class="p-4 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl font-bold">Search error: ${e.message}</div>`;
+            }
+        };
+
+        window.autoScreenCurrentProfile = async function() {
+            if (!selectedRecordId) return;
+            const k = allKycRecords.find(item => item.id === selectedRecordId);
+            if (!k) return;
+
+            const btn = document.getElementById('btn-auto-screen');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Scanning 820k Records...</span>`;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+
+            try {
+                const token = localStorage.getItem('token');
+                const headers = { 'Content-Type': 'application/json' };
+                if (token) headers['Authorization'] = 'Bearer ' + token;
+
+                const res = await fetch('/api/admin/aml/screen', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({
+                        name: k.clientName,
+                        idNumber: k.idNum || '',
+                        nationality: k.nation || '',
+                        dob: ''
+                    })
+                });
+
+                if (!res.ok) throw new Error('Screening failed');
+                const data = await res.json();
+
+                if (data.matchFound) {
+                    if (data.pep) {
+                        document.getElementById('modal-sub-aml').value = 'clean';
+                        document.getElementById('modal-sub-pep').value = 'match';
+                        document.getElementById('modal-sub-sanctions').value = 'clean';
+                        document.getElementById('modal-overall-risk').value = 'High';
+                        document.getElementById('modal-overall-status').value = 'under review';
+                    } else {
+                        document.getElementById('modal-sub-aml').value = 'flagged';
+                        document.getElementById('modal-sub-pep').value = 'clean';
+                        document.getElementById('modal-sub-sanctions').value = 'match';
+                        document.getElementById('modal-overall-risk').value = 'High';
+                        document.getElementById('modal-overall-status').value = 'flagged';
+                    }
+                } else {
+                    document.getElementById('modal-sub-aml').value = 'clean';
+                    document.getElementById('modal-sub-pep').value = 'clean';
+                    document.getElementById('modal-sub-sanctions').value = 'clean';
+                    document.getElementById('modal-overall-risk').value = 'Low';
+                    document.getElementById('modal-overall-status').value = 'approved';
+                }
+
+                const currentNotes = document.getElementById('modal-notes').value;
+                document.getElementById('modal-notes').value = (currentNotes ? currentNotes + '\n\n' : '') +
+                    `[AML System Auto-Screen ${new Date().toLocaleTimeString()}]:\n${data.summary}\nGuidance: ${data.recommendation || 'Standard onboarding.'}`;
+
+                alert(`AML Screen Completed:\n${data.summary}\nStatus and risk ratings have been updated.`);
+            } catch(e) {
+                console.error(e);
+                alert('Auto-screening failed: ' + e.message);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<i data-lucide="sparkles" class="w-3.5 h-3.5"></i><span>Scan Live AML Database</span>`;
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                }
+            }
+        };
     </script>
 </body>
 </html>
