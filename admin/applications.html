@@ -294,6 +294,7 @@
                         <div class="flex items-center gap-2">
                             <h3 id="modal-company-title" class="text-xl font-bold tracking-tight">Company Details</h3>
                             <span id="modal-status-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-400/20 text-amber-300 border border-amber-400/30">Under Review</span>
+                            <span id="modal-aml-header-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-slate-700 text-slate-300 border border-slate-600">AML: Checking...</span>
                         </div>
                         <p id="modal-applicant-subtitle" class="text-xs text-slate-300 mt-0.5">Applicant: John Doe • submitted on 24 Sep 2026</p>
                     </div>
@@ -1014,7 +1015,10 @@
                                         <div class="text-[11px] text-slate-400 font-medium">${dir.gender || 'Gender N/A'} • DOB: ${dir.dob || 'N/A'}</div>
                                     </div>
                                 </div>
-                                <span class="px-2.5 py-0.5 ${dir.isNominee ? 'bg-purple-50 text-purple-700 border-purple-200/50' : 'bg-blue-50 text-blue-700 border-blue-200/50'} rounded-full text-[10px] font-bold uppercase border">${dir.isNominee ? 'Nominee Director' : 'Director'}</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2.5 py-0.5 ${dir.isNominee ? 'bg-purple-50 text-purple-700 border-purple-200/50' : 'bg-blue-50 text-blue-700 border-blue-200/50'} rounded-full text-[10px] font-bold uppercase border">${dir.isNominee ? 'Nominee Director' : 'Director'}</span>
+                                    <span id="dir-aml-badge-${i}" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">AML: Checking</span>
+                                </div>
                             </div>
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-slate-700">
                                 <div>
@@ -1120,6 +1124,7 @@
                                     <span class="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold uppercase border border-emerald-200/50">
                                         ${effPctStr} Ownership
                                     </span>
+                                    <span id="sh-aml-badge-${i}" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">AML: Checking</span>
                                 </div>
                             </div>
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-slate-700">
@@ -1475,6 +1480,50 @@
                     </div>
                 </div>
 
+                <!-- Live AML, PEP & Sanctions Screening Review Section -->
+                <div class="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-4" id="app-aml-section">
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
+                                <i data-lucide="shield-check" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h4 class="text-xs font-black uppercase tracking-wider text-slate-900">AML, PEP & Sanctions Screening Review</h4>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200" id="app-aml-header-pill">820k Live Records</span>
+                                </div>
+                                <p class="text-[11px] text-slate-500">Real-time database scan: UN, US OFAC, Singapore MAS, EU FSF, UK OFSI & Global PEPs</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="window.runApplicationAmlScreen()" id="btn-run-app-aml" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer">
+                                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                                <span>Re-Screen Officers</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Live Screening Result Banner -->
+                    <div id="app-aml-summary-banner" class="p-4 rounded-xl border border-slate-100 bg-slate-50 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2" id="app-aml-status-indicator">
+                                <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-blue-600"></i>
+                                <span class="text-xs font-bold text-slate-700">Scanning applicant, directors, and shareholders against 820,647 records...</span>
+                            </div>
+                            <span class="text-[10px] font-mono text-slate-400" id="app-aml-latency"></span>
+                        </div>
+                        <div class="text-xs text-slate-600 leading-relaxed font-medium" id="app-aml-directive"></div>
+                    </div>
+
+                    <!-- Screened Parties Grid -->
+                    <div class="space-y-2 pt-1">
+                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Screened Officers & Beneficial Owners:</span>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5" id="app-aml-parties-grid">
+                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-400 italic">Initiating screening checks...</div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Section 1: Proposed Names -->
                 <div class="space-y-3">
                     <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-2">
@@ -1643,6 +1692,11 @@
 
             document.getElementById('modal-content-area').innerHTML = contentHtml;
             if (window.lucide) lucide.createIcons();
+
+            // Trigger real-time AML screening across all company officers automatically
+            setTimeout(() => {
+                if (window.runApplicationAmlScreen) window.runApplicationAmlScreen();
+            }, 60);
         }
 
         // --- APPROVE FLOW ---
@@ -1760,6 +1814,169 @@
                     submenu.classList.remove('hidden');
                     btn.classList.add('submenu-open');
                 }
+            }
+        };
+
+        // --- REAL-TIME APPLICATION AML & SANCTIONS VALIDATION ---
+        window.runApplicationAmlScreen = async function() {
+            if (!currentReviewingApp) return;
+
+            const btn = document.getElementById('btn-run-app-aml');
+            const indicator = document.getElementById('app-aml-status-indicator');
+            const directive = document.getElementById('app-aml-directive');
+            const latencyEl = document.getElementById('app-aml-latency');
+            const partiesGrid = document.getElementById('app-aml-parties-grid');
+            const summaryBanner = document.getElementById('app-aml-summary-banner');
+            const headerPill = document.getElementById('modal-aml-header-badge');
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Scanning 820k DB...</span>`;
+            }
+            if (indicator) {
+                indicator.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-blue-600"></i><span class="text-xs font-bold text-slate-700">Screening all application officers in MongoDB Atlas...</span>`;
+            }
+            if (window.lucide) lucide.createIcons();
+
+            const t0 = performance.now();
+            try {
+                const token = localStorage.getItem('token');
+                const headers = { 'Content-Type': 'application/json' };
+                if (token) headers['Authorization'] = 'Bearer ' + token;
+
+                const res = await fetch('/api/admin/aml/screen-application', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(currentReviewingApp)
+                });
+
+                if (!res.ok) throw new Error('Screening endpoint returned ' + res.status);
+                const data = await res.json();
+                const latency = Math.round(performance.now() - t0);
+                if (latencyEl) latencyEl.innerText = `${latency} ms latency`;
+
+                const isClean = data.overallAmlStatus === 'clean';
+                const isPep = Boolean(data.isPep);
+                const isSanction = Boolean(data.isSanction);
+                const risk = data.overallRiskLevel || 'Low';
+
+                // Update Header Pill
+                if (headerPill) {
+                    if (isSanction) {
+                        headerPill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-red-500 text-white border border-red-600';
+                        headerPill.innerText = 'AML: SANCTION BLOCKED';
+                    } else if (isPep) {
+                        headerPill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500 text-white border border-amber-600';
+                        headerPill.innerText = 'AML: PEP (EDD REQUIRED)';
+                    } else {
+                        headerPill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500 text-white border border-emerald-600';
+                        headerPill.innerText = 'AML: PASSED CLEAN';
+                    }
+                }
+
+                // Update Summary Banner
+                if (summaryBanner) {
+                    summaryBanner.className = `p-4 rounded-xl border ${isSanction ? 'border-red-200 bg-red-50/70' : (isPep ? 'border-amber-200 bg-amber-50/70' : 'border-emerald-200 bg-emerald-50/70')} space-y-2`;
+                }
+                if (indicator) {
+                    indicator.innerHTML = isSanction
+                        ? `<span class="px-2.5 py-0.5 bg-red-600 text-white rounded-lg text-xs font-black uppercase flex items-center gap-1.5"><i data-lucide="shield-alert" class="w-3.5 h-3.5"></i> SANCTION HIT</span><span class="text-xs font-bold text-red-950">${data.summary}</span>`
+                        : (isPep
+                            ? `<span class="px-2.5 py-0.5 bg-amber-500 text-white rounded-lg text-xs font-black uppercase flex items-center gap-1.5"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> PEP FLAGGED</span><span class="text-xs font-bold text-amber-950">${data.summary}</span>`
+                            : `<span class="px-2.5 py-0.5 bg-emerald-600 text-white rounded-lg text-xs font-black uppercase flex items-center gap-1.5"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i> 0 MATCHES</span><span class="text-xs font-bold text-emerald-950">${data.summary}</span>`);
+                }
+                if (directive) {
+                    directive.innerHTML = `<strong class="text-slate-800">Singapore ACRA / MAS Compliance Directive:</strong> ${data.regulatoryDirective || 'Application approved.'}`;
+                }
+
+                // Render Screened Parties Breakdown
+                const parties = data.parties || [];
+                if (partiesGrid) {
+                    if (parties.length === 0) {
+                        partiesGrid.innerHTML = `<p class="text-xs text-slate-400 italic">No party details extracted.</p>`;
+                    } else {
+                        partiesGrid.innerHTML = parties.map(p => {
+                            const sr = p.screeningResult || {};
+                            const pHit = sr.matchFound;
+                            const pPep = sr.pep;
+                            const pSanc = sr.sanction;
+                            const pRisk = sr.riskLevel || 'Low';
+
+                            let badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                            let statusLabel = 'Clean';
+                            if (pSanc) {
+                                badgeColor = 'bg-red-50 text-red-700 border-red-200';
+                                statusLabel = 'Sanction Hit';
+                            } else if (pPep) {
+                                badgeColor = 'bg-amber-50 text-amber-800 border-amber-200';
+                                statusLabel = `Foreign PEP (${sr.highestConfidence}%)`;
+                            }
+
+                            return `
+                                <div class="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-1.5">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs font-bold text-slate-900">${p.name}</span>
+                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600">${p.role}</span>
+                                        </div>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${badgeColor}">${statusLabel}</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-[11px] text-slate-500">
+                                        <span>ID: <strong class="font-mono text-slate-700">${p.idNumber || 'On file'}</strong></span>
+                                        <span>Risk: <strong class="${pRisk === 'Critical' ? 'text-red-600' : (pRisk === 'High' ? 'text-amber-700' : 'text-emerald-700')}">${pRisk}</strong></span>
+                                    </div>
+                                    ${pHit && sr.matches && sr.matches.length > 0 ? `
+                                        <div class="p-2 bg-slate-50 rounded-lg border border-slate-200/60 text-[10px] text-slate-600 mt-1 space-y-0.5">
+                                            <div><strong>Match:</strong> ${sr.matches[0].primaryName} (${sr.matches[0].source} • ${sr.matches[0].recordId})</div>
+                                            <div class="text-slate-400 truncate">${sr.matches[0].remarks || ''}</div>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        }).join('');
+                    }
+                }
+
+                // Also update individual Director & Shareholder badges in Section 3 & Section 4
+                parties.forEach(p => {
+                    const sr = p.screeningResult || {};
+                    const pHit = sr.matchFound;
+                    const pPep = sr.pep;
+                    const pSanc = sr.sanction;
+
+                    let badgeHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">🟢 AML: Clean</span>`;
+                    if (pSanc) {
+                        badgeHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">🔴 AML: Sanction Hit</span>`;
+                    } else if (pPep) {
+                        badgeHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">🟠 AML: Foreign PEP (${sr.highestConfidence}%)</span>`;
+                    }
+
+                    document.querySelectorAll(`[id^="dir-aml-badge-"]`).forEach(el => {
+                        const parent = el.closest('.space-y-3') || el.closest('.p-4');
+                        if (parent && parent.innerText.toLowerCase().includes(p.name.toLowerCase())) {
+                            el.outerHTML = badgeHtml;
+                        }
+                    });
+
+                    document.querySelectorAll(`[id^="sh-aml-badge-"]`).forEach(el => {
+                        const parent = el.closest('.space-y-3') || el.closest('.p-4');
+                        if (parent && parent.innerText.toLowerCase().includes(p.name.toLowerCase())) {
+                            el.outerHTML = badgeHtml;
+                        }
+                    });
+                });
+
+            } catch (err) {
+                console.error('Application AML screening error:', err);
+                if (indicator) {
+                    indicator.innerHTML = `<span class="text-xs font-bold text-red-600">Screening failed: ${err.message}</span>`;
+                }
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<i data-lucide="sparkles" class="w-3.5 h-3.5"></i><span>Re-Screen Officers</span>`;
+                }
+                if (window.lucide) lucide.createIcons();
             }
         };
 
