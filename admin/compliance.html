@@ -122,6 +122,7 @@
                 </div>
                 <div class="flex items-center gap-2 bg-slate-200/60 p-1 rounded-xl">
                     <button onclick="switchAdminCompTab('kyc')" id="tab-btn-kyc" class="px-4 py-2 rounded-lg text-xs font-bold transition-all bg-white text-slate-900 shadow-sm">AML & KYC Review</button>
+                    <button onclick="switchAdminCompTab('acra')" id="tab-btn-acra" class="px-4 py-2 rounded-lg text-xs font-bold transition-all text-slate-600 hover:text-slate-900 flex items-center gap-1.5"><i data-lucide="database" class="w-3.5 h-3.5"></i> ACRA Warehouse</button>
                     <button onclick="switchAdminCompTab('calendar')" id="tab-btn-calendar" class="px-4 py-2 rounded-lg text-xs font-bold transition-all text-slate-600 hover:text-slate-900">Calendar Manager</button>
                 </div>
             </div>
@@ -233,6 +234,135 @@
                             <tr><td colspan="7" class="p-12 text-center text-slate-400">Loading statutory calendar tasks...</td></tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- Admin ACRA Registry Warehouse Section -->
+            <div id="admin-acra-section" class="hidden space-y-6">
+                <!-- Header banner & Sync button -->
+                <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 md:p-8 rounded-3xl text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6 border border-slate-800">
+                    <div class="space-y-2 relative z-10 max-w-2xl">
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-[11px] font-bold border border-blue-500/30">
+                            <i data-lucide="database" class="w-3.5 h-3.5"></i> Singapore ACRA Entity Registry (data.gov.sg)
+                        </div>
+                        <h3 class="text-2xl md:text-3xl font-black font-outfit tracking-tight">Singapore Registered Companies Warehouse</h3>
+                        <p class="text-slate-300 text-xs md:text-sm leading-relaxed">
+                            Official registry holding Singapore entities, businesses, and LLPs. Synchronizes with the open government dataset (<span class="font-mono text-blue-200">d_3f960c10fed6145404ca7b821f263b87</span>) to power live ACRA name availability checks and statutory entity lookups.
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-3 relative z-10">
+                        <button onclick="loadAcraStatus()" class="px-4 py-3 bg-white/10 hover:bg-white/20 active:scale-95 text-slate-200 rounded-2xl text-xs font-bold border border-white/10 transition-all flex items-center justify-center gap-1.5">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i> Refresh Stats
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Warehouse Stats Metric Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                            <i data-lucide="building-2" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Stored Entities</div>
+                            <div id="acra-stat-total" class="text-2xl font-black text-slate-900 mt-0.5">-</div>
+                            <div class="text-[10px] text-slate-400 font-medium">In MongoDB Collection</div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                            <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Live & Active</div>
+                            <div id="acra-stat-live" class="text-2xl font-black text-emerald-600 mt-0.5">-</div>
+                            <div class="text-[10px] text-slate-400 font-medium">Active Singapore entities</div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+                            <i data-lucide="archive" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Deregistered / Inactive</div>
+                            <div id="acra-stat-deregistered" class="text-2xl font-black text-slate-700 mt-0.5">-</div>
+                            <div class="text-[10px] text-slate-400 font-medium">Historical records</div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                            <i data-lucide="radio" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sync Status</div>
+                            <div id="acra-stat-sync" class="text-xs font-black text-indigo-700 mt-1 flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                                <span>Ready</span>
+                            </div>
+                            <div id="acra-stat-time" class="text-[10px] text-slate-400 font-medium mt-0.5">Checked just now</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Search & ACRA Inspector -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <h4 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                <i data-lucide="search" class="w-4 h-4 text-blue-600"></i> ACRA Live Database Lookup
+                            </h4>
+                            <p class="text-xs text-slate-400 mt-0.5">Search across Singapore registered companies by Entity Name or Unique Entity Number (UEN).</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="relative w-72 md:w-80">
+                                <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                <input type="text" id="acra-search-input" onkeydown="if(event.key==='Enter')searchAcraEntities()" placeholder="Search e.g. DBS, Singtel, Temasek, Grab..." class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium">
+                            </div>
+                            <button onclick="searchAcraEntities()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5">
+                                Search
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Name Check Simulator Card -->
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                                <i data-lucide="sparkles" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <span class="text-xs font-bold text-slate-800 block">Name Availability Validator</span>
+                                <span class="text-[11px] text-slate-500">Live validation testing exact registry matches, base name conflicts, and statutory restricted words.</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="acra-test-name-input" onkeydown="if(event.key==='Enter')testNameAvailability()" placeholder="Enter proposed name to test..." class="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none w-64">
+                            <button onclick="testNameAvailability()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all">
+                                Test Name
+                            </button>
+                        </div>
+                    </div>
+                    <div id="acra-name-test-result" class="hidden p-3 rounded-xl text-xs border font-medium"></div>
+
+                    <!-- ACRA Results Table -->
+                    <div class="overflow-x-auto rounded-xl border border-slate-100">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>UEN</th>
+                                    <th>Entity Name</th>
+                                    <th>Entity Type</th>
+                                    <th>Status</th>
+                                    <th>Registered Address</th>
+                                    <th>Registration Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="acra-entities-table-body">
+                                <tr><td colspan="7" class="p-8 text-center text-slate-400 text-xs">Enter a search keyword above or click search to view entities.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -623,31 +753,211 @@
         window.switchAdminCompTab = function(tabName) {
             const kycBtn = document.getElementById('tab-btn-kyc');
             const calBtn = document.getElementById('tab-btn-calendar');
+            const acraBtn = document.getElementById('tab-btn-acra');
             const kycSec = document.querySelector('.main-container > .space-y-6 > .grid'); // metric cards
             const kycSearch = document.querySelector('.main-container > .space-y-6 > .bg-white.p-4');
             const kycTable = document.querySelector('.main-container > .space-y-6 > .bg-white.border');
             const calSec = document.getElementById('admin-calendar-section');
+            const acraSec = document.getElementById('admin-acra-section');
+
+            // Reset tab styles
+            [kycBtn, calBtn, acraBtn].forEach(b => {
+                if (b) b.className = "px-4 py-2 rounded-lg text-xs font-bold transition-all text-slate-600 hover:text-slate-900";
+            });
 
             if (tabName === 'calendar') {
-                kycBtn.className = "px-4 py-2 rounded-lg text-xs font-bold transition-all text-slate-600 hover:text-slate-900";
                 calBtn.className = "px-4 py-2 rounded-lg text-xs font-bold transition-all bg-white text-slate-900 shadow-sm";
                 
                 if (kycSec) kycSec.classList.add('hidden');
                 if (kycSearch) kycSearch.classList.add('hidden');
                 if (kycTable) kycTable.classList.add('hidden');
+                if (acraSec) acraSec.classList.add('hidden');
                 if (calSec) calSec.classList.remove('hidden');
 
                 loadAdminCalendarTasks();
+            } else if (tabName === 'acra') {
+                acraBtn.className = "px-4 py-2 rounded-lg text-xs font-bold transition-all bg-white text-slate-900 shadow-sm flex items-center gap-1.5";
+                
+                if (kycSec) kycSec.classList.add('hidden');
+                if (kycSearch) kycSearch.classList.add('hidden');
+                if (kycTable) kycTable.classList.add('hidden');
+                if (calSec) calSec.classList.add('hidden');
+                if (acraSec) acraSec.classList.remove('hidden');
+
+                loadAcraStatus();
+                searchAcraEntities();
             } else {
-                calBtn.className = "px-4 py-2 rounded-lg text-xs font-bold transition-all text-slate-600 hover:text-slate-900";
                 kycBtn.className = "px-4 py-2 rounded-lg text-xs font-bold transition-all bg-white text-slate-900 shadow-sm";
                 
                 if (kycSec) kycSec.classList.remove('hidden');
                 if (kycSearch) kycSearch.classList.remove('hidden');
                 if (kycTable) kycTable.classList.remove('hidden');
                 if (calSec) calSec.classList.add('hidden');
+                if (acraSec) acraSec.classList.add('hidden');
             }
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         };
+
+        // --- Admin ACRA Warehouse Functions ---
+        let acraStatusPollInterval = null;
+
+        async function loadAcraStatus() {
+            try {
+                const res = await fetch('/api/admin/acra/status');
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('acra-stat-total').innerText = (data.totalEntities || 0).toLocaleString();
+                    document.getElementById('acra-stat-live').innerText = (data.liveEntities || 0).toLocaleString();
+                    document.getElementById('acra-stat-deregistered').innerText = (data.deregisteredEntities || 0).toLocaleString();
+                    
+                    const syncEl = document.getElementById('acra-stat-sync');
+                    if (data.isSyncing) {
+                        syncEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-blue-500 inline-block animate-ping"></span><span>Updating (${(data.syncProgress || 0).toLocaleString()})</span>`;
+                        syncEl.className = "text-xs font-black text-blue-600 mt-1 flex items-center gap-1.5";
+                        if (!acraStatusPollInterval) {
+                            acraStatusPollInterval = setInterval(loadAcraStatus, 3000);
+                        }
+                    } else {
+                        syncEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span><span>Ready / Active</span>`;
+                        syncEl.className = "text-xs font-black text-emerald-700 mt-1 flex items-center gap-1.5";
+                        if (acraStatusPollInterval) {
+                            clearInterval(acraStatusPollInterval);
+                            acraStatusPollInterval = null;
+                        }
+                    }
+
+                    if (data.lastSyncTime) {
+                        const d = new Date(data.lastSyncTime);
+                        document.getElementById('acra-stat-time').innerText = 'Last updated: ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    }
+                }
+            } catch (e) {
+                console.warn('Error fetching ACRA status', e);
+            }
+        }
+                const data = await res.json();
+                loadAcraStatus();
+            } catch (e) {
+                console.error('Error triggering sync:', e);
+                alert('Could not start sync: ' + e.message);
+                if (btn) btn.disabled = false;
+                if (icon) icon.classList.remove('animate-spin');
+                if (text) text.innerText = 'Sync from data.gov.sg';
+            }
+        }
+
+        async function searchAcraEntities() {
+            const query = (document.getElementById('acra-search-input').value || '').trim();
+            const tbody = document.getElementById('acra-entities-table-body');
+            tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400 text-xs">Searching Singapore ACRA Registry...</td></tr>`;
+
+            try {
+                const url = query ? `/api/admin/acra/search?q=${encodeURIComponent(query)}&limit=50` : `/api/admin/acra/search?limit=25`;
+                const res = await fetch(url);
+                if (res.ok) {
+                    const list = await res.json();
+                    if (!list || list.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400 text-xs">No registered entities found matching "${query || ''}".</td></tr>`;
+                        return;
+                    }
+
+                    tbody.innerHTML = list.map(item => {
+                        const isLive = item.isLive !== false;
+                        const statusBadge = isLive 
+                            ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Live / Registered</span>`
+                            : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">${item.uenStatusDesc || 'Deregistered'}</span>`;
+
+                        const addr = [item.regStreetName, item.regPostalCode ? `Singapore ${item.regPostalCode}` : ''].filter(Boolean).join(', ') || '—';
+
+                        return `
+                            <tr class="hover:bg-slate-50/70 transition-colors">
+                                <td class="font-mono font-bold text-xs text-slate-800">${item.uen || '—'}</td>
+                                <td class="font-bold text-slate-900">${item.entityName || '—'}</td>
+                                <td class="text-xs text-slate-600">${item.entityTypeDesc || 'Private Limited'}</td>
+                                <td>${statusBadge}</td>
+                                <td class="text-xs text-slate-500 max-w-xs truncate" title="${addr}">${addr}</td>
+                                <td class="font-mono text-xs text-slate-600">${item.uenIssueDate || '—'}</td>
+                                <td>
+                                    <button onclick="fillNameCheckTest('${encodeURIComponent(item.entityName || '')}')" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-bold transition-all border border-blue-200 flex items-center gap-1">
+                                        <i data-lucide="check" class="w-3 h-3"></i> Test
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400 text-xs">Failed to load entities from server.</td></tr>`;
+                }
+            } catch (e) {
+                console.error(e);
+                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400 text-xs">Error connecting to ACRA warehouse API.</td></tr>`;
+            }
+        }
+
+        window.fillNameCheckTest = function(rawName) {
+            const decoded = decodeURIComponent(rawName);
+            document.getElementById('acra-test-name-input').value = decoded;
+            testNameAvailability();
+        };
+
+        async function testNameAvailability() {
+            const input = document.getElementById('acra-test-name-input');
+            const name = (input.value || '').trim();
+            const resultEl = document.getElementById('acra-name-test-result');
+            if (!name) return;
+
+            resultEl.className = "p-3 rounded-xl text-xs border font-medium bg-blue-50 text-blue-800 border-blue-200 flex items-center gap-2";
+            resultEl.innerHTML = `<span class="animate-spin inline-block">⏳</span> Checking "${name}" against ACRA Data Warehouse...`;
+            resultEl.classList.remove('hidden');
+
+            try {
+                const res = await fetch('/api/name-check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name, suffix: 'Pte. Ltd.' })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.available) {
+                        resultEl.className = "p-3.5 rounded-xl text-xs border font-medium bg-emerald-50 text-emerald-800 border-emerald-200 space-y-1";
+                        resultEl.innerHTML = `
+                            <div class="flex items-center gap-2 font-bold text-emerald-900">
+                                <span>🟢</span> <span>AVAILABLE: "${name}" is clear for incorporation registration</span>
+                            </div>
+                            <div class="text-[11px] text-emerald-700">${data.message || 'No conflicting Singapore registered entities found in warehouse.'}</div>
+                        `;
+                    } else if (data.status === 'restricted') {
+                        resultEl.className = "p-3.5 rounded-xl text-xs border font-medium bg-amber-50 text-amber-900 border-amber-200 space-y-1";
+                        resultEl.innerHTML = `
+                            <div class="flex items-center gap-2 font-bold text-amber-900">
+                                <span>⚠️</span> <span>RESTRICTED STATUTORY WORD DETECTED</span>
+                            </div>
+                            <div class="text-[11px] text-amber-800">${data.message}</div>
+                        `;
+                    } else {
+                        const conflicting = (data.conflicts || []).map(c => `<span class="font-bold underline">${c.entityName}</span> (UEN: ${c.uen || 'N/A'}, ${c.uenStatusDesc || 'Registered'})`).join(', ');
+                        resultEl.className = "p-3.5 rounded-xl text-xs border font-medium bg-red-50 text-red-900 border-red-200 space-y-1";
+                        resultEl.innerHTML = `
+                            <div class="flex items-center gap-2 font-bold text-red-900">
+                                <span>🔴</span> <span>TAKEN / CONFLICT FOUND IN ACRA REGISTRY</span>
+                            </div>
+                            <div class="text-[11px] text-red-800">${data.message || 'Exact or conflicting base entity already registered in Singapore.'}</div>
+                            ${conflicting ? `<div class="text-[11px] text-red-700 mt-1 bg-white/70 p-2 rounded-lg border border-red-200">Conflicting Entity: ${conflicting}</div>` : ''}
+                        `;
+                    }
+                } else {
+                    resultEl.className = "p-3 rounded-xl text-xs border font-medium bg-red-50 text-red-800 border-red-200";
+                    resultEl.innerText = "Error testing name check API.";
+                }
+            } catch (e) {
+                console.error(e);
+                resultEl.className = "p-3 rounded-xl text-xs border font-medium bg-red-50 text-red-800 border-red-200";
+                resultEl.innerText = "Failed to communicate with Name Check service.";
+            }
+        }
 
         async function loadAdminCalendarTasks() {
             try {
