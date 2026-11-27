@@ -1,4437 +1,1261 @@
-(function() {
- try {
 
-        let clientData = null;
-        let activeTab = 'overview';
+        let allApplications = [];
+        let staffList = [];
+        let activeTabFilter = 'pending';
+        let currentReviewingApp = null;
 
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.add('hidden'));
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('active');
-                btn.classList.remove('border-blue-600', 'text-blue-600');
-                btn.classList.add('text-slate-500', 'border-transparent');
+        function sanitizeApplicantText(str, fallback = '') {
+            if (!str || typeof str !== 'string') return fallback;
+            // Strip script blocks and content completely (constructed dynamically to avoid terminating HTML script tag)
+            let clean = str.replace(new RegExp('<script[\\s\\S]*?<\\/script>', 'gi'), '');
+            // Strip any remaining HTML tags
+            clean = clean.replace(/<[^>]+>/g, '');
+            // Strip suspicious execution / injection patterns
+            clean = clean.replace(/fetch\s*\([^)]*\)/gi, '');
+            clean = clean.replace(/document\.cookie/gi, '');
+            clean = clean.replace(/javascript\s*:/gi, '');
+            clean = clean.replace(/\b(alert|eval|prompt)\s*\([^)]*\)/gi, '');
+            clean = clean.trim().replace(/\s+/g, ' ');
+            return clean || fallback;
+        }
+
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function getAvatarInitial(name, fallback = 'A') {
+            const clean = sanitizeApplicantText(name, '');
+            const match = clean.match(/[a-zA-Z0-9]/);
+            return match ? match[0].toUpperCase() : fallback;
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bgClass = type === 'success' ? 'bg-emerald-600 text-white' : (type === 'error' ? 'bg-red-600 text-white' : 'bg-slate-800 text-white');
+            const icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-circle' : 'info');
+            toast.className = `${bgClass} px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 text-xs font-bold animate-in slide-in-from-right duration-300`;
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4"></i> <span>${message}</span>`;
+            container.appendChild(toast);
+            if (window.lucide) lucide.createIcons();
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'transition-opacity', 'duration-300');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        async function loadStaffList() {
+            let remoteStaff = [];
+            try {
+                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
+                const token = authObj.token;
+                const res = await fetch('/api/admin/staff', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (res.ok) {
+                    remoteStaff = await res.json();
+                }
+            } catch (e) {
+                console.error("Failed to load remote staff", e);
+            }
+
+            let localStaff = [];
+            try {
+                localStaff = JSON.parse(localStorage.getItem('local_staff_accounts') || '[]');
+            } catch (e) { }
+
+            const mergedMap = new Map();
+            remoteStaff.forEach(s => {
+                const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim() || s.name || s.email;
+                if (fullName) mergedMap.set(fullName.toLowerCase(), { id: s.id, name: fullName, email: s.email });
+            });
+            localStaff.forEach(s => {
+                const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim() || s.name || s.email;
+                if (fullName && !mergedMap.has(fullName.toLowerCase())) {
+                    mergedMap.set(fullName.toLowerCase(), { id: s.id || ('local_' + Date.now()), name: fullName, email: s.email });
+                }
             });
 
-            document.getElementById('panel-' + tabId).classList.remove('hidden');
-            const activeBtn = document.getElementById('tab-btn-' + tabId);
-            if (activeBtn) {
-                activeBtn.classList.remove('text-slate-500', 'border-transparent');
-                activeBtn.classList.add('active');
-                activeBtn.classList.add('border-blue-600', 'text-blue-600');
-            }
-            activeTab = tabId;
+            staffList = Array.from(mergedMap.values());
 
-            if (tabId === 'documents') {
-                renderDocumentsTable();
-            } else if (tabId === 'compliance') {
-                renderComplianceTable();
-            } else if (tabId === 'activities') {
-                renderActivitiesTable();
+            // Populate staff dropdown
+            const select = document.getElementById('approve-staff-select');
+            if (select) {
+                select.innerHTML = '<option value="">-- Select Staff Member --</option>' +
+                    staffList.map(s => `<option value="${s.id}" data-name="${s.name}">${s.name} (${s.email || 'Staff'})</option>`).join('');
             }
         }
 
-        async function loadCompanyDetails() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const clientId = urlParams.get('clientId');
-            if (!clientId) {
-                alert("Client ID is missing in URL parameters!");
-                window.location.href = '/admin/dashboard.html';
-                return;
-            }
-
+        async function fetchCounts() {
             try {
-                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
-                const token = authObj.token;
-                const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+                const res = await fetch('/api/applications/counts');
+                if (res.ok) {
+                    const counts = await res.json();
+                    const badgePending = document.getElementById('badge-pending-count');
+                    const badgeRejected = document.getElementById('badge-rejected-count');
+                    const badgeAll = document.getElementById('badge-all-count');
 
-                const res = await fetch(`/api/clients/${clientId}/services`, { headers });
-                if (!res.ok) throw new Error("Failed to load client details from backend");
-                
-                clientData = await res.json();
-                renderPage(clientData);
-            } catch(e) {
-                console.error("Error loading company details", e);
-                document.getElementById('company-name').innerText = "Error Loading Details";
-            }
-        }
-
-        function renderPage(data) {
-            console.log("renderPage received data:", data);
-            const client = data.client || {};
-            const service = data.services && data.services.length > 0 ? data.services[0] : null;
-            const details = service ? (service.details || {}) : {};
-            const excel = details.excelData;
-
-            console.log("Excel register data in renderPage:", excel);
-
-            // 1. Set Company Banner Headers safely
-            let companyName = "N/A";
-            if (excel && excel.companyName && excel.companyName.trim() !== "" && excel.companyName !== "N/A" && excel.companyName !== "null") {
-                companyName = excel.companyName.trim();
-            } else if (client && client.name && !client.name.startsWith("Client C-") && client.name.trim() !== "") {
-                companyName = client.name.trim();
-            } else if (details && details.names && Array.isArray(details.names) && details.names.length > 0 && details.names[0]) {
-                companyName = details.names[0];
-            } else if (client && client.name) {
-                companyName = client.name;
-            }
-
-            document.getElementById('company-name').innerText = companyName;
-            document.getElementById('company-initial').innerText = companyName.charAt(0).toUpperCase();
-
-            let uen = "N/A";
-            if (excel && excel.uen && excel.uen.trim() !== "" && excel.uen !== "N/A" && excel.uen !== "null") {
-                uen = excel.uen.trim();
-            } else if (details && details.uen && details.uen.trim() !== "") {
-                uen = details.uen.trim();
-            } else if (client && client.uen && client.uen.trim() !== "") {
-                uen = client.uen.trim();
-            }
-            document.getElementById('company-uen-badge').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 inline-block mr-1"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg> UEN: ${uen}`;
-
-            const companyType = (excel && excel.companyType) ? excel.companyType : "Private Company Limited by shares";
-            document.getElementById('company-type-badge').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 inline-block mr-1"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg> ${companyType}`;
-
-            const status = service ? service.status : "pending";
-            const badge = document.getElementById('company-status-badge');
-            if (status === 'approved' || status === 'completed') {
-                badge.className = "px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wide bg-emerald-50 text-emerald-600 flex items-center gap-1.5";
-                badge.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none" class="w-4 h-4 text-emerald-500 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg> ACTIVE / APPROVED`;
-            } else {
-                badge.className = "px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wide bg-blue-50 text-blue-600 flex items-center gap-1.5";
-                badge.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-blue-500 shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${status.toUpperCase()}`;
-            }
-
-            // 1.5 Header details
-            const incDateStr = (excel ? excel.dateOfIncorporation : null) || (details ? details.dateOfIncorporation : null) || client.dateOfIncorporation || "—";
-            const jurisdiction = (excel ? excel.countryOfIncorporation : null) || (details ? details.countryOfIncorporation : null) || client.countryOfIncorporation || "Singapore";
-
-            document.getElementById('info-incorporation').innerText = incDateStr;
-            document.getElementById('info-jurisdiction').innerText = jurisdiction;
-
-            let ageStr = "—";
-            if (incDateStr !== "—") {
-                const incDate = new Date(incDateStr);
-                if (!isNaN(incDate.getTime())) {
-                    const now = new Date();
-                    let years = now.getFullYear() - incDate.getFullYear();
-                    let months = now.getMonth() - incDate.getMonth();
-                    if (months < 0 || (months === 0 && now.getDate() < incDate.getDate())) {
-                        years--;
-                        months += (months < 0 ? 12 : 11);
-                    }
-                    ageStr = years > 0 ? `${years} Year${years > 1 ? 's' : ''}` : '';
-                    if (months > 0) {
-                        ageStr += ageStr ? `, ${months} Month${months > 1 ? 's' : ''}` : `${months} Month${months > 1 ? 's' : ''}`;
-                    }
-                    if (!ageStr) ageStr = "Less than a month";
+                    if (badgePending) badgePending.innerText = counts.pending ?? 0;
+                    if (badgeRejected) badgeRejected.innerText = counts.rejected ?? 0;
+                    if (badgeAll) badgeAll.innerText = counts.all ?? 0;
                 }
-            }
-            document.getElementById('info-age').innerText = ageStr;
-
-            // 2. Render Overview Tab Info
-            document.getElementById('info-name').innerText = companyName;
-            document.getElementById('info-uen').innerText = uen;
-            document.getElementById('info-type').innerText = companyType;
-
-            // Render Excel register details or fallback to onboarding details
-            if (excel) {
-                document.getElementById('info-primary-activity').innerText = excel.primaryActivity || "—";
-                document.getElementById('info-secondary-activity').innerText = excel.secondaryActivity || "—";
-                document.getElementById('info-address').innerText = excel.registeredOfficeAddress || "—";
-                updateFyeDisplay(excel.fye);
-                document.getElementById('info-agm').innerText = excel.lastAgmDate || "—";
-                document.getElementById('info-ar').innerText = excel.annualReturnDate || "—";
-                document.getElementById('info-xbrl').innerText = excel.xbrlPrepared || "—";
-
-            } else {
-                // Fallback to onboarding details layout
-                const office = details.office || {};
-                const officeStr = office.postalCode 
-                    ? `Block ${office.block || '—'} ${office.streetName || '—'}, Floor ${office.floor || '—'} Unit ${office.unit || '—'}, ${office.building || ''} Singapore ${office.postalCode}`
-                    : "—";
-                
-                const actPri = details.activities && details.activities.primary ? details.activities.primary : "—";
-                const actSec = details.activities && details.activities.secondary ? details.activities.secondary : "—";
-
-                document.getElementById('info-primary-activity').innerText = actPri;
-                document.getElementById('info-secondary-activity').innerText = actSec;
-                document.getElementById('info-address').innerText = officeStr;
-                updateFyeDisplay(details.fye);
-                document.getElementById('info-agm').innerText = "—";
-                document.getElementById('info-ar').innerText = "—";
-                document.getElementById('info-xbrl').innerText = "—";
-
-            }
-
-            const excelDirectors = excel ? excel.directors : (details.directors || []);
-            initDirectorsData(excelDirectors);
-            renderDirectorsList();
-            selectDirector(0);
-
-            const excelSecretaries = excel ? excel.secretaries : (details.secretaries || []);
-            initSecretariesData(excelSecretaries);
-            renderSecretariesList();
-            selectSecretary(0);
-
-            const excelMembers = excel ? excel.members : (details.members || []);
-            initShareholdersData(excelMembers);
-            renderShareholdersList();
-            selectShareholder(0);
-
-            const excelControllers = excel ? excel.controllers : (details.controllers || []);
-            initUbosData(excelControllers);
-            renderUbosList();
-            selectUbo(0);
-
-            initDocumentsData();
-            initComplianceData();
-            initActivitiesData();
-
-            if (window.lucide) window.lucide.createIcons();
-        }
-
-        // Actions dropdown toggler
-        window.toggleActionsDropdown = function(event) {
-            if (event) event.stopPropagation();
-            const dropdown = document.getElementById('actions-dropdown');
-            if (dropdown) dropdown.classList.toggle('hidden');
-        };
-
-        document.addEventListener('click', (e) => {
-            const dropdown = document.getElementById('actions-dropdown');
-            if (dropdown && !dropdown.contains(e.target)) {
-                dropdown.classList.add('hidden');
-            }
-        });
-
-        // Helper to update FYE Display details
-        function updateFyeDisplay(fyeValue) {
-            const fyeDateEl = document.getElementById('info-fye');
-            const fyeRecurrenceEl = fyeDateEl.parentElement.nextElementSibling.firstElementChild;
-            const fyeCountdownEl = fyeDateEl.parentElement.nextElementSibling.lastElementChild;
-            
-            if (!fyeValue || fyeValue === "—") {
-                fyeDateEl.innerText = "—";
-                fyeRecurrenceEl.innerText = "Every year on —";
-                fyeCountdownEl.innerText = "";
-                return;
-            }
-
-            try {
-                let fyeDate = new Date(fyeValue);
-                if (isNaN(fyeDate.getTime())) {
-                    // Match pattern: day followed by month name (e.g. "30 Dec", "Every year on 30 Dec", "31 DEC")
-                    const match = fyeValue.match(/(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i);
-                    if (match) {
-                        const day = parseInt(match[1], 10);
-                        const monthStr = match[2].toLowerCase().substring(0, 3);
-                        const monthsMap = {
-                            jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-                            jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
-                        };
-                        const month = monthsMap[monthStr];
-                        if (!isNaN(day) && month !== undefined) {
-                            const yearMatch = fyeValue.match(/\b(20\d{2})\b/);
-                            const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
-                            fyeDate = new Date(year, month, day);
-                        }
-                    }
-                }
-
-                if (isNaN(fyeDate.getTime())) {
-                    fyeDateEl.innerText = fyeValue;
-                    fyeRecurrenceEl.innerText = "Every year on —";
-                    fyeCountdownEl.innerText = "";
-                    return;
-                }
-
-                // Format: YYYY-MM-DD
-                const yyyy = fyeDate.getFullYear();
-                const mm = String(fyeDate.getMonth() + 1).padStart(2, '0');
-                const dd = String(fyeDate.getDate()).padStart(2, '0');
-                const formattedDate = `${yyyy}-${mm}-${dd}`;
-                fyeDateEl.innerText = formattedDate;
-
-                // Every year on DD Month
-                const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-                const day = fyeDate.getDate();
-                const monthName = monthNames[fyeDate.getMonth()];
-                const recurrenceText = `Every year on ${day} ${monthName}`;
-                fyeRecurrenceEl.innerText = recurrenceText;
-
-                // Countdown logic
-                const now = new Date();
-                now.setHours(0, 0, 0, 0);
-                
-                let targetYear = now.getFullYear();
-                let targetDate = new Date(targetYear, fyeDate.getMonth(), fyeDate.getDate());
-                
-                if (targetDate.getTime() < now.getTime()) {
-                    targetYear++;
-                    targetDate = new Date(targetYear, fyeDate.getMonth(), fyeDate.getDate());
-                }
-
-                const diffTime = targetDate.getTime() - now.getTime();
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                
-                let countdownText = "";
-                if (diffDays === 0) {
-                    countdownText = "Today";
-                } else if (diffDays === 1) {
-                    countdownText = "Tomorrow";
-                } else if (diffDays < 30) {
-                    countdownText = `In ${diffDays} day${diffDays > 1 ? 's' : ''}`;
-                } else {
-                    const diffMonths = Math.round(diffDays / 30.44);
-                    if (diffMonths >= 12) {
-                        countdownText = "In 1 year";
-                    } else {
-                        countdownText = `In ${diffMonths} month${diffMonths > 1 ? 's' : ''}`;
-                    }
-                }
-
-                fyeCountdownEl.innerText = countdownText;
-                fyeCountdownEl.className = "text-emerald-500 text-xs font-medium";
-
             } catch (e) {
-                console.error("Error updating FYE display:", e);
-                fyeDateEl.innerText = fyeValue;
+                console.warn("Could not fetch application counts", e);
             }
         }
 
-        // Modals & Action functionality
-        window.openEditProfileModal = function(event) {
-            if (event) event.preventDefault();
-            
-            const service = clientData && clientData.services && clientData.services.length > 0 ? clientData.services[0] : null;
-            const details = service ? (service.details || {}) : {};
-            const excel = details.excelData || {};
-            
-            const companyName = (clientData && clientData.client && clientData.client.name) || "";
-            const companyType = excel.companyType || details.companyType || "Exempt Private Company limited by shares";
-            const uen = excel.uen || details.uen || "";
-            const primarySsic = excel.primaryActivity || details.primaryActivity || "";
-            const secondarySsic = excel.secondaryActivity || details.secondaryActivity || "";
-            const incDate = excel.dateOfIncorporation || details.dateOfIncorporation || "";
-            const jurisdiction = excel.countryOfIncorporation || details.countryOfIncorporation || "Singapore";
-            const fye = excel.fye || details.fye || "";
-
-            const formatDateForInput = (dStr) => {
-                if (!dStr || dStr === "—") return "";
-                const d = new Date(dStr);
-                if (isNaN(d.getTime())) return "";
-                return d.toISOString().split('T')[0];
-            };
-
-            const modalHtml = `
-                <div id="edit-profile-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
-                    <div class="bg-white rounded-3xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
-                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h3 class="font-extrabold text-slate-900 text-lg">Edit Company Profile</h3>
-                            <button type="button" onclick="closeEditProfileModal()" class="text-slate-400 hover:text-slate-600 transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </button>
-                        </div>
-                        <form id="edit-profile-form" onsubmit="submitEditProfile(event)" class="p-6 space-y-4 overflow-y-auto flex-1">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Company Name</label>
-                                <input type="text" id="modal-name" required value="${companyName}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">UEN</label>
-                                    <input type="text" id="modal-uen" value="${uen}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Company Type</label>
-                                    <input type="text" id="modal-type" value="${companyType}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
+        function renderSmartTableLoader() {
+            return `
+                <tr>
+                    <td colspan="7" class="p-10 text-center">
+                        <div class="flex flex-col items-center justify-center py-6">
+                            <!-- Smart Dual-Orbit Hologram Spinner -->
+                            <div class="relative w-20 h-20 mb-4 flex items-center justify-center">
+                                <div class="absolute inset-0 rounded-full bg-blue-500/15 blur-xl smart-pulse-node"></div>
+                                <div class="absolute inset-0 rounded-full border-2 border-dashed border-blue-500/40 smart-orbit-ring"></div>
+                                <div class="absolute inset-2 rounded-full border-2 border-indigo-500/60 border-t-transparent border-l-transparent smart-orbit-ring-fast"></div>
+                                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-500 shadow-lg shadow-blue-500/30 flex items-center justify-center text-white smart-pulse-node">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                                    </svg>
                                 </div>
                             </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Primary SSIC & Description</label>
-                                <input type="text" id="modal-primary-ssic" value="${primarySsic}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Secondary SSIC & Description</label>
-                                <input type="text" id="modal-secondary-ssic" value="${secondarySsic}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Incorporation Date</label>
-                                    <input type="date" id="modal-inc-date" value="${formatDateForInput(incDate)}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Jurisdiction</label>
-                                    <input type="text" id="modal-jurisdiction" value="${jurisdiction}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Financial Year End (FYE)</label>
-                                <input type="date" id="modal-fye" value="${formatDateForInput(fye)}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                            </div>
-                            
-                            <div class="pt-4 border-t border-slate-100 flex justify-end gap-3">
-                                <button type="button" onclick="closeEditProfileModal()" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs transition">Cancel</button>
-                                <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-blue-600/20">Save Changes</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            `;
-            
-            const div = document.createElement('div');
-            div.id = 'modal-container';
-            div.innerHTML = modalHtml;
-            document.body.appendChild(div);
-        };
-
-        window.closeEditProfileModal = function() {
-            const modal = document.getElementById('modal-container');
-            if (modal) modal.remove();
-        };
-
-        window.submitEditProfile = async function(event) {
-            event.preventDefault();
-            
-            const service = clientData && clientData.services && clientData.services.length > 0 ? clientData.services[0] : null;
-            if (!service) {
-                alert("No service associated with client to update!");
-                return;
-            }
-
-            const updatedDetails = {
-                ...(service.details || {}),
-                companyType: document.getElementById('modal-type').value,
-                uen: document.getElementById('modal-uen').value,
-                primaryActivity: document.getElementById('modal-primary-ssic').value,
-                secondaryActivity: document.getElementById('modal-secondary-ssic').value,
-                dateOfIncorporation: document.getElementById('modal-inc-date').value,
-                countryOfIncorporation: document.getElementById('modal-jurisdiction').value,
-                fye: document.getElementById('modal-fye').value
-            };
-
-            if (updatedDetails.excelData) {
-                updatedDetails.excelData = {
-                    ...updatedDetails.excelData,
-                    companyType: updatedDetails.companyType,
-                    uen: updatedDetails.uen,
-                    primaryActivity: updatedDetails.primaryActivity,
-                    secondaryActivity: updatedDetails.secondaryActivity,
-                    dateOfIncorporation: updatedDetails.dateOfIncorporation,
-                    countryOfIncorporation: updatedDetails.countryOfIncorporation,
-                    fye: updatedDetails.fye
-                };
-            }
-
-            const clientNameVal = document.getElementById('modal-name').value;
-
-            try {
-                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
-                const token = authObj.token;
-                const headers = { 
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-                };
-
-                const res = await fetch(`/api/services/${service.serviceId}`, {
-                    method: 'PATCH',
-                    headers: headers,
-                    body: JSON.stringify({ details: updatedDetails })
-                });
-
-                if (!res.ok) throw new Error("Failed to save changes");
-
-                clientData.client.name = clientNameVal;
-                clientData.services[0].details = updatedDetails;
-                
-                closeEditProfileModal();
-                renderPage(clientData);
-                
-                addActivityLogEntry("Company profile details updated.");
-                
-            } catch (e) {
-                console.error("Save failed", e);
-                alert("Failed to update profile: " + e.message);
-            }
-        };
-
-        window.openUpdateAddressModal = function(event) {
-            if (event) event.preventDefault();
-            
-            const service = clientData && clientData.services && clientData.services.length > 0 ? clientData.services[0] : null;
-            const details = service ? (service.details || {}) : {};
-            const excel = details.excelData || {};
-            
-            const currentAddress = excel.registeredOfficeAddress || details.registeredOfficeAddress || details.office || "";
-            let addressStr = "";
-            if (typeof currentAddress === 'object') {
-                const o = currentAddress;
-                addressStr = o.postalCode 
-                    ? `Block ${o.block || ''} ${o.streetName || ''}, Floor ${o.floor || ''} Unit ${o.unit || ''}, ${o.building || ''} Singapore ${o.postalCode}`
-                    : "";
-            } else {
-                addressStr = currentAddress;
-            }
-
-            const modalHtml = `
-                <div id="update-address-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
-                    <div class="bg-white rounded-3xl w-full max-w-md shadow-xl overflow-hidden flex flex-col">
-                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h3 class="font-extrabold text-slate-900 text-lg">Update Registered Address</h3>
-                            <button type="button" onclick="closeUpdateAddressModal()" class="text-slate-400 hover:text-slate-600 transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </button>
-                        </div>
-                        <form id="update-address-form" onsubmit="submitUpdateAddress(event)" class="p-6 space-y-4">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Registered Office Address</label>
-                                <textarea id="modal-address" required rows="4" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition leading-relaxed">${addressStr}</textarea>
-                            </div>
-                            
-                            <div class="pt-4 border-t border-slate-100 flex justify-end gap-3">
-                                <button type="button" onclick="closeUpdateAddressModal()" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs transition">Cancel</button>
-                                <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-blue-600/20">Update Address</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            `;
-            
-            const div = document.createElement('div');
-            div.id = 'address-modal-container';
-            div.innerHTML = modalHtml;
-            document.body.appendChild(div);
-        };
-
-        window.closeUpdateAddressModal = function() {
-            const modal = document.getElementById('address-modal-container');
-            if (modal) modal.remove();
-        };
-
-        window.submitUpdateAddress = async function(event) {
-            event.preventDefault();
-            
-            const service = clientData && clientData.services && clientData.services.length > 0 ? clientData.services[0] : null;
-            if (!service) {
-                alert("No service associated with client to update!");
-                return;
-            }
-
-            const addressVal = document.getElementById('modal-address').value;
-            const updatedDetails = {
-                ...(service.details || {}),
-                registeredOfficeAddress: addressVal
-            };
-
-            if (updatedDetails.excelData) {
-                updatedDetails.excelData = {
-                    ...updatedDetails.excelData,
-                    registeredOfficeAddress: addressVal
-                };
-            }
-
-            try {
-                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
-                const token = authObj.token;
-                const headers = { 
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-                };
-
-                const res = await fetch(`/api/services/${service.serviceId}`, {
-                    method: 'PATCH',
-                    headers: headers,
-                    body: JSON.stringify({ details: updatedDetails })
-                });
-
-                if (!res.ok) throw new Error("Failed to save changes");
-
-                clientData.services[0].details = updatedDetails;
-                
-                closeUpdateAddressModal();
-                renderPage(clientData);
-                
-                addActivityLogEntry("Registered office address updated.");
-                
-            } catch (e) {
-                console.error("Save failed", e);
-                alert("Failed to update address: " + e.message);
-            }
-        };
-
-        window.openUploadModal = function(event) {
-            if (event) event.preventDefault();
-            
-            const modalHtml = `
-                <div id="upload-doc-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
-                    <div class="bg-white rounded-3xl w-full max-w-md shadow-xl overflow-hidden flex flex-col">
-                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h3 class="font-extrabold text-slate-900 text-lg">Upload Document</h3>
-                            <button type="button" onclick="closeUploadModal()" class="text-slate-400 hover:text-slate-600 transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </button>
-                        </div>
-                        <form id="upload-doc-form" onsubmit="submitUploadDoc(event)" class="p-6 space-y-4">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Document Name</label>
-                                <input type="text" id="doc-name" required placeholder="e.g. Bizfile, NRIC Passport" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Document Type</label>
-                                <select id="doc-type" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                    <option value="bizfile">Bizfile (ACRA)</option>
-                                    <option value="constitution">Constitution</option>
-                                    <option value="id_proof">ID / Passport</option>
-                                    <option value="address_proof">Address Proof</option>
-                                    <option value="other">Other Document</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Select File</label>
-                                <input type="file" id="doc-file" class="w-full text-sm font-semibold text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
-                                <div class="mt-2 text-[10px] text-slate-400 font-medium">Or enter a simulated file path below (if no file is selected):</div>
-                                <input type="text" id="doc-file-path" placeholder="e.g. bizfile_updated.pdf" class="w-full mt-1.5 px-3.5 py-1.5 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-blue-500 transition">
-                            </div>
-                            
-                            <div class="pt-4 border-t border-slate-100 flex justify-end gap-3">
-                                <button type="button" onclick="closeUploadModal()" class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs transition">Cancel</button>
-                                <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-blue-600/20">Upload</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            `;
-            
-            const div = document.createElement('div');
-            div.id = 'upload-modal-container';
-            div.innerHTML = modalHtml;
-            document.body.appendChild(div);
-        };
-
-        window.closeUploadModal = function() {
-            const modal = document.getElementById('upload-modal-container');
-            if (modal) modal.remove();
-        };
-
-        window.submitUploadDoc = async function(event) {
-            event.preventDefault();
-            
-            const service = clientData && clientData.services && clientData.services.length > 0 ? clientData.services[0] : null;
-            if (!service) {
-                alert("No service associated with client!");
-                return;
-            }
-
-            const docName = document.getElementById('doc-name').value;
-            const docType = document.getElementById('doc-type').value;
-            const docFile = document.getElementById('doc-file').files[0];
-            const docFilePath = document.getElementById('doc-file-path').value || (docFile ? docFile.name : "uploaded_document.pdf");
-
-            const updatedDetails = {
-                ...(service.details || {})
-            };
-            
-            if (!updatedDetails.documents) {
-                updatedDetails.documents = [];
-            }
-
-            const newDoc = {
-                id: "DOC-" + Math.floor(100000 + Math.random() * 900000),
-                name: docName,
-                type: docType,
-                fileName: docFilePath,
-                uploadedAt: new Date().toISOString(),
-                status: "Verified"
-            };
-
-            updatedDetails.documents.unshift(newDoc);
-
-            if (updatedDetails.excelData) {
-                updatedDetails.excelData = {
-                    ...updatedDetails.excelData,
-                    documents: updatedDetails.documents
-                };
-            }
-
-            try {
-                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
-                const token = authObj.token;
-                const headers = { 
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-                };
-
-                const res = await fetch(`/api/services/${service.serviceId}`, {
-                    method: 'PATCH',
-                    headers: headers,
-                    body: JSON.stringify({ details: updatedDetails })
-                });
-
-                if (!res.ok) throw new Error("Failed to save changes");
-
-                clientData.services[0].details = updatedDetails;
-                
-                closeUploadModal();
-                renderPage(clientData);
-                renderDocumentsTable();
-                
-                addActivityLogEntry(`Document "${docName}" uploaded.`);
-                
-            } catch (e) {
-                console.error("Save failed", e);
-                alert("Failed to upload document: " + e.message);
-            }
-        };
-
-        window.viewOrgChart = function(event) {
-            if (event) event.preventDefault();
-            alert("Viewing Organization Chart for " + (clientData ? clientData.client.name : "Client"));
-        };
-        
-        window.deactivateCompany = async function(event) {
-            if (event) event.preventDefault();
-            if (!confirm("Are you sure you want to deactivate this company?")) return;
-            
-            const service = clientData && clientData.services && clientData.services.length > 0 ? clientData.services[0] : null;
-            if (!service) return;
-            
-            try {
-                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
-                const token = authObj.token;
-                const headers = { 
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-                };
-
-                const res = await fetch(`/api/services/${service.serviceId}`, {
-                    method: 'PATCH',
-                    headers: headers,
-                    body: JSON.stringify({ status: "inactive" })
-                });
-
-                if (!res.ok) throw new Error("Failed to deactivate");
-
-                clientData.services[0].status = "inactive";
-                renderPage(clientData);
-                addActivityLogEntry("Company status changed to INACTIVE.");
-                
-            } catch (e) {
-                alert("Failed to deactivate: " + e.message);
-            }
-        };
-
-        window.addNoteModal = function(event) {
-            if (event) event.preventDefault();
-            const note = prompt("Enter a note for this client:");
-            if (note) {
-                addActivityLogEntry(`Note added: "${note}"`);
-                alert("Note saved to activity timeline!");
-            }
-        };
-
-        window.downloadCompanyProfile = function(event) {
-            if (event) event.preventDefault();
-            alert("Downloading Company Profile PDF...");
-        };
-
-        window.exportCompanyData = function(event) {
-            if (event) event.preventDefault();
-            alert("Exporting Company Data CSV...");
-        };
-
-        function addActivityLogEntry(text) {
-            const service = clientData && clientData.services && clientData.services.length > 0 ? clientData.services[0] : null;
-            if (!service) return;
-            
-            const details = service.details || {};
-            if (!details.activities) details.activities = [];
-            
-            details.activities.unshift({
-                text: text,
-                time: new Date().toISOString()
-            });
-            
-            service.details = details;
-        }
-
-        // Render dynamic tables
-        function renderDocumentsTable() {
-            const panel = document.getElementById('panel-documents');
-            if (!panel) return;
-            
-            const service = clientData && clientData.services && clientData.services.length > 0 ? clientData.services[0] : null;
-            const details = service ? (service.details || {}) : {};
-            const docs = details.documents || [];
-            
-            if (docs.length === 0) {
-                panel.innerHTML = `
-                    <div class="glass-card p-6 bg-white border border-slate-100 shadow-sm text-center py-12 text-slate-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mx-auto text-slate-300 mb-4"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
-                        <h3 class="font-bold text-slate-900 text-lg mb-1">Documents Repository</h3>
-                        <p class="text-sm mb-4">No documents uploaded yet.</p>
-                        <button onclick="openUploadModal(event)" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-blue-600/20">
-                            Upload Document
-                        </button>
-                    </div>
-                `;
-            } else {
-                panel.innerHTML = `
-                    <div class="glass-card p-6 bg-white border border-slate-100 shadow-sm">
-                        <div class="flex justify-between items-center mb-6">
-                            <h3 class="font-bold text-slate-900 text-lg flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-blue-600"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg> Register of Documents</h3>
-                            <button onclick="openUploadModal(event)" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-blue-600/20">
-                                Upload Document
-                            </button>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left text-sm">
-                                <thead>
-                                    <tr class="border-b border-slate-200 text-slate-400 font-bold text-xs uppercase">
-                                        <th class="pb-3 font-bold">Document Name</th>
-                                        <th class="pb-3 font-bold">Type</th>
-                                        <th class="pb-3 font-bold">File Name</th>
-                                        <th class="pb-3 font-bold">Uploaded At</th>
-                                        <th class="pb-3 font-bold">Status</th>
-                                        <th class="pb-3 font-bold">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100 text-slate-700">
-                                    ${docs.map(doc => {
-                                        const dateStr = new Date(doc.uploadedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-                                        return `
-                                            <tr class="hover:bg-slate-50/50 transition">
-                                                <td class="p-4 font-bold text-slate-900">${doc.name}</td>
-                                                <td class="p-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 uppercase">${doc.type}</span></td>
-                                                <td class="p-4 font-semibold text-xs text-blue-600 hover:underline cursor-pointer"><a href="#" onclick="event.preventDefault(); alert('Downloading ${doc.fileName}')">${doc.fileName}</a></td>
-                                                <td class="p-4 text-xs font-semibold text-slate-500">${dateStr}</td>
-                                                <td class="p-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase">${doc.status || 'Verified'}</span></td>
-                                                <td class="p-4 text-xs font-bold text-blue-600">
-                                                    <button onclick="alert('Downloading ${doc.fileName}')" class="hover:underline">Download</button>
-                                                </td>
-                                            </tr>
-                                        `;
-                                    }).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-
-        function renderComplianceTable() {
-            const panel = document.getElementById('panel-compliance');
-            if (!panel) return;
-            
-            const service = clientData && clientData.services && clientData.services.length > 0 ? clientData.services[0] : null;
-            const details = service ? (service.details || {}) : {};
-            const excel = details.excelData || {};
-            
-            const fye = excel.fye || details.fye || "—";
-            const agm = excel.lastAgmDate || details.lastAgmDate || "—";
-            const ar = excel.annualReturnDate || details.annualReturnDate || "—";
-            const xbrl = excel.xbrlPrepared || details.xbrlPrepared || "—";
-
-            panel.innerHTML = `
-                <div class="glass-card p-6 bg-white border border-slate-100 shadow-sm">
-                    <h3 class="font-bold text-slate-900 text-lg mb-6 flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-blue-600"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Compliance Tasks</h3>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-sm">
-                            <thead>
-                                <tr class="border-b border-slate-200 text-slate-400 font-bold text-xs uppercase">
-                                    <th class="pb-3 font-bold">Task Name</th>
-                                    <th class="pb-3 font-bold">Due / End Date</th>
-                                    <th class="pb-3 font-bold">Recurrence</th>
-                                    <th class="pb-3 font-bold">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 text-slate-700">
-                                <tr class="hover:bg-slate-50/50 transition">
-                                    <td class="p-4 font-bold text-slate-900">Financial Year End (FYE)</td>
-                                    <td class="p-4 font-semibold text-xs text-slate-600">${fye}</td>
-                                    <td class="p-4 text-xs font-semibold text-slate-400">Every year</td>
-                                    <td class="p-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase">Completed</span></td>
-                                </tr>
-                                <tr class="hover:bg-slate-50/50 transition">
-                                    <td class="p-4 font-bold text-slate-900">Last AGM Date</td>
-                                    <td class="p-4 font-semibold text-xs text-slate-600">${agm}</td>
-                                    <td class="p-4 text-xs font-semibold text-slate-400">Due within 6 months of FYE</td>
-                                    <td class="p-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${agm !== "—" ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200'} uppercase">${agm !== "—" ? 'Completed' : 'Pending'}</span></td>
-                                </tr>
-                                <tr class="hover:bg-slate-50/50 transition">
-                                    <td class="p-4 font-bold text-slate-900">Date of Annual Return</td>
-                                    <td class="p-4 font-semibold text-xs text-slate-600">${ar}</td>
-                                    <td class="p-4 text-xs font-semibold text-slate-400">Due within 30 days of AGM</td>
-                                    <td class="p-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${ar !== "—" ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200'} uppercase">${ar !== "—" ? 'Completed' : 'Pending'}</span></td>
-                                </tr>
-                                <tr class="hover:bg-slate-50/50 transition">
-                                    <td class="p-4 font-bold text-slate-900">XBRL Prepared</td>
-                                    <td class="p-4 font-semibold text-xs text-slate-600">${xbrl}</td>
-                                    <td class="p-4 text-xs font-semibold text-slate-400">Due within 7 months of FYE</td>
-                                    <td class="p-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${xbrl !== "—" ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200'} uppercase">${xbrl !== "—" ? 'Completed' : 'Pending'}</span></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            `;
-        }
-
-        function renderActivitiesTable() {
-            const panel = document.getElementById('panel-activities');
-            if (!panel) return;
-            
-            const service = clientData && clientData.services && clientData.services.length > 0 ? clientData.services[0] : null;
-            const details = service ? (service.details || {}) : {};
-            const activities = details.activities || [];
-            
-            if (activities.length === 0) {
-                const timestampSec = clientData ? parseInt(clientData.client.clientId.substring(0, 8), 16) : NaN;
-                let joinedDateStr = 'some time ago';
-                if (!isNaN(timestampSec)) {
-                    joinedDateStr = new Date(timestampSec * 1000).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-                }
-                activities.push({
-                    text: "Incorporation application submitted",
-                    time: !isNaN(timestampSec) ? new Date(timestampSec * 1000).toISOString() : new Date().toISOString()
-                });
-                activities.push({
-                    text: "Client registered and onboarded",
-                    time: !isNaN(timestampSec) ? new Date((timestampSec + 3600) * 1000).toISOString() : new Date().toISOString()
-                });
-                details.activities = activities;
-            }
-
-            panel.innerHTML = `
-                <div class="glass-card p-6 bg-white border border-slate-100 shadow-sm">
-                    <h3 class="font-bold text-slate-900 text-lg mb-6 flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-blue-600"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Recent Activities</h3>
-                    <div class="relative border-l border-slate-200 ml-4 pl-6 space-y-6">
-                        ${activities.map((act, index) => {
-                            const dateObj = new Date(act.time);
-                            const dateStr = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-                            const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-                            return `
-                                <div class="relative">
-                                    <div class="absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full bg-blue-600 border border-white"></div>
-                                    <div class="flex flex-col gap-0.5">
-                                        <span class="font-bold text-slate-800 text-sm">${act.text}</span>
-                                        <span class="text-xs text-slate-400 font-medium">${dateStr} at ${timeStr}</span>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                </div>
-            `;
-        }
-
-        // --- HIGH-FIDELITY INTERACTIVE DIRECTORS TAB LOGIC ---
-        let directorsList = [];
-        let selectedDirectorIndex = 0;
-        let activeDirectorTab = 'documents';
-
-        const docTypes = [
-            "NRIC (Front & Back)",
-            "Passport (Bio Page)",
-            "Residential Address Proof",
-            "Director's Declaration",
-            "CV / Background Information",
-            "Appointment Letter",
-            "Shareholding Declaration"
-        ];
-
-        function initDirectorsData(excelDirectors) {
-            directorsList = [];
-            
-            // 1. Process Excel directors
-            if (excelDirectors && excelDirectors.length > 0) {
-                excelDirectors.forEach((d, idx) => {
-                    directorsList.push({
-                        name: d.name || "Unknown Director",
-                        title: d.type || "Director",
-                        email: d.email || `${d.name.toLowerCase().replace(/\s+/g, '.')}@globalisor-client.com`,
-                        mobile: d.mobile || "+65 9123 4567",
-                        idNumber: d.idNumber || "S1234567A",
-                        dob: d.dob || "1980-01-01",
-                        nationality: d.nationality || "Singapore Citizen",
-                        address: d.address || "123 Orchard Road, Singapore 238884",
-                        appointmentDate: d.appointmentDate || "2024-01-01",
-                        status: idx === 0 ? "Verified" : "Pending Review",
-                        progress: idx === 0 ? 100 : 70
-                    });
-                });
-            }
-
-            // 2. Add fallback/dummy directors to match the screenshot layout
-            if (directorsList.length < 3) {
-                const dummyNames = ["Sarah Lee", "Peter Wong"];
-                const dummyTitles = ["Executive Director", "Non-Executive Director"];
-                const dummyNationalities = ["Singapore Citizen", "Singapore PR"];
-                const dummyAppointments = ["12 Mar 2026", "05 Jun 2026"];
-                const dummyStatus = ["Verified", "Pending Review"];
-                const dummyProgress = [90, 70];
-                const dummyIds = ["S9876543B", "S8765432A"];
-                const dummyEmails = ["sarah.lee@banzotafresh.com", "peter.wong@banzotafresh.com"];
-
-                for (let i = 0; i < 2; i++) {
-                    if (directorsList.length >= 3) break;
-                    directorsList.push({
-                        name: dummyNames[i],
-                        title: dummyTitles[i],
-                        email: dummyEmails[i],
-                        mobile: "+65 9876 5432",
-                        idNumber: dummyIds[i],
-                        dob: "1985-05-15",
-                        nationality: dummyNationalities[i],
-                        address: "456 Bukit Timah Road, Singapore 259735",
-                        appointmentDate: dummyAppointments[i],
-                        status: dummyStatus[i],
-                        progress: dummyProgress[i]
-                    });
-                }
-            }
-        }
-
-        window.renderDirectorsList = function() {
-            const listContainer = document.getElementById('directors-list');
-            if (!listContainer) return;
-
-            const searchVal = document.getElementById('director-search-input').value.toLowerCase();
-            const statusFilter = document.getElementById('director-status-filter').value;
-
-            // Update title count
-            document.getElementById('directors-header-title').innerText = `Directors (${directorsList.length})`;
-
-            listContainer.innerHTML = directorsList.map((d, idx) => {
-                const matchesSearch = d.name.toLowerCase().includes(searchVal) || d.email.toLowerCase().includes(searchVal);
-                const matchesFilter = statusFilter === 'all' || d.status === statusFilter;
-
-                if (!matchesSearch || !matchesFilter) return '';
-
-                const isActive = idx === selectedDirectorIndex;
-                const activeClasses = isActive 
-                    ? 'border-blue-600 bg-blue-50/40 shadow-sm' 
-                    : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50/30';
-
-                const progressColor = d.progress >= 90 ? 'bg-emerald-500' : 'bg-amber-500';
-                const statusColor = d.status === 'Verified' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-amber-600 bg-amber-50 border-amber-100';
-
-                const initials = d.name.split(' ').map(n => n.charAt(0)).join('').substring(0, 2).toUpperCase();
-
-                return `
-                    <div onclick="selectDirector(${idx})" class="p-4 border rounded-2xl cursor-pointer transition-all flex items-start justify-between gap-3 relative ${activeClasses}">
-                        <div class="flex items-start gap-3">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-blue-100 text-blue-600 shrink-0">
-                                ${initials}
-                            </div>
-                            <div class="flex-grow">
-                                <h4 class="font-bold text-slate-800 text-sm">${d.name}</h4>
-                                <p class="text-slate-400 text-[11px] font-medium mt-0.5">${d.title}</p>
-                                <p class="text-slate-500 text-[11px] font-medium mt-1 truncate max-w-[170px]">${d.email}</p>
-                                
-                                <div class="mt-3 w-[150px]">
-                                    <div class="flex justify-between text-[9px] font-bold text-slate-400 mb-0.5">
-                                        <span>${d.progress}% Complete</span>
-                                    </div>
-                                    <div class="w-full bg-slate-100 rounded-full h-1.5">
-                                        <div class="${progressColor} h-1.5 rounded-full" style="width: ${d.progress}%"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="flex flex-col items-end gap-4">
-                            <span class="px-2 py-0.5 rounded text-[9px] font-black border uppercase tracking-wider ${statusColor}">
-                                ${d.status}
-                            </span>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-slate-400"><polyline points="9 18 15 12 9 6"/></svg>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        };
-
-        window.selectDirector = function(index) {
-            selectedDirectorIndex = index;
-            renderDirectorsList();
-
-            const director = directorsList[index];
-            const panel = document.getElementById('director-details-panel');
-            if (!panel || !director) return;
-
-            const initials = director.name.split(' ').map(n => n.charAt(0)).join('').substring(0, 2).toUpperCase();
-            const statusColor = director.status === 'Verified' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-amber-600 bg-amber-50 border-amber-100';
-
-            // Base Layout
-            panel.innerHTML = `
-                <!-- Profile Header -->
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-slate-100 shrink-0">
-                    <div class="flex items-center gap-4">
-                        <div class="w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg bg-blue-100 text-blue-600 shadow-sm shrink-0">
-                            ${initials}
-                        </div>
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <h3 class="font-extrabold text-slate-900 text-lg">${director.name}</h3>
-                                <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black border uppercase tracking-wider ${statusColor}">
-                                    ${director.status}
+                            <!-- Dynamic Glowing Status Caption -->
+                            <div class="flex items-center gap-1.5 text-xs font-bold text-slate-700 tracking-wide uppercase font-outfit">
+                                <span>Synchronizing applications</span>
+                                <span class="inline-flex gap-0.5 text-blue-600 font-extrabold text-sm leading-none">
+                                    <span class="smart-dot-1">.</span>
+                                    <span class="smart-dot-2">.</span>
+                                    <span class="smart-dot-3">.</span>
                                 </span>
                             </div>
-                            <p class="text-slate-500 text-xs font-bold mt-1">${director.title}</p>
-                            <p class="text-slate-400 text-[11px] font-semibold mt-2 flex items-center gap-4">
-                                <span><strong>NRIC:</strong> ${director.idNumber}</span>
-                                <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                <span><strong>Nationality:</strong> ${director.nationality}</span>
-                                <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                <span><strong>Appointed:</strong> ${director.appointmentDate}</span>
-                            </p>
+                            <span class="text-[11px] font-medium text-slate-400 mt-1">Fetching live queue from server</span>
                         </div>
-                    </div>
-                    <button onclick="window.openEditDirectorModal(${index})" class="px-3.5 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                        Edit Details
-                    </button>
-                </div>
-
-                <!-- Tabs Navigation -->
-                <div class="flex border-b border-slate-100 py-3 gap-6 overflow-x-auto shrink-0">
-                    ${['documents', 'details', 'appointments', 'shareholdings', 'relatedEntities', 'activityLog'].map(tab => {
-                        const label = tab === 'activityLog' ? 'Activity Log' : tab === 'relatedEntities' ? 'Related Entities' : tab.charAt(0).toUpperCase() + tab.slice(1);
-                        const isActive = tab === activeDirectorTab;
-                        const tabClasses = isActive 
-                            ? 'text-blue-600 border-blue-600 font-bold' 
-                            : 'text-slate-400 border-transparent font-semibold hover:text-slate-600';
-                        return `
-                            <button onclick="switchDirectorTab('${tab}')" class="pb-2 text-xs border-b-2 transition-all cursor-pointer whitespace-nowrap ${tabClasses}">
-                                ${label}
-                            </button>
-                        `;
-                    }).join('')}
-                </div>
-
-                <!-- Tab Content area -->
-                <div class="flex-1 overflow-y-auto mt-4" id="director-tab-content">
-                    <!-- Rendered below -->
-                </div>
+                    </td>
+                </tr>
+                <!-- Shimmer Skeleton Rows -->
+                ${[1, 2, 3].map(() => `
+                    <tr class="animate-pulse">
+                        <td class="px-6 py-4"><div class="h-4 w-40 rounded-lg smart-shimmer mb-1.5"></div><div class="h-3 w-24 rounded smart-shimmer"></div></td>
+                        <td class="px-6 py-4"><div class="h-4 w-32 rounded-lg smart-shimmer mb-1.5"></div><div class="h-3 w-28 rounded smart-shimmer"></div></td>
+                        <td class="px-6 py-4"><div class="h-6 w-24 rounded-full smart-shimmer"></div></td>
+                        <td class="px-6 py-4"><div class="h-6 w-20 rounded-full smart-shimmer"></div></td>
+                        <td class="px-6 py-4"><div class="h-5 w-16 rounded-md smart-shimmer"></div></td>
+                        <td class="px-6 py-4"><div class="h-4 w-28 rounded smart-shimmer"></div></td>
+                        <td class="px-6 py-4 text-right"><div class="h-8 w-24 rounded-xl smart-shimmer ml-auto"></div></td>
+                    </tr>
+                `).join('')}
             `;
+        }
 
-            renderDirectorTabContent();
+        async function fetchApplications(tab = activeTabFilter, isSilent = false) {
+            const tableBody = document.getElementById('applications-table-body');
+            if (tableBody && !isSilent && (!allApplications || allApplications.length === 0)) {
+                tableBody.innerHTML = renderSmartTableLoader();
+            }
+
+            try {
+                const staffPromise = loadStaffList();
+                const countsPromise = fetchCounts();
+                const appPromise = fetch(`/api/applications?tab=${encodeURIComponent(tab)}`).then(r => r.ok ? r.json() : []);
+
+                const [_, __, apps] = await Promise.all([staffPromise, countsPromise, appPromise]);
+                allApplications = apps || [];
+
+                if (allApplications && Array.isArray(allApplications)) {
+                    // Sort newest applications first
+                    allApplications.sort((a, b) => {
+                        const tA = a.timestamp || (a.date ? new Date(a.date).getTime() : 0);
+                        const tB = b.timestamp || (b.date ? new Date(b.date).getTime() : 0);
+                        if (tB !== tA) return tB - tA;
+                        return String(b.id || b.rawId || '').localeCompare(String(a.id || a.rawId || ''));
+                    });
+
+                    filterApplications();
+                }
+            } catch (e) {
+                console.error("Failed to fetch applications", e);
+                if (!isSilent) {
+                    showToast("Could not load applications from server.", "error");
+                }
+            }
+        }
+
+        window.setTabFilter = function (tab) {
+            activeTabFilter = tab;
+            ['pending', 'rejected', 'all'].forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if (btn) {
+                    if (t === tab) {
+                        btn.className = 'badge-tab flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white shadow-sm';
+                    } else {
+                        btn.className = 'badge-tab flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50';
+                    }
+                }
+            });
+            // Load filtered data from backend for selected tab
+            fetchApplications(tab);
         };
 
-        window.switchDirectorTab = function(tabId) {
-            activeDirectorTab = tabId;
-            selectDirector(selectedDirectorIndex);
+        window.filterApplications = function () {
+            const statusFilter = document.getElementById('filter-status').value;
+            const priorityFilter = document.getElementById('filter-priority').value;
+            const searchQuery = (document.getElementById('app-search-input')?.value || '').toLowerCase().trim();
+
+            const filtered = allApplications.filter((app, idx) => {
+                const s = (app.status || 'pending').toLowerCase();
+                const p = (app.priority || 'Normal').toLowerCase();
+
+                // Status Dropdown Filter
+                if (statusFilter !== 'All') {
+                    if (!s.includes(statusFilter.toLowerCase())) return false;
+                }
+
+                // Priority Filter
+                if (priorityFilter !== 'All') {
+                    if (p !== priorityFilter.toLowerCase()) return false;
+                }
+
+                // Search query
+                if (searchQuery) {
+                    const matchBusiness = (app.business || '').toLowerCase().includes(searchQuery);
+                    const matchClient = (app.client || '').toLowerCase().includes(searchQuery);
+                    const matchId = String(app.id || app.rawId || '').toLowerCase().includes(searchQuery);
+                    const matchStaff = (app.staff || app.assignedStaffName || '').toLowerCase().includes(searchQuery);
+                    const namesList = Array.isArray(app.data?.names) ? app.data.names.join(' ').toLowerCase() : '';
+                    const matchNames = namesList.includes(searchQuery);
+                    if (!matchBusiness && !matchClient && !matchId && !matchStaff && !matchNames) return false;
+                }
+
+                return true;
+            });
+
+            renderTable(filtered);
         };
 
-        function renderDirectorTabContent() {
-            const container = document.getElementById('director-tab-content');
-            if (!container) return;
+        function getNameBadges(data) {
+            if (!data) return '<span class="text-slate-300 text-[10px] italic">Not checked</span>';
+            let names = [];
+            if (Array.isArray(data.names) && data.names.length > 0) {
+                names = [...data.names];
+            } else if (data.companyName) {
+                names.push(data.companyName.trim());
+                if (data.alternativeCompanyName1) names.push(data.alternativeCompanyName1.trim());
+                if (data.alternativeCompanyName2) names.push(data.alternativeCompanyName2.trim());
+            } else if (data.proposedCompanyName) {
+                names.push(data.proposedCompanyName.trim());
+            }
+            if (names.length === 0) return '<span class="text-slate-300 text-[10px] italic">None</span>';
 
-            const director = directorsList[selectedDirectorIndex];
-            if (!director) return;
+            const checks = data.nameChecks || {};
 
-            if (activeDirectorTab === 'documents') {
-                const docs = getDirectorDocs(director);
-                const verifiedCount = docs.filter(d => d.status === 'Verified').length;
-                const allVerified = verifiedCount === docs.length;
+            return names.map((name, i) => {
+                if (!name) return '';
+                const check = checks[`names[${i}]`] || checks[name] || {};
+                const status = check.status || 'pending';
+                let dot = '⚪';
+                let style = 'bg-slate-100 text-slate-600 border-slate-200';
+                if (status === 'available') { dot = '🟢'; style = 'bg-emerald-50 text-emerald-700 border-emerald-200'; }
+                else if (status === 'taken' || status === 'invalid') { dot = '🔴'; style = 'bg-red-50 text-red-700 border-red-200'; }
+                else if (status === 'similar') { dot = '🟡'; style = 'bg-amber-50 text-amber-700 border-amber-200'; }
 
-                container.innerHTML = `
-                    <div class="flex justify-between items-center mb-4">
-                        <h4 class="font-extrabold text-slate-800 text-sm">Required Documents</h4>
-                        <div class="flex items-center gap-3">
-                            <span class="text-xs font-bold text-slate-700">${verifiedCount}/${docs.length} Documents Verified</span>
-                            <div class="w-24 bg-slate-100 rounded-full h-2">
-                                <div class="bg-emerald-500 h-2 rounded-full" style="width: ${(verifiedCount/docs.length)*100}%"></div>
-                            </div>
+                return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${style} mr-1 mb-1">
+                    <span>${dot}</span> ${name.substring(0, 18)}${name.length > 18 ? '…' : ''}
+                </span>`;
+            }).filter(Boolean).join('');
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('applications-table-body');
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-400 italic">No applications found matching criteria.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = data.map((app, idx) => {
+                const staffName = app.staff && app.staff !== 'Sarah Lim' ? app.staff : (app.assignedStaffName || 'Unassigned');
+                const isUnassigned = !staffName || staffName === 'Unassigned';
+
+                const status = (app.status || 'pending').toLowerCase();
+                let statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-slate-100 text-slate-600">Pending</span>`;
+                if (status.includes('approved') || status.includes('completed')) {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">Completed</span>`;
+                } else if (status.includes('rejected')) {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-red-50 text-red-700 border border-red-200">Rejected</span>`;
+                } else if (status.includes('progress') || status.includes('assigned')) {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-indigo-50 text-indigo-700 border border-indigo-200">In Progress</span>`;
+                } else if (isUnassigned) {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-amber-50 text-amber-700 border border-amber-200">Open Queue</span>`;
+                } else {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-blue-50 text-blue-700 border border-blue-200">Under Review</span>`;
+                }
+
+                const nameBadges = getNameBadges(app.data);
+                const appId = app.id || app.rawId;
+
+                return `
+                <tr class="hover:bg-slate-50/80 transition-colors group">
+                    <td class="px-6 py-4">
+                        <div class="font-bold text-slate-900 text-sm">${app.business || 'Singapore Pte Ltd'}</div>
+                        <div class="font-bold text-slate-900 text-sm">${escapeHtml(sanitizeApplicantText(app.business, 'Singapore Pte Ltd'))}</div>
+                        <div class="text-[11px] text-slate-400">Incorporation Service</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="font-bold text-slate-800 text-xs">${app.client || 'Applicant'}</div>
+                        <div class="text-[11px] text-slate-400 font-medium">${app.date || ''}</div>
+                        <div class="font-bold text-slate-800 text-xs">${escapeHtml(sanitizeApplicantText(app.client, 'Applicant'))}</div>
+                        <div class="text-[11px] text-slate-400 font-medium">${escapeHtml(app.date || '')}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center gap-1.5 font-bold text-xs ${isUnassigned ? 'text-slate-400 italic' : 'text-slate-700'}">
+                            <span class="w-6 h-6 rounded-full ${isUnassigned ? 'bg-slate-200 text-slate-500' : 'bg-blue-100 text-blue-600'} flex items-center justify-center text-[10px]">
+                                ${isUnassigned ? '?' : staffName.charAt(0)}
+                            </span>
+                            ${staffName}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4">${statusBadge}</td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${app.priority === 'High' || app.priority === 'Urgent' ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-slate-100 text-slate-600'}">${app.priority || 'Normal'}</span>
+                    </td>
+                    <td class="px-6 py-4 max-w-xs">${nameBadges}</td>
+                    <td class="px-6 py-4 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <button onclick="openReviewModal('${appId}')" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1">
+                                <i data-lucide="eye" class="w-3.5 h-3.5"></i> Review Details
+                            </button>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            if (window.lucide) lucide.createIcons();
+        }
+
+        // --- REVIEW MODAL LOGIC ---
+        window.openReviewModal = async function (appId) {
+            const modal = document.getElementById('review-modal');
+            const contentArea = document.getElementById('modal-content-area');
+            contentArea.innerHTML = `
+                <div class="p-16 text-center flex flex-col items-center justify-center">
+                    <div class="relative w-24 h-24 mb-5 flex items-center justify-center">
+                        <div class="absolute inset-0 rounded-full bg-indigo-500/20 blur-xl smart-pulse-node"></div>
+                        <div class="absolute inset-0 rounded-full border-2 border-dashed border-indigo-500/50 smart-orbit-ring"></div>
+                        <div class="absolute inset-2.5 rounded-full border-2 border-violet-500/70 border-t-transparent border-r-transparent smart-orbit-ring-fast"></div>
+                        <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 shadow-xl shadow-indigo-500/40 flex items-center justify-center text-white smart-pulse-node">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                            </svg>
                         </div>
                     </div>
-
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs">
-                            <thead>
-                                <tr class="border-b border-slate-100 text-slate-400 font-bold uppercase">
-                                    <th class="pb-2">Document Type</th>
-                                    <th class="pb-2">File</th>
-                                    <th class="pb-2">Uploaded On</th>
-                                    <th class="pb-2">Status</th>
-                                    <th class="pb-2 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-50 text-slate-700 font-medium">
-                                ${docs.map(d => {
-                                    const statusColor = d.status === 'Verified' ? 'text-emerald-600 bg-emerald-50' : 'text-amber-600 bg-amber-50';
-                                    return `
-                                        <tr class="hover:bg-slate-50/50 transition-colors">
-                                            <td class="py-3 font-bold text-slate-800">${d.type}</td>
-                                            <td class="py-3">
-                                                <a href="#" onclick="event.preventDefault(); window.openDocumentFile('${d.fileName}')" class="text-blue-600 font-semibold hover:underline flex items-center gap-1.5">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5 text-blue-500"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                                    ${d.fileName}
-                                                </a>
-                                            </td>
-                                            <td class="py-3 text-slate-500">${d.uploadedOn}</td>
-                                            <td class="py-3">
-                                                <span class="px-2 py-0.5 rounded font-black text-[9px] uppercase tracking-wider ${statusColor}">
-                                                    ${d.status}
-                                                </span>
-                                            </td>
-                                            <td class="py-3 text-right">
-                                                <div class="flex justify-end gap-2 text-slate-400">
-                                                    <button onclick="window.openDocumentFile('${d.fileName}')" class="p-1.5 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View Document in GCP">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                                                    </button>
-                                                    <button onclick="window.downloadDocumentFile('${d.fileName}')" class="p-1.5 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Download Document from GCP">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    `;
-                                }).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="mt-6 p-4 rounded-2xl flex items-center gap-3 border ${allVerified ? 'bg-blue-50/40 border-blue-100 text-blue-800' : 'bg-amber-50/40 border-amber-100 text-amber-800'}">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-5 h-5 shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="16" y2="12"/><line x1="12" x2="12.01" y1="8" y2="8"/></svg>
-                        <span class="text-xs font-bold leading-relaxed">
-                            ${allVerified ? 'All mandatory documents have been uploaded and verified.' : 'Some documents are pending verification or upload by the client.'}
+                    <div class="flex items-center gap-1.5 text-xs font-bold text-slate-800 tracking-wide uppercase font-outfit">
+                        <span>Decrypting Application Manifest</span>
+                        <span class="inline-flex gap-0.5 text-indigo-600 font-extrabold text-sm leading-none">
+                            <span class="smart-dot-1">.</span>
+                            <span class="smart-dot-2">.</span>
+                            <span class="smart-dot-3">.</span>
                         </span>
                     </div>
-                `;
-            } else if (activeDirectorTab === 'details') {
-                container.innerHTML = `
-                    <h4 class="font-extrabold text-slate-800 text-sm mb-4">Director Personal Information</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/50 p-6 rounded-2xl border border-slate-100">
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Full Legal Name</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1">${director.name}</p>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Position Type</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1">${director.title}</p>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Personal NRIC / ID</span>
-                            <p class="font-mono font-bold text-slate-800 text-sm mt-1">${director.idNumber}</p>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Nationality</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1">${director.nationality}</p>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Date of Birth</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1">${director.dob || '—'}</p>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Appointment Date</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1">${director.appointmentDate}</p>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Email Address</span>
-                            <p class="font-bold text-blue-600 text-sm mt-1">${director.email}</p>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Contact Number</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1">${director.mobile}</p>
-                        </div>
-                        <div class="col-span-1 md:col-span-2">
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Residential Address</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1 leading-relaxed">${director.address}</p>
-                        </div>
-                    </div>
-                `;
-            } else if (activeDirectorTab === 'appointments') {
-                container.innerHTML = `
-                    <h4 class="font-extrabold text-slate-800 text-sm mb-4">Register of Appointments</h4>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs border border-slate-100 rounded-2xl overflow-hidden">
-                            <thead>
-                                <tr class="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase">
-                                    <th class="p-3">Company</th>
-                                    <th class="p-3">Role / Designation</th>
-                                    <th class="p-3">Appointment Date</th>
-                                    <th class="p-3">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-50 text-slate-700 font-medium">
-                                <tr>
-                                    <td class="p-3 font-bold text-slate-900">${document.getElementById('company-name').innerText}</td>
-                                    <td class="p-3">${director.title}</td>
-                                    <td class="p-3">${director.appointmentDate}</td>
-                                    <td class="p-3"><span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 text-[10px] font-bold">Active</span></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-            } else if (activeDirectorTab === 'shareholdings') {
-                container.innerHTML = `
-                    <h4 class="font-extrabold text-slate-800 text-sm mb-4">Capital Shareholdings</h4>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs border border-slate-100 rounded-2xl overflow-hidden">
-                            <thead>
-                                <tr class="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase">
-                                    <th class="p-3">Share Class</th>
-                                    <th class="p-3">Quantity</th>
-                                    <th class="p-3">Currency</th>
-                                    <th class="p-3">Percentage</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-50 text-slate-700 font-medium">
-                                <tr>
-                                    <td class="p-3 font-bold text-slate-900">Ordinary Shares</td>
-                                    <td class="p-3 font-mono">50,000</td>
-                                    <td class="p-3">SGD</td>
-                                    <td class="p-3">50.00%</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-            } else if (activeDirectorTab === 'relatedEntities') {
-                container.innerHTML = `
-                    <h4 class="font-extrabold text-slate-800 text-sm mb-4">Directorships & Shareholdings in Other Entities</h4>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs border border-slate-100 rounded-2xl overflow-hidden">
-                            <thead>
-                                <tr class="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase">
-                                    <th class="p-3">Entity Name</th>
-                                    <th class="p-3">UEN</th>
-                                    <th class="p-3">Relationship</th>
-                                    <th class="p-3">Shareholding %</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-50 text-slate-700 font-medium">
-                                <tr class="hover:bg-slate-50/50">
-                                    <td class="p-3 font-bold text-slate-900">${director.name.toUpperCase()} CONSULTING PTE. LTD.</td>
-                                    <td class="p-3 font-mono">202108745W</td>
-                                    <td class="p-3">Sole Director</td>
-                                    <td class="p-3">100.00%</td>
-                                </tr>
-                                <tr class="hover:bg-slate-50/50">
-                                    <td class="p-3 font-bold text-slate-900">GLOBAL BRIDGE VENTURES CO.</td>
-                                    <td class="p-3 font-mono">—</td>
-                                    <td class="p-3">Managing Partner</td>
-                                    <td class="p-3">25.00%</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-            } else if (activeDirectorTab === 'activityLog') {
-                container.innerHTML = `
-                    <h4 class="font-extrabold text-slate-800 text-sm mb-4">Director Onboarding Audit Log</h4>
-                    <div class="relative border-l border-slate-200 ml-4 pl-6 space-y-6">
-                        <div class="relative">
-                            <div class="absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white"></div>
-                            <div class="flex flex-col gap-0.5">
-                                <span class="font-bold text-slate-800 text-xs">Director details approved and verified</span>
-                                <span class="text-[10px] text-slate-400 font-medium">14 Jul 2026 at 16:30 by Admin Team</span>
-                            </div>
-                        </div>
-                        <div class="relative">
-                            <div class="absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full bg-blue-500 border border-white"></div>
-                            <div class="flex flex-col gap-0.5">
-                                <span class="font-bold text-slate-800 text-xs">All required documents uploaded successfully</span>
-                                <span class="text-[10px] text-slate-400 font-medium">12 Jul 2026 at 11:20 by ${director.name}</span>
-                            </div>
-                        </div>
-                        <div class="relative">
-                            <div class="absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-300 border border-white"></div>
-                            <div class="flex flex-col gap-0.5">
-                                <span class="font-bold text-slate-800 text-xs">Director record created in portal</span>
-                                <span class="text-[10px] text-slate-400 font-medium">10 Jul 2026 at 09:15 by System</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            if (window.lucide) window.lucide.createIcons();
-        }
-
-
-        window.filterDirectorsList = function() {
-            renderDirectorsList();
-        };
-
-        function getDirectorDocs(director) {
-            const isVerified = director.status === 'Verified';
-            return docTypes.map((type, idx) => {
-                let docStatus = 'Verified';
-                if (!isVerified) {
-                    if (idx >= 5) docStatus = 'Pending Review';
-                }
-                const fileName = `${type.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '')}_${director.name.replace(/\s+/g, '')}.pdf`;
-                const uploadedOn = new Date(Date.now() - (14 - idx) * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-                return {
-                    type,
-                    fileName,
-                    uploadedOn,
-                    status: docStatus
-                };
-            });
-        }
-
-        // --- ADD DIRECTOR MODAL & LOGIC ---
-        window.openAddDirectorModal = function() {
-            const modalHtml = `
-                <div id="add-director-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
-                    <div class="bg-white rounded-3xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
-                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h3 class="font-extrabold text-slate-900 text-lg">Add New Director</h3>
-                            <button type="button" onclick="window.closeAddDirectorModal()" class="text-slate-400 hover:text-slate-600 transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </button>
-                        </div>
-                        <form id="add-director-form" onsubmit="window.submitAddDirector(event)" class="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Director Full Name</label>
-                                <input type="text" id="add-dir-name" required placeholder="Sharad Agarwal" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Position Title</label>
-                                    <input type="text" id="add-dir-title" required placeholder="Executive Director" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">NRIC / Passport ID</label>
-                                    <input type="text" id="add-dir-id" required placeholder="S1234567A" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nationality</label>
-                                    <input type="text" id="add-dir-nationality" required placeholder="Singapore Citizen" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Date of Birth</label>
-                                    <input type="date" id="add-dir-dob" required class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email Address</label>
-                                    <input type="email" id="add-dir-email" required placeholder="sharad@example.com" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Contact Number</label>
-                                    <input type="text" id="add-dir-mobile" required placeholder="+65 9123 4567" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Appointment Date</label>
-                                <input type="date" id="add-dir-appoint" required class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Residential Address</label>
-                                <textarea id="add-dir-address" required rows="3" placeholder="Enter home address" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition leading-relaxed"></textarea>
-                            </div>
-                            <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 -mx-6 -mb-6">
-                                <button type="button" onclick="window.closeAddDirectorModal()" class="px-5 py-2 border border-slate-200 text-slate-500 hover:bg-slate-100 font-bold rounded-xl text-xs transition-colors">
-                                    Cancel
-                                </button>
-                                <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-lg shadow-blue-600/20">
-                                    Add Director
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                    <p class="text-[11px] font-medium text-slate-400 mt-1">Retrieving verified KYC, AML screening, and company activity data</p>
                 </div>
             `;
-            const div = document.createElement('div');
-            div.id = 'add-director-modal-wrapper';
-            div.innerHTML = modalHtml;
-            document.body.appendChild(div);
-        };
+            modal.classList.remove('hidden');
 
-        window.closeAddDirectorModal = function() {
-            const wrapper = document.getElementById('add-director-modal-wrapper');
-            if (wrapper) wrapper.remove();
-        };
-
-        window.submitAddDirector = function(event) {
-            event.preventDefault();
-            
-            const formatDate = (dateStr) => {
-                if (!dateStr) return '—';
-                const d = new Date(dateStr);
-                return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-            };
-
-            const newDir = {
-                name: document.getElementById('add-dir-name').value,
-                title: document.getElementById('add-dir-title').value,
-                email: document.getElementById('add-dir-email').value,
-                mobile: document.getElementById('add-dir-mobile').value,
-                idNumber: document.getElementById('add-dir-id').value,
-                dob: document.getElementById('add-dir-dob').value,
-                nationality: document.getElementById('add-dir-nationality').value,
-                address: document.getElementById('add-dir-address').value,
-                appointmentDate: formatDate(document.getElementById('add-dir-appoint').value),
-                status: "Pending Review",
-                progress: 70
-            };
-
-            directorsList.push(newDir);
-            window.closeAddDirectorModal();
-            renderDirectorsList();
-            selectDirector(directorsList.length - 1);
-        };
-
-        // --- EDIT DIRECTOR DETAILS MODAL & LOGIC ---
-        window.openEditDirectorModal = function(index) {
-            const d = directorsList[index];
-            if (!d) return;
-
-            const modalHtml = `
-                <div id="edit-director-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
-                    <div class="bg-white rounded-3xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
-                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h3 class="font-extrabold text-slate-900 text-lg">Edit Director Details</h3>
-                            <button type="button" onclick="window.closeEditDirectorModal()" class="text-slate-400 hover:text-slate-600 transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </button>
-                        </div>
-                        <form id="edit-director-form" onsubmit="window.submitEditDirector(event, ${index})" class="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Director Full Name</label>
-                                <input type="text" id="edit-dir-name" required value="${d.name}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Position Title</label>
-                                    <input type="text" id="edit-dir-title" required value="${d.title}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">NRIC / Passport ID</label>
-                                    <input type="text" id="edit-dir-id" required value="${d.idNumber}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nationality</label>
-                                    <input type="text" id="edit-dir-nationality" required value="${d.nationality}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Date of Birth</label>
-                                    <input type="date" id="edit-dir-dob" required value="${d.dob ? d.dob : ''}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email Address</label>
-                                    <input type="email" id="edit-dir-email" required value="${d.email}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Contact Number</label>
-                                    <input type="text" id="edit-dir-mobile" required value="${d.mobile}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Appointment Date</label>
-                                    <input type="text" id="edit-dir-appoint" required value="${d.appointmentDate}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Verification Status</label>
-                                    <select id="edit-dir-status" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition cursor-pointer">
-                                        <option value="Verified" ${d.status === 'Verified' ? 'selected' : ''}>Verified</option>
-                                        <option value="Pending Review" ${d.status === 'Pending Review' ? 'selected' : ''}>Pending Review</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Residential Address</label>
-                                <textarea id="edit-dir-address" required rows="3" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition leading-relaxed">${d.address}</textarea>
-                            </div>
-                            <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 -mx-6 -mb-6">
-                                <button type="button" onclick="window.closeEditDirectorModal()" class="px-5 py-2 border border-slate-200 text-slate-500 hover:bg-slate-100 font-bold rounded-xl text-xs transition-colors">
-                                    Cancel
-                                </button>
-                                <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-lg shadow-blue-600/20">
-                                    Save Changes
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            `;
-            const div = document.createElement('div');
-            div.id = 'edit-director-modal-wrapper';
-            div.innerHTML = modalHtml;
-            document.body.appendChild(div);
-        };
-
-        window.closeEditDirectorModal = function() {
-            const wrapper = document.getElementById('edit-director-modal-wrapper');
-            if (wrapper) wrapper.remove();
-        };
-
-        window.submitEditDirector = function(event, index) {
-            event.preventDefault();
-
-            const statusVal = document.getElementById('edit-dir-status').value;
-            const progressVal = statusVal === 'Verified' ? 100 : 70;
-
-            directorsList[index] = {
-                name: document.getElementById('edit-dir-name').value,
-                title: document.getElementById('edit-dir-title').value,
-                email: document.getElementById('edit-dir-email').value,
-                mobile: document.getElementById('edit-dir-mobile').value,
-                idNumber: document.getElementById('edit-dir-id').value,
-                dob: document.getElementById('edit-dir-dob').value,
-                nationality: document.getElementById('edit-dir-nationality').value,
-                address: document.getElementById('edit-dir-address').value,
-                appointmentDate: document.getElementById('edit-dir-appoint').value,
-                status: statusVal,
-                progress: progressVal
-            };
-
-            window.closeEditDirectorModal();
-            selectDirector(index);
-        };
-
-        // --- ORG CHART MODAL ---
-        window.openOrgChartModal = function() {
-            const modalHtml = `
-                <div id="org-chart-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
-                    <div class="bg-white rounded-3xl w-full max-w-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
-                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h3 class="font-extrabold text-slate-900 text-lg flex items-center gap-2"><i data-lucide="network" class="w-5 h-5 text-blue-600"></i> Corporate Structure / Org Chart</h3>
-                            <button type="button" onclick="window.closeOrgChartModal()" class="text-slate-400 hover:text-slate-600 transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </button>
-                        </div>
-                        <div class="p-8 overflow-y-auto flex-1 flex flex-col items-center gap-8 bg-slate-50/50">
-                            <!-- Company Box -->
-                            <div class="bg-white border-2 border-blue-600 p-4 rounded-2xl shadow-md text-center w-64 relative">
-                                <h4 class="font-black text-slate-800 text-sm">${document.getElementById('company-name').innerText}</h4>
-                                <p class="text-slate-400 text-[10px] font-bold mt-1 uppercase tracking-wider">Ultimate Parent Entity</p>
-                            </div>
-                            
-                            <!-- Arrow line down -->
-                            <div class="w-0.5 h-8 bg-slate-300"></div>
-
-                            <!-- Directors Row Box -->
-                            <div class="flex flex-wrap justify-center gap-6 w-full">
-                                ${directorsList.map(d => {
-                                    return `
-                                        <div class="bg-white border border-slate-200 p-4 rounded-xl shadow-sm text-center w-48 hover:border-blue-500 transition-colors">
-                                            <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs mx-auto mb-2">
-                                                ${d.name.split(' ').map(n => n.charAt(0)).join('').toUpperCase()}
-                                            </div>
-                                            <h5 class="font-bold text-slate-800 text-xs">${d.name}</h5>
-                                            <p class="text-slate-400 text-[9px] font-bold mt-0.5">${d.title}</p>
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
-                        </div>
-                        <div class="p-6 border-t border-slate-100 flex justify-end bg-slate-50">
-                            <button type="button" onclick="window.closeOrgChartModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs transition-colors">
-                                Close Chart
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            const div = document.createElement('div');
-            div.id = 'org-chart-modal-wrapper';
-            div.innerHTML = modalHtml;
-            document.body.appendChild(div);
-            if (window.lucide) window.lucide.createIcons();
-        };
-
-        window.closeOrgChartModal = function() {
-            const wrapper = document.getElementById('org-chart-modal-wrapper');
-            if (wrapper) wrapper.remove();
-        };
-
-        // --- HIGH-FIDELITY INTERACTIVE SECRETARIES TAB LOGIC ---
-        let secretariesList = [];
-        let selectedSecretaryIndex = 0;
-        let activeSecretaryTab = 'overview';
-
-        function initSecretariesData(excelSecretaries) {
-            secretariesList = [];
-            
-            // 1. Process Excel secretaries
-            if (excelSecretaries && excelSecretaries.length > 0) {
-                excelSecretaries.forEach((s, idx) => {
-                    secretariesList.push({
-                        name: s.name || "Unknown Secretary",
-                        type: idx === 0 ? "Primary" : "Secondary",
-                        acraNo: s.acraNo || `AC202${idx}XXXX${567 + idx}`,
-                        email: s.email || `${s.name.toLowerCase().replace(/\s+/g, '.')}@corporatesg.com`,
-                        mobile: s.mobile || "+65 9123 4567",
-                        idNumber: s.idNumber || "S1234567A",
-                        dob: "1985-03-12",
-                        nationality: s.nationality || "Singapore Citizen",
-                        address: s.address || "18 Marina Boulevard #12-05 Marina Bay Financial Centre, Singapore 018981",
-                        appointmentDate: s.appointmentDate || "28 Apr 2025",
-                        resignationDate: s.resignationDate || "—",
-                        qualification: "ACIS (Chartered Secretary)",
-                        experience: "10+ Years",
-                        registeredAddress: s.address || "18 Marina Boulevard #12-05 Marina Bay Financial Centre, Singapore 018981",
-                        status: s.cessationDate ? "Resigned" : "Active",
-                        notes: []
-                    });
-                });
-            }
-
-            // 2. Add fallback/dummy secretaries to match the screenshot layout
-            if (secretariesList.length < 2) {
-                const dummyNames = ["Lim Shu Qing", "Tan Chin Yee"];
-                const dummyTypes = ["Primary", "Secondary"];
-                const dummyAcra = ["AC2021XXXX567", "AC2022XXXX890"];
-                const dummyIds = ["S1234567A", "S7654321B"];
-                const dummyEmails = ["shuqing.lim@corporatesg.com", "chinyee.tan@corporatesg.com"];
-                const dummyAppointments = ["28 Apr 2025", "15 Jun 2025"];
-
-                for (let i = 0; i < 2; i++) {
-                    if (secretariesList.length >= 2) break;
-                    secretariesList.push({
-                        name: dummyNames[i],
-                        type: dummyTypes[i],
-                        acraNo: dummyAcra[i],
-                        email: dummyEmails[i],
-                        mobile: "+65 9123 4567",
-                        idNumber: dummyIds[i],
-                        dob: "1985-03-12",
-                        nationality: "Singapore Citizen",
-                        address: "18 Marina Boulevard #12-05 Marina Bay Financial Centre, Singapore 018981",
-                        appointmentDate: dummyAppointments[i],
-                        resignationDate: "—",
-                        qualification: i === 0 ? "ACIS (Chartered Secretary)" : "ACRA Registered Filer",
-                        experience: i === 0 ? "10+ Years" : "5+ Years",
-                        registeredAddress: "18 Marina Boulevard #12-05 Marina Bay Financial Centre, Singapore 018981",
-                        status: "Active",
-                        notes: []
-                    });
-                }
-            }
-        }
-
-        window.renderSecretariesList = function() {
-            const listContainer = document.getElementById('secretaries-list');
-            if (!listContainer) return;
-
-            const searchVal = document.getElementById('secretary-search-input').value.toLowerCase();
-            const statusFilter = document.getElementById('secretary-status-filter').value;
-
-            // Update title count
-            document.getElementById('secretaries-header-title').innerText = `Secretaries (${secretariesList.length})`;
-
-            listContainer.innerHTML = secretariesList.map((s, idx) => {
-                const matchesSearch = s.name.toLowerCase().includes(searchVal) || s.email.toLowerCase().includes(searchVal);
-                const matchesFilter = statusFilter === 'all' || s.status === statusFilter;
-
-                if (!matchesSearch || !matchesFilter) return '';
-
-                const isActive = idx === selectedSecretaryIndex;
-                const activeClasses = isActive 
-                    ? 'border-blue-600 bg-blue-50/40 shadow-sm' 
-                    : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50/30';
-
-                const statusColor = s.status === 'Active' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-slate-500 bg-slate-50 border-slate-150';
-
-                const initials = s.name.split(' ').map(n => n.charAt(0)).join('').substring(0, 2).toUpperCase();
-
-                return `
-                    <div onclick="selectSecretary(${idx})" class="p-4 border rounded-2xl cursor-pointer transition-all flex items-start justify-between gap-3 relative ${activeClasses}">
-                        <div class="flex items-start gap-3">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-blue-100 text-blue-600 shrink-0">
-                                ${initials}
-                            </div>
-                            <div class="flex-grow">
-                                <div class="flex items-center gap-2">
-                                    <h4 class="font-bold text-slate-800 text-sm">${s.name}</h4>
-                                    <span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-100 text-slate-600 border border-slate-200">${s.type}</span>
-                                </div>
-                                <p class="text-slate-400 text-[11px] font-medium mt-1">ACRA No.: ${s.acraNo}</p>
-                                <p class="text-slate-500 text-[11px] font-medium mt-0.5 truncate max-w-[170px]">${s.email}</p>
-                                <p class="text-slate-400 text-[10px] font-bold mt-2">Appointed on: ${s.appointmentDate}</p>
-                            </div>
-                        </div>
-
-                        <div class="flex flex-col items-end gap-6 shrink-0">
-                            <span class="px-2 py-0.5 rounded text-[9px] font-black border uppercase tracking-wider ${statusColor}">
-                                ${s.status}
-                            </span>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-slate-400"><polyline points="9 18 15 12 9 6"/></svg>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        };
-
-        window.selectSecretary = function(index) {
-            selectedSecretaryIndex = index;
-            renderSecretariesList();
-
-            const secretary = secretariesList[index];
-            const panel = document.getElementById('secretary-details-panel');
-            if (!panel || !secretary) return;
-
-            const initials = secretary.name.split(' ').map(n => n.charAt(0)).join('').substring(0, 2).toUpperCase();
-            const statusColor = secretary.status === 'Active' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-slate-500 bg-slate-50 border-slate-150';
-
-            panel.innerHTML = `
-                <!-- Profile Header -->
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-slate-100 shrink-0">
-                    <div class="flex items-center gap-4">
-                        <div class="w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg bg-blue-100 text-blue-600 shadow-sm shrink-0">
-                            ${initials}
-                        </div>
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <h3 class="font-extrabold text-slate-900 text-lg">${secretary.name}</h3>
-                                <span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100">${secretary.type}</span>
-                                <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black border uppercase tracking-wider ${statusColor}">
-                                    ${secretary.status}
-                                </span>
-                            </div>
-                            <p class="text-slate-400 text-[11px] font-semibold mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-                                <span><strong>ACRA No.:</strong> ${secretary.acraNo}</span>
-                                <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                <span><strong>Appointed on:</strong> ${secretary.appointmentDate}</span>
-                                <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                <span><strong>Resigned on:</strong> ${secretary.resignationDate}</span>
-                            </p>
-                        </div>
-                    </div>
-                    <button onclick="window.openEditSecretaryModal(${index})" class="px-3.5 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                        Edit Details
-                    </button>
-                </div>
-
-                <!-- Tabs Navigation -->
-                <div class="flex border-b border-slate-100 py-3 gap-6 overflow-x-auto shrink-0">
-                    ${['overview', 'documents', 'appointments', 'history'].map(tab => {
-                        const label = tab.charAt(0).toUpperCase() + tab.slice(1);
-                        const isActive = tab === activeSecretaryTab;
-                        const tabClasses = isActive 
-                            ? 'text-blue-600 border-blue-600 font-bold' 
-                            : 'text-slate-400 border-transparent font-semibold hover:text-slate-600';
-                        return `
-                            <button onclick="switchSecretaryTab('${tab}')" class="pb-2 text-xs border-b-2 transition-all cursor-pointer whitespace-nowrap ${tabClasses}">
-                                ${label}
-                            </button>
-                        `;
-                    }).join('')}
-                </div>
-
-                <!-- Tab Content area -->
-                <div class="flex-1 overflow-y-auto mt-4" id="secretary-tab-content">
-                    <!-- Rendered below -->
-                </div>
-            `;
-
-            renderSecretaryTabContent();
-        };
-
-        window.switchSecretaryTab = function(tabId) {
-            activeSecretaryTab = tabId;
-            selectSecretary(selectedSecretaryIndex);
-        };
-
-        function renderSecretaryTabContent() {
-            const container = document.getElementById('secretary-tab-content');
-            if (!container) return;
-
-            const secretary = secretariesList[selectedSecretaryIndex];
-            if (!secretary) return;
-
-            if (activeSecretaryTab === 'overview') {
-                container.innerHTML = `
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Personal Details -->
-                        <div class="space-y-4 border border-slate-100 rounded-2xl p-5 bg-white shadow-sm">
-                            <h4 class="font-extrabold text-slate-800 text-sm border-b border-slate-50 pb-2">Personal Details</h4>
-                            <div class="space-y-3 text-xs">
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Full Name</span>
-                                    <span class="font-bold text-slate-800">${secretary.name}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">NRIC / Passport No.</span>
-                                    <span class="font-mono font-bold text-slate-800">${secretary.idNumber}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Nationality</span>
-                                    <span class="font-bold text-slate-800">${secretary.nationality}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Date of Birth</span>
-                                    <span class="font-bold text-slate-800">${secretary.dob}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Email</span>
-                                    <span class="font-bold text-blue-600">${secretary.email}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Phone Number</span>
-                                    <span class="font-bold text-slate-800">${secretary.mobile}</span>
-                                </div>
-                                <div class="flex flex-col gap-1 py-1">
-                                    <span class="text-slate-400 font-bold">Residential Address</span>
-                                    <span class="font-bold text-slate-800 leading-relaxed">${secretary.address}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Professional Details -->
-                        <div class="space-y-4 border border-slate-100 rounded-2xl p-5 bg-white shadow-sm">
-                            <h4 class="font-extrabold text-slate-800 text-sm border-b border-slate-50 pb-2">Professional Details</h4>
-                            <div class="space-y-3 text-xs">
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">ACRA No.</span>
-                                    <span class="font-bold text-slate-800">${secretary.acraNo}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Appointment Type</span>
-                                    <span class="font-bold text-slate-800">${secretary.type === 'Primary' ? 'Primary Company Secretary' : 'Secondary Company Secretary'}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Qualification</span>
-                                    <span class="font-bold text-slate-800">${secretary.qualification}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Experience</span>
-                                    <span class="font-bold text-slate-800">${secretary.experience}</span>
-                                </div>
-                                <div class="flex flex-col gap-1 py-1">
-                                    <span class="text-slate-400 font-bold">Registered Address</span>
-                                    <span class="font-bold text-slate-800 leading-relaxed">${secretary.registeredAddress}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Notes Section -->
-                    <div class="mt-6 border border-slate-100 rounded-2xl p-5 bg-slate-50/30">
-                        <div class="flex justify-between items-center mb-3">
-                            <h5 class="font-extrabold text-slate-800 text-xs flex items-center gap-1.5"><i data-lucide="file-text" class="w-4 h-4 text-slate-500"></i> Notes</h5>
-                            <button onclick="window.addSecretaryNote(${selectedSecretaryIndex})" class="px-2.5 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold rounded-lg text-[10px] flex items-center gap-1 transition-all">
-                                <i data-lucide="plus" class="w-3 h-3"></i> Add Note
-                            </button>
-                        </div>
-                        <div id="secretary-notes-list" class="space-y-2 text-xs">
-                            ${secretary.notes.length === 0 
-                                ? '<p class="text-slate-400 italic">No notes added.</p>' 
-                                : secretary.notes.map((n, nIdx) => `
-                                    <div class="bg-white p-3 rounded-xl border border-slate-100 flex justify-between items-start gap-2 shadow-sm">
-                                        <p class="font-medium text-slate-700 leading-relaxed">${n}</p>
-                                        <button onclick="window.deleteSecretaryNote(${selectedSecretaryIndex}, ${nIdx})" class="text-slate-400 hover:text-red-600 transition" title="Delete Note">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                        </button>
-                                    </div>
-                                `).join('')}
-                        </div>
-                    </div>
-                `;
-            } else if (activeSecretaryTab === 'documents') {
-                const docs = [
-                    { type: "ACRA Secretary Appointment Lodgement", fileName: `ACRA_Appt_${secretary.name.replace(/\s+/g, '')}.pdf`, date: secretary.appointmentDate, status: "Verified" },
-                    { type: "Consent to Act as Secretary (Form 45B)", fileName: `Form45B_${secretary.name.replace(/\s+/g, '')}.pdf`, date: secretary.appointmentDate, status: "Verified" },
-                    { type: "Professional Certificate / ACRA Register", fileName: `Cert_${secretary.name.replace(/\s+/g, '')}.pdf`, date: secretary.appointmentDate, status: "Verified" }
-                ];
-                container.innerHTML = `
-                    <h4 class="font-extrabold text-slate-800 text-sm mb-4">Required Documents</h4>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs">
-                            <thead>
-                                <tr class="border-b border-slate-100 text-slate-400 font-bold uppercase">
-                                    <th class="pb-2">Document Type</th>
-                                    <th class="pb-2">File</th>
-                                    <th class="pb-2">Uploaded On</th>
-                                    <th class="pb-2">Status</th>
-                                    <th class="pb-2 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-50 text-slate-700 font-medium">
-                                ${docs.map(d => `
-                                    <tr class="hover:bg-slate-50/50 transition-colors">
-                                        <td class="py-3 font-bold text-slate-800">${d.type}</td>
-                                        <td class="py-3">
-                                            <a href="#" onclick="event.preventDefault(); window.openDocumentFile('${d.fileName}')" class="text-blue-600 font-semibold hover:underline flex items-center gap-1.5">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5 text-blue-500"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                                ${d.fileName}
-                                            </a>
-                                        </td>
-                                        <td class="py-3 text-slate-500">${d.date}</td>
-                                        <td class="py-3"><span class="px-2 py-0.5 rounded font-black text-[9px] uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">${d.status}</span></td>
-                                        <td class="py-3 text-right">
-                                            <div class="flex justify-end gap-2 text-slate-400">
-                                                <button onclick="window.openDocumentFile('${d.fileName}')" class="p-1.5 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Preview PDF Modal"><i data-lucide="eye" class="w-4 h-4"></i></button>
-                                                <button onclick="window.downloadDocumentFile('${d.fileName}')" class="p-1.5 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Download Document"><i data-lucide="download" class="w-4 h-4"></i></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-            } else if (activeSecretaryTab === 'appointments') {
-                container.innerHTML = `
-                    <h4 class="font-extrabold text-slate-800 text-sm mb-4">Register of Appointments</h4>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs border border-slate-100 rounded-2xl overflow-hidden">
-                            <thead>
-                                <tr class="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase">
-                                    <th class="p-3">Company</th>
-                                    <th class="p-3">Designation</th>
-                                    <th class="p-3">Appointment Date</th>
-                                    <th class="p-3">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-50 text-slate-700 font-medium">
-                                <tr>
-                                    <td class="p-3 font-bold text-slate-900">${document.getElementById('company-name').innerText}</td>
-                                    <td class="p-3">${secretary.type} Company Secretary</td>
-                                    <td class="p-3">${secretary.appointmentDate}</td>
-                                    <td class="p-3"><span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 text-[10px] font-bold">Active</span></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-            } else if (activeSecretaryTab === 'history') {
-                container.innerHTML = `
-                    <h4 class="font-extrabold text-slate-800 text-sm mb-4">Historical Audit Log</h4>
-                    <div class="relative border-l border-slate-200 ml-4 pl-6 space-y-6">
-                        <div class="relative">
-                            <div class="absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white"></div>
-                            <div class="flex flex-col gap-0.5">
-                                <span class="font-bold text-slate-800 text-xs">Secretary role assigned dynamically</span>
-                                <span class="text-[10px] text-slate-400 font-medium">${secretary.appointmentDate} by System</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            if (window.lucide) window.lucide.createIcons();
-        }
-
-        window.filterSecretariesList = function() {
-            renderSecretariesList();
-        };
-
-        window.addSecretaryNote = function(index) {
-            const noteText = prompt("Enter note content:");
-            if (noteText && noteText.trim()) {
-                secretariesList[index].notes.push(noteText.trim());
-                selectSecretary(index);
-            }
-        };
-
-        window.deleteSecretaryNote = function(secIdx, noteIdx) {
-            if (confirm("Are you sure you want to delete this note?")) {
-                secretariesList[secIdx].notes.splice(noteIdx, 1);
-                selectSecretary(secIdx);
-            }
-        };
-
-        // Modals
-        window.openAddSecretaryModal = function() {
-            const modalHtml = `
-                <div id="add-secretary-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
-                    <div class="bg-white rounded-3xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
-                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h3 class="font-extrabold text-slate-900 text-lg">Add New Secretary</h3>
-                            <button type="button" onclick="window.closeAddSecretaryModal()" class="text-slate-400 hover:text-slate-600 transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </button>
-                        </div>
-                        <form id="add-secretary-form" onsubmit="window.submitAddSecretary(event)" class="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Secretary Full Name</label>
-                                <input type="text" id="add-sec-name" required placeholder="Lim Shu Qing" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Secretary Type</label>
-                                    <select id="add-sec-type" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition cursor-pointer">
-                                        <option value="Primary">Primary</option>
-                                        <option value="Secondary">Secondary</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">ACRA Registered No.</label>
-                                    <input type="text" id="add-sec-acra" required placeholder="AC2021XXXX567" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nationality</label>
-                                    <input type="text" id="add-sec-nationality" required placeholder="Singapore Citizen" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Date of Birth</label>
-                                    <input type="date" id="add-sec-dob" required class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email Address</label>
-                                    <input type="email" id="add-sec-email" required placeholder="shuqing.lim@corporatesg.com" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Contact Number</label>
-                                    <input type="text" id="add-sec-mobile" required placeholder="+65 9123 4567" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Qualification</label>
-                                    <input type="text" id="add-sec-qualification" required placeholder="ACIS (Chartered Secretary)" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Experience</label>
-                                    <input type="text" id="add-sec-experience" required placeholder="10+ Years" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Appointment Date</label>
-                                    <input type="date" id="add-sec-appoint" required class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">NRIC / Passport ID</label>
-                                    <input type="text" id="add-sec-id" required placeholder="S1234567A" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Registered Address</label>
-                                <textarea id="add-sec-address" required rows="3" placeholder="Enter residential/registered address" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition leading-relaxed"></textarea>
-                            </div>
-                            <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 -mx-6 -mb-6">
-                                <button type="button" onclick="window.closeAddSecretaryModal()" class="px-5 py-2 border border-slate-200 text-slate-500 hover:bg-slate-100 font-bold rounded-xl text-xs transition-colors">
-                                    Cancel
-                                </button>
-                                <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-lg shadow-blue-600/20">
-                                    Add Secretary
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            `;
-            const div = document.createElement('div');
-            div.id = 'add-secretary-modal-wrapper';
-            div.innerHTML = modalHtml;
-            document.body.appendChild(div);
-        };
-
-        window.closeAddSecretaryModal = function() {
-            const wrapper = document.getElementById('add-secretary-modal-wrapper');
-            if (wrapper) wrapper.remove();
-        };
-
-        window.submitAddSecretary = function(event) {
-            event.preventDefault();
-
-            const formatDate = (dateStr) => {
-                if (!dateStr) return '—';
-                const d = new Date(dateStr);
-                return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-            };
-
-            const newSec = {
-                name: document.getElementById('add-sec-name').value,
-                type: document.getElementById('add-sec-type').value,
-                acraNo: document.getElementById('add-sec-acra').value,
-                email: document.getElementById('add-sec-email').value,
-                mobile: document.getElementById('add-sec-mobile').value,
-                idNumber: document.getElementById('add-sec-id').value,
-                dob: document.getElementById('add-sec-dob').value,
-                nationality: document.getElementById('add-sec-nationality').value,
-                address: document.getElementById('add-sec-address').value,
-                appointmentDate: formatDate(document.getElementById('add-sec-appoint').value),
-                resignationDate: "—",
-                qualification: document.getElementById('add-sec-qualification').value,
-                experience: document.getElementById('add-sec-experience').value,
-                registeredAddress: document.getElementById('add-sec-address').value,
-                status: "Active",
-                notes: []
-            };
-
-            secretariesList.push(newSec);
-            window.closeAddSecretaryModal();
-            renderSecretariesList();
-            selectSecretary(secretariesList.length - 1);
-        };
-
-        window.openEditSecretaryModal = function(index) {
-            const s = secretariesList[index];
-            if (!s) return;
-
-            const modalHtml = `
-                <div id="edit-secretary-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
-                    <div class="bg-white rounded-3xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
-                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h3 class="font-extrabold text-slate-900 text-lg">Edit Secretary Details</h3>
-                            <button type="button" onclick="window.closeEditSecretaryModal()" class="text-slate-400 hover:text-slate-600 transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </button>
-                        </div>
-                        <form id="edit-secretary-form" onsubmit="window.submitEditSecretary(event, ${index})" class="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Secretary Full Name</label>
-                                <input type="text" id="edit-sec-name" required value="${s.name}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Secretary Type</label>
-                                    <select id="edit-sec-type" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition cursor-pointer">
-                                        <option value="Primary" ${s.type === 'Primary' ? 'selected' : ''}>Primary</option>
-                                        <option value="Secondary" ${s.type === 'Secondary' ? 'selected' : ''}>Secondary</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">ACRA Registered No.</label>
-                                    <input type="text" id="edit-sec-acra" required value="${s.acraNo}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nationality</label>
-                                    <input type="text" id="edit-sec-nationality" required value="${s.nationality}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Date of Birth</label>
-                                    <input type="text" id="edit-sec-dob" required value="${s.dob}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email Address</label>
-                                    <input type="email" id="edit-sec-email" required value="${s.email}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Contact Number</label>
-                                    <input type="text" id="edit-sec-mobile" required value="${s.mobile}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Qualification</label>
-                                    <input type="text" id="edit-sec-qualification" required value="${s.qualification}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Experience</label>
-                                    <input type="text" id="edit-sec-experience" required value="${s.experience}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Appointment Date</label>
-                                    <input type="text" id="edit-sec-appoint" required value="${s.appointmentDate}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Status</label>
-                                    <select id="edit-sec-status" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition cursor-pointer">
-                                        <option value="Active" ${s.status === 'Active' ? 'selected' : ''}>Active</option>
-                                        <option value="Resigned" ${s.status === 'Resigned' ? 'selected' : ''}>Resigned</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Registered Address</label>
-                                <textarea id="edit-sec-address" required rows="3" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition leading-relaxed">${s.address}</textarea>
-                            </div>
-                            <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 -mx-6 -mb-6">
-                                <button type="button" onclick="window.closeEditSecretaryModal()" class="px-5 py-2 border border-slate-200 text-slate-500 hover:bg-slate-100 font-bold rounded-xl text-xs transition-colors">
-                                    Cancel
-                                </button>
-                                <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-lg shadow-blue-600/20">
-                                    Save Changes
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            `;
-            const div = document.createElement('div');
-            div.id = 'edit-secretary-modal-wrapper';
-            div.innerHTML = modalHtml;
-            document.body.appendChild(div);
-        };
-
-        window.closeEditSecretaryModal = function() {
-            const wrapper = document.getElementById('edit-secretary-modal-wrapper');
-            if (wrapper) wrapper.remove();
-        };
-
-        window.submitEditSecretary = function(event, index) {
-            event.preventDefault();
-
-            const statusVal = document.getElementById('edit-sec-status').value;
-
-            secretariesList[index] = {
-                ...secretariesList[index],
-                name: document.getElementById('edit-sec-name').value,
-                type: document.getElementById('edit-sec-type').value,
-                acraNo: document.getElementById('edit-sec-acra').value,
-                email: document.getElementById('edit-sec-email').value,
-                mobile: document.getElementById('edit-sec-mobile').value,
-                nationality: document.getElementById('edit-sec-nationality').value,
-                dob: document.getElementById('edit-sec-dob').value,
-                qualification: document.getElementById('edit-sec-qualification').value,
-                experience: document.getElementById('edit-sec-experience').value,
-                appointmentDate: document.getElementById('edit-sec-appoint').value,
-                status: statusVal,
-                address: document.getElementById('edit-sec-address').value,
-                registeredAddress: document.getElementById('edit-sec-address').value
-            };
-
-            window.closeEditSecretaryModal();
-            selectSecretary(index);
-        };
-
-        // --- HIGH-FIDELITY INTERACTIVE SHAREHOLDERS TAB LOGIC ---
-        let shareholdersList = [];
-        let selectedShareholderIndex = 0;
-        let activeShareholderTab = 'overview';
-
-        function initShareholdersData(excelMembers) {
-            shareholdersList = [];
-            if (excelMembers && excelMembers.length > 0) {
-                excelMembers.forEach((m, idx) => {
-                    shareholdersList.push({
-                        name: m.name || "Unknown Shareholder",
-                        type: idx === 2 ? "Corporate" : "Individual",
-                        id: `SHR-000${idx + 1}`,
-                        addedDate: m.dateEntered || "28 Apr 2025",
-                        sharesHeld: 1000000 / (idx + 1),
-                        percentage: (50 / (idx + 1)).toFixed(2),
-                        shareClass: "Ordinary Shares",
-                        paidAmount: 1000000 / (idx + 1),
-                        votingRights: (50 / (idx + 1)).toFixed(2),
-                        email: `${m.name.toLowerCase().replace(/\s+/g, '.')}@email.com`,
-                        mobile: "+65 9123 4567",
-                        address: m.address || "10 Marina Boulevard #12-05 Marina Bay Financial Centre, Singapore 018981",
-                        idNumber: m.idNumber || "S1234567A",
-                        nationality: m.nationality || "Singapore Citizen",
-                        dob: "1980-02-15",
-                        status: "Active"
-                    });
-                });
-            }
-
-            if (shareholdersList.length < 4) {
-                const dummyNames = ["Alan Lim", "Sarah Wong", "Global Capital Pte. Ltd.", "Tan Chin Yee"];
-                const dummyTypes = ["Individual", "Individual", "Corporate", "Individual"];
-                const dummyShares = [1000000, 600000, 300000, 100000];
-                const dummyPcts = [50.00, 30.00, 15.00, 5.00];
-
-                for (let i = 0; i < 4; i++) {
-                    if (shareholdersList.length >= 4) break;
-                    shareholdersList.push({
-                        name: dummyNames[i],
-                        type: dummyTypes[i],
-                        id: `SHR-000${i + 1}`,
-                        addedDate: "28 Apr 2025",
-                        sharesHeld: dummyShares[i],
-                        percentage: dummyPcts[i].toFixed(2),
-                        shareClass: "Ordinary Shares",
-                        paidAmount: dummyShares[i],
-                        votingRights: dummyPcts[i].toFixed(2),
-                        email: `${dummyNames[i].toLowerCase().replace(/\s+/g, '.')}@email.com`,
-                        mobile: "+65 9123 4567",
-                        address: "10 Marina Boulevard #12-05 Marina Bay Financial Centre, Singapore 018981",
-                        idNumber: i === 2 ? "202108745W" : "S1234567A",
-                        nationality: i === 2 ? "Singapore Registered" : "Singapore Citizen",
-                        dob: "1980-02-15",
-                        status: "Active"
-                    });
-                }
-            }
-        }
-
-        window.renderShareholdersList = function() {
-            const listContainer = document.getElementById('shareholders-list');
-            if (!listContainer) return;
-
-            const searchVal = document.getElementById('shareholder-search-input').value.toLowerCase();
-            const typeFilter = document.getElementById('shareholder-type-filter').value;
-
-            document.getElementById('shareholders-header-title').innerText = `Shareholders (${shareholdersList.length})`;
-
-            listContainer.innerHTML = shareholdersList.map((s, idx) => {
-                const matchesSearch = s.name.toLowerCase().includes(searchVal) || s.email.toLowerCase().includes(searchVal);
-                const matchesFilter = typeFilter === 'all' || s.type === typeFilter;
-
-                if (!matchesSearch || !matchesFilter) return '';
-
-                const isActive = idx === selectedShareholderIndex;
-                const activeClasses = isActive 
-                    ? 'border-blue-600 bg-blue-50/40 shadow-sm' 
-                    : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50/30';
-
-                const typeColor = s.type === 'Individual' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-blue-50 text-blue-600 border-blue-100';
-
-                const initials = s.name.split(' ').map(n => n.charAt(0)).join('').substring(0, 2).toUpperCase();
-
-                return `
-                    <div onclick="selectShareholder(${idx})" class="p-4 border rounded-2xl cursor-pointer transition-all flex items-start justify-between gap-3 relative ${activeClasses}">
-                        <div class="flex items-start gap-3">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-blue-100 text-blue-600 shrink-0">
-                                ${initials}
-                            </div>
-                            <div class="flex-grow">
-                                <div class="flex items-center gap-2">
-                                    <h4 class="font-bold text-slate-800 text-sm">${s.name}</h4>
-                                    <span class="px-1.5 py-0.5 rounded text-[8px] font-bold border uppercase tracking-wider ${typeColor}">${s.type}</span>
-                                </div>
-                                <p class="text-slate-400 text-[11px] font-medium mt-1">Shareholding: ${s.sharesHeld.toLocaleString()} shares</p>
-                                <p class="text-slate-500 text-[11px] font-medium mt-0.5">${s.percentage}%</p>
-                            </div>
-                        </div>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-slate-400 self-center"><polyline points="9 18 15 12 9 6"/></svg>
-                    </div>
-                `;
-            }).join('');
-        };
-
-        window.selectShareholder = function(index) {
-            selectedShareholderIndex = index;
-            renderShareholdersList();
-
-            const shareholder = shareholdersList[index];
-            const panel = document.getElementById('shareholder-details-panel');
-            if (!panel || !shareholder) return;
-
-            const initials = shareholder.name.split(' ').map(n => n.charAt(0)).join('').substring(0, 2).toUpperCase();
-
-            panel.innerHTML = `
-                <!-- Profile Header -->
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-slate-100 shrink-0">
-                    <div class="flex items-center gap-4">
-                        <div class="w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg bg-blue-100 text-blue-600 shadow-sm shrink-0">
-                            ${initials}
-                        </div>
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <h3 class="font-extrabold text-slate-900 text-lg">${shareholder.name}</h3>
-                                <span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-100 text-slate-600 border border-slate-200">${shareholder.type}</span>
-                                <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black border uppercase tracking-wider text-emerald-600 bg-emerald-50 border-emerald-100">Active</span>
-                            </div>
-                            <p class="text-slate-400 text-[11px] font-semibold mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-                                <span><strong>Shareholder ID:</strong> ${shareholder.id}</span>
-                                <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                <span><strong>Added on:</strong> ${shareholder.addedDate}</span>
-                            </p>
-                        </div>
-                    </div>
-                    <button onclick="window.openEditShareholderModal(${index})" class="px-3.5 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                        Edit Details
-                    </button>
-                </div>
-
-                <!-- Tabs Navigation -->
-                <div class="flex border-b border-slate-100 py-3 gap-6 overflow-x-auto shrink-0">
-                    ${['overview', 'shareholding', 'personalDetails', 'documents', 'history'].map(tab => {
-                        const label = tab === 'personalDetails' ? 'Personal Details' : tab.charAt(0).toUpperCase() + tab.slice(1);
-                        const isActive = tab === activeShareholderTab;
-                        const tabClasses = isActive 
-                            ? 'text-blue-600 border-blue-600 font-bold' 
-                            : 'text-slate-400 border-transparent font-semibold hover:text-slate-600';
-                        return `
-                            <button onclick="switchShareholderTab('${tab}')" class="pb-2 text-xs border-b-2 transition-all cursor-pointer whitespace-nowrap ${tabClasses}">
-                                ${label}
-                            </button>
-                        `;
-                    }).join('')}
-                </div>
-
-                <!-- Tab Content area -->
-                <div class="flex-1 overflow-y-auto mt-4" id="shareholder-tab-content">
-                    <!-- Rendered below -->
-                </div>
-            `;
-
-            renderShareholderTabContent();
-        };
-
-        window.switchShareholderTab = function(tabId) {
-            activeShareholderTab = tabId;
-            selectShareholder(selectedShareholderIndex);
-        };
-
-        function renderShareholderTabContent() {
-            const container = document.getElementById('shareholder-tab-content');
-            if (!container) return;
-
-            const shareholder = shareholdersList[selectedShareholderIndex];
-            if (!shareholder) return;
-
-            if (activeShareholderTab === 'overview') {
-                container.innerHTML = `
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <!-- Shareholding Summary -->
-                        <div class="space-y-4 border border-slate-100 rounded-2xl p-5 bg-white shadow-sm text-xs">
-                            <h4 class="font-extrabold text-slate-800 text-sm border-b border-slate-50 pb-2">Shareholding Summary</h4>
-                            <div class="space-y-3 font-medium text-slate-700">
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Shares Held</span>
-                                    <span class="font-bold text-slate-900">${shareholder.sharesHeld.toLocaleString()}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Percentage</span>
-                                    <span class="font-bold text-slate-900">${shareholder.percentage}%</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Share Class</span>
-                                    <span class="font-bold text-slate-900">${shareholder.shareClass}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Paid Amount</span>
-                                    <span class="font-bold text-slate-900">SGD ${shareholder.paidAmount.toLocaleString()}.00</span>
-                                </div>
-                                <div class="flex justify-between py-1">
-                                    <span class="text-slate-400 font-bold">Voting Rights</span>
-                                    <span class="font-bold text-slate-900">${shareholder.votingRights}%</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Shareholding History -->
-                        <div class="space-y-4 border border-slate-100 rounded-2xl p-5 bg-white shadow-sm text-xs">
-                            <h4 class="font-extrabold text-slate-800 text-sm border-b border-slate-50 pb-2">Shareholding History</h4>
-                            <div class="relative border-l border-slate-200 ml-2 pl-4 space-y-4">
-                                <div class="relative">
-                                    <div class="absolute -left-[21px] top-1 w-2 h-2 rounded-full bg-emerald-500 border border-white"></div>
-                                    <div class="flex flex-col gap-0.5">
-                                        <span class="font-bold text-slate-800 text-[11px]">${shareholder.addedDate} <span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 ml-1">Current</span></span>
-                                        <span class="text-[10px] text-slate-500 font-medium">Acquired ${shareholder.sharesHeld.toLocaleString()} shares</span>
-                                        <span class="text-[9px] text-slate-400 font-medium">Initial allotment</span>
-                                    </div>
-                                </div>
-                                <div class="relative">
-                                    <div class="absolute -left-[21px] top-1 w-2 h-2 rounded-full bg-blue-500 border border-white"></div>
-                                    <div class="flex flex-col gap-0.5">
-                                        <span class="font-bold text-slate-800 text-[11px]">${shareholder.addedDate}</span>
-                                        <span class="text-[10px] text-slate-500 font-medium">Shareholder added</span>
-                                        <span class="text-[9px] text-slate-400 font-medium">Added as shareholder during incorporation</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <button onclick="alert('Viewing full history...')" class="text-blue-600 hover:text-blue-700 font-bold text-xs flex items-center gap-1 mt-2">View Full History <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button>
-                        </div>
-
-                        <!-- Contact Details -->
-                        <div class="space-y-4 border border-slate-100 rounded-2xl p-5 bg-white shadow-sm text-xs">
-                            <h4 class="font-extrabold text-slate-800 text-sm border-b border-slate-50 pb-2">Contact Details</h4>
-                            <div class="space-y-3 font-medium text-slate-700">
-                                <div class="flex flex-col py-1">
-                                    <span class="text-slate-400 font-bold">Email</span>
-                                    <span class="font-bold text-slate-850 mt-0.5">${shareholder.email}</span>
-                                </div>
-                                <div class="flex flex-col py-1">
-                                    <span class="text-slate-400 font-bold">Phone</span>
-                                    <span class="font-bold text-slate-850 mt-0.5">${shareholder.mobile}</span>
-                                </div>
-                                <div class="flex flex-col py-1">
-                                    <span class="text-slate-400 font-bold">Address</span>
-                                    <span class="font-bold text-slate-850 mt-0.5 leading-relaxed">${shareholder.address}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            } else if (activeShareholderTab === 'shareholding') {
-                container.innerHTML = `
-                    <h4 class="font-extrabold text-slate-800 text-sm mb-4">Capital Shareholdings</h4>
-                    <div class="grid grid-cols-2 gap-6 bg-slate-50/50 p-6 rounded-2xl border border-slate-100 text-xs">
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Number of Shares</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1">${shareholder.sharesHeld.toLocaleString()}</p>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Share Percentage</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1">${shareholder.percentage}%</p>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Currency</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1">SGD</p>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Paid Amount</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1">SGD ${shareholder.paidAmount.toLocaleString()}.00</p>
-                        </div>
-                    </div>
-                `;
-            } else if (activeShareholderTab === 'personalDetails') {
-                container.innerHTML = `
-                    <h4 class="font-extrabold text-slate-800 text-sm mb-4">Shareholder Identity Details</h4>
-                    <div class="grid grid-cols-2 gap-6 bg-slate-50/50 p-6 rounded-2xl border border-slate-100 text-xs">
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">UEN / NRIC / ID</span>
-                            <p class="font-mono font-bold text-slate-800 text-sm mt-1">${shareholder.idNumber}</p>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Nationality / Registry</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1">${shareholder.nationality}</p>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Date of Birth / Incorporation</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1">${shareholder.dob}</p>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Address</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1 leading-normal">${shareholder.address}</p>
-                        </div>
-                    </div>
-                `;
-            } else if (activeShareholderTab === 'documents') {
-                container.innerHTML = `
-                    <h4 class="font-extrabold text-slate-800 text-sm mb-4">Required Documents</h4>
-                    <table class="w-full text-left text-xs">
-                        <thead>
-                            <tr class="border-b border-slate-100 text-slate-400 font-bold uppercase">
-                                <th class="pb-2">Document Type</th>
-                                <th class="pb-2">File</th>
-                                <th class="pb-2">Uploaded On</th>
-                                <th class="pb-2">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-50 text-slate-700 font-medium">
-                            <tr class="hover:bg-slate-50/50 transition-colors">
-                                <td class="py-3 font-bold text-slate-800">Share Certificate</td>
-                                <td class="py-3">
-                                    <a href="#" onclick="event.preventDefault(); window.openDocumentFile(shareholder.certificateFile || 'ShareCertificate.pdf')" class="text-blue-600 font-semibold hover:underline flex items-center gap-1.5">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5 text-blue-500"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                        ${shareholder.certificateFile || 'ShareCertificate.pdf'}
-                                    </a>
-                                </td>
-                                <td class="py-3 text-slate-500">${shareholder.addedDate}</td>
-                                <td class="py-3"><span class="px-2 py-0.5 rounded font-black text-[9px] uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">Verified</span></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                `;
-            } else if (activeShareholderTab === 'history') {
-                container.innerHTML = `
-                    <h4 class="font-extrabold text-slate-800 text-sm mb-4">Historical Audit Log</h4>
-                    <div class="relative border-l border-slate-200 ml-4 pl-6 space-y-6">
-                        <div class="relative">
-                            <div class="absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white"></div>
-                            <div class="flex flex-col gap-0.5 text-xs text-slate-700">
-                                <span class="font-bold text-slate-800">Shareholder record verified and allotment logged</span>
-                                <span class="text-[10px] text-slate-400 font-medium">${shareholder.addedDate} by System</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            if (window.lucide) window.lucide.createIcons();
-        }
-
-        window.filterShareholdersList = function() {
-            renderShareholdersList();
-        }
-
-        // Modals for Shareholders
-        window.openAddShareholderModal = function() {
-            const modalHtml = `
-                <div id="add-shareholder-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
-                    <div class="bg-white rounded-3xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
-                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h3 class="font-extrabold text-slate-900 text-lg">Add New Shareholder</h3>
-                            <button type="button" onclick="window.closeAddShareholderModal()" class="text-slate-400 hover:text-slate-600 transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </button>
-                        </div>
-                        <form id="add-shareholder-form" onsubmit="window.submitAddShareholder(event)" class="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Shareholder Full Name</label>
-                                <input type="text" id="add-sh-name" required placeholder="Alan Lim" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Type</label>
-                                    <select id="add-sh-type" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition cursor-pointer">
-                                        <option value="Individual">Individual</option>
-                                        <option value="Corporate">Corporate</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Shares Quantity</label>
-                                    <input type="number" id="add-sh-shares" required placeholder="1000000" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Percentage %</label>
-                                    <input type="text" id="add-sh-pct" required placeholder="50.00" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">UEN / NRIC / ID</label>
-                                    <input type="text" id="add-sh-id" required placeholder="S1234567A" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nationality</label>
-                                    <input type="text" id="add-sh-nationality" required placeholder="Singapore Citizen" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email</label>
-                                    <input type="email" id="add-sh-email" required placeholder="alan.lim@email.com" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Address</label>
-                                <textarea id="add-sh-address" required rows="3" placeholder="Enter shareholder registered address" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition leading-relaxed"></textarea>
-                            </div>
-                            <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 -mx-6 -mb-6">
-                                <button type="button" onclick="window.closeAddShareholderModal()" class="px-5 py-2 border border-slate-200 text-slate-500 hover:bg-slate-100 font-bold rounded-xl text-xs transition-colors">
-                                    Cancel
-                                </button>
-                                <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-lg shadow-blue-600/20">
-                                    Add Shareholder
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            `;
-            const div = document.createElement('div');
-            div.id = 'add-shareholder-modal-wrapper';
-            div.innerHTML = modalHtml;
-            document.body.appendChild(div);
-        }
-
-        window.closeAddShareholderModal = function() {
-            const wrapper = document.getElementById('add-shareholder-modal-wrapper');
-            if (wrapper) wrapper.remove();
-        }
-
-        window.submitAddShareholder = function(event) {
-            event.preventDefault();
-            const newSh = {
-                name: document.getElementById('add-sh-name').value,
-                type: document.getElementById('add-sh-type').value,
-                id: `SHR-000${shareholdersList.length + 1}`,
-                addedDate: "12 Jul 2026",
-                sharesHeld: parseInt(document.getElementById('add-sh-shares').value, 10) || 0,
-                percentage: parseFloat(document.getElementById('add-sh-pct').value).toFixed(2),
-                shareClass: "Ordinary Shares",
-                paidAmount: parseInt(document.getElementById('add-sh-shares').value, 10) || 0,
-                votingRights: parseFloat(document.getElementById('add-sh-pct').value).toFixed(2),
-                email: document.getElementById('add-sh-email').value,
-                mobile: "+65 9123 4567",
-                address: document.getElementById('add-sh-address').value,
-                idNumber: document.getElementById('add-sh-id').value,
-                nationality: document.getElementById('add-sh-nationality').value,
-                dob: "1980-02-15",
-                status: "Active"
-            };
-
-            shareholdersList.push(newSh);
-            window.closeAddShareholderModal();
-            renderShareholdersList();
-            selectShareholder(shareholdersList.length - 1);
-        }
-
-        window.openEditShareholderModal = function(index) {
-            const s = shareholdersList[index];
-            if (!s) return;
-
-            const modalHtml = `
-                <div id="edit-shareholder-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
-                    <div class="bg-white rounded-3xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
-                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h3 class="font-extrabold text-slate-900 text-lg">Edit Shareholder Details</h3>
-                            <button type="button" onclick="window.closeEditShareholderModal()" class="text-slate-400 hover:text-slate-600 transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </button>
-                        </div>
-                        <form id="edit-shareholder-form" onsubmit="window.submitEditShareholder(event, ${index})" class="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Shareholder Full Name</label>
-                                <input type="text" id="edit-sh-name" required value="${s.name}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Type</label>
-                                    <select id="edit-sh-type" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition cursor-pointer">
-                                        <option value="Individual" ${s.type === 'Individual' ? 'selected' : ''}>Individual</option>
-                                        <option value="Corporate" ${s.type === 'Corporate' ? 'selected' : ''}>Corporate</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Shares Quantity</label>
-                                    <input type="number" id="edit-sh-shares" required value="${s.sharesHeld}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Percentage %</label>
-                                    <input type="text" id="edit-sh-pct" required value="${s.percentage}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">UEN / NRIC / ID</label>
-                                    <input type="text" id="edit-sh-id" required value="${s.idNumber}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nationality</label>
-                                    <input type="text" id="edit-sh-nationality" required value="${s.nationality}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email</label>
-                                    <input type="email" id="edit-sh-email" required value="${s.email}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Address</label>
-                                <textarea id="edit-sh-address" required rows="3" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition leading-relaxed">${s.address}</textarea>
-                            </div>
-                            <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 -mx-6 -mb-6">
-                                <button type="button" onclick="window.closeEditShareholderModal()" class="px-5 py-2 border border-slate-200 text-slate-500 hover:bg-slate-100 font-bold rounded-xl text-xs transition-colors">
-                                    Cancel
-                                </button>
-                                <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-lg shadow-blue-600/20">
-                                    Save Changes
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            `;
-            const div = document.createElement('div');
-            div.id = 'edit-shareholder-modal-wrapper';
-            div.innerHTML = modalHtml;
-            document.body.appendChild(div);
-        }
-
-        window.closeEditShareholderModal = function() {
-            const wrapper = document.getElementById('edit-shareholder-modal-wrapper');
-            if (wrapper) wrapper.remove();
-        }
-
-        window.submitEditShareholder = function(event, index) {
-            event.preventDefault();
-            const sharesVal = parseInt(document.getElementById('edit-sh-shares').value, 10) || 0;
-            const pctVal = parseFloat(document.getElementById('edit-sh-pct').value).toFixed(2);
-
-            shareholdersList[index] = {
-                ...shareholdersList[index],
-                name: document.getElementById('edit-sh-name').value,
-                type: document.getElementById('edit-sh-type').value,
-                sharesHeld: sharesVal,
-                percentage: pctVal,
-                paidAmount: sharesVal,
-                votingRights: pctVal,
-                email: document.getElementById('edit-sh-email').value,
-                address: document.getElementById('edit-sh-address').value,
-                idNumber: document.getElementById('edit-sh-id').value,
-                nationality: document.getElementById('edit-sh-nationality').value
-            };
-
-            window.closeEditShareholderModal();
-            selectShareholder(index);
-        }
-
-
-        // --- HIGH-FIDELITY INTERACTIVE UBOs & CONTROLLERS LOGIC ---
-        let ubosList = [];
-        let selectedUboIndex = 0;
-        let activeUboTab = 'overview';
-
-        function initUbosData(excelControllers) {
-            ubosList = [];
-            if (excelControllers && excelControllers.length > 0) {
-                excelControllers.forEach((c, idx) => {
-                    ubosList.push({
-                        name: c.name || "Unknown Controller",
-                        role: idx === 2 ? "Controller" : "Ultimate Beneficial Owner",
-                        status: "Active",
-                        idType: "NRIC",
-                        idNumber: c.idNumber || "S1234567A",
-                        nationality: c.nationality || "Singapore Citizen",
-                        dob: c.dob || "1980-02-15",
-                        email: `${c.name.toLowerCase().replace(/\s+/g, '.')}@email.com`,
-                        mobile: "+65 9123 4567",
-                        address: c.address || "10 Marina Boulevard #12-05 Marina Bay Financial Centre, Singapore 018981",
-                        ownershipPct: idx === 2 ? "0.00" : (60 / (idx + 1)).toFixed(2),
-                        interestNature: idx === 2 ? "Board Appointment Rights" : "Direct Ownership",
-                        votingRights: idx === 2 ? "0.00" : (60 / (idx + 1)).toFixed(2),
-                        controlType: idx === 2 ? "Appointment of Directors" : "Ownership of Shares",
-                        controlBasis: idx === 2 ? "Board Rights" : "Shareholding",
-                        dateSince: "28 Apr 2025",
-                        pep: "No",
-                        relatedParty: "No",
-                        sourceOfWealth: "Business Income",
-                        purposeOfOwnership: "Investment",
-                        remarks: "—"
-                    });
-                });
-            }
-
-            if (ubosList.length < 3) {
-                const dummyNames = ["Alan Lim", "Sarah Wong", "Global Capital Pte. Ltd."];
-                const dummyRoles = ["Ultimate Beneficial Owner", "Ultimate Beneficial Owner", "Controller"];
-                const dummyIds = ["S1234567A", "S9876543B", "202108745W"];
-                const dummyNationalities = ["Singapore Citizen", "Singapore Citizen", "Singapore Corporate"];
-                const dummyPcts = [60.00, 30.00, 0.00];
-                const dummyNatures = ["Direct Ownership", "Direct Ownership", "Board Appointment Rights"];
-
-                for (let i = 0; i < 3; i++) {
-                    if (ubosList.length >= 3) break;
-                    ubosList.push({
-                        name: dummyNames[i],
-                        role: dummyRoles[i],
-                        status: "Active",
-                        idType: i === 2 ? "UEN" : "NRIC",
-                        idNumber: dummyIds[i],
-                        nationality: dummyNationalities[i],
-                        dob: i === 2 ? "—" : "15 Feb 1980",
-                        email: i === 2 ? "info@globalcapital.com" : `${dummyNames[i].toLowerCase().replace(/\s+/g, '.')}@email.com`,
-                        mobile: "+65 9123 4567",
-                        address: "10 Marina Boulevard #12-05 Marina Bay Financial Centre, Singapore 018981",
-                        ownershipPct: dummyPcts[i].toFixed(2),
-                        interestNature: dummyNatures[i],
-                        votingRights: dummyPcts[i].toFixed(2),
-                        controlType: i === 2 ? "Appointment of Directors" : "Ownership of Shares",
-                        controlBasis: i === 2 ? "Board Rights" : "Shareholding",
-                        dateSince: "28 Apr 2025",
-                        pep: "No",
-                        relatedParty: "No",
-                        sourceOfWealth: "Business Income",
-                        purposeOfOwnership: "Investment",
-                        remarks: "—"
-                    });
-                }
-            }
-        }
-
-        window.renderUbosList = function() {
-            const listContainer = document.getElementById('ubos-list');
-            if (!listContainer) return;
-
-            const searchVal = document.getElementById('ubo-search-input').value.toLowerCase();
-            const statusFilter = document.getElementById('ubo-status-filter').value;
-
-            document.getElementById('ubos-header-title').innerText = `UBOs & Controllers (${ubosList.length})`;
-
-            listContainer.innerHTML = ubosList.map((u, idx) => {
-                const matchesSearch = u.name.toLowerCase().includes(searchVal) || u.role.toLowerCase().includes(searchVal);
-                const matchesFilter = statusFilter === 'all' || u.status === statusFilter;
-
-                if (!matchesSearch || !matchesFilter) return '';
-
-                const isActive = idx === selectedUboIndex;
-                const activeClasses = isActive 
-                    ? 'border-blue-600 bg-blue-50/40 shadow-sm' 
-                    : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50/30';
-
-                const roleColor = u.role === 'Ultimate Beneficial Owner' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-blue-50 text-blue-600 border-blue-100';
-
-                const initials = u.name.split(' ').map(n => n.charAt(0)).join('').substring(0, 2).toUpperCase();
-
-                return `
-                    <div onclick="selectUbo(${idx})" class="p-4 border rounded-2xl cursor-pointer transition-all flex items-start justify-between gap-3 relative ${activeClasses}">
-                        <div class="flex items-start gap-3">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-blue-100 text-blue-600 shrink-0">
-                                ${initials}
-                            </div>
-                            <div class="flex-grow">
-                                <div class="flex items-center gap-2">
-                                    <h4 class="font-bold text-slate-800 text-sm">${u.name}</h4>
-                                    <span class="px-1.5 py-0.5 rounded text-[8px] font-bold border uppercase tracking-wider ${roleColor}">${u.role}</span>
-                                </div>
-                                <p class="text-slate-400 text-[11px] font-medium mt-1">${u.nationality}</p>
-                                <p class="text-slate-500 text-[11px] font-medium mt-0.5">Ownership: ${u.ownershipPct}% - Via: ${u.interestNature.split(' ')[0]}</p>
-                            </div>
-                        </div>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-slate-400 self-center"><polyline points="9 18 15 12 9 6"/></svg>
-                    </div>
-                `;
-            }).join('');
-        };
-
-        window.selectUbo = function(index) {
-            selectedUboIndex = index;
-            renderUbosList();
-
-            const ubo = ubosList[index];
-            const panel = document.getElementById('ubo-details-panel');
-            if (!panel || !ubo) return;
-
-            const initials = ubo.name.split(' ').map(n => n.charAt(0)).join('').substring(0, 2).toUpperCase();
-
-            panel.innerHTML = `
-                <!-- Profile Header -->
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-slate-100 shrink-0">
-                    <div class="flex items-center gap-4">
-                        <div class="w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg bg-blue-100 text-blue-600 shadow-sm shrink-0">
-                            ${initials}
-                        </div>
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <h3 class="font-extrabold text-slate-900 text-lg">${ubo.name}</h3>
-                                <span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-100 text-slate-600 border border-slate-200">${ubo.role}</span>
-                                <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black border uppercase tracking-wider text-emerald-600 bg-emerald-50 border-emerald-100">Active</span>
-                            </div>
-                            <p class="text-slate-400 text-[11px] font-semibold mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-                                <span><strong>ID Type:</strong> ${ubo.idType}</span>
-                                <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                <span><strong>ID No.:</strong> ${ubo.idNumber}</span>
-                                <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                <span><strong>Ownership:</strong> ${ubo.ownershipPct}%</span>
-                                <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                <span><strong>Via:</strong> ${ubo.interestNature.split(' ')[0]}</span>
-                            </p>
-                        </div>
-                    </div>
-                    <button onclick="window.openEditUboModal(${index})" class="px-3.5 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                        Edit Details
-                    </button>
-                </div>
-
-                <!-- Tabs Navigation -->
-                <div class="flex border-b border-slate-100 py-3 gap-6 overflow-x-auto shrink-0">
-                    ${['overview', 'ownershipAndControl', 'documents', 'history'].map(tab => {
-                        const label = tab === 'ownershipAndControl' ? 'Ownership & Control' : tab.charAt(0).toUpperCase() + tab.slice(1);
-                        const isActive = tab === activeUboTab;
-                        const tabClasses = isActive 
-                            ? 'text-blue-600 border-blue-600 font-bold' 
-                            : 'text-slate-400 border-transparent font-semibold hover:text-slate-600';
-                        return `
-                            <button onclick="switchUboTab('${tab}')" class="pb-2 text-xs border-b-2 transition-all cursor-pointer whitespace-nowrap ${tabClasses}">
-                                ${label}
-                            </button>
-                        `;
-                    }).join('')}
-                </div>
-
-                <!-- Tab Content area -->
-                <div class="flex-1 overflow-y-auto mt-4" id="ubo-tab-content">
-                    <!-- Rendered below -->
-                </div>
-            `;
-
-            renderUboTabContent();
-        };
-
-        window.switchUboTab = function(tabId) {
-            activeUboTab = tabId;
-            selectUbo(selectedUboIndex);
-        };
-
-        function renderUboTabContent() {
-            const container = document.getElementById('ubo-tab-content');
-            if (!container) return;
-
-            const ubo = ubosList[selectedUboIndex];
-            if (!ubo) return;
-
-            if (activeUboTab === 'overview') {
-                container.innerHTML = `
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <!-- Personal Details -->
-                        <div class="space-y-4 border border-slate-100 rounded-2xl p-5 bg-white shadow-sm text-xs">
-                            <h4 class="font-extrabold text-slate-800 text-sm border-b border-slate-50 pb-2">Personal Details</h4>
-                            <div class="space-y-3 font-medium text-slate-700">
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Full Name</span>
-                                    <span class="font-bold text-slate-800">${ubo.name}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">NRIC / Passport No.</span>
-                                    <span class="font-mono font-bold text-slate-800">${ubo.idNumber}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Nationality</span>
-                                    <span class="font-bold text-slate-800">${ubo.nationality}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Date of Birth</span>
-                                    <span class="font-bold text-slate-800">${ubo.dob}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Email</span>
-                                    <span class="font-bold text-blue-600">${ubo.email}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Phone Number</span>
-                                    <span class="font-bold text-slate-800">${ubo.mobile}</span>
-                                </div>
-                                <div class="flex flex-col gap-1 py-1">
-                                    <span class="text-slate-400 font-bold">Residential Address</span>
-                                    <span class="font-bold text-slate-850 leading-relaxed">${ubo.address}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Ownership & Control -->
-                        <div class="space-y-4 border border-slate-100 rounded-2xl p-5 bg-white shadow-sm text-xs flex flex-col justify-between">
-                            <div class="space-y-3 font-medium text-slate-700">
-                                <h4 class="font-extrabold text-slate-800 text-sm border-b border-slate-50 pb-2">Ownership & Control</h4>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Ownership Percentage</span>
-                                    <span class="font-bold text-slate-800">${ubo.ownershipPct}%</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Nature of Interest</span>
-                                    <span class="font-bold text-slate-800">${ubo.interestNature}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Voting Rights</span>
-                                    <span class="font-bold text-slate-800">${ubo.votingRights}%</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Control Type</span>
-                                    <span class="font-bold text-slate-800">${ubo.controlType}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Control Basis</span>
-                                    <span class="font-bold text-slate-800">${ubo.controlBasis}</span>
-                                </div>
-                                <div class="flex justify-between py-1">
-                                    <span class="text-slate-400 font-bold">Date Since</span>
-                                    <span class="font-bold text-slate-800">${ubo.dateSince}</span>
-                                </div>
-                            </div>
-
-                            <div class="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-2.5 text-[10px] font-bold text-blue-900 leading-normal">
-                                <i data-lucide="info" class="w-4 h-4 text-blue-600 shrink-0 mt-0.5"></i>
-                                <span>${ubo.name} is the ultimate beneficial owner with significant ownership and control in the company.</span>
-                            </div>
-                        </div>
-
-                        <!-- Additional Information -->
-                        <div class="space-y-4 border border-slate-100 rounded-2xl p-5 bg-white shadow-sm text-xs">
-                            <h4 class="font-extrabold text-slate-800 text-sm border-b border-slate-50 pb-2">Additional Information</h4>
-                            <div class="space-y-3 font-medium text-slate-700">
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Politically Exposed Person (PEP)</span>
-                                    <span class="font-bold text-slate-800">${ubo.pep}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Related Party</span>
-                                    <span class="font-bold text-slate-800">${ubo.relatedParty}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Source of Wealth</span>
-                                    <span class="font-bold text-slate-800">${ubo.sourceOfWealth}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50/50">
-                                    <span class="text-slate-400 font-bold">Purpose of Ownership</span>
-                                    <span class="font-bold text-slate-800">${ubo.purposeOfOwnership}</span>
-                                </div>
-                                <div class="flex flex-col gap-1 py-1">
-                                    <span class="text-slate-400 font-bold">Remarks</span>
-                                    <span class="font-bold text-slate-800 leading-normal">${ubo.remarks}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mt-6 border border-slate-100 rounded-2xl p-5 bg-white shadow-sm text-xs text-slate-700">
-                        <h4 class="font-extrabold text-slate-800 text-sm border-b border-slate-50 pb-2 mb-3">Related Entities</h4>
-                        <p class="text-slate-400 italic">No related entities found.</p>
-                    </div>
-                `;
-            } else if (activeUboTab === 'ownershipAndControl') {
-                container.innerHTML = `
-                    <h4 class="font-extrabold text-slate-800 text-sm mb-4">Ownership & Control Details</h4>
-                    <div class="grid grid-cols-2 gap-6 bg-slate-50/50 p-6 rounded-2xl border border-slate-100 text-xs">
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Interest Nature</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1">${ubo.interestNature}</p>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Ownership Percentage</span>
-                            <p class="font-bold text-slate-800 text-sm mt-1">${ubo.ownershipPct}%</p>
-                        </div>
-                    </div>
-                `;
-            } else if (activeUboTab === 'documents') {
-                container.innerHTML = `
-                    <h4 class="font-extrabold text-slate-800 text-sm mb-4">Required Documents</h4>
-                    <table class="w-full text-left text-xs">
-                        <thead>
-                            <tr class="border-b border-slate-100 text-slate-400 font-bold uppercase">
-                                <th class="pb-2">Document Type</th>
-                                <th class="pb-2">File</th>
-                                <th class="pb-2">Uploaded On</th>
-                                <th class="pb-2">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-50 text-slate-700 font-medium">
-                            <tr class="hover:bg-slate-50/50 transition-colors">
-                                <td class="py-3 font-bold text-slate-800">Beneficial Ownership Declaration</td>
-                                <td class="py-3">
-                                    <a href="#" onclick="event.preventDefault(); window.openDocumentFile(d.fileName)" class="text-blue-600 font-semibold hover:underline flex items-center gap-1.5">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5 text-blue-500"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                        BO_Decl_${ubo.name.replace(/\s+/g, '')}.pdf
-                                    </a>
-                                </td>
-                                <td class="py-3 text-slate-500">${ubo.dateSince}</td>
-                                <td class="py-3"><span class="px-2 py-0.5 rounded font-black text-[9px] uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">Verified</span></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                `;
-            } else if (activeUboTab === 'history') {
-                container.innerHTML = `
-                    <h4 class="font-extrabold text-slate-800 text-sm mb-4">Historical Audit Log</h4>
-                    <div class="relative border-l border-slate-200 ml-4 pl-6 space-y-6">
-                        <div class="relative">
-                            <div class="absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white"></div>
-                            <div class="flex flex-col gap-0.5 text-xs text-slate-700">
-                                <span class="font-bold text-slate-800">Beneficial Owner record entered and approved</span>
-                                <span class="text-[10px] text-slate-400 font-medium">${ubo.dateSince} by System</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            if (window.lucide) window.lucide.createIcons();
-        }
-
-        window.filterUbosList = function() {
-            renderUbosList();
-        }
-
-        // Modals for Ubos
-        window.openAddUboModal = function() {
-            const modalHtml = `
-                <div id="add-ubo-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
-                    <div class="bg-white rounded-3xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
-                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h3 class="font-extrabold text-slate-900 text-lg">Add New UBO / Controller</h3>
-                            <button type="button" onclick="window.closeAddUboModal()" class="text-slate-400 hover:text-slate-600 transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </button>
-                        </div>
-                        <form id="add-ubo-form" onsubmit="window.submitAddUbo(event)" class="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Full Legal Name</label>
-                                <input type="text" id="add-ub-name" required placeholder="Alan Lim" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Role Type</label>
-                                    <select id="add-ub-role" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition cursor-pointer">
-                                        <option value="Ultimate Beneficial Owner">Ultimate Beneficial Owner</option>
-                                        <option value="Controller">Controller</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Ownership Percentage %</label>
-                                    <input type="text" id="add-ub-pct" required placeholder="60.00" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">ID Number (NRIC/Passport)</label>
-                                    <input type="text" id="add-ub-id" required placeholder="S1234567A" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nationality</label>
-                                    <input type="text" id="add-ub-nationality" required placeholder="Singapore Citizen" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email</label>
-                                    <input type="email" id="add-ub-email" required placeholder="alan@example.com" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Mobile</label>
-                                    <input type="text" id="add-ub-mobile" required placeholder="+65 9123 4567" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Address</label>
-                                <textarea id="add-ub-address" required rows="3" placeholder="Enter home address" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition leading-relaxed"></textarea>
-                            </div>
-                            <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 -mx-6 -mb-6">
-                                <button type="button" onclick="window.closeAddUboModal()" class="px-5 py-2 border border-slate-200 text-slate-500 hover:bg-slate-100 font-bold rounded-xl text-xs transition-colors">
-                                    Cancel
-                                </button>
-                                <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-lg shadow-blue-600/20">
-                                    Add Record
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            `;
-            const div = document.createElement('div');
-            div.id = 'add-ubo-modal-wrapper';
-            div.innerHTML = modalHtml;
-            document.body.appendChild(div);
-        }
-
-        window.closeAddUboModal = function() {
-            const wrapper = document.getElementById('add-ubo-modal-wrapper');
-            if (wrapper) wrapper.remove();
-        }
-
-        window.submitAddUbo = function(event) {
-            event.preventDefault();
-            const newUb = {
-                name: document.getElementById('add-ub-name').value,
-                role: document.getElementById('add-ub-role').value,
-                status: "Active",
-                idType: "NRIC",
-                idNumber: document.getElementById('add-ub-id').value,
-                nationality: document.getElementById('add-ub-nationality').value,
-                dob: "15 Feb 1980",
-                email: document.getElementById('add-ub-email').value,
-                mobile: document.getElementById('add-ub-mobile').value,
-                address: document.getElementById('add-ub-address').value,
-                ownershipPct: parseFloat(document.getElementById('add-ub-pct').value).toFixed(2),
-                interestNature: "Direct Ownership",
-                votingRights: parseFloat(document.getElementById('add-ub-pct').value).toFixed(2),
-                controlType: "Ownership of Shares",
-                controlBasis: "Shareholding",
-                dateSince: "28 Apr 2025",
-                pep: "No",
-                relatedParty: "No",
-                sourceOfWealth: "Business Income",
-                purposeOfOwnership: "Investment",
-                remarks: "—"
-            };
-
-            ubosList.push(newUb);
-            window.closeAddUboModal();
-            renderUbosList();
-            selectUbo(ubosList.length - 1);
-        }
-
-        window.openEditUboModal = function(index) {
-            const u = ubosList[index];
-            if (!u) return;
-
-            const modalHtml = `
-                <div id="edit-ubo-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
-                    <div class="bg-white rounded-3xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
-                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h3 class="font-extrabold text-slate-900 text-lg">Edit UBO / Controller Details</h3>
-                            <button type="button" onclick="window.closeEditUboModal()" class="text-slate-400 hover:text-slate-600 transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </button>
-                        </div>
-                        <form id="edit-ubo-form" onsubmit="window.submitEditUbo(event, ${index})" class="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Full Legal Name</label>
-                                <input type="text" id="edit-ub-name" required value="${u.name}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Role Type</label>
-                                    <select id="edit-ub-role" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition cursor-pointer">
-                                        <option value="Ultimate Beneficial Owner" ${u.role === 'Ultimate Beneficial Owner' ? 'selected' : ''}>Ultimate Beneficial Owner</option>
-                                        <option value="Controller" ${u.role === 'Controller' ? 'selected' : ''}>Controller</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Ownership Percentage %</label>
-                                    <input type="text" id="edit-ub-pct" required value="${u.ownershipPct}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">ID Number</label>
-                                    <input type="text" id="edit-ub-id" required value="${u.idNumber}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nationality</label>
-                                    <input type="text" id="edit-ub-nationality" required value="${u.nationality}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email</label>
-                                    <input type="email" id="edit-ub-email" required value="${u.email}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Mobile</label>
-                                    <input type="text" id="edit-ub-mobile" required value="${u.mobile}" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition">
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Address</label>
-                                <textarea id="edit-ub-address" required rows="3" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition leading-relaxed">${u.address}</textarea>
-                            </div>
-                            <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 -mx-6 -mb-6">
-                                <button type="button" onclick="window.closeEditUboModal()" class="px-5 py-2 border border-slate-200 text-slate-500 hover:bg-slate-100 font-bold rounded-xl text-xs transition-colors">
-                                    Cancel
-                                </button>
-                                <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-lg shadow-blue-600/20">
-                                    Save Changes
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            `;
-            const div = document.createElement('div');
-            div.id = 'edit-ubo-modal-wrapper';
-            div.innerHTML = modalHtml;
-            document.body.appendChild(div);
-        }
-
-        window.closeEditUboModal = function() {
-            const wrapper = document.getElementById('edit-ubo-modal-wrapper');
-            if (wrapper) wrapper.remove();
-        }
-
-        window.submitEditUbo = function(event, index) {
-            event.preventDefault();
-            const pctVal = parseFloat(document.getElementById('edit-ub-pct').value).toFixed(2);
-
-            ubosList[index] = {
-                ...ubosList[index],
-                name: document.getElementById('edit-ub-name').value,
-                role: document.getElementById('edit-ub-role').value,
-                ownershipPct: pctVal,
-                votingRights: pctVal,
-                idNumber: document.getElementById('edit-ub-id').value,
-                nationality: document.getElementById('edit-ub-nationality').value,
-                email: document.getElementById('edit-ub-email').value,
-                mobile: document.getElementById('edit-ub-mobile').value,
-                address: document.getElementById('edit-ub-address').value
-            };
-
-            window.closeEditUboModal();
-            selectUbo(index);
-        }
-
-
-        // --- HIGH-FIDELITY INTERACTIVE DOCUMENTS TAB LOGIC ---
-        let documentsList = [];
-        let activeDocFolder = 'All Documents';
-        let activeDocLayout = 'list';
-        let selectedDocIndex = 0;
-
-        window.openDocumentFile = function(fileName) {
-            if (!fileName) return;
-            const cleanTarget = fileName.toLowerCase().replace(/[^a-z0-9]/g, '');
-            const found = documentsList.find(d => {
-                const nameStr = (d.name || d.title || d.originalPath || '').toLowerCase();
-                const cleanName = nameStr.replace(/[^a-z0-9]/g, '');
-                return cleanName.includes(cleanTarget) || cleanTarget.includes(cleanName);
-            });
-
-            const targetUrl = (found && found.viewUrl) ? found.viewUrl : (found && found.id ? `http://localhost:8080/api/documents/${found.id}/view` : (documentsList.length > 0 && documentsList[0].viewUrl ? documentsList[0].viewUrl : null));
-
-            window.showPdfPreviewModal(fileName, targetUrl, found ? (found.type || found.folder) : 'Document');
-        };
-
-        window.showPdfPreviewModal = function(title, pdfUrl, category) {
-            const existingModal = document.getElementById('gcp-pdf-preview-modal-wrapper');
-            if (existingModal) existingModal.remove();
-
-            // Find matching document item
-            const cleanTarget = title ? title.toLowerCase().replace(/[^a-z0-9]/g, '');
-            const found = documentsList.find(d => {
-                const nameStr = (d.name || d.title || d.originalPath || '').toLowerCase();
-                const cleanName = nameStr.replace(/[^a-z0-9]/g, '');
-                return cleanName.includes(cleanTarget) || cleanTarget.includes(cleanName);
-            });
-
-            // Stream URL preference: found.viewUrl (GCP signed) > pdfUrl > backend stream endpoint
-            const previewUrl = (found && found.viewUrl) ? found.viewUrl : (pdfUrl || (found && found.id ? `http://localhost:8080/api/documents/${found.id}/view` : null));
-            const directSignedUrl = previewUrl || pdfUrl || '#';
-
-            const isImage = title && /\.(jpg|jpeg|png|webp|svg)$/i.test(title);
-
-            let previewFrameHtml = '';
-            if (previewUrl && isImage) {
-                previewFrameHtml = `
-                    <div class="w-full h-full flex items-center justify-center bg-slate-900/5 p-4 rounded-2xl overflow-auto">
-                        <img src="${previewUrl}" alt="${title}" class="max-w-full max-h-full object-contain rounded-xl shadow-lg border border-slate-200">
-                    </div>
-                `;
-            } else if (previewUrl) {
-                previewFrameHtml = `
-                    <iframe src="${previewUrl}" class="w-full h-full rounded-2xl border-0 shadow-inner bg-white" title="${title}"></iframe>
-                `;
-            } else {
-                previewFrameHtml = `
-                    <div class="w-full h-full flex flex-col items-center justify-center bg-slate-100 p-4 md:p-8 overflow-y-auto">
-                        <div class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-xl p-8 text-slate-800 space-y-6 animate-in zoom-in-95 duration-200">
-                            <div class="flex justify-between items-start border-b border-slate-100 pb-4">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-lg shadow-md">G</div>
-                                    <div>
-                                        <h2 class="text-xs font-extrabold text-slate-900 tracking-wider">GLOBALISOR DIGITAL VAULT</h2>
-                                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Official Document Stream</p>
-                                    </div>
-                                </div>
-                                <span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full font-bold text-[10px] uppercase tracking-wider flex items-center gap-1">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Verified Record
-                                </span>
-                            </div>
-                            <div class="space-y-3">
-                                <div class="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-2 text-xs">
-                                    <div class="flex justify-between"><span class="text-slate-400 font-bold">Document Name:</span><span class="font-extrabold text-slate-900">${title}</span></div>
-                                    <div class="flex justify-between"><span class="text-slate-400 font-bold">Category:</span><span class="font-bold text-blue-600">${category || 'Document'}</span></div>
-                                    <div class="flex justify-between"><span class="text-slate-400 font-bold">Storage Source:</span><span class="font-bold text-slate-700">Google Cloud Storage Stream</span></div>
-                                </div>
-                                <div class="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center space-y-3 bg-slate-50/50">
-                                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15h6"/><path d="M9 11h6"/></svg>
-                                    </div>
-                                    <h3 class="font-extrabold text-slate-800 text-sm">${title}</h3>
-                                    <p class="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">Document stream from GCP Cloud Storage.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            let actionBtns = '';
-            if (directSignedUrl && directSignedUrl !== '#') {
-                actionBtns = `
-                    <button onclick="window.open('${directSignedUrl}', '_blank')" class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                        Open Full Screen
-                    </button>
-                    <a href="${directSignedUrl}" target="_blank" download="${title}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                        Download File
-                    </a>
-                `;
-            }
-
-            const modalHtml = `
-                <div id="gcp-pdf-preview-modal-wrapper" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[10000] p-4 md:p-6 animate-in fade-in duration-200">
-                    <div class="bg-white rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col h-[90vh] border border-slate-100">
-                        <!-- Modal Header -->
-                        <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/80 shrink-0">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                </div>
-                                <div>
-                                    <h3 class="font-extrabold text-slate-900 text-sm leading-tight max-w-lg truncate" title="${title}">${title}</h3>
-                                    <div class="flex items-center gap-2 mt-0.5">
-                                        <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-blue-100 text-blue-700">${category || 'Document'}</span>
-                                        <span class="text-[10px] text-slate-400 font-semibold">• GCP Cloud Storage Stream</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-3">
-                                ${actionBtns}
-                                <button onclick="document.getElementById('gcp-pdf-preview-modal-wrapper').remove()" class="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Embedded PDF / Document Preview Frame -->
-                        <div class="flex-grow bg-slate-100 relative overflow-hidden p-2">
-                            ${previewFrameHtml}
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            const div = document.createElement('div');
-            div.innerHTML = modalHtml;
-            document.body.appendChild(div.firstElementChild);
-        };
-
-        window.downloadDocumentFile = function(fileName) {
-            if (!fileName) return;
-            const cleanTarget = fileName.toLowerCase().replace(/[^a-z0-9]/g, '');
-            const found = documentsList.find(d => {
-                if (!d.name) return false;
-                const cleanName = d.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-                return cleanName.includes(cleanTarget) || cleanTarget.includes(cleanName);
-            });
-
-            if (found && found.viewUrl) {
-                const a = document.createElement('a');
-                a.href = found.viewUrl;
-                a.download = fileName;
-                a.target = '_blank';
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-            } else if (documentsList.length > 0 && documentsList[0].viewUrl) {
-                window.open(documentsList[0].viewUrl, '_blank');
-            } else {
-                alert(`Downloading ${fileName} from GCP Bucket...`);
-            }
-        };
-
-        async function initDocumentsData() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const clientId = urlParams.get('clientId') || 'C-1001';
+            const localApp = (window.allApplications || []).find(a => String(a.id || a.rawId) === String(appId));
 
             try {
-                const res = await fetch(`http://localhost:8080/api/documents/client/${clientId}`);
+                const res = await fetch(`/api/admin/applications/${appId}`);
                 if (res.ok) {
                     const data = await res.json();
-                    if (data.documents && data.documents.length > 0) {
-                        documentsList = data.documents.map(d => ({
-                            id: d.id,
-                            name: d.title || d.originalPath || "Document.pdf",
-                            type: d.category || 'Other',
-                            folder: d.suggestedModule || 'Misc',
-                            size: d.fileSize ? (d.fileSize > 1024 * 1024 ? (d.fileSize / (1024 * 1024)).toFixed(1) + ' MB' : (d.fileSize / 1024).toFixed(0) + ' KB') : '1.2 MB',
-                            uploadedOn: d.uploadDate || '26 Jul 2026',
-                            uploadedBy: 'System Migration',
-                            status: d.status || 'Verified',
-                            version: '1.0',
-                            ocrPct: 98,
-                            viewUrl: d.viewUrl || `http://localhost:8080/api/documents/${d.id}/view`
-                        }));
+                    currentReviewingApp = data;
+                    renderReviewModalContent(data);
+                    return;
+                }
+            } catch (e) {
+                console.warn("API fetch failed, falling back to local dataset:", e);
+            }
+
+            if (localApp) {
+                currentReviewingApp = localApp;
+                renderReviewModalContent(localApp);
+            } else {
+                contentArea.innerHTML = `<div class="p-8 text-center text-red-500 font-bold">Could not load application details. Please try again.</div>`;
+            }
+        };
+
+        window.closeReviewModal = function () {
+            document.getElementById('review-modal').classList.add('hidden');
+            currentReviewingApp = null;
+        };
+
+        // Document Preview Helpers
+        window.previewAppDoc = function (docData, docName) {
+            const modal = document.getElementById('doc-preview-modal');
+            const titleEl = document.getElementById('doc-preview-title');
+            const bodyEl = document.getElementById('doc-preview-body');
+            const downloadBtn = document.getElementById('doc-preview-download-btn');
+
+            titleEl.innerText = docName || 'Uploaded Document';
+            downloadBtn.href = docData || '#';
+            downloadBtn.download = docName || 'document';
+
+            if (!docData) {
+                bodyEl.innerHTML = `<div class="text-slate-400 text-xs italic">No document data available.</div>`;
+            } else if (docData.startsWith('data:image/') || docData.match(/\.(jpeg|jpg|gif|png|webp)($|\?)/i)) {
+                bodyEl.innerHTML = `<img src="${docData}" alt="${docName}" class="max-h-[60vh] max-w-full object-contain rounded-xl shadow-md">`;
+            } else if (docData.startsWith('data:application/pdf') || docData.match(/\.pdf($|\?)/i)) {
+                bodyEl.innerHTML = `<iframe src="${docData}" class="w-full h-[60vh] rounded-xl border border-slate-300"></iframe>`;
+            } else {
+                bodyEl.innerHTML = `
+                    <div class="text-center p-8 bg-white rounded-2xl border border-slate-200">
+                        <i data-lucide="file-check" class="w-12 h-12 mx-auto text-blue-600 mb-3"></i>
+                        <h4 class="font-bold text-slate-800 text-sm mb-1">${docName}</h4>
+                        <p class="text-xs text-slate-500 mb-4">Click download to view this file locally.</p>
+                        <a href="${docData}" download="${docName}" target="_blank" class="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-sm">Download File</a>
+                    </div>
+                `;
+            }
+
+            modal.classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        };
+
+        window.closeDocPreviewModal = function () {
+            document.getElementById('doc-preview-modal').classList.add('hidden');
+        };
+
+        window.runLiveAcraNameCheck = async function (encodedName, encodedSuffix, index) {
+            const name = decodeURIComponent(encodedName || '');
+            const suffix = decodeURIComponent(encodedSuffix || 'Pte. Ltd.');
+            const badgeEl = document.getElementById(`acra-badge-${index}`);
+            const alertEl = document.getElementById(`acra-detail-${index}`);
+            if (!badgeEl) return;
+
+            badgeEl.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 animate-pulse';
+            badgeEl.innerText = 'Checking ACRA Warehouse...';
+            if (alertEl) alertEl.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/name-check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name, suffix: suffix })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.status === 'available' || data.available) {
+                        badgeEl.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200';
+                        badgeEl.innerText = '🟢 Available in ACRA';
+                        if (alertEl) {
+                            alertEl.className = 'text-[11px] font-medium text-emerald-700 bg-emerald-50/60 p-2.5 rounded-xl border border-emerald-200 mt-2 block';
+                            alertEl.innerHTML = `✓ <strong>Cleared:</strong> No identical or confusingly similar registered entities found in Singapore ACRA registry.`;
+                            alertEl.classList.remove('hidden');
+                        }
+                    } else if (data.status === 'similar') {
+                        badgeEl.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-300';
+                        const simName = data.similarEntity || 'Existing Entity';
+                        badgeEl.innerText = `🟡 Similar: ${simName}`;
+                        badgeEl.title = data.message || '';
+                        if (alertEl) {
+                            alertEl.className = 'text-[11px] font-medium text-amber-800 bg-amber-50 p-2.5 rounded-xl border border-amber-200 mt-2 block space-y-1';
+                            alertEl.innerHTML = `
+                                <div class="font-bold flex items-center gap-1.5 text-amber-900">
+                                    <span>⚠️</span> <span>ACRA Similarity Detected:</span>
+                                </div>
+                                <div>${data.message || `Similar entity '${simName}' found.`}</div>
+                                <div class="text-[10px] text-amber-700 font-mono">Conflicting UEN: ${data.similarUen || 'N/A'} • Rule: ACRA Section 27(1)(a)</div>
+                            `;
+                            alertEl.classList.remove('hidden');
+                        }
+                    } else if (data.status === 'restricted') {
+                        badgeEl.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200';
+                        badgeEl.innerText = '⚠️ Restricted Word';
+                        badgeEl.title = data.message || '';
+                        if (alertEl) {
+                            alertEl.className = 'text-[11px] font-medium text-amber-800 bg-amber-50 p-2.5 rounded-xl border border-amber-200 mt-2 block';
+                            alertEl.innerHTML = `⚠️ <strong>Ministerial Approval Required:</strong> ${data.message}`;
+                            alertEl.classList.remove('hidden');
+                        }
+                    } else {
+                        badgeEl.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-red-50 text-red-700 border border-red-200';
+                        const conflictName = data.matchedEntityName || (data.conflicts && data.conflicts[0] ? data.conflicts[0].entityName : '');
+                        badgeEl.innerText = conflictName ? `🔴 Taken (${conflictName})` : '🔴 Taken / In Use';
+                        badgeEl.title = data.message || '';
+                        if (alertEl) {
+                            alertEl.className = 'text-[11px] font-medium text-red-800 bg-red-50 p-2.5 rounded-xl border border-red-200 mt-2 block space-y-1';
+                            alertEl.innerHTML = `
+                                <div class="font-bold flex items-center gap-1.5 text-red-900">
+                                    <span>🔴</span> <span>Identical / Base Name Conflict:</span>
+                                </div>
+                                <div>${data.message || `An entity with this name is already registered.`}</div>
+                                <div class="text-[10px] text-red-700 font-mono">UEN: ${data.matchedUen || 'N/A'} • Status: ${data.matchedStatus || 'Registered'}</div>
+                            `;
+                            alertEl.classList.remove('hidden');
+                        }
                     }
+                } else {
+                    badgeEl.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-red-50 text-red-600 border border-red-200';
+                    badgeEl.innerText = 'Check Failed';
                 }
             } catch (err) {
-                console.warn("Backend API not reachable, using fallback documents data:", err);
+                badgeEl.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-red-50 text-red-600 border border-red-200';
+                badgeEl.innerText = 'Check Error';
             }
+        };
 
-            if (!documentsList || documentsList.length === 0) {
-                documentsList = [
-                    { name: "Constitution.pdf", type: "Constitution", folder: "Constitution & BizFile", size: "1.2 MB", uploadedOn: "12 Jul 2026, 10:42 AM", uploadedBy: "Sarah Lee", status: "Verified", verifiedOn: "13 Jul 2026, 03:15 PM", verifiedBy: "Daniel Wong", version: "1.0", ocrPct: 96 },
-                    { name: "BizFile Extract.pdf", type: "BizFile", folder: "Constitution & BizFile", size: "850 KB", uploadedOn: "12 Jul 2026, 10:30 AM", uploadedBy: "Daniel Wong", status: "Pending Review", version: "1.0", ocrPct: 94 },
-                    { name: "RegisteredAddressProof.pdf", type: "Address Proof", folder: "Registered Office", size: "1.8 MB", uploadedOn: "10 Jul 2026, 02:40 PM", uploadedBy: "Sarah Lee", status: "Verified", verifiedOn: "11 Jul 2026, 11:15 AM", verifiedBy: "Daniel Wong", version: "1.0", ocrPct: 98 },
-                    { name: "BankStatement_Sample.pdf", type: "Bank Account Proof", folder: "Bank Accounts", size: "1.5 MB", uploadedOn: "09 Jul 2026, 05:44 PM", uploadedBy: "Emily Chen", status: "Pending Review", version: "1.0", ocrPct: 88 },
-                    { name: "Passport_SharadAgarwal.pdf", type: "Passport Bio Page", folder: "Directors", size: "1.1 MB", uploadedOn: "10 Jul 2026, 09:15 AM", uploadedBy: "Sarah Lee", status: "Verified", verifiedOn: "11 Jul 2026, 10:02 AM", verifiedBy: "Sarah Lee", version: "1.0", ocrPct: 95 }
-                ];
-            }
+        function renderReviewModalContent(app) {
+            const d = app.data || {};
+            const contact = d.contact || {};
 
-            renderDocFolders();
-            renderDocTable();
-            if (documentsList.length > 0) selectDocument(0);
-        }
-
-        function renderDocFolders() {
-            const container = document.getElementById('doc-folders-list');
-            if (!container) return;
-
-            const counts = {};
-            documentsList.forEach(d => {
-                counts[d.folder] = (counts[d.folder] || 0) + 1;
-            });
-
-            const folders = [
-                { name: "All Documents", count: documentsList.length },
-                { name: "Constitution & BizFile", count: counts["Constitution & BizFile"] || 0 },
-                { name: "Directors", count: counts["Directors"] || 0 },
-                { name: "Secretaries", count: counts["Secretaries"] || 0 },
-                { name: "Shareholders", count: counts["Shareholders"] || 0 },
-                { name: "UBOs & Controllers", count: counts["UBOs & Controllers"] || 0 },
-                { name: "Registered Office", count: counts["Registered Office"] || 0 },
-                { name: "Bank Accounts", count: counts["Bank Accounts"] || 0 }
-            ];
-
-            container.innerHTML = folders.map(f => {
-                const isActive = f.name === activeDocFolder;
-                const activeClasses = isActive 
-                    ? 'bg-blue-50 text-blue-600 font-bold' 
-                    : 'text-slate-600 hover:bg-slate-50 font-semibold';
-                return `
-                    <button onclick="selectDocFolder('${f.name}')" class="w-full flex items-center justify-between px-3 py-2 text-xs rounded-xl transition-all text-left ${activeClasses}">
-                        <span class="truncate pr-2">${f.name}</span>
-                        <span class="px-2 py-0.5 rounded-full text-[9px] bg-slate-100 text-slate-500 font-black">${f.count}</span>
-                    </button>
-                `;
-            }).join('');
-        }
-
-        window.selectDocFolder = function(folderName) {
-            activeDocFolder = folderName;
-            renderDocFolders();
-            renderDocTable();
-        }
-
-        window.renderDocTable = function() {
-            const tableBody = document.getElementById('doc-table-body');
-            const gridView = document.getElementById('doc-grid-view');
-            const tableView = document.getElementById('doc-table-view');
-            if (!tableBody || !gridView) return;
-
-            const searchVal = document.getElementById('doc-search-input').value.toLowerCase();
-            const typeFilter = document.getElementById('doc-type-filter').value;
-            const statusFilter = document.getElementById('doc-status-filter').value;
-            const userFilter = document.getElementById('doc-user-filter').value;
-            const sortVal = document.getElementById('doc-sort-select').value;
-
-            // Filter
-            let filtered = documentsList.filter(d => {
-                const matchesFolder = activeDocFolder === 'All Documents' || d.folder === activeDocFolder;
-                const matchesSearch = d.name.toLowerCase().includes(searchVal) || d.type.toLowerCase().includes(searchVal);
-                const matchesType = typeFilter === 'all' || d.type.includes(typeFilter);
-                const matchesStatus = statusFilter === 'all' || d.status === statusFilter;
-                const matchesUser = userFilter === 'all' || d.uploadedBy === userFilter;
-                return matchesFolder && matchesSearch && matchesType && matchesStatus && matchesUser;
-            });
-
-            // Sort
-            if (sortVal === 'newest') {
-                filtered.sort((a, b) => b.uploadedOn.localeCompare(a.uploadedOn));
+            // 1. Company Names
+            let names = [];
+            if (Array.isArray(d.names) && d.names.length > 0) {
+                names = [...d.names];
             } else {
-                filtered.sort((a, b) => a.uploadedOn.localeCompare(b.uploadedOn));
+                if (d.companyName && typeof d.companyName === "string" && d.companyName.trim()) {
+                    names.push(d.companyName.trim());
+                } else if (d.proposedCompanyName && typeof d.proposedCompanyName === "string" && d.proposedCompanyName.trim()) {
+                    names.push(d.proposedCompanyName.trim());
+                }
+                if (d.alternativeCompanyName1 && typeof d.alternativeCompanyName1 === "string" && d.alternativeCompanyName1.trim()) {
+                    names.push(d.alternativeCompanyName1.trim());
+                }
+                if (d.alternativeCompanyName2 && typeof d.alternativeCompanyName2 === "string" && d.alternativeCompanyName2.trim()) {
+                    names.push(d.alternativeCompanyName2.trim());
+                }
+            }
+            if (names.length === 0) {
+                names.push("Proposed Singapore Company");
             }
 
-            // Render Table
-            tableBody.innerHTML = filtered.map((d, idx) => {
-                const statusColor = d.status === 'Verified' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : d.status === 'Rejected' ? 'text-rose-600 bg-rose-50 border-rose-100' : 'text-amber-600 bg-amber-50 border-amber-100';
+            const checks = d.nameChecks || {};
+            const suffix = d.companySuffix || (d.entityType === "private_limited" ? "Pte. Ltd." : "Pte. Ltd.");
+            const jurisdiction = d.jurisdiction || "Singapore";
+
+            let entityTypeLabel = "Private Limited Company";
+            if (d.entityType === "sole_proprietorship") entityTypeLabel = "Sole Proprietorship";
+            else if (d.entityType === "llp") entityTypeLabel = "Limited Liability Partnership (LLP)";
+            else if (d.entityType) entityTypeLabel = d.entityType.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+
+            // 2. SSIC & Business Scope
+            const acts = (typeof d.activities === "object" && d.activities !== null) ? d.activities : {};
+            const actsPrimary = Array.isArray(acts) ? acts[0] : (acts.primary || d["activities.primary"] || null);
+            const actsSecondary = Array.isArray(acts) ? acts[1] : (acts.secondary || d["activities.secondary"] || null);
+
+            const priSsic = (typeof actsPrimary === "object" && actsPrimary !== null ? actsPrimary : null)
+                || (typeof d.primarySsic === "object" && d.primarySsic !== null ? d.primarySsic : null)
+                || (typeof d.primaryActivity === "object" && d.primaryActivity !== null ? d.primaryActivity : null)
+                || {};
+            const secSsic = (typeof actsSecondary === "object" && actsSecondary !== null ? actsSecondary : null)
+                || (typeof d.secondarySsic === "object" && d.secondarySsic !== null ? d.secondarySsic : null)
+                || (typeof d.secondaryActivity === "object" && d.secondaryActivity !== null ? d.secondaryActivity : null)
+                || {};
+
+            const priString = (typeof actsPrimary === "string" ? actsPrimary : "")
+                || (typeof d.primaryActivity === "string" ? d.primaryActivity : "")
+                || (typeof d.primarySsic === "string" ? d.primarySsic : "")
+                || (typeof d.activity === "string" ? d.activity : "");
+            const secString = (typeof actsSecondary === "string" ? actsSecondary : "")
+                || (typeof d.secondaryActivity === "string" ? d.secondaryActivity : "")
+                || (typeof d.secondarySsic === "string" ? d.secondarySsic : "");
+
+            const primaryCode = d.primaryActivityCode
+                || priSsic.code
+                || priSsic.ssic
+                || (priString.match(/^\d{5}/) ? priString.match(/^\d{5}/)[0] : "")
+                || "";
+
+            let primaryTitle = priSsic.name
+                || priSsic.title
+                || priSsic.description
+                || (priString ? priString.replace(/^\d{5}\s*[-–:]*\s*/, "") : "")
+                || "";
+            if (primaryCode && primaryTitle.startsWith(primaryCode)) {
+                primaryTitle = primaryTitle.substring(primaryCode.length).replace(/^[\s\-–:]+/, "").trim();
+            }
+            if (!primaryTitle && primaryCode) {
+                primaryTitle = priString || primaryCode;
+            }
+            if (!primaryTitle && !primaryCode) {
+                primaryTitle = "Not specified";
+            }
+
+            const primaryCustom = d.primaryActivityDescription
+                || d.customPrimaryActivity
+                || priSsic.customDescription
+                || (priSsic.description && priSsic.description !== priSsic.name && priSsic.description !== primaryTitle ? priSsic.description : "");
+
+            const secondaryCode = d.secondaryActivityCode
+                || secSsic.code
+                || secSsic.ssic
+                || (secString.match(/^\d{5}/) ? secString.match(/^\d{5}/)[0] : "")
+                || "";
+
+            let secondaryTitle = secSsic.name
+                || secSsic.title
+                || secSsic.description
+                || (secString ? secString.replace(/^\d{5}\s*[-–:]*\s*/, "") : "")
+                || "";
+            if (secondaryCode && secondaryTitle.startsWith(secondaryCode)) {
+                secondaryTitle = secondaryTitle.substring(secondaryCode.length).replace(/^[\s\-–:]+/, "").trim();
+            }
+            if (!secondaryTitle && secondaryCode) {
+                secondaryTitle = secString || secondaryCode;
+            }
+
+            const secondaryCustom = d.secondaryActivityDescription
+                || d.customSecondaryActivity
+                || secSsic.customDescription
+                || (secSsic.description && secSsic.description !== secSsic.name && secSsic.description !== secondaryTitle ? secSsic.description : "");
+
+            // 3. Governance: Shareholders & Directors Counts
+            const individualShareholders = d.individualShareholders !== undefined ? parseInt(d.individualShareholders, 10) : (Array.isArray(d.shareholders) ? d.shareholders.filter(s => s.type !== "corporate").length : 1);
+            const corporateShareholders = d.corporateShareholders !== undefined ? parseInt(d.corporateShareholders, 10) : (Array.isArray(d.shareholders) ? d.shareholders.filter(s => s.type === "corporate").length : 0);
+            const totalShareholders = individualShareholders + corporateShareholders;
+
+            const localDirectors = d.localDirectors !== undefined ? parseInt(d.localDirectors, 10) : (Array.isArray(d.directors) ? d.directors.filter(dir => !dir.isForeign).length : 1);
+            const foreignDirectors = d.foreignDirectors !== undefined ? parseInt(d.foreignDirectors, 10) : (Array.isArray(d.directors) ? d.directors.filter(dir => dir.isForeign).length : 0);
+            const totalDirectors = localDirectors + foreignDirectors;
+            const needNomineeDirector = d.needNomineeDirector === true || d.needNomineeDirector === "true";
+
+            // 4. Registered Office Address
+            const hasOwnAddress = (d.hasRegisteredAddress === true || d.hasRegisteredAddress === "true") && !!(d.addressStreet && d.addressStreet.trim());
+            let registeredAddressLine = "100 Cecil Street, #10-01 The Globe, Singapore 069541";
+            let registeredAddressSubtext = "Globalisor CBD Statutory Registered Office Service (includes registered address filing, digital mail handling & ACRA statutory notices)";
+            if (hasOwnAddress) {
+                const street = (d.addressStreet || "").trim();
+                const unit = (d.addressUnit || "").trim();
+                const postal = (d.addressPostalCode || "").trim();
+                registeredAddressLine = `${street}${unit ? ", #" + unit : ""}${postal ? ", Singapore " + postal : ", Singapore"}`;
+                registeredAddressSubtext = "Client\x27s own registered premise in Singapore";
+            }
+
+            // 5. Applicant & Contact Particulars
+            const contactTitle = contact.title || "";
+            const rawFirstName = contact.firstName || app.clientFirstName || "";
+            const rawLastName = contact.lastName || app.clientLastName || "";
+            const rawFullName = `${contactTitle ? contactTitle + " " : ""}${rawFirstName} ${rawLastName}`.trim() || app.client || "Applicant";
+            const contactFullName = sanitizeApplicantText(rawFullName, "Applicant");
+            const contactEmail = sanitizeApplicantText(contact.email || app.clientEmail || "", "N/A");
+            const rawPhone = contact.phone ? `${contact.countryCode || ""} ${contact.phone}`.trim() : (app.clientPhone || "");
+            const contactPhone = sanitizeApplicantText(rawPhone, "N/A");
+
+            // 6. Application Meta
+            const appRef = app.applicationReferenceNo || app.applicationId || app.id || "N/A";
+            const submissionDate = app.createdAt ? new Date(app.createdAt).toLocaleString("en-SG", { dateStyle: "medium", timeStyle: "short" }) : (app.date || "Recently submitted");
+            const status = (app.status || "under review").toLowerCase();
+
+            // Update Modal Header DOM elements
+            const companyTitle = sanitizeApplicantText(`${names[0]} ${suffix}`.trim(), "Proposed Singapore Company Pte. Ltd.");
+            const titleEl = document.getElementById("modal-company-title");
+            if (titleEl) titleEl.innerText = companyTitle;
+
+            const subEl = document.getElementById("modal-applicant-subtitle");
+            if (subEl) subEl.innerText = `Applicant: ${contactFullName} • ${contactEmail} • ${contactPhone}`;
+
+            const badge = document.getElementById("modal-status-badge");
+            if (badge) {
+                if (status.includes("approved") || status.includes("completed")) {
+                    badge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-400/20 text-emerald-300 border border-emerald-400/30";
+                    badge.innerText = "Approved";
+                } else if (status.includes("rejected")) {
+                    badge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-red-400/20 text-red-300 border border-red-400/30";
+                    badge.innerText = "Needs Revision";
+                } else {
+                    badge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-400/20 text-amber-300 border border-amber-400/30";
+                    badge.innerText = "Under Review";
+                }
+            }
+
+            const refBadge = document.getElementById("modal-app-ref-badge");
+            if (refBadge) {
+                refBadge.innerText = appRef;
+            }
+
+            const amlBadge = document.getElementById("modal-aml-header-badge");
+            if (amlBadge) {
+                amlBadge.classList.add("hidden");
+            }
+
+            // --- Section 1: Names HTML ---
+            let namesHtml = names.map((name, i) => {
+                if (!name) return "";
+                const c = checks[`names[${i}]`] || checks[name] || {};
+                const s = c.status || "pending";
+                let tag = `<span id="acra-badge-${i}" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">⚪ Pending ACRA Check</span>`;
+                if (s === "available") tag = `<span id="acra-badge-${i}" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">🟢 Available in ACRA</span>`;
+                else if (s === "taken") tag = `<span id="acra-badge-${i}" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-red-50 text-red-700 border border-red-200">🔴 Taken / In Use</span>`;
+                else if (s === "similar") tag = `<span id="acra-badge-${i}" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">🟡 Similar Name Exists</span>`;
+
                 return `
-                    <tr onclick="window.openDocumentFile('${d.name}')" class="hover:bg-slate-50/50 transition-colors cursor-pointer ${idx === selectedDocIndex ? 'bg-blue-50/20' : ''}">
-                        <td class="py-3"><input type="checkbox" class="rounded border-slate-200" onclick="event.stopPropagation()"></td>
-                        <td class="py-3 font-bold text-slate-800 flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-4 h-4 text-blue-600 shrink-0"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                            ${d.name}
-                        </td>
-                        <td class="py-3 text-slate-500">${d.folder}</td>
-                        <td class="py-3 text-slate-500">${d.uploadedOn}</td>
-                        <td class="py-3">
-                            <span class="px-2 py-0.5 rounded font-black text-[9px] uppercase tracking-wider ${statusColor}">${d.status}</span>
-                        </td>
-                        <td class="py-3 text-slate-500">${d.uploadedBy}</td>
-                        <td class="py-3 text-right">
-                            <div class="flex items-center justify-end gap-1">
-                                <button onclick="event.stopPropagation(); window.openDocumentFile('${d.name}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Preview PDF Modal"><i data-lucide="eye" class="w-4 h-4"></i></button>
-                                <button onclick="event.stopPropagation(); window.downloadDocumentFile('${d.name}')" class="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg transition" title="Download File"><i data-lucide="download" class="w-4 h-4"></i></button>
+                    <div class="p-3.5 bg-slate-50/70 hover:bg-slate-50 rounded-xl border border-slate-200 transition-colors">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${i === 0 ? "bg-blue-100 text-blue-700" : "bg-slate-200 text-slate-600"}">
+                                        ${i === 0 ? "Primary Preferred Choice" : `Alternative Choice #${i}`}
+                                    </span>
+                                </div>
+                                <div class="text-base font-bold text-slate-900 mt-1">
+                                    ${escapeHtml(name)} <span class="text-sm font-semibold text-slate-500">${escapeHtml(suffix)}</span>
+                                </div>
                             </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('') || `<tr><td colspan="7" class="p-8 text-center text-slate-400 font-medium">No documents match the current filters.</td></tr>`;
-
-            // Render Grid
-            gridView.innerHTML = filtered.map((d, idx) => {
-                const statusColor = d.status === 'Verified' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : d.status === 'Rejected' ? 'text-rose-600 bg-rose-50 border-rose-100' : 'text-amber-600 bg-amber-50 border-amber-100';
-                return `
-                    <div onclick="window.openDocumentFile('${d.name}')" class="p-4 border rounded-2xl cursor-pointer hover:border-blue-500 hover:shadow-sm transition-all flex flex-col gap-3 bg-white ${idx === selectedDocIndex ? 'border-blue-600 bg-blue-50/10' : 'border-slate-100'}">
-                        <div class="flex items-start justify-between">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-blue-600 shrink-0"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                            <span class="px-2 py-0.5 rounded font-black text-[8px] uppercase tracking-wider ${statusColor}">${d.status}</span>
+                            <div class="flex items-center gap-2 shrink-0">
+                                ${tag}
+                                <button type="button" onclick="window.runLiveAcraNameCheck('${encodeURIComponent(name).replace(/'/g, "%27")}', '${encodeURIComponent(suffix).replace(/'/g, "%27")}', ${i})" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer">
+                                    <i data-lucide="search" class="w-3.5 h-3.5"></i> Verify ACRA
+                                </button>
+                            </div>
                         </div>
-                        <div>
-                            <h5 class="font-bold text-slate-800 text-xs truncate" title="${d.name}">${d.name}</h5>
-                            <p class="text-slate-400 text-[10px] mt-1">${d.folder}</p>
-                            <p class="text-[9px] text-slate-400 mt-2 font-medium">Uploaded ${d.uploadedOn.split(',')[0]} by ${d.uploadedBy}</p>
-                        </div>
+                        <div id="acra-detail-${i}" class="hidden mt-2.5"></div>
                     </div>
                 `;
-            }).join('') || `<div class="col-span-3 p-8 text-center text-slate-400 font-medium">No documents match the filters.</div>`;
+            }).filter(Boolean).join("");
 
-            if (activeDocLayout === 'list') {
-                tableView.classList.remove('hidden');
-                gridView.classList.add('hidden');
-            } else {
-                tableView.classList.add('hidden');
-                gridView.classList.remove('hidden');
-            }
-
-            if (window.lucide) window.lucide.createIcons();
-        }
-
-        window.selectDocument = function(index) {
-            selectedDocIndex = index;
-            renderDocTable();
-
-            const doc = documentsList[index];
-            const card = document.getElementById('doc-preview-card');
-            if (!card || !doc) return;
-
-            card.classList.remove('hidden');
-
-            const ocrColor = doc.ocrPct >= 90 ? 'bg-emerald-500' : 'bg-amber-500';
-
-            card.innerHTML = `
-                <button onclick="document.getElementById('doc-preview-card').classList.add('hidden')" class="absolute right-4 top-4 text-slate-400 hover:text-slate-600 transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
-                    <!-- Left: Interactive PDF Preview placeholder -->
-                    <div class="col-span-12 md:col-span-6 bg-white border border-slate-100 rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center min-h-[300px]">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-red-500 mb-3"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                        <h5 class="font-extrabold text-slate-800 text-xs">${doc.name}</h5>
-                        <p class="text-[10px] text-slate-400 font-bold uppercase mt-1">Mock Document Viewer</p>
-                        <div class="w-full mt-4 p-4 border border-dashed border-slate-200 rounded-xl text-center text-[11px] leading-relaxed text-slate-500 font-medium">
-                            <strong>CONSTITUTION OF THE COMPANY</strong><br>
-                            ${document.getElementById('company-name').innerText}<br>
-                            Incorporated on ${document.getElementById('info-incorporation').innerText}
+            // Assemble clean, modern Content HTML
+            const contentHtml = `
+                <div class="space-y-5">
+                    <!-- 1. Company Name & ACRA Verification Card -->
+                    <div class="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-5 space-y-3.5">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                                    <i data-lucide="building-2" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-slate-900">Proposed Company Name & ACRA Availability</h4>
+                                    <p class="text-[11px] text-slate-400">Jurisdiction: ${jurisdiction} • Structure: ${entityTypeLabel}</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700">
+                                ${names.length} Option${names.length > 1 ? "s" : ""}
+                            </span>
+                        </div>
+                        <div class="space-y-2.5">
+                            ${namesHtml || "<p class=\"text-xs text-slate-400 italic\">No names submitted</p>"}
                         </div>
                     </div>
 
-                    <!-- Right: Metadata & Actions -->
-                    <div class="col-span-12 md:col-span-6 flex flex-col md:flex-row justify-between gap-6 text-xs font-medium">
-                        <!-- Metadata details -->
-                        <div class="flex-grow space-y-4 text-slate-700">
-                            <h5 class="font-extrabold text-slate-800 text-sm border-b border-slate-100 pb-2">Document Details</h5>
-                            <div class="space-y-3">
-                                <div class="flex justify-between border-b border-slate-50 pb-1">
-                                    <span class="text-slate-400 font-bold">Document Type</span>
-                                    <span class="font-bold text-slate-800">${doc.type}</span>
+                    <!-- 2. Business Activities (SSIC 2025) Card -->
+                    <div class="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-5 space-y-4">
+                        <div class="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+                            <div class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                                <i data-lucide="briefcase" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-900">Business Activities (SSIC 2025)</h4>
+                                <p class="text-[11px] text-slate-400">Singapore Standard Industrial Classification</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Primary SSIC -->
+                            <div class="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Primary Activity</span>
+                                    ${primaryCode ? `<span class="px-2 py-0.5 rounded font-mono font-bold text-xs bg-blue-50 text-blue-700 border border-blue-200">SSIC ${primaryCode}</span>` : ""}
                                 </div>
-                                <div class="flex justify-between border-b border-slate-50 pb-1">
-                                    <span class="text-slate-400 font-bold">Folder</span>
-                                    <span class="font-bold text-slate-800">${doc.folder}</span>
-                                </div>
-                                <div class="flex justify-between border-b border-slate-50 pb-1">
-                                    <span class="text-slate-400 font-bold">Uploaded On</span>
-                                    <span class="font-bold text-slate-800">${doc.uploadedOn}</span>
-                                </div>
-                                <div class="flex justify-between border-b border-slate-50 pb-1">
-                                    <span class="text-slate-400 font-bold">Uploaded By</span>
-                                    <span class="font-bold text-slate-850">${doc.uploadedBy}</span>
-                                </div>
-                                <div class="flex justify-between border-b border-slate-50 pb-1">
-                                    <span class="text-slate-400 font-bold">Status</span>
-                                    <span class="px-2 py-0.5 rounded font-black text-[9px] uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">${doc.status}</span>
-                                </div>
-                                ${doc.verifiedBy ? `
-                                    <div class="flex justify-between border-b border-slate-50 pb-1">
-                                        <span class="text-slate-400 font-bold">Verified By</span>
-                                        <span class="font-bold text-slate-850">${doc.verifiedBy}</span>
+                                <div class="text-sm font-bold text-slate-900 leading-snug">${escapeHtml(primaryTitle)}</div>
+                                ${primaryCustom ? `
+                                    <div class="pt-2 border-t border-slate-200/60">
+                                        <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Custom Activity Scope</span>
+                                        <p class="text-xs text-slate-600 italic bg-white p-2.5 rounded-lg border border-slate-200/80">"${escapeHtml(primaryCustom)}"</p>
                                     </div>
-                                ` : ''}
-                                <div class="flex justify-between border-b border-slate-50 pb-1">
-                                    <span class="text-slate-400 font-bold">Version</span>
-                                    <span class="font-bold text-slate-800">${doc.version}</span>
+                                ` : ""}
+                            </div>
+
+                            <!-- Secondary SSIC -->
+                            <div class="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Secondary Activity</span>
+                                    ${secondaryCode ? `<span class="px-2 py-0.5 rounded font-mono font-bold text-xs bg-slate-100 text-slate-700 border border-slate-200">SSIC ${secondaryCode}</span>` : ""}
                                 </div>
-                                <div class="flex justify-between">
-                                    <span class="text-slate-400 font-bold">File Size</span>
-                                    <span class="font-bold text-slate-800">${doc.size}</span>
+                                <div class="text-sm font-bold ${secondaryCode || (secondaryTitle && secondaryTitle !== "None") ? "text-slate-900" : "text-slate-400 italic"} leading-snug">
+                                    ${escapeHtml(secondaryTitle || "None specified")}
+                                </div>
+                                ${secondaryCustom ? `
+                                    <div class="pt-2 border-t border-slate-200/60">
+                                        <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Custom Activity Scope</span>
+                                        <p class="text-xs text-slate-600 italic bg-white p-2.5 rounded-lg border border-slate-200/80">"${escapeHtml(secondaryCustom)}"</p>
+                                    </div>
+                                ` : ""}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Structure & Governance Card -->
+                    <div class="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-5 space-y-4">
+                        <div class="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+                            <div class="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                                <i data-lucide="users" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-900">Governance & Board Structure</h4>
+                                <p class="text-[11px] text-slate-400">Shareholders, Directors & Nominee Director Requirement</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                            <!-- Shareholders Box -->
+                            <div class="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 flex flex-col justify-between">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Shareholders</span>
+                                    <i data-lucide="pie-chart" class="w-4 h-4 text-purple-600"></i>
+                                </div>
+                                <div>
+                                    <div class="text-xl font-extrabold text-slate-900">${totalShareholders} <span class="text-xs font-normal text-slate-500">Member${totalShareholders !== 1 ? "s" : ""}</span></div>
+                                    <div class="text-[11px] text-slate-600 mt-1 font-medium space-y-0.5">
+                                        <div>• <strong>${individualShareholders}</strong> Individual Member${individualShareholders !== 1 ? "s" : ""}</div>
+                                        <div>• <strong>${corporateShareholders}</strong> Corporate Member${corporateShareholders !== 1 ? "s" : ""}</div>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="mt-4 p-4 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-2">
-                                <div class="flex justify-between items-center text-[10px] font-bold text-slate-400">
-                                    <span>OCR Confidence</span>
-                                    <span class="text-slate-800 font-black">${doc.ocrPct}% [High]</span>
+                            <!-- Directors Box -->
+                            <div class="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 flex flex-col justify-between">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Directors</span>
+                                    <i data-lucide="user-check" class="w-4 h-4 text-blue-600"></i>
                                 </div>
-                                <div class="w-full bg-slate-100 rounded-full h-1.5">
-                                    <div class="${ocrColor} h-1.5 rounded-full" style="width: ${doc.ocrPct}%"></div>
+                                <div>
+                                    <div class="text-xl font-extrabold text-slate-900">${totalDirectors} <span class="text-xs font-normal text-slate-500">Director${totalDirectors !== 1 ? "s" : ""}</span></div>
+                                    <div class="text-[11px] text-slate-600 mt-1 font-medium space-y-0.5">
+                                        <div>• <strong>${localDirectors}</strong> Local Resident${localDirectors !== 1 ? "s" : ""}</div>
+                                        <div>• <strong>${foreignDirectors}</strong> Foreign Resident${foreignDirectors !== 1 ? "s" : ""}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Nominee Service Box -->
+                            <div class="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 flex flex-col justify-between">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nominee Director</span>
+                                    <i data-lucide="shield" class="w-4 h-4 ${needNomineeDirector ? "text-amber-600" : "text-emerald-600"}"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-bold ${needNomineeDirector ? "text-amber-800" : "text-emerald-700"}">
+                                        ${needNomineeDirector ? "Service Requested" : "Self-Provided"}
+                                    </div>
+                                    <div class="text-[11px] text-slate-500 mt-1 font-medium leading-tight">
+                                        ${needNomineeDirector ? "Globalisor Resident Nominee Director needed" : "Meets SG Companies Act local director requirement"}
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Actions panel -->
-                        <div class="flex flex-col gap-2 w-full md:w-48 shrink-0 border-l border-slate-100 pl-0 md:pl-6 pt-4 md:pt-0">
-                            <h5 class="font-extrabold text-slate-800 text-sm mb-2 text-slate-800">Actions</h5>
-                            <button onclick="verifyDoc(${index}, 'Verified')" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-[11px] transition-all shadow-md shadow-emerald-600/10">Approve</button>
-                            <button onclick="verifyDoc(${index}, 'Rejected')" class="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-[11px] transition-all shadow-md shadow-rose-600/10">Reject</button>
-                            <button onclick="alert('Requesting copy')" class="w-full py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-[11px] transition-all">Request New Copy</button>
-                            <button onclick="alert('Adding comment')" class="w-full py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-[11px] transition-all">Add Comment</button>
-                            <button onclick="alert('Assigning reviewer')" class="w-full py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-[11px] transition-all">Assign Reviewer</button>
-                            <button onclick="alert('Downloading')" class="w-full py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-[11px] transition-all">Download</button>
-                            <button onclick="alert('Viewing history')" class="w-full py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-[11px] transition-all">View History</button>
-                            <button onclick="alert('Moving to archive')" class="w-full py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl text-[11px] transition-all">Move to Archive</button>
+                    <!-- 4. Registered Office Address Card -->
+                    <div class="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-5 space-y-3">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                                    <i data-lucide="map-pin" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-slate-900">Registered Office Address</h4>
+                                    <p class="text-[11px] text-slate-400">Singapore Statutory Registered Office Premise</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${hasOwnAddress ? "bg-slate-100 text-slate-700 border border-slate-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}">
+                                ${hasOwnAddress ? "Own Office Address" : "Globalisor CBD Address Package"}
+                            </span>
+                        </div>
+                        <div class="p-3.5 bg-slate-50/80 rounded-xl border border-slate-200/80 flex items-center justify-between gap-4">
+                            <div class="space-y-0.5">
+                                <div class="text-sm font-bold text-slate-900">${escapeHtml(registeredAddressLine)}</div>
+                                <p class="text-xs text-slate-500">${escapeHtml(registeredAddressSubtext)}</p>
+                            </div>
+                            <div class="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-emerald-600 shrink-0 shadow-2xs">
+                                <i data-lucide="navigation" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 5. Primary Applicant Particulars & Meta Card -->
+                    <div class="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-5 space-y-4">
+                        <div class="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+                            <div class="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold">
+                                <i data-lucide="user" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-900">Applicant Contact & Application Records</h4>
+                                <p class="text-[11px] text-slate-400">Primary Contact Person & System Filing Details</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                            <div class="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-0.5">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Applicant Name</span>
+                                <div class="text-xs font-bold text-slate-900 truncate">${escapeHtml(contactFullName)}</div>
+                                <div class="text-[10px] text-slate-400">Authorised Contact</div>
+                            </div>
+                            <div class="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-0.5">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email Address</span>
+                                <div class="text-xs font-bold text-slate-900 truncate" title="${escapeHtml(contactEmail)}">${escapeHtml(contactEmail)}</div>
+                                <div class="text-[10px] text-slate-400">Portal Login Account</div>
+                            </div>
+                            <div class="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-0.5">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Phone Number</span>
+                                <div class="text-xs font-bold text-slate-900 truncate">${escapeHtml(contactPhone)}</div>
+                                <div class="text-[10px] text-slate-400">Direct Contact</div>
+                            </div>
+                            <div class="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-0.5">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Filing Reference</span>
+                                <div class="text-xs font-bold text-slate-900 truncate font-mono">${escapeHtml(appRef)}</div>
+                                <div class="text-[10px] text-slate-400">${submissionDate}</div>
+                            </div>
                         </div>
                     </div>
                 </div>
             `;
-            if (window.lucide) window.lucide.createIcons();
+
+            document.getElementById("modal-content-area").innerHTML = contentHtml;
+            if (window.lucide) lucide.createIcons();
+        }
+
+        // --- APPROVE FLOW ---
+        window.openApproveStaffSection = function () {
+            if (!currentReviewingApp) return;
+            document.getElementById('approve-dialog').classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
         };
 
-        window.verifyDoc = function(index, status) {
-            documentsList[index].status = status;
-            renderDocTable();
-            selectDocument(index);
-        }
-
-        window.setDocLayout = function(layout) {
-            activeDocLayout = layout;
-            const btnList = document.getElementById('btn-doc-list-layout');
-            const btnGrid = document.getElementById('btn-doc-grid-layout');
-            if (layout === 'list') {
-                btnList.className = 'p-2 bg-blue-50 text-blue-600 hover:bg-slate-50 transition';
-                btnGrid.className = 'p-2 bg-white text-slate-400 hover:bg-slate-50 transition';
-            } else {
-                btnGrid.className = 'p-2 bg-blue-50 text-blue-600 hover:bg-slate-50 transition';
-                btnList.className = 'p-2 bg-white text-slate-400 hover:bg-slate-50 transition';
-            }
-            renderDocTable();
+        window.closeApproveStaffSection = function () {
+            document.getElementById('approve-dialog').classList.add('hidden');
         };
 
-        window.clearDocFilters = function() {
-            document.getElementById('doc-type-filter').value = 'all';
-            document.getElementById('doc-status-filter').value = 'all';
-            document.getElementById('doc-user-filter').value = 'all';
-            renderDocTable();
-        };
+        window.executeApplicationApproval = async function () {
+            if (!currentReviewingApp) return;
+            const staffSelect = document.getElementById('approve-staff-select');
+            const staffId = staffSelect.value;
+            const selectedOption = staffSelect.options[staffSelect.selectedIndex];
+            const staffName = selectedOption ? selectedOption.getAttribute('data-name') : '';
 
-
-        // --- HIGH-FIDELITY INTERACTIVE COMPLIANCE TAB LOGIC ---
-        let complianceList = [];
-
-        function initComplianceData() {
-            complianceList = [
-                { name: "Financial Year End (FYE)", desc: "Set financial year end date", cat: "Accounting", freq: "Annually", due: "2026-12-31", status: "Compliant", days: "In 6 months" },
-                { name: "Last AGM", desc: "Conduct Annual General Meeting", cat: "Statutory", freq: "Annually", due: "2026-06-30", status: "Compliant", days: "In 2 months" },
-                { name: "XBRL Filing", desc: "XBRL Financial Statements", cat: "Statutory", freq: "Annually", due: "2026-07-31", status: "Due Soon", days: "In 3 months" },
-                { name: "Annual Return Filing", desc: "File Annual Return with ACRA", cat: "Statutory", freq: "Annually", due: "2026-08-15", status: "Due Soon", days: "In 3 months" },
-                { name: "AGM for FY 2025", desc: "Conduct Annual General Meeting", cat: "Statutory", freq: "Annually", due: "2025-03-31", status: "Overdue", days: "Overdue by 109 days" },
-                { name: "Board Resolution Update", desc: "Update Board Resolution records", cat: "Governance", freq: "As Needed", due: "—", status: "Compliant", days: "—" },
-                { name: "Corporate Secretary Review", desc: "Review corporate secretarial records", cat: "Governance", freq: "Annually", due: "2026-11-30", status: "Compliant", days: "In 5 months" }
-            ];
-            initComplianceCounts();
-            renderComplianceTable();
-            renderComplianceUpcoming();
-        }
-
-        function renderComplianceTable() {
-            const tableBody = document.getElementById('compliance-table-body');
-            if (!tableBody) return;
-
-            tableBody.innerHTML = complianceList.map((c, idx) => {
-                const statusColor = c.status === 'Compliant' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : c.status === 'Due Soon' ? 'text-amber-600 bg-amber-50 border-amber-100' : 'text-rose-600 bg-rose-50 border-rose-100';
-                const daysColor = c.status === 'Overdue' ? 'text-rose-600 font-extrabold' : c.status === 'Due Soon' ? 'text-amber-600 font-bold' : 'text-slate-500';
-                return `
-                    <tr class="hover:bg-slate-50/50 transition-colors">
-                        <td class="py-3">
-                            <div class="font-bold text-slate-800">${c.name}</div>
-                            <div class="text-[10px] text-slate-400 font-medium mt-0.5">${c.desc}</div>
-                        </td>
-                        <td class="py-3 text-slate-500">${c.cat}</td>
-                        <td class="py-3 text-slate-500">${c.freq}</td>
-                        <td class="py-3 text-slate-500 font-mono">${c.due}</td>
-                        <td class="py-3">
-                            <span class="px-2 py-0.5 rounded font-black text-[9px] uppercase tracking-wider ${statusColor}">${c.status}</span>
-                        </td>
-                        <td class="py-3 ${daysColor}">${c.days}</td>
-                        <td class="py-3 text-right text-slate-400">
-                            <button onclick="toggleCompStatus(${idx})" class="p-1 hover:text-blue-600 rounded" title="Quick Verify Status"><i data-lucide="check" class="w-4 h-4"></i></button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-            if (window.lucide) window.lucide.createIcons();
-        }
-
-        window.toggleCompStatus = function(index) {
-            const curr = complianceList[index].status;
-            complianceList[index].status = curr === 'Compliant' ? 'Due Soon' : curr === 'Due Soon' ? 'Overdue' : 'Compliant';
-            initComplianceCounts();
-            renderComplianceTable();
-            renderComplianceUpcoming();
-        }
-
-        function initComplianceCounts() {
-            const total = complianceList.length;
-            const compliant = complianceList.filter(c => c.status === 'Compliant').length;
-            const due = complianceList.filter(c => c.status === 'Due Soon').length;
-            const overdue = complianceList.filter(c => c.status === 'Overdue').length;
-
-            const totalEl = document.getElementById('comp-stat-total');
-            if (totalEl) totalEl.innerText = total;
-            
-            const compliantEl = document.getElementById('comp-stat-compliant');
-            if (compliantEl) compliantEl.innerText = `${compliant} (${((compliant/total)*100).toFixed(1)}%)`;
-            
-            const dueEl = document.getElementById('comp-stat-due');
-            if (dueEl) dueEl.innerText = `${due} (${((due/total)*100).toFixed(1)}%)`;
-            
-            const overdueEl = document.getElementById('comp-stat-overdue');
-            if (overdueEl) overdueEl.innerText = `${overdue} (${((overdue/total)*100).toFixed(1)}%)`;
-
-            const scoreEl = document.getElementById('comp-score-pct');
-            if (scoreEl) scoreEl.innerText = `${Math.round((compliant/total)*100)}%`;
-            
-            const ringEl = document.getElementById('comp-radial-score-ring');
-            if (ringEl) ringEl.setAttribute('stroke-dasharray', `${Math.round((compliant/total)*100)}, 100`);
-        }
-
-        function renderComplianceUpcoming() {
-            const container = document.getElementById('compliance-upcoming-list');
-            if (!container) return;
-
-            const sorted = [...complianceList].filter(c => c.status !== 'Compliant');
-            container.innerHTML = sorted.map(c => {
-                const isOverdue = c.status === 'Overdue';
-                const pillColor = isOverdue ? 'text-rose-600 bg-rose-50' : 'text-amber-600 bg-amber-50';
-                return `
-                    <div class="p-3 border border-slate-100 rounded-xl bg-white flex justify-between items-center gap-2 shadow-sm">
-                        <div>
-                            <div class="font-bold text-slate-800">${c.name}</div>
-                            <div class="text-[10px] text-slate-400 font-medium mt-0.5">${c.desc}</div>
-                        </div>
-                        <span class="px-2 py-0.5 rounded font-black text-[8px] uppercase tracking-wider shrink-0 ${pillColor}">${c.days}</span>
-                    </div>
-                `;
-            }).join('') || '<p class="text-slate-400 italic">No upcoming or overdue filings.</p>';
-        }
-
-
-        // --- HIGH-FIDELITY INTERACTIVE ACTIVITIES TAB LOGIC ---
-        let activitiesList = [];
-
-        function initActivitiesData() {
-            activitiesList = [
-                { date: "12 Jul 2026", time: "10:42 AM", title: "Document Uploaded", desc: "Constitution.pdf was uploaded in Company > Constitution & BizFile", user: "Sarah Lee", avatar: "SL", role: "Senior Analyst" },
-                { date: "12 Jul 2026", time: "10:30 AM", title: "Company Profile Updated", desc: "Corporate profile information has been updated", user: "Daniel Wong", avatar: "DW", role: "Compliance Manager" },
-                { date: "11 Jul 2026", time: "04:32 PM", title: "Document Rejected", desc: "AddressProof_JohnTan.pdf was rejected.<br><strong>Reason:</strong> Document is not clear. Please upload a clearer copy.", user: "Emily Chen", avatar: "EC", role: "Analyst" },
-                { date: "11 Jul 2026", time: "02:11 PM", title: "Document Pending Review", desc: "ShareCertificate_Sample.pdf is pending review", user: "Daniel Wong", avatar: "DW", role: "Compliance Manager" },
-                { date: "10 Jul 2026", time: "03:21 PM", title: "Document Verified", desc: "NRIC_JohnTan.pdf was verified", user: "Sarah Lee", avatar: "SL", role: "Senior Analyst" },
-                { date: "10 Jul 2026", time: "10:02 AM", title: "Director Added", desc: "John Tan was added as Director", user: "Sarah Lee", avatar: "SL", role: "Senior Analyst" },
-                { date: "09 Jul 2026", time: "05:44 PM", title: "Document Pending Review", desc: "BankStatement_Sample.pdf is pending review", user: "Emily Chen", avatar: "EC", role: "Analyst" },
-                { date: "09 Jul 2026", time: "09:15 AM", title: "Company Onboarded", desc: "Company files setup and welcome logs created", user: "Sarah Lee", avatar: "SL", role: "Senior Analyst" }
-            ];
-            renderActivityTimeline();
-        }
-
-        window.renderActivityTimeline = function() {
-            const container = document.getElementById('activity-timeline-list');
-            if (!container) return;
-
-            const searchVal = document.getElementById('activity-search-input').value.toLowerCase();
-            const typeFilter = document.getElementById('activity-type-filter').value;
-            const userFilter = document.getElementById('activity-user-filter').value;
-
-            const filtered = activitiesList.filter(a => {
-                const matchesSearch = a.title.toLowerCase().includes(searchVal) || a.desc.toLowerCase().includes(searchVal);
-                const matchesType = typeFilter === 'all' || a.title === typeFilter;
-                const matchesUser = userFilter === 'all' || a.user === userFilter;
-                return matchesSearch && matchesType && matchesUser;
-            });
-
-            container.innerHTML = filtered.map(a => {
-                let iconHtml = '';
-                if (a.title.includes('Upload')) {
-                    iconHtml = '<div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100 shrink-0"><i data-lucide="upload-cloud" class="w-4 h-4"></i></div>';
-                } else if (a.title.includes('Verified') || a.title.includes('Onboard')) {
-                    iconHtml = '<div class="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100 shrink-0"><i data-lucide="check" class="w-4 h-4"></i></div>';
-                } else if (a.title.includes('Reject')) {
-                    iconHtml = '<div class="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center text-rose-600 border border-rose-100 shrink-0"><i data-lucide="x" class="w-4 h-4"></i></div>';
-                } else if (a.title.includes('Pending')) {
-                    iconHtml = '<div class="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 border border-amber-100 shrink-0"><i data-lucide="clock" class="w-4 h-4"></i></div>';
-                } else {
-                    iconHtml = '<div class="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 border border-slate-200 shrink-0"><i data-lucide="file-text" class="w-4 h-4"></i></div>';
-                }
-
-                return `
-                    <div class="relative flex items-start gap-4">
-                        <div class="absolute -left-[45px] top-0 flex flex-col items-end w-12 shrink-0">
-                            <span class="font-bold text-slate-800 text-[10px]">${a.date.split(' ').slice(0, 2).join(' ')}</span>
-                            <span class="text-slate-400 text-[9px] font-medium mt-0.5">${a.time}</span>
-                        </div>
-                        ${iconHtml}
-                        <div class="flex-grow bg-slate-50/20 hover:bg-slate-50/50 border border-slate-100/50 p-4 rounded-2xl shadow-sm flex items-center justify-between gap-4 transition-all">
-                            <div>
-                                <h5 class="font-extrabold text-slate-800 text-xs">${a.title}</h5>
-                                <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">${a.desc}</p>
-                            </div>
-                            <div class="flex items-center gap-2.5 shrink-0">
-                                <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
-                                    ${a.avatar}
-                                </div>
-                                <div class="text-left">
-                                    <div class="font-bold text-slate-800 text-[10px]">${a.user}</div>
-                                    <div class="text-slate-400 text-[9px] font-semibold mt-0.5">${a.role}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('') || '<p class="text-slate-400 italic">No activity logs recorded.</p>';
-
-            if (window.lucide) window.lucide.createIcons();
-        };
-
-        window.clearActivityFilters = function() {
-            document.getElementById('activity-type-filter').value = 'all';
-            document.getElementById('activity-user-filter').value = 'all';
-            renderActivityTimeline();
-        };
-
-
-        function initializePage() {
-            if (window.lucide) window.lucide.createIcons();
-            switchTab('overview');
-            loadCompanyDetails();
-        }
-        async function handleCompanyExcelUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const urlParams = new URLSearchParams(window.location.search);
-            const clientId = urlParams.get('clientId');
-            if (!clientId) {
-                alert("Client ID missing in URL!");
+            if (!staffId) {
+                alert("Please select a staff member to assign this incorporation task to.");
                 return;
             }
 
+            const priority = document.querySelector('input[name="approve-priority"]:checked')?.value || 'HIGH';
+            const notes = document.getElementById('approve-admin-notes').value;
+            const btn = document.getElementById('btn-confirm-approve');
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Approving...`;
+            if (window.lucide) lucide.createIcons();
+
             try {
-                const parsedExcel = await parseExcelFile(file);
-                if (!parsedExcel) {
-                    alert("Failed to parse Excel file. Please ensure it follows the Master Register format.");
-                    return;
-                }
-
-                const authObj = JSON.parse(localStorage.getItem('admin_auth') || '{}');
-                const token = authObj.token;
-                const headers = {
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-                };
-
-                const res = await fetch(`/api/clients/${clientId}/excel-upload`, {
+                const res = await fetch(`/api/admin/applications/${currentReviewingApp.id}/approve`, {
                     method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify(parsedExcel)
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        staffId: staffId,
+                        staffName: staffName,
+                        priority: priority,
+                        notes: notes
+                    })
                 });
 
-                if (res.ok) {
-                    alert("Client register updated successfully!");
-                    loadCompanyDetails();
-                } else {
-                    const errText = await res.text();
-                    console.error("Backend error response:", res.status, errText);
-                    alert("Failed to update client register on backend (" + res.status + "): " + errText);
-                }
-            } catch (err) {
-                console.error(err);
-                alert("Error processing Excel upload: " + err.message);
+                if (!res.ok) throw new Error("Approval failed");
+
+                showToast(`Application approved! Client activated and task assigned to ${staffName}.`, 'success');
+                closeApproveStaffSection();
+                closeReviewModal();
+                fetchApplications();
+            } catch (e) {
+                console.error(e);
+                showToast("Failed to approve application. Please try again.", "error");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i> Confirm Approval`;
             }
-        }
+        };
 
-        function parseExcelFile(file) {
-            return new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-                        const result = {
-                            companyName: '',
-                            uen: '',
-                            companyType: '',
-                            primaryActivity: '',
-                            secondaryActivity: '',
-                            registeredOfficeAddress: '',
-                            lastAgmDate: 'NA',
-                            fye: '',
-                            annualReturnDate: 'NA',
-                            xbrlPrepared: 'NA',
-                            directors: [],
-                            secretaries: [],
-                            members: [],
-                            controllers: []
-                        };
+        // --- REJECT FLOW ---
+        window.openRejectReasonSection = function () {
+            if (!currentReviewingApp) return;
+            document.getElementById('reject-dialog').classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        };
 
-                        const getSheet = (name) => {
-                            const key = workbook.SheetNames.find(s => s.trim().toLowerCase() === name.trim().toLowerCase());
-                            return key ? workbook.Sheets[key] : null;
-                        };
+        window.closeRejectReasonSection = function () {
+            document.getElementById('reject-dialog').classList.add('hidden');
+        };
 
-                        const formatDate = (val) => {
-                            if (val instanceof Date) {
-                                return val.toISOString().split('T')[0];
-                            }
-                            if (val && typeof val === 'string') {
-                                return val.trim();
-                            }
-                            return val ? String(val).trim() : '';
-                        };
+        window.executeApplicationRejection = async function () {
+            if (!currentReviewingApp) return;
+            const reason = document.getElementById('reject-reason-text').value.trim();
+            if (!reason) {
+                alert("Please enter the reason for returning/rejecting this application.");
+                return;
+            }
 
-                        // 1. Home sheet
-                        const homeSheet = getSheet('Home');
-                        if (homeSheet) {
-                            const rows = XLSX.utils.sheet_to_json(homeSheet, { header: 1 });
-                            for (let r = 0; r < rows.length; r++) {
-                                const row = rows[r];
-                                if (!row || row.length === 0) continue;
-                                const rowString = row.join(' ').toLowerCase();
+            const btn = document.getElementById('btn-confirm-reject');
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Submitting...`;
+            if (window.lucide) lucide.createIcons();
 
-                                // Stop processing Home sheet when reaching Summary of Transactions table
-                                if (rowString.includes('summary of transactions') || rowString.includes('transaction description') || rowString.includes('lodged by')) {
-                                    break;
-                                }
+            try {
+                const res = await fetch(`/api/admin/applications/${currentReviewingApp.id}/reject`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason: reason })
+                });
 
-                                for (let i = 0; i < row.length; i++) {
-                                    const cellStr = String(row[i] || '').trim();
-                                    if (!cellStr) continue;
-                                    const lower = cellStr.toLowerCase();
+                if (!res.ok) throw new Error("Rejection failed");
 
-                                    // Find value in next non-empty cell
-                                    let val = '';
-                                    for (let j = i + 1; j < row.length; j++) {
-                                        if (row[j] !== undefined && row[j] !== null && String(row[j]).trim() !== '') {
-                                            val = String(row[j]).trim();
-                                            break;
-                                        }
-                                    }
-                                    if (!val) continue;
+                showToast("Application returned for revision. Notification sent to client.", "info");
+                closeRejectReasonSection();
+                closeReviewModal();
+                fetchApplications();
+            } catch (e) {
+                console.error(e);
+                showToast("Failed to reject application.", "error");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i data-lucide="send" class="w-4 h-4"></i> Send Revision Request`;
+            }
+        };
 
-                                    if ((lower === 'name of the company' || lower.startsWith('name of the company') || lower === 'company name') && !result.companyName) {
-                                        result.companyName = val;
-                                    } else if ((lower.includes('uen no') || lower === 'uen' || lower.startsWith('uen no')) && !result.uen) {
-                                        result.uen = val;
-                                    } else if (lower.includes('company type') && !result.companyType) {
-                                        result.companyType = val;
-                                    } else if (lower.includes('primary activity') && !result.primaryActivity) {
-                                        result.primaryActivity = val;
-                                    } else if (lower.includes('secondary activity') && !result.secondaryActivity) {
-                                        result.secondaryActivity = val;
-                                    } else if (lower.includes('registered office') && !result.registeredOfficeAddress) {
-                                        result.registeredOfficeAddress = val;
-                                    } else if (lower.includes('last agm date') && !result.lastAgmDate) {
-                                        result.lastAgmDate = val;
-                                    } else if ((lower.includes('fye of fs') || lower.includes('fye')) && !result.fye) {
-                                        result.fye = formatDate(val);
-                                    } else if (lower.includes('date of annual return') && !result.annualReturnDate) {
-                                        result.annualReturnDate = val;
-                                    } else if (lower.includes('xbrl prepared') && !result.xbrlPrepared) {
-                                        result.xbrlPrepared = val;
-                                    }
-                                }
-                            }
-                        }
+        window.toggleSubmenu = function (id) {
+            const submenu = document.getElementById(id);
+            const btn = document.getElementById('btn-services');
+            if (submenu) {
+                const isOpen = !submenu.classList.contains('hidden');
+                if (isOpen) {
+                    submenu.classList.add('hidden');
+                    btn.classList.remove('submenu-open');
+                } else {
+                    submenu.classList.remove('hidden');
+                    btn.classList.add('submenu-open');
+                }
+            }
+        };
 
-                        // 2. Directors sheet
-                        const directorsSheet = getSheet('Directors');
-                        if (directorsSheet) {
-                            const rows = XLSX.utils.sheet_to_json(directorsSheet, { header: 1 });
-                            let section = '';
-                            let headers = [];
-                            rows.forEach(row => {
-                                if (!row || row.length === 0) return;
-                                const firstCell = String(row[0] || '').trim();
-                                if (firstCell.toLowerCase().startsWith('register of directors')) {
-                                    section = 'directors';
-                                    headers = [];
-                                    return;
-                                } else if (firstCell.toLowerCase().startsWith('register of nominee directors')) {
-                                    section = 'nominee';
-                                    headers = [];
-                                    return;
-                                } else if (firstCell.toLowerCase().startsWith('name')) {
-                                    headers = row.map(h => String(h || '').trim().toLowerCase());
-                                    return;
-                                }
+        // --- REAL-TIME APPLICATION AML & SANCTIONS VALIDATION ---
+        window.runApplicationAmlScreen = async function () {
+            if (!currentReviewingApp) return;
 
-                                if (headers.length > 0 && (section === 'directors' || section === 'nominee')) {
-                                    if (firstCell && firstCell !== 'NONE' && !firstCell.toLowerCase().startsWith('register') && !firstCell.toLowerCase().startsWith('position')) {
-                                        const director = { type: section === 'nominee' ? 'Nominee Director' : 'Director' };
-                                        headers.forEach((header, idx) => {
-                                            const val = row[idx];
-                                            if (val === undefined || val === null) return;
-                                            if (header.includes('former') || header.includes('alias')) {
-                                                director.formerName = String(val).trim();
-                                            } else if (header.includes('expiry')) {
-                                                director.passportExpiry = formatDate(val);
-                                            } else if (header.includes('nric') || header.includes('id card') || header.includes('passport') || header.includes('fin')) {
-                                                director.idNumber = String(val).trim();
-                                            } else if (header.includes('name')) {
-                                                director.name = String(val).trim();
-                                            } else if (header.includes('birth') || header.includes('dob')) {
-                                                director.dob = formatDate(val);
-                                            } else if (header.includes('nationality')) {
-                                                director.nationality = String(val).trim();
-                                            } else if (header.includes('address')) {
-                                                director.address = String(val).trim();
-                                            } else if (header.includes('appointment')) {
-                                                director.appointmentDate = formatDate(val);
-                                            } else if (header.includes('cessation')) {
-                                                director.cessationDate = formatDate(val);
-                                            } else if (header.includes('mobile')) {
-                                                director.mobile = String(val).trim();
-                                            } else if (header.includes('email')) {
-                                                director.email = String(val).trim();
-                                            }
-                                        });
-                                        if (director.name) result.directors.push(director);
-                                    }
-                                }
-                            });
-                        }
+            const btn = document.getElementById('btn-run-app-aml');
+            const indicator = document.getElementById('app-aml-status-indicator');
+            const directive = document.getElementById('app-aml-directive');
+            const latencyEl = document.getElementById('app-aml-latency');
+            const partiesGrid = document.getElementById('app-aml-parties-grid');
+            const summaryBanner = document.getElementById('app-aml-summary-banner');
+            const headerPill = document.getElementById('modal-aml-header-badge');
 
-                        // 3. Secretaries sheet
-                        const secretariesSheet = getSheet('Secretaries');
-                        if (secretariesSheet) {
-                            const rows = XLSX.utils.sheet_to_json(secretariesSheet, { header: 1 });
-                            let headers = [];
-                            rows.forEach(row => {
-                                if (!row || row.length === 0) return;
-                                const firstCell = String(row[0] || '').trim();
-                                if (firstCell.toLowerCase().startsWith('name')) {
-                                    headers = row.map(h => String(h || '').trim().toLowerCase());
-                                    return;
-                                }
-                                if (headers.length > 0 && firstCell && firstCell !== 'NONE' && !firstCell.toLowerCase().startsWith('register')) {
-                                    const secretary = {};
-                                    headers.forEach((header, idx) => {
-                                        const val = row[idx];
-                                        if (val === undefined || val === null) return;
-                                        if (header.includes('former') || header.includes('alias')) {
-                                            secretary.formerName = String(val).trim();
-                                        } else if (header.includes('id card') || header.includes('passport') || header.includes('fin') || header.includes('nric')) {
-                                            secretary.idNumber = String(val).trim();
-                                        } else if (header.includes('name')) {
-                                            secretary.name = String(val).trim();
-                                        } else if (header.includes('nationality')) {
-                                            secretary.nationality = String(val).trim();
-                                        } else if (header.includes('address')) {
-                                            secretary.address = String(val).trim();
-                                        } else if (header.includes('appointment')) {
-                                            secretary.appointmentDate = formatDate(val);
-                                        } else if (header.includes('resignation')) {
-                                            secretary.resignationDate = formatDate(val);
-                                        }
-                                    });
-                                    if (secretary.name) result.secretaries.push(secretary);
-                                }
-                            });
-                        }
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Scanning 820k DB...</span>`;
+            }
+            if (indicator) {
+                indicator.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-blue-600"></i><span class="text-xs font-bold text-slate-700">Screening all application officers in MongoDB Atlas...</span>`;
+            }
+            if (window.lucide) lucide.createIcons();
 
-                        // 4. Members sheet
-                        const membersSheet = getSheet('Members');
-                        if (membersSheet) {
-                            const rows = XLSX.utils.sheet_to_json(membersSheet, { header: 1 });
-                            let headers = [];
-                            let inRegister = false;
-                            rows.forEach(row => {
-                                if (!row || row.length === 0) return;
-                                const rowStr = row.join(' ').toLowerCase();
-                                if (rowStr.includes('date entered as member')) {
-                                    inRegister = true;
-                                    headers = row.map(h => String(h || '').trim().toLowerCase());
-                                    return;
-                                } else if (rowStr.includes('share certificate') || rowStr.includes('ledger') || rowStr.includes('transactions')) {
-                                    inRegister = false;
-                                    return;
-                                }
+            const t0 = performance.now();
+            try {
+                const token = localStorage.getItem('token');
+                const headers = { 'Content-Type': 'application/json' };
+                if (token) headers['Authorization'] = 'Bearer ' + token;
 
-                                if (inRegister && headers.length > 0) {
-                                    const firstCell = String(row[1] || '').trim();
-                                    if (firstCell && firstCell !== 'NONE' && !firstCell.toLowerCase().startsWith('register') && !firstCell.toLowerCase().startsWith('s. no.')) {
-                                        const member = {};
-                                        headers.forEach((header, idx) => {
-                                            const val = row[idx];
-                                            if (val === undefined || val === null) return;
-                                            if (header.includes('name of member')) {
-                                                member.name = String(val).trim();
-                                            } else if (header.includes('nric') || header.includes('id card') || header.includes('passport') || header.includes('fin')) {
-                                                member.idNumber = String(val).trim();
-                                            } else if (header.includes('nationality')) {
-                                                member.nationality = String(val).trim();
-                                            } else if (header.includes('address')) {
-                                                member.address = String(val).trim();
-                                            } else if (header.includes('entered')) {
-                                                member.dateEntered = formatDate(val);
-                                            } else if (header.includes('ceased')) {
-                                                member.dateCeased = formatDate(val);
-                                            } else if (header.includes('email')) {
-                                                member.email = String(val).trim();
-                                            } else if (header.includes('mobile')) {
-                                                member.mobile = String(val).trim();
-                                            }
-                                        });
-                                        if (member.name) result.members.push(member);
-                                    }
-                                }
-                            });
-                        }
-
-                        // 5. Controllers sheet
-                        const controllersSheet = getSheet('Controllers');
-                        if (controllersSheet) {
-                            const rows = XLSX.utils.sheet_to_json(controllersSheet, { header: 1 });
-                            let headers = [];
-                            rows.forEach(row => {
-                                if (!row || row.length === 0) return;
-                                const nameCell = String(row[2] || '').trim();
-                                if (String(row[1] || '').trim().toLowerCase().startsWith('date of entry') || String(row[2] || '').trim().toLowerCase().startsWith('name of controller')) {
-                                    headers = row.map(h => String(h || '').trim().toLowerCase());
-                                    return;
-                                }
-                                if (headers.length > 0 && nameCell && nameCell !== 'NONE' && !nameCell.toLowerCase().startsWith('register')) {
-                                    const controller = {};
-                                    headers.forEach((header, idx) => {
-                                        const val = row[idx];
-                                        if (val === undefined || val === null) return;
-                                        if (header.includes('former') || header.includes('alias')) {
-                                            controller.formerName = String(val).trim();
-                                        } else if (header.includes('expiry')) {
-                                            controller.passportExpiry = formatDate(val);
-                                        } else if (header.includes('id card') || header.includes('passport') || header.includes('nric') || header.includes('fin')) {
-                                            controller.idNumber = String(val).trim();
-                                        } else if (header.includes('name of controller')) {
-                                            controller.name = String(val).trim();
-                                        } else if (header.includes('date of entry')) {
-                                            controller.dateOfEntry = formatDate(val);
-                                        } else if (header.includes('birth') || header.includes('dob')) {
-                                            controller.dob = formatDate(val);
-                                        } else if (header.includes('address')) {
-                                            controller.address = String(val).trim();
-                                        } else if (header.includes('remarks')) {
-                                            controller.remarks = String(val).trim();
-                                        } else if (header.includes('mobile')) {
-                                            controller.mobile = String(val).trim();
-                                        } else if (header.includes('email')) {
-                                            controller.email = String(val).trim();
-                                        }
-                                    });
-                                    if (controller.name) result.controllers.push(controller);
-                                }
-                            });
-                        }
-
-                        resolve(result);
-                    } catch (err) {
-                        console.error("Excel parse error:", err);
-                        resolve(null);
+                // Pre-sanitize payload copy before sending to AML screening endpoint
+                const sanitizedPayload = JSON.parse(JSON.stringify(currentReviewingApp));
+                if (sanitizedPayload.data) {
+                    const c = sanitizedPayload.data.contact;
+                    if (c) {
+                        if (c.firstName) c.firstName = sanitizeApplicantText(c.firstName);
+                        if (c.lastName) c.lastName = sanitizeApplicantText(c.lastName);
                     }
-                };
-                reader.readAsArrayBuffer(file);
-            });
-        }
+                    if (Array.isArray(sanitizedPayload.data.directors)) {
+                        sanitizedPayload.data.directors.forEach(d => {
+                            if (d.name) d.name = sanitizeApplicantText(d.name);
+                        });
+                    }
+                    if (Array.isArray(sanitizedPayload.data.shareholders)) {
+                        sanitizedPayload.data.shareholders.forEach(s => {
+                            if (s.name) s.name = sanitizeApplicantText(s.name);
+                        });
+                    }
+                }
+                if (sanitizedPayload.clientFirstName) sanitizedPayload.clientFirstName = sanitizeApplicantText(sanitizedPayload.clientFirstName);
+                if (sanitizedPayload.clientLastName) sanitizedPayload.clientLastName = sanitizeApplicantText(sanitizedPayload.clientLastName);
+                if (sanitizedPayload.client) sanitizedPayload.client = sanitizeApplicantText(sanitizedPayload.client);
 
+                const res = await fetch('/api/admin/aml/screen-application', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(sanitizedPayload)
+                });
 
+                if (!res.ok) throw new Error('Screening endpoint returned ' + res.status);
+                const data = await res.json();
+                const latency = Math.round(performance.now() - t0);
+                if (latencyEl) latencyEl.innerText = `${latency} ms latency`;
 
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initializePage);
-        } else {
-            initializePage();
-        }
+                const isClean = data.overallAmlStatus === 'clean';
+                const isPep = Boolean(data.isPep);
+                const isSanction = Boolean(data.isSanction);
+                const risk = data.overallRiskLevel || 'Low';
+
+                // Update Header Pill
+                if (headerPill) {
+                    if (isSanction) {
+                        headerPill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-red-500 text-white border border-red-600';
+                        headerPill.innerText = 'AML: SANCTION BLOCKED';
+                    } else if (isPep) {
+                        headerPill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500 text-white border border-amber-600';
+                        headerPill.innerText = 'AML: PEP (EDD REQUIRED)';
+                    } else {
+                        headerPill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500 text-white border border-emerald-600';
+                        headerPill.innerText = 'AML: PASSED CLEAN';
+                    }
+                }
+
+                // Update Summary Banner
+                if (summaryBanner) {
+                    summaryBanner.className = `p-4 rounded-xl border ${isSanction ? 'border-red-200 bg-red-50/70' : (isPep ? 'border-amber-200 bg-amber-50/70' : 'border-emerald-200 bg-emerald-50/70')} space-y-2`;
+                }
+                if (indicator) {
+                    indicator.innerHTML = isSanction
+                        ? `<span class="px-2.5 py-0.5 bg-red-600 text-white rounded-lg text-xs font-black uppercase flex items-center gap-1.5"><i data-lucide="shield-alert" class="w-3.5 h-3.5"></i> SANCTION HIT</span><span class="text-xs font-bold text-red-950">${escapeHtml(data.summary)}</span>`
+                        : (isPep
+                            ? `<span class="px-2.5 py-0.5 bg-amber-500 text-white rounded-lg text-xs font-black uppercase flex items-center gap-1.5"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> PEP FLAGGED</span><span class="text-xs font-bold text-amber-950">${escapeHtml(data.summary)}</span>`
+                            : `<span class="px-2.5 py-0.5 bg-emerald-600 text-white rounded-lg text-xs font-black uppercase flex items-center gap-1.5"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i> 0 MATCHES</span><span class="text-xs font-bold text-emerald-950">${escapeHtml(data.summary)}</span>`);
+                }
+                if (directive) {
+                    directive.innerHTML = `<strong class="text-slate-800">Singapore ACRA / MAS Compliance Directive:</strong> ${escapeHtml(data.regulatoryDirective || 'Application approved.')}`;
+                }
+
+                // Render Screened Parties Breakdown
+                const parties = data.parties || [];
+                if (partiesGrid) {
+                    if (parties.length === 0) {
+                        partiesGrid.innerHTML = `<p class="text-xs text-slate-400 italic">No party details extracted.</p>`;
+                    } else {
+                        partiesGrid.innerHTML = parties.map(p => {
+                            const sr = p.screeningResult || {};
+                            const pHit = sr.matchFound;
+                            const pPep = sr.pep;
+                            const pSanc = sr.sanction;
+                            const pRisk = sr.riskLevel || 'Low';
+                            const safePartyName = escapeHtml(sanitizeApplicantText(p.name, 'Officer'));
+                            const safeRole = escapeHtml(p.role || 'Officer');
+                            const safeId = escapeHtml(p.idNumber || 'On file');
+
+                            let badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                            let statusLabel = 'Clean';
+                            if (pSanc) {
+                                badgeColor = 'bg-red-50 text-red-700 border-red-200';
+                                statusLabel = 'Sanction Hit';
+                            } else if (pPep) {
+                                badgeColor = 'bg-amber-50 text-amber-800 border-amber-200';
+                                statusLabel = `Foreign PEP (${sr.highestConfidence}%)`;
+                            }
+
+                            return `
+                                <div class="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-1.5">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs font-bold text-slate-900">${p.name}</span>
+                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600">${p.role}</span>
+                                            <span class="text-xs font-bold text-slate-900">${safePartyName}</span>
+                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600">${safeRole}</span>
+                                        </div>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${badgeColor}">${statusLabel}</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-[11px] text-slate-500">
+                                        <span>ID: <strong class="font-mono text-slate-700">${p.idNumber || 'On file'}</strong></span>
+                                        <span>ID: <strong class="font-mono text-slate-700">${safeId}</strong></span>
+                                        <span>Risk: <strong class="${pRisk === 'Critical' ? 'text-red-600' : (pRisk === 'High' ? 'text-amber-700' : 'text-emerald-700')}">${pRisk}</strong></span>
+                                    </div>
+                                    ${pHit && sr.matches && sr.matches.length > 0 ? `
+                                        <div class="p-2 bg-slate-50 rounded-lg border border-slate-200/60 text-[10px] text-slate-600 mt-1 space-y-0.5">
+                                            <div><strong>Match:</strong> ${sr.matches[0].primaryName} (${sr.matches[0].source} • ${sr.matches[0].recordId})</div>
+                                            <div class="text-slate-400 truncate">${sr.matches[0].remarks || ''}</div>
+                                            <div><strong>Match:</strong> ${escapeHtml(sr.matches[0].primaryName)} (${escapeHtml(sr.matches[0].source)} • ${escapeHtml(sr.matches[0].recordId)})</div>
+                                            <div class="text-slate-400 truncate">${escapeHtml(sr.matches[0].remarks || '')}</div>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        }).join('');
+                    }
+                }
+
+                // Also update individual Director & Shareholder badges in Section 3 & Section 4
+                parties.forEach(p => {
+                    const sr = p.screeningResult || {};
+                    const pHit = sr.matchFound;
+                    const pPep = sr.pep;
+                    const pSanc = sr.sanction;
+
+                    let badgeHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">🟢 AML: Clean</span>`;
+                    if (pSanc) {
+                        badgeHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">🔴 AML: Sanction Hit</span>`;
+                    } else if (pPep) {
+                        badgeHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">🟠 AML: Foreign PEP (${sr.highestConfidence}%)</span>`;
+                    }
+
+                    document.querySelectorAll(`[id^="dir-aml-badge-"]`).forEach(el => {
+                        const parent = el.closest('.space-y-3') || el.closest('.p-4');
+                        if (parent && parent.innerText.toLowerCase().includes(p.name.toLowerCase())) {
+                            el.outerHTML = badgeHtml;
+                        }
+                    });
+                    const pName = (p.name || '').toLowerCase().trim();
+                    if (pName) {
+                        document.querySelectorAll(`[id^="dir-aml-badge-"]`).forEach(el => {
+                            const parent = el.closest('.space-y-3') || el.closest('.p-4');
+                            if (parent && parent.innerText.toLowerCase().includes(pName)) {
+                                el.outerHTML = badgeHtml;
+                            }
+                        });
+
+                        document.querySelectorAll(`[id^="sh-aml-badge-"]`).forEach(el => {
+                            const parent = el.closest('.space-y-3') || el.closest('.p-4');
+                            if (parent && parent.innerText.toLowerCase().includes(p.name.toLowerCase())) {
+                                el.outerHTML = badgeHtml;
+                            }
+                        });
+                        document.querySelectorAll(`[id^="sh-aml-badge-"]`).forEach(el => {
+                            const parent = el.closest('.space-y-3') || el.closest('.p-4');
+                            if (parent && parent.innerText.toLowerCase().includes(pName)) {
+                                el.outerHTML = badgeHtml;
+                            }
+                        });
+                    }
+                });
+
+            } catch (err) {
+                console.error('Application AML screening error:', err);
+                if (indicator) {
+                    indicator.innerHTML = `<span class="text-xs font-bold text-red-600">Screening failed: ${err.message}</span>`;
+                    indicator.innerHTML = `<span class="text-xs font-bold text-red-600">Screening failed: ${escapeHtml(err.message)}</span>`;
+                }
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<i data-lucide="sparkles" class="w-3.5 h-3.5"></i><span>Re-Screen Officers</span>`;
+                }
+                if (window.lucide) lucide.createIcons();
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchApplications();
+        });
+
+        // 30s background sync (silent mode without interrupting modal or table view)
+        setInterval(() => {
+            const modal = document.getElementById('review-modal');
+            const isModalOpen = modal && !modal.classList.contains('hidden');
+            if (!isModalOpen) {
+                fetchApplications(activeTabFilter, true);
+            }
+        }, 30000);
     
-window.switchTab = switchTab;
-window.loadCompanyDetails = loadCompanyDetails;
-window.renderPage = renderPage;
-window.updateFyeDisplay = updateFyeDisplay;
-window.addActivityLogEntry = addActivityLogEntry;
-window.renderDocumentsTable = renderDocumentsTable;
-window.renderComplianceTable = renderComplianceTable;
-window.renderActivitiesTable = renderActivitiesTable;
-window.initDirectorsData = initDirectorsData;
-window.renderDirectorTabContent = renderDirectorTabContent;
-window.getDirectorDocs = getDirectorDocs;
-window.initSecretariesData = initSecretariesData;
-window.renderSecretaryTabContent = renderSecretaryTabContent;
-window.initShareholdersData = initShareholdersData;
-window.renderShareholderTabContent = renderShareholderTabContent;
-window.initUbosData = initUbosData;
-window.renderUboTabContent = renderUboTabContent;
-window.initDocumentsData = initDocumentsData;
-window.renderDocFolders = renderDocFolders;
-window.initComplianceData = initComplianceData;
-window.initComplianceCounts = initComplianceCounts;
-window.renderComplianceUpcoming = renderComplianceUpcoming;
-window.initActivitiesData = initActivitiesData;
-window.initializePage = initializePage;
-window.handleCompanyExcelUpload = handleCompanyExcelUpload;
-window.parseExcelFile = parseExcelFile;
- } catch (e) {
- console.error(e);
- }
-})();
