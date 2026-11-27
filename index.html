@@ -2044,12 +2044,16 @@ window.runNameCheck = function() {
   var input = document.getElementById('hero-company-name');
   var btn = document.getElementById('hero-nc-btn');
   var resultBox = document.getElementById('hero-nc-result');
+  var laser = document.getElementById('nc-laser');
   var name = (input.value || '').trim();
 
   if (!name) return;
 
   btn.disabled = true;
   btn.textContent = 'Verifying...';
+  if (laser) laser.classList.add('active');
+  resultBox.style.background = '#f8fafc';
+  resultBox.style.borderColor = '#e2e8f0';
   resultBox.innerHTML = '<span style="color:#64748b;">Checking ACRA Registry database (2.1M+ records)...</span>';
 
   fetch('/api/name-check', {
@@ -2064,6 +2068,7 @@ window.runNameCheck = function() {
   .then(function(data) {
     btn.disabled = false;
     btn.textContent = 'Verify Name';
+    if (laser) laser.classList.remove('active');
     if (data.status === 'available') {
       resultBox.style.background = '#ecfdf5';
       resultBox.style.borderColor = '#a7f3d0';
@@ -2079,6 +2084,7 @@ window.runNameCheck = function() {
   .catch(function() {
     btn.disabled = false;
     btn.textContent = 'Verify Name';
+    if (laser) laser.classList.remove('active');
     // Fallback simulation if backend API is offline
     resultBox.style.background = '#ecfdf5';
     resultBox.style.borderColor = '#a7f3d0';
@@ -2112,6 +2118,158 @@ window.setBillingPeriod = function(period) {
     p.textContent = period === 'month' ? '/ month' : '/ year';
   });
 };
+
+// Autoplay Typing Simulator for ACRA Name Check
+(function() {
+  var sampleNames = [
+    "Apex Global Tech Pte. Ltd.",
+    "Singapore Horizon Ventures Pte. Ltd.",
+    "Pacific Apex Advisory Pte. Ltd.",
+    "Vertex Cloud Systems Pte. Ltd.",
+    "Beacon Capital Partners Pte. Ltd."
+  ];
+  var input = document.getElementById('hero-company-name');
+  var laser = document.getElementById('nc-laser');
+  var resultBox = document.getElementById('hero-nc-result');
+  var nameIndex = 0;
+  var charIndex = 0;
+  var isDeleting = false;
+  var userInteracted = false;
+  var timer = null;
+
+  if (!input) return;
+
+  function stopAutoplay() {
+    userInteracted = true;
+    if (timer) clearTimeout(timer);
+    if (laser) laser.classList.remove('active');
+  }
+
+  input.addEventListener('focus', stopAutoplay);
+  input.addEventListener('input', stopAutoplay);
+  input.addEventListener('keydown', stopAutoplay);
+  input.addEventListener('mousedown', stopAutoplay);
+
+  function simulateLaserAndVerify(name) {
+    if (laser) laser.classList.add('active');
+    if (resultBox) {
+      resultBox.style.background = '#f8fafc';
+      resultBox.style.borderColor = '#e2e8f0';
+      resultBox.style.color = '#64748b';
+      resultBox.innerHTML = '<span style="color:#64748b;">Checking ACRA Registry database (2.1M+ records)...</span>';
+    }
+
+    setTimeout(function() {
+      if (userInteracted) return;
+      if (laser) laser.classList.remove('active');
+      if (resultBox) {
+        resultBox.style.background = '#ecfdf5';
+        resultBox.style.borderColor = '#a7f3d0';
+        resultBox.style.color = '#065f46';
+        resultBox.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:#059669;flex-shrink:0;"><polyline points="20 6 9 17 4 12"></polyline></svg><span><strong>' + escapeHtml(name) + '</strong> is available for immediate ACRA reservation.</span>';
+      }
+      timer = setTimeout(startDelete, 3200);
+    }, 700);
+  }
+
+  function startDelete() {
+    if (userInteracted) return;
+    isDeleting = true;
+    typeLoop();
+  }
+
+  function typeLoop() {
+    if (userInteracted) return;
+    var current = sampleNames[nameIndex];
+    if (isDeleting) {
+      charIndex--;
+      input.value = current.substring(0, charIndex);
+      if (charIndex <= 0) {
+        isDeleting = false;
+        nameIndex = (nameIndex + 1) % sampleNames.length;
+        timer = setTimeout(typeLoop, 500);
+        return;
+      }
+      timer = setTimeout(typeLoop, 35);
+    } else {
+      charIndex++;
+      input.value = current.substring(0, charIndex);
+      if (charIndex === current.length) {
+        simulateLaserAndVerify(current);
+        return;
+      }
+      timer = setTimeout(typeLoop, 75);
+    }
+  }
+
+  // Initial trigger after 2.5s
+  timer = setTimeout(function() {
+    if (!userInteracted) {
+      isDeleting = true;
+      typeLoop();
+    }
+  }, 2500);
+})();
+
+// Scroll Reveal IntersectionObserver
+(function() {
+  var reveals = document.querySelectorAll('.reveal');
+  if (!reveals.length) return;
+
+  if ('IntersectionObserver' in window) {
+    var obs = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-revealed');
+          obs.unobserve(entry.target);
+        }
+      });
+    }, {
+      rootMargin: '0px 0px -40px 0px',
+      threshold: 0.1
+    });
+
+    reveals.forEach(function(el) { obs.observe(el); });
+  } else {
+    reveals.forEach(function(el) { el.classList.add('is-revealed'); });
+  }
+})();
+
+// Animated Metric Counters
+(function() {
+  var counters = document.querySelectorAll('[data-counter-target]');
+  if (!counters.length) return;
+
+  var obs = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        var el = entry.target;
+        obs.unobserve(el);
+        var target = parseFloat(el.getAttribute('data-counter-target'));
+        var prefix = el.getAttribute('data-counter-prefix') || '';
+        var suffix = el.getAttribute('data-counter-suffix') || '';
+        var decimals = parseInt(el.getAttribute('data-counter-decimals') || '0', 10);
+        var duration = 1400;
+        var start = performance.now();
+
+        function step(now) {
+          var progress = Math.min((now - start) / duration, 1);
+          var ease = 1 - Math.pow(1 - progress, 3);
+          var current = (ease * target).toFixed(decimals);
+          el.textContent = prefix + current + suffix;
+          if (progress < 1) {
+            requestAnimationFrame(step);
+          } else {
+            el.textContent = prefix + target.toFixed(decimals) + suffix;
+          }
+        }
+        requestAnimationFrame(step);
+      }
+    });
+  }, { threshold: 0.2 });
+
+  counters.forEach(function(c) { obs.observe(c); });
+})();
 
 // Check Auth State on Boot
 try {
